@@ -2,9 +2,11 @@ from __future__ import annotations
 
 import logging
 import os
+import subprocess
 import sys
 from argparse import Namespace
 from pathlib import Path
+from unittest.mock import patch
 from uuid import uuid4
 
 import pytest
@@ -82,6 +84,58 @@ def test_relative_path(session_app_data, monkeypatch):
     assert result is not None
 
 
+def test_uv_python(monkeypatch, tmp_path_factory, mocker):
+    monkeypatch.delenv("UV_PYTHON_INSTALL_DIR", raising=False)
+    monkeypatch.delenv("XDG_DATA_HOME", raising=False)
+    monkeypatch.setenv("PATH", "")
+    mocker.patch.object(PythonInfo, "satisfies", return_value=False)
+
+    # UV_PYTHON_INSTALL_DIR
+    uv_python_install_dir = tmp_path_factory.mktemp("uv_python_install_dir")
+    with patch("virtualenv.discovery.builtin.PathPythonInfo.from_exe") as mock_from_exe, monkeypatch.context() as m:
+        m.setenv("UV_PYTHON_INSTALL_DIR", str(uv_python_install_dir))
+
+        get_interpreter("python", [])
+        mock_from_exe.assert_not_called()
+
+        bin_path = uv_python_install_dir.joinpath("some-py-impl", "bin")
+        bin_path.mkdir(parents=True)
+        bin_path.joinpath("python").touch()
+        get_interpreter("python", [])
+        mock_from_exe.assert_called_once()
+        assert mock_from_exe.call_args[0][0] == str(bin_path / "python")
+
+    # XDG_DATA_HOME
+    xdg_data_home = tmp_path_factory.mktemp("xdg_data_home")
+    with patch("virtualenv.discovery.builtin.PathPythonInfo.from_exe") as mock_from_exe, monkeypatch.context() as m:
+        m.setenv("XDG_DATA_HOME", str(xdg_data_home))
+
+        get_interpreter("python", [])
+        mock_from_exe.assert_not_called()
+
+        bin_path = xdg_data_home.joinpath("uv", "python", "some-py-impl", "bin")
+        bin_path.mkdir(parents=True)
+        bin_path.joinpath("python").touch()
+        get_interpreter("python", [])
+        mock_from_exe.assert_called_once()
+        assert mock_from_exe.call_args[0][0] == str(bin_path / "python")
+
+    # User data path
+    user_data_path = tmp_path_factory.mktemp("user_data_path")
+    with patch("virtualenv.discovery.builtin.PathPythonInfo.from_exe") as mock_from_exe, monkeypatch.context() as m:
+        m.setattr("virtualenv.discovery.builtin.user_data_path", lambda x: user_data_path / x)
+
+        get_interpreter("python", [])
+        mock_from_exe.assert_not_called()
+
+        bin_path = user_data_path.joinpath("uv", "python", "some-py-impl", "bin")
+        bin_path.mkdir(parents=True)
+        bin_path.joinpath("python").touch()
+        get_interpreter("python", [])
+        mock_from_exe.assert_called_once()
+        assert mock_from_exe.call_args[0][0] == str(bin_path / "python")
+
+
 def test_discovery_fallback_fail(session_app_data, caplog):
     caplog.set_level(logging.DEBUG)
     builtin = Builtin(
@@ -144,6 +198,61 @@ def test_returns_second_python_specified_when_more_than_one_is_specified_and_env
     result = builtin.run()
 
     assert result == mocker.sentinel.python_from_cli
+
+
+def test_absolute_path_does_not_exist(tmp_path):
+    """
+    Test that virtualenv does not fail when an absolute path that does not exist is provided.
+    """
+    # Create a command that uses an absolute path that does not exist
+    # and a valid python executable.
+    command = [
+        sys.executable,
+        "-m",
+        "virtualenv",
+        "-p",
+        "/this/path/does/not/exist",
+        "-p",
+        sys.executable,
+        str(tmp_path / "dest"),
+    ]
+
+    # Run the command
+    process = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    # Check that the command was successful
+    assert process.returncode == 0, process.stderr
+
+
+def test_absolute_path_does_not_exist_fails(tmp_path):
+    """
+    Test that virtualenv fails when a single absolute path that does not exist is provided.
+    """
+    # Create a command that uses an absolute path that does not exist
+    command = [
+        sys.executable,
+        "-m",
+        "virtualenv",
+        "-p",
+        "/this/path/does/not/exist",
+        str(tmp_path / "dest"),
+    ]
+
+    # Run the command
+    process = subprocess.run(
+        command,
+        capture_output=True,
+        text=True,
+        check=False,
+    )
+
+    # Check that the command failed
+    assert process.returncode != 0, process.stderr
 
 
 @pytest.mark.usefixtures("mock_get_interpreter")

@@ -1,5 +1,5 @@
 from typing import Any, Dict, List, Optional
-from dataclasses import asdict, dataclass, field
+from dataclasses import asdict
 import time
 from datetime import datetime, timezone
 
@@ -16,32 +16,33 @@ from ..utils import (
     BBoxSmoothingConfig,
     BBoxSmoothingTracker
 )
+from dataclasses import dataclass, field
 from ..core.config import BaseConfig, AlertConfig, ZoneConfig
+
 
 @dataclass
 class TrafficSignMonitoringConfig(BaseConfig):
-    """Configuration for Traffic Sign detection use case."""
+    """Configuration for traffic sign detection use case in traffic monitoring."""
     enable_smoothing: bool = True
     smoothing_algorithm: str = "observability"
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
-    confidence_threshold: float = 0.5
-    sign_categories: List[str] = field(
+    confidence_threshold: float = 0.6
+    usecase_categories: List[str] = field(
         default_factory=lambda: [
-            'Green Light','Red Light', 'Speed Limit 10', 'Speed Limit 100', 'Speed Limit 110',
-            'Speed Limit 120', 'Speed Limit 20', 'Speed Limit 30', 'Speed Limit 40',
-            'Speed Limit 50', 'Speed Limit 60', 'Speed Limit 70', 'Speed Limit 80',
-            'Speed Limit 90', 'Stop'
+            "Green Light", "Red Light", "Speed Limit 10", "Speed Limit 100",
+            "Speed Limit 110", "Speed Limit 120", "Speed Limit 20", "Speed Limit 30",
+            "Speed Limit 40", "Speed Limit 50", "Speed Limit 60", "Speed Limit 70",
+            "Speed Limit 80", "Speed Limit 90", "Stop"
         ]
     )
-    target_sign_categories: List[str] = field(
+    target_categories: List[str] = field(
         default_factory=lambda: [
-
-            'Green Light','Red Light', 'Speed Limit 10', 'Speed Limit 100', 'Speed Limit 110',
-            'Speed Limit 120', 'Speed Limit 20', 'Speed Limit 30', 'Speed Limit 40',
-            'Speed Limit 50', 'Speed Limit 60', 'Speed Limit 70', 'Speed Limit 80',
-            'Speed Limit 90', 'Stop'
+            "Green Light", "Red Light", "Speed Limit 10", "Speed Limit 100",
+            "Speed Limit 110", "Speed Limit 120", "Speed Limit 20", "Speed Limit 30",
+            "Speed Limit 40", "Speed Limit 50", "Speed Limit 60", "Speed Limit 70",
+            "Speed Limit 80", "Speed Limit 90", "Stop"
         ]
     )
     alert_config: Optional[AlertConfig] = None
@@ -65,6 +66,7 @@ class TrafficSignMonitoringConfig(BaseConfig):
         }
     )
 
+
 class TrafficSignMonitoringUseCase(BaseProcessor):
     def _get_track_ids_info(self, detections: list) -> Dict[str, Any]:
         frame_track_ids = set()
@@ -73,7 +75,7 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
             if tid is not None:
                 frame_track_ids.add(tid)
         total_track_ids = set()
-        for s in getattr(self, '_sign_total_track_ids', {}).values():
+        for s in getattr(self, '_per_category_total_track_ids', {}).values():
             total_track_ids.update(s)
         return {
             "total_count": len(total_track_ids),
@@ -84,64 +86,24 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
             "total_frames_processed": getattr(self, '_total_frame_counter', 0)
         }
 
-    @staticmethod
-    def _iou(bbox1, bbox2):
-        x1 = max(bbox1["xmin"], bbox2["xmin"])
-        y1 = max(bbox1["ymin"], bbox2["ymin"])
-        x2 = min(bbox1["xmax"], bbox2["xmax"])
-        y2 = min(bbox1["ymax"], bbox2["ymax"])
-        inter_w = max(0, x2 - x1)
-        inter_h = max(0, y2 - y1)
-        inter_area = inter_w * inter_h
-        area1 = (bbox1["xmax"] - bbox1["xmin"]) * (bbox1["ymax"] - bbox1["ymin"])
-        area2 = (bbox2["xmax"] - bbox2["xmin"]) * (bbox2["ymax"] - bbox2["ymin"])
-        union = area1 + area2 - inter_area
-        if union == 0:
-            return 0.0
-        return inter_area / union
-
-    @staticmethod
-    def _deduplicate_signs(detections, iou_thresh=0.7):
-        filtered = []
-        used = [False] * len(detections)
-        for i, det in enumerate(detections):
-            if used[i]:
-                continue
-            group = [i]
-            for j in range(i+1, len(detections)):
-                if used[j]:
-                    continue
-                if det.get("category") == detections[j].get("category"):
-                    bbox1 = det.get("bounding_box")
-                    bbox2 = detections[j].get("bounding_box")
-                    if bbox1 and bbox2:
-                        iou = TrafficSignMonitoringUseCase._iou(bbox1, bbox2)
-                        if iou > iou_thresh:
-                            used[j] = True
-                            group.append(j)
-            best_idx = max(group, key=lambda idx: detections[idx].get("confidence", 0))
-            filtered.append(detections[best_idx])
-            used[best_idx] = True
-        return filtered
-
-    def _update_sign_tracking_state(self, detections: list):
-        if not hasattr(self, "_sign_total_track_ids"):
-            self._sign_total_track_ids = {cat: set() for cat in self.sign_categories}
-        self._sign_current_frame_track_ids = {cat: set() for cat in self.sign_categories}
+    def _update_tracking_state(self, detections: list):
+        if not hasattr(self, "_per_category_total_track_ids"):
+            self._per_category_total_track_ids = {cat: set() for cat in self.target_categories}
+        self._current_frame_track_ids = {cat: set() for cat in self.target_categories}
 
         for det in detections:
             cat = det.get("category")
             raw_track_id = det.get("track_id")
-            if cat not in self.sign_categories or raw_track_id is None:
+            if cat not in self.target_categories or raw_track_id is None:
                 continue
             bbox = det.get("bounding_box", det.get("bbox"))
             canonical_id = self._merge_or_register_track(raw_track_id, bbox)
             det["track_id"] = canonical_id
-            self._sign_total_track_ids.setdefault(cat, set()).add(canonical_id)
-            self._sign_current_frame_track_ids[cat].add(canonical_id)
+            self._per_category_total_track_ids.setdefault(cat, set()).add(canonical_id)
+            self._current_frame_track_ids[cat].add(canonical_id)
 
-    def get_total_sign_counts(self):
-        return {cat: len(ids) for cat, ids in getattr(self, '_sign_total_track_ids', {}).items()}
+    def get_total_counts(self):
+        return {cat: len(ids) for cat, ids in getattr(self, '_per_category_total_track_ids', {}).items()}
 
     def _format_timestamp_for_video(self, timestamp: float) -> str:
         hours = int(timestamp // 3600)
@@ -197,11 +159,11 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
     def __init__(self):
         super().__init__("traffic_sign_monitoring")
         self.category = "traffic"
-        self.sign_categories = [
-            'Green Light','Red Light', 'Speed Limit 10', 'Speed Limit 100', 'Speed Limit 110',
-            'Speed Limit 120', 'Speed Limit 20', 'Speed Limit 30', 'Speed Limit 40',
-            'Speed Limit 50', 'Speed Limit 60', 'Speed Limit 70', 'Speed Limit 80',
-            'Speed Limit 90', 'Stop'
+        self.target_categories = [
+            "Green Light", "Red Light", "Speed Limit 10", "Speed Limit 100",
+            "Speed Limit 110", "Speed Limit 120", "Speed Limit 20", "Speed Limit 30",
+            "Speed Limit 40", "Speed Limit 50", "Speed Limit 60", "Speed Limit 70",
+            "Speed Limit 80", "Speed Limit 90", "Stop"
         ]
         self.smoothing_tracker = None
         self.tracker = None
@@ -213,13 +175,13 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
         self._track_merge_iou_threshold: float = 0.05
         self._track_merge_time_window: float = 7.0
 
-    def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
+    def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
+                stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         start_time = time.time()
         if not isinstance(config, TrafficSignMonitoringConfig):
             return self.create_error_result("Invalid config type", usecase=self.name, category=self.category, context=context)
         if context is None:
             context = ProcessingContext()
-
         input_format = match_results_structure(data)
         context.input_format = input_format
         context.confidence_threshold = config.confidence_threshold
@@ -229,15 +191,15 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
             self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
         else:
             processed_data = data
-            self.logger.debug("Did not apply confidence filtering with threshold since nothing was provided")
+            self.logger.debug("Did not apply confidence filtering")
 
         if config.index_to_category:
             processed_data = apply_category_mapping(processed_data, config.index_to_category)
             self.logger.debug("Applied category mapping")
 
-        if config.target_sign_categories:
-            processed_data = [d for d in processed_data if d.get('category') in self.sign_categories]
-            self.logger.debug("Applied sign category filtering")
+        if config.target_categories:
+            processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
+            self.logger.debug("Applied category filtering")
 
         if config.enable_smoothing:
             if self.smoothing_tracker is None:
@@ -250,8 +212,7 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
                     enable_smoothing=True
                 )
                 self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-            smoothed_signs = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
-            processed_data = smoothed_signs
+            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
 
         try:
             from ..advanced_tracker import AdvancedTracker
@@ -259,13 +220,12 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
             if self.tracker is None:
                 tracker_config = TrackerConfig()
                 self.tracker = AdvancedTracker(tracker_config)
-                self.logger.info("Initialized AdvancedTracker for Traffic Sign Monitoring and tracking")
+                self.logger.info("Initialized AdvancedTracker for Traffic Sign Monitoring")
             processed_data = self.tracker.update(processed_data)
         except Exception as e:
             self.logger.warning(f"AdvancedTracker failed: {e}")
 
-        processed_data = self._deduplicate_signs(processed_data, iou_thresh=0.95)
-        self._update_sign_tracking_state(processed_data)
+        self._update_tracking_state(processed_data)
         self._total_frame_counter += 1
 
         frame_number = None
@@ -278,26 +238,24 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
 
         general_counting_summary = calculate_counting_summary(data)
         counting_summary = self._count_categories(processed_data, config)
-        total_sign_counts = self.get_total_sign_counts()
-        counting_summary['total_sign_counts'] = total_sign_counts
+        total_counts = self.get_total_counts()
+        counting_summary['total_counts'] = total_counts
         insights = self._generate_insights(counting_summary, config)
         alerts = self._check_alerts(counting_summary, config)
         predictions = self._extract_predictions(processed_data)
         summary = self._generate_summary(counting_summary, alerts)
-
         events_list = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)
         tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number, stream_info)
-
         events = events_list[0] if events_list else {}
         tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
-
         context.mark_completed()
+
         result = self.create_result(
             data={
                 "counting_summary": counting_summary,
                 "general_counting_summary": general_counting_summary,
                 "alerts": alerts,
-                "total_signs": counting_summary.get("total_count", 0),
+                "total_detections": counting_summary.get("total_count", 0),
                 "events": events,
                 "tracking_stats": tracking_stats,
             },
@@ -310,37 +268,19 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
         result.predictions = predictions
         return result
 
-    def reset_tracker(self) -> None:
-        if self.tracker is not None:
-            self.tracker.reset()
-            self.logger.info("AdvancedTracker reset for new tracking session")
-
-    def reset_sign_tracking(self) -> None:
-        self._sign_total_track_ids = {cat: set() for cat in self.sign_categories}
-        self._total_frame_counter = 0
-        self._global_frame_offset = 0
-        self._tracking_start_time = None
-        self._track_aliases.clear()
-        self._canonical_tracks.clear()
-        self.logger.info("Traffic Sign Monitoring tracking state reset")
-
-    def reset_all_tracking(self) -> None:
-        self.reset_tracker()
-        self.reset_sign_tracking()
-        self.logger.info("All Traffic Signs tracking state reset")
-
-    def _generate_events(self, counting_summary: Dict, alerts: List, config: TrafficSignMonitoringConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+    def _generate_events(self, counting_summary: Dict, alerts: List, config: TrafficSignMonitoringConfig,
+                         frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         events = [{frame_key: []}]
         frame_events = events[0][frame_key]
-        total_signs = counting_summary.get("total_count", 0)
+        total_detections = counting_summary.get("total_count", 0)
 
-        if total_signs > 0:
+        if total_detections > 0:
             level = "info"
             intensity = 5.0
             if config.alert_config and config.alert_config.count_thresholds:
                 threshold = config.alert_config.count_thresholds.get("all", 15)
-                intensity = min(10.0, (total_signs / threshold) * 10)
+                intensity = min(10.0, (total_detections / threshold) * 10)
                 if intensity >= 7:
                     level = "critical"
                 elif intensity >= 5:
@@ -348,18 +288,18 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
                 else:
                     level = "info"
             else:
-                if total_signs > 25:
+                if total_detections > 25:
                     level = "critical"
                     intensity = 9.0
-                elif total_signs > 15:
+                elif total_detections > 15:
                     level = "warning"
                     intensity = 7.0
                 else:
                     level = "info"
-                    intensity = min(10.0, total_signs / 3.0)
+                    intensity = min(10.0, total_detections / 3.0)
 
             human_text_lines = ["EVENTS DETECTED:"]
-            human_text_lines.append(f"    - {total_signs} Traffic Sign(s) detected [INFO]")
+            human_text_lines.append(f"    - {total_detections} traffic signs detected [INFO]")
             human_text = "\n".join(human_text_lines)
 
             event = {
@@ -372,7 +312,7 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
                     "max_value": 10,
                     "level_settings": {"info": 2, "warning": 5, "critical": 7}
                 },
-                "application_name": "Traffic Sign Monitoring System",
+                "application_name": "Traffic Sign Detection System",
                 "application_version": "1.2",
                 "location_info": None,
                 "human_text": human_text
@@ -380,11 +320,11 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
             frame_events.append(event)
 
         for alert in alerts:
-            total_signs = counting_summary.get("total_count", 0)
+            total_detections = counting_summary.get("total_count", 0)
             intensity_message = "ALERT: Low traffic sign density in the scene"
             if config.alert_config and config.alert_config.count_thresholds:
                 threshold = config.alert_config.count_thresholds.get("all", 15)
-                percentage = (total_signs / threshold) * 100 if threshold > 0 else 0
+                percentage = (total_detections / threshold) * 100 if threshold > 0 else 0
                 if percentage < 20:
                     intensity_message = "ALERT: Low traffic sign density in the scene"
                 elif percentage <= 50:
@@ -392,17 +332,17 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
                 elif percentage <= 70:
                     intensity_message = "ALERT: High traffic sign density in the scene"
                 else:
-                    intensity_message = "ALERT: Severe traffic sign density in the scene"
+                    intensity_message = "ALERT: Very high traffic sign density in the scene"
             else:
-                if total_signs > 15:
+                if total_detections > 15:
                     intensity_message = "ALERT: High traffic sign density in the scene"
-                elif total_signs == 1:
+                elif total_detections == 1:
                     intensity_message = "ALERT: Low traffic sign density in the scene"
                 else:
                     intensity_message = "ALERT: Moderate traffic sign density in the scene"
 
             alert_event = {
-                "type": alert.get("type", "density_alert"),
+                "type": alert.get("type", "traffic_sign_alert"),
                 "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
                 "level": alert.get("severity", "warning"),
                 "intensity": 8.0,
@@ -411,7 +351,7 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
                     "max_value": 10,
                     "level_settings": {"info": 2, "warning": 5, "critical": 7}
                 },
-                "application_name": "Traffic Sign Density Alert System",
+                "application_name": "Traffic Sign Alert System",
                 "application_version": "1.2",
                 "location_info": alert.get("zone"),
                 "human_text": f"{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')} : {intensity_message}"
@@ -420,57 +360,47 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
 
         return events
 
-    def _generate_tracking_stats(
-            self,
-            counting_summary: Dict,
-            insights: List[str],
-            summary: str,
-            config: TrafficSignMonitoringConfig,
-            frame_number: Optional[int] = None,
-            stream_info: Optional[Dict[str, Any]] = None
-    ) -> List[Dict]:
+    def _generate_tracking_stats(self, counting_summary: Dict, insights: List[str], summary: str,
+                                config: TrafficSignMonitoringConfig, frame_number: Optional[int] = None,
+                                stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         tracking_stats = [{frame_key: []}]
         frame_tracking_stats = tracking_stats[0][frame_key]
 
-        total_signs = counting_summary.get("total_count", 0)
-        total_sign_counts = counting_summary.get("total_sign_counts", {})
-        cumulative_total = sum(total_sign_counts.values()) if total_sign_counts else 0
+        total_detections = counting_summary.get("total_count", 0)
+        total_counts = counting_summary.get("total_counts", {})
+        cumulative_total = sum(total_counts.values()) if total_counts else 0
         per_category_count = counting_summary.get("per_category_count", {})
-
         track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
-
         current_timestamp = self._get_current_timestamp_str(stream_info)
         start_timestamp = self._get_start_timestamp_str(stream_info)
 
         human_text_lines = []
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-        if total_signs > 0:
-            category_counts = [f"{count} {cat}" for cat, count in per_category_count.items() if count > 0]
+        if total_detections > 0:
+            category_counts = [f"{count} {cat}" for cat, count in per_category_count.items()]
             if len(category_counts) == 1:
-                signs_text = category_counts[0] + " detected"
+                detection_text = category_counts[0] + " detected"
             elif len(category_counts) == 2:
-                signs_text = f"{category_counts[0]} and {category_counts[1]} detected"
+                detection_text = f"{category_counts[0]} and {category_counts[1]} detected"
             else:
-                signs_text = f"{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
-            human_text_lines.append(f"\t- {signs_text}")
+                detection_text = f"{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
+            human_text_lines.append(f"\t- {detection_text}")
         else:
-            human_text_lines.append(f"\t- No traffic signs detected")
-
+            human_text_lines.append(f"\t- No detections")
         human_text_lines.append("")
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
         human_text_lines.append(f"\t- Total Traffic Signs Detected: {cumulative_total}")
-        if total_sign_counts:
-            for cat, count in total_sign_counts.items():
+        if total_counts:
+            for cat, count in total_counts.items():
                 if count > 0:
                     human_text_lines.append(f"\t- {cat}: {count}")
-
         human_text = "\n".join(human_text_lines)
 
         tracking_stat = {
-            "type": "traffic_sign_tracking",
-            "category": "traffic_sign",
-            "count": total_signs,
+            "type": "traffic_sign_monitoring",
+            "category": "traffic",
+            "count": total_detections,
             "insights": insights,
             "summary": summary,
             "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
@@ -479,7 +409,6 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
             "global_frame_offset": getattr(self, '_global_frame_offset', 0),
             "local_frame_id": frame_key
         }
-
         frame_tracking_stats.append(tracking_stat)
         return tracking_stats
 
@@ -504,50 +433,48 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
         }
 
     CATEGORY_DISPLAY = {
-        "Green Light" : "Green Light",
-        "Red Light": "Red Light",
-        "Speed Limit 10": "Speed Limit 10",
-        "Speed Limit 100": "Speed Limit 100",
-        "Speed Limit 110": "Speed Limit 110",
-        "Speed Limit 120": "Speed Limit 120",
-        "Speed Limit 20": "Speed Limit 20",
-        "Speed Limit 30": "Speed Limit 30",
-        "Speed Limit 40": "Speed Limit 40",
-        "Speed Limit 50": "Speed Limit 50",
-        "Speed Limit 60": "Speed Limit 60",
-        "Speed Limit 70": "Speed Limit 70",
-        "Speed Limit 80": "Speed Limit 80",
-        "Speed Limit 90": "Speed Limit 90",
-        "Stop": "Stop"
+        "Green Light": "green-light",
+        "Red Light": "red-light",
+        "Speed Limit 10": "speed-limit-10",
+        "Speed Limit 100": "speed-limit-100",
+        "Speed Limit 110": "speed-limit-110",
+        "Speed Limit 120": "speed-limit-120",
+        "Speed Limit 20": "speed-limit-20",
+        "Speed Limit 30": "speed-limit-30",
+        "Speed Limit 40": "speed-limit-40",
+        "Speed Limit 50": "speed-limit-50",
+        "Speed Limit 60": "speed-limit-60",
+        "Speed Limit 70": "speed-limit-70",
+        "Speed Limit 80": "speed-limit-80",
+        "Speed Limit 90": "speed-limit-90",
+        "Stop": "stop"
     }
 
     def _generate_insights(self, summary: dict, config: TrafficSignMonitoringConfig) -> List[str]:
         insights = []
         per_cat = summary.get("per_category_count", {})
-        total_signs = summary.get("total_count", 0)
+        total_detections = summary.get("total_count", 0)
 
-        if total_signs == 0:
+        if total_detections == 0:
             insights.append("No traffic signs detected in the scene")
             return insights
-        insights.append(f"EVENT: Detected {total_signs} traffic signs in the scene")
+        insights.append(f"EVENT: Detected {total_detections} traffic signs in the scene")
         intensity_threshold = None
         if config.alert_config and config.alert_config.count_thresholds and "all" in config.alert_config.count_thresholds:
             intensity_threshold = config.alert_config.count_thresholds["all"]
-        
         if intensity_threshold is not None:
-            percentage = (total_signs / intensity_threshold) * 100
+            percentage = (total_detections / intensity_threshold) * 100
             if percentage < 20:
-                insights.append(f"INTENSITY: Low traffic sign density in the scene ({percentage:.1f}% of capacity)")
+                insights.append(f"INTENSITY: Low traffic sign density ({percentage:.1f}% of capacity)")
             elif percentage <= 50:
-                insights.append(f"INTENSITY: Moderate traffic sign density in the scene ({percentage:.1f}% of capacity)")
+                insights.append(f"INTENSITY: Moderate traffic sign density ({percentage:.1f}% of capacity)")
             elif percentage <= 70:
-                insights.append(f"INTENSITY: High traffic sign density in the scene ({percentage:.1f}% of capacity)")
+                insights.append(f"INTENSITY: High traffic sign density ({percentage:.1f}% of capacity)")
             else:
-                insights.append(f"INTENSITY: Severe traffic sign density in the scene ({percentage:.1f}% of capacity)")
-
+                insights.append(f"INTENSITY: Very high traffic sign density ({percentage:.1f}% of capacity)")
         for cat, count in per_cat.items():
             display = self.CATEGORY_DISPLAY.get(cat, cat)
-            insights.append(f"{display}: {count}")
+            insights.append(f"{display}:{count}")
         return insights
 
     def _check_alerts(self, summary: dict, config: TrafficSignMonitoringConfig) -> List[Dict]:
@@ -592,18 +519,18 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
     def _generate_summary(self, summary: dict, alerts: List) -> str:
         total = summary.get("total_count", 0)
         per_cat = summary.get("per_category_count", {})
-        cumulative = summary.get("total_sign_counts", {})
+        cumulative = summary.get("total_counts", {})
         cumulative_total = sum(cumulative.values()) if cumulative else 0
         lines = []
         if total > 0:
-            lines.append(f"{total} Traffic Sign(s) detected")
+            lines.append(f"{total} traffic signs detected")
             if per_cat:
                 lines.append("Traffic Signs:")
                 for cat, count in per_cat.items():
-                    lines.append(f"\t{cat}: {count}")
+                    lines.append(f"\t{cat}:{count}")
         else:
             lines.append("No traffic signs detected")
-        lines.append(f"Total traffic signs detected: {cumulative_total}")
+        lines.append(f"Total traffic signs: {cumulative_total}")
         if alerts:
             lines.append(f"{len(alerts)} alert(s)")
         return "\n".join(lines)
@@ -622,7 +549,6 @@ class TrafficSignMonitoringUseCase(BaseProcessor):
                 values = [v for v in bbox.values() if isinstance(v, (int, float))]
                 return values[:4] if len(values) >= 4 else []
             return []
-
         l1 = _bbox_to_list(box1)
         l2 = _bbox_to_list(box2)
         if len(l1) < 4 or len(l2) < 4:

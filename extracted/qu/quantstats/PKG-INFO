@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: QuantStats
-Version: 0.0.66
+Version: 0.0.67
 Summary: Portfolio analytics for quants
 Home-page: https://github.com/ranaroussi/quantstats
 Author: Ran Aroussi
@@ -30,7 +30,7 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 License-File: LICENSE.txt
 Requires-Dist: pandas<3.0.0,>=1.5.0
-Requires-Dist: numpy<2.0.0,>=1.21.0
+Requires-Dist: numpy>=1.21.0
 Requires-Dist: seaborn>=0.11.0
 Requires-Dist: matplotlib>=3.3.0
 Requires-Dist: scipy>=1.7.0

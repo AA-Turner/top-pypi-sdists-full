@@ -92,8 +92,10 @@ from .usecases.traffic_sign_monitoring import TrafficSignMonitoringConfig
 from .usecases.crop_weed_detection import CropWeedDetectionConfig
 from .usecases.child_monitoring import ChildMonitoringConfig
 from .usecases.gender_detection import GenderDetectionConfig
-from .usecases.concrete_crack_detection import ConcreteCrackConfig, ConcreteCrackUseCase
+from .usecases.concrete_crack_detection import ConcreteCrackConfig
 from .usecases.fashion_detection import FashionDetectionConfig, FashionDetectionUseCase
+from .usecases.warehouse_object_segmentation import WarehouseObjectConfig
+from .usecases.shopping_cart_analysis import ShoppingCartConfig
 
 # Use case implementations
 from .usecases import (
@@ -128,7 +130,10 @@ from .usecases import (
     ChildMonitoringUseCase,
     GenderDetectionUseCase,
     WeaponDetectionUseCase,
-    FashionDetectionUseCase
+    FashionDetectionUseCase,
+    ConcreteCrackUseCase,
+    WarehouseObjectUseCase,
+    ShoppingCartUseCase
 )
 
 # Register use cases automatically
@@ -166,6 +171,8 @@ _gender_detection = GenderDetectionUseCase()
 _weapon_tracking = WeaponDetectionUseCase()
 _concrete_crack_detection = ConcreteCrackUseCase()
 _fashion_detection = FashionDetectionUseCase()
+_warehouse_object_segmentation = WarehouseObjectUseCase()
+_shopping_cart_analysis = ShoppingCartUseCase()
 
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
@@ -202,6 +209,8 @@ registry.register_use_case(_child_monitoring.category, _child_monitoring.name, C
 registry.register_use_case(_weapon_tracking.category, _weapon_tracking.name, WeaponDetectionUseCase)
 registry.register_use_case(_concrete_crack_detection.category, _concrete_crack_detection.name, ConcreteCrackUseCase)
 registry.register_use_case(_fashion_detection.category, _fashion_detection.name, FashionDetectionUseCase)
+registry.register_use_case(_warehouse_object_segmentation.category, _warehouse_object_segmentation.name, WarehouseObjectUseCase)
+registry.register_use_case(_shopping_cart_analysis.category, _shopping_cart_analysis.name, ShoppingCartUseCase)
 
 # Utility functions - organized by category
 from .utils import (  # noqa: E402

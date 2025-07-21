@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: hyperscan
-Version: 0.7.13
+Version: 0.7.21
 Summary: Python bindings for Hyperscan.
 Keywords: regex,hypercan
 Author-Email: David Gidwani <david.gidwani@atomweight.io>

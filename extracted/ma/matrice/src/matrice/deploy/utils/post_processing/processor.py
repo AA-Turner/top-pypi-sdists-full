@@ -62,7 +62,9 @@ from .usecases import (
     ChildMonitoringUseCase,
     GenderDetectionUseCase,
     ConcreteCrackUseCase,
-    FashionDetectionUseCase
+    FashionDetectionUseCase,
+    WarehouseObjectUseCase,
+    ShoppingCartUseCase
 
 
 )
@@ -136,7 +138,7 @@ class PostProcessor:
 
         registry.register_use_case("traffic", "vehicle_monitoring", VehicleMonitoringUseCase)
         registry.register_use_case("traffic", "fruit_monitoring", BananaMonitoringUseCase)
-        registry.register_use_case("traffic", "theft_detection", TheftDetectionUseCase)
+        registry.register_use_case("security", "theft_detection", TheftDetectionUseCase)
         registry.register_use_case("traffic", "traffic_sign_monitoring", TrafficSignMonitoringUseCase)
         
         registry.register_use_case("hazard", "fire_smoke_detection", FireSmokeUseCase)
@@ -156,9 +158,11 @@ class PostProcessor:
         registry.register_use_case("agriculture", "crop_weed_detection", CropWeedDetectionUseCase)
         registry.register_use_case("security", "child_monitoring", ChildMonitoringUseCase)
         registry.register_use_case("general", "gender_detection", GenderDetectionUseCase)
-        registry.register_use_case("security", "weapon_tracking", WeaponDetectionUseCase)
+        registry.register_use_case("security", "weapon_detection", WeaponDetectionUseCase)
         registry.register_use_case("general", "concrete_crack_detection", ConcreteCrackUseCase)
         registry.register_use_case("retail", "fashion_detection", FashionDetectionUseCase)
+        registry.register_use_case("retail", "warehouse_object_segmentation", WarehouseObjectUseCase)
+        registry.register_use_case("retail", "shopping_cart_analysis", ShoppingCartUseCase)
         
         logger.debug("Registered use cases with registry")
     

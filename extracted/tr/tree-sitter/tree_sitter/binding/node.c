@@ -127,6 +127,26 @@ PyObject *node_named_child(Node *self, PyObject *args) {
     return node_new_internal(state, child, self->tree);
 }
 
+PyObject *node_first_child_for_byte(Node *self, PyObject *args) {
+    ModuleState *state = GET_MODULE_STATE(self);
+    uint32_t byte;
+    if (!PyArg_ParseTuple(args, "I:first_child_for_byte", &byte)) {
+        return NULL;
+    }
+    TSNode child = ts_node_first_child_for_byte(self->node, byte);
+    return node_new_internal(state, child, self->tree);
+}
+
+PyObject *node_first_named_child_for_byte(Node *self, PyObject *args) {
+    ModuleState *state = GET_MODULE_STATE(self);
+    uint32_t byte;
+    if (!PyArg_ParseTuple(args, "I:first_named_child_for_byte", &byte)) {
+        return NULL;
+    }
+    TSNode child = ts_node_first_named_child_for_byte(self->node, byte);
+    return node_new_internal(state, child, self->tree);
+}
+
 PyObject *node_child_by_field_id(Node *self, PyObject *args) {
     ModuleState *state = GET_MODULE_STATE(self);
     TSFieldId field_id;
@@ -298,31 +318,14 @@ PyObject *node_named_descendant_for_point_range(Node *self, PyObject *args) {
     return node_new_internal(state, descendant, self->tree);
 }
 
-PyObject *node_child_containing_descendant(Node *self, PyObject *args) {
-    ModuleState *state = GET_MODULE_STATE(self);
-    TSNode descendant;
-    if (!PyArg_ParseTuple(args, "O!:child_containing_descendant", &descendant, state->node_type)) {
-        return NULL;
-    }
-    if (REPLACE("child_containing_descendant", "child_with_descendant") < 0) {
-        return NULL;
-    }
-
-    TSNode child = ts_node_child_containing_descendant(self->node, descendant);
-    if (ts_node_is_null(child)) {
-        Py_RETURN_NONE;
-    }
-    return node_new_internal(state, child, self->tree);
-}
-
 PyObject *node_child_with_descendant(Node *self, PyObject *args) {
     ModuleState *state = GET_MODULE_STATE(self);
-    TSNode descendant;
-    if (!PyArg_ParseTuple(args, "O!:child_with_descendant", &descendant, state->node_type)) {
+    PyObject *descendant;
+    if (!PyArg_ParseTuple(args, "O!:child_with_descendant", state->node_type, &descendant)) {
         return NULL;
     }
 
-    TSNode child = ts_node_child_with_descendant(self->node, descendant);
+    TSNode child = ts_node_child_with_descendant(self->node, ((Node *) descendant)->node);
     if (ts_node_is_null(child)) {
         Py_RETURN_NONE;
     }
@@ -478,7 +481,7 @@ PyObject *node_get_named_children(Node *self, void *payload) {
     for (uint32_t i = 0, j = 0; i < length; ++i) {
         PyObject *child = PyList_GetItem(self->children, i);
         if (ts_node_is_named(((Node *)child)->node)) {
-            if (PyList_SetItem(result, j++, Py_NewRef(child))) {
+            if (PyList_SetItem(result, j++, Py_NewRef(child)) < 0) {
                 Py_DECREF(result);
                 return NULL;
             }
@@ -554,37 +557,113 @@ PyObject *node_get_text(Node *self, void *Py_UNUSED(payload)) {
         Py_RETURN_NONE;
     }
 
-    PyObject *start_byte = PyLong_FromUnsignedLong(ts_node_start_byte(self->node));
-    if (start_byte == NULL) {
-        PyErr_SetString(PyExc_RuntimeError, "Failed to determine start byte");
-        return NULL;
-    }
-    PyObject *end_byte = PyLong_FromUnsignedLong(ts_node_end_byte(self->node));
-    if (end_byte == NULL) {
-        Py_DECREF(start_byte);
-        PyErr_SetString(PyExc_RuntimeError, "Failed to determine end byte");
-        return NULL;
-    }
-    PyObject *slice = PySlice_New(start_byte, end_byte, NULL);
-    Py_DECREF(start_byte);
-    Py_DECREF(end_byte);
-    if (slice == NULL) {
-        return NULL;
-    }
-    PyObject *node_mv = PyMemoryView_FromObject(tree->source);
-    if (node_mv == NULL) {
+    PyObject *result = NULL;
+    size_t start_offset = (size_t)ts_node_start_byte(self->node);
+    size_t end_offset = (size_t)ts_node_end_byte(self->node);
+
+    // Case 1: source is a byte buffer
+    if (!PyCallable_Check(tree->source)) {
+        PyObject *start_byte = PyLong_FromSize_t(start_offset),
+                 *end_byte = PyLong_FromSize_t(end_offset);
+        PyObject *slice = PySlice_New(start_byte, end_byte, NULL);
+        Py_XDECREF(start_byte);
+        Py_XDECREF(end_byte);
+        if (slice == NULL) {
+            return NULL;
+        }
+
+        PyObject *node_mv = PyMemoryView_FromObject(tree->source);
+        if (node_mv == NULL) {
+            Py_DECREF(slice);
+            return NULL;
+        }
+
+        PyObject *node_slice = PyObject_GetItem(node_mv, slice);
         Py_DECREF(slice);
-        return NULL;
+        Py_DECREF(node_mv);
+        if (node_slice == NULL) {
+            return NULL;
+        }
+
+        result = PyBytes_FromObject(node_slice);
+        Py_DECREF(node_slice);
+    } else {
+        // Case 2: source is a callable
+        PyObject *collected_bytes = PyByteArray_FromStringAndSize(NULL, 0);
+        if (collected_bytes == NULL) {
+            return NULL;
+        }
+        TSPoint start_point = ts_node_start_point(self->node);
+        TSPoint current_point = start_point;
+
+        for (size_t current_offset = start_offset; current_offset < end_offset;) {
+            // Form arguments to callable.
+            PyObject *byte_offset_obj = PyLong_FromSize_t(current_offset);
+            if (!byte_offset_obj) {
+                Py_DECREF(collected_bytes);
+                return NULL;
+            }
+            PyObject *position_obj = POINT_NEW(GET_MODULE_STATE(self), current_point);
+            if (!position_obj) {
+                Py_DECREF(byte_offset_obj);
+                Py_DECREF(collected_bytes);
+                return NULL;
+            }
+
+            PyObject *args = PyTuple_Pack(2, byte_offset_obj, position_obj);
+            Py_XDECREF(byte_offset_obj);
+            Py_XDECREF(position_obj);
+
+            // Call callable.
+            PyObject *rv = PyObject_Call(tree->source, args, NULL);
+            Py_XDECREF(args);
+
+            PyObject *rv_bytearray = PyByteArray_FromObject(rv);
+            if (rv_bytearray == NULL) {
+                Py_DECREF(collected_bytes);
+                Py_XDECREF(rv);
+                return NULL;
+            }
+
+            PyObject *new_collected_bytes = PyByteArray_Concat(collected_bytes, rv_bytearray);
+            Py_DECREF(rv_bytearray);
+            Py_DECREF(collected_bytes);
+            if (new_collected_bytes == NULL) {
+                Py_XDECREF(rv);
+                return NULL;
+            }
+            collected_bytes = new_collected_bytes;
+
+            // Update current_point and current_offset
+            Py_ssize_t bytes_read = PyBytes_Size(rv);
+            const char *rv_str = PyBytes_AsString(rv);  // Retrieve the string pointer once
+            for (Py_ssize_t i = 0; i < bytes_read; ++i) {
+                if (rv_str[i] == '\n') {
+                    ++current_point.row;
+                    current_point.column = 0;
+                } else {
+                    ++current_point.column;
+                }
+            }
+            current_offset += bytes_read;
+        }
+
+        PyObject *start_byte = PyLong_FromSize_t(0);
+        PyObject *end_byte = PyLong_FromSize_t(end_offset - start_offset);
+        PyObject *slice = PySlice_New(start_byte, end_byte, NULL);
+        Py_XDECREF(start_byte);
+        Py_XDECREF(end_byte);
+        if (slice == NULL) {
+            Py_DECREF(collected_bytes);
+            return NULL;
+        }
+        result = PyObject_GetItem(collected_bytes, slice);
+        Py_DECREF(slice);
+        Py_DECREF(collected_bytes);
     }
-    PyObject *node_slice = PyObject_GetItem(node_mv, slice);
-    Py_DECREF(slice);
-    Py_DECREF(node_mv);
-    if (node_slice == NULL) {
-        return NULL;
-    }
-    PyObject *result = PyBytes_FromObject(node_slice);
-    Py_DECREF(node_slice);
-    return result;
+    PyObject *bytes_result = PyBytes_FromObject(result);
+    Py_DECREF(result);
+    return bytes_result;
 }
 
 Py_hash_t node_hash(Node *self) {
@@ -617,15 +696,22 @@ PyDoc_STRVAR(node_named_child_doc,
              "child." DOC_CAUTION "This method is fairly fast, but its cost is technically "
              "``log(i)``, so if you might be iterating over a long list of children, "
              "you should use :attr:`children` or :meth:`walk` instead.");
+PyDoc_STRVAR(node_first_child_for_byte_doc,
+             "first_child_for_byte(self, byte, /)\n--\n\n"
+             "Get the node's first child that contains or starts after the given byte offset.");
+PyDoc_STRVAR(node_first_named_child_for_byte_doc,
+             "first_named_child_for_byte(self, byte, /)\n--\n\n"
+             "Get the node's first *named* child that contains "
+             "or starts after the given byte offset.");
 PyDoc_STRVAR(node_child_by_field_id_doc,
              "child_by_field_id(self, id, /)\n--\n\n"
              "Get the first child with the given numerical field id." DOC_HINT
-             "You can convert a field name to an id using :meth:`Language.field_id_for_name`."
-             DOC_SEE_ALSO ":meth:`child_by_field_name`");
+             "You can convert a field name to an id using "
+             ":meth:`Language.field_id_for_name`." DOC_SEE_ALSO ":meth:`child_by_field_name`");
 PyDoc_STRVAR(node_children_by_field_id_doc,
              "children_by_field_id(self, id, /)\n--\n\n"
-             "Get a list of children with the given numerical field id."
-             DOC_SEE_ALSO ":meth:`children_by_field_name`");
+             "Get a list of children with the given numerical field id." DOC_SEE_ALSO
+             ":meth:`children_by_field_name`");
 PyDoc_STRVAR(node_child_by_field_name_doc, "child_by_field_name(self, name, /)\n--\n\n"
                                            "Get the first child with the given field name.");
 PyDoc_STRVAR(node_children_by_field_name_doc, "children_by_field_name(self, name, /)\n--\n\n"
@@ -648,13 +734,8 @@ PyDoc_STRVAR(node_descendant_for_point_range_doc,
 PyDoc_STRVAR(node_named_descendant_for_point_range_doc,
              "named_descendant_for_point_range(self, start_point, end_point, /)\n--\n\n"
              "Get the smallest *named* node within this node that spans the given point range.");
-PyDoc_STRVAR(node_child_containing_descendant_doc,
-             "child_containing_descendant(self, descendant, /)\n--\n\n"
-             "Get the child of the node that contains the given descendant." DOC_ATTENTION
-             "This will not return the descendant if it is a direct child of this node.");
-PyDoc_STRVAR(node_child_with_descendant_doc,
-             "child_with_descendant(self, descendant, /)\n--\n\n"
-             "Get the node that contains the given descendant.");
+PyDoc_STRVAR(node_child_with_descendant_doc, "child_with_descendant(self, descendant, /)\n--\n\n"
+                                             "Get the node that contains the given descendant.");
 
 static PyMethodDef node_methods[] = {
     {
@@ -680,6 +761,18 @@ static PyMethodDef node_methods[] = {
         .ml_meth = (PyCFunction)node_named_child,
         .ml_flags = METH_VARARGS,
         .ml_doc = node_named_child_doc,
+    },
+    {
+        .ml_name = "first_child_for_byte",
+        .ml_meth = (PyCFunction)node_first_child_for_byte,
+        .ml_flags = METH_VARARGS,
+        .ml_doc = node_first_child_for_byte_doc,
+    },
+    {
+        .ml_name = "first_named_child_for_byte",
+        .ml_meth = (PyCFunction)node_first_named_child_for_byte,
+        .ml_flags = METH_VARARGS,
+        .ml_doc = node_first_named_child_for_byte_doc,
     },
     {
         .ml_name = "child_by_field_id",
@@ -740,12 +833,6 @@ static PyMethodDef node_methods[] = {
         .ml_meth = (PyCFunction)node_named_descendant_for_point_range,
         .ml_flags = METH_VARARGS,
         .ml_doc = node_named_descendant_for_point_range_doc,
-    },
-    {
-        .ml_name = "child_containing_descendant",
-        .ml_meth = (PyCFunction)node_child_containing_descendant,
-        .ml_flags = METH_VARARGS,
-        .ml_doc = node_child_containing_descendant_doc,
     },
     {
         .ml_name = "child_with_descendant",

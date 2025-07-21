@@ -1,31 +1,35 @@
 Metadata-Version: 2.4
 Name: json_strong_typing
-Version: 0.3.9
+Version: 0.4.0
 Summary: Type-safe data interchange for Python data classes
-Home-page: https://github.com/hunyadi/strong_typing
-Author: Levente Hunyadi
-Author-email: hunyadi@gmail.com
-License: MIT
+Author-email: Levente Hunyadi <hunyadi@gmail.com>
+Maintainer-email: Levente Hunyadi <hunyadi@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/hunyadi/strong_typing
+Project-URL: Source, https://github.com/hunyadi/strong_typing
+Keywords: json-schema,json-parsing,json-serialization,docstring-documentation,type-inspection
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: File Formats :: JSON
 Classifier: Topic :: File Formats :: JSON :: JSON Schema
 Classifier: Topic :: Text Processing :: Markup :: reStructuredText
 Classifier: Typing :: Typed
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: jsonschema>=4.23
-Requires-Dist: typing_extensions>=4.12; python_version < "3.11"
+Requires-Dist: jsonschema>=4.24
+Requires-Dist: typing_extensions>=4.14; python_version < "3.11"
+Provides-Extra: dev
+Requires-Dist: mypy>=1.16; extra == "dev"
+Requires-Dist: ruff>=0.12; extra == "dev"
 Dynamic: license-file
 
 # Type-safe data interchange for Python
@@ -190,11 +194,11 @@ The following table shows the conversion types the package employs:
 | Enum | *value type* | stores the enumeration value type (typically integer or string) |
 | Optional[**T**] | *depends on inner type* | reads and writes **T** if present |
 | Union[**T1**, **T2**, ...] | *depends on concrete type* | serializes to the appropriate inner type; deserializes from the first matching type |
-| List[**T**] | array | recursive in **T** |
-| Dict[**K**, **V**] | object | recursive in **V**, keys are coerced into string |
-| Dict[Enum, **V**] | object | recursive in **V**, keys are of enumeration value type and coerced into string |
-| Set[**T**] | array | recursive in **T**, container has uniqueness constraint |
-| Tuple[**T1**, **T2**, ...] | array | array has fixed length, each element has specific type |
+| list[**T**] | array | recursive in **T** |
+| dict[**K**, **V**] | object | recursive in **V**, keys are coerced into string |
+| dict[Enum, **V**] | object | recursive in **V**, keys are of enumeration value type and coerced into string |
+| set[**T**] | array | recursive in **T**, container has uniqueness constraint |
+| tuple[**T1**, **T2**, ...] | array | array has fixed length, each element has specific type |
 | Literal[**const**] | *type matching* **const** | export the literal value as a constant value |
 | data class | object | iterates over fields of data class |
 | named tuple | object | iterates over fields of named tuple |
@@ -239,10 +243,10 @@ class Side(enum.Enum):
 
 | Python type | JSON schema |
 | -- | -- |
-| List[int] | `{"type": "array", "items": {"type": "integer"}}` |
-| Dict[str, int] | `{"type": "object", "additionalProperties": {"type": "integer"}}` |
-| Set[int] | `{"type": "array", "items": {"type": "integer"}, "uniqueItems": True}}` |
-| Tuple[int, str] | `{"type": "array", "minItems": 2, "maxItems": 2, "prefixItems": [{"type": "integer"}, {"type": "string"}]}` |
+| list[int] | `{"type": "array", "items": {"type": "integer"}}` |
+| dict[str, int] | `{"type": "object", "additionalProperties": {"type": "integer"}}` |
+| set[int] | `{"type": "array", "items": {"type": "integer"}, "uniqueItems": True}}` |
+| tuple[int, str] | `{"type": "array", "minItems": 2, "maxItems": 2, "prefixItems": [{"type": "integer"}, {"type": "string"}]}` |
 
 ### Annotated types
 

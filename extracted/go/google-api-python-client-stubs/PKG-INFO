@@ -1,13 +1,13 @@
 Metadata-Version: 2.4
 Name: google-api-python-client-stubs
-Version: 1.29.0
+Version: 1.30.0
 Summary: Type stubs for google-api-python-client
 Author-email: Henrik Bruåsdal <henrik.bruasdal@gmail.com>
 License-Expression: Apache-2.0
 License-File: LICENSE
 Classifier: Typing :: Stubs Only
 Requires-Python: >=3.7
-Requires-Dist: google-api-python-client>=2.159.0
+Requires-Dist: google-api-python-client>=2.176.0
 Requires-Dist: types-httplib2>=0.22.0.2
 Requires-Dist: typing-extensions>=3.10.0
 Description-Content-Type: text/markdown
@@ -74,3 +74,8 @@ The stubs previously didn't include recursive type definitions due to a lack of 
 There are detailed stubs for the API services, but other parts of the library have only been annotated with [stubgen](https://mypy.readthedocs.io/en/stable/stubgen.html),
 so they're mostly typed as `Any`. I believe these parts are mostly used internally by the library itself,
 so for most users this should be fine. Contributions to improve these stubs are welcome, though.
+
+## Development
+You can run `create_stubs.py` to generate new stubs. Note that you should first update the google-api-python-client dependency and also clone https://github.com/googleapis/google-api-python-client.
+
+Feel free to use this to open a PR when new versions come out.

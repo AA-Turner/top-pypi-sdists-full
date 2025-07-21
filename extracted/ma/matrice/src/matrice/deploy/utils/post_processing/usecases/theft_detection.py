@@ -19,31 +19,50 @@ from ..utils import (
 from dataclasses import dataclass, field
 from ..core.config import BaseConfig, AlertConfig, ZoneConfig
 
+
 @dataclass
 class TheftDetectionConfig(BaseConfig):
-    """Configuration for Theft detection use case."""
+    """Configuration for theft detection use case in theft monitoring."""
+    # Smoothing configuration
     enable_smoothing: bool = True
-    smoothing_algorithm: str = "observability"
+    smoothing_algorithm: str = "observability"  # "window" or "observability"
     smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
     smoothing_confidence_range_factor: float = 0.5
-    confidence_threshold: float = 0.6
-    theft_categories: List[str] = field(default_factory=lambda: ['normal', 'shoplifting'])
-    target_theft_categories: List[str] = field(default_factory=lambda: ['shoplifting'])
-    alert_config: Optional[AlertConfig] = None
-    index_to_category: Optional[Dict[int, str]] = field(
-        default_factory=lambda: {-1: "normal", 0: "shoplifting"}
+
+    # Confidence thresholds
+    confidence_threshold: float = 0.4
+
+    usecase_categories: List[str] = field(
+        default_factory=lambda: ['normal', 'shoplifting']
     )
+
+    target_categories: List[str] = field(
+        default_factory=lambda: ['normal', 'shoplifting']
+    )
+
+    alert_config: Optional[AlertConfig] = None
+
+    index_to_category: Optional[Dict[int, str]] = field(
+        default_factory=lambda: {
+            -1: "normal",
+            0: "shoplifting"
+        }
+    )
+
 
 class TheftDetectionUseCase(BaseProcessor):
     def _get_track_ids_info(self, detections: list) -> Dict[str, Any]:
+        """
+        Get detailed information about track IDs (per frame).
+        """
         frame_track_ids = set()
         for det in detections:
             tid = det.get('track_id')
             if tid is not None:
                 frame_track_ids.add(tid)
         total_track_ids = set()
-        for s in getattr(self, '_theft_total_track_ids', {}).values():
+        for s in getattr(self, '_per_category_total_track_ids', {}).values():
             total_track_ids.update(s)
         return {
             "total_count": len(total_track_ids),
@@ -54,76 +73,46 @@ class TheftDetectionUseCase(BaseProcessor):
             "total_frames_processed": getattr(self, '_total_frame_counter', 0)
         }
 
-    @staticmethod
-    def _iou(bbox1, bbox2):
-        x1 = max(bbox1["xmin"], bbox2["xmin"])
-        y1 = max(bbox1["ymin"], bbox2["ymin"])
-        x2 = min(bbox1["xmax"], bbox2["xmax"])
-        y2 = min(bbox1["ymax"], bbox2["ymax"])
-        inter_w = max(0, x2 - x1)
-        inter_h = max(0, y2 - y1)
-        inter_area = inter_w * inter_h
-        area1 = (bbox1["xmax"] - bbox1["xmin"]) * (bbox1["ymax"] - bbox1["ymin"])
-        area2 = (bbox2["xmax"] - bbox2["xmin"]) * (bbox2["ymax"] - bbox2["ymin"])
-        union = area1 + area2 - inter_area
-        if union == 0:
-            return 0.0
-        return inter_area / union
-
-    @staticmethod
-    def _deduplicate_detections(detections, iou_thresh=0.7):
-        filtered = []
-        used = [False] * len(detections)
-        for i, det in enumerate(detections):
-            if used[i]:
-                continue
-            group = [i]
-            for j in range(i+1, len(detections)):
-                if used[j]:
-                    continue
-                if det.get("category") == detections[j].get("category"):
-                    bbox1 = det.get("bounding_box")
-                    bbox2 = detections[j].get("bounding_box")
-                    if bbox1 and bbox2:
-                        iou = TheftDetectionUseCase._iou(bbox1, bbox2)
-                        if iou > iou_thresh:
-                            used[j] = True
-                            group.append(j)
-            best_idx = max(group, key=lambda idx: detections[idx].get("confidence", 0))
-            filtered.append(detections[best_idx])
-            used[best_idx] = True
-        return filtered
-
-    def _update_theft_tracking_state(self, detections: list):
-        if not hasattr(self, "_theft_total_track_ids"):
-            self._theft_total_track_ids = {cat: set() for cat in self.theft_categories}
-        self._theft_current_frame_track_ids = {cat: set() for cat in self.theft_categories}
+    def _update_tracking_state(self, detections: list):
+        """
+        Track unique categories track_ids per category for total count after tracking.
+        Applies canonical ID merging to avoid duplicate counting.
+        """
+        if not hasattr(self, "_per_category_total_track_ids"):
+            self._per_category_total_track_ids = {cat: set() for cat in self.target_categories}
+        self._current_frame_track_ids = {cat: set() for cat in self.target_categories}
 
         for det in detections:
             cat = det.get("category")
             raw_track_id = det.get("track_id")
-            if cat not in self.theft_categories or raw_track_id is None:
+            if cat not in self.target_categories or raw_track_id is None:
                 continue
             bbox = det.get("bounding_box", det.get("bbox"))
             canonical_id = self._merge_or_register_track(raw_track_id, bbox)
             det["track_id"] = canonical_id
-            self._theft_total_track_ids.setdefault(cat, set()).add(canonical_id)
-            self._theft_current_frame_track_ids[cat].add(canonical_id)
+            self._per_category_total_track_ids.setdefault(cat, set()).add(canonical_id)
+            self._current_frame_track_ids[cat].add(canonical_id)
 
-    def get_total_theft_counts(self):
-        return {cat: len(ids) for cat, ids in getattr(self, '_theft_total_track_ids', {}).items()}
+    def get_total_counts(self):
+        """
+        Return total unique track_id count for each category.
+        """
+        return {cat: len(ids) for cat, ids in getattr(self, '_per_category_total_track_ids', {}).items()}
 
     def _format_timestamp_for_video(self, timestamp: float) -> str:
+        """Format timestamp for video chunks (HH:MM:SS.ms format)."""
         hours = int(timestamp // 3600)
         minutes = int((timestamp % 3600) // 60)
         seconds = timestamp % 60
         return f"{hours:02d}:{minutes:02d}:{seconds:06.2f}"
 
     def _format_timestamp_for_stream(self, timestamp: float) -> str:
+        """Format timestamp for streams (YYYY:MM:DD HH:MM:SS format)."""
         dt = datetime.fromtimestamp(timestamp, tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
 
     def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
         if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
@@ -143,6 +132,7 @@ class TheftDetectionUseCase(BaseProcessor):
                 return self._format_timestamp_for_stream(time.time())
 
     def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+        """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
         is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
@@ -164,10 +154,12 @@ class TheftDetectionUseCase(BaseProcessor):
             dt = dt.replace(minute=0, second=0, microsecond=0)
             return dt.strftime('%Y:%m:%d %H:%M:%S')
 
+    """ Theft monitoring use case with smoothing and alerting."""
+
     def __init__(self):
         super().__init__("theft_detection")
         self.category = "security"
-        self.theft_categories = ['normal', 'shoplifting']
+        self.target_categories = ["normal", "shoplifting"]
         self.smoothing_tracker = None
         self.tracker = None
         self._total_frame_counter = 0
@@ -178,7 +170,12 @@ class TheftDetectionUseCase(BaseProcessor):
         self._track_merge_iou_threshold: float = 0.05
         self._track_merge_time_window: float = 7.0
 
-    def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
+    def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
+                stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
+        """
+        Main entry point for theft post-processing.
+        Applies category mapping, smoothing, counting, alerting, and summary generation.
+        """
         start_time = time.time()
         if not isinstance(config, TheftDetectionConfig):
             return self.create_error_result("Invalid config type", usecase=self.name, category=self.category, context=context)
@@ -191,14 +188,18 @@ class TheftDetectionUseCase(BaseProcessor):
 
         if config.confidence_threshold is not None:
             processed_data = filter_by_confidence(data, config.confidence_threshold)
+            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
         else:
             processed_data = data
+            self.logger.debug(f"Did not apply confidence filtering with threshold since nothing was provided")
 
         if config.index_to_category:
             processed_data = apply_category_mapping(processed_data, config.index_to_category)
+            self.logger.debug("Applied category mapping")
 
-        if config.target_theft_categories:
-            processed_data = [d for d in processed_data if d.get('category') in self.theft_categories]
+        if config.target_categories:
+            processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
+            self.logger.debug(f"Applied category filtering")
 
         if config.enable_smoothing:
             if self.smoothing_tracker is None:
@@ -211,8 +212,7 @@ class TheftDetectionUseCase(BaseProcessor):
                     enable_smoothing=True
                 )
                 self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-            smoothed_detections = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
-            processed_data = smoothed_detections
+            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
 
         try:
             from ..advanced_tracker import AdvancedTracker
@@ -220,12 +220,12 @@ class TheftDetectionUseCase(BaseProcessor):
             if self.tracker is None:
                 tracker_config = TrackerConfig()
                 self.tracker = AdvancedTracker(tracker_config)
+                self.logger.info("Initialized AdvancedTracker for Theft Monitoring and tracking")
             processed_data = self.tracker.update(processed_data)
         except Exception as e:
             self.logger.warning(f"AdvancedTracker failed: {e}")
 
-        processed_data = self._deduplicate_detections(processed_data, iou_thresh=0.95)
-        self._update_theft_tracking_state(processed_data)
+        self._update_tracking_state(processed_data)
         self._total_frame_counter += 1
 
         frame_number = None
@@ -238,8 +238,8 @@ class TheftDetectionUseCase(BaseProcessor):
 
         general_counting_summary = calculate_counting_summary(data)
         counting_summary = self._count_categories(processed_data, config)
-        total_theft_counts = self.get_total_theft_counts()
-        counting_summary['total_theft_counts'] = total_theft_counts
+        total_counts = self.get_total_counts()
+        counting_summary['total_counts'] = total_counts
         insights = self._generate_insights(counting_summary, config)
         alerts = self._check_alerts(counting_summary, config)
         predictions = self._extract_predictions(processed_data)
@@ -252,6 +252,7 @@ class TheftDetectionUseCase(BaseProcessor):
         tracking_stats = tracking_stats_list[0] if tracking_stats_list else {}
 
         context.mark_completed()
+
         result = self.create_result(
             data={
                 "counting_summary": counting_summary,
@@ -270,23 +271,8 @@ class TheftDetectionUseCase(BaseProcessor):
         result.predictions = predictions
         return result
 
-    def reset_tracker(self) -> None:
-        if self.tracker is not None:
-            self.tracker.reset()
-
-    def reset_theft_tracking(self) -> None:
-        self._theft_total_track_ids = {cat: set() for cat in self.theft_categories}
-        self._total_frame_counter = 0
-        self._global_frame_offset = 0
-        self._tracking_start_time = None
-        self._track_aliases.clear()
-        self._canonical_tracks.clear()
-
-    def reset_all_tracking(self) -> None:
-        self.reset_tracker()
-        self.reset_theft_tracking()
-
-    def _generate_events(self, counting_summary: Dict, alerts: List, config: TheftDetectionConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+    def _generate_events(self, counting_summary: Dict, alerts: List, config: TheftDetectionConfig,frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+        """Generate structured events for the output format with frame-based keys."""
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         events = [{frame_key: []}]
         frame_events = events[0][frame_key]
@@ -315,34 +301,51 @@ class TheftDetectionUseCase(BaseProcessor):
                     level = "info"
                     intensity = min(10.0, total_detections / 3.0)
 
-            shoplifting_count = counting_summary.get("per_category_count", {}).get("shoplifting", 0)
-            if shoplifting_count > 0:
-                human_text_lines = ["EVENTS DETECTED:"]
-                human_text_lines.append(f"    - {shoplifting_count} Shoplifting incident(s) detected [INFO]")
-                human_text = "\n".join(human_text_lines)
+            human_text_lines = ["EVENTS DETECTED:"]
+            human_text_lines.append(f"    - {total_detections} activities detected [INFO]")
+            human_text = "\n".join(human_text_lines)
 
-                event = {
-                    "type": "theft_detection",
-                    "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                    "level": level,
-                    "intensity": round(intensity, 1),
-                    "config": {
-                        "min_value": 0,
-                        "max_value": 10,
-                        "level_settings": {"info": 2, "warning": 5, "critical": 7}
-                    },
-                    "application_name": "Theft Detection System",
-                    "application_version": "1.0",
-                    "location_info": None,
-                    "human_text": human_text
-                }
-                frame_events.append(event)
+            event = {
+                "type": "theft_detection",
+                "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
+                "level": level,
+                "intensity": round(intensity, 1),
+                "config": {
+                    "min_value": 0,
+                    "max_value": 10,
+                    "level_settings": {"info": 2, "warming": 5, "critical": 7}
+                },
+                "application_name": "Theft Detection System",
+                "application_version": "1.2",
+                "location_info": None,
+                "human_text": human_text
+            }
+            frame_events.append(event)
 
         for alert in alerts:
             total_detections = counting_summary.get("total_count", 0)
-            intensity_message = "ALERT: Possible shoplifting detected"
+            intensity_message = "ALERT: Low activity in the scene"
+            if config.alert_config and config.alert_config.count_thresholds:
+                threshold = config.alert_config.count_thresholds.get("all", 15)
+                percentage = (total_detections / threshold) * 100 if threshold > 0 else 0
+                if percentage < 20:
+                    intensity_message = "ALERT: Low activity in the scene"
+                elif percentage <= 50:
+                    intensity_message = "ALERT: Moderate activity in the scene"
+                elif percentage <= 70:
+                    intensity_message = "ALERT: High activity in the scene"
+                else:
+                    intensity_message = "ALERT: Severe activity in the scene"
+            else:
+                if total_detections > 15:
+                    intensity_message = "ALERT: High activity in the scene"
+                elif total_detections == 1:
+                    intensity_message = "ALERT: Low activity in the scene"
+                else:
+                    intensity_message = "ALERT: Moderate activity in the scene"
+
             alert_event = {
-                "type": alert.get("type", "theft_alert"),
+                "type": alert.get("type", "activity_alert"),
                 "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
                 "level": alert.get("severity", "warning"),
                 "intensity": 8.0,
@@ -351,8 +354,8 @@ class TheftDetectionUseCase(BaseProcessor):
                     "max_value": 10,
                     "level_settings": {"info": 2, "warning": 5, "critical": 7}
                 },
-                "application_name": "Theft Alert System",
-                "application_version": "1.0",
+                "application_name": "Activity Alert System",
+                "application_version": "1.2",
                 "location_info": alert.get("zone"),
                 "human_text": f"{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')} : {intensity_message}"
             }
@@ -369,37 +372,47 @@ class TheftDetectionUseCase(BaseProcessor):
             frame_number: Optional[int] = None,
             stream_info: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
+        """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info."""
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         tracking_stats = [{frame_key: []}]
         frame_tracking_stats = tracking_stats[0][frame_key]
 
         total_detections = counting_summary.get("total_count", 0)
-        total_theft_counts = counting_summary.get("total_theft_counts", {})
-        cumulative_total = sum(total_theft_counts.values()) if total_theft_counts else 0
+        total_counts = counting_summary.get("total_counts", {})
+        cumulative_total = sum(total_counts.values()) if total_counts else 0
         per_category_count = counting_summary.get("per_category_count", {})
+
         track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
 
         current_timestamp = self._get_current_timestamp_str(stream_info)
         start_timestamp = self._get_start_timestamp_str(stream_info)
 
         human_text_lines = []
-        shoplifting_count = per_category_count.get("shoplifting", 0)
-        shoplifting_total = total_theft_counts.get("shoplifting", 0)
-
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-        if shoplifting_count > 0:
-            human_text_lines.append(f"\t- {shoplifting_count} Shoplifting incident(s) detected")
+        if total_detections > 0:
+            category_counts = [f"{count} {cat}" for cat, count in per_category_count.items()]
+            if len(category_counts) == 1:
+                detection_text = category_counts[0] + " detected"
+            elif len(category_counts) == 2:
+                detection_text = f"{category_counts[0]} and {category_counts[1]} detected"
+            else:
+                detection_text = f"{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
+            human_text_lines.append(f"\t- {detection_text}")
         else:
-            human_text_lines.append(f"\t- No shoplifting incidents detected")
+            human_text_lines.append(f"\t- No detections")
 
         human_text_lines.append("")
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
-        human_text_lines.append(f"\t- Total Shoplifting Incidents Detected: {shoplifting_total}")
+        human_text_lines.append(f"\t- Total Activities Detected: {cumulative_total}")
+        if total_counts:
+            for cat, count in total_counts.items():
+                if count > 0:
+                    human_text_lines.append(f"\t- {cat}: {count}")
 
         human_text = "\n".join(human_text_lines)
 
         tracking_stat = {
-            "type": "theft_tracking",
+            "type": "theft_detection",
             "category": "security",
             "count": total_detections,
             "insights": insights,
@@ -415,6 +428,9 @@ class TheftDetectionUseCase(BaseProcessor):
         return tracking_stats
 
     def _count_categories(self, detections: list, config: TheftDetectionConfig) -> dict:
+        """
+        Count the number of detections per category and return a summary dict.
+        """
         counts = {}
         for det in detections:
             cat = det.get('category', 'unknown')
@@ -435,35 +451,46 @@ class TheftDetectionUseCase(BaseProcessor):
         }
 
     CATEGORY_DISPLAY = {
-        "Normal": "normal",
-        "Shoplifting": "shoplifting"
+        "normal": "normal",
+        "shoplifting": "shoplifting"
     }
 
     def _generate_insights(self, summary: dict, config: TheftDetectionConfig) -> List[str]:
+        """
+        Generate human-readable insights for each category.
+        """
         insights = []
         per_cat = summary.get("per_category_count", {})
         total_detections = summary.get("total_count", 0)
-        shoplifting_count = per_cat.get("shoplifting", 0)
 
         if total_detections == 0:
             insights.append("No activities detected in the scene")
-        elif shoplifting_count > 0:
-            insights.append(f"EVENT: Detected {shoplifting_count} shoplifting incident(s) in the scene")
+            return insights
+        insights.append(f"EVENT: Detected {total_detections} activities in the scene")
+        intensity_threshold = None
+        if config.alert_config and config.alert_config.count_thresholds and "all" in config.alert_config.count_thresholds:
+            intensity_threshold = config.alert_config.count_thresholds["all"]
 
-        intensity_threshold = config.alert_config.count_thresholds.get("all", 15) if config.alert_config and config.alert_config.count_thresholds else 15
-        if shoplifting_count > 0:
-            percentage = (shoplifting_count / intensity_threshold) * 100
+        if intensity_threshold is not None:
+            percentage = (total_detections / intensity_threshold) * 100
             if percentage < 20:
-                insights.append(f"INTENSITY: Low shoplifting activity ({percentage:.1f}% of threshold)")
+                insights.append(f"INTENSITY: Low activity in the scene ({percentage:.1f}% of capacity)")
             elif percentage <= 50:
-                insights.append(f"INTENSITY: Moderate shoplifting activity ({percentage:.1f}% of threshold)")
+                insights.append(f"INTENSITY: Moderate activity in the scene ({percentage:.1f}% of capacity)")
             elif percentage <= 70:
-                insights.append(f"INTENSITY: High shoplifting activity ({percentage:.1f}% of threshold)")
+                insights.append(f"INTENSITY: High activity in the scene ({percentage:.1f}% of capacity)")
             else:
-                insights.append(f"INTENSITY: Severe shoplifting activity ({percentage:.1f}% of threshold)")
+                insights.append(f"INTENSITY: Severe activity in the scene ({percentage:.1f}% of capacity)")
+
+        for cat, count in per_cat.items():
+            display = self.CATEGORY_DISPLAY.get(cat, cat)
+            insights.append(f"{display}:{count}")
         return insights
 
     def _check_alerts(self, summary: dict, config: TheftDetectionConfig) -> List[Dict]:
+        """
+        Check if any alert thresholds are exceeded and return alert dicts.
+        """
         alerts = []
         if not config.alert_config:
             return alerts
@@ -474,18 +501,18 @@ class TheftDetectionUseCase(BaseProcessor):
                     alerts.append({
                         "type": "count_threshold",
                         "severity": "warning",
-                        "message": f"Total detection count ({total}) exceeds threshold ({threshold})",
+                        "message": f"Total activities count ({total}) exceeds threshold ({threshold})",
                         "category": category,
                         "current_count": total,
                         "threshold": threshold
                     })
-                elif category == "shoplifting" and category in summary.get("per_category_count", {}):
-                    count = summary.get("per_category_count", {}).get(category, 0)
+                elif category in summary.get("per_category_count", {}):
+                    count = summary.get("per_category_count", {})[category]
                     if count >= threshold:
                         alerts.append({
                             "type": "count_threshold",
                             "severity": "warning",
-                            "message": f"Shoplifting count ({count}) exceeds threshold ({threshold})",
+                            "message": f"{category} count ({count}) exceeds threshold ({threshold})",
                             "category": category,
                             "current_count": count,
                             "threshold": threshold
@@ -493,6 +520,9 @@ class TheftDetectionUseCase(BaseProcessor):
         return alerts
 
     def _extract_predictions(self, detections: list) -> List[Dict[str, Any]]:
+        """
+        Extract prediction details for output (category, confidence, bounding box).
+        """
         return [
             {
                 "category": det.get("category", "unknown"),
@@ -503,23 +533,29 @@ class TheftDetectionUseCase(BaseProcessor):
         ]
 
     def _generate_summary(self, summary: dict, alerts: List) -> str:
+        """
+        Generate a human_text string for the result, including per-category insights.
+        """
         total = summary.get("total_count", 0)
         per_cat = summary.get("per_category_count", {})
-        cumulative = summary.get("total_theft_counts", {})
-        cumulative_total = cumulative.get("shoplifting", 0) if cumulative else 0
+        cumulative = summary.get("total_counts", {})
+        cumulative_total = sum(cumulative.values()) if cumulative else 0
         lines = []
-        shoplifting_count = per_cat.get("shoplifting", 0)
-        if shoplifting_count > 0:
-            lines.append(f"{shoplifting_count} Shoplifting incident(s) detected")
-            lines.append(f"\tShoplifting:{shoplifting_count}")
+        if total > 0:
+            lines.append(f"{total} activities detected")
+            if per_cat:
+                lines.append("Activities:")
+                for cat, count in per_cat.items():
+                    lines.append(f"\t{cat}:{count}")
         else:
-            lines.append("No shoplifting incidents detected")
-        lines.append(f"Total shoplifting incidents detected: {cumulative_total}")
+            lines.append("No activities detected")
+        lines.append(f"Total activities: {cumulative_total}")
         if alerts:
             lines.append(f"{len(alerts)} alert(s)")
         return "\n".join(lines)
 
     def _compute_iou(self, box1: Any, box2: Any) -> float:
+        """Compute IoU between two bounding boxes which may be dicts or lists."""
         def _bbox_to_list(bbox):
             if bbox is None:
                 return []
@@ -540,25 +576,32 @@ class TheftDetectionUseCase(BaseProcessor):
             return 0.0
         x1_min, y1_min, x1_max, y1_max = l1
         x2_min, y2_min, x2_max, y2_max = l2
+
         x1_min, x1_max = min(x1_min, x1_max), max(x1_min, x1_max)
         y1_min, y1_max = min(y1_min, y1_max), max(y1_min, y1_max)
         x2_min, x2_max = min(x2_min, x2_max), max(x2_min, x2_max)
         y2_min, y2_max = min(y2_min, y2_max), max(y2_min, y2_max)
+
         inter_x_min = max(x1_min, x2_min)
         inter_y_min = max(y1_min, y2_min)
         inter_x_max = min(x1_max, x2_max)
         inter_y_max = min(y1_max, y2_max)
+
         inter_w = max(0.0, inter_x_max - inter_x_min)
         inter_h = max(0.0, inter_y_max - inter_y_min)
         inter_area = inter_w * inter_h
+
         area1 = (x1_max - x1_min) * (y1_max - y1_min)
         area2 = (x2_max - x2_min) * (y2_max - y2_min)
         union_area = area1 + area2 - inter_area
+
         return (inter_area / union_area) if union_area > 0 else 0.0
 
     def _merge_or_register_track(self, raw_id: Any, bbox: Any) -> Any:
+        """Return a stable canonical ID for a raw tracker ID."""
         if raw_id is None or bbox is None:
             return raw_id
+
         now = time.time()
         if raw_id in self._track_aliases:
             canonical_id = self._track_aliases[raw_id]
@@ -568,6 +611,7 @@ class TheftDetectionUseCase(BaseProcessor):
                 track_info["last_update"] = now
                 track_info["raw_ids"].add(raw_id)
             return canonical_id
+
         for canonical_id, info in self._canonical_tracks.items():
             if now - info["last_update"] > self._track_merge_time_window:
                 continue
@@ -578,6 +622,7 @@ class TheftDetectionUseCase(BaseProcessor):
                 info["last_update"] = now
                 info["raw_ids"].add(raw_id)
                 return canonical_id
+
         canonical_id = raw_id
         self._track_aliases[raw_id] = canonical_id
         self._canonical_tracks[canonical_id] = {
@@ -588,12 +633,15 @@ class TheftDetectionUseCase(BaseProcessor):
         return canonical_id
 
     def _format_timestamp(self, timestamp: float) -> str:
+        """Format a timestamp for human-readable output."""
         return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')
 
     def _get_tracking_start_time(self) -> str:
+        """Get the tracking start time, formatted as a string."""
         if self._tracking_start_time is None:
             return "N/A"
         return self._format_timestamp(self._tracking_start_time)
 
     def _set_tracking_start_time(self) -> None:
+        """Set the tracking start time to the current time."""
         self._tracking_start_time = time.time()

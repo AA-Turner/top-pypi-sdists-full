@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django_components
-Version: 0.141.1
+Version: 0.141.2
 Summary: A way to create simple reusable template components in Django.
 Author-email: Emil Stenström <emil@emilstenstrom.se>, Juro Oravec <juraj.oravec.josefson@gmail.com>
 License: MIT
@@ -57,8 +57,9 @@ A component in django-components can be as simple as a Django template and Pytho
 
 ```py
 # components/calendar/calendar.py
-from django_components import Component
+from django_components import Component, register
 
+@register("calendar")
 class Calendar(Component):
     template_file = "calendar.html"
 ```
@@ -89,8 +90,9 @@ document.querySelector(".calendar").onclick = () => {
 
 ```py
 # components/calendar/calendar.py
-from django_components import Component
+from django_components import Component, register
 
+@register("calendar")
 class Calendar(Component):
     template_file = "calendar.html"
     js_file = "calendar.js"

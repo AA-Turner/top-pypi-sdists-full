@@ -4,6 +4,7 @@ PyObject *node_new_internal(ModuleState *state, TSNode node, PyObject *tree);
 
 void tree_dealloc(Tree *self) {
     ts_tree_delete(self->tree);
+    Py_XDECREF(self->language);
     Py_XDECREF(self->source);
     Py_TYPE(self)->tp_free(self);
 }
@@ -82,13 +83,21 @@ PyObject *tree_copy(Tree *self, PyObject *Py_UNUSED(args)) {
     }
 
     copied->tree = ts_tree_copy(self->tree);
+    copied->language = self->language;
+    Py_XINCREF(self->language);
+    copied->source = self->source;
+    Py_XINCREF(self->source);
     return PyObject_Init((PyObject *)copied, state->tree_type);
 }
 
 PyObject *tree_print_dot_graph(Tree *self, PyObject *arg) {
     int fd = PyObject_AsFileDescriptor(arg);
-    if (fd < 0) return NULL;
+    if (fd < 0) {
+        return NULL;
+    }
+    Py_BEGIN_ALLOW_THREADS
     ts_tree_print_dot_graph(self->tree, fd);
+    Py_END_ALLOW_THREADS
     Py_RETURN_NONE;
 }
 
@@ -163,7 +172,11 @@ PyDoc_STRVAR(
     tree_changed_ranges_doc,
     "changed_ranges(self, /, new_tree)\n--\n\n"
     "Compare this old edited syntax tree to a new syntax tree representing the same document, "
-    "returning a sequence of ranges whose syntactic structure has changed." DOC_TIP
+    "returning a sequence of ranges whose syntactic structure has changed." DOC_RETURNS
+    "Ranges where the hierarchical structure of syntax nodes (from root to leaf) has changed "
+    "between the old and new trees. Characters outside these ranges have identical ancestor "
+    "nodes in both trees." DOC_NOTE "The returned ranges may be slightly larger than the exact "
+    "changed areas, but Tree-sitter attempts to make them as small as possible. " DOC_TIP
     "For this to work correctly, this syntax tree must have been edited such that its "
     "ranges match up to the new tree.\n\nGenerally, you'll want to call this method "
     "right after calling the :meth:`Parser.parse` method. Call it on the old tree that "

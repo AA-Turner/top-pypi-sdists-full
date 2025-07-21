@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: timeout-sampler
-Version: 1.0.19
+Version: 1.0.20
 Summary: Timeout utility class to wait for any function output and interact with it in given time
 Project-URL: homepage, https://github.com/RedHatQE/timeout-sampler
 Project-URL: repository, https://github.com/RedHatQE/timeout-sampler

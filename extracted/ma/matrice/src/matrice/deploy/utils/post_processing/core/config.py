@@ -413,9 +413,11 @@ class ConfigManager:
             "emergency_vehicle_detection": None,
             "price_tag_detection": None,
             "child_monitoring": None,
-            "weapon_tracking" : None,
+            "weapon_detection" : None,
             "concrete_crack_detection": None,
             "fashion_detection": None,
+            "warehouse_object_segmentation": None,
+            "shopping_cart_analysis": None,
         }
 
     def register_config_class(self, usecase: str, config_class: type) -> None:
@@ -636,6 +638,22 @@ class ConfigManager:
         try:
             from ..usecases.fashion_detection import FashionDetectionConfig
             return FashionDetectionConfig
+        except ImportError:
+            return None
+    
+    def warehouse_object_segmentation_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.warehouse_object_segmentation import WarehouseObjectConfig
+            return WarehouseObjectConfig
+        except ImportError:
+            return None
+    
+    def shopping_cart_analysis_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.shopping_cart_analysis import ShoppingCartAnalysisConfig
+            return ShoppingCartAnalysisConfig
         except ImportError:
             return None
 
@@ -902,7 +920,7 @@ class ConfigManager:
                 **kwargs
             )
 
-        elif usecase == "weapon_tracking":
+        elif usecase == "weapon_detection":
             # Import here to avoid circular import
             from ..usecases.weapon_detection import WeaponDetectionConfig
 
@@ -1205,6 +1223,38 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+        
+        elif usecase == "warehouse_object_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.warehouse_object_segmentation import WarehouseObjectConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = WarehouseObjectConfig(
+                category=category or "retail",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "shopping_cart_analysis":
+            # Import here to avoid circular import
+            from ..usecases.shopping_cart_analysis import ShoppingCartConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = ShoppingCartConfig(
+                category=category or "retail",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
             
         else:
             raise ConfigValidationError(f"Unknown use case: {usecase}")
@@ -1371,7 +1421,7 @@ class ConfigManager:
             default_config = TheftDetectionConfig()
             return default_config.to_dict()
         
-        elif usecase == "weapon_tracking":
+        elif usecase == "weapon_detection":
             # Import here to avoid circular import
             from ..usecases.weapon_detection import WeaponDetectionConfig
             default_config = WeaponDetectionConfig()
@@ -1459,6 +1509,16 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.fashion_detection import FashionDetectionConfig
             default_config = FashionDetectionConfig()
+            return default_config.to_dict()
+        elif usecase == "warehouse_object_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.warehouse_object_segmentation import WarehouseObjectConfig
+            default_config = WarehouseObjectConfig()
+            return default_config.to_dict()
+        elif usecase == "shopping_cart_analysis":
+            # Import here to avoid circular import
+            from ..usecases.shopping_cart_analysis import ShoppingCartConfig
+            default_config = ShoppingCartConfig()
             return default_config.to_dict()
 
         elif usecase not in self._config_classes:

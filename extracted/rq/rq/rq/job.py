@@ -53,6 +53,7 @@ logger = logging.getLogger('rq.job')
 class JobStatus(str, Enum):
     """The Status of Job within its lifecycle at any given time."""
 
+    CREATED = 'created'
     QUEUED = 'queued'
     FINISHED = 'finished'
     FAILED = 'failed'
@@ -195,7 +196,7 @@ class Job:
         self.failure_ttl: Optional[int] = None
         self.ttl: Optional[int] = None
         self.worker_name: Optional[str] = None
-        self._status: Optional[JobStatus] = None
+        self._status: JobStatus = JobStatus.CREATED
         self._dependency_ids: list[str] = []
         self.meta: dict[str, Any] = {}
         self.serializer = resolve_serializer(serializer)
@@ -214,6 +215,7 @@ class Job:
         from .results import Result
 
         self._cached_result: Optional[Result] = None
+        self.log = logger
 
     @classmethod
     def create(
@@ -359,7 +361,6 @@ class Job:
         job.failure_ttl = parse_timeout(failure_ttl)
         job.ttl = parse_timeout(ttl)
         job.timeout = parse_timeout(timeout)
-        job._status = status
         job.meta = meta or {}
         job.group_id = group_id
 
@@ -374,8 +375,16 @@ class Job:
                     job.allow_dependency_failures = job.allow_dependency_failures or depends_on_item.allow_failure
                     depends_on_list.extend(list(depends_on_item.dependencies))
                 else:
-                    depends_on_list.extend(ensure_job_list(depends_on_item))
+                    # After checking for Dependency, depends_on_item should be Job or str
+                    # Use type cast to inform mypy of the narrowed type
+                    depends_on_list.append(depends_on_item)  # type: ignore[arg-type]
             job._dependency_ids = [dep.id if isinstance(dep, Job) else dep for dep in depends_on_list]
+
+        # Set status: explicit status takes precedence, otherwise DEFERRED if has dependencies, CREATED if not
+        if status is not None:
+            job._status = status
+        else:
+            job._status = JobStatus.CREATED
 
         return job
 
@@ -392,7 +401,7 @@ class Job:
             return q.get_job_position(self.id)
         return None
 
-    def get_status(self, refresh: bool = True) -> Optional[JobStatus]:
+    def get_status(self, refresh: bool = True) -> JobStatus:
         """Gets the Job Status
 
         Args:
@@ -978,7 +987,11 @@ class Job:
         self.timeout = parse_timeout(obj.get('timeout')) if obj.get('timeout') else None
         self.result_ttl = int(obj['result_ttl']) if obj.get('result_ttl') else None
         self.failure_ttl = int(obj['failure_ttl']) if obj.get('failure_ttl') else None
-        self._status = JobStatus(as_text(obj['status'])) if obj.get('status') else None
+
+        # Beginning from v2.4.1, jobs are created with a status, so the fallback to CREATED
+        # is not needed, but we keep it for backwards compatibility
+        # In future versions, if a job has no status, an error should be raised
+        self._status = JobStatus(as_text(obj['status'])) if obj.get('status') else JobStatus.CREATED
 
         if obj.get('success_callback_name'):
             self._success_callback_name = obj['success_callback_name'].decode()
@@ -1103,8 +1116,7 @@ class Job:
             obj['result_ttl'] = self.result_ttl
         if self.failure_ttl is not None:
             obj['failure_ttl'] = self.failure_ttl
-        if self._status is not None:
-            obj['status'] = self._status
+        obj['status'] = self._status
         if self._dependency_ids:
             obj['dependency_id'] = self._dependency_ids[0]  # for backwards compatibility
             obj['dependency_ids'] = json.dumps(self._dependency_ids)
@@ -1492,7 +1504,7 @@ class Job:
         if not self.success_callback:
             return
 
-        logger.debug('Running success callbacks for %s', self.id)
+        self.log.debug('Job %s: running success callback...', self.id)
         with death_penalty_class(self.success_callback_timeout, JobTimeoutException, job_id=self.id):
             self.success_callback(self, self.connection, result)
 
@@ -1501,12 +1513,12 @@ class Job:
         if not self.failure_callback:
             return
 
-        logger.debug('Running failure callbacks for %s', self.id)
+        self.log.debug('Job %s: running failure callback...', self.id)
         try:
             with death_penalty_class(self.failure_callback_timeout, JobTimeoutException, job_id=self.id):
                 self.failure_callback(self, self.connection, *exc_info)
         except Exception:  # noqa
-            logger.exception('Job %s: error while executing failure callback', self.id)
+            self.log.exception('Job %s: error while executing failure callback', self.id)
             raise
 
     def execute_stopped_callback(self, death_penalty_class: type[BaseDeathPenalty]):
@@ -1514,17 +1526,18 @@ class Job:
         if self.stopped_callback is None:
             return
 
-        logger.debug('Running stopped callbacks for %s', self.id)
+        self.log.debug('Job %s: running stopped callback...', self.id)
         try:
             with death_penalty_class(self.stopped_callback_timeout, JobTimeoutException, job_id=self.id):
                 self.stopped_callback(self, self.connection)
         except Exception:  # noqa
-            logger.exception('Job %s: error while executing stopped callback', self.id)
+            self.log.exception('Job %s: error while executing stopped callback', self.id)
             raise
 
     def _handle_success(self, result_ttl: int, pipeline: 'Pipeline'):
         """Saves and cleanup job after successful execution"""
-        # self.log.debug('Setting job %s status to finished', job.id)
+        self.log.debug('Job %s: handling success...', self.id)
+
         self.set_status(JobStatus.FINISHED, pipeline=pipeline)
         # Result should be saved in job hash only if server
         # doesn't support Redis streams
@@ -1544,6 +1557,10 @@ class Job:
             finished_job_registry.add(self, result_ttl, pipeline)
 
     def _handle_failure(self, exc_string: str, pipeline: 'Pipeline'):
+        self.log.debug(
+            'Job %s: handling failure: %s', self.id, exc_string[:200] + '...' if len(exc_string) > 200 else exc_string
+        )
+
         failed_job_registry = self.failed_job_registry
         # Exception should be saved in job hash if server
         # doesn't support Redis streams
@@ -1604,12 +1621,12 @@ class Job:
             scheduled_datetime = now() + timedelta(seconds=retry_interval)
             self.set_status(JobStatus.SCHEDULED)
             queue.schedule_job(self, scheduled_datetime, pipeline=pipeline)
-            logger.info(
+            self.log.info(
                 'Job %s: scheduled for retry at %s, %s remaining', self.id, scheduled_datetime, self.retries_left
             )
         else:
             queue._enqueue_job(self, pipeline=pipeline)
-            logger.info('Job %s: enqueued for retry, %s remaining', self.id, self.retries_left)
+            self.log.info('Job %s: enqueued for retry, %s remaining', self.id, self.retries_left)
 
     def register_dependency(self, pipeline: Optional['Pipeline'] = None):
         """Jobs may have dependencies. Jobs are enqueued only if the jobs they
@@ -1627,6 +1644,8 @@ class Job:
             pipeline (Optional[Pipeline]): The Redis' pipeline. Defaults to None
         """
         from .registry import DeferredJobRegistry
+
+        self.log.debug('Job %s registering dependencies: %s', self.id, self._dependency_ids)
 
         registry = DeferredJobRegistry(
             self.origin, connection=self.connection, job_class=self.__class__, serializer=self.serializer
@@ -1687,9 +1706,18 @@ class Job:
             # If parent job is not finished, we should only continue
             # if this job allows parent job to fail
             dependencies_ids.discard(parent_job.id)
-            if parent_job.get_status(refresh=refresh_job_status) == JobStatus.CANCELED:
+            parent_status = parent_job.get_status(refresh=refresh_job_status)
+            self.log.debug(
+                'Job %s parent job %s status: %s, allow_dependency_failures: %s',
+                self.id,
+                parent_job.id,
+                parent_status,
+                self.allow_dependency_failures,
+            )
+
+            if parent_status == JobStatus.CANCELED:
                 return False
-            elif parent_job.get_status(refresh=False) == JobStatus.FAILED and not self.allow_dependency_failures:
+            elif parent_status == JobStatus.FAILED and not self.allow_dependency_failures:
                 return False
 
             # If the only dependency is parent job, dependency has been met

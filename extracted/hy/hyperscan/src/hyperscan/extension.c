@@ -101,8 +101,8 @@ static int hs_match_handler(
     halt = rv == Py_None ? 0 : PyObject_IsTrue(rv);
     cctx->success = 1;
   }
-  PyGILState_Release(gstate);
   Py_XDECREF(rv);
+  PyGILState_Release(gstate);
   return halt;
 }
 
@@ -142,8 +142,9 @@ static int ch_match_handler(
     halt = rv == Py_None ? 0 : PyObject_IsTrue(rv);
     cctx->success = 1;
   }
-  PyGILState_Release(gstate);
   Py_XDECREF(rv);
+  Py_XDECREF(ocaptured);
+  PyGILState_Release(gstate);
   return halt;
 }
 
@@ -151,14 +152,18 @@ static void Database_dealloc(Database *self)
 {
   if (self->chimera) {
     ch_free_database(self->ch_db);
-    ch_scratch_t *scratch = ((Scratch *)self->scratch)->ch_scratch;
-    if (scratch != NULL)
-      ch_free_scratch(scratch);
+    if (self->scratch != Py_None && self->scratch != NULL) {
+      ch_scratch_t *scratch = ((Scratch *)self->scratch)->ch_scratch;
+      if (scratch)
+        ch_free_scratch(scratch);
+    }
   } else {
     hs_free_database(self->hs_db);
-    hs_scratch_t *scratch = ((Scratch *)self->scratch)->hs_scratch;
-    if (scratch != NULL)
-      hs_free_scratch(scratch);
+    if (self->scratch != Py_None && self->scratch != NULL) {
+      hs_scratch_t *scratch = ((Scratch *)self->scratch)->hs_scratch;
+      if (scratch)
+        hs_free_scratch(scratch);
+    }
   }
 
   Py_TYPE(self)->tp_free((PyObject *)self);
@@ -273,7 +278,24 @@ static PyObject *Database_compile(
     uint32_t expr_id;
 
     oexpr = PySequence_ITEM(oexpressions, i);
-    expression = PyBytes_AsString(oexpr);
+
+    // Handle both bytes and unicode strings
+    if (PyBytes_Check(oexpr)) {
+      expression = PyBytes_AsString(oexpr);
+    } else if (PyUnicode_Check(oexpr)) {
+      // Convert unicode to UTF-8 bytes
+      PyObject *temp_bytes = PyUnicode_AsUTF8String(oexpr);
+      if (temp_bytes == NULL) {
+        break;
+      }
+      expression = PyBytes_AsString(temp_bytes);
+      // Replace the original object with the encoded version
+      Py_DECREF(oexpr);
+      oexpr = temp_bytes;
+    } else {
+      PyErr_SetString(PyExc_TypeError, "expressions must be bytes or str");
+      break;
+    }
 
     if (PyErr_Occurred())
       break;

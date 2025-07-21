@@ -38,6 +38,8 @@ from ..usecases.gender_detection import GenderDetectionConfig, GenderDetectionUs
 from ..usecases.weapon_detection import WeaponDetectionUseCase,WeaponDetectionConfig
 from ..usecases.concrete_crack_detection import ConcreteCrackUseCase, ConcreteCrackConfig
 from ..usecases.fashion_detection import FashionDetectionUseCase, FashionDetectionConfig
+from ..usecases.warehouse_object_segmentation import WarehouseObjectUseCase, WarehouseObjectConfig
+from ..usecases.shopping_cart_analysis import ShoppingCartUseCase, ShoppingCartConfig
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -73,6 +75,8 @@ __all__ = [
     'WeaponDetectionUseCase',
     'ConcreteCrackUseCase',
     'FashionDetectionUseCase',
+    'WarehouseObjectUseCase',
+    'ShoppingCartUseCase',
 
 
 
@@ -108,5 +112,7 @@ __all__ = [
     'GenderDetectionConfig',
     'WeaponDetectionConfig',
     'ConcreteCrackConfig',
-    'FashionDetectionConfig'
+    'FashionDetectionConfig',
+    'WarehouseObjectConfig',
+    'ShoppingCartConfig'
 ]

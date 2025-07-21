@@ -37,23 +37,43 @@ class EmergencyVehicleConfig(BaseConfig):
     confidence_threshold: float = 0.5  # Adjusted from 0.6 to capture more detections
     
     vehicle_categories: List[str] = field(
-        default_factory=lambda: ['AmbulanceOff', 'FireEngineOn', 'AmbulanceOn', 'FireEngineOff']
+        default_factory=lambda: ['Ambulance', 'FireEngine']
     )
 
     target_vehicle_categories: List[str] = field(
-        default_factory=lambda: ['AmbulanceOff', 'FireEngineOn', 'AmbulanceOn', 'FireEngineOff']
+        default_factory=lambda: ['Ambulance', 'FireEngine']
     )
 
 
     alert_config: Optional[AlertConfig] = None
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-            0: 'AmbulanceOff',
-            2: 'AmbulanceOn',
-            1: 'FireEngineOn',
-            3: 'FireEngineOff'
+            0: 'Ambulance',
+            1: 'FireEngine',
+            2: 'Ambulance',
+            3: 'FireEngine'
             }
     )
+
+    ##### NOTE: currently disbaling on and off feature
+    # vehicle_categories: List[str] = field(
+    #     default_factory=lambda: ['AmbulanceOff', 'FireEngineOn', 'AmbulanceOn', 'FireEngineOff']
+    # )
+
+    # target_vehicle_categories: List[str] = field(
+    #     default_factory=lambda: ['AmbulanceOff', 'FireEngineOn', 'AmbulanceOn', 'FireEngineOff']
+    # )
+
+
+    # alert_config: Optional[AlertConfig] = None
+    # index_to_category: Optional[Dict[int, str]] = field(
+    #     default_factory=lambda: {
+    #         0: 'AmbulanceOff',
+    #         2: 'AmbulanceOn',
+    #         1: 'FireEngineOn',
+    #         3: 'FireEngineOff'
+    #         }
+    # )
 
 class EmergencyVehicleUseCase(BaseProcessor):
     def _get_track_ids_info(self, detections: list) -> Dict[str, Any]:
@@ -238,7 +258,9 @@ class EmergencyVehicleUseCase(BaseProcessor):
         self.category = "traffic"
         
         # List of vehicle categories to track
-        self.vehicle_categories = ['AmbulanceOff', 'FireEngineOn', 'AmbulanceOn', 'FireEngineOff']
+        # self.vehicle_categories = ['AmbulanceOff', 'FireEngineOn', 'AmbulanceOn', 'FireEngineOff']
+        self.vehicle_categories = ['Ambulance', 'FireEngine']
+    
         
         # Initialize smoothing tracker
         self.smoothing_tracker = None
@@ -628,11 +650,15 @@ class EmergencyVehicleUseCase(BaseProcessor):
 
     # Human-friendly display names for vehicle categories
     CATEGORY_DISPLAY = {
-        "AmbulanceOff": "ambulance off",
-        "AmbulanceOn": "ambulance on",
-        "FireEngineOn": "fire engine on",
-        "FireEngineOff": "fire engine off"
+        "Ambulance": "Ambulance",
+        "FireEngine": "Fire Engine"
         }
+    # CATEGORY_DISPLAY = {
+    #     "AmbulanceOff": "ambulance off",
+    #     "AmbulanceOn": "ambulance on",
+    #     "FireEngineOn": "fire engine on",
+    #     "FireEngineOff": "fire engine off"
+    #     }
 
     def _generate_insights(self, summary: dict, config: EmergencyVehicleConfig) -> List[str]:
         """

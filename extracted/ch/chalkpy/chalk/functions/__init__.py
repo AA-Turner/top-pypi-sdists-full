@@ -844,28 +844,6 @@ def chr(code: Underscore | Any):
     return UnderscoreFunction("chr", code)
 
 
-def codepoint(expr: Underscore | Any):
-    """
-    Get the Unicode code point of the first character in a string.
-
-    Parameters
-    ----------
-    expr
-        The string to get the code point from.
-
-    Examples
-    --------
-    >>> import chalk.functions as F
-    >>> from chalk.features import _, features
-    >>> @features
-    ... class TextAnalysis:
-    ...    id: str
-    ...    text: str
-    ...    first_char_code: int = F.codepoint(_.text)
-    """
-    return UnderscoreFunction("codepoint", expr)
-
-
 def lpad(string: Underscore | Any, size: Underscore | Any, padstring: Underscore | Any):
     """
     Left-pad string to specified length with pad string.
@@ -890,30 +868,6 @@ def lpad(string: Underscore | Any, size: Underscore | Any, padstring: Underscore
     ...    padded_id: str = F.lpad(_.account_number, 10, "0")
     """
     return UnderscoreFunction("lpad", string, size, padstring)
-
-
-def normalize(string: Underscore | Any, form: Underscore | Any):
-    """
-    Normalize Unicode string using specified normalization form.
-
-    Parameters
-    ----------
-    string
-        The string to normalize.
-    form
-        The normalization form (NFC, NFD, NFKC, NFKD).
-
-    Examples
-    --------
-    >>> import chalk.functions as F
-    >>> from chalk.features import _, features
-    >>> @features
-    ... class TextNormalization:
-    ...    id: str
-    ...    user_input: str
-    ...    normalized_text: str = F.normalize(_.user_input, "NFC")
-    """
-    return UnderscoreFunction("normalize", string, form)
 
 
 def rpad(string: Underscore | Any, size: Underscore | Any, padstring: Underscore | Any):
@@ -4446,32 +4400,6 @@ def secure_random(min_val: Any = None, max_val: Any = None):
 ########################################################################################################################
 
 
-def bit_count(value: Underscore):
-    """
-    Count the number of set bits (1-bits) in an integer value.
-
-    Parameters
-    ----------
-    value
-        The integer value to count bits for.
-
-    Returns
-    -------
-    The number of bits set to 1 in the integer value.
-
-    Examples
-    --------
-    >>> import chalk.functions as F
-    >>> from chalk.features import _, features
-    >>> @features
-    ... class BitwiseAnalytics:
-    ...     id: str
-    ...     feature_flags: int
-    ...     active_features_count: int = F.bit_count(_.feature_flags)
-    """
-    return UnderscoreFunction("bit_count", value)
-
-
 def bitwise_and(left: Underscore, right: Underscore):
     """
     Perform bitwise AND operation on two integer values.
@@ -4531,65 +4459,6 @@ def bitwise_arithmetic_shift_right(value: Underscore, shift: Underscore):
     return UnderscoreFunction("bitwise_arithmetic_shift_right", value, shift)
 
 
-def bitwise_left_shift(value: Underscore, shift: Underscore):
-    """
-    Perform left bit shift operation on an integer value.
-
-    Parameters
-    ----------
-    value
-        The integer value to shift.
-    shift
-        The number of positions to shift left.
-
-    Returns
-    -------
-    The result of left shift operation.
-
-    Examples
-    --------
-    >>> import chalk.functions as F
-    >>> from chalk.features import _, features
-    >>> @features
-    ... class ScalingCalculation:
-    ...     id: str
-    ...     base_amount: int
-    ...     scale_factor: int
-    ...     scaled_amount: int = F.bitwise_left_shift(_.base_amount, _.scale_factor)
-    """
-    return UnderscoreFunction("bitwise_left_shift", value, shift)
-
-
-def bitwise_logical_shift_right(value: Underscore, shift: Underscore):
-    """
-    Perform logical right bit shift operation on an integer value.
-    Fills with zeros regardless of the sign bit.
-
-    Parameters
-    ----------
-    value
-        The integer value to shift.
-    shift
-        The number of positions to shift right.
-
-    Returns
-    -------
-    The result of logical right shift operation.
-
-    Examples
-    --------
-    >>> import chalk.functions as F
-    >>> from chalk.features import _, features
-    >>> @features
-    ... class HashDistribution:
-    ...     id: str
-    ...     hash_value: int
-    ...     bucket_bits: int
-    ...     bucket_id: int = F.bitwise_logical_shift_right(_.hash_value, _.bucket_bits)
-    """
-    return UnderscoreFunction("bitwise_logical_shift_right", value, shift)
-
-
 def bitwise_not(value: Underscore):
     """
     Perform bitwise NOT operation on an integer value (one's complement).
@@ -4645,93 +4514,6 @@ def bitwise_or(left: Underscore, right: Underscore):
     return UnderscoreFunction("bitwise_or", left, right)
 
 
-def bitwise_right_shift(value: Underscore, shift: Underscore):
-    """
-    Perform right bit shift operation on an integer value.
-
-    Parameters
-    ----------
-    value
-        The integer value to shift.
-    shift
-        The number of positions to shift right.
-
-    Returns
-    -------
-    The result of right shift operation.
-
-    Examples
-    --------
-    >>> import chalk.functions as F
-    >>> from chalk.features import _, features
-    >>> @features
-    ... class DataReduction:
-    ...     id: str
-    ...     full_precision: int
-    ...     reduction_level: int
-    ...     reduced_precision: int = F.bitwise_right_shift(_.full_precision, _.reduction_level)
-    """
-    return UnderscoreFunction("bitwise_right_shift", value, shift)
-
-
-def bitwise_right_shift_arithmetic(value: Underscore, shift: Underscore):
-    """
-    Perform arithmetic right bit shift operation on an integer value.
-    Preserves the sign bit by filling with the sign bit.
-
-    Parameters
-    ----------
-    value
-        The integer value to shift.
-    shift
-        The number of positions to shift right.
-
-    Returns
-    -------
-    The result of arithmetic right shift operation.
-
-    Examples
-    --------
-    >>> import chalk.functions as F
-    >>> from chalk.features import _, features
-    >>> @features
-    ... class SignedDataShift:
-    ...     id: str
-    ...     signed_value: int
-    ...     shift_amount: int
-    ...     shifted_value: int = F.bitwise_right_shift_arithmetic(_.signed_value, _.shift_amount)
-    """
-    return UnderscoreFunction("bitwise_right_shift_arithmetic", value, shift)
-
-
-def bitwise_shift_left(value: Underscore, shift: Underscore):
-    """
-    Perform left bit shift operation on an integer value.
-
-    Parameters
-    ----------
-    value
-        The integer value to shift.
-    shift
-        The number of positions to shift left.
-
-    Returns
-    -------
-    The result of left shift operation.
-
-    Examples
-    --------
-    >>> import chalk.functions as F
-    >>> from chalk.features import _, features
-    >>> @features
-    ... class BitMasking:
-    ...     id: str
-    ...     position: int
-    ...     bit_mask: int = F.bitwise_shift_left(1, _.position)
-    """
-    return UnderscoreFunction("bitwise_shift_left", value, shift)
-
-
 def bitwise_xor(left: Underscore, right: Underscore):
     """
     Perform bitwise XOR operation on two integer values.
@@ -4761,6 +4543,369 @@ def bitwise_xor(left: Underscore, right: Underscore):
     return UnderscoreFunction("bitwise_xor", left, right)
 
 
+########################################################################################################################
+# Array Functions                                                                                                     #
+########################################################################################################################
+
+
+def array_cum_sum(array: Underscore):
+    """
+    Calculate cumulative sum of array elements.
+
+    Parameters
+    ----------
+    array
+        The numeric array to calculate cumulative sum for.
+
+    Returns
+    -------
+    Array where each element is the sum of all preceding elements including itself.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class MetricsAnalysis:
+    ...     id: str
+    ...     daily_revenues: list[float]
+    ...     cumulative_revenues: list[float] = F.array_cum_sum(_.daily_revenues)
+    """
+    return UnderscoreFunction("array_cum_sum", array)
+
+
+def array_duplicates(array: Underscore):
+    """
+    Returns duplicate elements in the array.
+
+    Parameters
+    ----------
+    array
+        The array to find duplicates in.
+
+    Returns
+    -------
+    Array containing all duplicate elements.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class CustomerAnalysis:
+    ...     id: str
+    ...     purchase_categories: list[str]
+    ...     repeat_categories: list[str] = F.array_duplicates(_.purchase_categories)
+    """
+    return UnderscoreFunction("array_duplicates", array)
+
+
+def array_except(left_array: Underscore, right_array: Underscore):
+    """
+    Returns elements in left array that are not in right array.
+
+    Parameters
+    ----------
+    left_array
+        The array to subtract from.
+    right_array
+        The array containing elements to remove.
+
+    Returns
+    -------
+    Array containing elements from left_array not present in right_array.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class FeatureComparison:
+    ...     id: str
+    ...     all_features: list[str]
+    ...     active_features: list[str]
+    ...     disabled_features: list[str] = F.array_except(_.all_features, _.active_features)
+    """
+    return UnderscoreFunction("array_except", left_array, right_array)
+
+
+def array_has_duplicates(array: Underscore):
+    """
+    Checks if the array contains duplicate elements.
+
+    Parameters
+    ----------
+    array
+        The array to check for duplicates.
+
+    Returns
+    -------
+    True if the array contains duplicates, False otherwise.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class DataQuality:
+    ...     id: str
+    ...     user_ids: list[int]
+    ...     has_duplicate_users: bool = F.array_has_duplicates(_.user_ids)
+    """
+    return UnderscoreFunction("array_has_duplicates", array)
+
+
+def array_intersect(left_array: Underscore, right_array: Underscore):
+    """
+    Returns common elements between two arrays.
+
+    Parameters
+    ----------
+    left_array
+        The first array.
+    right_array
+        The second array.
+
+    Returns
+    -------
+    Array containing elements present in both arrays.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class CustomerSegmentation:
+    ...     id: str
+    ...     current_interests: list[str]
+    ...     past_purchases: list[str]
+    ...     relevant_interests: list[str] = F.array_intersect(_.current_interests, _.past_purchases)
+    """
+    return UnderscoreFunction("array_intersect", left_array, right_array)
+
+
+def array_normalize(array: Underscore):
+    """
+    Normalize array values so they sum to 1.
+
+    Parameters
+    ----------
+    array
+        The numeric array to normalize.
+
+    Returns
+    -------
+    Array where each element is divided by the sum of all elements.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class ProbabilityModel:
+    ...     id: str
+    ...     raw_scores: list[float]
+    ...     probabilities: list[float] = F.array_normalize(_.raw_scores)
+    """
+    return UnderscoreFunction("array_normalize", array)
+
+
+def array_position(array: Underscore, element: Underscore):
+    """
+    Find the position of an element in the array (1-based indexing).
+
+    Parameters
+    ----------
+    array
+        The array to search in.
+    element
+        The element to find.
+
+    Returns
+    -------
+    1-based position of the element, or 0 if not found.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class RankingAnalysis:
+    ...     id: str
+    ...     ranked_products: list[str]
+    ...     target_product: str
+    ...     product_rank: int = F.array_position(_.ranked_products, _.target_product)
+    """
+    return UnderscoreFunction("array_position", array, element)
+
+
+def array_remove(array: Underscore, element: Underscore):
+    """
+    Remove all occurrences of an element from the array.
+
+    Parameters
+    ----------
+    array
+        The array to remove elements from.
+    element
+        The element to remove.
+
+    Returns
+    -------
+    Array with all occurrences of element removed.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class DataCleaning:
+    ...     id: str
+    ...     transaction_types: list[str]
+    ...     filtered_types: list[str] = F.array_remove(_.transaction_types, "test")
+    """
+    return UnderscoreFunction("array_remove", array, element)
+
+
+def arrays_overlap(left_array: Underscore, right_array: Underscore):
+    """
+    Check if two arrays have common elements.
+
+    Parameters
+    ----------
+    left_array
+        The first array.
+    right_array
+        The second array.
+
+    Returns
+    -------
+    True if arrays have at least one common element, False otherwise.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class UserCompatibility:
+    ...     id: str
+    ...     user_interests: list[str]
+    ...     recommended_interests: list[str]
+    ...     has_overlap: bool = F.arrays_overlap(_.user_interests, _.recommended_interests)
+    """
+    return UnderscoreFunction("arrays_overlap", left_array, right_array)
+
+
+def flatten(array: Underscore):
+    """
+    Flatten nested arrays into a single-level array.
+
+    Parameters
+    ----------
+    array
+        The nested array to flatten.
+
+    Returns
+    -------
+    Single-level array containing all elements from nested arrays.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class DataProcessing:
+    ...     id: str
+    ...     nested_categories: list[list[str]]
+    ...     all_categories: list[str] = F.flatten(_.nested_categories)
+    """
+    return UnderscoreFunction("flatten", array)
+
+
+def remove_nulls(array: Underscore):
+    """
+    Remove all null values from the array.
+
+    Parameters
+    ----------
+    array
+        The array to remove nulls from.
+
+    Returns
+    -------
+    Array with all null values removed.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class DataCleaning:
+    ...     id: str
+    ...     raw_scores: list[float | None]
+    ...     clean_scores: list[float] = F.remove_nulls(_.raw_scores)
+    """
+    return UnderscoreFunction("remove_nulls", array)
+
+
+def sequence(start: Underscore | int, stop: Underscore | int, step: Underscore | int = 1):
+    """
+    Generate a sequence of integers.
+
+    Parameters
+    ----------
+    start
+        The starting value (inclusive).
+    stop
+        The ending value (inclusive).
+    step
+        The increment between values (default: 1).
+
+    Returns
+    -------
+    Array of integers from start to stop.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class IndexGeneration:
+    ...     id: str
+    ...     batch_size: int
+    ...     indices: list[int] = F.sequence(1, _.batch_size)
+    """
+    if step == 1:
+        return UnderscoreFunction("sequence", start, stop)
+    return UnderscoreFunction("sequence", start, stop, step)
+
+
+def shuffle(array: Underscore):
+    """
+    Randomly shuffle array elements.
+
+    Parameters
+    ----------
+    array
+        The array to shuffle.
+
+    Returns
+    -------
+    Array with elements in random order.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class RecommendationSystem:
+    ...     id: str
+    ...     product_list: list[str]
+    ...     shuffled_recommendations: list[str] = F.shuffle(_.product_list)
+    """
+    return UnderscoreFunction("shuffle", array)
+
+
 __all__ = (
     "DayOfWeek",
     "Then",
@@ -4770,29 +4915,32 @@ __all__ = (
     "array_agg",
     "array_average",
     "array_count_value",
+    "array_cum_sum",
     "array_distinct",
+    "array_duplicates",
+    "array_except",
+    "array_has_duplicates",
+    "array_intersect",
     "array_join",
     "array_max",
     "array_median",
     "array_min",
     "array_mode",
+    "array_normalize",
+    "array_position",
+    "array_remove",
     "array_sample_stddev",
     "array_sort",
     "array_stddev",
     "array_sum",
+    "arrays_overlap",
     "asin",
     "bankers_round",
     "between",
-    "bit_count",
     "bitwise_and",
     "bitwise_arithmetic_shift_right",
-    "bitwise_left_shift",
-    "bitwise_logical_shift_right",
     "bitwise_not",
     "bitwise_or",
-    "bitwise_right_shift",
-    "bitwise_right_shift_arithmetic",
-    "bitwise_shift_left",
     "bitwise_xor",
     "bytes_to_string",
     "cardinality",
@@ -4800,7 +4948,6 @@ __all__ = (
     "ceil",
     "chr",
     "clamp",
-    "codepoint",
     "coalesce",
     "contains",
     "cos",
@@ -4816,6 +4963,7 @@ __all__ = (
     "element_at",
     "ends_with",
     "exp",
+    "flatten",
     "floor",
     "format_datetime",
     "from_base",
@@ -4863,7 +5011,6 @@ __all__ = (
     "min_by_n",
     "mod",
     "month_of_year",
-    "normalize",
     "nth_bucket_end",
     "nth_bucket_start",
     "parse_datetime",
@@ -4877,6 +5024,7 @@ __all__ = (
     "rand",
     "random",
     "recover",
+    "remove_nulls",
     "regexp_extract",
     "regexp_extract_all",
     "regexp_like",
@@ -4888,7 +5036,9 @@ __all__ = (
     "safe_divide",
     "sagemaker_predict",
     "secure_random",
+    "sequence",
     "sequence_matcher_ratio",
+    "shuffle",
     "sha1",
     "sha256",
     "sha512",

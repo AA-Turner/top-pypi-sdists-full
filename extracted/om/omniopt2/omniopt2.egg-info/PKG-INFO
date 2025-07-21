@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: omniopt2
-Version: 7674
+Version: 7678
 Summary: Automatic highly parallelized hyperparameter optimizer based on Ax/Botorch
 Home-page: https://scads.ai/transfer-2/verfuegbare-software-dienste-en/omniopt/
 Author: Norman Koch
@@ -32,7 +32,6 @@ Requires-Dist: coverage
 Requires-Dist: cowsay
 Requires-Dist: beautifulsoup4
 Requires-Dist: emoji
-Requires-Dist: hiplot
 Requires-Dist: html5lib
 Requires-Dist: lxml
 Requires-Dist: toml
@@ -86,7 +85,6 @@ Requires-Dist: coverage
 Requires-Dist: cowsay
 Requires-Dist: beautifulsoup4
 Requires-Dist: emoji
-Requires-Dist: hiplot
 Requires-Dist: html5lib
 Requires-Dist: lxml
 Requires-Dist: toml

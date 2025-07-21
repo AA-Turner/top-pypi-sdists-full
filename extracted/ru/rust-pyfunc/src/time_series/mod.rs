@@ -8,6 +8,8 @@ use std::error::Error;
 use std::fmt;
 use std::collections::HashMap;
 
+pub mod lyapunov;
+
 // 导入优化版模块
 pub mod fast_extreme;
 pub mod super_extreme;

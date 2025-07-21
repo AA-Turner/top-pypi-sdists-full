@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 
-# Copyright © 2020-2024, Meheret Tesfaye Batu <meherett.batu@gmail.com>
+# Copyright © 2020-2025, Meheret Tesfaye Batu <meherett.batu@gmail.com>
 # Distributed under the MIT software license, see the accompanying
 # file COPYING or https://opensource.org/license/mit
 
@@ -11,7 +11,7 @@ from typing import (
 import hashlib
 import cbor2
 
-from ..ecc import (
+from ..eccs import (
     IEllipticCurveCryptography, IPoint, IPublicKey, KholawEd25519ECC, KholawEd25519PrivateKey
 )
 from ..seeds import ISeed
@@ -397,6 +397,38 @@ class CardanoHD(BIP32HD):
                 (self._depth + 1), index, get_bytes(self.fingerprint())
             )
         return self
+
+    def root_xprivate_key(
+        self, version: Union[bytes, int] = Cardano.NETWORKS.MAINNET.XPRIVATE_KEY_VERSIONS.P2PKH, encoded: bool = True
+    ) -> Optional[str]:
+        """
+        Generates the root extended private key (xprv) in serialized format.
+
+        :param version: The version bytes for the extended key. Defaults to Bitcoin mainnet P2PKH version.
+        :type version: Union[bytes, int]
+        :param encoded: Whether to return the key in encoded format. Defaults to True.
+        :type encoded: bool
+
+        :return: The root extended private key (xprv) in serialized format, or None if the chain code is not set.
+        :rtype: Optional[str]
+        """
+        return super(CardanoHD, self).root_xprivate_key(version=version, encoded=encoded)
+
+    def xprivate_key(
+        self, version: Union[bytes, int] = Cardano.NETWORKS.MAINNET.XPRIVATE_KEY_VERSIONS.P2PKH, encoded: bool = True
+    ) -> Optional[str]:
+        """
+        Retrieves the extended private key (xprivate key) as a serialized string.
+
+        :param version: The version bytes or integer version of the xprivate key.
+        :type version: Union[bytes, int]
+        :param encoded: Flag indicating whether the key should be encoded.
+        :type encoded: bool
+
+        :return: The serialized xprivate key as a string, or None if the private key or chain code is not set.
+        :rtype: Optional[str]
+        """
+        return super(CardanoHD, self).xprivate_key(version=version, encoded=encoded)
 
     def path_key(self) -> Optional[str]:
         """

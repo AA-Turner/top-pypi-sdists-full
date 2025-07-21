@@ -302,6 +302,10 @@ impl Matcher for Pattern {
   }
 
   fn potential_kinds(&self) -> Option<bit_set::BitSet> {
+    // if strictness is Template, we can match any kind
+    if matches!(self.strictness, MatchStrictness::Template) {
+      return None;
+    }
     let kind = match self.node {
       PatternNode::Terminal { kind_id, .. } => kind_id,
       PatternNode::MetaVar { .. } => self.root_kind?,
@@ -328,9 +332,9 @@ impl Matcher for Pattern {
 impl std::fmt::Debug for PatternNode {
   fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
     match self {
-      Self::MetaVar { meta_var, .. } => write!(f, "{:?}", meta_var),
-      Self::Terminal { text, .. } => write!(f, "{}", text),
-      Self::Internal { children, .. } => write!(f, "{:?}", children),
+      Self::MetaVar { meta_var, .. } => write!(f, "{meta_var:?}"),
+      Self::Terminal { text, .. } => write!(f, "{text}"),
+      Self::Internal { children, .. } => write!(f, "{children:?}"),
     }
   }
 }
@@ -619,5 +623,15 @@ mod test {
   #[test]
   fn test_gh_1087() {
     test_match("($P) => $F($P)", "(x) => bar(x)");
+  }
+
+  #[test]
+  fn test_template_pattern_have_no_kinds() {
+    let pattern = Pattern::new("$A = $B", Tsx).with_strictness(MatchStrictness::Template);
+    assert!(pattern.potential_kinds().is_none());
+    let pattern = Pattern::contextual("{a: b}", "pair", Tsx)
+      .expect("should create template pattern")
+      .with_strictness(MatchStrictness::Template);
+    assert!(pattern.potential_kinds().is_none());
   }
 }

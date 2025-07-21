@@ -7,7 +7,7 @@ from .consts import (
     UNCOMPRESSED_PUBLIC_KEY_SIZE,
 )
 
-EllipticCurve = Literal["secp256k1", "x25519"]
+EllipticCurve = Literal["secp256k1", "x25519", "ed25519"]
 SymmetricAlgorithm = Literal["aes-256-gcm", "xchacha20"]
 NonceLength = Literal[12, 16]  # only for aes-256-gcm, xchacha20 will always be 24
 
@@ -28,7 +28,7 @@ class Config:
                 if self.is_ephemeral_key_compressed
                 else UNCOMPRESSED_PUBLIC_KEY_SIZE
             )
-        elif self.elliptic_curve == "x25519":
+        elif self.elliptic_curve in ("x25519", "ed25519"):
             return CURVE25519_PUBLIC_KEY_SIZE
         else:
             raise NotImplementedError

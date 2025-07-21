@@ -66,7 +66,7 @@ Example::
             match event:
                 case tcod.event.Quit():
                     raise SystemExit()
-                case tcod.event.KeyDown(sym) if sym in KEY_COMMANDS:
+                case tcod.event.KeyDown(sym=sym) if sym in KEY_COMMANDS:
                     print(f"Command: {KEY_COMMANDS[sym]}")
                 case tcod.event.KeyDown(sym=sym, scancode=scancode, mod=mod, repeat=repeat):
                     print(f"KeyDown: {sym=}, {scancode=}, {mod=}, {repeat=}")
@@ -673,6 +673,11 @@ class MouseWheel(Event):
 
 class TextInput(Event):
     """SDL text input event.
+
+    .. warning::
+        These events are not enabled by default since `19.0`.
+
+        Use :any:`Window.start_text_input` to enable this event.
 
     Attributes:
         type (str): Always "TEXTINPUT".

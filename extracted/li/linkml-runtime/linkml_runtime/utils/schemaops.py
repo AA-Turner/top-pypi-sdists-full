@@ -1,8 +1,9 @@
 from typing import Union
 
-from linkml_runtime.utils.schemaview import SchemaView, CLASS_NAME
+from linkml_runtime.utils.schemaview import CLASS_NAME, SchemaView
 
 CLASS_NAME_OR_LIST = Union[CLASS_NAME, list[CLASS_NAME]]
+
 
 def roll_up(sv: SchemaView, classes: CLASS_NAME_OR_LIST = None, mixins=True, is_a=True, delete=True) -> None:
     """
@@ -36,6 +37,7 @@ def roll_up(sv: SchemaView, classes: CLASS_NAME_OR_LIST = None, mixins=True, is_
     for d in dels:
         sv.delete_class(d)
     sv.set_modified()
+
 
 def roll_down(sv: SchemaView, classes: list[CLASS_NAME] = None, mixins=True, is_a=True, delete=True) -> None:
     """
@@ -75,6 +77,3 @@ def roll_down(sv: SchemaView, classes: list[CLASS_NAME] = None, mixins=True, is_
         d_cls = sv.get_class(d)
         sv.delete_class(d)
     sv.set_modified()
-
-
-

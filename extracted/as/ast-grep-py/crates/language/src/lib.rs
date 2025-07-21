@@ -18,12 +18,14 @@ mod html;
 mod json;
 mod kotlin;
 mod lua;
+mod nix;
 mod parsers;
 mod php;
 mod python;
 mod ruby;
 mod rust;
 mod scala;
+mod solidity;
 mod swift;
 mod yaml;
 
@@ -186,10 +188,8 @@ macro_rules! impl_aliases {
 
 /* Customized Language with expando_char / pre_process_pattern */
 // https://en.cppreference.com/w/cpp/language/identifiers
-// Due to some issues in the tree-sitter parser, it is not possible to use
-// unicode literals in identifiers for C/C++ parsers
-impl_lang_expando!(C, language_c, '_');
-impl_lang_expando!(Cpp, language_cpp, '_');
+impl_lang_expando!(C, language_c, '𐀀');
+impl_lang_expando!(Cpp, language_cpp, '𐀀');
 // https://docs.microsoft.com/en-us/dotnet/csharp/language-reference/language-specification/lexical-structure#643-identifiers
 // all letter number is accepted
 // https://www.compart.com/en/unicode/category/Nl
@@ -207,6 +207,8 @@ impl_lang_expando!(Go, language_go, 'µ');
 impl_lang_expando!(Haskell, language_haskell, 'µ');
 // https://github.com/fwcd/tree-sitter-kotlin/pull/93
 impl_lang_expando!(Kotlin, language_kotlin, 'µ');
+// Nix uses $ for string interpolation (e.g., "${pkgs.hello}")
+impl_lang_expando!(Nix, language_nix, '_');
 // PHP accepts unicode to be used as some name not var name though
 impl_lang_expando!(Php, language_php, 'µ');
 // we can use any char in unicode range [:XID_Start:]
@@ -229,6 +231,7 @@ impl_lang!(JavaScript, language_javascript);
 impl_lang!(Json, language_json);
 impl_lang!(Lua, language_lua);
 impl_lang!(Scala, language_scala);
+impl_lang!(Solidity, language_solidity);
 impl_lang!(Tsx, language_tsx);
 impl_lang!(TypeScript, language_typescript);
 impl_lang!(Yaml, language_yaml);
@@ -252,11 +255,13 @@ pub enum SupportLang {
   Json,
   Kotlin,
   Lua,
+  Nix,
   Php,
   Python,
   Ruby,
   Rust,
   Scala,
+  Solidity,
   Swift,
   Tsx,
   TypeScript,
@@ -268,7 +273,7 @@ impl SupportLang {
     use SupportLang::*;
     &[
       Bash, C, Cpp, CSharp, Css, Elixir, Go, Haskell, Html, Java, JavaScript, Json, Kotlin, Lua,
-      Php, Python, Ruby, Rust, Scala, Swift, Tsx, TypeScript, Yaml,
+      Nix, Php, Python, Ruby, Rust, Scala, Solidity, Swift, Tsx, TypeScript, Yaml,
     ]
   }
 
@@ -279,7 +284,7 @@ impl SupportLang {
 
 impl fmt::Display for SupportLang {
   fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-    write!(f, "{:?}", self)
+    write!(f, "{self:?}")
   }
 }
 
@@ -292,7 +297,7 @@ impl Display for SupportLangErr {
   fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), std::fmt::Error> {
     use SupportLangErr::*;
     match self {
-      LanguageNotSupported(lang) => write!(f, "{} is not supported!", lang),
+      LanguageNotSupported(lang) => write!(f, "{lang} is not supported!"),
     }
   }
 }
@@ -363,11 +368,13 @@ impl_aliases! {
   Json => &["json"],
   Kotlin => &["kotlin", "kt"],
   Lua => &["lua"],
+  Nix => &["nix"],
   Php => &["php"],
   Python => &["py", "python"],
   Ruby => &["rb", "ruby"],
   Rust => &["rs", "rust"],
   Scala => &["scala"],
+  Solidity => &["sol", "solidity"],
   Swift => &["swift"],
   TypeScript => &["ts", "typescript"],
   Tsx => &["tsx"],
@@ -407,11 +414,13 @@ macro_rules! execute_lang_method {
       S::Json => Json.$method($($pname,)*),
       S::Kotlin => Kotlin.$method($($pname,)*),
       S::Lua => Lua.$method($($pname,)*),
+      S::Nix => Nix.$method($($pname,)*),
       S::Php => Php.$method($($pname,)*),
       S::Python => Python.$method($($pname,)*),
       S::Ruby => Ruby.$method($($pname,)*),
       S::Rust => Rust.$method($($pname,)*),
       S::Scala => Scala.$method($($pname,)*),
+      S::Solidity => Solidity.$method($($pname,)*),
       S::Swift => Swift.$method($($pname,)*),
       S::Tsx => Tsx.$method($($pname,)*),
       S::TypeScript => TypeScript.$method($($pname,)*),
@@ -476,11 +485,13 @@ fn extensions(lang: SupportLang) -> &'static [&'static str] {
     Json => &["json"],
     Kotlin => &["kt", "ktm", "kts"],
     Lua => &["lua"],
+    Nix => &["nix"],
     Php => &["php"],
     Python => &["py", "py3", "pyi", "bzl"],
     Ruby => &["rb", "rbw", "gemspec"],
     Rust => &["rs"],
     Scala => &["scala", "sc", "sbt"],
+    Solidity => &["sol"],
     Swift => &["swift"],
     TypeScript => &["ts", "cts", "mts"],
     Tsx => &["tsx"],

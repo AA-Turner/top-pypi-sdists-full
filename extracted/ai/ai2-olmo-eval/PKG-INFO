@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ai2-olmo-eval
-Version: 0.8.4
+Version: 0.8.5
 Summary: In-loop evaluation tasks for language modeling
 Author-email: Allen Institute for Artificial Intelligence <olmo@allenai.org>
 License:                                  Apache License
@@ -210,12 +210,10 @@ Project-URL: Changelog, https://github.com/allenai/OLMo-in-loop-evals/blob/main/
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: numpy<2.0
 Requires-Dist: torch
 Requires-Dist: torchmetrics
 Requires-Dist: datasets
 Requires-Dist: tokenizers
-Requires-Dist: scikit-learn
 Requires-Dist: cached-path
 Requires-Dist: requests
 Requires-Dist: packaging

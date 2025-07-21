@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "tree-sitter"
-version = "0.24.0"
+version = "0.25.0"
 description = "Python bindings to the Tree-sitter parsing library"
 keywords = ["incremental", "parsing", "tree-sitter"]
 classifiers = [
@@ -25,6 +25,7 @@ Homepage = "https://tree-sitter.github.io/tree-sitter/"
 Source = "https://github.com/tree-sitter/py-tree-sitter"
 Documentation = "https://tree-sitter.github.io/py-tree-sitter/"
 Discord = "https://discord.gg/w7nTvsVJhm"
+Matrix = "https://matrix.to/#/#tree-sitter-chat:matrix.org"
 
 [[project.authors]]
 name = "Max Brunsfeld"
@@ -58,7 +59,7 @@ indent-style = "space"
 [tool.cibuildwheel]
 build-frontend = "build"
 test-extras = ["tests"]
-test-command = "python -munittest discover -s {project}/tests"
+test-command = "python -munittest discover -s {project}/tests -v"
 
 [tool.mypy]
 exclude = ["tree_sitter/core"]

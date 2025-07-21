@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: beanie
-Version: 1.30.0
+Version: 2.0.0
 Summary: Asynchronous Python ODM for MongoDB
 Keywords: mongodb,odm,orm,pydantic,mongo,async,python
 Author-email: Roman Right <roman-right@protonmail.com>
@@ -15,12 +15,11 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
 License-File: LICENSE
 Requires-Dist: pydantic>=1.10.18,<3.0
-Requires-Dist: motor>=2.5.0,<4.0.0
 Requires-Dist: click>=7
-Requires-Dist: tomli>=2.2.1,<3.0.0; python_version < '3.11'
-Requires-Dist: lazy-model==0.2.0
+Requires-Dist: lazy-model==0.3.0
+Requires-Dist: pymongo>=4.11.0,<5.0.0
 Requires-Dist: typing-extensions>=4.7
-Requires-Dist: motor[aws]>=2.5.0,<4.0.0 ; extra == "aws"
+Requires-Dist: pymongo[aws]>=4.11.0,<5.0.0 ; extra == "aws"
 Requires-Dist: tomli>=2.2.1,<3.0.0 ; extra == "ci" and ( python_version < '3.11')
 Requires-Dist: tomli-w>=1.0.0,<2.0.0 ; extra == "ci"
 Requires-Dist: requests ; extra == "ci"
@@ -31,11 +30,11 @@ Requires-Dist: pydoc-markdown>=4.8 ; extra == "doc"
 Requires-Dist: mkdocs>=1.4 ; extra == "doc"
 Requires-Dist: mkdocs-material>=9.0 ; extra == "doc"
 Requires-Dist: jinja2>=3.0.3 ; extra == "doc"
-Requires-Dist: motor[encryption]>=2.5.0,<4.0.0 ; extra == "encryption"
-Requires-Dist: motor[gssapi]>=2.5.0,<4.0.0 ; extra == "gssapi"
-Requires-Dist: motor[ocsp]>=2.5.0,<4.0.0 ; extra == "ocsp"
+Requires-Dist: pymongo[encryption]>=4.11.0,<5.0.0 ; extra == "encryption"
+Requires-Dist: pymongo[gssapi]>=4.11.0,<5.0.0 ; extra == "gssapi"
+Requires-Dist: pymongo[ocsp]>=4.11.0,<5.0.0 ; extra == "ocsp"
 Requires-Dist: beanie-batteries-queue>=0.2 ; extra == "queue"
-Requires-Dist: motor[snappy]>=2.5.0,<4.0.0 ; extra == "snappy"
+Requires-Dist: pymongo[snappy]>=4.11.0,<5.0.0 ; extra == "snappy"
 Requires-Dist: pre-commit>=3.5.0 ; extra == "test"
 Requires-Dist: pytest>=8.3.3 ; extra == "test"
 Requires-Dist: pytest-asyncio>=0.24.0 ; extra == "test"
@@ -48,7 +47,7 @@ Requires-Dist: fastapi>=0.100 ; extra == "test"
 Requires-Dist: pydantic-settings>=2 ; extra == "test"
 Requires-Dist: pydantic-extra-types>=2 ; extra == "test"
 Requires-Dist: pydantic[email] ; extra == "test"
-Requires-Dist: motor[zstd]>=2.5.0,<4.0.0 ; extra == "zstd"
+Requires-Dist: pymongo[zstd]>=4.11.0,<5.0.0 ; extra == "zstd"
 Project-URL: homepage, https://beanie-odm.dev
 Project-URL: repository, https://github.com/roman-right/beanie
 Provides-Extra: aws
@@ -121,7 +120,7 @@ For more installation options (eg: `aws`, `gcp`, `srv` ...) you can look in the 
 import asyncio
 from typing import Optional
 
-from motor.motor_asyncio import AsyncIOMotorClient
+from pymongo import AsyncMongoClient
 from pydantic import BaseModel
 
 from beanie import Document, Indexed, init_beanie
@@ -141,8 +140,8 @@ class Product(Document):
 
 # This is an asynchronous example, so we will access it from an async function
 async def example():
-    # Beanie uses Motor async client under the hood 
-    client = AsyncIOMotorClient("mongodb://user:pass@host:27017")
+    # Beanie uses PyMongo async client under the hood
+    client = AsyncMongoClient("mongodb://user:pass@host:27017")
 
     # Initialize beanie with the Product document class
     await init_beanie(database=client.db_name, document_models=[Product])

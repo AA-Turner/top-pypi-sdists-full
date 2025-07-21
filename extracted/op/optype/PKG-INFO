@@ -1,27 +1,29 @@
 Metadata-Version: 2.4
 Name: optype
-Version: 0.12.0
+Version: 0.12.2
 Summary: Building blocks for precise & flexible type hints
-Project-URL: Repository, https://github.com/jorenham/optype/
-Project-URL: Documentation, https://github.com/jorenham/optype/blob/master/README.md
-Project-URL: Issues, https://github.com/jorenham/optype/issues
-Project-URL: Changelog, https://github.com/jorenham/optype/releases
-Project-URL: Funding, https://github.com/sponsors/jorenham
+Keywords: typing,type hints,numpy
+Author: Joren Hammudoglu
 Author-email: Joren Hammudoglu <jhammudoglu@gmail.com>
 License-Expression: BSD-3-Clause
 License-File: LICENSE
-Keywords: numpy,type hints,typing
 Classifier: Development Status :: 4 - Beta
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Typing :: Typed
+Requires-Dist: typing-extensions>=4.10 ; python_full_version < '3.13'
+Requires-Dist: numpy>=1.25 ; extra == 'numpy'
 Requires-Python: >=3.11
-Requires-Dist: typing-extensions>=4.10; python_version < '3.13'
+Project-URL: Changelog, https://github.com/jorenham/optype/releases
+Project-URL: Documentation, https://github.com/jorenham/optype/blob/master/README.md
+Project-URL: Funding, https://github.com/sponsors/jorenham
+Project-URL: Issues, https://github.com/jorenham/optype/issues
+Project-URL: Repository, https://github.com/jorenham/optype/
 Provides-Extra: numpy
-Requires-Dist: numpy>=1.25; extra == 'numpy'
 Description-Content-Type: text/markdown
 
 <h1 align="center">optype</h1>
@@ -114,7 +116,7 @@ See the [`optype.numpy` docs](#optypenumpy) for more info.
 
 ### Conda
 
-Optype can also be installed as with `conda` from the [`conda-forge`][CONDA] channel:
+Optype can also be installed with `conda` from the [`conda-forge`][CONDA] channel:
 
 ```shell
 conda install conda-forge::optype
@@ -242,23 +244,23 @@ The API of `optype` is flat; a single `import optype as opt` is all you need
 <!-- TOC start (generated with https://github.com/derlin/bitdowntoc) -->
 
 - [`optype`](#optype)
-    - [`Just`](#just)
-    - [Builtin type conversion](#builtin-type-conversion)
-    - [Rich relations](#rich-relations)
-    - [Binary operations](#binary-operations)
-    - [Reflected operations](#reflected-operations)
-    - [Inplace operations](#inplace-operations)
-    - [Unary operations](#unary-operations)
-    - [Rounding](#rounding)
-    - [Callables](#callables)
-    - [Iteration](#iteration)
-    - [Awaitables](#awaitables)
-    - [Async Iteration](#async-iteration)
-    - [Containers](#containers)
-    - [Attributes](#attributes)
-    - [Context managers](#context-managers)
-    - [Descriptors](#descriptors)
-    - [Buffer types](#buffer-types)
+  - [`Just`](#just)
+  - [Builtin type conversion](#builtin-type-conversion)
+  - [Rich relations](#rich-relations)
+  - [Binary operations](#binary-operations)
+  - [Reflected operations](#reflected-operations)
+  - [Inplace operations](#inplace-operations)
+  - [Unary operations](#unary-operations)
+  - [Rounding](#rounding)
+  - [Callables](#callables)
+  - [Iteration](#iteration)
+  - [Awaitables](#awaitables)
+  - [Async Iteration](#async-iteration)
+  - [Containers](#containers)
+  - [Attributes](#attributes)
+  - [Context managers](#context-managers)
+  - [Descriptors](#descriptors)
+  - [Buffer types](#buffer-types)
 - [`optype.copy`](#optypecopy)
 - [`optype.dataclasses`](#optypedataclasses)
 - [`optype.inspect`](#optypeinspect)
@@ -267,18 +269,18 @@ The API of `optype` is flat; a single `import optype as opt` is all you need
 - [`optype.pickle`](#optypepickle)<!-- - - [`optype.rick`](#optyperick) -->
 - [`optype.string`](#optypestring)
 - [`optype.typing`](#optypetyping)
-    - [`Any*` type aliases](#any-type-aliases)
-    - [`Empty*` type aliases](#empty-type-aliases)
-    - [Literal types](#literal-types)
+  - [`Any*` type aliases](#any-type-aliases)
+  - [`Empty*` type aliases](#empty-type-aliases)
+  - [Literal types](#literal-types)
 - [`optype.dlpack`](#optypedlpack)
 - [`optype.numpy`](#optypenumpy)
-    - [Shape-typing](#shape-typing)
-    - [Array-likes](#array-likes)
-    - [Literals](#literals)
-    - [`compat` submodule](#compat-submodule)
-    - [`random` submodule](#random-submodule)
-    - [`Any*Array` and `Any*DType`](#anyarray-and-anydtype)
-    - [Low-level interfaces](#low-level-interfaces)
+  - [Shape-typing](#shape-typing)
+  - [Array-likes](#array-likes)
+  - [Literals](#literals)
+  - [`compat` submodule](#compat-submodule)
+  - [`random` submodule](#random-submodule)
+  - [`Any*Array` and `Any*DType`](#anyarray-and-anydtype)
+  - [Low-level interfaces](#low-level-interfaces)
 
 <!-- TOC end -->
 
@@ -286,33 +288,28 @@ The API of `optype` is flat; a single `import optype as opt` is all you need
 
 There are five flavors of things that live within `optype`,
 
--
-    The `optype.Just[T]` and its `optype.Just{Int,Float,Complex}` subtypes only accept
-    instances of the type itself, while rejecting instances of strict subtypes.
-    This can be be used to e.g. work around the `float` and `complex`
-    [type promotions][BAD], annotating `object()` sentinels with `Just[object]`,
-    rejecting `bool` in functions that accept `int`, etc.
--
-    `optype.Can{}` types describe *what can be done* with it.
-    For instance, any `CanAbs[T]` type can be used as argument to the `abs()`
-    builtin function with return type `T`. Most `Can{}` implement a single
-    special method, whose name directly matched that of the type. `CanAbs`
-    implements `__abs__`, `CanAdd` implements `__add__`, etc.
--
-    `optype.Has{}` is the analogue of `Can{}`, but for special *attributes*.
-    `HasName` has a `__name__` attribute, `HasDict` has a `__dict__`, etc.
--
-    `optype.Does{}` describe the *type of operators*.
-    So `DoesAbs` is the type of the `abs({})` builtin function,
-    and `DoesPos` the type of the `+{}` prefix operator.
--
-    `optype.do_{}` are the correctly-typed implementations of `Does{}`. For
-    each `do_{}` there is a `Does{}`, and vice-versa.
-    So `do_abs: DoesAbs` is the typed alias of `abs({})`,
-    and `do_pos: DoesPos` is a typed version of `operator.pos`.
-    The `optype.do_` operators are more complete than `operators`,
-    have runtime-accessible type annotations, and have names you don't
-    need to know by heart.
+- The `optype.Just[T]` and its `optype.Just{Int,Float,Complex}` subtypes only accept
+  instances of the type itself, while rejecting instances of strict subtypes.
+  This can be used to e.g. work around the `float` and `complex`
+  [type promotions][BAD], annotating `object()` sentinels with `Just[object]`,
+  rejecting `bool` in functions that accept `int`, etc.
+- `optype.Can{}` types describe *what can be done* with it.
+  For instance, any `CanAbs[T]` type can be used as argument to the `abs()`
+  builtin function with return type `T`. Most `Can{}` implement a single
+  special method, whose name directly matches that of the type. `CanAbs`
+  implements `__abs__`, `CanAdd` implements `__add__`, etc.
+- `optype.Has{}` is the analogue of `Can{}`, but for special *attributes*.
+  `HasName` has a `__name__` attribute, `HasDict` has a `__dict__`, etc.
+- `optype.Does{}` describe the *type of operators*.
+  So `DoesAbs` is the type of the `abs({})` builtin function,
+  and `DoesPos` the type of the `+{}` prefix operator.
+- `optype.do_{}` are the correctly-typed implementations of `Does{}`. For
+  each `do_{}` there is a `Does{}`, and vice-versa.
+  So `do_abs: DoesAbs` is the typed alias of `abs({})`,
+  and `do_pos: DoesPos` is a typed version of `operator.pos`.
+  The `optype.do_` operators are more complete than `operators`,
+  have runtime-accessible type annotations, and have names you don't
+  need to know by heart.
 
 The reference docs are structured as follows:
 
@@ -332,7 +329,7 @@ type stubs.
 
 #### `Just`
 
-`Just` is in invariant type "wrapper", where `Just[T]` only accepts instances of `T`,
+`Just` is an invariant type "wrapper", where `Just[T]` only accepts instances of `T`,
 and rejects instances of any strict subtypes of `T`.
 
 Note that e.g. `Literal[""]` and `LiteralString` are not a strict `str` subtypes,
@@ -632,7 +629,7 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
         <td>
             <code>CanAdd[-T, +R = T]</code><br>
             <code>CanAddSelf[-T]</code><br>
-            <code>CanAddSame[-T?]</code>
+            <code>CanAddSame[-T?, +R?]</code>
         </td>
     </tr>
     <tr>
@@ -643,7 +640,7 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
         <td>
             <code>CanSub[-T, +R = T]</code><br>
             <code>CanSubSelf[-T]</code><br>
-            <code>CanSubSame[-T?]</code>
+            <code>CanSubSame[-T?, +R?]</code>
         </td>
     </tr>
     <tr>
@@ -654,7 +651,7 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
         <td>
             <code>CanMul[-T, +R = T]</code><br>
             <code>CanMulSelf[-T]</code><br>
-            <code>CanMulSame[-T?]</code>
+            <code>CanMulSame[-T?, +R?]</code>
         </td>
     </tr>
     <tr>
@@ -665,7 +662,7 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
         <td>
             <code>CanMatmul[-T, +R = T]</code><br>
             <code>CanMatmulSelf[-T]</code><br>
-            <code>CanMatmulSame[-T?]</code>
+            <code>CanMatmulSame[-T?, +R?]</code>
         </td>
     </tr>
     <tr>
@@ -676,7 +673,7 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
         <td>
             <code>CanTruediv[-T, +R = T]</code><br>
             <code>CanTruedivSelf[-T]</code><br>
-            <code>CanTruedivSame[-T?]</code>
+            <code>CanTruedivSame[-T?, +R?]</code>
         </td>
     </tr>
     <tr>
@@ -687,7 +684,7 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
         <td>
             <code>CanFloordiv[-T, +R = T]</code><br>
             <code>CanFloordivSelf[-T]</code><br>
-            <code>CanFloordivSame[-T?]</code>
+            <code>CanFloordivSame[-T?, +R?]</code>
         </td>
     </tr>
     <tr>
@@ -698,7 +695,7 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
         <td>
             <code>CanMod[-T, +R = T]</code><br>
             <code>CanModSelf[-T]</code><br>
-            <code>CanModSame[-T?]</code>
+            <code>CanModSame[-T?, +R?]</code>
         </td>
     </tr>
     <tr>
@@ -719,7 +716,7 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
         <td>
             <code>CanPow2[-T, +R = T]</code><br>
             <code>CanPowSelf[-T]</code><br>
-            <code>CanPowSame[-T?]</code>
+            <code>CanPowSame[-T?, +R?]</code>
         </td>
     </tr>
     <tr>
@@ -737,7 +734,7 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
         <td>
             <code>CanLshift[-T, +R = T]</code><br>
             <code>CanLshiftSelf[-T]</code><br>
-            <code>CanLshiftSame[-T?]</code>
+            <code>CanLshiftSame[-T?, +R?]</code>
         </td>
     </tr>
     <tr>
@@ -748,7 +745,7 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
         <td>
             <code>CanRshift[-T, +R = T]</code><br>
             <code>CanRshiftSelf[-T]</code><br>
-            <code>CanRshiftSame[-T?]</code>
+            <code>CanRshiftSame[-T?, +R?]</code>
         </td>
     </tr>
     <tr>
@@ -759,7 +756,7 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
         <td>
             <code>CanAnd[-T, +R = T]</code><br>
             <code>CanAndSelf[-T]</code><br>
-            <code>CanAndSame[-T?]</code>
+            <code>CanAndSame[-T?, +R?]</code>
         </td>
     </tr>
     <tr>
@@ -770,7 +767,7 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
         <td>
             <code>CanXor[-T, +R = T]</code><br>
             <code>CanXorSelf[-T]</code><br>
-            <code>CanXorSame[-T?]</code>
+            <code>CanXorSame[-T?, +R?]</code>
         </td>
     </tr>
     <tr>
@@ -781,7 +778,7 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
         <td>
             <code>CanOr[-T, +R = T]</code><br>
             <code>CanOrSelf[-T]</code><br>
-            <code>CanOrSame[-T?]</code>
+            <code>CanOrSame[-T?, +R?]</code>
         </td>
     </tr>
 </table>
@@ -796,12 +793,12 @@ Classifying them "arithmetic" is, at the very least, a bit of a stretch.
 <!-- markdownlints needs this -->
 
 > [!NOTE]
-> The `Can*Self` protocols method return `typing.Self` and accept `T`. The
-> `Can*Same` protocols also return `Self`, but instead accept `Self | T`, with `T` an
-> optional generic contravariant type parameter.
+> The `Can*Self` protocols method return `typing.Self` and optionally accept `T` and
+> `R`. The `Can*Same` protocols also return `Self`, but instead accept `Self | T`, with
+> `T` and `R` optional generic type parameters that default to `typing.Never`.
 > To illustrate, `CanAddSelf[T]` implements `__add__` as `(self, rhs: T, /) -> Self`,
-> while `CanAddSame[T]` implements it as `(self, rhs: Self | T, /) -> Self`, and
-> `CanAddSame` (without `T`) as `(self, rhs: Self, /) -> Self`.
+> while `CanAddSame[T, R]` implements it as `(self, rhs: Self | T, /) -> Self | R`, and
+> `CanAddSame` (without `T` and `R`) as `(self, rhs: Self, /) -> Self`.
 
 #### Reflected operations
 
@@ -970,8 +967,9 @@ They are named like the original, but prefixed with `CanR` prefix, i.e.
 > reflect in Python.
 >
 > According to the relevant [python docs][RPOW]:
-> > Note that ternary `pow()` will not try calling `__rpow__()` (the coercion
-> > rules would become too complicated).
+>
+>> Note that ternary `pow()` will not try calling `__rpow__()` (the coercion
+>> rules would become too complicated).
 
 [RPOW]: https://docs.python.org/3/reference/datamodel.html#object.__rpow__
 
@@ -999,7 +997,8 @@ Similar to the reflected ops, the inplace/augmented ops are prefixed with
         <td><code>__iadd__</code></td>
         <td>
             <code>CanIAdd[-T, +R]</code><br>
-            <code>CanIAddSelf[-T]</code>
+            <code>CanIAddSelf[-T]</code><br>
+            <code>CanIAddSame[-T?]</code>
         </td>
     </tr>
     <tr>
@@ -1009,7 +1008,8 @@ Similar to the reflected ops, the inplace/augmented ops are prefixed with
         <td><code>__isub__</code></td>
         <td>
             <code>CanISub[-T, +R]</code><br>
-            <code>CanISubSelf[-T]</code>
+            <code>CanISubSelf[-T]</code><br>
+            <code>CanISubSame[-T?]</code>
         </td>
     </tr>
     <tr>
@@ -1019,7 +1019,8 @@ Similar to the reflected ops, the inplace/augmented ops are prefixed with
         <td><code>__imul__</code></td>
         <td>
             <code>CanIMul[-T, +R]</code><br>
-            <code>CanIMulSelf[-T]</code>
+            <code>CanIMulSelf[-T]</code><br>
+            <code>CanIMulSame[-T?]</code>
         </td>
     </tr>
     <tr>
@@ -1029,7 +1030,8 @@ Similar to the reflected ops, the inplace/augmented ops are prefixed with
         <td><code>__imatmul__</code></td>
         <td>
             <code>CanIMatmul[-T, +R]</code><br>
-            <code>CanIMatmulSelf[-T]</code>
+            <code>CanIMatmulSelf[-T]</code><br>
+            <code>CanIMatmulSame[-T?]</code>
         </td>
     </tr>
     <tr>
@@ -1039,7 +1041,8 @@ Similar to the reflected ops, the inplace/augmented ops are prefixed with
         <td><code>__itruediv__</code></td>
         <td>
             <code>CanITruediv[-T, +R]</code><br>
-            <code>CanITruedivSelf[-T]</code>
+            <code>CanITruedivSelf[-T]</code><br>
+            <code>CanITruedivSame[-T?]</code>
         </td>
     </tr>
     <tr>
@@ -1049,7 +1052,8 @@ Similar to the reflected ops, the inplace/augmented ops are prefixed with
         <td><code>__ifloordiv__</code></td>
         <td>
             <code>CanIFloordiv[-T, +R]</code><br>
-            <code>CanIFloordivSelf[-T]</code>
+            <code>CanIFloordivSelf[-T]</code><br>
+            <code>CanIFloordivSame[-T?]</code>
         </td>
     </tr>
     <tr>
@@ -1059,7 +1063,8 @@ Similar to the reflected ops, the inplace/augmented ops are prefixed with
         <td><code>__imod__</code></td>
         <td>
             <code>CanIMod[-T, +R]</code><br>
-            <code>CanIModSelf[-T]</code>
+            <code>CanIModSelf[-T]</code><br>
+            <code>CanIModSame[-T?]</code>
         </td>
     </tr>
     <tr>
@@ -1069,7 +1074,8 @@ Similar to the reflected ops, the inplace/augmented ops are prefixed with
         <td><code>__ipow__</code></td>
         <td>
             <code>CanIPow[-T, +R]</code><br>
-            <code>CanIPowSelf[-T]</code>
+            <code>CanIPowSelf[-T]</code><br>
+            <code>CanIPowSame[-T?]</code>
         </td>
     </tr>
     <tr>
@@ -1079,7 +1085,8 @@ Similar to the reflected ops, the inplace/augmented ops are prefixed with
         <td><code>__ilshift__</code></td>
         <td>
             <code>CanILshift[-T, +R]</code><br>
-            <code>CanILshiftSelf[-T]</code>
+            <code>CanILshiftSelf[-T]</code><br>
+            <code>CanILshiftSame[-T?]</code>
         </td>
     </tr>
     <tr>
@@ -1089,7 +1096,8 @@ Similar to the reflected ops, the inplace/augmented ops are prefixed with
         <td><code>__irshift__</code></td>
         <td>
             <code>CanIRshift[-T, +R]</code><br>
-            <code>CanIRshiftSelf[-T]</code>
+            <code>CanIRshiftSelf[-T]</code><br>
+            <code>CanIRshiftSame[-T?]</code>
         </td>
     </tr>
     <tr>
@@ -1099,7 +1107,8 @@ Similar to the reflected ops, the inplace/augmented ops are prefixed with
         <td><code>__iand__</code></td>
         <td>
             <code>CanIAnd[-T, +R]</code><br>
-            <code>CanIAndSelf[-T]</code>
+            <code>CanIAndSelf[-T]</code><br>
+            <code>CanIAndSame[-T?]</code>
         </td>
     </tr>
     <tr>
@@ -1109,7 +1118,8 @@ Similar to the reflected ops, the inplace/augmented ops are prefixed with
         <td><code>__ixor__</code></td>
         <td>
             <code>CanIXor[-T, +R]</code><br>
-            <code>CanIXorSelf[-T]</code>
+            <code>CanIXorSelf[-T]</code><br>
+            <code>CanIXorSame[-T?]</code>
         </td>
     </tr>
     <tr>
@@ -1119,17 +1129,26 @@ Similar to the reflected ops, the inplace/augmented ops are prefixed with
         <td><code>__ior__</code></td>
         <td>
             <code>CanIOr[-T, +R]</code><br>
-            <code>CanIOrSelf[-T]</code>
+            <code>CanIOrSelf[-T]</code><br>
+            <code>CanIOrSame[-T?]</code>
         </td>
     </tr>
 </table>
 
-These inplace operators usually return itself (after some in-place mutation).
+These inplace operators usually return themselves (after some in-place mutation).
 But unfortunately, it currently isn't possible to use `Self` for this (i.e.
 something like `type MyAlias[T] = optype.CanIAdd[T, Self]` isn't allowed).
 So to help ease this unbearable pain, `optype` comes equipped with ready-made
 aliases for you to use. They bear the same name, with an additional `*Self`
 suffix, e.g. `optype.CanIAddSelf[T]`.
+
+> [!NOTE]
+> The `CanI*Self` protocols method return `typing.Self` and optionally accept `T`. The
+> `CanI*Same` protocols also return `Self`, but instead accept `rhs: Self | T`. Since
+> `T` defaults to `Never`, it will accept `rhs: Self | Never` if `T` is not provided,
+> which is equivalent to `rhs: Self`.
+>
+> *Available since `0.12.1`*
 
 #### Unary operations
 
@@ -1152,7 +1171,7 @@ suffix, e.g. `optype.CanIAddSelf[T]`.
         <td><code>__pos__</code></td>
         <td>
             <code>CanPos[+R]</code><br>
-            <code>CanPosSelf</code>
+            <code>CanPosSelf[+R?]</code>
         </td>
     </tr>
     <tr>
@@ -1162,7 +1181,7 @@ suffix, e.g. `optype.CanIAddSelf[T]`.
         <td><code>__neg__</code></td>
         <td>
             <code>CanNeg[+R]</code><br>
-            <code>CanNegSelf</code>
+            <code>CanNegSelf[+R?]</code>
         </td>
     </tr>
     <tr>
@@ -1172,7 +1191,7 @@ suffix, e.g. `optype.CanIAddSelf[T]`.
         <td><code>__invert__</code></td>
         <td>
             <code>CanInvert[+R]</code><br>
-            <code>CanInvertSelf</code>
+            <code>CanInvertSelf[+R?]</code>
         </td>
     </tr>
     <tr>
@@ -1182,10 +1201,14 @@ suffix, e.g. `optype.CanIAddSelf[T]`.
         <td><code>__abs__</code></td>
         <td>
             <code>CanAbs[+R]</code><br>
-            <code>CanAbsSelf</code>
+            <code>CanAbsSelf[+R?]</code>
         </td>
     </tr>
 </table>
+
+The `Can*Self` variants return `-> Self` instead of `R`. Since optype 0.12.1 these
+also accept an optional `R` type parameter (with a default of `Never`), which, when
+provided, will result in a return type of `-> Self | R`.
 
 #### Rounding
 
@@ -1282,14 +1305,14 @@ Furthermore, there are the alternative rounding functions from the
 
 Almost all implementations use `int` for `R`.
 In fact, if no type for `R` is specified, it will default in `int`.
-But technially speaking, these methods can be made to return anything.
+But technically speaking, these methods can be made to return anything.
 
 [MATH]: https://docs.python.org/3/library/math.html
 [NT]: https://docs.python.org/3/reference/datamodel.html#emulating-numeric-types
 
 #### Callables
 
-Unlike `operator`, `optype` provides the operator for callable objects:
+Unlike `operator`, `optype` provides an operator for callable objects:
 `optype.do_call(f, *args. **kwargs)`.
 
 `CanCall` is similar to `collections.abc.Callable`, but is runtime-checkable,
@@ -1350,7 +1373,7 @@ So even if the overhead of the inheritance and the `abc.ABC` usage is ignored,
 `collections.abc.Iterator` is twice as slow as it needs to be.
 
 That's one of the (many) reasons that `optype.CanNext[V]` and
-`optype.CanNext[V]` are the better alternatives to `Iterable` and `Iterator`
+`optype.CanIter[R]` are the better alternatives to `Iterable` and `Iterator`
 from the abracadabra collections. This is how they are defined:
 
 <table>
@@ -1389,7 +1412,7 @@ nonsense.
 
 #### Awaitables
 
-The `optype` is almost the same as `collections.abc.Awaitable[R]`, except
+The `optype.CanAwait[R]` is almost the same as `collections.abc.Awaitable[R]`, except
 that `optype.CanAwait[R]` is a pure interface, whereas `Awaitable` is
 also an abstract base class (making it absolutely useless when writing stubs).
 
@@ -1448,8 +1471,7 @@ But fret not; the `optype` alternatives are right here:
 But wait, shouldn't `V` be a `CanAwait`? Well, only if you don't want to get
 fired...
 Technically speaking, `__anext__` can return any type, and `anext` will pass
-it along without nagging (instance checks are slow, now stop bothering that
-liberal). For details, see the discussion at [python/typeshed#7491][AN].
+it along without nagging. For details, see the discussion at [python/typeshed#7491][AN].
 Just because something is legal, doesn't mean it's a good idea (don't eat the
 yellow snow).
 
@@ -1529,7 +1551,7 @@ Additionally, there is `optype.CanAIterSelf[R]`, with both the
     </tr>
     <tr>
         <td><code>reversed(_)</code></td>
-        <td><code>do_reversed</code></td></td>
+        <td><code>do_reversed</code></td>
         <td><code>DoesReversed</code></td>
         <td><code>__reversed__</code></td>
         <td>
@@ -1882,7 +1904,7 @@ therefore be treated equally:
 (<class 'str'>, <class 'bytes'>)
 ```
 
-Clearly, `typing.get_args` fails misarably here; it would have been better
+Clearly, `typing.get_args` fails miserably here; it would have been better
 if it would have raised an error, but it instead returns an empty tuple,
 hiding the fact that it doesn't support the new `type _ = ...` aliases.
 But luckily, `optype.inspect.get_args` doesn't have this problem, and treats
@@ -2047,8 +2069,8 @@ are accessible at runtime, and use a consistent naming scheme.
     </tr>
     <tr>
         <td><code>CanFlush[+RT = object]</code></td>
-        <td><code>write: (T) -> RT</code></td>
-        <td><code>_typeshed.SupportsWrite</code></td>
+        <td><code>flush: () -> RT</code></td>
+        <td><code>_typeshed.SupportsFlush</code></td>
     </tr>
     <tr>
         <td><code>CanFileno</code></td>
@@ -3217,7 +3239,7 @@ denoted as [ufuncs][DOC-UFUNC], which are (callable) instances of
 > Custom ufuncs can be created using [`np.frompyfunc`][REF_FROMPY], but also
 > through a user-defined class that implements the required attributes and
 > methods (i.e., duck typing).
->
+
 But `np.ufunc` has a big issue; it accepts no type parameters.
 This makes it very difficult to properly annotate its callable signature and
 its literal attributes (e.g. `.nin` and `.identity`).
@@ -3367,7 +3389,7 @@ See the [docs][REF-SCT] for more info on the NumPy scalar type hierarchy.
     <tr>
 <td>
 
-`uint_` [^5]
+`uint_`[^5]
 
 </td>
         <td rowspan="9"><code>unsignedinteger</code></td>
@@ -3454,7 +3476,7 @@ See the [docs][REF-SCT] for more info on the NumPy scalar type hierarchy.
     <tr>
 <td>
 
-`int_` [^5]
+`int_`[^5]
 
 </td>
         <td rowspan="9"><code>signedinteger</code></td>
@@ -3524,7 +3546,9 @@ See the [docs][REF-SCT] for more info on the NumPy scalar type hierarchy.
 </table>
 
 [^5]: Since NumPy 2, `np.uint` and `np.int_` are aliases for `np.uintp` and `np.intp`, respectively.
+
 [^6]: On unix-based platforms `np.[u]intc` are aliases for `np.[u]int32`.
+
 [^7]: On NumPy 1 `np.uint` and `np.int_` are what in NumPy 2 are now the `np.ulong` and `np.long` types, respectively.
 
 ##### Real floats
@@ -3789,12 +3813,14 @@ class CanArray[
 <td>
 
 <!-- blacken-docs:off -->
+
 ```python
 def __array__[RT = ST](
     _,
     dtype: DType[RT] | None = ...,
 ) -> Array[ND, RT]
 ```
+
 <!-- blacken-docs:on -->
 
 </td>
@@ -3902,6 +3928,7 @@ class CanArrayWrap: ...
 <td>
 
 <!-- blacken-docs:off -->
+
 ```python
 def __array_wrap__[ND, ST](
     _,
@@ -3910,6 +3937,7 @@ def __array_wrap__[ND, ST](
     return_scalar: bool = ...,
 ) -> Self | Array[ND, ST]
 ```
+
 <!-- blacken-docs:on -->
 
 </td>
@@ -3996,22 +4024,17 @@ dtype: DT
 [DOC-UFUNC]: https://numpy.org/doc/stable/reference/ufuncs.html
 [DOC-ARRAY]: https://numpy.org/doc/stable/user/basics.interoperability.html#the-array-method
 [DOC-AFIN]: https://numpy.org/doc/stable/user/basics.subclassing.html#the-role-of-array-finalize
-
 [REF_UFUNC]: https://numpy.org/doc/stable/reference/generated/numpy.ufunc.html
 [REF_FROMPY]: https://numpy.org/doc/stable/reference/generated/numpy.frompyfunc.html
 [REF_ARRAY-WRAP]: https://numpy.org/doc/stable/reference/arrays.classes.html#numpy.class.__array_wrap__
 [REF_ARRAY-INTER]: https://numpy.org/doc/stable/reference/arrays.interface.html#python-side
 [REF_ARRAY-PRIO]: https://numpy.org/doc/stable/reference/arrays.classes.html#numpy.class.__array_priority__
 [REF_DTYPE]: https://numpy.org/doc/stable/reference/arrays.dtypes.html#specifying-and-constructing-data-types
-
 [CODE-NP-TO]: https://github.com/jorenham/optype/blob/master/optype/numpy/_to.py
-
 [NEP13]: https://numpy.org/neps/nep-0013-ufunc-overrides.html
 [NEP18]: https://numpy.org/neps/nep-0018-array-function-protocol.html
 [NEP29]: https://numpy.org/neps/nep-0029-deprecation_policy.html
-
 [SPEC0]: https://scientific-python.org/specs/spec-0000/
-
 [PEP695]: https://peps.python.org/pep-0695/
 [PEP696]: https://peps.python.org/pep-0696/
 [PEP742]: https://peps.python.org/pep-0742/

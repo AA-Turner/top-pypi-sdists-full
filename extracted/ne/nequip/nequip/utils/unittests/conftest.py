@@ -13,7 +13,7 @@ from ase.io import write
 
 import torch
 
-from nequip.data import AtomicDataDict, from_ase, compute_neighborlist_
+from nequip.data import AtomicDataDict, from_ase
 from nequip.data.dataset import ASEDataset
 from nequip.data.transforms import (
     ChemicalSpeciesToAtomTypeMapper,
@@ -103,10 +103,9 @@ def CH3CHO(CH3CHO_no_typemap) -> Tuple[Atoms, AtomicDataDict.Type]:
 @pytest.fixture(scope="function")
 def CH3CHO_no_typemap(default_dtype) -> Tuple[Atoms, AtomicDataDict.Type]:
     atoms = molecule("CH3CHO")
-    data = compute_neighborlist_(
-        from_ase(atoms),
-        r_max=2.0,
-    )
+    data = from_ase(atoms)
+    nl = NeighborListTransform(r_max=2.0)
+    data = nl(data)
     return atoms, data
 
 
@@ -114,11 +113,12 @@ def CH3CHO_no_typemap(default_dtype) -> Tuple[Atoms, AtomicDataDict.Type]:
 def Cu_bulk(default_dtype) -> Tuple[Atoms, AtomicDataDict.Type]:
     atoms = bulk("Cu") * (2, 2, 1)
     atoms.rattle()
-    data = compute_neighborlist_(from_ase(atoms), r_max=3.5, NL="ase")
+    data = from_ase(atoms)
     tm = ChemicalSpeciesToAtomTypeMapper(
         chemical_symbols=["Cu"],
     )
-    data = tm(data)
+    nl = NeighborListTransform(r_max=3.5)
+    data = nl(tm(data))
     return atoms, data
 
 
@@ -159,6 +159,31 @@ def nequip_dataset(molecules):
 @pytest.fixture(scope="session")
 def atomic_batch(nequip_dataset):
     return AtomicDataDict.batched_from_list([nequip_dataset[0], nequip_dataset[1]])
+
+
+@pytest.fixture(scope="session")
+def diamond_carbon(default_dtype) -> AtomicDataDict.Type:
+    """Batched diamond structure carbon bulk for testing."""
+    data_list = []
+    for size in [(1, 1, 1), (2, 1, 1), (2, 2, 2)]:
+        atoms = bulk("C", crystalstructure="diamond", a=3.57) * size
+        atoms.rattle(stdev=0.1)
+        atoms.calc = SinglePointCalculator(
+            energy=np.random.random(),
+            forces=np.random.random((len(atoms), 3)),
+            stress=None,
+            magmoms=None,
+            atoms=atoms,
+        )
+        data = from_ase(atoms)
+        tm = ChemicalSpeciesToAtomTypeMapper(
+            chemical_symbols=["H", "C", "O"],
+        )
+        nl = NeighborListTransform(r_max=3.5)
+        data = nl(tm(data))
+        data_list.append(data)
+
+    return AtomicDataDict.batched_from_list(data_list)
 
 
 # Use debug mode

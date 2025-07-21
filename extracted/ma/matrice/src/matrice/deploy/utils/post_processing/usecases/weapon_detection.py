@@ -411,7 +411,7 @@ class WeaponDetectionUseCase(BaseProcessor):
         human_text = "\n".join(human_text_lines)
 
         tracking_stat = {
-            "type": "weapon_tracking",
+            "type": "weapon_detection",
             "category": "security",
             "count": total_detections,
             "insights": insights,
