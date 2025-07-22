@@ -40,8 +40,17 @@ from .gender_detection import GenderDetectionUseCase, GenderDetectionConfig
 from .weapon_detection import WeaponDetectionConfig,WeaponDetectionUseCase
 from .concrete_crack_detection import ConcreteCrackUseCase, ConcreteCrackConfig
 from .fashion_detection import FashionDetectionUseCase, FashionDetectionConfig
+
 from .warehouse_object_segmentation import WarehouseObjectUseCase, WarehouseObjectConfig
 from .shopping_cart_analysis import ShoppingCartUseCase, ShoppingCartConfig
+
+from .shoplifting_detection import ShopliftingDetectionConfig, ShopliftingDetectionUseCase
+from .defect_detection_products import BottleDefectUseCase, BottleDefectConfig
+from .assembly_line_detection import AssemblyLineUseCase, AssemblyLineConfig
+from .anti_spoofing_detection import AntiSpoofingDetectionConfig, AntiSpoofingDetectionUseCase
+from .shelf_inventory_detection import ShelfInventoryUseCase,ShelfInventoryConfig
+from .car_part_segmentation import CarPartSegmentationUseCase, CarPartSegmentationConfig
+from .road_lane_detection import LaneDetectionConfig , LaneDetectionUseCase
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -53,6 +62,7 @@ __all__ = [
     'PPEComplianceUseCase',
     'BananaMonitoringUseCase',
     'VehicleMonitoringUseCase',
+    'ShopliftingDetectionUseCase',
     'ParkingSpaceUseCase',
     'FireSmokeUseCase',
     'MaskDetectionUseCase',
@@ -79,6 +89,12 @@ __all__ = [
     'FashionDetectionUseCase',
     'WarehouseObjectUseCase',
     'ShoppingCartUseCase',
+    'BottleDefectUseCase',
+    'AssemblyLineUseCase',
+    'AntiSpoofingDetectionUseCase',
+    'ShelfInventoryUseCase',
+    'CarPartSegmentationUseCase',
+    'LaneDetectionUseCase',
     'PeopleCountingConfig',
     'ParkingSpaceConfig',
     'CustomerServiceConfig',
@@ -90,6 +106,7 @@ __all__ = [
     'CarDamageConfig',
     'CarDamageConfig',
     'VehicleMonitoringConfig',
+    'ShopliftingDetectionConfig',
     'FireSmokeConfig',
     'FlareAnalysisConfig',
     'FaceEmotionConfig',
@@ -112,5 +129,11 @@ __all__ = [
     'ConcreteCrackConfig',
     'FashionDetectionConfig',
     'WarehouseObjectConfig',
-    'ShoppingCartConfig'
+    'ShoppingCartConfig',
+    'BottleDefectConfig',
+    'AssemblyLineConfig',
+    'AntiSpoofingDetectionConfig',
+    'ShelfInventoryConfig',
+    'CarPartSegmentationConfig',
+    'LaneDetectionConfig',
 ]

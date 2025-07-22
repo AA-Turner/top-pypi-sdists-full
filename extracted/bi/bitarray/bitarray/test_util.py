@@ -177,22 +177,33 @@ class Random_P_Tests(unittest.TestCase):
             self.assertEqual(len(a), n)
             self.assertTrue(abs(a.count() - n * p) < max(4, 10 * sigma))
 
-    @skipIf(_RandomP().M != 8)
-    def test_seed(self):
-        _set_default_endian("little")
-        seed(1234)
+    def collect_code_branches(self):
+        # return list of bitarrays from all code branches of random_p()
+        res = []
         # for default p=0.5, random_p uses randbytes
-        self.assertEqual(random_p(32),
-                         bitarray('10011101111111101001011011101111'))
+        res.append(random_p(32))
         # test small p
-        a = random_p(5000, 0.001)
-        self.assertEqual(list(a.search(1)), [286, 687, 806, 2905])
-        # general case
-        self.assertEqual(random_p(100, 0.7)[:32],
-                         bitarray('10101111001010110010111111000111'))
+        res.append(random_p(5_000, 0.002))
         # small n (note that p=0.4 will call the "literal definition" case)
-        self.assertEqual(random_p(15, 0.4), bitarray('00010100 0110001'))
-        # initialize with current system time again
+        res.append(random_p(15, 0.4))
+        # general cases
+        for p in 0.1, 0.2, 0.375, 0.4999, 0.7:
+            res.append(random_p(150, p))
+        return res
+
+    def test_seed(self):
+        # We ensure that after setting a seed value, random_p() will always
+        # return the same random bitarrays.  However, we do not ensure that
+        # these results will not change in future versions of bitarray.
+        _set_default_endian("little")
+        a = []
+        for val in 123456, 123457, 123456, 123457:
+            seed(val)
+            a.append(self.collect_code_branches())
+        self.assertEqual(a[0], a[2])
+        self.assertEqual(a[1], a[3])
+        self.assertNotEqual(a[0], a[1])
+        # initialize seed with current system time again
         seed()
 
     # ---------------- tests for internal _RandomP methods ------------------
@@ -201,75 +212,16 @@ class Random_P_Tests(unittest.TestCase):
 
     r = _RandomP()
 
-    def test_constants(self):
-        # The purpose of this test function is to establish that
-        #
-        #     SMALL_P  >  1.0 / (K / 2 + 1)
-        #
-        # where K is the number of probability intervals (K = 1 << M).
-
+    def test_small_p_limit(self):
         K = self.r.K
         SMALL_P = self.r.SMALL_P
 
-        # Ensure the small p case filters out i = 0 for get_op_seq().
-        i = int(SMALL_P * K)
-        self.assertTrue(i > 0)
-        # So SMALL_P must the larger than the interval span:
-        self.assertTrue(SMALL_P > 1.0 / K)
-        # However, this limit is exceeded by the following (larger) limit.
+        # see VerificationTests in ./examples/test_random.py
+        limit = 1.0 / (K + 1)  # lower limit for p
+        self.assertTrue(SMALL_P > limit)
 
-        # Ensure we hit the small p case when calling random_p() itself.
-        # This would be problematic as it could cause a self recursive loop.
-        # We consider p just below 1/2:
-        p = 0.5 - 1e-16
-        q = int(p * K) / K
-        self.assertEqual(q, 0.5 - 1.0 / K)
-        self.assertEqual(q, (K / 2 - 1) / K)
-        x = (0.5 - q) / (1.0 - q)  # see below
-        self.assertEqual(x, 1.0 / (K / 2 + 1))
-        self.assertTrue(x < SMALL_P, x)
-        # So SMALL_P must the larger than:
-        self.assertTrue(SMALL_P > 1.0 / (K / 2 + 1))
-
-    def test_final_OR(self):
-        # The purpose of this test function is to ensure the final OR step
-        # in .random_p() always gives us the correct probability.
-
-        K = self.r.K
-        SMALL_P = self.r.SMALL_P
-
-        special_p = [0.0, 1e-16, SMALL_P - 1e-16, SMALL_P,
-                     0.25 - 1e-16, 0.25, 1.0 / 3, 0.5 - 1e-16, 0.5]
-        for j in range(1000):
-            try:
-                p = special_p[j]
-            except IndexError:
-                p = 0.5 * random()  # 0.0 <= p < 0.5
-
-            q = int(p * K) / K
-            self.assertTrue(q <= p)
-            self.assertTrue(0.0 <= p - q < 1.0 / K)
-
-            r = math.fmod(p, 1.0 / K)  # remainder (not used in util.py)
-            self.assertEqual(q + r, p)
-            self.assertEqual(bool(r), q < p)
-
-            if q < p:
-                # calculated such that q will equal to p
-                x = (p - q) / (1.0 - q)
-                self.assertEqual(r / (1.0 - p + r), x)
-                # Ensure we hit the small p case when calling random_p()
-                # itself.  Considering p = 0.5-1e-16, we have q = 127/256,
-                # so the maximal x is given by:
-                # x = (0.5 - q) / (1 - q) = 1 / 129 = 0.0077519 < 0.01
-                self.assertTrue(0.0 < x < SMALL_P, x)
-                q += x * (1.0 - q)   # q = 1 - (1 - q) * (1 - x)
-
-            # ensure desired probability q is p
-            self.assertEqual(q, p)
-
-    def test_get_op_seq(self):
-        G = self.r.get_op_seq
+    def test_op_seq(self):
+        G = self.r.op_seq
         K = self.r.K
         M = self.r.M
 
@@ -298,7 +250,7 @@ class Random_P_Tests(unittest.TestCase):
             self.assertTrue(0 <= len(s) < M)
             q = 0.5                        # a = random_half()
             for k in seq:
-                # k=0: and operation    k=1: or operation
+                # k=0: AND    k=1: OR
                 if k:
                     q += 0.5 * (1.0 - q)   # a |= random_half()
                 else:
@@ -902,6 +854,9 @@ class ByteswapTests(unittest.TestCase, Util):
     def test_basic_array(self):
         r = os.urandom(64)
         for typecode in array.typecodes:
+            # type code 'u' is deprecated and will be removed in Python 3.16
+            if typecode == 'u':
+                continue
             a = array.array(typecode, r)
             self.assertEqual(len(a) * a.itemsize, 64)
             a.byteswap()
@@ -2132,7 +2087,8 @@ class IntegerizationTests(unittest.TestCase, Util):
 class MixedTests(unittest.TestCase, Util):
 
     def test_bin(self):
-        for i in range(100):
+        for _ in range(20):
+            i = randrange(1000)
             s = bin(i)
             self.assertEqual(s[:2], '0b')
             a = bitarray(s[2:], 'big')
@@ -2142,7 +2098,8 @@ class MixedTests(unittest.TestCase, Util):
             self.assertEqual(eval(t), i)
 
     def test_oct(self):
-        for i in range(1000):
+        for _ in range(20):
+            i = randrange(1000)
             s = oct(i)
             self.assertEqual(s[:2], '0o')
             a = base2ba(8, s[2:], 'big')
@@ -2152,7 +2109,8 @@ class MixedTests(unittest.TestCase, Util):
             self.assertEqual(eval(t), i)
 
     def test_hex(self):
-        for i in range(1000):
+        for _ in range(20):
+            i = randrange(1000)
             s = hex(i)
             self.assertEqual(s[:2], '0x')
             a = hex2ba(s[2:], 'big')

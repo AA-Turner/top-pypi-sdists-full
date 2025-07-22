@@ -20,7 +20,7 @@ from tinybird.tb_cli_modules.config import CLIConfig
 if TYPE_CHECKING:
     from tinybird.connectors import Connector
 
-from tinybird.datafile import get_name_version, wait_job
+from tinybird.datafile_common import get_name_version, wait_job
 from tinybird.feedback_manager import FeedbackManager
 from tinybird.tb_cli_modules.branch import warn_if_in_live
 from tinybird.tb_cli_modules.cli import cli

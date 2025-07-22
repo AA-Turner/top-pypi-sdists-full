@@ -68,7 +68,7 @@ def get_module_obj(instance: any, obj: any):
     Returns:
         any: The retrieved object.
     """
-    return getattr(module, obj)
+    return getattr(instance, obj)
 
 def spec_type_mod(obj: any, st: str) -> bool:
     """

@@ -564,7 +564,8 @@ class DistractedDriverUseCase(BaseProcessor):
             "human_text": human_text,
             "track_ids_info": track_ids_info,
             "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-            "local_frame_id": frame_key
+            "local_frame_id": frame_key,
+            "detections": counting_summary.get("detections", []) 
         }
 
         frame_tracking_stats.append(tracking_stat)

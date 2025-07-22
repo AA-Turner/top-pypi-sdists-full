@@ -155,7 +155,7 @@ def print_or_log(message, logger=True, level="info"):
     stacklevel that points directly at that same caller.
     """
     # 1) Find the first frame index outside logging_utils (and also outside the logging stdlib).
-
+    caller_path,caller_frame = get_caller_info()
     # e.g. "/home/joe/project/app/routes.py"
     bpName = os.path.splitext(os.path.basename(caller_path))[0]
     del caller_frame

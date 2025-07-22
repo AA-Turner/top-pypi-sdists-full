@@ -165,14 +165,14 @@ class OracleDbAzureKeyClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/get_oracle_db_azure_key.py.html>`__ to see an example of how to use get_oracle_db_azure_key API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/get_oracle_db_azure_key.py.html>`__ to see an example of how to use get_oracle_db_azure_key API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureKeyId']
         resource_path = "/oracleDbAzureKey/{oracleDbAzureKeyId}"
         method = "GET"
         operation_name = "get_oracle_db_azure_key"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureKey/GetOracleDbAzureKey"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -315,14 +315,14 @@ class OracleDbAzureKeyClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/list_oracle_db_azure_keys.py.html>`__ to see an example of how to use list_oracle_db_azure_keys API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/list_oracle_db_azure_keys.py.html>`__ to see an example of how to use list_oracle_db_azure_keys API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/oracleDbAzureKey"
         method = "GET"
         operation_name = "list_oracle_db_azure_keys"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureKey/ListOracleDbAzureKeys"
 
         # Don't accept unknown kwargs
         expected_kwargs = [

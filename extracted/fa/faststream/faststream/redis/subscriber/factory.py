@@ -1,8 +1,10 @@
-from typing import TYPE_CHECKING, Iterable, Optional, Sequence, Union
+import warnings
+from typing import TYPE_CHECKING, Iterable, Optional, Sequence, Type, Union
 
 from typing_extensions import TypeAlias
 
 from faststream.exceptions import SetupError
+from faststream.redis.parser import JSONMessageFormat
 from faststream.redis.schemas import INCORRECT_SETUP_MSG, ListSub, PubSub, StreamSub
 from faststream.redis.schemas.proto import validate_options
 from faststream.redis.subscriber.asyncapi import (
@@ -18,6 +20,7 @@ if TYPE_CHECKING:
 
     from faststream.broker.types import BrokerMiddleware
     from faststream.redis.message import UnifyRedisDict
+    from faststream.redis.parser import MessageFormat
 
 SubsciberType: TypeAlias = Union[
     "AsyncAPIChannelSubscriber",
@@ -34,6 +37,7 @@ def create_subscriber(
     list: Union["ListSub", str, None],
     stream: Union["StreamSub", str, None],
     # Subscriber args
+    message_format: Type["MessageFormat"],
     no_ack: bool = False,
     no_reply: bool = False,
     retry: bool = False,
@@ -46,10 +50,19 @@ def create_subscriber(
 ) -> SubsciberType:
     validate_options(channel=channel, list=list, stream=stream)
 
+    if message_format == JSONMessageFormat:
+        warnings.warn(
+            "JSONMessageFormat has been deprecated and will be removed in version 0.7.0 "
+            "Instead, use BinaryMessageFormatV1 when creating subscriber",
+            category=DeprecationWarning,
+            stacklevel=3,
+        )
+
     if (channel_sub := PubSub.validate(channel)) is not None:
         return AsyncAPIChannelSubscriber(
             channel=channel_sub,
             # basic args
+            message_format=message_format,
             no_ack=no_ack,
             no_reply=no_reply,
             retry=retry,
@@ -66,6 +79,7 @@ def create_subscriber(
             return AsyncAPIStreamBatchSubscriber(
                 stream=stream_sub,
                 # basic args
+                message_format=message_format,
                 no_ack=no_ack,
                 no_reply=no_reply,
                 retry=retry,
@@ -80,6 +94,7 @@ def create_subscriber(
             return AsyncAPIStreamSubscriber(
                 stream=stream_sub,
                 # basic args
+                message_format=message_format,
                 no_ack=no_ack,
                 no_reply=no_reply,
                 retry=retry,
@@ -96,6 +111,7 @@ def create_subscriber(
             return AsyncAPIListBatchSubscriber(
                 list=list_sub,
                 # basic args
+                message_format=message_format,
                 no_ack=no_ack,
                 no_reply=no_reply,
                 retry=retry,
@@ -110,6 +126,7 @@ def create_subscriber(
             return AsyncAPIListSubscriber(
                 list=list_sub,
                 # basic args
+                message_format=message_format,
                 no_ack=no_ack,
                 no_reply=no_reply,
                 retry=retry,

@@ -76,6 +76,7 @@ class _RandomP:
     # individually in the test class Random_P_Tests in 'test_util.py'.
     # The test class also contains many comments and explanations.
     # To better understand how the algorithm works, see ./doc/random_p.rst
+    # See also, VerificationTests in ./examples/test_random.py
 
     # maximal number of calls to .random_half() in .combine()
     M = 8
@@ -100,7 +101,7 @@ class _RandomP:
         del a[self.n:]
         return a
 
-    def get_op_seq(self, i):
+    def op_seq(self, i):
         """
         Return bitarray containing operator sequence.
         Each item represents a bitwise operation:   0: AND   1: OR
@@ -109,6 +110,7 @@ class _RandomP:
         """
         if not 0 < i < self.K:
             raise ValueError("0 < i < %d, got i = %d" % (self.K, i))
+
         # sequence of &, | operations - least significant operations first
         a = bitarray(i.to_bytes(2, byteorder="little"), "little")
         return a[a.index(1) + 1 : self.M]
@@ -120,11 +122,10 @@ class _RandomP:
         """
         a = self.random_half()
         for k in seq:
-            b = self.random_half()
             if k:
-                a |= b
+                a |= self.random_half()
             else:
-                a &= b
+                a &= self.random_half()
         return a
 
     def random_pop(self, k):
@@ -132,14 +133,17 @@ class _RandomP:
         Return a random bitarray of length self.n and population count k.
         Designed for small k (compared to self.n).
         """
-        if not 0 <= k <= self.n:
-            raise ValueError("0 <= k <= %d, got k = %d" % (self.n, k))
         randrange = random.randrange
-        a = zeros(self.n, self.endian)
+        n = self.n
+
+        if not 0 <= k <= n:
+            raise ValueError("0 <= k <= %d, got k = %d" % (n, k))
+
+        a = bitarray(n, self.endian)
         for _ in range(k):
-            i = randrange(self.n)
+            i = randrange(n)
             while a[i]:
-                i = randrange(self.n)
+                i = randrange(n)
             a[i] = 1
         return a
 
@@ -159,10 +163,10 @@ class _RandomP:
             return bitarray((random.random() < p for _ in range(self.n)),
                             self.endian)
 
-        # exploit symmetry to establish: p <= 0.5
+        # exploit symmetry to establish: p < 0.5
         if p > 0.5:
             a = self.random_p(1.0 - p)
-            a.invert()
+            a.invert()  # use in-place to avoid copying
             return a
 
         # for small p, set randomly individual bits
@@ -171,20 +175,24 @@ class _RandomP:
 
         # calculate operator sequence
         i = int(p * self.K)
+        if p * (self.K + 1) > i + 1: # see ./examples/test_random.py
+            i += 1
+        seq = self.op_seq(i)
         q = i / self.K
-        seq = self.get_op_seq(i)
 
         # when n is small compared to number of operations, also use literal
-        if self.n < 100 and self.nbytes <= len(seq) + 2 * bool(q < p):
+        if self.n < 100 and self.nbytes <= len(seq) + 3 * bool(q != p):
             return bitarray((random.random() < p for _ in range(self.n)),
                             self.endian)
 
         # combine random bitarrays using bitwise AND and OR operations
         a = self.combine_half(seq)
         if q < p:
-            # increase probability q by ORing with probability x
             x = (p - q) / (1.0 - q)
             a |= self.random_p(x)
+        elif q > p:
+            x = p / q
+            a &= self.random_p(x)
 
         return a
 

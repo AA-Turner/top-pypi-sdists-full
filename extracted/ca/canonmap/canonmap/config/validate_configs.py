@@ -64,6 +64,7 @@ class CanonMapEmbeddingConfig:
     • HF name + local path
     • a CustomGCSConfig for where to pull/push model files (optional)
     • optional troubleshooting override
+    • prioritize_cache: check user's home directory cache first (default: True)
     """
     def __init__(
         self,
@@ -71,11 +72,13 @@ class CanonMapEmbeddingConfig:
         embedding_model_local_path: str = "models/sentence-transformers/all-MiniLM-L12-v2",
         gcs_config: Optional[CanonMapCustomGCSConfig] = None,
         troubleshooting: bool = False,
+        prioritize_cache: bool = True,
     ):
         self.embedding_model_hf_name = embedding_model_hf_name
         self.embedding_model_local_path = embedding_model_local_path
         self.gcs_config = gcs_config
         self.troubleshooting = troubleshooting
+        self.prioritize_cache = prioritize_cache
 
     @property
     def embedding_model_gcp_sync_strategy(self) -> str:

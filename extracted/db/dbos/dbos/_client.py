@@ -13,7 +13,7 @@ else:
 
 from dbos import _serialization
 from dbos._dbos import WorkflowHandle, WorkflowHandleAsync
-from dbos._dbos_config import is_valid_database_url
+from dbos._dbos_config import get_system_database_url, is_valid_database_url
 from dbos._error import DBOSException, DBOSNonExistentWorkflowError
 from dbos._registrations import DEFAULT_MAX_RECOVERY_ATTEMPTS
 from dbos._serialization import WorkflowInputs
@@ -97,17 +97,28 @@ class WorkflowHandleClientAsyncPolling(Generic[R]):
 
 
 class DBOSClient:
-    def __init__(self, database_url: str, *, system_database: Optional[str] = None):
+    def __init__(
+        self,
+        database_url: str,
+        *,
+        system_database_url: Optional[str] = None,
+        system_database: Optional[str] = None,
+    ):
         assert is_valid_database_url(database_url)
         # We only create database connections but do not run migrations
         self._sys_db = SystemDatabase(
-            database_url=database_url,
+            system_database_url=get_system_database_url(
+                {
+                    "system_database_url": system_database_url,
+                    "database_url": database_url,
+                    "database": {"sys_db_name": system_database},
+                }
+            ),
             engine_kwargs={
                 "pool_timeout": 30,
                 "max_overflow": 0,
                 "pool_size": 2,
             },
-            sys_db_name=system_database,
         )
         self._sys_db.check_connection()
         self._app_db = ApplicationDatabase(
@@ -294,6 +305,8 @@ class DBOSClient:
         offset: Optional[int] = None,
         sort_desc: bool = False,
         workflow_id_prefix: Optional[str] = None,
+        load_input: bool = True,
+        load_output: bool = True,
     ) -> List[WorkflowStatus]:
         return list_workflows(
             self._sys_db,
@@ -308,6 +321,8 @@ class DBOSClient:
             offset=offset,
             sort_desc=sort_desc,
             workflow_id_prefix=workflow_id_prefix,
+            load_input=load_input,
+            load_output=load_output,
         )
 
     async def list_workflows_async(
@@ -324,6 +339,8 @@ class DBOSClient:
         offset: Optional[int] = None,
         sort_desc: bool = False,
         workflow_id_prefix: Optional[str] = None,
+        load_input: bool = True,
+        load_output: bool = True,
     ) -> List[WorkflowStatus]:
         return await asyncio.to_thread(
             self.list_workflows,
@@ -338,6 +355,8 @@ class DBOSClient:
             offset=offset,
             sort_desc=sort_desc,
             workflow_id_prefix=workflow_id_prefix,
+            load_input=load_input,
+            load_output=load_output,
         )
 
     def list_queued_workflows(
@@ -351,6 +370,7 @@ class DBOSClient:
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_desc: bool = False,
+        load_input: bool = True,
     ) -> List[WorkflowStatus]:
         return list_queued_workflows(
             self._sys_db,
@@ -362,6 +382,7 @@ class DBOSClient:
             limit=limit,
             offset=offset,
             sort_desc=sort_desc,
+            load_input=load_input,
         )
 
     async def list_queued_workflows_async(
@@ -375,6 +396,7 @@ class DBOSClient:
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_desc: bool = False,
+        load_input: bool = True,
     ) -> List[WorkflowStatus]:
         return await asyncio.to_thread(
             self.list_queued_workflows,
@@ -386,6 +408,7 @@ class DBOSClient:
             limit=limit,
             offset=offset,
             sort_desc=sort_desc,
+            load_input=load_input,
         )
 
     def list_workflow_steps(self, workflow_id: str) -> List[StepInfo]:

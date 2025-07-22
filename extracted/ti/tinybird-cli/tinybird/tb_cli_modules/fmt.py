@@ -7,7 +7,7 @@ import aiofiles
 import click
 from click import Context
 
-from tinybird.datafile import color_diff, format_datasource, format_pipe, is_file_a_datasource, peek
+from tinybird.datafile_common import color_diff, format_datasource, format_pipe, is_file_a_datasource, peek
 from tinybird.feedback_manager import FeedbackManager
 from tinybird.tb_cli_modules.cli import cli
 from tinybird.tb_cli_modules.common import coro
@@ -29,10 +29,11 @@ from tinybird.tb_cli_modules.common import coro
     default=False,
     help="Formats local file, prints the diff and exits 1 if different, 0 if equal",
 )
+@click.option("--no-color", is_flag=True, default=False, help="Don't colorize diff")
 @click.pass_context
 @coro
 async def fmt(
-    ctx: Context, filenames: List[str], line_length: int, dry_run: bool, yes: bool, diff: bool
+    ctx: Context, filenames: List[str], line_length: int, dry_run: bool, yes: bool, diff: bool, no_color: bool
 ) -> Optional[str]:
     """
     Formats a .datasource, .pipe or .incl file
@@ -66,7 +67,8 @@ async def fmt(
             diff_result = difflib.unified_diff(
                 lines_file, lines_fmt, fromfile=f"{Path(filename).name} local", tofile="fmt datafile"
             )
-            diff_result = color_diff(diff_result)
+            if not no_color:
+                diff_result = color_diff(diff_result)
             not_empty, diff_lines = peek(diff_result)
             if not_empty:
                 sys.stdout.writelines(diff_lines)
@@ -83,7 +85,7 @@ async def fmt(
 
                 click.echo(FeedbackManager.success_generated_local_file(file=filename))
 
-    if len(failed):
+    if failed:
         click.echo(FeedbackManager.error_failed_to_format_files(number=len(failed)))
         for f in failed:
             click.echo(f"tb fmt {f} --yes")

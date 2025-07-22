@@ -78,7 +78,7 @@ class PixelTypeTest(apitestcase.ApiTestCase):
 
     self.assertFalse(pixeltype.isVariable())
     self.assertEqual(
-        set([DIMENSIONS_KEY, MAX_VALUE_KEY, MIN_VALUE_KEY, PRECISION_KEY]),
+        {DIMENSIONS_KEY, MAX_VALUE_KEY, MIN_VALUE_KEY, PRECISION_KEY},
         set(pixeltype.args),
     )
     expected_dimensions = {'result': '0', 'values': {'0': {'constantValue': 2}}}
@@ -294,7 +294,6 @@ class PixelTypeTest(apitestcase.ApiTestCase):
     expect = pixeltype_noargs_expr('int16')
     expression = ee.PixelType.int16()
     result = json.loads(expression.serialize())
-    print(json.dumps(result, indent=2))
     self.assertEqual(expect, result)
 
   def test_int32(self):

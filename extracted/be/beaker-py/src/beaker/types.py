@@ -646,6 +646,7 @@ class BeakerExperimentSpec(_BeakerSpecBase):
     description: str | None = None
     tasks: list[BeakerTaskSpec] = dataclasses.field(default_factory=list)
     budget: str | None = None
+    groups: list[str] | None = None
     retry: BeakerRetrySpec | None = None
 
     @classmethod

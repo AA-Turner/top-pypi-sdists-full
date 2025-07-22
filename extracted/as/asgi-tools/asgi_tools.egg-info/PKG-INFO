@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: asgi-tools
-Version: 1.3.2
+Version: 1.3.3
 Summary: ASGI Toolkit to build web applications
 Author-email: Kirill Klenov <horneds@gmail.com>
 License: MIT License
@@ -33,7 +33,7 @@ Requires-Dist: async-timeout; python_version < "3.11"
 Provides-Extra: tests
 Requires-Dist: aiofile; extra == "tests"
 Requires-Dist: pytest; extra == "tests"
-Requires-Dist: pytest-aio[curio,trio]>=1.3.2; extra == "tests"
+Requires-Dist: pytest-aio[curio,trio]>=1.3.3; extra == "tests"
 Requires-Dist: pytest-benchmark; extra == "tests"
 Requires-Dist: PyYAML; extra == "tests"
 Requires-Dist: ruff; extra == "tests"

@@ -159,7 +159,7 @@ class TraceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/apmtraces/get_aggregated_snapshot.py.html>`__ to see an example of how to use get_aggregated_snapshot API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/apmtraces/get_aggregated_snapshot.py.html>`__ to see an example of how to use get_aggregated_snapshot API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['traceKey', 'apmDomainId']
@@ -287,7 +287,7 @@ class TraceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/apmtraces/get_log.py.html>`__ to see an example of how to use get_log API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/apmtraces/get_log.py.html>`__ to see an example of how to use get_log API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['logKey', 'apmDomainId', 'timeLogStartedGreaterThanOrEqualTo', 'timeLogEndedLessThan']
@@ -413,7 +413,7 @@ class TraceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/apmtraces/get_span.py.html>`__ to see an example of how to use get_span API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/apmtraces/get_span.py.html>`__ to see an example of how to use get_span API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['spanKey', 'traceKey', 'apmDomainId']
@@ -545,7 +545,7 @@ class TraceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/apmtraces/get_trace.py.html>`__ to see an example of how to use get_trace API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/apmtraces/get_trace.py.html>`__ to see an example of how to use get_trace API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['traceKey', 'apmDomainId']
@@ -674,7 +674,7 @@ class TraceClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/apmtraces/get_trace_snapshot.py.html>`__ to see an example of how to use get_trace_snapshot API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/apmtraces/get_trace_snapshot.py.html>`__ to see an example of how to use get_trace_snapshot API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['traceKey', 'apmDomainId']

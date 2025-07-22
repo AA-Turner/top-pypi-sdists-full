@@ -26,12 +26,12 @@ class ConcreteCrackConfig(BaseConfig):
     # Smoothing configuration
     enable_smoothing: bool = True
     smoothing_algorithm: str = "observability"  # "window" or "observability"
-    smoothing_window_size: int = 10
+    smoothing_window_size: int = 20
     smoothing_cooldown_frames: int = 5
-    smoothing_confidence_range_factor: float = 0.2
+    smoothing_confidence_range_factor: float = 0.5
 
     #confidence thresholds
-    confidence_threshold: float = 0.3
+    confidence_threshold: float = 0.1
 
     usecase_categories: List[str] = field(
         default_factory=lambda: ['Cracks']
@@ -45,8 +45,7 @@ class ConcreteCrackConfig(BaseConfig):
 
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-           0:"Cracks"
-
+            0: "Cracks"
         }
     )
 
@@ -268,7 +267,7 @@ class ConcreteCrackUseCase(BaseProcessor):
                     smoothing_algorithm=config.smoothing_algorithm,
                     window_size=config.smoothing_window_size,
                     cooldown_frames=config.smoothing_cooldown_frames,
-                    confidence_threshold=config.confidence_threshold,  # Use concrete_crack threshold as default
+                    confidence_threshold=config.confidence_threshold,  # Use mask threshold as default
                     confidence_range_factor=config.smoothing_confidence_range_factor,
                     enable_smoothing=True
                 )
@@ -409,7 +408,7 @@ class ConcreteCrackUseCase(BaseProcessor):
                     "max_value": 10,
                     "level_settings": {"info": 2, "warning": 5, "critical": 7}
                 },
-                "application_name": "Concrete Crack detection System",
+                "application_name": "concrete crack detection System",
                 "application_version": "1.2",
                 "location_info": None,
                 "human_text": human_text
@@ -468,7 +467,6 @@ class ConcreteCrackUseCase(BaseProcessor):
             stream_info: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
         """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info."""
-
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         tracking_stats = [{frame_key: []}]
         frame_tracking_stats = tracking_stats[0][frame_key]
@@ -513,8 +511,8 @@ class ConcreteCrackUseCase(BaseProcessor):
         human_text = "\n".join(human_text_lines)
 
         tracking_stat = {
-            "type": "concrete_crack_tracking",
-            "category": "concrete_crack",
+            "type": "concrete_crack_detection",
+            "category": "general",
             "count": total_detections,
             "insights": insights,
             "summary": summary,
@@ -522,7 +520,8 @@ class ConcreteCrackUseCase(BaseProcessor):
             "human_text": human_text,
             "track_ids_info": track_ids_info,
             "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-            "local_frame_id": frame_key
+            "local_frame_id": frame_key,
+            "detections": counting_summary.get("detections", [])  # Added line to include detections
         }
 
         frame_tracking_stats.append(tracking_stat)

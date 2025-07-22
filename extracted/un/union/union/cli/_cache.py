@@ -10,7 +10,7 @@ from union import Resources
 from union.cli._common import CommandBase
 from union.remote import HuggingFaceModelInfo, ShardConfig, UnionRemote, VLLMShardArgs
 
-DEFAULT_UNION_API_KEY = "UNION_API_KEY"
+DEFAULT_UNION_API_KEY = "EAGER_API_KEY"
 HF_TOKEN_KEY = "HF_TOKEN"
 
 

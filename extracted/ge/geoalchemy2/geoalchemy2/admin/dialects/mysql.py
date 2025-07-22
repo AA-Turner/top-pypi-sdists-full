@@ -1,15 +1,28 @@
 """This module defines specific functions for MySQL dialect."""
 
 from sqlalchemy import text
+from sqlalchemy.dialects.mysql.base import ischema_names as _mysql_ischema_names
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql.sqltypes import NullType
 
 from geoalchemy2 import functions
 from geoalchemy2.admin.dialects.common import _check_spatial_type
 from geoalchemy2.admin.dialects.common import _spatial_idx_name
+from geoalchemy2.admin.dialects.common import compile_bin_literal
 from geoalchemy2.admin.dialects.common import setup_create_drop
 from geoalchemy2.types import Geography
 from geoalchemy2.types import Geometry
+
+# Register Geometry, Geography and Raster to SQLAlchemy's reflection subsystems.
+_mysql_ischema_names["geometry"] = Geometry
+_mysql_ischema_names["point"] = Geometry
+_mysql_ischema_names["linestring"] = Geometry
+_mysql_ischema_names["polygon"] = Geometry
+_mysql_ischema_names["multipoint"] = Geometry
+_mysql_ischema_names["multilinestring"] = Geometry
+_mysql_ischema_names["multipolygon"] = Geometry
+_mysql_ischema_names["geometrycollection"] = Geometry
+
 
 _POSSIBLE_TYPES = [
     "geometry",
@@ -124,6 +137,7 @@ def after_create(table, bind, **kw):
         if (
             _check_spatial_type(col.type, (Geometry, Geography), dialect)
             and col.type.spatial_index is True
+            and col.computed is None
         ):
             # If the index does not exist, define it and create it
             if not [i for i in table.indexes if col in i.columns.values()]:
@@ -175,25 +189,39 @@ register_mysql_mapping(_MYSQL_FUNCTIONS)
 
 
 def _compile_GeomFromText_MySql(element, compiler, **kw):
-    element.identifier = "ST_GeomFromText"
+    identifier = "ST_GeomFromText"
     compiled = compiler.process(element.clauses, **kw)
     srid = element.type.srid
 
     if srid > 0:
-        return "{}({}, {})".format(element.identifier, compiled, srid)
+        return "{}({}, {})".format(identifier, compiled, srid)
     else:
-        return "{}({})".format(element.identifier, compiled)
+        return "{}({})".format(identifier, compiled)
 
 
 def _compile_GeomFromWKB_MySql(element, compiler, **kw):
-    element.identifier = "ST_GeomFromWKB"
-    compiled = compiler.process(element.clauses, **kw)
-    srid = element.type.srid
+    # Store the SRID
+    clauses = list(element.clauses)
+    try:
+        srid = clauses[1].value
+    except (IndexError, TypeError, ValueError):
+        srid = element.type.srid
+
+    if kw.get("literal_binds", False):
+        wkb_clause = compile_bin_literal(clauses[0])
+        prefix = "unhex("
+        suffix = ")"
+    else:
+        wkb_clause = clauses[0]
+        prefix = ""
+        suffix = ""
+
+    compiled = compiler.process(wkb_clause, **kw)
 
     if srid > 0:
-        return "{}({}, {})".format(element.identifier, compiled, srid)
+        return "{}({}{}{}, {})".format(element.identifier, prefix, compiled, suffix, srid)
     else:
-        return "{}({})".format(element.identifier, compiled)
+        return "{}({}{}{})".format(element.identifier, prefix, compiled, suffix)
 
 
 @compiles(functions.ST_GeomFromText, "mysql")  # type: ignore

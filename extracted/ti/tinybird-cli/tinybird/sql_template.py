@@ -74,7 +74,7 @@ class SQLTemplateException(ValueError):
 # replace_vars_smart(t)
 # print(generate(t, **{x: '' for x in names}))
 
-
+JOB_TIMESTAMP_PARAM = "job_timestamp"
 DEFAULT_PARAM_NAMES = ["format", "q"]
 RESERVED_PARAM_NAMES = [
     "__tb__semver",
@@ -93,6 +93,7 @@ RESERVED_PARAM_NAMES = [
     "tag",
     "template_parameters",
     "token",
+    JOB_TIMESTAMP_PARAM,
 ]
 
 parameter_types = [
@@ -435,8 +436,10 @@ def sql_unescape(x, what=""):
     "'testing%'"
     >>> sql_unescape('testing%', '$')
     "'testing\\\\%'"
+    >>> sql_unescape('testing"')
+    '\\'testing"\\''
     """
-    return Expression("'" + sqlescape(x).replace(f"\\{what}", what) + "'")
+    return Expression("'" + sqlescape_for_string_expression(x).replace(f"\\{what}", what) + "'")
 
 
 def split_to_array(x, default="", separator: str = ","):
@@ -1392,6 +1395,8 @@ _namespace = {
 reserved_vars = set(["_tt_tmp", "_tt_append", "isinstance", "str", "error", "custom_error", *list(vars(builtins))])
 for p in DEFAULT_PARAM_NAMES:  # we handle these in an specific manner
     reserved_vars.discard(p)  # `format` is part of builtins
+# Allow 'id' to be used as a template parameter - https://gitlab.com/tinybird/analytics/-/issues/19119
+reserved_vars.discard("id")
 error_vars = ["error", "custom_error"]
 
 
@@ -1460,6 +1465,9 @@ def generate(self, **kwargs) -> Tuple[str, TemplateExecutionResults]:
         return Expression(f"-- disable {feature}\n")
 
     namespace.update(_namespace)
+    # This is to fix the issue https://gitlab.com/tinybird/analytics/-/issues/19119
+    # We need to do the override here because if we modify the _namespace, we would filter out parameters from the users
+    namespace.update({"id": None})
     namespace.update(kwargs)
     namespace.update(
         {
@@ -1657,7 +1665,7 @@ def get_var_data(content, node_id=None):
                         # It will be overriden in later definitions or left as is otherwise.
                         # args[0] check is used to avoid adding unnamed parameters found in
                         # templates like: `split_to_array('')`
-                        if len(args) and isinstance(args[0], list):
+                        if args and isinstance(args[0], list):
                             raise ValueError(f'"{args[0]}" can not be used as a variable name')
                         if len(args) > 0 and args[0] not in vars and args[0]:
                             vars[args[0]] = {
@@ -1669,7 +1677,7 @@ def get_var_data(content, node_id=None):
                         if "default" not in kwargs:
                             default = kwargs.get("default", args[2] if len(args) > 2 and args[2] else None)
                             kwargs["default"] = check_default_value(default)
-                        if len(args):
+                        if args:
                             if isinstance(args[0], list):
                                 raise ValueError(f'"{args[0]}" can not be used as a variable name')
                             vars[args[0]] = {
@@ -1678,7 +1686,7 @@ def get_var_data(content, node_id=None):
                             }
                     elif func in parameter_types:
                         # avoid variable names to be None
-                        if len(args) and args[0] is not None:
+                        if args and args[0] is not None:
                             # if this is a cast use the function name to get the type
                             if "default" not in kwargs:
                                 default = kwargs.get("default", args[1] if len(args) > 1 else None)
@@ -1995,6 +2003,7 @@ def format_SQLTemplateException_message(e: SQLTemplateException, vars_and_types:
                     item.get("default") is None
                     and item.get("used_in", None) is None
                     and item.get("name") not in vars_with_default_none
+                    and item.get("name") is not JOB_TIMESTAMP_PARAM
                 ):
                     vars_with_default_none.append(item["name"])
 
@@ -2018,6 +2027,7 @@ def render_sql_template(
     test_mode: bool = False,
     name: Optional[str] = None,
     local_variables: Optional[dict] = None,
+    secrets_in_test_mode: Optional[bool] = True,
 ) -> Tuple[str, TemplateExecutionResults, list]:
     """
     >>> render_sql_template("select * from table where f = {{Float32(foo)}}", { 'foo': -1 })
@@ -2286,6 +2296,11 @@ def render_sql_template(
         processed_variables = preprocess_variables(variables, template_variables_with_types)
         variables.update(processed_variables)
 
+    # Handle job_timestamp special case providing the default value if not provided
+    if any(var["name"] == JOB_TIMESTAMP_PARAM for var in template_variables_with_types):
+        variables = variables or {}
+        variables.setdefault(JOB_TIMESTAMP_PARAM, datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+
     if test_mode:
 
         def dummy(*args, **kwargs):
@@ -2300,7 +2315,7 @@ def render_sql_template(
         if secrets:
             v.update({"tb_secrets": secrets})
 
-        if is_tb_secret:
+        if is_tb_secret and secrets_in_test_mode:
             v.update({TB_SECRET_IN_TEST_MODE: None})
 
         v.update(type_fns_check)

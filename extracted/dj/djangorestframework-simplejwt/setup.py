@@ -20,7 +20,7 @@ extras_require = {
         "pre-commit",
     ],
     "doc": [
-        "Sphinx>=1.6.5,<2",
+        "Sphinx",
         "sphinx_rtd_theme>=0.1.9",
     ],
     "dev": [
@@ -59,7 +59,7 @@ setup(
     install_requires=[
         "django>=4.2",
         "djangorestframework>=3.14",
-        "pyjwt>=1.7.1,<2.10.0",
+        "pyjwt>=1.7.1",
     ],
     python_requires=">=3.9",
     extras_require=extras_require,
@@ -73,6 +73,7 @@ setup(
         "Framework :: Django :: 4.2",
         "Framework :: Django :: 5.0",
         "Framework :: Django :: 5.1",
+        "Framework :: Django :: 5.2",
         "Intended Audience :: Developers",
         "License :: OSI Approved :: MIT License",
         "Operating System :: OS Independent",

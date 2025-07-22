@@ -16,6 +16,13 @@
         - "not dnf_result.failed | default(False)"
         - "rpm_result.rc == 1"
 
+# NOTE Now that the dnf module executed, libdnf is installed even for the case
+#      when testing 'auto_install_module_deps: false' for dnf5
+#      and we can print libdnf version we test against for debugging purposes.
+- name: libdnf version being tested
+  debug:
+    msg: "{{ lookup('pipe', 'rpm -q ' ~ ('python3-libdnf5' if dnf5 else 'python3-libdnf')) }}"
+
 # UNINSTALL AGAIN
 - name: uninstall sos
   dnf:
@@ -892,6 +899,8 @@
         that:
           - enable_plugin_result is failed
           - disable_plugin_result is failed
-          - enable_plugin_result.msg is contains("'enable_plugin' requires python3-libdnf5 5.2.0.0+")
-          - disable_plugin_result.msg is contains("'disable_plugin' requires python3-libdnf5 5.2.0.0+")
-  when: dnf5|default(false)
+          - '"No matches were found for the following plugin name patterns while enabling libdnf5 plugins: " in enable_plugin_result.msg'
+          - '"No matches were found for the following plugin name patterns while disabling libdnf5 plugins: " in disable_plugin_result.msg'
+          - '"nonexisting" in enable_plugin_result.msg'
+          - '"nonexisting" in disable_plugin_result.msg'
+  when: dnf5

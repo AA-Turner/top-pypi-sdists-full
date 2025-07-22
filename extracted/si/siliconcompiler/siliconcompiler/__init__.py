@@ -3,15 +3,20 @@ from siliconcompiler._common import NodeStatus, SiliconCompilerError
 from siliconcompiler.utils import sc_open
 from siliconcompiler.schema_obj import SchemaTmp as Schema
 
+from siliconcompiler.packageschema import PackageSchema
+
 from siliconcompiler.design import DesignSchema
 from siliconcompiler.record import RecordSchema
 from siliconcompiler.metric import MetricSchema
 from siliconcompiler.pdk import PDKSchema
 from siliconcompiler.flowgraph import FlowgraphSchema
-from siliconcompiler.tool import ToolSchema
+from siliconcompiler.tool import ToolSchema, TaskSchema
 from siliconcompiler.checklist import ChecklistSchema
 from siliconcompiler.asic import ASICSchema
 from siliconcompiler.fpga import FPGASchema
+
+from siliconcompiler.project import Project
+from siliconcompiler.library import LibrarySchema, StdCellLibrarySchema
 
 from siliconcompiler.core import Chip
 
@@ -31,13 +36,20 @@ __all__ = [
     "Checklist",
     "Schema",
     "sc_open",
+
     "DesignSchema",
+    "LibrarySchema",
     "RecordSchema",
     "MetricSchema",
     "PDKSchema",
     "FlowgraphSchema",
     "ToolSchema",
+    "TaskSchema",
     "ChecklistSchema",
     "ASICSchema",
-    "FPGASchema"
+    "FPGASchema",
+    "PackageSchema",
+
+    "Project",
+    "StdCellLibrarySchema"
 ]

@@ -1,18 +1,17 @@
-import logging
 import traceback
 from datetime import timedelta
 from decimal import Decimal
-from functools import wraps
 from typing import Union
 
 import pytz
 
+from lumibot.tools.lumibot_logger import get_logger
 from lumibot.brokers import Broker
 from lumibot.data_sources import DataSourceBacktesting
 from lumibot.entities import Asset, Order, Position, TradingFee
 from lumibot.trading_builtins import CustomStream
 
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 class BacktestingBroker(Broker):
@@ -134,7 +133,8 @@ class BacktestingBroker(Broker):
         now = self.datetime
         search = self._trading_days[now < self._trading_days.market_open]
         if search.empty:
-            logging.info("Cannot predict future")
+            logger.critical("Cannot predict future")
+            return None
 
         return search.market_open[0].to_pydatetime()
 
@@ -144,8 +144,8 @@ class BacktestingBroker(Broker):
 
         search = self._trading_days[now < self._trading_days.index]
         if search.empty:
-            logging.info("Cannot predict future")
-            return 0
+            logger.info("Cannot predict future")
+            return None
 
         trading_day = search.iloc[0]
         open_time = trading_day.market_open
@@ -171,8 +171,9 @@ class BacktestingBroker(Broker):
         idx = self._trading_days.index.searchsorted(now, side='left')
 
         if idx >= len(self._trading_days):
-            logging.info("Cannot predict future")
-            return 0
+            logger.warning(f"Backtest has reached the end of available trading days data. Current time: {now}, Last trading day: {self._trading_days.index[-1] if len(self._trading_days) > 0 else 'No data'}")
+            # Return None to signal that backtesting should stop
+            return None
 
         # Directly access the data needed using more efficient methods
         market_close_time = self._trading_days.index[idx]
@@ -195,6 +196,11 @@ class BacktestingBroker(Broker):
         self.process_pending_orders(strategy=strategy)
 
         time_to_open = self.get_time_to_open()
+        
+        # If None is returned, it means we've reached the end of available trading days
+        if time_to_open is None:
+            logger.info("Backtesting reached end of available trading days data")
+            return
 
         # Allow the caller to specify a buffer (in minutes) before the actual open
         if timedelta:
@@ -230,7 +236,7 @@ class BacktestingBroker(Broker):
         # If the calculated time is non-positive, but the market was initially open (result > 0),
         # advance by a minimal amount to prevent potential infinite loops if called repeatedly near close.
         elif result > 0:  # Only if original result was strictly positive
-            logging.debug("Calculated time to close is non-positive. Advancing time by 1 second.")
+            logger.debug("Calculated time to close is non-positive. Advancing time by 1 second.")
             self._update_datetime(1)
         # Otherwise (result <= 0 initially), do nothing, market is already closed.
 
@@ -496,7 +502,7 @@ class BacktestingBroker(Broker):
         # Check that orders is a list and not zero
         if not orders or not isinstance(orders, list) or len(orders) == 0:
             # Log an error and return an empty list
-            logging.error("No orders to submit to broker when calling submit_orders")
+            logger.error("No orders to submit to broker when calling submit_orders")
             return []
 
         results = []
@@ -563,12 +569,12 @@ class BacktestingBroker(Broker):
 
         # Check to make sure we are in backtesting mode
         if not self.IS_BACKTESTING_BROKER:
-            logging.error("Cannot cash settle options contract in live trading")
+            logger.error("Cannot cash settle options contract in live trading")
             return
 
         # Check that the position is an options contract
         if position.asset.asset_type != "option":
-            logging.error(f"Cannot cash settle non-option contract {position.asset}")
+            logger.error(f"Cannot cash settle non-option contract {position.asset}")
             return
 
         # First check if the option asset has an underlying asset
@@ -944,7 +950,7 @@ class BacktestingBroker(Broker):
                 )
                 return True
             except:
-                logging.error(traceback.format_exc())
+                logger.error(traceback.format_exc())
 
         @broker.stream.add_action(broker.PLACEHOLDER_ORDER)
         def on_trade_event(order):
@@ -955,7 +961,7 @@ class BacktestingBroker(Broker):
                 )
                 return True
             except:
-                logging.error(traceback.format_exc())
+                logger.error(traceback.format_exc())
 
         @broker.stream.add_action(broker.FILLED_ORDER)
         def on_trade_event(order, price, filled_quantity):
@@ -969,7 +975,7 @@ class BacktestingBroker(Broker):
                 )
                 return True
             except:
-                logging.error(traceback.format_exc())
+                logger.error(traceback.format_exc())
 
         @broker.stream.add_action(broker.CANCELED_ORDER)
         def on_trade_event(order):
@@ -980,7 +986,7 @@ class BacktestingBroker(Broker):
                 )
                 return True
             except:
-                logging.error(traceback.format_exc())
+                logger.error(traceback.format_exc())
 
         @broker.stream.add_action(broker.MODIFIED_ORDER)
         def on_trade_event(order, price):
@@ -992,7 +998,7 @@ class BacktestingBroker(Broker):
                 )
                 return True
             except:
-                logging.error(traceback.format_exc())
+                logger.error(traceback.format_exc())
 
         @broker.stream.add_action(broker.CASH_SETTLED)
         def on_trade_event(order, price, filled_quantity):
@@ -1006,7 +1012,7 @@ class BacktestingBroker(Broker):
                 )
                 return True
             except:
-                logging.error(traceback.format_exc())
+                logger.error(traceback.format_exc())
 
     def _run_stream(self):
         self._stream_established()

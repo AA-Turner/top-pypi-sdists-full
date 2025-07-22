@@ -67,8 +67,18 @@ class TableIndex:
             if index_supported_types:
                 for supported_type in INDEX_SUPPORTED_TYPES.get(index_supported_types, []):
                     # Convert supported type to regex pattern
-                    # Replace * with \d+ to match any number
                     pattern = supported_type.replace("*", r"\d+")
+
+                    # Special handling for complex types that can have parameters
+                    if supported_type == "Array":
+                        pattern = r"Array\(.*\)"
+                    elif supported_type == "Map":
+                        pattern = r"Map\(.*\)"
+                    elif supported_type == "LowCardinality":
+                        pattern = r"LowCardinality\(.*\)"
+                    elif supported_type == "Nullable":
+                        pattern = r"Nullable\(.*\)"
+
                     if re.match(f"^{pattern}$", col_type):
                         return
                 raise ValueError(

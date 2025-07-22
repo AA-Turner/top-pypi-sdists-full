@@ -271,6 +271,9 @@ class Agent(BaseResponse):
     greeting: Optional[str] = field(
         default=None, metadata=dataclass_config(exclude=lambda f: f is None)
     )
+    mip_opt_out: Optional[bool] = field(
+        default=False, metadata=dataclass_config(exclude=lambda f: f is None)
+    )
 
     def __post_init__(self):
         """Handle conversion of dict/list data to proper Speak objects"""
@@ -448,8 +451,9 @@ class FunctionCallResponse(BaseResponse):
     """
 
     type: str = "FunctionCallResponse"
-    function_call_id: str = field(default="")
-    output: str = field(default="")
+    id: str = field(default="")
+    name: str = field(default="")
+    content: str = field(default="")
 
 
 # Agent Keep Alive

@@ -169,14 +169,14 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/change_oracle_db_azure_connector_compartment.py.html>`__ to see an example of how to use change_oracle_db_azure_connector_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/change_oracle_db_azure_connector_compartment.py.html>`__ to see an example of how to use change_oracle_db_azure_connector_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureConnectorId']
         resource_path = "/oracleDbAzureConnector/{oracleDbAzureConnectorId}/actions/changeCompartment"
         method = "POST"
         operation_name = "change_oracle_db_azure_connector_compartment"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureConnector/ChangeOracleDbAzureConnectorCompartment"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -280,14 +280,14 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/create_oracle_db_azure_connector.py.html>`__ to see an example of how to use create_oracle_db_azure_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/create_oracle_db_azure_connector.py.html>`__ to see an example of how to use create_oracle_db_azure_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/oracleDbAzureConnector"
         method = "POST"
         operation_name = "create_oracle_db_azure_connector"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureConnector/CreateOracleDbAzureConnector"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -378,14 +378,14 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/delete_oracle_db_azure_connector.py.html>`__ to see an example of how to use delete_oracle_db_azure_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/delete_oracle_db_azure_connector.py.html>`__ to see an example of how to use delete_oracle_db_azure_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureConnectorId']
         resource_path = "/oracleDbAzureConnector/{oracleDbAzureConnectorId}"
         method = "DELETE"
         operation_name = "delete_oracle_db_azure_connector"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureConnector/DeleteOracleDbAzureConnector"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -487,14 +487,14 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/get_oracle_db_azure_connector.py.html>`__ to see an example of how to use get_oracle_db_azure_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/get_oracle_db_azure_connector.py.html>`__ to see an example of how to use get_oracle_db_azure_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureConnectorId']
         resource_path = "/oracleDbAzureConnector/{oracleDbAzureConnectorId}"
         method = "GET"
         operation_name = "get_oracle_db_azure_connector"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureConnector/GetOracleDbAzureConnector"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -639,14 +639,14 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/list_oracle_db_azure_connectors.py.html>`__ to see an example of how to use list_oracle_db_azure_connectors API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/list_oracle_db_azure_connectors.py.html>`__ to see an example of how to use list_oracle_db_azure_connectors API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/oracleDbAzureConnector"
         method = "GET"
         operation_name = "list_oracle_db_azure_connectors"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureConnector/ListOracleDbAzureConnectors"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -779,14 +779,14 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/patch_oracle_db_azure_connector.py.html>`__ to see an example of how to use patch_oracle_db_azure_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/patch_oracle_db_azure_connector.py.html>`__ to see an example of how to use patch_oracle_db_azure_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureConnectorId']
         resource_path = "/oracleDbAzureConnector/{oracleDbAzureConnectorId}"
         method = "PATCH"
         operation_name = "patch_oracle_db_azure_connector"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureConnector/PatchOracleDbAzureConnector"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -889,14 +889,14 @@ class OracleDBAzureConnectorClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/update_oracle_db_azure_connector.py.html>`__ to see an example of how to use update_oracle_db_azure_connector API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/update_oracle_db_azure_connector.py.html>`__ to see an example of how to use update_oracle_db_azure_connector API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureConnectorId']
         resource_path = "/oracleDbAzureConnector/{oracleDbAzureConnectorId}"
         method = "PUT"
         operation_name = "update_oracle_db_azure_connector"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureConnector/UpdateOracleDbAzureConnector"
 
         # Don't accept unknown kwargs
         expected_kwargs = [

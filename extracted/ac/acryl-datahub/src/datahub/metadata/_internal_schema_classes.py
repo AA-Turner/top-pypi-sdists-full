@@ -19931,6 +19931,31 @@ class TrainingDataClass(_Aspect):
         self._inner_dict['trainingData'] = value
     
     
+class AssetCollectionModuleParamsClass(DictWrapper):
+    """The params required if the module is type ASSET_COLLECTION"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.module.AssetCollectionModuleParams")
+    def __init__(self,
+        assetUrns: List[str],
+    ):
+        super().__init__()
+        
+        self.assetUrns = assetUrns
+    
+    def _restore_defaults(self) -> None:
+        self.assetUrns = list()
+    
+    
+    @property
+    def assetUrns(self) -> List[str]:
+        # No docs available.
+        return self._inner_dict.get('assetUrns')  # type: ignore
+    
+    @assetUrns.setter
+    def assetUrns(self, value: List[str]) -> None:
+        self._inner_dict['assetUrns'] = value
+    
+    
 class DataHubPageModuleParamsClass(DictWrapper):
     """The specific parameters stored for a module"""
     
@@ -19938,15 +19963,18 @@ class DataHubPageModuleParamsClass(DictWrapper):
     def __init__(self,
         linkParams: Union[None, "LinkModuleParamsClass"]=None,
         richTextParams: Union[None, "RichTextModuleParamsClass"]=None,
+        assetCollectionParams: Union[None, "AssetCollectionModuleParamsClass"]=None,
     ):
         super().__init__()
         
         self.linkParams = linkParams
         self.richTextParams = richTextParams
+        self.assetCollectionParams = assetCollectionParams
     
     def _restore_defaults(self) -> None:
         self.linkParams = self.RECORD_SCHEMA.fields_dict["linkParams"].default
         self.richTextParams = self.RECORD_SCHEMA.fields_dict["richTextParams"].default
+        self.assetCollectionParams = self.RECORD_SCHEMA.fields_dict["assetCollectionParams"].default
     
     
     @property
@@ -19967,6 +19995,16 @@ class DataHubPageModuleParamsClass(DictWrapper):
     @richTextParams.setter
     def richTextParams(self, value: Union[None, "RichTextModuleParamsClass"]) -> None:
         self._inner_dict['richTextParams'] = value
+    
+    
+    @property
+    def assetCollectionParams(self) -> Union[None, "AssetCollectionModuleParamsClass"]:
+        """The params required if the module is type ASSET_COLLECTION"""
+        return self._inner_dict.get('assetCollectionParams')  # type: ignore
+    
+    @assetCollectionParams.setter
+    def assetCollectionParams(self, value: Union[None, "AssetCollectionModuleParamsClass"]) -> None:
+        self._inner_dict['assetCollectionParams'] = value
     
     
 class DataHubPageModulePropertiesClass(_Aspect):
@@ -20116,24 +20154,50 @@ class LinkModuleParamsClass(DictWrapper):
     
     RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.module.LinkModuleParams")
     def __init__(self,
-        linkUrn: str,
+        linkUrl: str,
+        imageUrl: Union[None, str]=None,
+        description: Union[None, str]=None,
     ):
         super().__init__()
         
-        self.linkUrn = linkUrn
+        self.linkUrl = linkUrl
+        self.imageUrl = imageUrl
+        self.description = description
     
     def _restore_defaults(self) -> None:
-        self.linkUrn = str()
+        self.linkUrl = str()
+        self.imageUrl = self.RECORD_SCHEMA.fields_dict["imageUrl"].default
+        self.description = self.RECORD_SCHEMA.fields_dict["description"].default
     
     
     @property
-    def linkUrn(self) -> str:
+    def linkUrl(self) -> str:
         # No docs available.
-        return self._inner_dict.get('linkUrn')  # type: ignore
+        return self._inner_dict.get('linkUrl')  # type: ignore
     
-    @linkUrn.setter
-    def linkUrn(self, value: str) -> None:
-        self._inner_dict['linkUrn'] = value
+    @linkUrl.setter
+    def linkUrl(self, value: str) -> None:
+        self._inner_dict['linkUrl'] = value
+    
+    
+    @property
+    def imageUrl(self) -> Union[None, str]:
+        # No docs available.
+        return self._inner_dict.get('imageUrl')  # type: ignore
+    
+    @imageUrl.setter
+    def imageUrl(self, value: Union[None, str]) -> None:
+        self._inner_dict['imageUrl'] = value
+    
+    
+    @property
+    def description(self) -> Union[None, str]:
+        # No docs available.
+        return self._inner_dict.get('description')  # type: ignore
+    
+    @description.setter
+    def description(self, value: Union[None, str]) -> None:
+        self._inner_dict['description'] = value
     
     
 class PageModuleScopeClass(object):
@@ -27102,6 +27166,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.ml.metadata.SourceCodeUrl': SourceCodeUrlClass,
     'com.linkedin.pegasus2avro.ml.metadata.SourceCodeUrlType': SourceCodeUrlTypeClass,
     'com.linkedin.pegasus2avro.ml.metadata.TrainingData': TrainingDataClass,
+    'com.linkedin.pegasus2avro.module.AssetCollectionModuleParams': AssetCollectionModuleParamsClass,
     'com.linkedin.pegasus2avro.module.DataHubPageModuleParams': DataHubPageModuleParamsClass,
     'com.linkedin.pegasus2avro.module.DataHubPageModuleProperties': DataHubPageModulePropertiesClass,
     'com.linkedin.pegasus2avro.module.DataHubPageModuleType': DataHubPageModuleTypeClass,
@@ -27610,6 +27675,7 @@ __SCHEMA_TYPES = {
     'SourceCodeUrl': SourceCodeUrlClass,
     'SourceCodeUrlType': SourceCodeUrlTypeClass,
     'TrainingData': TrainingDataClass,
+    'AssetCollectionModuleParams': AssetCollectionModuleParamsClass,
     'DataHubPageModuleParams': DataHubPageModuleParamsClass,
     'DataHubPageModuleProperties': DataHubPageModulePropertiesClass,
     'DataHubPageModuleType': DataHubPageModuleTypeClass,

@@ -169,14 +169,14 @@ class OracleDbAzureVaultClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/change_oracle_db_azure_vault_compartment.py.html>`__ to see an example of how to use change_oracle_db_azure_vault_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/change_oracle_db_azure_vault_compartment.py.html>`__ to see an example of how to use change_oracle_db_azure_vault_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultId']
         resource_path = "/oracleDbAzureVault/{oracleDbAzureVaultId}/actions/changeCompartment"
         method = "POST"
         operation_name = "change_oracle_db_azure_vault_compartment"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureVault/ChangeOracleDbAzureVaultCompartment"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -286,14 +286,14 @@ class OracleDbAzureVaultClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/create_oracle_db_azure_vault.py.html>`__ to see an example of how to use create_oracle_db_azure_vault API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/create_oracle_db_azure_vault.py.html>`__ to see an example of how to use create_oracle_db_azure_vault API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/oracleDbAzureVault"
         method = "POST"
         operation_name = "create_oracle_db_azure_vault"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDBAzureVault/CreateOracleDbAzureVault"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -386,14 +386,14 @@ class OracleDbAzureVaultClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/delete_oracle_db_azure_vault.py.html>`__ to see an example of how to use delete_oracle_db_azure_vault API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/delete_oracle_db_azure_vault.py.html>`__ to see an example of how to use delete_oracle_db_azure_vault API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultId']
         resource_path = "/oracleDbAzureVault/{oracleDbAzureVaultId}"
         method = "DELETE"
         operation_name = "delete_oracle_db_azure_vault"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureVault/DeleteOracleDbAzureVault"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -495,14 +495,14 @@ class OracleDbAzureVaultClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/get_oracle_db_azure_vault.py.html>`__ to see an example of how to use get_oracle_db_azure_vault API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/get_oracle_db_azure_vault.py.html>`__ to see an example of how to use get_oracle_db_azure_vault API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultId']
         resource_path = "/oracleDbAzureVault/{oracleDbAzureVaultId}"
         method = "GET"
         operation_name = "get_oracle_db_azure_vault"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureVault/GetOracleDbAzureVault"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -648,14 +648,14 @@ class OracleDbAzureVaultClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/list_oracle_db_azure_vaults.py.html>`__ to see an example of how to use list_oracle_db_azure_vaults API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/list_oracle_db_azure_vaults.py.html>`__ to see an example of how to use list_oracle_db_azure_vaults API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/oracleDbAzureVault"
         method = "GET"
         operation_name = "list_oracle_db_azure_vaults"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureVault/ListOracleDbAzureVaults"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -794,14 +794,14 @@ class OracleDbAzureVaultClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/refresh_oracle_db_azure_vault.py.html>`__ to see an example of how to use refresh_oracle_db_azure_vault API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/refresh_oracle_db_azure_vault.py.html>`__ to see an example of how to use refresh_oracle_db_azure_vault API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultId']
         resource_path = "/oracleDbAzureVault/{oracleDbAzureVaultId}/actions/refresh"
         method = "POST"
         operation_name = "refresh_oracle_db_azure_vault"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureVault/RefreshOracleDbAzureVault"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -905,14 +905,14 @@ class OracleDbAzureVaultClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/update_oracle_db_azure_vault.py.html>`__ to see an example of how to use update_oracle_db_azure_vault API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/update_oracle_db_azure_vault.py.html>`__ to see an example of how to use update_oracle_db_azure_vault API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultId']
         resource_path = "/oracleDbAzureVault/{oracleDbAzureVaultId}"
         method = "PUT"
         operation_name = "update_oracle_db_azure_vault"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureVault/UpdateOracleDbAzureVault"
 
         # Don't accept unknown kwargs
         expected_kwargs = [

@@ -1,22 +1,27 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: texthooks
-Version: 0.6.8
+Version: 0.7.0
 Summary: pre-commit fixers and linters for handling text files
-Home-page: https://github.com/sirosen/texthooks
-Author: Stephen Rosen
-Author-email: sirosen0@gmail.com
+Keywords: 
+Author-email: Stephen Rosen <sirosen0@gmail.com>
+Requires-Python: >=3.8
+Description-Content-Type: text/markdown
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
-Classifier: Programming Language :: Python :: 3
-Requires-Python: >=3.8
-Description-Content-Type: text/markdown
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE
-Requires-Dist: identify<3.0,>=2.0
+Requires-Dist: identify>=2.0,<3.0
+Requires-Dist: pytest<9 ; extra == "dev"
+Requires-Dist: pytest-cov<7 ; extra == "dev"
+Requires-Dist: pytest-xdist<4 ; extra == "dev"
+Project-URL: source, https://github.com/sirosen/texthooks
 Provides-Extra: dev
-Requires-Dist: pytest<9; extra == "dev"
-Requires-Dist: pytest-cov<7; extra == "dev"
-Requires-Dist: pytest-xdist<4; extra == "dev"
 
 # texthooks
 
@@ -32,7 +37,7 @@ To use with `pre-commit`, include this repo and the desired hooks in
 
 ```yaml
 - repo: https://github.com/sirosen/texthooks
-  rev: 0.6.8
+  rev: 0.7.0
   hooks:
     - id: alphabetize-codeowners
     - id: fix-smartquotes
@@ -60,6 +65,7 @@ fix-smartquotes FILENAME
 | `alphabetize-codeowners` | Alphabetize names in CODEOWNERS files.           |
 | `fix-smartquotes`        | Replace curly quotes with ASCII quotes.          |
 | `fix-spaces`             | Normalize special space markers to ASCII spaces. |
+| `fix-unicode-dashes`     | Normalize various dash characters to ASCII.      |
 | `fix-ligatures`          | Convert stylistic ligatures to ASCII text.       |
 | `forbid-bidi-controls`   | Check for bi-directional text.                   |
 | `macro-expand`           | A simple way to write text formatting macros.    |
@@ -118,7 +124,7 @@ as follows:
 
 ```yaml
 - repo: https://github.com/sirosen/texthooks
-  rev: 0.6.8
+  rev: 0.7.0
   hooks:
     - id: fix-smartquotes
       # replace default single quote chars with this set:
@@ -147,10 +153,47 @@ You could override the space codepoints as follows:
 
 ```yaml
 - repo: https://github.com/sirosen/texthooks
-  rev: 0.6.8
+  rev: 0.7.0
   hooks:
     - id: fix-spaces
       args: ["--separator-codepoints", "2009"]
+```
+
+### `fix-unicode-dashes`
+
+Replace various unicode dash characters with `"-"` and `"--"`.
+
+This normalizes en dashes, minus signs, and similar characters to ensure that
+only ASCII hyphens are used.
+Wide dashes like the em dash are converted to two hyphens.
+
+This may help maintain ASCII-only text in files (e.g., program source) which
+may treat these glyphs in unexpected or undesirable ways.
+For example, some languages may treat `x–y` as an identifier, and `x-y` as an
+expression.
+
+#### Overriding Hyphen Characters
+
+Two options are provided to allow users to customize the set of codepoints
+which are replaced.
+They are specified as comma-delimited, hex-encoded Unicode codepoints.
+
+These are the options with their defaults:
+
+```
+--single-hyphen-codepoints '2010,2011,FE63,2012,2013,2212,02D7,2796'
+--double-hyphen-codepoints 'FF0D,2014,FE58'
+```
+
+Suppose you wanted to *only* replace Em Dash (codepoint `2014`).
+You could could override the double-hyphen codepoints as follows:
+
+```yaml
+- repo: https://github.com/sirosen/texthooks
+  rev: 0.7.0
+  hooks:
+    - id: fix-spaces
+      args: ["--double-hyphen-codepoints", "2014", "--single-hyphen-codepoints", ""]
 ```
 
 ### `fix-ligatures`
@@ -185,7 +228,7 @@ following sample config:
 
 ```yaml
 - repo: https://github.com/sirosen/texthooks
-  rev: 0.6.8
+  rev: 0.7.0
   hooks:
     - id: macro-expand
       args:
@@ -199,6 +242,12 @@ following sample config:
 ### Unreleased
 
 <!-- bumpversion-changelog -->
+
+### 0.7.0
+
+- Add `fix-unicode-dashes` fixer. Thanks @netflash for the PR!
+- Fix handling of empty sets of codepoints for `fix-smartquotes` and
+  `fix-unicode-dashes`.
 
 ### 0.6.8
 
@@ -279,3 +328,4 @@ following sample config:
 ### 0.1.0
 
 - Initial release with `fix-ligatures` and `fix-smartquotes` hooks
+

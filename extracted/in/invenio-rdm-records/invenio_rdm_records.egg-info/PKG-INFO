@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: invenio-rdm-records
-Version: 19.5.0
+Version: 19.5.1
 Summary: InvenioRDM module for the communities feature.
 Home-page: https://github.com/inveniosoftware/invenio-rdm-records
 Author: CERN
@@ -122,6 +122,10 @@ Tests
 
 Changes
 =======
+
+Version v19.5.1 (released 2025-07-21)
+
+- fix: cross-origin-file-uploads
 
 Version v19.5.0 (released 2025-07-17)
 

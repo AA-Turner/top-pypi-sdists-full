@@ -1,20 +1,24 @@
 # Authors: Cedric Rommel <cedric.rommel@inria.fr>
 #
 # License: BSD (3-clause)
-import numpy as np
+import math
 
 import torch
-from torch import nn
 from einops.layers.torch import Rearrange
+from torch import nn
 
-from .modules import Ensure4d, MaxNormLinear, CausalConv1d
-from .base import EEGModuleMixin, deprecated_args
+from braindecode.models.base import EEGModuleMixin
+from braindecode.modules import CausalConv1d, Ensure4d, MaxNormLinear
 
 
 class ATCNet(EEGModuleMixin, nn.Module):
-    """ATCNet model from [1]_
+    """ATCNet model from Altaheri et al. (2022) [1]_
 
     Pytorch implementation based on official tensorflow code [2]_.
+
+    .. figure:: https://user-images.githubusercontent.com/25565236/185449791-e8539453-d4fa-41e1-865a-2cf7e91f60ef.png
+       :align: center
+       :alt: ATCNet Architecture
 
     Parameters
     ----------
@@ -54,7 +58,7 @@ class ATCNet(EEGModuleMixin, nn.Module):
         table 1 of the paper [1]_. Defaults to 8 as in [1]_.
     att_num_heads : int
         Number of attention heads, denoted H in table 1 of the paper [1]_.
-        Defaults to 2 as in [1_.
+        Defaults to 2 as in [1]_.
     att_dropout : float
         Dropout probability used in the attention block, denoted pa in table 1
         of the paper [1]_. Defaults to 0.5 as in [1]_.
@@ -82,59 +86,45 @@ class ATCNet(EEGModuleMixin, nn.Module):
     max_norm_const : float
         Maximum L2-norm constraint imposed on weights of the last
         fully-connected layer. Defaults to 0.25.
-    n_channels:
-        Alias for n_chans.
-    n_classes:
-        Alias for n_outputs.
-    input_size_s:
-        Alias for input_window_seconds.
+
 
     References
     ----------
-    .. [1] H. Altaheri, G. Muhammad and M. Alsulaiman, "Physics-informed
-           attention temporal convolutional network for EEG-based motor imagery
-           classification," in IEEE Transactions on Industrial Informatics,
-           2022, doi: 10.1109/TII.2022.3197419.
-    .. [2] https://github.com/Altaheri/EEG-ATCNet/blob/main/models.py
+    .. [1] H. Altaheri, G. Muhammad and M. Alsulaiman,
+        Physics-informed attention temporal convolutional network for EEG-based
+        motor imagery classification in IEEE Transactions on Industrial Informatics,
+        2022, doi: 10.1109/TII.2022.3197419.
+    .. [2] EEE-ATCNet implementation.
+       https://github.com/Altaheri/EEG-ATCNet/blob/main/models.py
     """
 
     def __init__(
-            self,
-            n_chans=None,
-            n_outputs=None,
-            input_window_seconds=4.5,
-            sfreq=250.,
-            conv_block_n_filters=16,
-            conv_block_kernel_length_1=64,
-            conv_block_kernel_length_2=16,
-            conv_block_pool_size_1=8,
-            conv_block_pool_size_2=7,
-            conv_block_depth_mult=2,
-            conv_block_dropout=0.3,
-            n_windows=5,
-            att_head_dim=8,
-            att_num_heads=2,
-            att_dropout=0.5,
-            tcn_depth=2,
-            tcn_kernel_size=4,
-            tcn_n_filters=32,
-            tcn_dropout=0.3,
-            tcn_activation=nn.ELU(),
-            concat=False,
-            max_norm_const=0.25,
-            chs_info=None,
-            n_times=None,
-            n_channels=None,
-            n_classes=None,
-            input_size_s=None,
-            add_log_softmax=True,
+        self,
+        n_chans=None,
+        n_outputs=None,
+        input_window_seconds=None,
+        sfreq=250.0,
+        conv_block_n_filters=16,
+        conv_block_kernel_length_1=64,
+        conv_block_kernel_length_2=16,
+        conv_block_pool_size_1=8,
+        conv_block_pool_size_2=7,
+        conv_block_depth_mult=2,
+        conv_block_dropout=0.3,
+        n_windows=5,
+        att_head_dim=8,
+        att_num_heads=2,
+        att_drop_prob=0.5,
+        tcn_depth=2,
+        tcn_kernel_size=4,
+        tcn_n_filters=32,
+        tcn_drop_prob=0.3,
+        tcn_activation: nn.Module = nn.ELU,
+        concat=False,
+        max_norm_const=0.25,
+        chs_info=None,
+        n_times=None,
     ):
-        n_chans, n_outputs, input_window_seconds = deprecated_args(
-            self,
-            ('n_channels', 'n_chans', n_channels, n_chans),
-            ('n_classes', 'n_outputs', n_classes, n_outputs),
-            ('input_size_s', 'input_window_seconds', input_size_s, input_window_seconds),
-        )
         super().__init__(
             n_outputs=n_outputs,
             n_chans=n_chans,
@@ -142,10 +132,8 @@ class ATCNet(EEGModuleMixin, nn.Module):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
-            add_log_softmax=add_log_softmax,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
-        del n_channels, n_classes, input_size_s
         self.conv_block_n_filters = conv_block_n_filters
         self.conv_block_kernel_length_1 = conv_block_kernel_length_1
         self.conv_block_kernel_length_2 = conv_block_kernel_length_2
@@ -156,19 +144,19 @@ class ATCNet(EEGModuleMixin, nn.Module):
         self.n_windows = n_windows
         self.att_head_dim = att_head_dim
         self.att_num_heads = att_num_heads
-        self.att_dropout = att_dropout
+        self.att_dropout = att_drop_prob
         self.tcn_depth = tcn_depth
         self.tcn_kernel_size = tcn_kernel_size
         self.tcn_n_filters = tcn_n_filters
-        self.tcn_dropout = tcn_dropout
+        self.tcn_dropout = tcn_drop_prob
         self.tcn_activation = tcn_activation
         self.concat = concat
         self.max_norm_const = max_norm_const
 
         map = dict()
         for w in range(self.n_windows):
-            map[f'max_norm_linears.[{w}].weight'] = f'final_layer.[{w}].weight'
-            map[f'max_norm_linears.[{w}].bias'] = f'final_layer.[{w}].bias'
+            map[f"max_norm_linears.[{w}].weight"] = f"final_layer.[{w}].weight"
+            map[f"max_norm_linears.[{w}].bias"] = f"final_layer.[{w}].bias"
         self.mapping = map
 
         # Check later if we want to keep the Ensure4d. Not sure if we can
@@ -184,57 +172,67 @@ class ATCNet(EEGModuleMixin, nn.Module):
             pool_size_1=conv_block_pool_size_1,
             pool_size_2=conv_block_pool_size_2,
             depth_mult=conv_block_depth_mult,
-            dropout=conv_block_dropout
+            dropout=conv_block_dropout,
         )
 
         self.F2 = int(conv_block_depth_mult * conv_block_n_filters)
-        self.Tc = int(self.input_window_seconds * self.sfreq / (
-                conv_block_pool_size_1 * conv_block_pool_size_2))
+        self.Tc = int(self.n_times / (conv_block_pool_size_1 * conv_block_pool_size_2))
         self.Tw = self.Tc - self.n_windows + 1
 
-        self.attention_blocks = nn.ModuleList([
-            _AttentionBlock(
-                in_shape=self.F2,
-                head_dim=self.att_head_dim,
-                num_heads=att_num_heads,
-                dropout=att_dropout,
-            ) for _ in range(self.n_windows)
-        ])
+        self.attention_blocks = nn.ModuleList(
+            [
+                _AttentionBlock(
+                    in_shape=self.F2,
+                    head_dim=self.att_head_dim,
+                    num_heads=att_num_heads,
+                    dropout=att_drop_prob,
+                )
+                for _ in range(self.n_windows)
+            ]
+        )
 
-        self.temporal_conv_nets = nn.ModuleList([
-            nn.Sequential(
-                *[_TCNResidualBlock(
-                    in_channels=self.F2,
-                    kernel_size=tcn_kernel_size,
-                    n_filters=tcn_n_filters,
-                    dropout=tcn_dropout,
-                    activation=tcn_activation,
-                    dilation=2 ** i
-                ) for i in range(tcn_depth)]
-            ) for _ in range(self.n_windows)
-        ])
+        self.temporal_conv_nets = nn.ModuleList(
+            [
+                nn.Sequential(
+                    *[
+                        _TCNResidualBlock(
+                            in_channels=self.F2,
+                            kernel_size=tcn_kernel_size,
+                            n_filters=tcn_n_filters,
+                            dropout=tcn_drop_prob,
+                            activation=tcn_activation,
+                            dilation=2**i,
+                        )
+                        for i in range(tcn_depth)
+                    ]
+                )
+                for _ in range(self.n_windows)
+            ]
+        )
 
         if self.concat:
-            self.final_layer = nn.ModuleList([
-                MaxNormLinear(
-                    in_features=self.F2 * self.n_windows,
-                    out_features=self.n_outputs,
-                    max_norm_val=self.max_norm_const
-                )
-            ])
+            self.final_layer = nn.ModuleList(
+                [
+                    MaxNormLinear(
+                        in_features=self.F2 * self.n_windows,
+                        out_features=self.n_outputs,
+                        max_norm_val=self.max_norm_const,
+                    )
+                ]
+            )
         else:
-            self.final_layer = nn.ModuleList([
-                MaxNormLinear(
-                    in_features=self.F2,
-                    out_features=self.n_outputs,
-                    max_norm_val=self.max_norm_const
-                ) for _ in range(self.n_windows)
-            ])
+            self.final_layer = nn.ModuleList(
+                [
+                    MaxNormLinear(
+                        in_features=self.F2,
+                        out_features=self.n_outputs,
+                        max_norm_val=self.max_norm_const,
+                    )
+                    for _ in range(self.n_windows)
+                ]
+            )
 
-        if self.add_log_softmax:
-            self.out_fun = nn.LogSoftmax(dim=1)
-        else:
-            self.out_fun = nn.Identity()
+        self.out_fun = nn.Identity()
 
     def forward(self, X):
         # Dimension: (batch_size, C, T)
@@ -250,43 +248,46 @@ class ATCNet(EEGModuleMixin, nn.Module):
         # Dimension: (batch_size, F2, Tc)
 
         # ----- Sliding window -----
-        sw_concat = []  # to store sliding window outputs
-        for w in range(self.n_windows):
-            conv_feat_w = conv_feat[..., w:w + self.Tw]
+        sw_concat: list[torch.Tensor] = []  # to store sliding window outputs
+        # for w in range(self.n_windows):
+        for idx, (attention, tcn_module, final_layer) in enumerate(
+            zip(self.attention_blocks, self.temporal_conv_nets, self.final_layer)
+        ):
+            conv_feat_w = conv_feat[..., idx : idx + self.Tw]
             # Dimension: (batch_size, F2, Tw)
 
             # ----- Attention block -----
-            att_feat = self.attention_blocks[w](conv_feat_w)
+            att_feat = attention(conv_feat_w)
             # Dimension: (batch_size, F2, Tw)
 
             # ----- Temporal convolutional network (TCN) -----
-            tcn_feat = self.temporal_conv_nets[w](att_feat)[..., -1]
+            tcn_feat = tcn_module(att_feat)[..., -1]
             # Dimension: (batch_size, F2)
 
             # Outputs of sliding window can be either averaged after being
             # mapped by dense layer or concatenated then mapped by a dense
             # layer
             if not self.concat:
-                tcn_feat = self.final_layer[w](tcn_feat)
+                tcn_feat = final_layer(tcn_feat)
 
             sw_concat.append(tcn_feat)
 
         # ----- Aggregation and prediction -----
         if self.concat:
-            sw_concat = torch.cat(sw_concat, dim=1)
-            sw_concat = self.final_layer[0](sw_concat)
+            sw_concat_agg = torch.cat(sw_concat, dim=1)
+            sw_concat_agg = self.final_layer[0](sw_concat_agg)
         else:
             if len(sw_concat) > 1:  # more than one window
-                sw_concat = torch.stack(sw_concat, dim=0)
-                sw_concat = torch.mean(sw_concat, dim=0)
+                sw_concat_agg = torch.stack(sw_concat, dim=0)
+                sw_concat_agg = torch.mean(sw_concat_agg, dim=0)
             else:  # one window (# windows = 1)
-                sw_concat = sw_concat[0]
+                sw_concat_agg = sw_concat[0]
 
-        return self.out_fun(sw_concat)
+        return self.out_fun(sw_concat_agg)
 
 
 class _ConvBlock(nn.Module):
-    """ Convolutional block proposed in ATCNet [1]_, inspired by the EEGNet
+    """Convolutional block proposed in ATCNet [1]_, inspired by the EEGNet
     architecture [2]_.
 
     References
@@ -303,15 +304,15 @@ class _ConvBlock(nn.Module):
     """
 
     def __init__(
-            self,
-            n_channels,
-            n_filters=16,
-            kernel_length_1=64,
-            kernel_length_2=16,
-            pool_size_1=8,
-            pool_size_2=7,
-            depth_mult=2,
-            dropout=0.3,
+        self,
+        n_channels,
+        n_filters=16,
+        kernel_length_1=64,
+        kernel_length_2=16,
+        pool_size_1=8,
+        pool_size_2=7,
+        depth_mult=2,
+        dropout=0.3,
     ):
         super().__init__()
 
@@ -402,11 +403,11 @@ class _AttentionBlock(nn.Module):
     """
 
     def __init__(
-            self,
-            in_shape=32,
-            head_dim=8,
-            num_heads=2,
-            dropout=0.5,
+        self,
+        in_shape=32,
+        head_dim=8,
+        num_heads=2,
+        dropout=0.5,
     ):
         super().__init__()
         self.in_shape = in_shape
@@ -462,7 +463,7 @@ class _AttentionBlock(nn.Module):
 
 
 class _TCNResidualBlock(nn.Module):
-    """ Modified TCN Residual block as proposed in [1]_. Inspired from
+    """Modified TCN Residual block as proposed in [1]_. Inspired from
     Temporal Convolutional Networks (TCN) [2]_.
 
     References
@@ -477,16 +478,16 @@ class _TCNResidualBlock(nn.Module):
     """
 
     def __init__(
-            self,
-            in_channels,
-            kernel_size=4,
-            n_filters=32,
-            dropout=0.3,
-            activation=nn.ELU(),
-            dilation=1
+        self,
+        in_channels,
+        kernel_size=4,
+        n_filters=32,
+        dropout=0.3,
+        activation: nn.Module = nn.ELU,
+        dilation=1,
     ):
         super().__init__()
-        self.activation = activation
+        self.activation = activation()
         self.dilation = dilation
         self.dropout = dropout
         self.n_filters = n_filters
@@ -522,7 +523,7 @@ class _TCNResidualBlock(nn.Module):
             self.reshaping_conv = nn.Conv1d(
                 n_filters,
                 kernel_size=1,
-                padding='same',
+                padding="same",
             )
         else:
             self.reshaping_conv = nn.Identity()
@@ -550,12 +551,12 @@ class _TCNResidualBlock(nn.Module):
 
 class _MHA(nn.Module):
     def __init__(
-            self,
-            input_dim: int,
-            head_dim: int,
-            output_dim: int,
-            num_heads: int,
-            dropout: float = 0.,
+        self,
+        input_dim: int,
+        head_dim: int,
+        output_dim: int,
+        num_heads: int,
+        dropout: float = 0.0,
     ):
         """Multi-head Attention
 
@@ -598,12 +599,9 @@ class _MHA(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(
-            self,
-            Q: torch.Tensor,
-            K: torch.Tensor,
-            V: torch.Tensor
+        self, Q: torch.Tensor, K: torch.Tensor, V: torch.Tensor
     ) -> torch.Tensor:
-        """ Compute MHA(Q, K, V)
+        """Compute MHA(Q, K, V)
 
         Parameters
         ----------
@@ -635,22 +633,18 @@ class _MHA(nn.Module):
         # Attention weights of size (num_heads * batch_size, n, m):
         # measures how similar each pair of Q and K is.
         W = torch.softmax(
-            Q_.bmm(
-                K_.transpose(-2, -1)  # (B', D', S)
-            )
-            / np.sqrt(self.head_dim),
-            -1
+            Q_.bmm(K_.transpose(-2, -1)) / math.sqrt(self.head_dim),
+            -1,  # (B', D', S)
         )  # (B', N, M)
 
         # Multihead output (batch_size, seq_len, dim):
         # weighted sum of V where a value gets more weight if its corresponding
         # key has larger dot product with the query.
         H = torch.cat(
-            (
-                W  # (B', S, S)
-                .bmm(V_)  # (B', S, D')
-            ).split(batch_size, 0),  # [(B, S, D')] * num_heads
-            -1
+            (W.bmm(V_)).split(  # (B', S, S)  # (B', S, D')
+                batch_size, 0
+            ),  # [(B, S, D')] * num_heads
+            -1,
         )  # (B, S, D)
 
         out = self.fc_o(H)

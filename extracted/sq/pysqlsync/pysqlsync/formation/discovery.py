@@ -1,6 +1,6 @@
 import logging
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Sequence
 
 from ..base import BaseContext, DiscoveryError, Explorer
 from ..model.data_types import escape_like, quote
@@ -61,9 +61,7 @@ class AnsiExplorer(Explorer):
     _has_constraints: Optional[bool] = None
     _has_column_extended_info: Optional[bool] = None
 
-    def __init__(
-        self, conn: BaseContext, discovery: SqlDiscovery, factory: ObjectFactory
-    ) -> None:
+    def __init__(self, conn: BaseContext, discovery: SqlDiscovery, factory: ObjectFactory) -> None:
         super().__init__(conn)
         self.discovery = discovery
         self.factory = factory
@@ -130,9 +128,7 @@ class AnsiExplorer(Explorer):
 
     def _where_table(self, table_id: SupportsQualifiedId, alias: str) -> str:
         table_schema = (
-            quote(table_id.scope_id)
-            if table_id.scope_id is not None
-            else self.conn.connection.generator.get_current_schema_stmt()
+            quote(table_id.scope_id) if table_id.scope_id is not None else self.conn.connection.generator.get_current_schema_stmt()
         )
         table_name = quote(table_id.local_id)
         conditions = [
@@ -150,9 +146,7 @@ class AnsiExplorer(Explorer):
         )
         return count > 0
 
-    async def has_column(
-        self, table_id: SupportsQualifiedId, column_id: LocalId
-    ) -> bool:
+    async def has_column(self, table_id: SupportsQualifiedId, column_id: LocalId) -> bool:
         "Checks if a table has the specified column."
 
         count = await self.conn.query_one(
@@ -163,13 +157,13 @@ class AnsiExplorer(Explorer):
         )
         return count > 0
 
-    async def get_columns(self, table_id: SupportsQualifiedId) -> list[Column]:
+    async def get_columns(self, table_id: SupportsQualifiedId) -> Sequence[Column]:
         if await self.has_column_extended_info():
             return await self._get_columns_full(table_id)
         else:
             return await self._get_columns_limited(table_id)
 
-    async def _get_columns_limited(self, table_id: SupportsQualifiedId) -> list[Column]:
+    async def _get_columns_limited(self, table_id: SupportsQualifiedId) -> Sequence[Column]:
         column_meta = await self.conn.query_all(
             tuple[str, str, bool],
             "SELECT col.column_name, col.data_type, CASE WHEN col.is_nullable = 'YES' THEN 1 ELSE 0 END AS nullable\n"
@@ -182,15 +176,15 @@ class AnsiExplorer(Explorer):
         for col in column_meta:
             column_name, data_type, nullable = col
             columns.append(
-                self.factory.column_class(
+                self.factory.column_class.create(
                     LocalId(column_name),
                     self.discovery.sql_data_type_from_spec(type_name=data_type),
-                    bool(nullable),
+                    nullable=bool(nullable),
                 )
             )
         return columns
 
-    async def _get_columns_full(self, table_id: SupportsQualifiedId) -> list[Column]:
+    async def _get_columns_full(self, table_id: SupportsQualifiedId) -> Sequence[Column]:
         column_meta = await self.conn.query_all(
             AnsiColumnMeta,
             "SELECT\n"
@@ -210,7 +204,7 @@ class AnsiExplorer(Explorer):
         columns: list[Column] = []
         for col in column_meta:
             columns.append(
-                self.factory.column_class(
+                self.factory.column_class.create(
                     LocalId(col.column_name),
                     self.discovery.sql_data_type_from_spec(
                         type_name=col.data_type,
@@ -219,15 +213,13 @@ class AnsiExplorer(Explorer):
                         numeric_scale=col.numeric_scale,
                         datetime_precision=col.datetime_precision,
                     ),
-                    bool(col.nullable),
+                    nullable=bool(col.nullable),
                     default=col.column_default,
                 )
             )
         return columns
 
-    async def get_table_primary_key(
-        self, table_id: SupportsQualifiedId
-    ) -> tuple[LocalId, ...]:
+    async def get_table_primary_key(self, table_id: SupportsQualifiedId) -> tuple[LocalId, ...]:
         primary_meta = await self.conn.query_all(
             str,
             "SELECT\n"
@@ -244,9 +236,7 @@ class AnsiExplorer(Explorer):
 
         return tuple(LocalId(column) for column in primary_meta)
 
-    async def get_unique_constraints(
-        self, table_id: SupportsQualifiedId
-    ) -> list[UniqueConstraint]:
+    async def get_unique_constraints(self, table_id: SupportsQualifiedId) -> list[UniqueConstraint]:
         constraint_meta = await self.conn.query_all(
             AnsiUniqueMeta,
             "SELECT\n"
@@ -269,9 +259,7 @@ class AnsiExplorer(Explorer):
             constraints.add(con.constraint_name, LocalId(con.column_name))
         return constraints.fetch()
 
-    async def get_referential_constraints(
-        self, table_id: SupportsQualifiedId
-    ) -> list[ForeignConstraint]:
+    async def get_referential_constraints(self, table_id: SupportsQualifiedId) -> list[ForeignConstraint]:
         constraint_meta = await self.conn.query_all(
             AnsiConstraintMeta,
             "SELECT\n"
@@ -309,9 +297,7 @@ class AnsiExplorer(Explorer):
             )
         return constraints.fetch()
 
-    async def get_table_description(
-        self, table_id: SupportsQualifiedId
-    ) -> Optional[str]:
+    async def get_table_description(self, table_id: SupportsQualifiedId) -> Optional[str]:
         return None
 
     async def get_table(self, table_id: SupportsQualifiedId) -> Table:
@@ -336,13 +322,9 @@ class AnsiExplorer(Explorer):
         else:
             # assume first column is the primary key
             primary_key = (columns[0].name,)
-            return self.factory.table_class(
-                name=table_id, columns=columns, primary_key=primary_key
-            )
+            return self.factory.table_class(name=table_id, columns=columns, primary_key=primary_key)
 
-    async def get_namespace_qualified(
-        self, namespace_id: Optional[LocalId] = None
-    ) -> Namespace:
+    async def get_namespace_qualified(self, namespace_id: Optional[LocalId] = None) -> Namespace:
         """
         Constructs a database object model of a namespace (database schema).
 
@@ -358,10 +340,7 @@ class AnsiExplorer(Explorer):
             schema_expr = self.conn.connection.generator.get_current_schema_stmt()
         table_names = await self.conn.query_all(
             str,
-            "SELECT table_name\n"
-            "FROM information_schema.tables\n"
-            f"WHERE table_schema = {schema_expr}\n"
-            "ORDER BY table_name ASC",
+            f"SELECT table_name\nFROM information_schema.tables\nWHERE table_schema = {schema_expr}\nORDER BY table_name ASC",
         )
         if table_names:
             if namespace_id is not None:
@@ -370,20 +349,14 @@ class AnsiExplorer(Explorer):
                 scope_id = None
 
             for table_name in table_names:
-                table = await self.get_table(
-                    self.get_qualified_id(scope_id, table_name)
-                )
+                table = await self.get_table(self.get_qualified_id(scope_id, table_name))
                 tables.append(table)
 
-            return self.factory.namespace_class(
-                name=LocalId(scope_id or ""), enums=[], structs=[], tables=tables
-            )
+            return self.factory.namespace_class(name=LocalId(scope_id or ""), enums=[], structs=[], tables=tables)
         else:
             return self.factory.namespace_class()
 
-    async def get_namespace_flat(
-        self, namespace_id: Optional[LocalId] = None
-    ) -> Namespace:
+    async def get_namespace_flat(self, namespace_id: Optional[LocalId] = None) -> Namespace:
         """
         Constructs a database object model of a namespace (database schema).
 
@@ -420,8 +393,6 @@ class AnsiExplorer(Explorer):
                 table = await self.get_table(self.get_qualified_id(scope_id, local_id))
                 tables.append(table)
 
-            return self.factory.namespace_class(
-                name=LocalId(""), enums=[], structs=[], tables=tables
-            )
+            return self.factory.namespace_class(name=LocalId(""), enums=[], structs=[], tables=tables)
         else:
             return self.factory.namespace_class()

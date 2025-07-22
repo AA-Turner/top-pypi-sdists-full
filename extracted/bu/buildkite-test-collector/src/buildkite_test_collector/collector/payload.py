@@ -1,14 +1,14 @@
-"""Buildkite Test Analytics payload"""
+"""Buildkite Test Engine payload"""
 
 from dataclasses import dataclass, replace, field
-from typing import Dict, Tuple, Optional, Union, Literal, List
+from typing import Dict, Tuple, Optional, Union, Literal, List, Iterable, Mapping
 from datetime import timedelta
 from uuid import UUID
 
 from ..pytest_plugin.logger import logger
 
 from .instant import Instant
-from .run_env import RuntimeEnvironment
+from .run_env import RunEnv
 
 JsonValue = Union[str, int, float, bool, 'JsonDict', Tuple['JsonValue']]
 JsonDict = Dict[str, JsonValue]
@@ -25,6 +25,7 @@ class TestResultPassed:
 class TestResultFailed:
     """Represents a failed test result"""
     failure_reason: Optional[str]
+    failure_expanded: Optional[Iterable[Mapping[str, Iterable[str]]]] = None
 
 
 @dataclass(frozen=True)
@@ -162,9 +163,10 @@ class TestData:
         """Mark this test as passed"""
         return replace(self, result=TestResultPassed())
 
-    def failed(self, failure_reason=None) -> 'TestData':
+    def failed(self, failure_reason=None, failure_expanded=None) -> 'TestData':
         """Mark this test as failed"""
-        return replace(self, result=TestResultFailed(failure_reason=failure_reason))
+        result = TestResultFailed(failure_reason=failure_reason, failure_expanded=failure_expanded)
+        return replace(self, result=result)
 
     def skipped(self) -> 'TestData':
         """Mark this test as skipped"""
@@ -199,6 +201,8 @@ class TestData:
             attrs["result"] = "failed"
             if self.result.failure_reason is not None:
                 attrs["failure_reason"] = self.result.failure_reason
+            if self.result.failure_expanded is not None:
+                attrs["failure_expanded"] = self.result.failure_expanded
 
         if isinstance(self.result, TestResultSkipped):
             attrs["result"] = "skipped"
@@ -209,14 +213,14 @@ class TestData:
 @dataclass(frozen=True)
 class Payload:
     """The full test analytics payload"""
-    run_env: RuntimeEnvironment
+    run_env: RunEnv
     data: Tuple[TestData]
     started_at: Optional[Instant]
     finished_at: Optional[Instant]
 
     @classmethod
-    def init(cls, run_env: RuntimeEnvironment) -> 'Payload':
-        """Create a new instance of payload with the provided runtime environment"""
+    def init(cls, run_env: RunEnv) -> 'Payload':
+        """Create a new instance of payload with the provided RunEnv"""
 
         return cls(
             run_env=run_env,

@@ -9751,6 +9751,8 @@ async def get_chn_btn(bot, chat_id, lz):
         reply_markup = InlineKeyboardBuilder()
         reply_markup.row(types.InlineKeyboardButton(text=f"♥ {str(l_chn[lz]).capitalize()}", url=url_))
 
+
+
         await bot.send_message(chat_id=chat_id, text='♥',
                             message_effect_id='5159385139981059251',    # heart
                             reply_markup=reply_markup.as_markup())
@@ -16098,17 +16100,38 @@ async def correct_txt_tags_for_tg(txt):
         if not txt or txt == str_empty: return result
 
         print(f"correct_txt_tags_for_tg start {txt=}")
+        # txt = re.sub(
+        #     r'<div class="tgui-79024fcb6d81ad79" style="display: inline-block; padding: 0px 4px;">(.*?)</div>',
+        #     r'<blockquote>\1</blockquote>', txt)
+
         txt = re.sub(
             r'<div class="tgui-79024fcb6d81ad79" style="display: inline-block; padding: 0px 4px;">(.*?)</div>',
-            r'<blockquote>\1</blockquote>', txt)
+            r'<blockquote>\1</blockquote>',
+            txt,
+            flags=re.DOTALL
+        )
+
+        # txt = re.sub(
+        #     r'<div class="tgui-79024fcb6d81ad79" style="border-left-width: 2px; border-left-style: solid; border-left-color: purple; padding: 0px 4px;">(.*?)</div>',
+        #     r'<blockquote expandable>\1</blockquote>', txt)
 
         txt = re.sub(
             r'<div class="tgui-79024fcb6d81ad79" style="border-left-width: 2px; border-left-style: solid; border-left-color: purple; padding: 0px 4px;">(.*?)</div>',
-            r'<blockquote expandable>\1</blockquote>', txt)
+            r'<blockquote expandable>\1</blockquote>',
+            txt,
+            flags=re.DOTALL
+        )
+
+        # txt = re.sub(
+        #     r'<div class="tgui-86f452d8e92a2075 tgui-aff2a6268e887037" style="display: inline-block; white-space: pre-wrap; cursor: pointer;">(.*?)</div>',
+        #     r'<tg-spoiler>\1</tg-spoiler>', txt
+        # )
 
         txt = re.sub(
             r'<div class="tgui-86f452d8e92a2075 tgui-aff2a6268e887037" style="display: inline-block; white-space: pre-wrap; cursor: pointer;">(.*?)</div>',
-            r'<tg-spoiler>\1</tg-spoiler>', txt
+            r'<tg-spoiler>\1</tg-spoiler>',
+            txt,
+            flags=re.DOTALL
         )
 
         txt = re.sub(

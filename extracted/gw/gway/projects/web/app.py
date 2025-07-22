@@ -31,10 +31,13 @@ from gway import gw
 _ver = None
 _homes = []   # (title, route)
 _links: dict[str, list[object]] = {}
+_footer_links: dict[str, list[object]] = {}
 _enabled = set()
 _registered_routes: set[tuple[str, str]] = set()
 _fresh_mtime = None
 _fresh_dt = None
+_build_mtime = None
+_build_dt = None
 _static_route = "static"
 _shared_route = "shared"
 _default_include_mode = "collect"
@@ -52,6 +55,20 @@ def _refresh_fresh_date():
         _fresh_mtime = mtime
         _fresh_dt = datetime.datetime.fromtimestamp(mtime)
     return _fresh_dt
+
+
+def _refresh_build_date():
+    """Return cached datetime of BUILD modification, updating cache if needed."""
+    global _build_mtime, _build_dt
+    try:
+        path = gw.resource("BUILD")
+        mtime = os.path.getmtime(path)
+    except Exception:
+        return None
+    if _build_mtime != mtime:
+        _build_mtime = mtime
+        _build_dt = datetime.datetime.fromtimestamp(mtime)
+    return _build_dt
 
 
 def _format_fresh(dt: datetime.datetime | None) -> str:
@@ -87,12 +104,14 @@ def current_endpoint():
     """
     return gw.context.get('current_endpoint')
 
+
 def setup_app(project,
     *,
     app=None,
     path=None,
     home: str = None,
     links=None,
+    footer=None,
     views: str = "view",
     apis: str = "api",
     renders: str = "render",
@@ -103,6 +122,8 @@ def setup_app(project,
     mode="collect",        # collect | manual | embedded
     auth="disabled",       # Accept "optional"/"disabled" words to disable
     engine="bottle",
+    delegates=None,
+    everything: bool = False,
     **setup_kwargs,
 ):
     """
@@ -111,8 +132,16 @@ def setup_app(project,
     project found is loaded and used. ``mode`` controls how CSS/JS files are
     included: ``collect`` (default) uses bundled files, ``manual`` links each
     file individually, and ``embedded`` inlines the contents into the page.
+    ``footer`` accepts a list of links similar to ``links`` but rendered in the
+    page footer instead of the navigation sidebar. Sub-projects of the loaded
+    project are always scanned for missing handlers. Use ``delegates`` to
+    specify additional fallback projects. Set ``everything`` to ``True`` to
+    automatically initialize all sub-projects as delegates.
     """
     global _ver, _homes, _enabled, _static_route, _shared_route
+
+    if "all" in setup_kwargs and not everything:
+        everything = bool(setup_kwargs.pop("all"))
 
     auth_required = str(auth).strip().lower() not in {
         "none", "false", "disabled", "optional"
@@ -141,13 +170,46 @@ def setup_app(project,
             )
         )
 
+    delegate_modules = []
+
+    # Always include sub-projects as delegate modules
+    try:
+        from gway.structs import Project
+    except Exception:
+        Project = type(source)
+    for attr in getattr(source, "__dict__", {}).values():
+        if isinstance(attr, Project) and attr not in delegate_modules:
+            delegate_modules.append(attr)
+
+    # Extra delegates can be specified explicitly
+    for name in gw.cast.to_list(delegates):
+        mod = None
+        if isinstance(name, str):
+            try:
+                mod = gw.find_project(name)
+            except Exception:
+                mod = None
+        elif name:
+            mod = name
+        if mod and mod not in delegate_modules:
+            delegate_modules.append(mod)
+
+    modules = [source] + delegate_modules
+
+    def _find_func(name):
+        for mod in modules:
+            func = getattr(mod, name, None)
+            if callable(func):
+                return func
+        return None
+
     # Normalize project name to the one actually loaded
     project = getattr(source, "_name", project_names[0])
 
     # Track project for later global static collection
     _enabled.add(project)
 
-    if home is None:
+    if home is None and not (_homes and links):
         setup_home_func = getattr(source, "setup_home", None)
         if callable(setup_home_func):
             try:
@@ -190,10 +252,14 @@ def setup_app(project,
         app = Bottle()
         _homes.clear()
         _links.clear()
+        _footer_links.clear()
         _registered_routes.clear()
+        _enabled.clear()
+        _enabled.add(project)
         if home:
             add_home(home, path, project)
-            add_links(f"{path}/{home}", links)
+            add_links(f"{path}/{home}", links, project)
+            add_footer_links(f"{path}/{home}", footer, project)
 
         def index():
             response.status = 302
@@ -203,11 +269,46 @@ def setup_app(project,
 
         @app.error(404)
         def handle_404(error):
-            return gw.web.error.redirect(f"404 Not Found: {request.url}", err=error)
+            """Redirect 404 responses and log the missing URL."""
+            try:
+                gw.web.site.record_broken_link(request.url)
+            except Exception:
+                pass
+            return gw.web.error.redirect(
+                f"404 Not Found: {request.url}", err=error
+            )
     
     elif home:
         add_home(home, path, project)
-        add_links(f"{path}/{home}", links)
+        add_links(f"{path}/{home}", links, project)
+        add_footer_links(f"{path}/{home}", footer, project)
+    elif links and _homes:
+        add_links(_homes[-1][1], links, project)
+    elif footer and _homes:
+        add_footer_links(_homes[-1][1], footer, project)
+
+    # Recursively setup sub-projects when requested (before main routes)
+    if everything and delegate_modules:
+        base_path = path if path is not None else project.replace('.', '/')
+        for mod in delegate_modules:
+            sub_name = getattr(mod, '_name', None)
+            if not sub_name:
+                continue
+            if sub_name.startswith(project + '.'):
+                rel = sub_name[len(project) + 1:]
+            else:
+                rel = sub_name
+            sub_path = f"{base_path}/{rel.replace('.', '/')}"
+            try:
+                setup_app(
+                    sub_name,
+                    app=app,
+                    path=sub_path,
+                    everything=False,
+                    **setup_kwargs,
+                )
+            except Exception as exc:
+                gw.warn(f"Failed to setup sub-project {sub_name}: {exc}")
 
     if getattr(gw, "timed_enabled", False):
         @app.hook('before_request')
@@ -241,8 +342,12 @@ def setup_app(project,
         add_route(app, f"/{static}/<filepath:path>", "GET", send_static)
         
     def _maybe_auth(message: str):
-        if is_setup('web.auth') and not gw.web.auth.is_authorized(strict=auth_required):
-            return gw.web.error.unauthorized(message)
+        # Inspect current request path for potential auth rules or logging
+        _req_path = getattr(request, "fullpath", request.path)
+        if auth_required:
+            if is_setup('web.auth') and not gw.web.auth.is_authorized(strict=True):
+                gw.debug(f"Unauthorized request for {_req_path}")
+                return gw.web.error.unauthorized(message)
         return None
 
     if views:
@@ -284,9 +389,9 @@ def setup_app(project,
                 generic_func_name = f"{views}_{view_name}"
 
                 # Prefer view_get_x/view_post_x before view_x
-                view_func = getattr(source, method_func_name, None)
+                view_func = _find_func(method_func_name)
                 if not callable(view_func):
-                    view_func = getattr(source, generic_func_name, None)
+                    view_func = _find_func(generic_func_name)
                 if not callable(view_func):
                     return gw.web.error.redirect(
                         f"View not found: {method_func_name} or {generic_func_name} in {project}"
@@ -365,9 +470,9 @@ def setup_app(project,
             specific_af = f"{apis}_{method}_{view_name}"
             generic_af = f"{apis}_{view_name}"
 
-            api_func = getattr(source, specific_af, None)
+            api_func = _find_func(specific_af)
             if not callable(api_func):
-                api_func = getattr(source, generic_af, None)
+                api_func = _find_func(generic_af)
             if not callable(api_func):
                 return gw.web.error.redirect(f"API not found: {specific_af} or {generic_af} in {project}")
 
@@ -399,11 +504,11 @@ def setup_app(project,
             # Optionally: Allow render_<view>_<hash> if you want to dispatch more granularly
             #func_name = f"{renders}_{func_view}_{func_hash}"
 
-            render_func = getattr(source, func_name, None)
+            render_func = _find_func(func_name)
             if not callable(render_func):
                 # Fallback: allow view as prefix, e.g. render_charger_status_charger_list
                 alt_func_name = f"{renders}_{func_view}_{func_hash}"
-                render_func = getattr(source, alt_func_name, None)
+                render_func = _find_func(alt_func_name)
                 if not callable(render_func):
                     return gw.web.error.redirect(
                         f"Render function not found: {func_name} or {alt_func_name} in {project}")
@@ -460,9 +565,9 @@ def setup_app(project,
                 method_func_name = f"{views}_{method}_{view_name}"
                 generic_func_name = f"{views}_{view_name}"
 
-                view_func = getattr(source, method_func_name, None)
+                view_func = _find_func(method_func_name)
                 if not callable(view_func):
-                    view_func = getattr(source, generic_func_name, None)
+                    view_func = _find_func(generic_func_name)
                 if not callable(view_func):
                     return gw.web.error.redirect(
                         f"View not found: {method_func_name} or {generic_func_name} in {project}")
@@ -523,12 +628,19 @@ def setup_app(project,
 
 # Use current_endpoint to get the current project route
 def build_url(*args, **kwargs):
-    path = "/".join(str(a).strip("/") for a in args if a)
-    endpoint = current_endpoint()
-    if endpoint:
-        url = f"/{endpoint}/{path}" if path else f"/{endpoint}"
+    path_parts = [str(a).strip("/") for a in args if a]
+    if path_parts and (
+        len(path_parts) > 1 or "." in path_parts[0] or "/" in path_parts[0]
+    ):
+        first = path_parts.pop(0).replace(".", "/")
+        path = "/".join([first] + path_parts)
+        url = f"/{path}" if path else "/"
     else:
-        url = f"/{path}"
+        path = "/".join(path_parts)
+        endpoint = current_endpoint()
+        url = f"/{endpoint}/{path}" if endpoint and path else (
+            f"/{endpoint}" if endpoint else f"/{path}"
+        )
     if kwargs:
         url += "?" + urlencode(kwargs)
     return url
@@ -536,7 +648,11 @@ def build_url(*args, **kwargs):
 def render_template(*, title="GWAY", content="", css_files=None, js_files=None, mode=None):
     global _ver
     version = _ver = _ver or gw.version()
-    fresh = _format_fresh(_refresh_fresh_date())
+    if getattr(gw, "debug_enabled", False):
+        dt = _refresh_build_date()
+    else:
+        dt = _refresh_fresh_date()
+    fresh = _format_fresh(dt)
     build = ""
     if getattr(gw, "debug_enabled", False):
         try:
@@ -630,6 +746,7 @@ def render_template(*, title="GWAY", content="", css_files=None, js_files=None, 
         """
 
     message_html = gw.web.message.render() if is_setup('web.message') else ""
+    footer_links_html = render_footer_links()
 
     html = template("""<!DOCTYPE html>
         <html lang="en">
@@ -651,12 +768,12 @@ def render_template(*, title="GWAY", content="", css_files=None, js_files=None, 
                     {{!nav}}<main>{{!message_html}}{{!content}}</main>
                     % end
                 </div>
-                <footer><p>This website was <strong>built</strong>, <strong>tested</strong>
+                <footer>{{!footer_links_html}}<p>This website was <strong>built</strong>, <strong>tested</strong>
                     and <strong>released</strong> with <a href="https://arthexis.com">GWAY</a>
                     <a href="https://pypi.org/project/gway/{{!version}}/">v{{!version}}</a>,
                     fresh since {{!fresh}}{{!build}}.</p>
             {{!credits}}
-            </footer>
+                </footer>
             </div>
             {{!debug_html}}
             {{!js_links}}
@@ -706,24 +823,67 @@ def is_setup(project_name):
     global _enabled
     return project_name in _enabled
 
+def _func_title(project: str | None, view: str) -> str | None:
+    """Return function _title for project.view if available."""
+    if not project:
+        return None
+    try:
+        mod = gw.find_project(project)
+    except Exception:
+        mod = None
+    if not mod:
+        return None
+    func = None
+    for prefix in gw.prefixes:
+        cand = getattr(mod, f"{prefix}{view.replace('-', '_')}", None)
+        if callable(cand):
+            func = cand
+            break
+    if not func:
+        func = getattr(mod, view.replace('-', '_'), None)
+    if callable(func):
+        return getattr(func, "_title", None)
+    return None
+
 def add_home(home, path, project=None):
     global _homes
     if home.lower() == "index" and project:
         title_src = project
     else:
         title_src = home
-    title = title_src.replace('.', ' ').replace('-', ' ').replace('_', ' ').title()
+    title = _func_title(project, home) or (
+        title_src.replace('.', ' ').replace('-', ' ').replace('_', ' ').title()
+    )
     route = f"{path}/{home}"
     if (title, route) not in _homes:
         _homes.append((title, route))
         gw.debug(f"Added home: ({title}, {route})")
 
-def add_links(route: str, links=None):
+def add_links(route: str, links=None, project: str | None = None):
     global _links
     parsed = parse_links(links)
     if parsed:
-        _links[route] = parsed
-        gw.debug(f"Added links for {route}: {parsed}")
+        if project:
+            parsed = [
+                (project, item) if not isinstance(item, tuple) else item
+                for item in parsed
+            ]
+        existing = _links.get(route, [])
+        _links[route] = existing + parsed
+        gw.debug(f"Added links for {route}: {_links[route]}")
+
+def add_footer_links(route: str, links=None, project: str | None = None):
+    global _footer_links
+    parsed = parse_links(links)
+    if parsed:
+        if project:
+            parsed = [
+                (project, item) if not isinstance(item, tuple) else item
+                for item in parsed
+            ]
+        existing = _footer_links.get(route, [])
+        _footer_links[route] = existing + parsed
+        gw.debug(f"Added footer links for {route}: {_footer_links[route]}")
 
 def parse_links(links) -> list[object]:
     if not links:
@@ -746,3 +906,26 @@ def parse_links(links) -> list[object]:
         else:
             result.append(token)
     return result
+
+def render_footer_links() -> str:
+    items = []
+    for _, route in _homes:
+        sub = _footer_links.get(route)
+        if not sub:
+            continue
+        proj_root = route.rsplit('/', 1)[0] if '/' in route else route
+        for name in sub:
+            if isinstance(name, tuple):
+                proj, view = name
+                href = f"{proj.replace('.', '/')}/{view}".strip('/')
+                label = _func_title(proj, view) or (
+                    view.replace('-', ' ').replace('_', ' ').title()
+                )
+            else:
+                href = f"{proj_root}/{name}".strip('/')
+                proj = proj_root.replace('/', '.')
+                label = _func_title(proj, name) or (
+                    name.replace('-', ' ').replace('_', ' ').title()
+                )
+            items.append(f'<a href="/{href}">{label}</a>')
+    return '<p class="footer-links">' + ' | '.join(items) + '</p>' if items else ""

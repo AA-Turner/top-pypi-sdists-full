@@ -75,13 +75,20 @@ def process_table(df, config, paths):
                 seen[col] += 1
             df.columns = new_cols
 
+    # Get source_name and database_type from the new nested config structure
+    source_name = getattr(config, 'input_config', None)
+    source_name = source_name.source_name if source_name else getattr(config, 'source_name', 'data')
+    
+    database_type = getattr(config, 'artifact_generation_config', None)
+    database_type = database_type.database_type if database_type else getattr(config, 'database_type', 'mariadb')
+    
     # 2) Schema
     schema: Dict[str, Any] = {}
     if config.generate_schemas:
         schema = {
-            config.source_name: {
+            source_name: {
                 config.table_name: generate_db_schema_from_df(
-                    df, config.database_type, config.normalize_field_names
+                    df, database_type, config.normalize_field_names
                 )
             }
         }
@@ -89,16 +96,20 @@ def process_table(df, config, paths):
             pickle.dump(schema, f)
         
         # Create filtered schemas for entity fields and semantic fields
-        if config.entity_fields:
+        # Get entity fields from the new nested config structure
+        entity_fields = getattr(config, 'field_mapping_config', None)
+        entity_fields = entity_fields.entity_fields if entity_fields else getattr(config, 'entity_fields', [])
+        
+        if entity_fields:
             # Extract field names for this table
             table_entity_fields = [
-                ef.field_name for ef in config.entity_fields
+                ef.field_name for ef in entity_fields
                 if ef.table_name == config.table_name
             ]
             
             if table_entity_fields:
                 entity_schema = _create_filtered_schema(
-                    schema, config.source_name, config.table_name,
+                    schema, source_name, config.table_name,
                     table_entity_fields, config.normalize_field_names
                 )
                 
@@ -106,16 +117,20 @@ def process_table(df, config, paths):
                     with open(paths["entity_fields_schema"], "wb") as f:
                         pickle.dump(entity_schema, f)
         
-        if config.semantic_fields:
+        # Get semantic fields from the new nested config structure
+        semantic_fields = getattr(config, 'field_mapping_config', None)
+        semantic_fields = semantic_fields.semantic_fields if semantic_fields else getattr(config, 'semantic_fields', [])
+        
+        if semantic_fields:
             # Extract field names for this table
             table_semantic_fields = [
-                sf.field_name for sf in config.semantic_fields
+                sf.field_name for sf in semantic_fields
                 if sf.table_name == config.table_name
             ]
             
             if table_semantic_fields:
                 semantic_schema = _create_filtered_schema(
-                    schema, config.source_name, config.table_name,
+                    schema, source_name, config.table_name,
                     table_semantic_fields, config.normalize_field_names
                 )
                 
@@ -137,24 +152,31 @@ def process_table(df, config, paths):
     entities: list[dict] = []
     embedding_strings: list[str] = []
     if config.generate_canonical_entities:
+        # Get entity fields and comma separated fields from the new nested config structure
+        entity_fields = getattr(config, 'field_mapping_config', None)
+        entity_fields = entity_fields.entity_fields if entity_fields else getattr(config, 'entity_fields', [])
+        
+        comma_separated_fields = getattr(config, 'field_mapping_config', None)
+        comma_separated_fields = comma_separated_fields.comma_separated_fields if comma_separated_fields else getattr(config, 'comma_separated_fields', [])
+        
         entities = generate_canonical_entities(
             df,
             schema,
-            config.database_type,
+            database_type,
             [
                 ef.model_dump()
-                for ef in config.entity_fields
+                for ef in entity_fields
                 if ef.table_name == config.table_name
             ],
-            config.source_name,
+            source_name,
             config.table_name,
             config.use_other_fields_as_metadata,
             config.normalize_field_names,
             comma_separated_fields=[
                 cf.model_dump()
-                for cf in config.comma_separated_fields
+                for cf in comma_separated_fields
                 if cf.table_name == config.table_name
-            ] if config.comma_separated_fields else None,
+            ] if comma_separated_fields else None,
         )
         with open(paths["canonical_entities"], "wb") as f:
             pickle.dump(entities, f)
@@ -174,14 +196,21 @@ def process_table(df, config, paths):
     # 5) Write loader script
     if config.generate_schemas:
         script = generate_mariadb_loader_script(
-            schema[config.source_name][config.table_name],
+            schema[source_name][config.table_name],
             config.table_name,
             str(paths["data_loader_script"]),
         )
         paths["data_loader_script"].write_text(script)
 
     # 6) Process semantic fields and create text files
-    if config.generate_semantic_texts and config.semantic_fields:
+    # Get semantic fields and semantic text title fields from the new nested config structure
+    semantic_fields = getattr(config, 'field_mapping_config', None)
+    semantic_fields = semantic_fields.semantic_fields if semantic_fields else getattr(config, 'semantic_fields', [])
+    
+    semantic_text_title_fields = getattr(config, 'field_mapping_config', None)
+    semantic_text_title_fields = semantic_text_title_fields.semantic_text_title_fields if semantic_text_title_fields else getattr(config, 'semantic_text_title_fields', [])
+    
+    if config.generate_semantic_texts and semantic_fields:
         import zipfile
         from canonmap.services.artifact_generation.utils.clean_columns import _clean_column_name
         
@@ -190,7 +219,7 @@ def process_table(df, config, paths):
         
         # Filter semantic fields for this table
         table_semantic_fields = [
-            sf for sf in config.semantic_fields
+            sf for sf in semantic_fields
             if sf.table_name == config.table_name
         ]
         
@@ -202,8 +231,8 @@ def process_table(df, config, paths):
             
             # Get title field for this table if specified
             title_field = None
-            if config.semantic_text_title_fields:
-                for tf in config.semantic_text_title_fields:
+            if semantic_text_title_fields:
+                for tf in semantic_text_title_fields:
                     if tf.table_name == config.table_name:
                         title_field_name = tf.field_name
                         cleaned_title = _clean_column_name(title_field_name)

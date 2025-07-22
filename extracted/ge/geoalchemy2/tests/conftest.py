@@ -17,6 +17,8 @@ from geoalchemy2.alembic_helpers import _monkey_patch_get_indexes_for_sqlite
 from . import copy_and_connect_sqlite_db
 from . import get_postgis_major_version
 from . import get_postgres_major_version
+from . import get_versions
+from . import print_versions
 from .schema_fixtures import *  # noqa
 
 
@@ -63,9 +65,38 @@ def pytest_addoption(parser):
         default=False,
         help="If set to True, all dialects muts be properly executed.",
     )
+    parser.addoption(
+        "--long-benchmarks",
+        action="store_true",
+        default=False,
+        help="If set to True, tests marked as long benchmarks will be run.",
+    )
+
+
+def pytest_configure(config):
+    """Register additional marker."""
+    config.addinivalue_line("markers", "long_benchmark: mark a test as a long benchmark.")
+
+
+def pytest_collection_modifyitems(config, items):
+    """Skip tests marked with 'long_benchmark' if the '--long-benchmarks' option is not provided."""
+    # Check if the '--long-benchmarks' option is provided
+    if not config.getoption("--long-benchmarks"):
+        # Create custom marker to skip long benchmarks
+        skip_long_benchmarks = pytest.mark.skip(reason="Skip long benchmarks")
+
+        for item in items:
+            # If the test is marked with 'long_benchmark', add the skip marker
+            if "long_benchmark" in item.keywords:
+                item.add_marker(skip_long_benchmarks)
 
 
 def pytest_generate_tests(metafunc):
+    """Parametrize the tests with different database URLs.
+
+    This function is called for each test function and applies the appropriate database URL fixture
+    based on the test's module name.
+    """
     if "db_url" in metafunc.fixturenames:
         sqlite_dialects = ["sqlite-spatialite3", "sqlite-spatialite4", "geopackage"]
         dialects = None
@@ -217,13 +248,13 @@ def engine(tmpdir, db_url, _engine_echo, _require_all_dialects):
     # Disambiguate MySQL and MariaDB
     if current_engine.dialect.name in ["mysql", "mariadb"]:
         try:
-            with current_engine.begin() as connection:
+            with current_engine.connect() as connection:
                 mysql_type = (
                     "MariaDB"
                     if "mariadb" in connection.execute(text("SELECT VERSION();")).scalar().lower()
                     else "MySQL"
                 )
-            if current_engine.dialect.name != mysql_type.lower():
+            if current_engine.dialect.name.lower() != mysql_type.lower():
                 msg = f"Can not execute {mysql_type} queries on {db_url}"
                 if _require_all_dialects:
                     pytest.fail("All dialects are required. " + msg)
@@ -236,8 +267,13 @@ def engine(tmpdir, db_url, _engine_echo, _require_all_dialects):
             else:
                 pytest.skip(reason=msg)
 
-    yield current_engine
-    current_engine.dispose()
+    with current_engine.connect() as connection:
+        versions = get_versions(connection)
+    print_versions(versions)
+    try:
+        yield current_engine
+    finally:
+        current_engine.dispose()
 
 
 @pytest.fixture
@@ -256,8 +292,11 @@ def conn(engine):
     """Provide a connection to test database."""
     with engine.connect() as connection:
         trans = connection.begin()
-        yield connection
-        trans.rollback()
+        try:
+            yield connection
+        finally:
+            if trans.is_active:
+                trans.rollback()
 
 
 @pytest.fixture

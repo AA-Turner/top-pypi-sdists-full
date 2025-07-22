@@ -39,6 +39,7 @@ from .upload import (
     selected_files,
     upload,
 )
+from .window_events import WindowEventListener, window_event_listener
 
 __all__ = [
     "Clipboard",
@@ -52,6 +53,7 @@ __all__ = [
     "Helmet",
     "Html",
     "Match",
+    "WindowEventListener",
     "auto_scroll",
     "breakpoints",
     "cancel_upload",
@@ -79,4 +81,5 @@ __all__ = [
     "tablet_and_desktop",
     "tablet_only",
     "upload",
+    "window_event_listener",
 ]

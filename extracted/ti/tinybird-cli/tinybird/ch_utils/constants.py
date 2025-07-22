@@ -242,3 +242,19 @@ FORBIDDEN_SQL_KEYWORDS = {
 
 CH_SETTINGS_JOIN_ALGORITHM_HASH = "hash"  # uses 'hash' by default, https://clickhouse.com/docs/en/operations/settings/settings/#settings-join_algorithm
 CH_SETTINGS_JOIN_ALGORITHM_AUTO = "auto,hash"
+
+VALID_QUERY_FORMATS = (
+    "JSON",
+    "CSV",
+    "CSVWithNames",
+    "TSV",
+    "TSVWithNames",
+    "PrettyCompact",
+    "JSONEachRow",
+    "Parquet",
+    "JSONStrings",
+    "Prometheus",
+    "Native",
+    "RowBinaryWithNamesAndTypes",
+    "TabSeparated",
+)

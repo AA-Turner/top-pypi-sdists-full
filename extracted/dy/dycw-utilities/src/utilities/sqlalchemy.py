@@ -97,12 +97,17 @@ from utilities.iterables import (
 )
 from utilities.reprlib import get_repr
 from utilities.text import secret_str, snake_case
-from utilities.types import MaybeIterable, MaybeType, StrMapping, TupleOrStrMapping
+from utilities.types import (
+    Delta,
+    MaybeIterable,
+    MaybeType,
+    StrMapping,
+    TupleOrStrMapping,
+)
 
 if TYPE_CHECKING:
     from enum import Enum, StrEnum
 
-    from whenever import TimeDelta
 
 type EngineOrConnectionOrAsync = Engine | Connection | AsyncEngine | AsyncConnection
 type Dialect = Literal["mssql", "mysql", "oracle", "postgresql", "sqlite"]
@@ -115,12 +120,26 @@ CHUNK_SIZE_FRAC = 0.8
 ##
 
 
+_SELECT = text("SELECT 1")
+
+
 def check_connect(engine: Engine, /) -> bool:
     """Check if an engine can connect."""
     try:
         with engine.connect() as conn:
-            return bool(conn.execute(text("SELECT 1")).scalar_one())
+            return bool(conn.execute(_SELECT).scalar_one())
     except (OperationalError, ProgrammingError):
+        return False
+
+
+async def check_connect_async(
+    engine: AsyncEngine, /, *, timeout: Delta | None = None
+) -> bool:
+    """Check if an engine can connect."""
+    try:
+        async with timeout_td(timeout), engine.connect() as conn:
+            return bool((await conn.execute(_SELECT)).scalar_one())
+    except (OperationalError, ProgrammingError, TimeoutError):
         return False
 
 
@@ -131,7 +150,7 @@ async def check_engine(
     engine: AsyncEngine,
     /,
     *,
-    timeout: TimeDelta | None = None,
+    timeout: Delta | None = None,
     error: type[Exception] = TimeoutError,
     num_tables: int | tuple[int, float] | None = None,
 ) -> None:
@@ -304,7 +323,7 @@ async def ensure_tables_created(
     engine: AsyncEngine,
     /,
     *tables_or_orms: TableOrORMInstOrClass,
-    timeout: TimeDelta | None = None,
+    timeout: Delta | None = None,
     error: type[Exception] = TimeoutError,
 ) -> None:
     """Ensure a table/set of tables is/are created."""
@@ -333,7 +352,7 @@ async def ensure_tables_created(
 async def ensure_tables_dropped(
     engine: AsyncEngine,
     *tables_or_orms: TableOrORMInstOrClass,
-    timeout: TimeDelta | None = None,
+    timeout: Delta | None = None,
     error: type[Exception] = TimeoutError,
 ) -> None:
     """Ensure a table/set of tables is/are dropped."""
@@ -563,9 +582,9 @@ async def insert_items(
     snake: bool = False,
     chunk_size_frac: float = CHUNK_SIZE_FRAC,
     assume_tables_exist: bool = False,
-    timeout_create: TimeDelta | None = None,
+    timeout_create: Delta | None = None,
     error_create: type[Exception] = TimeoutError,
-    timeout_insert: TimeDelta | None = None,
+    timeout_insert: Delta | None = None,
     error_insert: type[Exception] = TimeoutError,
 ) -> None:
     """Insert a set of items into a database.
@@ -664,9 +683,9 @@ async def migrate_data(
     table_or_orm_to: TableOrORMInstOrClass | None = None,
     chunk_size_frac: float = CHUNK_SIZE_FRAC,
     assume_tables_exist: bool = False,
-    timeout_create: TimeDelta | None = None,
+    timeout_create: Delta | None = None,
     error_create: type[Exception] = TimeoutError,
-    timeout_insert: TimeDelta | None = None,
+    timeout_insert: Delta | None = None,
     error_insert: type[Exception] = TimeoutError,
 ) -> None:
     """Migrate the contents of a table from one database to another."""
@@ -800,9 +819,9 @@ async def upsert_items(
     selected_or_all: _SelectedOrAll = "selected",
     chunk_size_frac: float = CHUNK_SIZE_FRAC,
     assume_tables_exist: bool = False,
-    timeout_create: TimeDelta | None = None,
+    timeout_create: Delta | None = None,
     error_create: type[Exception] = TimeoutError,
-    timeout_insert: TimeDelta | None = None,
+    timeout_insert: Delta | None = None,
     error_insert: type[Exception] = TimeoutError,
 ) -> None:
     """Upsert a set of items into a database.
@@ -922,7 +941,7 @@ async def yield_connection(
     engine: AsyncEngine,
     /,
     *,
-    timeout: TimeDelta | None = None,
+    timeout: Delta | None = None,
     error: MaybeType[BaseException] = TimeoutError,
 ) -> AsyncIterator[AsyncConnection]:
     """Yield an async connection."""
@@ -1260,6 +1279,7 @@ __all__ = [
     "TablenameMixin",
     "UpsertItemsError",
     "check_connect",
+    "check_connect_async",
     "check_engine",
     "columnwise_max",
     "columnwise_min",

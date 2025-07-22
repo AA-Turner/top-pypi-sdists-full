@@ -1,26 +1,21 @@
 Metadata-Version: 2.4
-Name: composio_openai
-Version: 0.7.20
+Name: composio-openai
+Version: 0.8.0
 Summary: Use Composio to get an array of tools with your OpenAI Function Call.
 Home-page: https://github.com/ComposioHQ/composio
-Author: Sawradip
-Author-email: sawradip@composio.dev
+Author: Composio
+Author-email: Composio <tech@composio.dev>
+Project-URL: Homepage, https://github.com/ComposioHQ/composio
 Classifier: Programming Language :: Python :: 3
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9,<4
 Description-Content-Type: text/markdown
-Requires-Dist: composio_core<0.8.0,>=0.7.0
 Requires-Dist: openai
+Requires-Dist: composio
 Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
 Dynamic: home-page
-Dynamic: requires-dist
 Dynamic: requires-python
-Dynamic: summary
 
 ## 🚀🔗 Leveraging OpenAI with Composio
 

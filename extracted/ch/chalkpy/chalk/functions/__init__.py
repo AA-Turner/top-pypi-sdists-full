@@ -236,6 +236,50 @@ def trim(expr: Underscore | Any):
     return UnderscoreFunction("trim", expr)
 
 
+def ltrim(expr: Underscore | Any):
+    """
+    Remove leading whitespace from a string.
+
+    Parameters
+    ----------
+    expr
+        The string to left trim.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    name: str
+    ...    left_trimmed_name: str = F.ltrim(_.name)
+    """
+    return UnderscoreFunction("ltrim", expr)
+
+
+def rtrim(expr: Underscore | Any):
+    """
+    Remove trailing whitespace from a string.
+
+    Parameters
+    ----------
+    expr
+        The string to right trim.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class User:
+    ...    id: str
+    ...    name: str
+    ...    right_trimmed_name: str = F.rtrim(_.name)
+    """
+    return UnderscoreFunction("rtrim", expr)
+
+
 def starts_with(expr: Underscore | Any, prefix: Underscore | Any):
     """
     Evaluates if the string starts with the specified prefix.
@@ -2333,6 +2377,78 @@ def width_bucket(
     return UnderscoreFunction("width_bucket", operand, bound1, bound2, bucket_count)
 
 
+def log2(expr: Underscore | Any):
+    """
+    Compute the base-2 logarithm of a number.
+
+    Parameters
+    ----------
+    expr
+        The number to compute the base-2 logarithm of.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class EntropyCalculation:
+    ...    id: str
+    ...    probability: float
+    ...    information_content: float = F.log2(_.probability)
+    """
+    return UnderscoreFunction("log2", expr)
+
+
+def log10(expr: Underscore | Any):
+    """
+    Compute the base-10 logarithm of a number.
+
+    Parameters
+    ----------
+    expr
+        The number to compute the base-10 logarithm of.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class PhScaleCalculation:
+    ...    id: str
+    ...    hydrogen_concentration: float
+    ...    ph_value: float = -F.log10(_.hydrogen_concentration)
+    """
+    return UnderscoreFunction("log10", expr)
+
+
+def normal_cdf(x: Underscore | Any, mean: Underscore | Any, std_dev: Underscore | Any):
+    """
+    Compute the cumulative distribution function of the normal distribution.
+
+    Parameters
+    ----------
+    x
+        The value at which to evaluate the CDF.
+    mean
+        The mean of the normal distribution.
+    std_dev
+        The standard deviation of the normal distribution.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class RiskAssessment:
+    ...    id: str
+    ...    score: float
+    ...    mean_score: float
+    ...    std_score: float
+    ...    percentile: float = F.normal_cdf(_.score, _.mean_score, _.std_score)
+    """
+    return UnderscoreFunction("normal_cdf", x, mean, std_dev)
+
+
 ########################################################################################################################
 # Date and Time Functions                                                                                              #
 ########################################################################################################################
@@ -2499,6 +2615,33 @@ def from_unix_milliseconds(expr: Underscore | Any):
     ...    unixtime: datetime = F.from_unix_milliseconds(_.unix)
     """
     return UnderscoreFunction("from_unixtime", (expr / 1000))
+
+
+def day(expr: Underscore | Any):
+    """
+    Extract the day of the month from a date. Alias for day_of_month.
+
+    The supported types for x are date and datetime.
+
+    Ranges from 1 to 31 inclusive.
+
+    Parameters
+    ----------
+    expr
+        The date to extract the day of the month from.
+
+    Examples
+    --------
+    >>> from datetime import date
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class Transaction:
+    ...    id: str
+    ...    date: date
+    ...    day: int = F.day(_.date)
+    """
+    return UnderscoreFunction("day", expr)
 
 
 def day_of_month(expr: Underscore | Any):
@@ -4543,6 +4686,64 @@ def bitwise_xor(left: Underscore, right: Underscore):
     return UnderscoreFunction("bitwise_xor", left, right)
 
 
+def bitwise_left_shift(value: Underscore, shift: Underscore):
+    """
+    Perform left bit shift operation on an integer value.
+
+    Parameters
+    ----------
+    value
+        The integer value to shift.
+    shift
+        The number of positions to shift left.
+
+    Returns
+    -------
+    The result of left shift operation.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class BinaryOperations:
+    ...     id: str
+    ...     base_value: int
+    ...     shift_amount: int
+    ...     shifted_value: int = F.bitwise_left_shift(_.base_value, _.shift_amount)
+    """
+    return UnderscoreFunction("bitwise_left_shift", value, shift)
+
+
+def bitwise_right_shift(value: Underscore, shift: Underscore):
+    """
+    Perform logical right bit shift operation on an integer value.
+
+    Parameters
+    ----------
+    value
+        The integer value to shift.
+    shift
+        The number of positions to shift right.
+
+    Returns
+    -------
+    The result of logical right shift operation.
+
+    Examples
+    --------
+    >>> import chalk.functions as F
+    >>> from chalk.features import _, features
+    >>> @features
+    ... class BinaryOperations:
+    ...     id: str
+    ...     base_value: int
+    ...     shift_amount: int
+    ...     shifted_value: int = F.bitwise_right_shift(_.base_value, _.shift_amount)
+    """
+    return UnderscoreFunction("bitwise_right_shift", value, shift)
+
+
 ########################################################################################################################
 # Array Functions                                                                                                     #
 ########################################################################################################################
@@ -4939,8 +5140,10 @@ __all__ = (
     "between",
     "bitwise_and",
     "bitwise_arithmetic_shift_right",
+    "bitwise_left_shift",
     "bitwise_not",
     "bitwise_or",
+    "bitwise_right_shift",
     "bitwise_xor",
     "bytes_to_string",
     "cardinality",
@@ -4955,6 +5158,7 @@ __all__ = (
     "current_bucket_end",
     "current_bucket_start",
     "date_trunc",
+    "day",
     "day_of_month",
     "day_of_week",
     "day_of_year",
@@ -4998,8 +5202,11 @@ __all__ = (
     "levenshtein_distance",
     "like",
     "ln",
+    "log2",
+    "log10",
     "lower",
     "lpad",
+    "ltrim",
     "map_dict",
     "map_get",
     "max",
@@ -5011,6 +5218,7 @@ __all__ = (
     "min_by_n",
     "mod",
     "month_of_year",
+    "normal_cdf",
     "nth_bucket_end",
     "nth_bucket_start",
     "parse_datetime",
@@ -5033,6 +5241,7 @@ __all__ = (
     "reverse",
     "round",
     "rpad",
+    "rtrim",
     "safe_divide",
     "sagemaker_predict",
     "secure_random",

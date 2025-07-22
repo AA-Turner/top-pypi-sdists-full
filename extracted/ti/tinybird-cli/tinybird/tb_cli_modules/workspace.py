@@ -10,7 +10,7 @@ from click import Context
 
 from tinybird.client import CanNotBeDeletedException, DoesNotExistException, TinyB
 from tinybird.config import get_display_host
-from tinybird.datafile import PipeTypes
+from tinybird.datafile_common import PipeTypes
 from tinybird.feedback_manager import FeedbackManager
 from tinybird.tb_cli_modules.cli import cli
 from tinybird.tb_cli_modules.common import (
@@ -234,20 +234,19 @@ async def create_workspace(
         if not organization:
             raise CLIWorkspaceException(FeedbackManager.error_organization_not_found(organization_id=organization_id))
         organization_name = organization.get("name")
+    elif len(organizations) == 0:
+        click.echo(FeedbackManager.warning_none_organization(ui_host=ui_host))
+    elif len(organizations) == 1:
+        organization_id = organizations[0].get("id")
+        organization_name = organizations[0].get("name")
     else:
-        if len(organizations) == 0:
-            click.echo(FeedbackManager.warning_none_organization(ui_host=ui_host))
-        elif len(organizations) == 1:
-            organization_id = organizations[0].get("id")
-            organization_name = organizations[0].get("name")
+        sorted_organizations = sort_organizations_by_user(organizations, user_email=config.get_user_email())
+        current_organization = await ask_for_organization_interactively(sorted_organizations)
+        if current_organization:
+            organization_id = current_organization.get("id")
+            organization_name = current_organization.get("name")
         else:
-            sorted_organizations = sort_organizations_by_user(organizations, user_email=config.get_user_email())
-            current_organization = await ask_for_organization_interactively(sorted_organizations)
-            if current_organization:
-                organization_id = current_organization.get("id")
-                organization_name = current_organization.get("name")
-            else:
-                return
+            return
 
     # If we have at least workspace_name, we start the non interactive
     # process, creating an empty workspace

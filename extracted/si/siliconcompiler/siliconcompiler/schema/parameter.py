@@ -11,7 +11,8 @@ import shlex
 
 from enum import Enum
 
-from .parametervalue import NodeValue, DirectoryNodeValue, FileNodeValue, NodeListValue
+from .parametervalue import NodeValue, DirectoryNodeValue, FileNodeValue, NodeListValue, \
+    NodeSetValue
 from .parametertype import NodeType, NodeEnumType
 
 
@@ -59,6 +60,7 @@ class Parameter:
         example (list of str): example field
         help (str): help field
         pernode (:class:`.PerNode`): pernode field
+        kwargs: forwarded to default value constructor
     '''
 
     GLOBAL_KEY = 'global'
@@ -77,7 +79,8 @@ class Parameter:
                  switch=None,
                  example=None,
                  help=None,
-                 pernode=PerNode.NEVER):
+                 pernode=PerNode.NEVER,
+                 **kwargs):
 
         self.__type = NodeType.parse(type)
         self.__scope = Scope(scope)
@@ -108,7 +111,7 @@ class Parameter:
 
         self.__pernode = PerNode(pernode)
 
-        self.__setdefvalue(defvalue)
+        self.__setdefvalue(defvalue, **kwargs)
 
         self.__node = {}
 
@@ -123,26 +126,33 @@ class Parameter:
             self.__hashalgo = str(hashalgo)
             self.__copy = bool(copy)
 
-    def __setdefvalue(self, defvalue):
+    def __setdefvalue(self, defvalue, **kwargs):
         if NodeType.contains(self.__type, 'file'):
-            base = FileNodeValue(defvalue)
             if isinstance(self.__type, list):
-                self.__defvalue = NodeListValue(base)
+                self.__defvalue = NodeListValue(FileNodeValue(defvalue, **kwargs))
+            elif isinstance(self.__type, set):
+                self.__defvalue = NodeSetValue(FileNodeValue(defvalue, **kwargs))
             else:
-                self.__defvalue = base
+                self.__defvalue = FileNodeValue(defvalue, **kwargs)
         elif NodeType.contains(self.__type, 'dir'):
-            base = DirectoryNodeValue(defvalue)
             if isinstance(self.__type, list):
-                self.__defvalue = NodeListValue(base)
+                self.__defvalue = NodeListValue(DirectoryNodeValue(defvalue, **kwargs))
+            elif isinstance(self.__type, set):
+                self.__defvalue = NodeSetValue(DirectoryNodeValue(defvalue, **kwargs))
             else:
-                self.__defvalue = base
+                self.__defvalue = DirectoryNodeValue(defvalue, **kwargs)
         else:
+            kwargs = {}
             if isinstance(self.__type, list):
-                self.__defvalue = NodeListValue(NodeValue(self.__type[0]))
+                self.__defvalue = NodeListValue(NodeValue(self.__type[0], **kwargs))
+                if defvalue:
+                    self.__defvalue.set(defvalue)
+            elif isinstance(self.__type, set):
+                self.__defvalue = NodeSetValue(NodeValue(list(self.__type)[0], **kwargs))
                 if defvalue:
                     self.__defvalue.set(defvalue)
             else:
-                self.__defvalue = NodeValue(self.__type, value=defvalue)
+                self.__defvalue = NodeValue(self.__type, value=defvalue, **kwargs)
 
     def __str__(self):
         return str(self.getvalues())
@@ -344,7 +354,7 @@ class Parameter:
 
         if field in self.__defvalue.fields:
             if not self.is_list() and field == 'value':
-                raise ValueError("add can only be used on lists")
+                raise ValueError("add can only be used on lists or sets")
 
             if isinstance(index, int):
                 index = str(index)
@@ -408,6 +418,12 @@ class Parameter:
             pass
 
         return True
+
+    def reset(self):
+        """
+        Resets a parameter back to its default state
+        """
+        self.__node = {}
 
     def getdict(self, include_default=True, values_only=False):
         """
@@ -523,15 +539,14 @@ class Parameter:
         requires_set = NodeType.contains(self.__type, tuple) or NodeType.contains(self.__type, set)
 
         try:
-            defvalue = manifest["node"]["default"]["default"]["value"]
+            defvalue = manifest["node"]["default"]["default"]
             del manifest["node"]["default"]
         except KeyError:
             defvalue = None
 
-        if requires_set:
-            self.__setdefvalue(NodeType.normalize(defvalue, self.__type))
-        else:
-            self.__setdefvalue(defvalue)
+        self.__setdefvalue(None)
+        if defvalue:
+            self.__defvalue._from_dict(defvalue, keypath, version)
 
         for step, indexdata in manifest["node"].items():
             self.__node[step] = {}
@@ -607,7 +622,7 @@ class Parameter:
         Returns true is this parameter is a list type
         """
 
-        return isinstance(self.__type, list)
+        return isinstance(self.__type, (list, set))
 
     def is_empty(self):
         '''

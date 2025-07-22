@@ -293,7 +293,7 @@ async def connection_create_snowflake(
     if not warehouse:
         warehouses = await client.get_snowflake_warehouses(account, username, password, role) or []
         warehouses_names = [w["name"] for w in warehouses]
-        default_warehouse = warehouses_names[0] if len(warehouses_names) else ""
+        default_warehouse = warehouses_names[0] if warehouses_names else ""
         warehouse = click.prompt(
             "Warehouse (optional)",
             type=click.types.Choice(warehouses_names, case_sensitive=False),

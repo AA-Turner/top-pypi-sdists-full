@@ -11,6 +11,8 @@ from montecarlodata.integrations.onboarding.fields import (
     DREMIO_DATABASE_TYPE,
     MYSQL_DB_TYPE,
     ORACLE_DB_TYPE,
+    SALESFORCE_CRM_DATABASE_TYPE,
+    SALESFORCE_DATA_CLOUD_DATABASE_TYPE,
     TERADATA_DB_TYPE,
     TRANSACTIONAL_CONNECTION_TYPE,
     TRANSACTIONAL_WAREHOUSE_TYPE,
@@ -35,7 +37,14 @@ class TransactionalOnboardingService(CollectorValidationService, BaseOnboardingS
 
         # These dbTypes have been promoted to their own connection type,
         # instead of being a 'transactional-db' connection type
-        promoted_subtypes = [TERADATA_DB_TYPE, DREMIO_DATABASE_TYPE, ORACLE_DB_TYPE, MYSQL_DB_TYPE]
+        promoted_subtypes = [
+            TERADATA_DB_TYPE,
+            DREMIO_DATABASE_TYPE,
+            ORACLE_DB_TYPE,
+            MYSQL_DB_TYPE,
+            SALESFORCE_CRM_DATABASE_TYPE,
+            SALESFORCE_DATA_CLOUD_DATABASE_TYPE,
+        ]
         if kwargs.get("dbType") in promoted_subtypes:
             kwargs["connection_type"] = kwargs.get("dbType")
             kwargs["warehouse_type"] = kwargs.get("dbType")

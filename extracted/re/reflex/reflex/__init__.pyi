@@ -52,6 +52,7 @@ from .components.core.upload import (
     selected_files,
     upload,
 )
+from .components.core.window_events import window_event_listener
 from .components.datadisplay.code import code_block
 from .components.datadisplay.dataeditor import data_editor, data_editor_theme
 from .components.datadisplay.logo import logo
@@ -348,4 +349,5 @@ __all__ = [
     "video",
     "vstack",
     "window_alert",
+    "window_event_listener",
 ]

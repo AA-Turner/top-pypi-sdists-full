@@ -59,16 +59,7 @@ def schema_cfg(schema):
     # Basic schema setup
     cfg = EditableSchema(schema)
 
-    scparam(cfg, ['schemaversion'],
-            sctype='str',
-            scope=Scope.GLOBAL,
-            defvalue=SCHEMA_VERSION,
-            require=True,
-            shorthelp="Schema version number",
-            lock=True,
-            switch="-schemaversion <str>",
-            example=["api: chip.get('schemaversion')"],
-            schelp="""SiliconCompiler schema version number.""")
+    schema_version(cfg)
 
     # Design topmodule/entrypoint
     scparam(cfg, ['design'],
@@ -137,6 +128,19 @@ def schema_cfg(schema):
 
     # Packaging
     cfg = schema_schematic(cfg)
+
+
+def schema_version(cfg):
+    scparam(cfg, ['schemaversion'],
+            sctype='str',
+            scope=Scope.GLOBAL,
+            defvalue=SCHEMA_VERSION,
+            require=True,
+            shorthelp="Schema version number",
+            lock=True,
+            switch="-schemaversion <str>",
+            example=["api: chip.get('schemaversion')"],
+            schelp="""SiliconCompiler schema version number.""")
 
 
 ###############################################################################
@@ -1071,8 +1075,8 @@ def schema_arg(cfg):
 # Metrics to Track
 ###########################################################################
 def schema_metric(cfg):
-    from siliconcompiler.metric import MetricSchema
-    cfg.insert("metric", MetricSchema())
+    from siliconcompiler.metric import MetricSchemaTmp
+    cfg.insert("metric", MetricSchemaTmp())
     return cfg
 
 
@@ -1773,8 +1777,8 @@ def schema_option_frontend(cfg):
 # Package information
 ############################################
 def schema_package(cfg):
-    from siliconcompiler.packageschema import PackageSchema
-    cfg.insert("package", PackageSchema())
+    from siliconcompiler.packageschema import PackageSchemaTmp
+    cfg.insert("package", PackageSchemaTmp())
     return cfg
 
 

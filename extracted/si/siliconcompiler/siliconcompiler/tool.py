@@ -29,7 +29,9 @@ import os.path
 from packaging.version import Version, InvalidVersion
 from packaging.specifiers import SpecifierSet, InvalidSpecifier
 
-from siliconcompiler.schema import NamedSchema, Journal
+from typing import List, Union
+
+from siliconcompiler.schema import BaseSchema, NamedSchema, Journal
 from siliconcompiler.schema import EditableSchema, Parameter, PerNode, Scope
 from siliconcompiler.schema.parametertype import NodeType
 from siliconcompiler.schema.utils import trim
@@ -116,15 +118,19 @@ class TaskSchema(NamedSchema):
         self.__logger = None
         self.__design_name = None
         self.__design_top = None
+        self.__design_top_global = None
         self.__cwd = None
         self.__relpath = relpath
+        self.__collection_path = None
         if chip:
             self.__chip = chip
             self.__schema_full = chip.schema
             self.__logger = chip.logger
             self.__design_name = chip.design
-            self.__design_top = chip.top()
+            self.__design_top = chip.top(step=step, index=index)
+            self.__design_top_global = chip.top()
             self.__cwd = chip.cwd
+            self.__collection_path = chip._getcollectdir()
 
         self.__step = step
         self.__index = index
@@ -156,6 +162,20 @@ class TaskSchema(NamedSchema):
                 self.__schema_flow,
                 from_steps=set([step for step, _ in self.__schema_flow.get_entry_nodes()]),
                 prune_nodes=self.__schema_full.get('option', 'prune'))
+
+    def design_name(self) -> str:
+        '''
+        Returns:
+            name of the design
+        '''
+        return self.__design_name
+
+    def design_topmodule(self) -> str:
+        '''
+        Returns:
+            top module of the design
+        '''
+        return self.__design_top
 
     def node(self):
         '''
@@ -213,7 +233,14 @@ class TaskSchema(NamedSchema):
         else:
             raise ValueError(f"{type} is not a schema section")
 
-    def get_exe(self):
+    def has_breakpoint(self) -> bool:
+        '''
+        Returns:
+            True if this task has a breakpoint associated with it
+        '''
+        return self.schema().get("option", "breakpoint", step=self.__step, index=self.__index)
+
+    def get_exe(self) -> str:
         '''
         Determines the absolute path for the specified executable.
 
@@ -239,7 +266,7 @@ class TaskSchema(NamedSchema):
 
         return fullexe
 
-    def get_exe_version(self):
+    def get_exe_version(self) -> str:
         '''
         Gets the version of the specified executable.
 
@@ -292,7 +319,7 @@ class TaskSchema(NamedSchema):
 
         return version
 
-    def check_exe_version(self, reported_version):
+    def check_exe_version(self, reported_version) -> bool:
         '''
         Check if the reported version matches the versions specified in
         :keypath:`tool,<tool>,version`.
@@ -392,8 +419,8 @@ class TaskSchema(NamedSchema):
         if include_path:
             path = self.schema("tool").find_files(
                 "path", step=self.__step, index=self.__index,
-                packages=self.schema().get("package", field="schema").get_resolvers(),
                 cwd=self.__cwd,
+                collection_dir=self.__collection_path,
                 missing_ok=True)
 
             envvars["PATH"] = os.getenv("PATH", os.defpath)
@@ -426,6 +453,7 @@ class TaskSchema(NamedSchema):
             if self.__relpath:
                 args = []
                 for arg in self.runtime_options():
+                    arg = str(arg)
                     if os.path.isabs(arg) and os.path.exists(arg):
                         args.append(os.path.relpath(arg, self.__relpath))
                     else:
@@ -673,7 +701,7 @@ class TaskSchema(NamedSchema):
             io_file = f"{self.__step}.{suffix}"
             io_log = True
         elif destination == 'output':
-            io_file = os.path.join('outputs', f"{self.__design_top}.{suffix}")
+            io_file = os.path.join('outputs', f"{self.__design_top_global}.{suffix}")
         elif destination == 'none':
             io_file = os.devnull
 
@@ -1005,7 +1033,7 @@ class TaskSchema(NamedSchema):
         else:
             return f'{filename}.{step}{index}'
 
-    def add_parameter(self, name, type, help, defvalue=None):
+    def add_parameter(self, name, type, help, defvalue=None, **kwargs):
         '''
         Adds a parameter to the task definition.
 
@@ -1018,6 +1046,7 @@ class TaskSchema(NamedSchema):
         help = trim(help)
         param = Parameter(
             type,
+            **kwargs,
             defvalue=defvalue,
             scope=Scope.JOB,
             pernode=PerNode.OPTIONAL,
@@ -1028,6 +1057,143 @@ class TaskSchema(NamedSchema):
         EditableSchema(self).insert("var", name, param)
 
         return param
+
+    def add_required_tool_key(self, *key: str):
+        '''
+        Adds a required tool keypath to the task driver.
+
+        Args:
+            key (list of str): required key path
+        '''
+        return self.add_required_key(self, *key)
+
+    def add_required_key(self, obj: Union[BaseSchema, str], *key: str):
+        '''
+        Adds a required keypath to the task driver.
+
+        Args:
+            obj (:class:`BaseSchema` or str): if this is a string it will be considered
+                part of the key, otherwise the keypath to the obj will be prepended to
+                the key
+            key (list of str): required key path
+        '''
+
+        if isinstance(obj, BaseSchema):
+            key = (*obj._keypath, *key)
+        else:
+            key = (obj, *key)
+
+        if any([not isinstance(k, str) for k in key]):
+            raise ValueError("key can only contain strings")
+
+        return self.add("require", ",".join(key))
+
+    def set_threads(self, max_threads: int = None, clobber: bool = False):
+        """
+        Sets the requested thread count for the task
+
+        Args:
+            max_threads (int): if provided the requested thread count
+                will be set this value, otherwise the current machines
+                core count will be used.
+            clobber (bool): overwrite existing value
+        """
+        if max_threads is None or max_threads <= 0:
+            max_threads = utils.get_cores(None)
+
+        return self.set("threads", max_threads, clobber=clobber)
+
+    def get_threads(self) -> int:
+        """
+        Returns the number of threads requested.
+        """
+        return self.get("threads")
+
+    def add_commandline_option(self, option: Union[List[str], str], clobber: bool = False):
+        """
+        Add to the command line options for the task
+
+        Args:
+            option (list of str or str): options to add to the commandline
+            clobber (bool): overwrite existing value
+        """
+
+        if clobber:
+            return self.set("option", option)
+        else:
+            return self.add("option", option)
+
+    def get_commandline_options(self) -> List[str]:
+        """
+        Returns the command line options specified
+        """
+        return self.get("option")
+
+    def add_input_file(self, file: str = None, ext: str = None, clobber: bool = False):
+        """
+        Add a required input file from the previous step in the flow.
+        file and ext are mutually exclusive.
+
+        Args:
+            file (str): full filename
+            ext (str): file extension, if specified, the filename will be <top>.<ext>
+            clobber (bool): overwrite existing value
+        """
+        if file and ext:
+            raise ValueError("only file or ext can be specified")
+
+        if ext:
+            file = f"{self.design_topmodule()}.{ext}"
+
+        if clobber:
+            return self.set("input", file)
+        else:
+            return self.add("input", file)
+
+    def add_output_file(self, file: str = None, ext: str = None, clobber: bool = False):
+        """
+        Add an output file that this task will produce
+        file and ext are mutually exclusive.
+
+        Args:
+            file (str): full filename
+            ext (str): file extension, if specified, the filename will be <top>.<ext>
+            clobber (bool): overwrite existing value
+        """
+        if file and ext:
+            raise ValueError("only file or ext can be specified")
+
+        if ext:
+            file = f"{self.design_topmodule()}.{ext}"
+
+        if clobber:
+            return self.set("output", file)
+        else:
+            return self.add("output", file)
+
+    def record_metric(self, metric, value, source_file=None, source_unit=None):
+        '''
+        Records a metric and associates the source file with it.
+
+        Args:
+            metric (str): metric to record
+            value (float/int): value of the metric that is being recorded
+            source (str): file the value came from
+            source_unit (str): unit of the value, if not provided it is assumed to have no units
+
+        Examples:
+            >>> self.record_metric('cellarea', 500.0, 'reports/metrics.json', \\
+                    source_units='um^2')
+            Records the metric cell area and notes the source as 'reports/metrics.json'
+        '''
+
+        if metric not in self.schema("metric").getkeys():
+            self.logger().warning(f"{metric} is not a valid metric")
+            return
+
+        self.schema("metric").record(self.__step, self.__index, metric, value, unit=source_unit)
+        if source_file:
+            self.add("report", metric, source_file)
 
     ###############################################################
     def get(self, *keypath, field='value'):
@@ -1040,6 +1206,25 @@ class TaskSchema(NamedSchema):
 
     def add(self, *args, field='value'):
         return super().add(*args, field=field, step=self.__step, index=self.__index)
+
+    def _find_files_search_paths(self, keypath, step, index):
+        paths = super()._find_files_search_paths(keypath, step, index)
+        if keypath == "script":
+            paths.extend(self.find_files(
+                "refdir",
+                step=step, index=index,
+                cwd=self.__cwd,
+                collection_dir=self.__collection_path))
+        elif keypath == "input":
+            paths.append(os.path.join(self._parent(root=True).getworkdir(step=step, index=index),
+                                      "inputs"))
+        elif keypath == "report":
+            paths.append(os.path.join(self._parent(root=True).getworkdir(step=step, index=index),
+                                      "report"))
+        elif keypath == "output":
+            paths.append(os.path.join(self._parent(root=True).getworkdir(step=step, index=index),
+                                      "outputs"))
+        return paths
 
     ###############################################################
     def parse_version(self, stdout):
@@ -1063,8 +1248,12 @@ class TaskSchema(NamedSchema):
         cmdargs.extend(self.get("option"))
 
         # Add scripts files / TODO:
-        scripts = self.__chip.find_files('tool', self.tool(), 'task', self.task(), 'script',
-                                         step=self.__step, index=self.__index)
+        scripts = self.find_files(
+            'script',
+            step=self.__step, index=self.__index,
+            cwd=self.__cwd,
+            collection_dir=self.__collection_path,
+            missing_ok=True)
 
         cmdargs.extend(scripts)
 

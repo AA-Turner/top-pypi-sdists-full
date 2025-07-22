@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hud-python
-Version: 0.2.8
+Version: 0.2.10
 Summary: SDK for the HUD evaluation platform.
 Project-URL: Homepage, https://github.com/hud-evals/hud-sdk
 Project-URL: Bug Tracker, https://github.com/hud-evals/hud-sdk/issues

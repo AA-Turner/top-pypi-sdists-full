@@ -126,7 +126,7 @@ def test_curate_df():
 
     # Check that uid appears in the first two-column row
     first_row = general_node.children[0].label.plain
-    assert f"uid: {artifact.uid}" in first_row
+    assert f"key: {artifact.key}" in first_row
 
     # Check that hash appears somewhere in the two-column section
     found_hash = False
@@ -159,7 +159,7 @@ def test_curate_df():
         child_text = child.label.plain
         if "key: examples/dataset1.h5ad" in child_text:
             found_key = True
-        if "storage location / path: " in child_text:
+        if "storage path: " in child_text:
             found_path = True
         if "created_by: " in child_text:
             found_created_by = True
@@ -199,15 +199,23 @@ def test_curate_df():
     assert len(labels_node.children[0].label.columns) == 3
     assert len(labels_node.children[0].label.rows) == 2
     assert labels_node.children[0].label.columns[0]._cells == [
-        ".cell_types",
         ".ulabels",
+        ".cell_types",
     ]
-    assert labels_node.children[0].label.columns[1]._cells[0].plain == "bionty.CellType"
-    assert labels_node.children[0].label.columns[1]._cells[1].plain == "ULabel"
-    assert labels_node.children[0].label.columns[2]._cells == [
-        "B cell, T cell, CD8-positive, alpha-beta T cell",
-        "DMSO, IFNG, Experiment 1",
-    ]
+    assert labels_node.children[0].label.columns[1]._cells[0].plain == "ULabel"
+    assert labels_node.children[0].label.columns[1]._cells[1].plain == "bionty.CellType"
+    assert {
+        c.strip()
+        for c in ",".join(labels_node.children[0].label.columns[2]._cells).split(",")
+    } == {
+        "DMSO",
+        "IFNG",
+        "Experiment 1",
+        "B cell",
+        "T cell",
+        "CD8-positive",
+        "alpha-beta T cell",
+    }
 
     artifact.delete(permanent=True)
     artifact2.delete(permanent=True)

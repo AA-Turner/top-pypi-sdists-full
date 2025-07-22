@@ -36,9 +36,8 @@ def do_versioning(config, record, prev_helpers, new_pdfium):
     if prev_helpers["dirty"]:
         print("Warning: dirty state. This should not happen in CI.", file=sys.stderr)
     
-    # TODO actually, we care only about updates to src/
-    py_updates = prev_helpers["n_commits"] > 0
     c_updates = record["pdfium"] < new_pdfium
+    py_updates = prev_helpers["n_commits"] > 0
     
     if not c_updates and not py_updates:
         print("Warning: Neither pypdfium2 code nor pdfium-binaries updated. New release pointless?", file=sys.stderr)
@@ -55,16 +54,14 @@ def do_versioning(config, record, prev_helpers, new_pdfium):
         new_config["major"] = False
     elif prev_helpers["beta"] is None:
         # If we're not doing a major update and the previous version was not a beta, update minor and/or patch. Note that we still want to run this if adding a new beta tag.
-        if (py_updates and not config["humble"]) or config["humble"] is False:
-            # py code update, or manually requested minor release -> increment minor version and reset patch version
+        if c_updates:
+            # pdfium update -> increment minor version and reset patch version
             new_helpers["minor"] += 1
             new_helpers["patch"] = 0
         else:
-            # no py code update, or manually requested patch release -> increment patch version
+            # no pdfium update -> increment patch version
             new_helpers["patch"] += 1
     
-    if config["humble"] is not None:
-        new_config["humble"] = None
     if config["beta"]:
         # If the new version shall be a beta, set or increment the tag
         if new_helpers["beta"] is None:

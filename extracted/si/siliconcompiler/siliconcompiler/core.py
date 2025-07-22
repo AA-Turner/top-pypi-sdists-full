@@ -37,6 +37,7 @@ from siliconcompiler.utils.flowgraph import _check_flowgraph_io, _get_flowgraph_
 from siliconcompiler.tools._common import get_tool_task
 from types import FunctionType, ModuleType
 from siliconcompiler.flowgraph import RuntimeFlowgraph
+from siliconcompiler.package import Resolver
 
 
 class Chip:
@@ -58,6 +59,8 @@ class Chip:
         # version numbers
         self.scversion = _metadata.version
         self.schemaversion = SCHEMA_VERSION
+
+        Resolver.reset_cache(self)
 
         # Local variables
         self.scroot = os.path.dirname(os.path.abspath(__file__))
@@ -1478,12 +1481,9 @@ class Chip:
             if keypath[-2:] == ('option', 'builddir'):
                 ignore_keys.append(keypath)
 
-        package_map = self.get("package", field="schema").get_resolvers()
-
         return self.schema.check_filepaths(
             ignore_keys=ignore_keys,
             logger=self.logger,
-            packages=package_map,
             collection_dir=self._getcollectdir(),
             cwd=self.cwd)
 

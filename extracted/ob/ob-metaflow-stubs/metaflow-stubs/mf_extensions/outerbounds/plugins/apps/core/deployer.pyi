@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.2+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-16T21:13:36.360567                                                            #
+# MF version: 2.15.21.3+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-21T18:19:17.164248                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -9,11 +9,11 @@ from __future__ import annotations
 import metaflow
 import typing
 if typing.TYPE_CHECKING:
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
-    import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
-    import datetime
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.config.typed_configs
     import metaflow.mf_extensions.outerbounds.plugins.apps.core.app_config
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core.deployer
+    import metaflow.mf_extensions.outerbounds.plugins.apps.core._state_machine
+    import datetime
 
 from .config.typed_configs import TypedCoreConfig as TypedCoreConfig
 from .perimeters import PerimeterExtractor as PerimeterExtractor

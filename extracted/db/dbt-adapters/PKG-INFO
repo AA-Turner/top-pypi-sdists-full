@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dbt-adapters
-Version: 1.16.2
+Version: 1.16.3
 Summary: The set of adapter protocols and base functionality that supports integration with dbt-core
 Project-URL: Homepage, https://github.com/dbt-labs/dbt-adapters/tree/main/dbt-adapters
 Project-URL: Documentation, https://docs.getdbt.com

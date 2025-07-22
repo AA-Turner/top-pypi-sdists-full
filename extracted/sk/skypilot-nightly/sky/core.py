@@ -944,12 +944,7 @@ def tail_logs(cluster_name: str,
     backend = backend_utils.get_backend_from_handle(handle)
 
     usage_lib.record_cluster_name_for_current_operation(cluster_name)
-    # Although tail_logs returns an int when require_outputs=False (default),
-    # we need to check returnval as an int to avoid type checking errors.
-    returnval = backend.tail_logs(handle, job_id, follow=follow, tail=tail)
-    assert isinstance(returnval,
-                      int), (f'returnval must be an int, but got {returnval}')
-    return returnval
+    return backend.tail_logs(handle, job_id, follow=follow, tail=tail)
 
 
 @usage_lib.entrypoint

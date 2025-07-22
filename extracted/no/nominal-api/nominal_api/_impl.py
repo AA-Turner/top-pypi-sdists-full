@@ -6260,6 +6260,38 @@ Empty fields in the UpdateEventRequest are left unchanged.
 
         return
 
+    def batch_unarchive_event(self, auth_header: str, request: List[str] = None) -> None:
+        """Unarchives a set of events
+        """
+        request = request if request is not None else []
+        _conjure_encoder = ConjureEncoder()
+
+        _headers: Dict[str, Any] = {
+            'Accept': 'application/json',
+            'Content-Type': 'application/json',
+            'Authorization': auth_header,
+        }
+
+        _params: Dict[str, Any] = {
+        }
+
+        _path_params: Dict[str, str] = {
+        }
+
+        _json: Any = _conjure_encoder.default(request)
+
+        _path = '/event/v1/batch-unarchive-events'
+        _path = _path.format(**_path_params)
+
+        _response: Response = self._request(
+            'POST',
+            self._uri + _path,
+            params=_params,
+            headers=_headers,
+            json=_json)
+
+        return
+
     def search_events(self, auth_header: str, request: "event_SearchEventsRequest") -> "event_SearchEventsResponse":
         """Searches for events that match the given filters.
         """
@@ -14042,56 +14074,50 @@ ingest_workflow_api_ValidatedFileInput.__qualname__ = "ValidatedFileInput"
 ingest_workflow_api_ValidatedFileInput.__module__ = "nominal_api.ingest_workflow_api"
 
 
-class module_ApplyModuleRequest(ConjureBeanType):
+class module_ArchiveModuleApplicationRequest(ConjureBeanType):
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid),
-            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid)
+            'module_application_rid': ConjureFieldDefinition('moduleApplicationRid', modules_api_ModuleApplicationRid)
         }
 
-    __slots__: List[str] = ['_module_rid', '_asset_rid']
+    __slots__: List[str] = ['_module_application_rid']
 
-    def __init__(self, asset_rid: str, module_rid: str) -> None:
-        self._module_rid = module_rid
-        self._asset_rid = asset_rid
-
-    @builtins.property
-    def module_rid(self) -> str:
-        return self._module_rid
+    def __init__(self, module_application_rid: str) -> None:
+        self._module_application_rid = module_application_rid
 
     @builtins.property
-    def asset_rid(self) -> str:
-        return self._asset_rid
+    def module_application_rid(self) -> str:
+        return self._module_application_rid
 
 
-module_ApplyModuleRequest.__name__ = "ApplyModuleRequest"
-module_ApplyModuleRequest.__qualname__ = "ApplyModuleRequest"
-module_ApplyModuleRequest.__module__ = "nominal_api.module"
+module_ArchiveModuleApplicationRequest.__name__ = "ArchiveModuleApplicationRequest"
+module_ArchiveModuleApplicationRequest.__qualname__ = "ArchiveModuleApplicationRequest"
+module_ArchiveModuleApplicationRequest.__module__ = "nominal_api.module"
 
 
-class module_ApplyModuleResponse(ConjureBeanType):
+class module_ArchiveModuleApplicationResponse(ConjureBeanType):
 
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'result': ConjureFieldDefinition('result', module_ModuleApplication)
+            'success': ConjureFieldDefinition('success', bool)
         }
 
-    __slots__: List[str] = ['_result']
+    __slots__: List[str] = ['_success']
 
-    def __init__(self, result: "module_ModuleApplication") -> None:
-        self._result = result
+    def __init__(self, success: bool) -> None:
+        self._success = success
 
     @builtins.property
-    def result(self) -> "module_ModuleApplication":
-        return self._result
+    def success(self) -> bool:
+        return self._success
 
 
-module_ApplyModuleResponse.__name__ = "ApplyModuleResponse"
-module_ApplyModuleResponse.__qualname__ = "ApplyModuleResponse"
-module_ApplyModuleResponse.__module__ = "nominal_api.module"
+module_ArchiveModuleApplicationResponse.__name__ = "ArchiveModuleApplicationResponse"
+module_ArchiveModuleApplicationResponse.__qualname__ = "ArchiveModuleApplicationResponse"
+module_ArchiveModuleApplicationResponse.__module__ = "nominal_api.module"
 
 
 class module_BatchArchiveModulesRequest(ConjureBeanType):
@@ -14207,6 +14233,58 @@ class module_BatchUnarchiveModulesResponse(ConjureBeanType):
 module_BatchUnarchiveModulesResponse.__name__ = "BatchUnarchiveModulesResponse"
 module_BatchUnarchiveModulesResponse.__qualname__ = "BatchUnarchiveModulesResponse"
 module_BatchUnarchiveModulesResponse.__module__ = "nominal_api.module"
+
+
+class module_CreateModuleApplicationRequest(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'module_rid': ConjureFieldDefinition('moduleRid', modules_api_ModuleRid),
+            'asset_rid': ConjureFieldDefinition('assetRid', scout_rids_api_AssetRid)
+        }
+
+    __slots__: List[str] = ['_module_rid', '_asset_rid']
+
+    def __init__(self, asset_rid: str, module_rid: str) -> None:
+        self._module_rid = module_rid
+        self._asset_rid = asset_rid
+
+    @builtins.property
+    def module_rid(self) -> str:
+        return self._module_rid
+
+    @builtins.property
+    def asset_rid(self) -> str:
+        return self._asset_rid
+
+
+module_CreateModuleApplicationRequest.__name__ = "CreateModuleApplicationRequest"
+module_CreateModuleApplicationRequest.__qualname__ = "CreateModuleApplicationRequest"
+module_CreateModuleApplicationRequest.__module__ = "nominal_api.module"
+
+
+class module_CreateModuleApplicationResponse(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'result': ConjureFieldDefinition('result', module_ModuleApplication)
+        }
+
+    __slots__: List[str] = ['_result']
+
+    def __init__(self, result: "module_ModuleApplication") -> None:
+        self._result = result
+
+    @builtins.property
+    def result(self) -> "module_ModuleApplication":
+        return self._result
+
+
+module_CreateModuleApplicationResponse.__name__ = "CreateModuleApplicationResponse"
+module_CreateModuleApplicationResponse.__qualname__ = "CreateModuleApplicationResponse"
+module_CreateModuleApplicationResponse.__module__ = "nominal_api.module"
 
 
 class module_CreateModuleRequest(ConjureBeanType):
@@ -14990,8 +15068,8 @@ to assets. The Modules Service provides the api for managing these collections a
         _decoder = ConjureDecoder()
         return _decoder.decode(_response.json(), module_BatchUnarchiveModulesResponse, self._return_none_for_unknown_union_types)
 
-    def apply_module(self, auth_header: str, request: "module_ApplyModuleRequest") -> "module_ApplyModuleResponse":
-        """Apply a module to an asset.
+    def create_module_application(self, auth_header: str, request: "module_CreateModuleApplicationRequest") -> "module_CreateModuleApplicationResponse":
+        """Create a module application by applying a module to an asset.
         """
         _conjure_encoder = ConjureEncoder()
 
@@ -15009,7 +15087,7 @@ to assets. The Modules Service provides the api for managing these collections a
 
         _json: Any = _conjure_encoder.default(request)
 
-        _path = '/scout/v2/module/apply'
+        _path = '/scout/v2/module/application/create'
         _path = _path.format(**_path_params)
 
         _response: Response = self._request(
@@ -15020,10 +15098,10 @@ to assets. The Modules Service provides the api for managing these collections a
             json=_json)
 
         _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), module_ApplyModuleResponse, self._return_none_for_unknown_union_types)
+        return _decoder.decode(_response.json(), module_CreateModuleApplicationResponse, self._return_none_for_unknown_union_types)
 
-    def unapply_module(self, auth_header: str, request: "module_UnapplyModuleRequest") -> "module_UnapplyModuleResponse":
-        """Unapply a module from an asset.
+    def archive_module_application(self, auth_header: str, request: "module_ArchiveModuleApplicationRequest") -> "module_ArchiveModuleApplicationResponse":
+        """Archive a module application, un-applying the module from the asset.
         """
         _conjure_encoder = ConjureEncoder()
 
@@ -15041,7 +15119,7 @@ to assets. The Modules Service provides the api for managing these collections a
 
         _json: Any = _conjure_encoder.default(request)
 
-        _path = '/scout/v2/module/unapply'
+        _path = '/scout/v2/module/application/archive'
         _path = _path.format(**_path_params)
 
         _response: Response = self._request(
@@ -15052,7 +15130,7 @@ to assets. The Modules Service provides the api for managing these collections a
             json=_json)
 
         _decoder = ConjureDecoder()
-        return _decoder.decode(_response.json(), module_UnapplyModuleResponse, self._return_none_for_unknown_union_types)
+        return _decoder.decode(_response.json(), module_ArchiveModuleApplicationResponse, self._return_none_for_unknown_union_types)
 
     def search_module_applications(self, auth_header: str, request: "module_SearchModuleApplicationsRequest") -> "module_SearchModuleApplicationsResponse":
         """Search for module applications.
@@ -15862,52 +15940,6 @@ class module_SemanticVersion(ConjureBeanType):
 module_SemanticVersion.__name__ = "SemanticVersion"
 module_SemanticVersion.__qualname__ = "SemanticVersion"
 module_SemanticVersion.__module__ = "nominal_api.module"
-
-
-class module_UnapplyModuleRequest(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'module_application_rid': ConjureFieldDefinition('moduleApplicationRid', modules_api_ModuleApplicationRid)
-        }
-
-    __slots__: List[str] = ['_module_application_rid']
-
-    def __init__(self, module_application_rid: str) -> None:
-        self._module_application_rid = module_application_rid
-
-    @builtins.property
-    def module_application_rid(self) -> str:
-        return self._module_application_rid
-
-
-module_UnapplyModuleRequest.__name__ = "UnapplyModuleRequest"
-module_UnapplyModuleRequest.__qualname__ = "UnapplyModuleRequest"
-module_UnapplyModuleRequest.__module__ = "nominal_api.module"
-
-
-class module_UnapplyModuleResponse(ConjureBeanType):
-
-    @builtins.classmethod
-    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
-        return {
-            'success': ConjureFieldDefinition('success', bool)
-        }
-
-    __slots__: List[str] = ['_success']
-
-    def __init__(self, success: bool) -> None:
-        self._success = success
-
-    @builtins.property
-    def success(self) -> bool:
-        return self._success
-
-
-module_UnapplyModuleResponse.__name__ = "UnapplyModuleResponse"
-module_UnapplyModuleResponse.__qualname__ = "UnapplyModuleResponse"
-module_UnapplyModuleResponse.__module__ = "nominal_api.module"
 
 
 class module_UpdateModuleApplicationRequest(ConjureBeanType):
@@ -20775,6 +20807,7 @@ scout_asset_api_SearchAssetChannelsResponse.__module__ = "nominal_api.scout_asse
 
 class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
     _search_text: Optional[str] = None
+    _exact_substring: Optional[str] = None
     _label: Optional[str] = None
     _property: Optional["api_Property"] = None
     _type_rid: Optional[str] = None
@@ -20787,6 +20820,7 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'search_text': ConjureFieldDefinition('searchText', str),
+            'exact_substring': ConjureFieldDefinition('exactSubstring', str),
             'label': ConjureFieldDefinition('label', api_Label),
             'property': ConjureFieldDefinition('property', api_Property),
             'type_rid': ConjureFieldDefinition('typeRid', scout_rids_api_TypeRid),
@@ -20799,6 +20833,7 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
     def __init__(
             self,
             search_text: Optional[str] = None,
+            exact_substring: Optional[str] = None,
             label: Optional[str] = None,
             property: Optional["api_Property"] = None,
             type_rid: Optional[str] = None,
@@ -20809,12 +20844,15 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (search_text is not None) + (label is not None) + (property is not None) + (type_rid is not None) + (and_ is not None) + (or_ is not None) + (is_staged is not None) + (workspace is not None) != 1:
+            if (search_text is not None) + (exact_substring is not None) + (label is not None) + (property is not None) + (type_rid is not None) + (and_ is not None) + (or_ is not None) + (is_staged is not None) + (workspace is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if search_text is not None:
                 self._search_text = search_text
                 self._type = 'searchText'
+            if exact_substring is not None:
+                self._exact_substring = exact_substring
+                self._type = 'exactSubstring'
             if label is not None:
                 self._label = label
                 self._type = 'label'
@@ -20842,6 +20880,11 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._search_text = search_text
             self._type = 'searchText'
+        elif type_of_union == 'exactSubstring':
+            if exact_substring is None:
+                raise ValueError('a union value must not be None')
+            self._exact_substring = exact_substring
+            self._type = 'exactSubstring'
         elif type_of_union == 'label':
             if label is None:
                 raise ValueError('a union value must not be None')
@@ -20883,6 +20926,12 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
         return self._search_text
 
     @builtins.property
+    def exact_substring(self) -> Optional[str]:
+        """An case-insensitive substring match of the title or description of the asset.
+        """
+        return self._exact_substring
+
+    @builtins.property
     def label(self) -> Optional[str]:
         return self._label
 
@@ -20915,6 +20964,8 @@ class scout_asset_api_SearchAssetsQuery(ConjureUnionType):
             raise ValueError('{} is not an instance of scout_asset_api_SearchAssetsQueryVisitor'.format(visitor.__class__.__name__))
         if self._type == 'searchText' and self.search_text is not None:
             return visitor._search_text(self.search_text)
+        if self._type == 'exactSubstring' and self.exact_substring is not None:
+            return visitor._exact_substring(self.exact_substring)
         if self._type == 'label' and self.label is not None:
             return visitor._label(self.label)
         if self._type == 'property' and self.property is not None:
@@ -20940,6 +20991,10 @@ class scout_asset_api_SearchAssetsQueryVisitor:
 
     @abstractmethod
     def _search_text(self, search_text: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _exact_substring(self, exact_substring: str) -> Any:
         pass
 
     @abstractmethod
@@ -37732,14 +37787,16 @@ class scout_compute_api_AggregateNumericSeries(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
-            'function': ConjureFieldDefinition('function', scout_compute_api_NumericAggregationFunction)
+            'function': ConjureFieldDefinition('function', scout_compute_api_NumericAggregationFunction),
+            'group_by_tags': ConjureFieldDefinition('groupByTags', List[scout_compute_api_StringConstant])
         }
 
-    __slots__: List[str] = ['_input', '_function']
+    __slots__: List[str] = ['_input', '_function', '_group_by_tags']
 
-    def __init__(self, function: "scout_compute_api_NumericAggregationFunction", input: "scout_compute_api_NumericSeries") -> None:
+    def __init__(self, function: "scout_compute_api_NumericAggregationFunction", group_by_tags: List["scout_compute_api_StringConstant"], input: "scout_compute_api_NumericSeries") -> None:
         self._input = input
         self._function = function
+        self._group_by_tags = group_by_tags
 
     @builtins.property
     def input(self) -> "scout_compute_api_NumericSeries":
@@ -37748,6 +37805,15 @@ class scout_compute_api_AggregateNumericSeries(ConjureBeanType):
     @builtins.property
     def function(self) -> "scout_compute_api_NumericAggregationFunction":
         return self._function
+
+    @builtins.property
+    def group_by_tags(self) -> List["scout_compute_api_StringConstant"]:
+        """Tags to group by for the aggregation.
+If left empty, the tags to group by will be equivalent to those in the input series.
+If specified, the result will be grouped ONLY by the specified tags.
+The tags specified here MUST be a (non-strict) subset of the input series's group by tags.
+        """
+        return self._group_by_tags
 
 
 scout_compute_api_AggregateNumericSeries.__name__ = "AggregateNumericSeries"
@@ -45780,6 +45846,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     _threshold_filter: Optional["scout_compute_api_NumericThresholdFilterSeries"] = None
     _approximate_filter: Optional["scout_compute_api_NumericApproximateFilterSeries"] = None
     _select1d_array_index: Optional["scout_compute_api_SelectIndexFrom1dNumericArraySeries"] = None
+    _select_newest_points: Optional["scout_compute_api_SelectNewestPointsSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -45815,7 +45882,8 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             'filter_transformation': ConjureFieldDefinition('filterTransformation', scout_compute_api_NumericFilterTransformationSeries),
             'threshold_filter': ConjureFieldDefinition('thresholdFilter', scout_compute_api_NumericThresholdFilterSeries),
             'approximate_filter': ConjureFieldDefinition('approximateFilter', scout_compute_api_NumericApproximateFilterSeries),
-            'select1d_array_index': ConjureFieldDefinition('select1dArrayIndex', scout_compute_api_SelectIndexFrom1dNumericArraySeries)
+            'select1d_array_index': ConjureFieldDefinition('select1dArrayIndex', scout_compute_api_SelectIndexFrom1dNumericArraySeries),
+            'select_newest_points': ConjureFieldDefinition('selectNewestPoints', scout_compute_api_SelectNewestPointsSeries)
         }
 
     def __init__(
@@ -45852,10 +45920,11 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             threshold_filter: Optional["scout_compute_api_NumericThresholdFilterSeries"] = None,
             approximate_filter: Optional["scout_compute_api_NumericApproximateFilterSeries"] = None,
             select1d_array_index: Optional["scout_compute_api_SelectIndexFrom1dNumericArraySeries"] = None,
+            select_newest_points: Optional["scout_compute_api_SelectNewestPointsSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (aggregate is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) != 1:
+            if (aggregate is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) + (select_newest_points is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if aggregate is not None:
@@ -45954,6 +46023,9 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             if select1d_array_index is not None:
                 self._select1d_array_index = select1d_array_index
                 self._type = 'select1dArrayIndex'
+            if select_newest_points is not None:
+                self._select_newest_points = select_newest_points
+                self._type = 'selectNewestPoints'
 
         elif type_of_union == 'aggregate':
             if aggregate is None:
@@ -46115,6 +46187,11 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._select1d_array_index = select1d_array_index
             self._type = 'select1dArrayIndex'
+        elif type_of_union == 'selectNewestPoints':
+            if select_newest_points is None:
+                raise ValueError('a union value must not be None')
+            self._select_newest_points = select_newest_points
+            self._type = 'selectNewestPoints'
 
     @builtins.property
     def aggregate(self) -> Optional["scout_compute_api_AggregateNumericSeries"]:
@@ -46244,6 +46321,10 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     def select1d_array_index(self) -> Optional["scout_compute_api_SelectIndexFrom1dNumericArraySeries"]:
         return self._select1d_array_index
 
+    @builtins.property
+    def select_newest_points(self) -> Optional["scout_compute_api_SelectNewestPointsSeries"]:
+        return self._select_newest_points
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_NumericSeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_NumericSeriesVisitor'.format(visitor.__class__.__name__))
@@ -46311,6 +46392,8 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             return visitor._approximate_filter(self.approximate_filter)
         if self._type == 'select1dArrayIndex' and self.select1d_array_index is not None:
             return visitor._select1d_array_index(self.select1d_array_index)
+        if self._type == 'selectNewestPoints' and self.select_newest_points is not None:
+            return visitor._select_newest_points(self.select_newest_points)
 
 
 scout_compute_api_NumericSeries.__name__ = "NumericSeries"
@@ -46448,6 +46531,10 @@ class scout_compute_api_NumericSeriesVisitor:
     def _select1d_array_index(self, select1d_array_index: "scout_compute_api_SelectIndexFrom1dNumericArraySeries") -> Any:
         pass
 
+    @abstractmethod
+    def _select_newest_points(self, select_newest_points: "scout_compute_api_SelectNewestPointsSeries") -> Any:
+        pass
+
 
 scout_compute_api_NumericSeriesVisitor.__name__ = "NumericSeriesVisitor"
 scout_compute_api_NumericSeriesVisitor.__qualname__ = "NumericSeriesVisitor"
@@ -46573,6 +46660,8 @@ class scout_compute_api_NumericUnionOperation(ConjureEnumType):
     '''SUM'''
     COUNT = 'COUNT'
     '''COUNT'''
+    STANDARD_DEVIATION = 'STANDARD_DEVIATION'
+    '''STANDARD_DEVIATION'''
     THROW = 'THROW'
     '''THROW'''
     UNKNOWN = 'UNKNOWN'
@@ -49077,6 +49166,37 @@ index is out of bounds for an array at a given timestamp, it is omitted.
 scout_compute_api_SelectIndexFrom1dNumericArraySeries.__name__ = "SelectIndexFrom1dNumericArraySeries"
 scout_compute_api_SelectIndexFrom1dNumericArraySeries.__qualname__ = "SelectIndexFrom1dNumericArraySeries"
 scout_compute_api_SelectIndexFrom1dNumericArraySeries.__module__ = "nominal_api.scout_compute_api"
+
+
+class scout_compute_api_SelectNewestPointsSeries(ConjureBeanType):
+    """Select the most recent N points from the input series by timestamp.
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_api_NumericSeries),
+            'num_points': ConjureFieldDefinition('numPoints', scout_compute_api_IntegerConstant)
+        }
+
+    __slots__: List[str] = ['_input', '_num_points']
+
+    def __init__(self, input: "scout_compute_api_NumericSeries", num_points: "scout_compute_api_IntegerConstant") -> None:
+        self._input = input
+        self._num_points = num_points
+
+    @builtins.property
+    def input(self) -> "scout_compute_api_NumericSeries":
+        return self._input
+
+    @builtins.property
+    def num_points(self) -> "scout_compute_api_IntegerConstant":
+        return self._num_points
+
+
+scout_compute_api_SelectNewestPointsSeries.__name__ = "SelectNewestPointsSeries"
+scout_compute_api_SelectNewestPointsSeries.__qualname__ = "SelectNewestPointsSeries"
+scout_compute_api_SelectNewestPointsSeries.__module__ = "nominal_api.scout_compute_api"
 
 
 class scout_compute_api_SelectValue(ConjureUnionType):
@@ -53670,14 +53790,16 @@ class scout_compute_resolved_api_AggregateNumericSeriesNode(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
-            'aggregation_function': ConjureFieldDefinition('aggregationFunction', scout_compute_api_NumericAggregationFunction)
+            'aggregation_function': ConjureFieldDefinition('aggregationFunction', scout_compute_api_NumericAggregationFunction),
+            'group_by_tags': ConjureFieldDefinition('groupByTags', List[api_TagName])
         }
 
-    __slots__: List[str] = ['_input', '_aggregation_function']
+    __slots__: List[str] = ['_input', '_aggregation_function', '_group_by_tags']
 
-    def __init__(self, aggregation_function: "scout_compute_api_NumericAggregationFunction", input: "scout_compute_resolved_api_NumericSeriesNode") -> None:
+    def __init__(self, aggregation_function: "scout_compute_api_NumericAggregationFunction", group_by_tags: List[str], input: "scout_compute_resolved_api_NumericSeriesNode") -> None:
         self._input = input
         self._aggregation_function = aggregation_function
+        self._group_by_tags = group_by_tags
 
     @builtins.property
     def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
@@ -53686,6 +53808,10 @@ class scout_compute_resolved_api_AggregateNumericSeriesNode(ConjureBeanType):
     @builtins.property
     def aggregation_function(self) -> "scout_compute_api_NumericAggregationFunction":
         return self._aggregation_function
+
+    @builtins.property
+    def group_by_tags(self) -> List[str]:
+        return self._group_by_tags
 
 
 scout_compute_resolved_api_AggregateNumericSeriesNode.__name__ = "AggregateNumericSeriesNode"
@@ -56500,6 +56626,7 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     _threshold_filter: Optional["scout_compute_resolved_api_NumericThresholdFilterSeriesNode"] = None
     _array_select: Optional["scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode"] = None
     _absolute_timestamp: Optional["scout_compute_resolved_api_AbsoluteTimestampSeriesNode"] = None
+    _newest_points: Optional["scout_compute_resolved_api_SelectNewestPointsSeriesNode"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -56533,7 +56660,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             'filter_transformation': ConjureFieldDefinition('filterTransformation', scout_compute_resolved_api_NumericFilterTransformationSeriesNode),
             'threshold_filter': ConjureFieldDefinition('thresholdFilter', scout_compute_resolved_api_NumericThresholdFilterSeriesNode),
             'array_select': ConjureFieldDefinition('arraySelect', scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode),
-            'absolute_timestamp': ConjureFieldDefinition('absoluteTimestamp', scout_compute_resolved_api_AbsoluteTimestampSeriesNode)
+            'absolute_timestamp': ConjureFieldDefinition('absoluteTimestamp', scout_compute_resolved_api_AbsoluteTimestampSeriesNode),
+            'newest_points': ConjureFieldDefinition('newestPoints', scout_compute_resolved_api_SelectNewestPointsSeriesNode)
         }
 
     def __init__(
@@ -56568,10 +56696,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             threshold_filter: Optional["scout_compute_resolved_api_NumericThresholdFilterSeriesNode"] = None,
             array_select: Optional["scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode"] = None,
             absolute_timestamp: Optional["scout_compute_resolved_api_AbsoluteTimestampSeriesNode"] = None,
+            newest_points: Optional["scout_compute_resolved_api_SelectNewestPointsSeriesNode"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (array_select is not None) + (absolute_timestamp is not None) != 1:
+            if (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (resample is not None) + (rolling_operation is not None) + (aggregate is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (array_select is not None) + (absolute_timestamp is not None) + (newest_points is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if arithmetic is not None:
@@ -56664,6 +56793,9 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             if absolute_timestamp is not None:
                 self._absolute_timestamp = absolute_timestamp
                 self._type = 'absoluteTimestamp'
+            if newest_points is not None:
+                self._newest_points = newest_points
+                self._type = 'newestPoints'
 
         elif type_of_union == 'arithmetic':
             if arithmetic is None:
@@ -56815,6 +56947,11 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._absolute_timestamp = absolute_timestamp
             self._type = 'absoluteTimestamp'
+        elif type_of_union == 'newestPoints':
+            if newest_points is None:
+                raise ValueError('a union value must not be None')
+            self._newest_points = newest_points
+            self._type = 'newestPoints'
 
     @builtins.property
     def arithmetic(self) -> Optional["scout_compute_resolved_api_ArithmeticSeriesNode"]:
@@ -56936,6 +57073,10 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
     def absolute_timestamp(self) -> Optional["scout_compute_resolved_api_AbsoluteTimestampSeriesNode"]:
         return self._absolute_timestamp
 
+    @builtins.property
+    def newest_points(self) -> Optional["scout_compute_resolved_api_SelectNewestPointsSeriesNode"]:
+        return self._newest_points
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_resolved_api_NumericSeriesNodeVisitor):
             raise ValueError('{} is not an instance of scout_compute_resolved_api_NumericSeriesNodeVisitor'.format(visitor.__class__.__name__))
@@ -56999,6 +57140,8 @@ class scout_compute_resolved_api_NumericSeriesNode(ConjureUnionType):
             return visitor._array_select(self.array_select)
         if self._type == 'absoluteTimestamp' and self.absolute_timestamp is not None:
             return visitor._absolute_timestamp(self.absolute_timestamp)
+        if self._type == 'newestPoints' and self.newest_points is not None:
+            return visitor._newest_points(self.newest_points)
 
 
 scout_compute_resolved_api_NumericSeriesNode.__name__ = "NumericSeriesNode"
@@ -57126,6 +57269,10 @@ class scout_compute_resolved_api_NumericSeriesNodeVisitor:
 
     @abstractmethod
     def _absolute_timestamp(self, absolute_timestamp: "scout_compute_resolved_api_AbsoluteTimestampSeriesNode") -> Any:
+        pass
+
+    @abstractmethod
+    def _newest_points(self, newest_points: "scout_compute_resolved_api_SelectNewestPointsSeriesNode") -> Any:
         pass
 
 
@@ -58580,6 +58727,35 @@ class scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode(ConjureBe
 scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode.__name__ = "SelectIndexFromNumericArraySeriesNode"
 scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode.__qualname__ = "SelectIndexFromNumericArraySeriesNode"
 scout_compute_resolved_api_SelectIndexFromNumericArraySeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
+
+
+class scout_compute_resolved_api_SelectNewestPointsSeriesNode(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'input': ConjureFieldDefinition('input', scout_compute_resolved_api_NumericSeriesNode),
+            'num_points': ConjureFieldDefinition('numPoints', int)
+        }
+
+    __slots__: List[str] = ['_input', '_num_points']
+
+    def __init__(self, input: "scout_compute_resolved_api_NumericSeriesNode", num_points: int) -> None:
+        self._input = input
+        self._num_points = num_points
+
+    @builtins.property
+    def input(self) -> "scout_compute_resolved_api_NumericSeriesNode":
+        return self._input
+
+    @builtins.property
+    def num_points(self) -> int:
+        return self._num_points
+
+
+scout_compute_resolved_api_SelectNewestPointsSeriesNode.__name__ = "SelectNewestPointsSeriesNode"
+scout_compute_resolved_api_SelectNewestPointsSeriesNode.__qualname__ = "SelectNewestPointsSeriesNode"
+scout_compute_resolved_api_SelectNewestPointsSeriesNode.__module__ = "nominal_api.scout_compute_resolved_api"
 
 
 class scout_compute_resolved_api_SelectValueNode(ConjureUnionType):

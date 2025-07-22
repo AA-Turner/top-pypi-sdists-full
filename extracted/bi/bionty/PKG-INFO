@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: bionty
-Version: 1.6.0
+Version: 1.6.1
 Summary: Basic biological entities, coupled to public ontologies [`source <https://github.com/laminlabs/bionty/blob/main/bionty/models.py>`__].
 Author-email: Lamin Labs <open-source@lamin.ai>
 Requires-Python: >=3.10,<3.14
@@ -10,7 +10,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
-Requires-Dist: lamindb>=1.6.1
+Requires-Dist: lamindb>=1.8.1
 Requires-Dist: lamindb_setup>=0.81.2
 Requires-Dist: lamin_utils>=0.13.9
 Requires-Dist: requests

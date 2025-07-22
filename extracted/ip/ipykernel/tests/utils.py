@@ -28,12 +28,6 @@ def start_new_kernel(**kwargs):
     Integrates with our output capturing for tests.
     """
     kwargs["stderr"] = STDOUT
-    try:
-        import nose
-
-        kwargs["stdout"] = nose.iptest_stdstreams_fileno()
-    except (ImportError, AttributeError):
-        pass
     return manager.start_new_kernel(startup_timeout=STARTUP_TIMEOUT, **kwargs)
 
 
@@ -143,19 +137,13 @@ def stop_global_kernel():
 def new_kernel(argv=None):
     """Context manager for a new kernel in a subprocess
 
-    Should only be used for tests where the kernel must not be re-used.
+    Should only be used for tests where the kernel must not be reused.
 
     Returns
     -------
     kernel_client: connected KernelClient instance
     """
     kwargs = {"stderr": STDOUT}
-    try:
-        import nose
-
-        kwargs["stdout"] = nose.iptest_stdstreams_fileno()
-    except (ImportError, AttributeError):
-        pass
     if argv is not None:
         kwargs["extra_arguments"] = argv
     return manager.run_kernel(**kwargs)

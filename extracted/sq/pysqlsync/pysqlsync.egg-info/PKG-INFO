@@ -1,20 +1,23 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pysqlsync
-Version: 0.8.2
+Version: 0.8.3
 Summary: Synchronize schema and large volumes of data
-Home-page: https://github.com/hunyadi/pysqlsync
-Author: Levente Hunyadi
-Author-email: hunyadi@gmail.com
-License: MIT
+Author-email: Levente Hunyadi <hunyadi@gmail.com>
+Maintainer-email: Levente Hunyadi <hunyadi@gmail.com>
+License-Expression: MIT
+Project-URL: Homepage, https://github.com/hunyadi/pysqlsync
+Project-URL: Source, https://github.com/hunyadi/pysqlsync
+Keywords: synchronization,sql-schema,sql-query,sql-insert,database-clients
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
-Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Database :: Database Engines/Servers
 Classifier: Topic :: Software Development :: Code Generators
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
@@ -22,25 +25,26 @@ Classifier: Typing :: Typed
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: json_strong_typing>=0.3.6
-Requires-Dist: certifi>=2024.12.14; python_version < "3.10"
+Requires-Dist: json_strong_typing>=0.3.9
+Requires-Dist: certifi>=2025.7.14; python_version < "3.10"
 Requires-Dist: truststore>=0.10; python_version >= "3.10"
-Requires-Dist: typing_extensions>=4.12; python_version < "3.12"
+Requires-Dist: typing_extensions>=4.14; python_version < "3.12"
 Provides-Extra: tsv
 Requires-Dist: tsv2py>=0.7; extra == "tsv"
 Provides-Extra: postgresql
 Requires-Dist: asyncpg>=0.30; extra == "postgresql"
 Provides-Extra: oracle
-Requires-Dist: oracledb>=2.5; extra == "oracle"
+Requires-Dist: oracledb>=3.2; extra == "oracle"
 Provides-Extra: mysql
 Requires-Dist: aiomysql>=0.2; extra == "mysql"
 Requires-Dist: PyMySQL[rsa]>=1.1; extra == "mysql"
 Provides-Extra: mssql
 Requires-Dist: pyodbc>=5.2; extra == "mssql"
 Provides-Extra: snowflake
-Requires-Dist: snowflake-connector-python>=3.12; extra == "snowflake"
+Requires-Dist: snowflake-connector-python>=3.16; extra == "snowflake"
 Provides-Extra: trino
-Requires-Dist: aiotrino>=0.2; extra == "trino"
+Requires-Dist: aiotrino>=0.3; extra == "trino"
+Dynamic: license-file
 
 # pysqlsync: Synchronize schema and large volumes of data over SQL
 
@@ -203,7 +207,7 @@ Extensible enumerations (declared with `E | str` or `E | str | None` where `E` i
 ## Database standard and engine support
 
 * PostgreSQL (with [asyncpg](https://magicstack.github.io/asyncpg/))
-* Microsoft SQL Server (with [pyodbc](https://github.com/mkleehammer/pyodbc/wiki))
+* Microsoft SQL Server (with [pyodbc](https://github.com/mkleehammer/pyodbc/wiki), requires [ODBC Driver 18](https://learn.microsoft.com/en-us/sql/connect/odbc/download-odbc-driver-for-sql-server) or later)
 * Oracle (with [oracledb](https://python-oracledb.readthedocs.io/))
 * MySQL (with [aiomysql](https://aiomysql.readthedocs.io/))
 

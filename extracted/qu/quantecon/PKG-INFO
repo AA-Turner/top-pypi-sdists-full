@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: quantecon
-Version: 0.8.1
+Version: 0.8.2
 Summary: Import the main names to top level.
 Keywords: quantitative,economics
 Author-email: QuantEcon Project <admin@quantecon.org>
@@ -11,7 +11,9 @@ Classifier: Operating System :: OS Independent
 Classifier: Intended Audience :: Science/Research
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.5
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Scientific/Engineering
 License-File: LICENSE
 Requires-Dist: numba>=0.49.0
@@ -46,11 +48,14 @@ A high performance, open source Python code library for economics
 
 [![Build Status](https://github.com/QuantEcon/QuantEcon.py/actions/workflows/ci.yml/badge.svg)](https://github.com/QuantEcon/QuantEcon.py/actions?query=workflow%3Abuild)
 [![Coverage Status](https://coveralls.io/repos/QuantEcon/QuantEcon.py/badge.svg)](https://coveralls.io/r/QuantEcon/QuantEcon.py)
-[![Documentation Status](https://readthedocs.org/projects/quanteconpy/badge/?version=latest)](https://quanteconpy.readthedocs.io/en/latest/?badge=latest)
+[![Documentation (stable)](https://img.shields.io/badge/docs-stable-blue.svg)](https://quanteconpy.readthedocs.io/en/stable/)
+[![Documentation (latest)](https://img.shields.io/badge/docs-latest-blue.svg)](https://quanteconpy.readthedocs.io/en/latest/)
+[![PyPI Version](https://img.shields.io/pypi/v/quantecon.svg)](https://pypi.org/project/quantecon/)
+[![PyPI - Python Version](https://img.shields.io/pypi/pyversions/quantecon.svg)](https://pypi.org/project/quantecon/)
 
 ## Installation
 
-Before installing `quantecon` we recommend you install the [Anaconda](https://www.anaconda.com/download/) Python distribution, which includes a full suite of scientific python tools. **Note:** `quantecon` is now only supporting Python version 3.5+. This is mainly to allow code to be written taking full advantage of new features such as using the `@` symbol for matrix multiplication. Therefore please install the latest Python 3 Anaconda distribution.
+Before installing `quantecon` we recommend you install the [Anaconda](https://www.anaconda.com/download/) Python distribution, which includes a full suite of scientific python tools.
 
 Next you can install quantecon by opening a terminal prompt and typing
 

@@ -16,6 +16,7 @@ def get_canonmap():
         embedding_model_hf_name="sentence-transformers/all-MiniLM-L12-v2",
         embedding_model_local_path="models",
         # gcs_config=embedding_gcs,
+        prioritize_cache=True,  # Check user's home directory cache first
     )
 
     canonmap = CanonMap(

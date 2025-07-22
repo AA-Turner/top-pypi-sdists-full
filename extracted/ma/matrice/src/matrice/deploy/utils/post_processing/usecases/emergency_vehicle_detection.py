@@ -29,51 +29,35 @@ from ..core.config import BaseConfig, AlertConfig, ZoneConfig
 @dataclass
 class EmergencyVehicleConfig(BaseConfig):
     """Configuration for Emergency Vehicle detection use case in vehicle monitoring."""
+    # Smoothing configuration
     enable_smoothing: bool = True
-    smoothing_algorithm: str = "observability"
-    smoothing_window_size: int = 5  # Reduced from 20 to 5 for faster response
-    smoothing_cooldown_frames: int = 2  # Reduced from 5 to 2 to clear stale tracks
-    smoothing_confidence_range_factor: float = 0.2  # Reduced from 0.5 to 0.2 for sensitivity
-    confidence_threshold: float = 0.5  # Adjusted from 0.6 to capture more detections
+    smoothing_algorithm: str = "observability"  # "window" or "observability"
+    smoothing_window_size: int = 20
+    smoothing_cooldown_frames: int = 5
+    smoothing_confidence_range_factor: float = 0.5
+    
+    # Vehicle confidence thresholds
+    confidence_threshold: float = 0.6
+
     
     vehicle_categories: List[str] = field(
-        default_factory=lambda: ['Ambulance', 'FireEngine']
+        default_factory=lambda: ['AmbulanceOff', 'FireEngineOn', 'AmbulanceOn', 'FireEngineOff']
     )
 
     target_vehicle_categories: List[str] = field(
-        default_factory=lambda: ['Ambulance', 'FireEngine']
+        default_factory=lambda: ['AmbulanceOff', 'FireEngineOn', 'AmbulanceOn', 'FireEngineOff']
     )
 
 
     alert_config: Optional[AlertConfig] = None
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-            0: 'Ambulance',
-            1: 'FireEngine',
-            2: 'Ambulance',
-            3: 'FireEngine'
+            0: 'AmbulanceOff',
+            1: 'FireEngineOn',
+            2: 'AmbulanceOn',
+            3: 'FireEngineOff'
             }
     )
-
-    ##### NOTE: currently disbaling on and off feature
-    # vehicle_categories: List[str] = field(
-    #     default_factory=lambda: ['AmbulanceOff', 'FireEngineOn', 'AmbulanceOn', 'FireEngineOff']
-    # )
-
-    # target_vehicle_categories: List[str] = field(
-    #     default_factory=lambda: ['AmbulanceOff', 'FireEngineOn', 'AmbulanceOn', 'FireEngineOff']
-    # )
-
-
-    # alert_config: Optional[AlertConfig] = None
-    # index_to_category: Optional[Dict[int, str]] = field(
-    #     default_factory=lambda: {
-    #         0: 'AmbulanceOff',
-    #         2: 'AmbulanceOn',
-    #         1: 'FireEngineOn',
-    #         3: 'FireEngineOff'
-    #         }
-    # )
 
 class EmergencyVehicleUseCase(BaseProcessor):
     def _get_track_ids_info(self, detections: list) -> Dict[str, Any]:
@@ -258,9 +242,7 @@ class EmergencyVehicleUseCase(BaseProcessor):
         self.category = "traffic"
         
         # List of vehicle categories to track
-        # self.vehicle_categories = ['AmbulanceOff', 'FireEngineOn', 'AmbulanceOn', 'FireEngineOff']
-        self.vehicle_categories = ['Ambulance', 'FireEngine']
-    
+        self.vehicle_categories = ['AmbulanceOff', 'FireEngineOn', 'AmbulanceOn', 'FireEngineOff']
         
         # Initialize smoothing tracker
         self.smoothing_tracker = None
@@ -285,8 +267,8 @@ class EmergencyVehicleUseCase(BaseProcessor):
         self._track_aliases: Dict[Any, Any] = {}
         self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
         # Tunable parameters – adjust if necessary for specific scenarios
-        self._track_merge_iou_threshold: float = 0.3  # IoU ≥ 0.3 → same vehicle
-        self._track_merge_time_window: float = 2.0    # seconds within which to merge
+        self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 → same vehicle
+        self._track_merge_time_window: float = 7.0    # seconds within which to merge
 
     def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """
@@ -488,11 +470,11 @@ class EmergencyVehicleUseCase(BaseProcessor):
             # Generate human text in new format
             human_text_lines = ["EVENTS DETECTED:"]
             # \t , not sure if it affects template 
-            human_text_lines.append(f"    - {total_vehicles} Emergency Vehicle(s) detected [INFO]")
+            human_text_lines.append(f"    - {total_vehicles} Vehicle(s) detected [INFO]")
             human_text = "\n".join(human_text_lines)
 
             event = {
-                "type": "emergency_vehicle_detection",
+                "type": "vehicle_monitoring",
                 "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
                 "level": level,
                 "intensity": round(intensity, 1),
@@ -616,7 +598,10 @@ class EmergencyVehicleUseCase(BaseProcessor):
             "human_text": human_text,
             "track_ids_info": track_ids_info,
             "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-            "local_frame_id": frame_key
+            "local_frame_id": frame_key,
+            "detections": counting_summary.get("detections", [])  # Added line to include detections
+
+
         }
 
         frame_tracking_stats.append(tracking_stat)
@@ -650,15 +635,11 @@ class EmergencyVehicleUseCase(BaseProcessor):
 
     # Human-friendly display names for vehicle categories
     CATEGORY_DISPLAY = {
-        "Ambulance": "Ambulance",
-        "FireEngine": "Fire Engine"
+        "AmbulanceOff": "ambulance off",
+        "AmbulanceOn": "ambulance on",
+        "FireEngineOn": "fire engine on",
+        "FireEngineOff": "fire engine off"
         }
-    # CATEGORY_DISPLAY = {
-    #     "AmbulanceOff": "ambulance off",
-    #     "AmbulanceOn": "ambulance on",
-    #     "FireEngineOn": "fire engine on",
-    #     "FireEngineOff": "fire engine off"
-    #     }
 
     def _generate_insights(self, summary: dict, config: EmergencyVehicleConfig) -> List[str]:
         """

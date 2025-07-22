@@ -1,30 +1,37 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: docstring_parser
-Version: 0.16
+Version: 0.17.0
 Summary: Parse Python docstrings in reST, Google and Numpydoc format
-Home-page: https://github.com/rr-/docstring_parser
+Project-URL: homepage, https://github.com/rr-/docstring_parser
+Project-URL: repository, https://github.com/rr-/docstring_parser
+Project-URL: changelog, https://github.com/rr-/docstring_parser/blob/master/CHANGELOG.md
+Author-email: Marcin Kurczewski <dash@wind.garden>
 License: MIT
-Author: Marcin Kurczewski
-Author-email: dash@wind.garden
-Requires-Python: >=3.6,<4.0
+License-File: LICENSE.md
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Other Environment
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Natural Language :: English
 Classifier: Operating System :: OS Independent
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.6
-Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Documentation :: Sphinx
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Markup
-Project-URL: Repository, https://github.com/rr-/docstring_parser
+Requires-Python: >=3.8
+Provides-Extra: dev
+Requires-Dist: pre-commit>=2.16.0; (python_version >= '3.9') and extra == 'dev'
+Requires-Dist: pydoctor>=25.4.0; extra == 'dev'
+Requires-Dist: pytest; extra == 'dev'
+Provides-Extra: docs
+Requires-Dist: pydoctor>=25.4.0; extra == 'docs'
+Provides-Extra: test
+Requires-Dist: pytest; extra == 'test'
 Description-Content-Type: text/markdown
 
 docstring_parser
@@ -93,17 +100,18 @@ Installation using conda
 
 To set up the project:
 ```sh
-pip install --user poetry
-
 git clone https://github.com/rr-/docstring_parser.git
 cd docstring_parser
 
-poetry install
-poetry run pre-commit install
+python -m venv venv  # create environment
+source venv/bin/activate  # activate environment
+
+pip install -e ".[dev]"  # install as editable
+pre-commit install  # make sure pre-commit is setup
 ```
 
 To run tests:
 ```
-poetry run pytest
+source venv/bin/activate
+pytest
 ```
-

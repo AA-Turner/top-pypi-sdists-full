@@ -46,15 +46,24 @@ construct: loop | instruction
 loop: "(loop" init script ")"
 init: "(init" instruction* ")"
 
-instruction: assign | upsert | break_
+instruction: assign | upsert | break_ | copy | monoid_def | monus_def
 
 assign : "(assign" relation_id abstraction attrs? ")"
 upsert : "(upsert" relation_id abstraction attrs? ")"
 break_ : "(break" relation_id abstraction attrs? ")"
+copy : "(copy" relation_id abstraction attrs? ")"
+monoid_def : "(monoid" monoid relation_id abstraction attrs? ")"
+monus_def : "(monus" monoid relation_id abstraction attrs? ")"
+
+monoid : or_monoid | min_monoid | max_monoid | sum_monoid
+or_monoid : "BOOL" "::" "OR"
+min_monoid : PRIMITIVE_TYPE "::" "MIN"
+max_monoid : PRIMITIVE_TYPE "::" "MAX"
+sum_monoid : PRIMITIVE_TYPE "::" "SUM"
 
 abstraction: "(" bindings formula ")"
 bindings: "[" binding* "]"
-binding: SYMBOL "::" rel_type
+binding: SYMBOL "::" PRIMITIVE_TYPE
 
 formula: exists | reduce | conjunction | disjunction | not_ | ffi | atom | pragma | primitive | true | false | relatom | cast
 exists: "(exists" bindings formula ")"
@@ -65,7 +74,7 @@ not_: "(not" formula ")"
 ffi: "(ffi" name args terms ")"
 atom: "(atom" relation_id term* ")"
 relatom: "(relatom" name relterm* ")"
-cast: "(cast" rel_type term term ")"
+cast: "(cast" term term ")"
 pragma: "(pragma" name  term* ")"
 true: "(true)"
 false: "(false)"
@@ -88,6 +97,7 @@ divide: "(/" term term term ")"
 
 relterm: specialized_value | term
 term: var | constant
+specialized_value: "#" primitive_value
 var: SYMBOL
 constant: primitive_value
 
@@ -98,15 +108,10 @@ fragment_id: ":" SYMBOL
 relation_id: (":" SYMBOL) | NUMBER
 name: ":" SYMBOL
 
-specialized_value: "#" primitive_value
-
 primitive_value: STRING | NUMBER | FLOAT | UINT128 | INT128
 
-rel_type: PRIMITIVE_TYPE | REL_VALUE_TYPE
 PRIMITIVE_TYPE: "STRING" | "INT" | "FLOAT" | "UINT128" | "INT128"
-REL_VALUE_TYPE: "DECIMAL64" | "DECIMAL128" | "DATE" | "DATETIME"
-              | "NANOSECOND" | "MICROSECOND" | "MILLISECOND" | "SECOND" | "MINUTE" | "HOUR"
-              | "DAY" | "WEEK" | "MONTH" | "YEAR"
+              | "DECIMAL64" | "DECIMAL128" | "DATE" | "DATETIME"
 
 SYMBOL: /[a-zA-Z_][a-zA-Z0-9_-]*/
 STRING: ESCAPED_STRING
@@ -143,10 +148,6 @@ class LQPTransformer(Transformer):
 
     def PRIMITIVE_TYPE(self, s):
         return getattr(ir.PrimitiveType, s.upper())
-
-    def REL_VALUE_TYPE(self, s):
-        return getattr(ir.RelValueType, s.upper())
-
     def rel_type(self, meta, items):
         return items[0]
 
@@ -281,13 +282,41 @@ class LQPTransformer(Transformer):
         body = items[1]
         attrs = items[2] if len(items) > 2 else []
         return ir.Break(name=name, body=body, attrs=attrs, meta=self.meta(meta))
+    def copy(self, meta, items):
+        name = items[0]
+        body = items[1]
+        attrs = items[2] if len(items) > 2 else []
+        return ir.Copy(name=name, body=body, attrs=attrs, meta=self.meta(meta))
+    def monoid_def(self, meta, items):
+        monoid = items[0]
+        name = items[1]
+        body = items[2]
+        attrs = items[3] if len(items) > 3 else []
+        return ir.MonoidDef(monoid=monoid, name=name, body=body, attrs=attrs, meta=self.meta(meta))
+    def monus_def(self, meta, items):
+        monoid = items[0]
+        name = items[1]
+        body = items[2]
+        attrs = items[3] if len(items) > 3 else []
+        return ir.MonusDef(monoid=monoid, name=name, body=body, attrs=attrs, meta=self.meta(meta))
+
+    def monoid(self, meta, items) :
+        return items[0]
+    def or_monoid(self, meta, items):
+        return ir.OrMonoid(meta=meta)
+    def min_monoid(self, meta, items):
+        return ir.MinMonoid(type=items[0], meta=meta)
+    def max_monoid(self, meta, items):
+        return ir.MaxMonoid(type=items[0], meta=meta)
+    def sum_monoid(self, meta, items):
+        return ir.SumMonoid(type=items[0], meta=meta)
 
     def abstraction(self, meta, items):
         return ir.Abstraction(vars=items[0], value=items[1], meta=self.meta(meta))
 
     def binding(self, meta, items):
-        name, rel_type = items
-        return (ir.Var(name=name, meta=self.meta(meta)), rel_type)
+        name, rel_t = items
+        return (ir.Var(name=name, meta=self.meta(meta)), rel_t)
 
     def vars(self, meta, items):
         return items
@@ -334,7 +363,7 @@ class LQPTransformer(Transformer):
         return ir.RelAtom(name=items[0], terms=items[1:], meta=self.meta(meta))
 
     def cast(self, meta, items):
-        return ir.Cast(type=items[0], input=items[1], result=items[2], meta=self.meta(meta))
+        return ir.Cast(input=items[0], result=items[1], meta=self.meta(meta))
 
     #
     # Primitives
@@ -383,7 +412,7 @@ class LQPTransformer(Transformer):
     def constant(self, meta, items):
         return items[0]
     def specialized_value(self, meta, items):
-        return ir.Specialized(value=items[0], meta=self.meta(meta))
+        return ir.SpecializedValue(value=items[0], meta=self.meta(meta))
 
     def name(self, meta, items):
         return items[0]

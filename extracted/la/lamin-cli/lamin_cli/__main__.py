@@ -22,6 +22,34 @@ from lamindb_setup._init_instance import (
 if TYPE_CHECKING:
     from collections.abc import Mapping
 
+COMMAND_GROUPS = {
+    "lamin": [
+        {
+            "name": "Manage connections",
+            "commands": ["connect", "info", "init", "disconnect"],
+        },
+        {
+            "name": "Load, save, create & delete data",
+            "commands": ["load", "save", "create", "delete"],
+        },
+        {
+            "name": "Describe, annotate & list data",
+            "commands": ["describe", "annotate", "list"],
+        },
+        {
+            "name": "Configure",
+            "commands": ["checkout", "switch", "cache", "settings", "migrate"],
+        },
+        {
+            "name": "Auth",
+            "commands": [
+                "login",
+                "logout",
+            ],
+        },
+    ]
+}
+
 # https://github.com/ewels/rich-click/issues/19
 # Otherwise rich-click takes over the formatting.
 if os.environ.get("NO_RICH"):
@@ -46,30 +74,6 @@ if os.environ.get("NO_RICH"):
 
 else:
     import rich_click as click
-
-    COMMAND_GROUPS = {
-        "lamin": [
-            {
-                "name": "Connect to an instance",
-                "commands": ["connect", "disconnect", "info", "init", "run"],
-            },
-            {
-                "name": "Read & write data",
-                "commands": ["load", "save", "get", "delete", "create", "list"],
-            },
-            {
-                "name": "Configure",
-                "commands": ["checkout", "switch", "cache", "settings", "migrate"],
-            },
-            {
-                "name": "Auth",
-                "commands": [
-                    "login",
-                    "logout",
-                ],
-            },
-        ]
-    }
 
     def lamin_group_decorator(f):
         @click.rich_config(
@@ -104,7 +108,7 @@ except PackageNotFoundError:
 @lamin_group_decorator
 @click.version_option(version=lamindb_version, prog_name="lamindb")
 def main():
-    """Configure LaminDB and perform simple actions."""
+    """Manage data with LaminDB instances."""
     silence_loggers()
 
 
@@ -190,13 +194,10 @@ def connect(instance: str):
     {attr}`~lamindb.setup.core.SetupSettings.auto_connect` to `True` so that you
     auto-connect in a Python session upon importing `lamindb`.
 
-    For manually connecting in a Python session, use {func}`~lamindb.connect`.
+    Alternatively, you can connect in a Python session via {func}`~lamindb.connect`.
     """
-    from lamindb_setup import connect as connect_
-    from lamindb_setup import settings as settings_
-
-    settings_.auto_connect = True
-    return connect_(instance, _reload_lamindb=False, _write_settings=True)
+    from lamindb_setup._connect_instance import _connect_cli
+    return _connect_cli(instance)
 
 
 @main.command()
@@ -263,7 +264,10 @@ def list_(entity: Literal["branch"], name: str | None = None):
 def switch(branch: str | None = None, space: str | None = None):
     """Switch between branches or spaces.
 
-    Currently only supports creating a branch.
+    ```
+    lamin switch --branch my_branch
+    lamin switch --space our_space
+    ```
     """
     from lamindb.setup import switch as switch_
 
@@ -273,7 +277,7 @@ def switch(branch: str | None = None, space: str | None = None):
 @main.command()
 @click.option("--schema", is_flag=True, help="View database schema.")
 def info(schema: bool):
-    """Show info about current instance."""
+    """Show info about the environment, instance, branch, space, and user."""
     if schema:
         from lamindb_setup._schema import view
 
@@ -329,7 +333,7 @@ def delete(entity: str, name: str | None = None, uid: str | None = None, slug: s
     "--with-env", is_flag=True, help="Also return the environment for a tranform."
 )
 def load(entity: str, uid: str | None = None, key: str | None = None, with_env: bool = False):
-    """Load a file or folder.
+    """Load a file or folder into the cache or working directory.
 
     Pass a URL, `artifact`, or `transform`. For example:
 
@@ -344,30 +348,16 @@ def load(entity: str, uid: str | None = None, key: str | None = None, with_env: 
     """
     is_slug = entity.count("/") == 1
     if is_slug:
-        from lamindb_setup import connect
-        from lamindb_setup import settings as settings_
-
-        # can decide whether we want to actually deprecate
-        # click.echo(
-        #     f"! please use: lamin connect {entity}"
-        # )
-        settings_.auto_connect = True
-        return connect(entity, _reload_lamindb=False, _write_settings=True)
+        from lamindb_setup._connect_instance import _connect_cli
+        # for backward compat and convenience, connect to the instance
+        return _connect_cli(entity)
     else:
         from lamin_cli._load import load as load_
 
         return load_(entity, uid=uid, key=key, with_env=with_env)
 
 
-@main.command()
-@click.argument("entity", type=str)
-@click.option("--uid", help="The uid for the entity.")
-@click.option("--key", help="The key for the entity.")
-def get(entity: str, uid: str | None = None, key: str | None = None):
-    """Query metadata about an entity.
-
-    Currently only works for artifact.
-    """
+def _describe(entity: str = "artifact", uid: str | None = None, key: str | None = None):
     import lamindb_setup as ln_setup
 
     from ._load import decompose_url
@@ -388,6 +378,34 @@ def get(entity: str, uid: str | None = None, key: str | None = None):
     else:
         artifact = ln.Artifact.get(key=key)
     artifact.describe()
+
+
+@main.command()
+@click.argument("entity", type=str, default="artifact")
+@click.option("--uid", help="The uid for the entity.")
+@click.option("--key", help="The key for the entity.")
+def describe(entity: str = "artifact", uid: str | None = None, key: str | None = None):
+    """Describe an artifact.
+
+    ```
+    lamin describe --key example_datasets/mini_immuno/dataset1.h5ad
+    lamin describe https://lamin.ai/laminlabs/lamin-site-assets/artifact/6sofuDVvTANB0f48
+    ```
+    """
+    _describe(entity=entity, uid=uid, key=key)
+
+
+@main.command()
+@click.argument("entity", type=str, default="artifact")
+@click.option("--uid", help="The uid for the entity.")
+@click.option("--key", help="The key for the entity.")
+def get(entity: str = "artifact", uid: str | None = None, key: str | None = None):
+    """Query metadata about an entity.
+
+    Currently still equivalent to `lamin describe`.
+    """
+    logger.warning("please use `lamin describe` instead of `lamin get` to describe")
+    _describe(entity=entity, uid=uid, key=key)
 
 
 @main.command()
@@ -419,6 +437,66 @@ def save(path: str, key: str, description: str, stem_uid: str, project: str, spa
 
     if save_from_path_cli(path=path, key=key, description=description, stem_uid=stem_uid, project=project, space=space, branch=branch, registry=registry) is not None:
         sys.exit(1)
+
+
+@main.command()
+@click.option("--key", type=str, default=None, help="The key of an artifact or transform.")
+@click.option("--uid", type=str, default=None, help="The uid of an artifact or transform.")
+@click.option("--project", type=str, default=None, help="A valid project name or uid.")
+@click.option("--features", multiple=True, help="Feature annotations. Supports: feature=value, feature=val1,val2, or feature=\"val1\",\"val2\"")
+@click.option("--registry", type=str, default=None, help="Either 'artifact' or 'transform'. If not passed, chooses based on key suffix.")
+def annotate(key: str, uid: str, project: str, registry: str, features: tuple):
+    """Annotate an artifact or a transform.
+
+    You can annotate with projects and valid features & values.
+
+    ```
+    lamin annotate --key raw/sample.fastq --project "My Project"
+    lamin annotate --key raw/sample.fastq --features perturbation=IFNG,DMSO cell_line=HEK297
+    lamin annotate --key my-notebook.ipynb --project "My Project"
+    ```
+    """
+    import lamindb as ln
+
+    from lamin_cli._annotate import _parse_features_list
+    from lamin_cli._save import infer_registry_from_path
+
+    if registry is None:
+        if key is not None:
+            registry = infer_registry_from_path(key)
+        else:
+            registry = "artifact"
+    if registry == "artifact":
+        model = ln.Artifact
+    else:
+        model = ln.Transform
+
+    # Get the artifact
+    if key is not None:
+        artifact = model.get(key=key)
+    elif uid is not None:
+        artifact = model.get(uid=uid)
+    else:
+        raise ln.errors.InvalidArgument("Either --key or --uid must be provided")
+
+    # Handle project annotation
+    if project is not None:
+        project_record = ln.Project.filter(
+            ln.Q(name=project) | ln.Q(uid=project)
+        ).one_or_none()
+        if project_record is None:
+            raise ln.errors.InvalidArgument(
+                f"Project '{project}' not found, either create it with `ln.Project(name='...').save()` or fix typos."
+            )
+        artifact.projects.add(project_record)
+
+    # Handle feature annotations
+    if features:
+        feature_dict = _parse_features_list(features)
+        artifact.features.add_values(feature_dict)
+
+    artifact_rep = artifact.key if artifact.key else artifact.description if artifact.description else artifact.uid
+    logger.important(f"annotated {registry}: {artifact_rep}")
 
 
 @main.command()

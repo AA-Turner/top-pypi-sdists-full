@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: mergepythonclient
-Version: 2.1.0
+Version: 2.1.1
 Summary: 
 Requires-Python: >=3.8,<4.0
 Classifier: Intended Audience :: Developers
@@ -254,5 +254,6 @@ while response.next is not None:
         cursor=response.next, 
         created_after="2030-01-01")
 ```
+
 
 

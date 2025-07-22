@@ -342,7 +342,9 @@ class WebsocketRPCConnection:
             # Handle unexpected disconnection or disconnection caused by the server
             if not self._closed and self._websocket.state == State.CLOSED:
                 # normal closure, means no need to recover
-                if self._websocket.close_code in [1000, 1001]:
+                if hasattr(
+                    self._websocket, "close_code"
+                ) and self._websocket.close_code in [1000, 1001]:
                     logger.info(
                         "Websocket connection closed (code: %s): %s",
                         self._websocket.close_code,
@@ -353,11 +355,16 @@ class WebsocketRPCConnection:
                     # make it as closed
                     self._closed = True
                 elif self._enable_reconnect:
-                    logger.warning(
-                        "Websocket connection closed unexpectedly (code: %s): %s",
-                        self._websocket.close_code,
-                        self._websocket.close_reason,
-                    )
+                    if hasattr(self._websocket, "close_code"):
+                        logger.warning(
+                            "Websocket connection closed unexpectedly (code: %s): %s",
+                            self._websocket.close_code,
+                            self._websocket.close_reason,
+                        )
+                    else:
+                        logger.warning(
+                            "Websocket connection closed unexpectedly (no close code)"
+                        )
 
                     async def reconnect_with_retry():
                         retry = 0

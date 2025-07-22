@@ -1,5 +1,6 @@
 import copy
 import logging
+import re
 from collections import defaultdict
 from datetime import datetime
 from functools import lru_cache
@@ -42,8 +43,86 @@ class InvalidResource(ValueError):
         self.table = table
 
 
+class UnoptimizedJoinException(Exception):
+    def __init__(self, sql: str):
+        self.sql = sql
+        self.msg = f"Materialized node SQL contains a join that is not optimized: {sql}"
+        self.documentation = (
+            "/docs/work-with-data/optimization/opt201-fix-mistakes#understanding-the-materialized-join-issue"
+        )
+        super().__init__(self.msg)
+
+
+ChQueryTable = Tuple[Optional[str], Optional[str], Optional[str]]
+
+
+def get_left_table(sql: str, default_database: Optional[str] = None) -> ChQueryTable:
+    if default_database is None:
+        left_table = chquery.get_left_table(sql)
+    else:
+        left_table = chquery.get_left_table(sql, default_database=default_database)
+    return left_table
+
+
 def format_sql(sql: str) -> str:
     return chquery.format(sql)
+
+
+def explain_plan(sql: str) -> str:
+    return chquery.explain_ast(sql)
+
+
+def has_join(sql: str) -> bool:
+    return any(line.rstrip().startswith("TableJoin") for line in explain_plan(sql).split())
+
+
+def has_unoptimized_join(sql: str, left_table: Optional[Union[Tuple[str, str], Tuple[str, str, str]]] = None) -> None:
+    """
+    Check if a SQL query contains an unoptimized join.
+    A join is considered optimized if the right table is filtered by the left table's data.
+
+    Args:
+        sql: The SQL query to check
+        left_table: Optional tuple of (database, table) for the left table
+
+    Raises:
+        UnoptimizedJoin: If an unoptimized join is found
+    """
+    # TODO: We should check that we are filtering the right table by the left table's data
+    # TODO: We should check if using EXPLAIN AST is better than using regex
+
+    number_of_joins = sum(1 for line in explain_plan(sql).split() if line.rstrip().startswith("TableJoin"))
+    if number_of_joins == 0:
+        return
+
+    if not left_table:
+        left_table = chquery.get_left_table(sql)
+        if not left_table:
+            return
+
+    # Find all JOIN clauses with subqueries
+    # This pattern matches anything between JOIN and ON/USING
+    join_pattern = r"(?:LEFT\s+|RIGHT\s+|INNER\s+|FULL\s+OUTER\s+)?JOIN\s*\((.*?)\)\s+(?:AS\s+\w+)?\s*(?:ON|USING)"
+
+    # Find all joins with subqueries
+    join_matches = list(re.finditer(join_pattern, sql, re.IGNORECASE | re.DOTALL))
+
+    if number_of_joins != len(join_matches):
+        logging.debug(f"number_of_joins: {number_of_joins}, join_matches: {join_matches}")
+        raise UnoptimizedJoinException(sql)
+
+    # If no joins with subqueries found, probably is an unoptimized join
+    if not join_matches:
+        raise UnoptimizedJoinException(sql)
+
+    # Check if the left table is referenced in the subquery
+    left_table_ref = f"{left_table[0]}.{left_table[1]}"
+
+    for match in join_matches:
+        subquery = match.group(1)  # Get the captured subquery
+        logging.debug(f"subquery: {subquery} left_table_ref: {left_table_ref}")
+        if left_table_ref not in subquery:
+            raise UnoptimizedJoinException(sql)
 
 
 def format_where_for_mutation_command(where_clause: str) -> str:
@@ -148,25 +227,56 @@ def sql_get_used_tables(
 
 
 class ReplacementsDict(dict):
+    def __init__(self, *args, enabled_table_functions=None, **kwargs):
+        self.enabled_table_functions = enabled_table_functions
+        super().__init__(*args, **kwargs)
+
     def __getitem__(self, key):
         v = super().__getitem__(key)
         if isinstance(v, tuple):
             k, r = v
             if callable(r):
-                r = r()
+                r = update_callable_signature(r)(self.enabled_table_functions)
                 super().__setitem__(key, (k, r))
             return k, r
         if callable(v):
-            v = v()
+            v = update_callable_signature(v)(self.enabled_table_functions)
             super().__setitem__(key, v)
         return v
 
 
-def tables_or_sql(replacement: dict, table_functions=False) -> set:
+def update_callable_signature(func):
+    """
+    Utility function to provide backward compatibility for callable functions
+    that don't accept the enabled_table_functions parameter.
+    """
+    if callable(func):
+
+        def wrapper(enabled_table_functions=None):
+            # Check if the function accepts the enabled_table_functions parameter
+            import inspect
+
+            sig = inspect.signature(func)
+            if len(sig.parameters) == 0:
+                # Old-style callable with no parameters
+                return func()
+            else:
+                # New-style callable that accepts enabled_table_functions
+                return func(enabled_table_functions)
+
+        return wrapper
+    return func
+
+
+def tables_or_sql(replacement: dict, table_functions=False, function_allow_list=None) -> set:
     try:
         return set(
             sql_get_used_tables(
-                replacement[1], default_database=replacement[0], raising=True, table_functions=table_functions
+                replacement[1],
+                default_database=replacement[0],
+                raising=True,
+                table_functions=table_functions,
+                function_allow_list=frozenset(function_allow_list),
             )
         )
     except Exception as e:
@@ -263,6 +373,7 @@ def replace_tables(
         _enabled_table_functions = ENABLED_TABLE_FUNCTIONS
     else:
         _enabled_table_functions = ENABLED_TABLE_FUNCTIONS.union(set(function_allow_list))
+    _replacements.enabled_table_functions = frozenset(_enabled_table_functions)
     while _tables:
         table = _tables.pop()
         if len(table) == 3:
@@ -276,7 +387,9 @@ def replace_tables(
         seen_tables.add(table)
         if table in _replacements:
             replacement = _replacements[table]
-            dependent_tables = tables_or_sql(replacement, table_functions=check_functions)
+            dependent_tables = tables_or_sql(
+                replacement, table_functions=check_functions, function_allow_list=_enabled_table_functions
+            )
             deps[table] |= {(d[0], d[1]) for d in dependent_tables}
             for dependent_table in list(dependent_tables):
                 if len(dependent_table) == 3:
@@ -342,6 +455,10 @@ def replace_tables(
             sql = replace_tables_chquery_cached(
                 sql, None, output_one_line=output_one_line, timestamp=timestamp, function_allow_list=hashable_list
             )
+
+    # Fix for empty database names in JOINs - remove empty backticks like ``.table_name
+    # that are generated when chquery.replace_tables processes tuples with empty database names
+    sql = sql.replace("``.", "")
 
     return sql
 

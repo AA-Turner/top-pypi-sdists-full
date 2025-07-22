@@ -462,6 +462,7 @@ __all__ = (
     "ListKeyValueStoresRequestPaginateTypeDef",
     "ListKeyValueStoresRequestTypeDef",
     "ListKeyValueStoresResultTypeDef",
+    "ListOriginAccessControlsRequestPaginateTypeDef",
     "ListOriginAccessControlsRequestTypeDef",
     "ListOriginAccessControlsResultTypeDef",
     "ListOriginRequestPoliciesRequestTypeDef",
@@ -2361,6 +2362,10 @@ class ListInvalidationsRequestPaginateTypeDef(TypedDict):
 
 class ListKeyValueStoresRequestPaginateTypeDef(TypedDict):
     Status: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+
+class ListOriginAccessControlsRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 

@@ -44,7 +44,7 @@ class ProjectionTest(apitestcase.ApiTestCase):
     projection_func = ee.ApiFunction.lookup('Projection')
     self.assertEqual(projection_func, projection.func)
     self.assertFalse(projection.isVariable())
-    self.assertEqual(set(['crs', 'transform']), set(projection.args))
+    self.assertEqual({'crs', 'transform'}, set(projection.args))
     self.assertEqual(EPSG_4326, projection.args['crs'])
     expected_transform = {
         'result': '0',
@@ -71,7 +71,7 @@ class ProjectionTest(apitestcase.ApiTestCase):
 
     projection_func = ee.ApiFunction.lookup('Projection')
     self.assertEqual(projection_func, projection.func)
-    self.assertEqual(set(['crs', 'transformWkt']), set(projection.args))
+    self.assertEqual({'crs', 'transformWkt'}, set(projection.args))
     self.assertEqual(EPSG_4326, projection.args['crs'])
     expected_transform_wkt = {
         'result': '0',
@@ -169,7 +169,6 @@ class ProjectionTest(apitestcase.ApiTestCase):
     })
     expression = ee.Projection(EPSG_4326).nominalScale()
     result = json.loads(expression.serialize())
-    print(result)
     self.assertEqual(expect, result)
 
   def test_scale(self):

@@ -5,15 +5,22 @@
 from einops.layers.torch import Rearrange
 from torch import nn
 from torch.nn import init
-from torch.nn.functional import elu
 
-from .base import EEGModuleMixin, deprecated_args
-from .functions import identity, squeeze_final_output
-from .modules import AvgPool2dWithConv, CombinedConv, Ensure4d, Expression
+from braindecode.models.base import EEGModuleMixin
+from braindecode.modules import (
+    AvgPool2dWithConv,
+    CombinedConv,
+    Ensure4d,
+    SqueezeFinalOutput,
+)
 
 
 class Deep4Net(EEGModuleMixin, nn.Sequential):
-    """Deep ConvNet model from Schirrmeister et al 2017.
+    """Deep ConvNet model from Schirrmeister et al (2017) [Schirrmeister2017]_.
+
+     .. figure:: https://onlinelibrary.wiley.com/cms/asset/fc200ccc-d8c4-45b4-8577-56ce4d15999a/hbm23730-fig-0001-m.jpg
+        :align: center
+        :alt: CTNet Architecture
 
     Model described in [Schirrmeister2017]_.
 
@@ -44,13 +51,13 @@ class Deep4Net(EEGModuleMixin, nn.Sequential):
         Number of temporal filters in layer 4.
     filter_length_4: int
         Length of the temporal filter in layer 4.
-    first_conv_nonlin: callable
+    activation_first_conv_nonlin: nn.Module, default is nn.ELU
         Non-linear activation function to be used after convolution in layer 1.
     first_pool_mode: str
         Pooling mode in layer 1. "max" or "mean".
     first_pool_nonlin: callable
         Non-linear activation function to be used after pooling in layer 1.
-    later_conv_nonlin: callable
+    activation_later_conv_nonlin: nn.Module, default is nn.ELU
         Non-linear activation function to be used after convolution in later layers.
     later_pool_mode: str
         Pooling mode in later layers. "max" or "mean".
@@ -67,12 +74,6 @@ class Deep4Net(EEGModuleMixin, nn.Sequential):
         Momentum for BatchNorm2d.
     stride_before_pool: bool
         Stride before pooling.
-    in_chans :
-        Alias for n_chans.
-    n_classes:
-        Alias for n_outputs.
-    input_window_samples :
-        Alias for n_times.
 
 
     References
@@ -87,47 +88,37 @@ class Deep4Net(EEGModuleMixin, nn.Sequential):
     """
 
     def __init__(
-            self,
-            n_chans=None,
-            n_outputs=None,
-            n_times=None,
-            final_conv_length="auto",
-            n_filters_time=25,
-            n_filters_spat=25,
-            filter_time_length=10,
-            pool_time_length=3,
-            pool_time_stride=3,
-            n_filters_2=50,
-            filter_length_2=10,
-            n_filters_3=100,
-            filter_length_3=10,
-            n_filters_4=200,
-            filter_length_4=10,
-            first_conv_nonlin=elu,
-            first_pool_mode="max",
-            first_pool_nonlin=identity,
-            later_conv_nonlin=elu,
-            later_pool_mode="max",
-            later_pool_nonlin=identity,
-            drop_prob=0.5,
-            split_first_layer=True,
-            batch_norm=True,
-            batch_norm_alpha=0.1,
-            stride_before_pool=False,
-            chs_info=None,
-            input_window_seconds=None,
-            sfreq=None,
-            in_chans=None,
-            n_classes=None,
-            input_window_samples=None,
-            add_log_softmax=True,
+        self,
+        n_chans=None,
+        n_outputs=None,
+        n_times=None,
+        final_conv_length="auto",
+        n_filters_time=25,
+        n_filters_spat=25,
+        filter_time_length=10,
+        pool_time_length=3,
+        pool_time_stride=3,
+        n_filters_2=50,
+        filter_length_2=10,
+        n_filters_3=100,
+        filter_length_3=10,
+        n_filters_4=200,
+        filter_length_4=10,
+        activation_first_conv_nonlin: nn.Module = nn.ELU,
+        first_pool_mode="max",
+        first_pool_nonlin: nn.Module = nn.Identity,
+        activation_later_conv_nonlin: nn.Module = nn.ELU,
+        later_pool_mode="max",
+        later_pool_nonlin: nn.Module = nn.Identity,
+        drop_prob=0.5,
+        split_first_layer=True,
+        batch_norm=True,
+        batch_norm_alpha=0.1,
+        stride_before_pool=False,
+        chs_info=None,
+        input_window_seconds=None,
+        sfreq=None,
     ):
-        n_chans, n_outputs, n_times = deprecated_args(
-            self,
-            ('in_chans', 'n_chans', in_chans, n_chans),
-            ('n_classes', 'n_outputs', n_classes, n_outputs),
-            ('input_window_samples', 'n_times', input_window_samples, n_times),
-        )
         super().__init__(
             n_outputs=n_outputs,
             n_chans=n_chans,
@@ -135,10 +126,9 @@ class Deep4Net(EEGModuleMixin, nn.Sequential):
             n_times=n_times,
             input_window_seconds=input_window_seconds,
             sfreq=sfreq,
-            add_log_softmax=add_log_softmax,
         )
         del n_outputs, n_chans, chs_info, n_times, input_window_seconds, sfreq
-        del in_chans, n_classes, input_window_samples
+
         if final_conv_length == "auto":
             assert self.n_times is not None
         self.final_conv_length = final_conv_length
@@ -153,10 +143,10 @@ class Deep4Net(EEGModuleMixin, nn.Sequential):
         self.filter_length_3 = filter_length_3
         self.n_filters_4 = n_filters_4
         self.filter_length_4 = filter_length_4
-        self.first_nonlin = first_conv_nonlin
+        self.first_nonlin = activation_first_conv_nonlin
         self.first_pool_mode = first_pool_mode
         self.first_pool_nonlin = first_pool_nonlin
-        self.later_conv_nonlin = later_conv_nonlin
+        self.later_conv_nonlin = activation_later_conv_nonlin
         self.later_pool_mode = later_pool_mode
         self.later_pool_nonlin = later_pool_nonlin
         self.drop_prob = drop_prob
@@ -174,7 +164,7 @@ class Deep4Net(EEGModuleMixin, nn.Sequential):
             "conv_time.bias": "conv_time_spat.conv_time.bias",
             "conv_spat.bias": "conv_time_spat.conv_spat.bias",
             "conv_classifier.weight": "final_layer.conv_classifier.weight",
-            "conv_classifier.bias": "final_layer.conv_classifier.bias"
+            "conv_classifier.bias": "final_layer.conv_classifier.bias",
         }
 
         if self.stride_before_pool:
@@ -223,17 +213,17 @@ class Deep4Net(EEGModuleMixin, nn.Sequential):
                     eps=1e-5,
                 ),
             )
-        self.add_module("conv_nonlin", Expression(self.first_nonlin))
+        self.add_module("conv_nonlin", self.first_nonlin())
         self.add_module(
             "pool",
             first_pool_class(
                 kernel_size=(self.pool_time_length, 1), stride=(pool_stride, 1)
             ),
         )
-        self.add_module("pool_nonlin", Expression(self.first_pool_nonlin))
+        self.add_module("pool_nonlin", self.first_pool_nonlin())
 
         def add_conv_pool_block(
-                model, n_filters_before, n_filters, filter_length, block_nr
+            model, n_filters_before, n_filters, filter_length, block_nr
         ):
             suffix = "_{:d}".format(block_nr)
             self.add_module("drop" + suffix, nn.Dropout(p=self.drop_prob))
@@ -257,7 +247,7 @@ class Deep4Net(EEGModuleMixin, nn.Sequential):
                         eps=1e-5,
                     ),
                 )
-            self.add_module("nonlin" + suffix, Expression(self.later_conv_nonlin))
+            self.add_module("nonlin" + suffix, self.later_conv_nonlin())
 
             self.add_module(
                 "pool" + suffix,
@@ -266,7 +256,7 @@ class Deep4Net(EEGModuleMixin, nn.Sequential):
                     stride=(pool_stride, 1),
                 ),
             )
-            self.add_module("pool_nonlin" + suffix, Expression(self.later_pool_nonlin))
+            self.add_module("pool_nonlin" + suffix, self.later_pool_nonlin())
 
         add_conv_pool_block(
             self, n_filters_conv, self.n_filters_2, self.filter_length_2, 2
@@ -286,17 +276,17 @@ class Deep4Net(EEGModuleMixin, nn.Sequential):
         # Incorporating classification module and subsequent ones in one final layer
         module = nn.Sequential()
 
-        module.add_module("conv_classifier",
-                          nn.Conv2d(
-                            self.n_filters_4,
-                            self.n_outputs,
-                            (self.final_conv_length, 1),
-                            bias=True, ))
+        module.add_module(
+            "conv_classifier",
+            nn.Conv2d(
+                self.n_filters_4,
+                self.n_outputs,
+                (self.final_conv_length, 1),
+                bias=True,
+            ),
+        )
 
-        if self.add_log_softmax:
-            module.add_module("logsoftmax", nn.LogSoftmax(dim=1))
-
-        module.add_module("squeeze", Expression(squeeze_final_output))
+        module.add_module("squeeze", SqueezeFinalOutput())
 
         self.add_module("final_layer", module)
 
@@ -329,5 +319,4 @@ class Deep4Net(EEGModuleMixin, nn.Sequential):
         init.xavier_uniform_(self.final_layer.conv_classifier.weight, gain=1)
         init.constant_(self.final_layer.conv_classifier.bias, 0)
 
-        # Start in eval mode
-        self.eval()
+        self.train()

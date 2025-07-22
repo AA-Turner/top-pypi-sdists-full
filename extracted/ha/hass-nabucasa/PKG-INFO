@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: hass-nabucasa
-Version: 0.107.1
+Version: 0.108.0
 Summary: Home Assistant cloud integration by Nabu Casa, Inc.
 Author-email: "Nabu Casa, Inc." <opensource@nabucasa.com>
 License: GPL v3
@@ -28,6 +28,8 @@ Requires-Dist: pycognito==2024.5.1
 Requires-Dist: PyJWT>=2.8.0
 Requires-Dist: snitun==0.40.0
 Requires-Dist: webrtc-models<1.0.0
+Requires-Dist: yarl<2,>=1.20
+Requires-Dist: sentence-stream==1.0.0
 Provides-Extra: test
 Requires-Dist: codespell==2.4.1; extra == "test"
 Requires-Dist: freezegun==1.5.3; extra == "test"

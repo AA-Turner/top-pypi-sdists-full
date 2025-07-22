@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import dataclasses
 import json
 import shutil
 import tempfile
@@ -85,7 +86,8 @@ def deploy(
     envfile: str | None = None,
     loglevel: constants.LogLevel = constants.LogLevel.INFO,
     token: str | None = None,
-    config_path: str | None = "cloud.yml",
+    config_path: str | None = None,
+    env: str | None = None,
     project_name: str | None = None,
     app_id: str | None = None,
     **kwargs,
@@ -106,6 +108,7 @@ def deploy(
         loglevel: The log level to use.
         token: The authentication token.
         config_path: The path to the config file.
+        env: The environment to use for deployment.
         project_name: The name of the project.
         app_id: The ID of the app.
         **kwargs: Additional keyword arguments.
@@ -126,15 +129,14 @@ def deploy(
     console.set_log_level(loglevel)
     project_id = project
     config = {}
-    if config_path is None:
-        config_path = "cloud.yml"
-    if config_path:
-        config = hosting.read_config(config_path)
+    config_from_file = hosting.read_config(config_path, env=env)
+    if config_from_file:
+        config = dataclasses.asdict(config_from_file)
 
     packages = None
     strategy = None
     include_db = False
-    # If a cloud.yml file is provided, use values from the file that are not provided as arguments.
+    # If a config file is provided, use values from the file that are not provided as arguments.
     if config:
         if not regions:
             regions = config.get("regions", None)
@@ -169,7 +171,9 @@ def deploy(
             raise SystemExit(1)
         if app_name == "default":
             # not sure if this is the best check?
-            console.error("Please set real config values in cloud.yml")
+            console.error(
+                "Please set real config values in cloud.yml or pyproject.toml"
+            )
             raise SystemExit(1)
         if not description:
             description = config.get("description", None)

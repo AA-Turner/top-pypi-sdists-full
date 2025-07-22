@@ -167,13 +167,15 @@ def create(ctx: Context) -> None:
 
     You can create two types of tokens: JWT or Static.
 
-    * JWT tokens have a TTL and can only have the PIPES:READ scope.Their main use case is allow your users to call your endpoints without exposing your API key.
+    * JWT tokens have a TTL and can have PIPES:READ and DATASOURCES:READ scopes. Their main use case is allow your users to call your endpoints or read datasources without exposing your API key.
 
     * Static Tokens do not have a TTL and can have any valid scope (DATASOURCES:READ, DATASOURCES:APPEND, DATASOURCES:CREATE, DATASOURCES:DROP, PIPES:CREATE, PIPES:READ, PIPES:DROP).
 
     Examples:
 
     tb token create jwt my_jwt_token --ttl 1h --scope PIPES:READ --resource my_pipe
+
+    tb token create jwt my_jwt_token --ttl 1h --scope DATASOURCES:READ --resource my_datasource --filter "column = 'value'"
 
     tb token create static my_static_token --scope PIPES:READ --resource my_pipe
 
@@ -192,17 +194,22 @@ def create(ctx: Context) -> None:
 @click.option(
     "--scope",
     multiple=True,
-    type=click.Choice(["PIPES:READ"]),
+    type=click.Choice(["PIPES:READ", "DATASOURCES:READ"]),
     required=True,
-    help="Scope of the token (only PIPES:READ is allowed for JWT tokens)",
+    help="Scope of the token (only PIPES:READ and DATASOURCES:READ are allowed for JWT tokens)",
 )
 @click.option("--resource", multiple=True, required=True, help="Resource associated with the scope")
 @click.option(
     "--fixed-params", multiple=True, help="Fixed parameters in key=value format, multiple values separated by commas"
 )
+@click.option(
+    "--filter",
+    multiple=True,
+    help="SQL filter to apply when reading a datasource (only applicable for DATASOURCES:READ scope)",
+)
 @click.pass_context
 @coro
-async def create_jwt_token(ctx: Context, name: str, ttl: timedelta, scope, resource, fixed_params) -> None:
+async def create_jwt_token(ctx: Context, name: str, ttl: timedelta, scope, resource, fixed_params, filter) -> None:
     """Create a JWT token with a TTL specify."""
 
     obj: Dict[str, Any] = ctx.ensure_object(dict)
@@ -216,6 +223,10 @@ async def create_jwt_token(ctx: Context, name: str, ttl: timedelta, scope, resou
     if fixed_params and len(fixed_params) > len(scope):
         raise CLITokenException(FeedbackManager.error_number_of_fixed_params_and_resources_mismatch())
 
+    # Ensure the number of filters does not exceed the number of scope/resource pairs
+    if filter and len(filter) > len(scope):
+        raise CLITokenException("The number of SQL filters must match the number of scopes")
+
     # Parse fixed params
     parsed_fixed_params = parse_fixed_params(fixed_params) if fixed_params else []
 
@@ -224,15 +235,24 @@ async def create_jwt_token(ctx: Context, name: str, ttl: timedelta, scope, resou
     for i, params in enumerate(parsed_fixed_params):
         fixed_params_list[i] = params
 
+    # Create a list of filters for each scope/resource pair, defaulting to None if not provided
+    filters_list: List[Optional[str]] = [None] * len(scope)
+    for i, f in enumerate(filter):
+        filters_list[i] = f
+
     scopes = []
-    for sc, res, fparams in zip(scope, resource, fixed_params_list):
-        scopes.append(
-            {
-                "type": sc,
-                "resource": res,
-                "fixed_params": fparams,
-            }
-        )
+    for sc, res, fparams, filter in zip(scope, resource, fixed_params_list, filters_list):
+        scope_data = {
+            "type": sc,
+            "resource": res,
+        }
+
+        if sc == "PIPES:READ" and fparams:
+            scope_data["fixed_params"] = fparams
+        elif sc == "DATASOURCES:READ" and filter:
+            scope_data["filter"] = filter
+
+        scopes.append(scope_data)
 
     try:
         response = await client.create_jwt_token(name, expiration_time, scopes)

@@ -171,14 +171,14 @@ class MultiCloudResourceDiscoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/change_multi_cloud_resource_discovery_compartment.py.html>`__ to see an example of how to use change_multi_cloud_resource_discovery_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/change_multi_cloud_resource_discovery_compartment.py.html>`__ to see an example of how to use change_multi_cloud_resource_discovery_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['multiCloudResourceDiscoveryId']
         resource_path = "/multiCloudResourceDiscovery/{multiCloudResourceDiscoveryId}/actions/changeCompartment"
         method = "POST"
         operation_name = "change_multi_cloud_resource_discovery_compartment"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/MultiCloudResourceDiscovery/ChangeMultiCloudResourceDiscoveryCompartment"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -288,14 +288,14 @@ class MultiCloudResourceDiscoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/create_multi_cloud_resource_discovery.py.html>`__ to see an example of how to use create_multi_cloud_resource_discovery API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/create_multi_cloud_resource_discovery.py.html>`__ to see an example of how to use create_multi_cloud_resource_discovery API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/multiCloudResourceDiscovery"
         method = "POST"
         operation_name = "create_multi_cloud_resource_discovery"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/MultiCloudResourceDiscovery/CreateMultiCloudResourceDiscovery"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -390,14 +390,14 @@ class MultiCloudResourceDiscoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/delete_multi_cloud_resource_discovery.py.html>`__ to see an example of how to use delete_multi_cloud_resource_discovery API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/delete_multi_cloud_resource_discovery.py.html>`__ to see an example of how to use delete_multi_cloud_resource_discovery API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['multiCloudResourceDiscoveryId']
         resource_path = "/multiCloudResourceDiscovery/{multiCloudResourceDiscoveryId}"
         method = "DELETE"
         operation_name = "delete_multi_cloud_resource_discovery"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/MultiCloudResourceDiscovery/DeleteMultiCloudResourceDiscovery"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -501,14 +501,14 @@ class MultiCloudResourceDiscoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/get_multi_cloud_resource_discovery.py.html>`__ to see an example of how to use get_multi_cloud_resource_discovery API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/get_multi_cloud_resource_discovery.py.html>`__ to see an example of how to use get_multi_cloud_resource_discovery API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['multiCloudResourceDiscoveryId']
         resource_path = "/multiCloudResourceDiscovery/{multiCloudResourceDiscoveryId}"
         method = "GET"
         operation_name = "get_multi_cloud_resource_discovery"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/MultiCloudResourceDiscovery/GetMultiCloudResourceDiscovery"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -658,14 +658,14 @@ class MultiCloudResourceDiscoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/list_multi_cloud_resource_discoveries.py.html>`__ to see an example of how to use list_multi_cloud_resource_discoveries API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/list_multi_cloud_resource_discoveries.py.html>`__ to see an example of how to use list_multi_cloud_resource_discoveries API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/multiCloudResourceDiscovery"
         method = "GET"
         operation_name = "list_multi_cloud_resource_discoveries"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/MultiCloudResourceDiscovery/ListMultiCloudResourceDiscoveries"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -809,14 +809,14 @@ class MultiCloudResourceDiscoveryClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/update_multi_cloud_resource_discovery.py.html>`__ to see an example of how to use update_multi_cloud_resource_discovery API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/update_multi_cloud_resource_discovery.py.html>`__ to see an example of how to use update_multi_cloud_resource_discovery API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['multiCloudResourceDiscoveryId']
         resource_path = "/multiCloudResourceDiscovery/{multiCloudResourceDiscoveryId}"
         method = "PUT"
         operation_name = "update_multi_cloud_resource_discovery"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/MultiCloudResourceDiscovery/UpdateMultiCloudResourceDiscovery"
 
         # Don't accept unknown kwargs
         expected_kwargs = [

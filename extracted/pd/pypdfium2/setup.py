@@ -8,10 +8,7 @@ import os
 import sys
 from pathlib import Path
 import setuptools
-try:
-    from setuptools.command.bdist_wheel import bdist_wheel
-except ImportError:
-    from wheel.bdist_wheel import bdist_wheel
+from wheel.bdist_wheel import bdist_wheel
 from setuptools.command.build_py import build_py as build_py_orig
 
 sys.path.insert(0, str(Path(__file__).parent / "setupsrc"))
@@ -84,7 +81,7 @@ def run_setup(modnames, pl_name, pdfium_ver):
     kwargs = dict(
         name = "pypdfium2",
         description = "Python bindings to PDFium",
-        license = "BSD-3-Clause, Apache-2.0, PdfiumThirdParty",
+        license = "Apache-2.0 OR BSD-3-Clause",
         license_files = LICENSES_SHARED,
         python_requires = ">= 3.6",
         cmdclass = {},
@@ -135,6 +132,7 @@ def run_setup(modnames, pl_name, pdfium_ver):
         kwargs["package_data"]["pypdfium2_raw"] = [VersionFN, BindingsFN, libname]
         kwargs["cmdclass"]["bdist_wheel"] = bdist_factory(pl_name)
         kwargs["distclass"] = BinaryDistribution
+        kwargs["license"] = f"({kwargs['license']}) AND LicenseRef-PdfiumThirdParty"
         kwargs["license_files"] += LICENSES_WHEEL
     
     if "pypdfium2" in kwargs["package_data"]:

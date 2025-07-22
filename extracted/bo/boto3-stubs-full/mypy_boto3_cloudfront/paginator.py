@@ -22,6 +22,7 @@ Usage::
         ListInvalidationsForDistributionTenantPaginator,
         ListInvalidationsPaginator,
         ListKeyValueStoresPaginator,
+        ListOriginAccessControlsPaginator,
         ListPublicKeysPaginator,
         ListStreamingDistributionsPaginator,
     )
@@ -39,6 +40,7 @@ Usage::
     list_invalidations_for_distribution_tenant_paginator: ListInvalidationsForDistributionTenantPaginator = client.get_paginator("list_invalidations_for_distribution_tenant")
     list_invalidations_paginator: ListInvalidationsPaginator = client.get_paginator("list_invalidations")
     list_key_value_stores_paginator: ListKeyValueStoresPaginator = client.get_paginator("list_key_value_stores")
+    list_origin_access_controls_paginator: ListOriginAccessControlsPaginator = client.get_paginator("list_origin_access_controls")
     list_public_keys_paginator: ListPublicKeysPaginator = client.get_paginator("list_public_keys")
     list_streaming_distributions_paginator: ListStreamingDistributionsPaginator = client.get_paginator("list_streaming_distributions")
     ```
@@ -72,6 +74,8 @@ from .type_defs import (
     ListInvalidationsResultTypeDef,
     ListKeyValueStoresRequestPaginateTypeDef,
     ListKeyValueStoresResultTypeDef,
+    ListOriginAccessControlsRequestPaginateTypeDef,
+    ListOriginAccessControlsResultTypeDef,
     ListPublicKeysRequestPaginateTypeDef,
     ListPublicKeysResultTypeDef,
     ListStreamingDistributionsRequestPaginateTypeDef,
@@ -95,6 +99,7 @@ __all__ = (
     "ListInvalidationsForDistributionTenantPaginator",
     "ListInvalidationsPaginator",
     "ListKeyValueStoresPaginator",
+    "ListOriginAccessControlsPaginator",
     "ListPublicKeysPaginator",
     "ListStreamingDistributionsPaginator",
 )
@@ -321,6 +326,27 @@ class ListKeyValueStoresPaginator(_ListKeyValueStoresPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListKeyValueStores.html#CloudFront.Paginator.ListKeyValueStores.paginate)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/paginators/#listkeyvaluestorespaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListOriginAccessControlsPaginatorBase = Paginator[ListOriginAccessControlsResultTypeDef]
+else:
+    _ListOriginAccessControlsPaginatorBase = Paginator  # type: ignore[assignment]
+
+
+class ListOriginAccessControlsPaginator(_ListOriginAccessControlsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListOriginAccessControls.html#CloudFront.Paginator.ListOriginAccessControls)
+    [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/paginators/#listoriginaccesscontrolspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListOriginAccessControlsRequestPaginateTypeDef]
+    ) -> PageIterator[ListOriginAccessControlsResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/paginator/ListOriginAccessControls.html#CloudFront.Paginator.ListOriginAccessControls.paginate)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/paginators/#listoriginaccesscontrolspaginator)
         """
 
 

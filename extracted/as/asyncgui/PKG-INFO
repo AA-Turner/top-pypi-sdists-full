@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: asyncgui
-Version: 0.9.1
+Version: 0.9.2
 Summary: A minimalistic async library that focuses on fast responsiveness
 License: MIT
 Keywords: async

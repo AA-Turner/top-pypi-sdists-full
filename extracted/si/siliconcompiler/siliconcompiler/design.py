@@ -3,19 +3,21 @@ import re
 
 import os.path
 
-from pathlib import Path
-from typing import List
+from typing import List, Union, Tuple, Dict
 
 from siliconcompiler import utils
 
+from siliconcompiler import PackageSchema
+
 from siliconcompiler.dependencyschema import DependencySchema
+from siliconcompiler.pathschema import PathSchema
 from siliconcompiler.schema import NamedSchema
 from siliconcompiler.schema import EditableSchema, Parameter, Scope
 from siliconcompiler.schema.utils import trim
 
 
 ###########################################################################
-class DesignSchema(NamedSchema, DependencySchema):
+class DesignSchema(PackageSchema, NamedSchema, DependencySchema, PathSchema):
 
     def __init__(self, name: str = None):
         super().__init__()
@@ -23,7 +25,14 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         schema_design(self)
 
-        self.__fileset = None
+    def add_dep(self, obj: NamedSchema, clobber: bool = True) -> bool:
+        if not isinstance(obj, NamedSchema):
+            raise TypeError(f"Cannot add an object of type: {type(obj)}")
+
+        if obj.name() == self.name():
+            raise ValueError("Cannot add a dependency with the same name")
+
+        return super().add_dep(obj, clobber=clobber)
 
     ############################################
     def set_topmodule(self,
@@ -66,20 +75,20 @@ class DesignSchema(NamedSchema, DependencySchema):
                  value: str,
                  fileset: str = None,
                  clobber: bool = False,
-                 package: str = None) -> List[str]:
+                 dataroot: str = None) -> List[str]:
         """Adds include directories to a fileset.
 
         Args:
            value (str or Path): Include directory name.
            fileset (str, optional): Fileset name.
            clobber (bool, optional): Clears existing list before adding item
-           package (str, optional): Package name
+           dataroot (str, optional): Data directory reference name
 
         Returns:
            list[str]: List of include directories
         """
         return self.__set_add(fileset, 'idir', value, clobber, typelist=[str, list],
-                              package=package)
+                              dataroot=dataroot)
 
     def get_idir(self, fileset: str = None) -> List[str]:
         """Returns include directories for a fileset.
@@ -90,7 +99,7 @@ class DesignSchema(NamedSchema, DependencySchema):
         Returns:
            list[str]: List of include directories
         """
-        return self.__get(fileset, 'idir')
+        return self.__get(fileset, 'idir', is_file=True)
 
     ##############################################
     def add_define(self,
@@ -155,20 +164,20 @@ class DesignSchema(NamedSchema, DependencySchema):
                    value: str,
                    fileset: str = None,
                    clobber: bool = False,
-                   package: str = None) -> List[str]:
+                   dataroot: str = None) -> List[str]:
         """Adds dynamic library directories to a fileset.
 
         Args:
            value (str or List[str]): Library directories
            fileset (str, optional): Fileset name.
            clobber (bool, optional): Clears existing list before adding item.
-           package (str, optional): Package name
+           dataroot (str, optional): Data directory reference name
 
         Returns:
            list[str]: List of library directories.
         """
         return self.__set_add(fileset, 'libdir', value, clobber, typelist=[str, list],
-                              package=package)
+                              dataroot=dataroot)
 
     def get_libdir(self, fileset: str = None) -> List[str]:
         """Returns dynamic library directories for a fileset.
@@ -179,7 +188,7 @@ class DesignSchema(NamedSchema, DependencySchema):
         Returns:
            list[str]: List of library directories.
         """
-        return self.__get(fileset, 'libdir')
+        return self.__get(fileset, 'libdir', is_file=True)
 
     ###############################################
     def add_lib(self,
@@ -226,7 +235,7 @@ class DesignSchema(NamedSchema, DependencySchema):
         """
 
         if fileset is None:
-            fileset = self.__fileset
+            fileset = self._get_active("fileset")
 
         if not isinstance(fileset, str):
             raise ValueError("fileset key must be a string")
@@ -249,11 +258,63 @@ class DesignSchema(NamedSchema, DependencySchema):
             str: Parameter value
         """
         if fileset is None:
-            fileset = self.__fileset
+            fileset = self._get_active("fileset")
 
         if not isinstance(fileset, str):
-            raise ValueError("fileset value must be a string")
+            raise ValueError("fileset key must be a string")
         return self.get('fileset', fileset, 'param', name)
+
+    ###############################################
+    def add_depfileset(self, dep: Union["DesignSchema", str], depfileset: str, fileset: str = None):
+        """
+        Record a reference to an imported dependency's fileset.
+
+        Args:
+           dep (:class:`DesignSchema` or str): Dependency name or object.
+           depfileset (str): Dependency fileset
+           fileset (str): Fileset name.
+
+        """
+        if fileset is None:
+            fileset = self._get_active("fileset")
+
+        if not isinstance(fileset, str):
+            raise ValueError("fileset key must be a string")
+
+        if isinstance(dep, str):
+            dep_name = dep
+            dep = self.get_dep(dep_name)
+        elif isinstance(dep, DesignSchema):
+            dep_name = dep.name()
+            self.add_dep(dep, clobber=True)
+        else:
+            raise TypeError("dep is not a valid type")
+
+        if not isinstance(dep, DesignSchema):
+            raise ValueError(f"cannot associate fileset ({depfileset}) with {dep.name()}")
+
+        if depfileset not in dep.getkeys("fileset"):
+            raise ValueError(f"{dep.name()} does not have {depfileset} as a fileset")
+
+        return self.add("fileset", fileset, "depfileset", (dep_name, depfileset))
+
+    def get_depfileset(self, fileset: str = None):
+        """
+        Returns list of dependency filesets.
+
+        Args:
+           fileset (str): Fileset name.
+
+        Returns:
+           list[str]: List of dependencies and filesets.
+        """
+        if fileset is None:
+            fileset = self._get_active("fileset")
+
+        if not isinstance(fileset, str):
+            raise ValueError("fileset key must be a string")
+
+        return self.get("fileset", fileset, "depfileset")
 
     ###############################################
     def add_file(self,
@@ -261,7 +322,7 @@ class DesignSchema(NamedSchema, DependencySchema):
                  fileset: str = None,
                  filetype: str = None,
                  clobber: bool = False,
-                 package: str = None) -> List[str]:
+                 dataroot: str = None) -> List[str]:
         """
         Adds files to a fileset.
 
@@ -277,7 +338,7 @@ class DesignSchema(NamedSchema, DependencySchema):
             fileset (str): Logical group to associate the file with.
             filetype (str, optional): Type of the file (e.g., 'verilog', 'sdc').
             clobber (bool, optional): Clears list before adding item
-            package (str, optional): Package name
+            dataroot (str, optional): Data directory reference name
 
         Raises:
             SiliconCompilerError: If fileset or filetype cannot be inferred from
@@ -294,17 +355,22 @@ class DesignSchema(NamedSchema, DependencySchema):
         """
 
         if fileset is None:
-            fileset = self.__fileset
+            fileset = self._get_active("fileset")
+
+        if not isinstance(fileset, str):
+            raise ValueError("fileset key must be a string")
 
         # handle list inputs
         if isinstance(filename, (list, tuple)):
+            params = []
             for item in filename:
-                self.add_file(
-                    item,
-                    fileset=fileset,
-                    clobber=clobber,
-                    filetype=filetype)
-            return
+                params.extend(
+                    self.add_file(
+                        item,
+                        fileset=fileset,
+                        clobber=clobber,
+                        filetype=filetype))
+            return params
 
         if filename is None:
             raise ValueError("add_file cannot process None")
@@ -313,36 +379,24 @@ class DesignSchema(NamedSchema, DependencySchema):
         filename = str(filename)
 
         # map extension to default filetype/fileset
-
         if not filetype:
             ext = utils.get_file_ext(filename)
             iomap = utils.get_default_iomap()
             if ext in iomap:
-                default_fileset, default_filetype = iomap[ext]
+                _, default_filetype = iomap[ext]
                 filetype = default_filetype
             else:
-                raise ValueError("illegal file extension")
+                raise ValueError(f"Unrecognized file extension: {ext}")
 
-        # final error checking
-        if not fileset or not filetype:
-            raise ValueError(
-                f'Unable to infer fileset and/or filetype for '
-                f'{filename} based on file extension.')
+        if not dataroot:
+            dataroot = self._get_active("package")
 
         # adding files to dictionary
-        if clobber:
-            params = self.set('fileset', fileset, 'file', filetype, filename)
-        else:
-            params = self.add('fileset', fileset, 'file', filetype, filename)
-
-        if package and params:
-            if not isinstance(params, (list, set, tuple)):
-                params = [params]
-
-            for param in params:
-                param.set(package, field="package")
-
-        return params
+        with self.active_dataroot(dataroot):
+            if clobber:
+                return self.set('fileset', fileset, 'file', filetype, filename)
+            else:
+                return self.add('fileset', fileset, 'file', filetype, filename)
 
     ###############################################
     def get_file(self,
@@ -359,7 +413,7 @@ class DesignSchema(NamedSchema, DependencySchema):
         """
 
         if fileset is None:
-            fileset = self.__fileset
+            fileset = self._get_active("fileset")
 
         if not isinstance(fileset, list):
             fileset = [fileset]
@@ -368,19 +422,22 @@ class DesignSchema(NamedSchema, DependencySchema):
             filetype = [filetype]
 
         filelist = []
-        for i in fileset:
-            if not isinstance(i, str):
+        for fs in fileset:
+            if not isinstance(fs, str):
                 raise ValueError("fileset key must be a string")
             # handle scalar+list in argument
             if not filetype:
-                filetype = list(self.getkeys('fileset', i, 'file'))
+                filetype = self.getkeys('fileset', fs, 'file')
             # grab the files
-            for j in filetype:
-                filelist.extend(self.get('fileset', i, 'file', j))
+            for ftype in filetype:
+                filelist.extend(self.find_files('fileset', fs, 'file', ftype))
 
         return filelist
 
-    def __write_flist(self, filename: str, filesets: list):
+    def __write_flist(self,
+                      filename: str,
+                      filesets: List[str],
+                      depalias: Dict[str, Tuple[NamedSchema, str]]):
         written_cmd = set()
 
         with open(filename, "w") as f:
@@ -394,33 +451,37 @@ class DesignSchema(NamedSchema, DependencySchema):
             def write_header(header):
                 f.write(f"// {header}\n")
 
-            for lib in [self, *self.get_dep()]:
-                write_header(f"{lib.name()}")
-                for fileset in filesets:
-                    if not lib.valid('fileset', fileset):
-                        continue
+            for lib, fileset in self.get_fileset(filesets, depalias):
+                if lib.get('fileset', fileset, 'idir'):
+                    write_header(f"{lib.name()} / {fileset} / include directories")
+                    for idir in lib.find_files('fileset', fileset, 'idir'):
+                        write(f"+incdir+{idir}")
 
-                    if lib.get('fileset', fileset, 'idir'):
-                        write_header(f"{lib.name()} / {fileset} / include directories")
-                        for idir in lib.find_files('fileset', fileset, 'idir'):
-                            write(f"+incdir+{idir}")
+                if lib.get('fileset', fileset, 'define'):
+                    write_header(f"{lib.name()} / {fileset} / defines")
+                    for define in lib.get('fileset', fileset, 'define'):
+                        write(f"+define+{define}")
 
-                    if lib.get('fileset', fileset, 'define'):
-                        write_header(f"{lib.name()} / {fileset} / defines")
-                        for define in lib.get('fileset', fileset, 'define'):
-                            write(f"+define+{define}")
+                for filetype in lib.getkeys('fileset', fileset, 'file'):
+                    if lib.get('fileset', fileset, 'file', filetype):
+                        write_header(f"{lib.name()} / {fileset} / {filetype} files")
+                        for file in lib.find_files('fileset', fileset, 'file', filetype):
+                            write(file)
 
-                    for filetype in lib.getkeys('fileset', fileset, 'file'):
-                        if lib.get('fileset', fileset, 'file', filetype):
-                            write_header(f"{lib.name()} / {fileset} / {filetype} files")
-                            for file in lib.find_files('fileset', fileset, 'file', filetype):
-                                write(file)
+    def __map_fileformat(self, path):
+        _, ext = os.path.splitext(path)
+
+        if ext == ".f":
+            return "flist"
+        else:
+            raise ValueError(f"Unable to determine filetype of: {path}")
 
     ###############################################
     def write_fileset(self,
                       filename: str,
                       fileset: str = None,
-                      fileformat: str = None) -> None:
+                      fileformat: str = None,
+                      depalias: Dict[str, Tuple[NamedSchema, str]] = None) -> None:
         """Exports filesets to a standard formatted text file.
 
         Currently supports Verilog `flist` format only.
@@ -431,13 +492,14 @@ class DesignSchema(NamedSchema, DependencySchema):
             filename (str or Path): Output file name.
             fileset (str or list[str]): Fileset(s) to export.
             fileformat (str, optional): Export format.
+            depalias (dict of schema objects): Map of aliased objects
         """
 
         if filename is None:
-            raise ValueError("write_fileset() filename cannot be None")
+            raise ValueError("filename cannot be None")
 
         if fileset is None:
-            fileset = self.__fileset
+            fileset = self._get_active("fileset")
 
         if not isinstance(fileset, list):
             fileset = [fileset]
@@ -448,14 +510,12 @@ class DesignSchema(NamedSchema, DependencySchema):
 
         # file extension lookup
         if not fileformat:
-            formats = {}
-            formats['f'] = 'flist'
-            fileformat = formats[Path(filename).suffix.strip('.')]
+            fileformat = self.__map_fileformat(filename)
 
         if fileformat == "flist":
-            self.__write_flist(filename, fileset)
+            self.__write_flist(filename, fileset, depalias)
         else:
-            raise ValueError(f"{fileformat} is not supported")
+            raise ValueError(f"{fileformat} is not a supported filetype")
 
     def __read_flist(self, filename: str, fileset: str):
         # Extract information
@@ -485,26 +545,26 @@ class DesignSchema(NamedSchema, DependencySchema):
                 else:
                     files.append(expand_path(line))
 
-        # Create packages
+        # Create dataroots
         all_paths = include_dirs + [os.path.dirname(f) for f in files]
         all_paths = sorted(set(all_paths))
 
-        package_root_name = f'flist-{self.name()}-{fileset}-{os.path.basename(filename)}'
-        packages = {}
+        dataroot_root_name = f'flist-{self.name()}-{fileset}-{os.path.basename(filename)}'
+        dataroots = {}
 
         for path_dir in all_paths:
             found = False
-            for pdir in packages:
+            for pdir in dataroots:
                 if path_dir.startswith(pdir):
                     found = True
                     break
             if not found:
-                package_name = f"{package_root_name}-{len(packages)}"
-                self.register_package(package_name, path_dir)
-                packages[path_dir] = package_name
+                dataroot_name = f"{dataroot_root_name}-{len(dataroots)}"
+                self.set_dataroot(dataroot_name, path_dir)
+                dataroots[path_dir] = dataroot_name
 
-        def get_package(path):
-            for pdir, name in packages.items():
+        def get_dataroot(path):
+            for pdir, name in dataroots.items():
                 if path.startswith(pdir):
                     return name, pdir
             return None, None
@@ -515,21 +575,21 @@ class DesignSchema(NamedSchema, DependencySchema):
                 self.add_define(defines)
             if include_dirs:
                 for dir in include_dirs:
-                    package_name, pdir = get_package(dir)
-                    if package_name:
+                    dataroot_name, pdir = get_dataroot(dir)
+                    if dataroot_name:
                         dir = os.path.relpath(dir, pdir)
-                    self.add_idir(dir, package=package_name)
+                    self.add_idir(dir, dataroot=dataroot_name)
             if files:
                 for f in files:
-                    package_name, pdir = get_package(f)
-                    if package_name:
+                    dataroot_name, pdir = get_dataroot(f)
+                    if dataroot_name:
                         f = os.path.relpath(f, pdir)
-                    self.add_file(f, package=package_name)
+                    self.add_file(f, dataroot=dataroot_name)
 
     ################################################
     def read_fileset(self,
                      filename: str,
-                     fileset: str,
+                     fileset: str = None,
                      fileformat=None) -> None:
         """Imports filesets from a standard formatted text file.
 
@@ -543,27 +603,28 @@ class DesignSchema(NamedSchema, DependencySchema):
         """
 
         if filename is None:
-            raise ValueError("read_fileset() filename cannot be None")
+            raise ValueError("filename cannot be None")
 
         if not fileformat:
-            formats = {}
-            formats['f'] = 'flist'
-            fileformat = formats[Path(filename).suffix.strip('.')]
+            fileformat = self.__map_fileformat(filename)
+
+        if fileset is None:
+            fileset = self._get_active("fileset")
 
         if fileformat == "flist":
             self.__read_flist(filename, fileset)
         else:
-            raise ValueError(f"{fileformat} is not supported")
+            raise ValueError(f"{fileformat} is not a supported filetype")
 
     ################################################
     # Helper Functions
     ################################################
-    def __set_add(self, fileset, option, value, clobber=False, typelist=None, package=None):
+    def __set_add(self, fileset, option, value, clobber=False, typelist=None, dataroot=None):
         '''Sets a parameter value in schema.
         '''
 
         if fileset is None:
-            fileset = self.__fileset
+            fileset = self._get_active("fileset")
 
         # check for a legal fileset
         if not fileset or not isinstance(fileset, str):
@@ -581,28 +642,27 @@ class DesignSchema(NamedSchema, DependencySchema):
         if value is None:
             raise ValueError(f"None is an illegal {option} value")
 
-        if list in typelist and not clobber:
-            params = self.add('fileset', fileset, option, value)
-        else:
-            params = self.set('fileset', fileset, option, value)
+        if not dataroot:
+            dataroot = self._get_active("package")
 
-        if package and params:
-            if not isinstance(params, (list, set, tuple)):
-                params = [params]
-
-            for param in params:
-                param.set(package, field="package")
+        with self.active_dataroot(dataroot):
+            if list in typelist and not clobber:
+                params = self.add('fileset', fileset, option, value)
+            else:
+                params = self.set('fileset', fileset, option, value)
 
         return params
 
-    def __get(self, fileset, option):
+    def __get(self, fileset, option, is_file=False):
         '''Gets a parameter value from schema.
         '''
         if fileset is None:
-            fileset = self.__fileset
+            fileset = self._get_active("fileset")
 
         if not isinstance(fileset, str):
             raise ValueError("fileset key must be a string")
+        if is_file:
+            return self.find_files('fileset', fileset, option)
         return self.get('fileset', fileset, option)
 
     @contextlib.contextmanager
@@ -627,9 +687,57 @@ class DesignSchema(NamedSchema, DependencySchema):
         if not fileset:
             raise ValueError("fileset cannot be an empty string")
 
-        self.__fileset = fileset
-        yield
-        self.__fileset = None
+        with self._active(fileset=fileset):
+            yield
+
+    def get_fileset(self,
+                    filesets: Union[List[str], str],
+                    alias: Dict[str, Tuple[NamedSchema, str]] = None) -> \
+            List[Tuple[NamedSchema, str]]:
+        """
+        Computes the filesets this object required for a given set of filesets
+
+        Args:
+            filesets (list of str): List of filesets to evaluate
+            alias (dict of schema objects): Map of aliased objects
+
+        Returns:
+            List of tuples (dependency object, fileset)
+        """
+        if alias is None:
+            alias = {}
+
+        if isinstance(filesets, str):
+            # Ensure we have a list
+            filesets = [filesets]
+
+        mapping = []
+        for fileset in filesets:
+            if not self.valid("fileset", fileset):
+                raise ValueError(f"{fileset} is not defined in {self.name()}")
+
+            mapping.append((self, fileset))
+            for dep, depfileset in self.get("fileset", fileset, "depfileset"):
+                if (dep, depfileset) in alias:
+                    dep_obj, new_depfileset = alias[(dep, depfileset)]
+                    if dep_obj is None:
+                        continue
+
+                    if new_depfileset:
+                        depfileset = new_depfileset
+                else:
+                    dep_obj = self.get_dep(dep)
+                if not isinstance(dep_obj, DesignSchema):
+                    raise TypeError(f"{dep} must be a design object.")
+
+                mapping.extend(dep_obj.get_fileset(depfileset, alias))
+
+        # Cleanup
+        final_map = []
+        for cmap in mapping:
+            if cmap not in final_map:
+                final_map.append(cmap)
+        return final_map
 
 
 ###########################################################################
@@ -726,8 +834,7 @@ def schema_design(schema):
             help=trim("""
             Specifies directories to scan for libraries provided with the
             :keypath:`lib` parameter. If multiple paths are provided, they are
-            searched based on the order of the libdir list. The libdir
-            parameter is translated to the '-y' option in verilog based tools.""")))
+            searched based on the order of the libdir list.""")))
 
     schema.insert(
         'fileset', fileset, 'lib',
@@ -756,3 +863,13 @@ def schema_design(schema):
             data literals. The types of parameters and values supported is tightly
             coupled to tools being used. For example, in Verilog only integer
             literals (64'h4, 2'b0, 4) and strings are supported.""")))
+
+    schema.insert(
+        'fileset', fileset, 'depfileset',
+        Parameter(
+            '[(str,str)]',
+            scope=Scope.GLOBAL,
+            shorthelp="Design dependency fileset",
+            example=[
+                "api: chip.set('fileset', 'rtl, 'depfileset', ('lambdalib', 'rtl')"],
+            help=trim("""Sets the mapping for dependency filesets.""")))

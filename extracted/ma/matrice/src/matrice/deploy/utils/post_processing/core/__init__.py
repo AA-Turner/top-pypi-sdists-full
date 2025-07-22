@@ -38,8 +38,17 @@ from ..usecases.gender_detection import GenderDetectionConfig, GenderDetectionUs
 from ..usecases.weapon_detection import WeaponDetectionUseCase,WeaponDetectionConfig
 from ..usecases.concrete_crack_detection import ConcreteCrackUseCase, ConcreteCrackConfig
 from ..usecases.fashion_detection import FashionDetectionUseCase, FashionDetectionConfig
+from ..usecases.anti_spoofing_detection import AntiSpoofingDetectionUseCase, AntiSpoofingDetectionConfig
+
 from ..usecases.warehouse_object_segmentation import WarehouseObjectUseCase, WarehouseObjectConfig
 from ..usecases.shopping_cart_analysis import ShoppingCartUseCase, ShoppingCartConfig
+from ..usecases.assembly_line_detection import AssemblyLineUseCase, AssemblyLineConfig
+
+from ..usecases.shoplifting_detection import ShopliftingDetectionConfig, ShopliftingDetectionUseCase
+from ..usecases.defect_detection_products import BottleDefectUseCase, BottleDefectConfig
+from ..usecases.shelf_inventory_detection import ShelfInventoryConfig,ShelfInventoryUseCase
+from ..usecases.car_part_segmentation import CarPartSegmentationUseCase, CarPartSegmentationConfig
+from ..usecases.road_lane_detection import LaneDetectionUseCase , LaneDetectionConfig
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -53,6 +62,11 @@ __all__ = [
     'VehicleMonitoringUseCase',
     'FireSmokeUseCase',
     'PotholeSegmentationUseCase',
+    'AntiSpoofingDetectionUseCase',
+    'ShelfInventoryUseCase',
+    'LaneDetectionUseCase',
+
+    'ShopliftingDetectionUseCase',
     'ParkingSpaceUseCase',
     'FlareAnalysisUseCase',
     'MaskDetectionUseCase',
@@ -77,6 +91,9 @@ __all__ = [
     'FashionDetectionUseCase',
     'WarehouseObjectUseCase',
     'ShoppingCartUseCase',
+    'BottleDefectUseCase',
+    'AssemblyLineUseCase',
+    'CarPartSegmentationUseCase',
 
 
 
@@ -93,6 +110,7 @@ __all__ = [
     'ParkingSpaceConfig',
     'MaskDetectionConfig',
     'FireSmokeConfig',
+    'ShopliftingDetectionConfig',
     'CarDamageConfig',
     'FlareAnalysisConfig',
     'FaceEmotionConfig',
@@ -114,5 +132,11 @@ __all__ = [
     'ConcreteCrackConfig',
     'FashionDetectionConfig',
     'WarehouseObjectConfig',
-    'ShoppingCartConfig'
+    'ShoppingCartConfig',
+    'BottleDefectConfig',
+    'AssemblyLineConfig',
+    'AntiSpoofingDetectionConfig',
+    'ShelfInventoryConfig',
+    'CarPartSegmentationConfig',
+    'LaneDetectionConfig',
 ]

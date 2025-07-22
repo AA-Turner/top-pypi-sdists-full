@@ -215,11 +215,18 @@ def _write_combined_artifacts(
 ) -> Dict[str, Path]:
     combined: Dict[str, Path] = {}
 
+    # Get source_name and database_type from the new nested config structure
+    source_name = getattr(config, 'input_config', None)
+    source_name = source_name.source_name if source_name else getattr(config, 'source_name', 'data')
+    
+    database_type = getattr(config, 'artifact_generation_config', None)
+    database_type = database_type.database_type if database_type else getattr(config, 'database_type', 'mariadb')
+    
     # 1) processed_data
     if config.save_processed_data:
-        processed_path = output_path / f"{config.source_name}_processed_data.pkl"
+        processed_path = output_path / f"{source_name}_processed_data.pkl"
         combined_data = {
-            "metadata": {"source_name": config.source_name, "tables": list(tables.keys())},
+            "metadata": {"source_name": source_name, "tables": list(tables.keys())},
             "tables": {
                 name: clean_and_format_columns(df)
                 if config.normalize_field_names else df
@@ -232,21 +239,25 @@ def _write_combined_artifacts(
 
     # 2) schema
     if config.generate_schemas:
-        schema = {config.source_name: {}}
+        schema = {source_name: {}}
         for name, df in tables.items():
-            schema[config.source_name][name] = generate_db_schema_from_df(
-                df, config.database_type, config.normalize_field_names
+            schema[source_name][name] = generate_db_schema_from_df(
+                df, database_type, config.normalize_field_names
             )
-        schema_path = output_path / f"{config.source_name}_schema.pkl"
+        schema_path = output_path / f"{source_name}_schema.pkl"
         with open(schema_path, "wb") as f:
             pickle.dump(schema, f)
         combined["schema"] = schema_path
         
         # Create filtered schemas for entity fields and semantic fields
-        if config.entity_fields:
+        # Get entity fields from the new nested config structure
+        entity_fields = getattr(config, 'field_mapping_config', None)
+        entity_fields = entity_fields.entity_fields if entity_fields else getattr(config, 'entity_fields', [])
+        
+        if entity_fields:
             # Extract unique field names from entity_fields
             entity_field_names = list(set([
-                ef.field_name for ef in config.entity_fields
+                ef.field_name for ef in entity_fields
                 if ef.table_name in tables.keys()
             ]))
             
@@ -254,25 +265,29 @@ def _write_combined_artifacts(
                 entity_schema = {}
                 for table_name in tables.keys():
                     table_entity_fields = [
-                        ef.field_name for ef in config.entity_fields
+                        ef.field_name for ef in entity_fields
                         if ef.table_name == table_name
                     ]
                     if table_entity_fields:
                         entity_schema.update(_create_filtered_schema(
-                            schema, config.source_name, table_name, 
+                            schema, source_name, table_name, 
                             table_entity_fields, config.normalize_field_names
                         ))
                 
                 if entity_schema:
-                    entity_schema_path = output_path / f"{config.source_name}_entity_fields_schema.pkl"
+                    entity_schema_path = output_path / f"{source_name}_entity_fields_schema.pkl"
                     with open(entity_schema_path, "wb") as f:
                         pickle.dump(entity_schema, f)
                     combined["entity_fields_schema"] = entity_schema_path
         
-        if config.semantic_fields:
+        # Get semantic fields from the new nested config structure
+        semantic_fields = getattr(config, 'field_mapping_config', None)
+        semantic_fields = semantic_fields.semantic_fields if semantic_fields else getattr(config, 'semantic_fields', [])
+        
+        if semantic_fields:
             # Extract unique field names from semantic_fields
             semantic_field_names = list(set([
-                sf.field_name for sf in config.semantic_fields
+                sf.field_name for sf in semantic_fields
                 if sf.table_name in tables.keys()
             ]))
             
@@ -280,17 +295,17 @@ def _write_combined_artifacts(
                 semantic_schema = {}
                 for table_name in tables.keys():
                     table_semantic_fields = [
-                        sf for sf in config.semantic_fields
+                        sf for sf in semantic_fields
                         if sf.table_name == table_name
                     ]
                     if table_semantic_fields:
                         semantic_schema.update(_create_filtered_schema(
-                            schema, config.source_name, table_name, 
+                            schema, source_name, table_name, 
                             [sf.field_name for sf in table_semantic_fields], config.normalize_field_names
                         ))
                 
                 if semantic_schema:
-                    semantic_schema_path = output_path / f"{config.source_name}_semantic_fields_schema.pkl"
+                    semantic_schema_path = output_path / f"{source_name}_semantic_fields_schema.pkl"
                     with open(semantic_schema_path, "wb") as f:
                         pickle.dump(semantic_schema, f)
                     combined["semantic_fields_schema"] = semantic_schema_path
@@ -301,7 +316,7 @@ def _write_combined_artifacts(
         for tbl in tables.keys():
             flat_list.extend(entities.get(tbl, []))
 
-        ents_path = output_path / f"{config.source_name}_canonical_entities.pkl"
+        ents_path = output_path / f"{source_name}_canonical_entities.pkl"
         with open(ents_path, "wb") as f:
             pickle.dump(flat_list, f)
         combined["canonical_entities"] = ents_path
@@ -310,22 +325,29 @@ def _write_combined_artifacts(
     if config.generate_embeddings and embeddings:
         arrays = [embeddings[tbl] for tbl in tables.keys()]
         flat_embs = np.vstack(arrays) if arrays else np.empty((0,))
-        emb_path = output_path / f"{config.source_name}_canonical_entity_embeddings.npz"
+        emb_path = output_path / f"{source_name}_canonical_entity_embeddings.npz"
         np.savez_compressed(emb_path, embeddings=flat_embs)
         combined["canonical_entity_embeddings"] = emb_path
 
     # 5) loader script
     if config.generate_schemas:
-        loader_path = output_path / f"load_{config.source_name}_to_{config.database_type}.py"
+        loader_path = output_path / f"load_{source_name}_to_{database_type}.py"
         script = generate_mariadb_loader_script(
-            schema[config.source_name], list(tables.keys()), str(loader_path), is_combined=True
+            schema[source_name], list(tables.keys()), str(loader_path), is_combined=True
         )
         loader_path.write_text(script)
         combined["data_loader_script"] = loader_path
 
     # 6) combined semantic texts
-    if config.generate_semantic_texts and config.semantic_fields:
-        combined_semantic_path = output_path / f"{config.source_name}_semantic_texts.zip"
+    # Get semantic fields and semantic text title fields from the new nested config structure
+    semantic_fields = getattr(config, 'field_mapping_config', None)
+    semantic_fields = semantic_fields.semantic_fields if semantic_fields else getattr(config, 'semantic_fields', [])
+    
+    semantic_text_title_fields = getattr(config, 'field_mapping_config', None)
+    semantic_text_title_fields = semantic_text_title_fields.semantic_text_title_fields if semantic_text_title_fields else getattr(config, 'semantic_text_title_fields', [])
+    
+    if config.generate_semantic_texts and semantic_fields:
+        combined_semantic_path = output_path / f"{source_name}_semantic_texts.zip"
         
         with zipfile.ZipFile(combined_semantic_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             used_filenames = {}  # Track used filenames to handle duplicates
@@ -336,7 +358,7 @@ def _write_combined_artifacts(
                 
                 # Filter semantic fields for this table
                 table_semantic_fields = [
-                    sf for sf in config.semantic_fields
+                    sf for sf in semantic_fields
                     if sf.table_name == table_name
                 ]
                 
@@ -346,8 +368,8 @@ def _write_combined_artifacts(
                 
                 # Get title field for this table if specified
                 title_field = None
-                if config.semantic_text_title_fields:
-                    for tf in config.semantic_text_title_fields:
+                if semantic_text_title_fields:
+                    for tf in semantic_text_title_fields:
                         if tf.table_name == table_name:
                             title_field_name = tf.field_name
                             cleaned_title = _clean_column_name(title_field_name)
@@ -543,12 +565,20 @@ def generate_artifacts_helper(
             normalized[norm] = df
         tables = normalized
 
-        if request.entity_fields:
-            for ef in request.entity_fields:
+        # Get entity fields from the new nested config structure
+        entity_fields = getattr(request, 'field_mapping_config', None)
+        entity_fields = entity_fields.entity_fields if entity_fields else getattr(request, 'entity_fields', [])
+        
+        if entity_fields:
+            for ef in entity_fields:
                 ef.table_name = _normalize(ef.table_name)
         
-        if request.semantic_fields:
-            for sf in request.semantic_fields:
+        # Get semantic fields from the new nested config structure
+        semantic_fields = getattr(request, 'field_mapping_config', None)
+        semantic_fields = semantic_fields.semantic_fields if semantic_fields else getattr(request, 'semantic_fields', [])
+        
+        if semantic_fields:
+            for sf in semantic_fields:
                 sf.table_name = _normalize(sf.table_name)
 
     logger.info(f"Normalized tables: {tables}")

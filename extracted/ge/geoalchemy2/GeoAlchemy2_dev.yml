@@ -3,6 +3,9 @@ channels:
   - conda-forge
 dependencies:
   - libspatialite
-  - python=3.7.*
+  - python=3.10.*
   - pyproj
   - psycopg2
+
+variables:
+  SPATIALITE_LIBRARY_PATH: $CONDA_PREFIX/lib/mod_spatialite

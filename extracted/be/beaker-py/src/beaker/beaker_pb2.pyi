@@ -2085,7 +2085,7 @@ class GetJobResponse(_message.Message):
 class ListJobsRequest(_message.Message):
     __slots__ = ("next_page_token", "options")
     class Opts(_message.Message):
-        __slots__ = ("sort_clause", "page_size", "organization_id", "task_id", "environment_id", "finalized", "eligible_for_cluster_id", "scheduled_on_node_id", "scheduled_on_cluster_id", "scheduled", "retry_ancestors_of_non_scheduled_non_finalized_jobs")
+        __slots__ = ("sort_clause", "page_size", "organization_id", "task_id", "environment_id", "finalized", "eligible_for_cluster_id", "scheduled_on_node_id", "scheduled_on_cluster_id", "scheduled", "retry_ancestors_of_non_scheduled_non_finalized_jobs", "canceled", "exited")
         class SortClause(_message.Message):
             __slots__ = ("sort_order", "created", "cluster_job_queue")
             SORT_ORDER_FIELD_NUMBER: _ClassVar[int]
@@ -2106,6 +2106,8 @@ class ListJobsRequest(_message.Message):
         SCHEDULED_ON_CLUSTER_ID_FIELD_NUMBER: _ClassVar[int]
         SCHEDULED_FIELD_NUMBER: _ClassVar[int]
         RETRY_ANCESTORS_OF_NON_SCHEDULED_NON_FINALIZED_JOBS_FIELD_NUMBER: _ClassVar[int]
+        CANCELED_FIELD_NUMBER: _ClassVar[int]
+        EXITED_FIELD_NUMBER: _ClassVar[int]
         sort_clause: ListJobsRequest.Opts.SortClause
         page_size: int
         organization_id: str
@@ -2117,7 +2119,9 @@ class ListJobsRequest(_message.Message):
         scheduled_on_cluster_id: str
         scheduled: bool
         retry_ancestors_of_non_scheduled_non_finalized_jobs: bool
-        def __init__(self, sort_clause: _Optional[_Union[ListJobsRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., organization_id: _Optional[str] = ..., task_id: _Optional[str] = ..., environment_id: _Optional[str] = ..., finalized: bool = ..., eligible_for_cluster_id: _Optional[str] = ..., scheduled_on_node_id: _Optional[str] = ..., scheduled_on_cluster_id: _Optional[str] = ..., scheduled: bool = ..., retry_ancestors_of_non_scheduled_non_finalized_jobs: bool = ...) -> None: ...
+        canceled: bool
+        exited: bool
+        def __init__(self, sort_clause: _Optional[_Union[ListJobsRequest.Opts.SortClause, _Mapping]] = ..., page_size: _Optional[int] = ..., organization_id: _Optional[str] = ..., task_id: _Optional[str] = ..., environment_id: _Optional[str] = ..., finalized: bool = ..., eligible_for_cluster_id: _Optional[str] = ..., scheduled_on_node_id: _Optional[str] = ..., scheduled_on_cluster_id: _Optional[str] = ..., scheduled: bool = ..., retry_ancestors_of_non_scheduled_non_finalized_jobs: bool = ..., canceled: bool = ..., exited: bool = ...) -> None: ...
     NEXT_PAGE_TOKEN_FIELD_NUMBER: _ClassVar[int]
     OPTIONS_FIELD_NUMBER: _ClassVar[int]
     next_page_token: str

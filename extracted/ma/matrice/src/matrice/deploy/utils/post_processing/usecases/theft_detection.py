@@ -34,11 +34,11 @@ class TheftDetectionConfig(BaseConfig):
     confidence_threshold: float = 0.4
 
     usecase_categories: List[str] = field(
-        default_factory=lambda: ['normal', 'shoplifting']
+        default_factory=lambda: ['normal','shoplifting']
     )
 
     target_categories: List[str] = field(
-        default_factory=lambda: ['normal', 'shoplifting']
+        default_factory=lambda: ['normal','shoplifting']
     )
 
     alert_config: Optional[AlertConfig] = None
@@ -159,7 +159,7 @@ class TheftDetectionUseCase(BaseProcessor):
     def __init__(self):
         super().__init__("theft_detection")
         self.category = "security"
-        self.target_categories = ["normal", "shoplifting"]
+        self.target_categories = ["normal","shoplifting"]
         self.smoothing_tracker = None
         self.tracker = None
         self._total_frame_counter = 0
@@ -421,7 +421,8 @@ class TheftDetectionUseCase(BaseProcessor):
             "human_text": human_text,
             "track_ids_info": track_ids_info,
             "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-            "local_frame_id": frame_key
+            "local_frame_id": frame_key,
+            "detections": counting_summary.get("detections", [])
         }
 
         frame_tracking_stats.append(tracking_stat)

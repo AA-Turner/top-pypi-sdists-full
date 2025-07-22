@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: testcontainers
-Version: 4.10.0
+Version: 4.12.0
 Summary: Python library for throwaway instances of anything that can run in a Docker container
 Keywords: testing,logging,docker,test automation
 Author: Sergey Pirogov
@@ -51,6 +51,7 @@ Provides-Extra: nats
 Provides-Extra: neo4j
 Provides-Extra: nginx
 Provides-Extra: ollama
+Provides-Extra: openfga
 Provides-Extra: opensearch
 Provides-Extra: oracle
 Provides-Extra: oracle-free
@@ -71,25 +72,26 @@ Requires-Dist: azure-storage-blob (>=12.19,<13.0) ; extra == "azurite"
 Requires-Dist: bcrypt ; extra == "registry"
 Requires-Dist: boto3 ; extra == "aws" or extra == "localstack"
 Requires-Dist: cassandra-driver (==3.29.1) ; extra == "scylla"
-Requires-Dist: chromadb-client ; extra == "chroma"
+Requires-Dist: chromadb-client (>=1.0.0,<2.0.0) ; extra == "chroma"
 Requires-Dist: clickhouse-driver ; extra == "clickhouse"
 Requires-Dist: cryptography ; extra == "mailpit" or extra == "sftp"
 Requires-Dist: docker
 Requires-Dist: google-cloud-datastore (>=2) ; extra == "google"
 Requires-Dist: google-cloud-pubsub (>=2) ; extra == "google"
 Requires-Dist: httpx ; extra == "aws" or extra == "generic" or extra == "test-module-import"
-Requires-Dist: ibm_db_sa ; extra == "db2"
+Requires-Dist: ibm_db_sa ; (platform_machine != "aarch64" and platform_machine != "arm64") and (extra == "db2")
 Requires-Dist: influxdb ; extra == "influxdb"
 Requires-Dist: influxdb-client ; extra == "influxdb"
 Requires-Dist: kubernetes ; extra == "k3s"
 Requires-Dist: minio ; extra == "minio"
 Requires-Dist: nats-py ; extra == "nats"
 Requires-Dist: neo4j ; extra == "neo4j"
+Requires-Dist: openfga-sdk ; (python_version >= "3.10") and (extra == "openfga")
 Requires-Dist: opensearch-py ; extra == "opensearch"
 Requires-Dist: oracledb ; extra == "oracle" or extra == "oracle-free"
 Requires-Dist: pika ; extra == "rabbitmq"
 Requires-Dist: pymongo ; extra == "mongodb"
-Requires-Dist: pymssql ; extra == "mssql"
+Requires-Dist: pymssql ; (platform_machine != "arm64" or python_version >= "3.10") and (extra == "mssql")
 Requires-Dist: pymysql[rsa] ; extra == "mysql"
 Requires-Dist: python-arango (>=7.8,<8.0) ; extra == "arangodb"
 Requires-Dist: python-dotenv
@@ -151,6 +153,8 @@ See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for more details.
 
 ## Configuration
 
+You can set environment variables to configure the library behaviour:
+
 | Env Variable                            | Example                     | Description                                                                        |
 | --------------------------------------- | --------------------------- | ---------------------------------------------------------------------------------- |
 | `TESTCONTAINERS_DOCKER_SOCKET_OVERRIDE` | `/var/run/docker.sock`      | Path to Docker's socket used by ryuk                                               |
@@ -158,4 +162,12 @@ See [CONTRIBUTING.md](.github/CONTRIBUTING.md) for more details.
 | `TESTCONTAINERS_RYUK_DISABLED`          | `false`                     | Disable ryuk                                                                       |
 | `RYUK_CONTAINER_IMAGE`                  | `testcontainers/ryuk:0.8.1` | Custom image for ryuk                                                              |
 | `RYUK_RECONNECTION_TIMEOUT`             | `10s`                       | Reconnection timeout for Ryuk TCP socket before Ryuk reaps all dangling containers |
+
+Alternatively you can set the configuration during runtime:
+
+```python
+from testcontainers.core import testcontainers_config
+
+testcontainers_config.ryuk_docker_socket = "/home/user/docker.sock"
+```
 

@@ -803,6 +803,7 @@ class Meta(BaseHTML):
         content: Var[str] | str | None = None,
         http_equiv: Var[str] | str | None = None,
         name: Var[str] | str | None = None,
+        property: Var[str] | str | None = None,
         access_key: Var[str] | str | None = None,
         auto_capitalize: Literal[
             "characters", "none", "off", "on", "sentences", "words"
@@ -1018,6 +1019,7 @@ class Meta(BaseHTML):
             content: Defines the content of the metadata
             http_equiv: Provides an HTTP header for the information/value of the content attribute
             name: Specifies a name for the metadata
+            property: The type of metadata value.
             access_key: Provides a hint for generating a keyboard shortcut for the current element.
             auto_capitalize: Controls whether and how text input is automatically capitalized as it is entered/edited by the user.
             content_editable: Indicates whether the element's content is editable.

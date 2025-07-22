@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openedx-learning
-Version: 0.26.0
+Version: 0.27.0
 Summary: Open edX Learning Core and Tagging.
 Home-page: https://github.com/openedx/openedx-learning
 Author: David Ormsbee
@@ -19,12 +19,13 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.11
 License-File: LICENSE.txt
-Requires-Dist: djangorestframework<4.0
-Requires-Dist: celery
-Requires-Dist: edx-drf-extensions
-Requires-Dist: attrs
 Requires-Dist: Django
 Requires-Dist: rules<4.0
+Requires-Dist: celery
+Requires-Dist: djangorestframework<4.0
+Requires-Dist: attrs
+Requires-Dist: tomlkit
+Requires-Dist: edx-drf-extensions
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

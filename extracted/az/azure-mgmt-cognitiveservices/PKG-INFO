@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-mgmt-cognitiveservices
-Version: 13.6.0
+Version: 13.7.0
 Summary: Microsoft Azure Cognitive Services Management Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -11,24 +11,23 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
 Requires-Dist: typing-extensions>=4.6.0
 Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.3.2
+Requires-Dist: azure-mgmt-core>=1.5.0
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Cognitive Services Management Client Library.
-This package has been tested with Python 3.8+.
+This package has been tested with Python 3.9+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -39,7 +38,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.8+ is required to use this package.
+- Python 3.9+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -51,7 +50,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configure of following environment variables.
+By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -89,6 +88,130 @@ section of the project.
 
 
 # Release History
+
+## 13.7.0 (2025-07-21)
+
+### Features Added
+
+  - Client `CognitiveServicesManagementClient` added operation group `projects`
+  - Client `CognitiveServicesManagementClient` added operation group `account_connections`
+  - Client `CognitiveServicesManagementClient` added operation group `project_connections`
+  - Client `CognitiveServicesManagementClient` added operation group `account_capability_hosts`
+  - Client `CognitiveServicesManagementClient` added operation group `project_capability_hosts`
+  - Model `AccountProperties` added property `network_injections`
+  - Model `AccountProperties` added property `allow_project_management`
+  - Model `AccountProperties` added property `default_project`
+  - Model `AccountProperties` added property `associated_projects`
+  - Model `DeploymentProperties` added property `spillover_deployment_name`
+  - Enum `ProvisioningState` added member `CANCELED`
+  - Added model `AADAuthTypeConnectionProperties`
+  - Added model `AccessKeyAuthTypeConnectionProperties`
+  - Added model `AccountKeyAuthTypeConnectionProperties`
+  - Added model `ApiKeyAuthConnectionProperties`
+  - Added model `CapabilityHost`
+  - Added enum `CapabilityHostKind`
+  - Added model `CapabilityHostProperties`
+  - Added enum `CapabilityHostProvisioningState`
+  - Added model `ConnectionAccessKey`
+  - Added model `ConnectionAccountKey`
+  - Added model `ConnectionApiKey`
+  - Added enum `ConnectionAuthType`
+  - Added enum `ConnectionCategory`
+  - Added enum `ConnectionGroup`
+  - Added model `ConnectionManagedIdentity`
+  - Added model `ConnectionOAuth2`
+  - Added model `ConnectionPersonalAccessToken`
+  - Added model `ConnectionPropertiesV2`
+  - Added model `ConnectionPropertiesV2BasicResource`
+  - Added model `ConnectionPropertiesV2BasicResourceArmPaginatedResult`
+  - Added model `ConnectionServicePrincipal`
+  - Added model `ConnectionSharedAccessSignature`
+  - Added model `ConnectionUpdateContent`
+  - Added model `ConnectionUsernamePassword`
+  - Added model `CustomKeys`
+  - Added model `CustomKeysConnectionProperties`
+  - Added model `ManagedIdentityAuthTypeConnectionProperties`
+  - Added enum `ManagedPERequirement`
+  - Added enum `ManagedPEStatus`
+  - Added model `NetworkInjections`
+  - Added model `NoneAuthTypeConnectionProperties`
+  - Added model `OAuth2AuthTypeConnectionProperties`
+  - Added model `PATAuthTypeConnectionProperties`
+  - Added model `Project`
+  - Added model `ProjectListResult`
+  - Added model `ProjectProperties`
+  - Added model `ResourceBase`
+  - Added model `SASAuthTypeConnectionProperties`
+  - Added enum `ScenarioType`
+  - Added model `ServicePrincipalAuthTypeConnectionProperties`
+  - Added model `UsernamePasswordAuthTypeConnectionProperties`
+  - Added operation group `AccountCapabilityHostsOperations`
+  - Added operation group `AccountConnectionsOperations`
+  - Added operation group `ProjectCapabilityHostsOperations`
+  - Added operation group `ProjectConnectionsOperations`
+  - Added operation group `ProjectsOperations`
+
+## 13.7.0b1 (2025-05-15)
+
+### Features Added
+
+  - Client `CognitiveServicesManagementClient` added operation group `projects`
+  - Client `CognitiveServicesManagementClient` added operation group `account_connection`
+  - Client `CognitiveServicesManagementClient` added operation group `project_connection`
+  - Client `CognitiveServicesManagementClient` added operation group `account_capability_hosts`
+  - Client `CognitiveServicesManagementClient` added operation group `project_capability_hosts`
+  - Model `AccountProperties` added property `network_injections`
+  - Model `AccountProperties` added property `allow_project_management`
+  - Model `AccountProperties` added property `default_project`
+  - Model `AccountProperties` added property `associated_projects`
+  - Model `DeploymentProperties` added property `spillover_deployment_name`
+  - Enum `ProvisioningState` added member `CANCELED`
+  - Added model `AADAuthTypeConnectionProperties`
+  - Added model `AccessKeyAuthTypeConnectionProperties`
+  - Added model `AccountKeyAuthTypeConnectionProperties`
+  - Added model `ApiKeyAuthConnectionProperties`
+  - Added model `CapabilityHost`
+  - Added enum `CapabilityHostKind`
+  - Added model `CapabilityHostProperties`
+  - Added enum `CapabilityHostProvisioningState`
+  - Added model `ConnectionAccessKey`
+  - Added model `ConnectionAccountKey`
+  - Added model `ConnectionApiKey`
+  - Added enum `ConnectionAuthType`
+  - Added enum `ConnectionCategory`
+  - Added enum `ConnectionGroup`
+  - Added model `ConnectionManagedIdentity`
+  - Added model `ConnectionOAuth2`
+  - Added model `ConnectionPersonalAccessToken`
+  - Added model `ConnectionPropertiesV2`
+  - Added model `ConnectionPropertiesV2BasicResource`
+  - Added model `ConnectionPropertiesV2BasicResourceArmPaginatedResult`
+  - Added model `ConnectionServicePrincipal`
+  - Added model `ConnectionSharedAccessSignature`
+  - Added model `ConnectionUpdateContent`
+  - Added model `ConnectionUsernamePassword`
+  - Added model `CustomKeys`
+  - Added model `CustomKeysConnectionProperties`
+  - Added model `ManagedIdentityAuthTypeConnectionProperties`
+  - Added enum `ManagedPERequirement`
+  - Added enum `ManagedPEStatus`
+  - Added model `NetworkInjections`
+  - Added model `NoneAuthTypeConnectionProperties`
+  - Added model `OAuth2AuthTypeConnectionProperties`
+  - Added model `PATAuthTypeConnectionProperties`
+  - Added model `Project`
+  - Added model `ProjectListResult`
+  - Added model `ProjectProperties`
+  - Added model `ResourceBase`
+  - Added model `SASAuthTypeConnectionProperties`
+  - Added enum `ScenarioType`
+  - Added model `ServicePrincipalAuthTypeConnectionProperties`
+  - Added model `UsernamePasswordAuthTypeConnectionProperties`
+  - Added operation group `AccountCapabilityHostsOperations`
+  - Added operation group `AccountConnectionOperations`
+  - Added operation group `ProjectCapabilityHostsOperations`
+  - Added operation group `ProjectConnectionOperations`
+  - Added operation group `ProjectsOperations`
 
 ## 13.6.0 (2024-12-19)
 

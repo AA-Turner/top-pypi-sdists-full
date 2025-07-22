@@ -91,6 +91,7 @@ from ._context import (
 from ._dbos_config import (
     ConfigFile,
     DBOSConfig,
+    get_system_database_url,
     overwrite_config,
     process_config,
     translate_dbos_config_to_config_file,
@@ -424,9 +425,8 @@ class DBOS:
             assert self._config["database_url"] is not None
             assert self._config["database"]["sys_db_engine_kwargs"] is not None
             self._sys_db_field = SystemDatabase(
-                database_url=self._config["database_url"],
+                system_database_url=get_system_database_url(self._config),
                 engine_kwargs=self._config["database"]["sys_db_engine_kwargs"],
-                sys_db_name=self._config["database"]["sys_db_name"],
                 debug_mode=debug_mode,
             )
             assert self._config["database"]["db_engine_kwargs"] is not None
@@ -967,6 +967,12 @@ class DBOS:
         )
 
     @classmethod
+    async def cancel_workflow_async(cls, workflow_id: str) -> None:
+        """Cancel a workflow by ID."""
+        await cls._configure_asyncio_thread_pool()
+        await asyncio.to_thread(cls.cancel_workflow, workflow_id)
+
+    @classmethod
     async def _configure_asyncio_thread_pool(cls) -> None:
         """
         Configure the thread pool for asyncio.to_thread.
@@ -988,9 +994,21 @@ class DBOS:
         return cls.retrieve_workflow(workflow_id)
 
     @classmethod
+    async def resume_workflow_async(cls, workflow_id: str) -> WorkflowHandleAsync[Any]:
+        """Resume a workflow by ID."""
+        await cls._configure_asyncio_thread_pool()
+        await asyncio.to_thread(cls.resume_workflow, workflow_id)
+        return await cls.retrieve_workflow_async(workflow_id)
+
+    @classmethod
     def restart_workflow(cls, workflow_id: str) -> WorkflowHandle[Any]:
         """Restart a workflow with a new workflow ID"""
         return cls.fork_workflow(workflow_id, 1)
+
+    @classmethod
+    async def restart_workflow_async(cls, workflow_id: str) -> WorkflowHandleAsync[Any]:
+        """Restart a workflow with a new workflow ID"""
+        return await cls.fork_workflow_async(workflow_id, 1)
 
     @classmethod
     def fork_workflow(
@@ -1018,6 +1036,23 @@ class DBOS:
         return cls.retrieve_workflow(new_id)
 
     @classmethod
+    async def fork_workflow_async(
+        cls,
+        workflow_id: str,
+        start_step: int,
+        *,
+        application_version: Optional[str] = None,
+    ) -> WorkflowHandleAsync[Any]:
+        """Restart a workflow with a new workflow ID from a specific step"""
+        await cls._configure_asyncio_thread_pool()
+        new_id = await asyncio.to_thread(
+            lambda: cls.fork_workflow(
+                workflow_id, start_step, application_version=application_version
+            ).get_workflow_id()
+        )
+        return await cls.retrieve_workflow_async(new_id)
+
+    @classmethod
     def list_workflows(
         cls,
         *,
@@ -1032,6 +1067,8 @@ class DBOS:
         offset: Optional[int] = None,
         sort_desc: bool = False,
         workflow_id_prefix: Optional[str] = None,
+        load_input: bool = True,
+        load_output: bool = True,
     ) -> List[WorkflowStatus]:
         def fn() -> List[WorkflowStatus]:
             return list_workflows(
@@ -1047,10 +1084,48 @@ class DBOS:
                 offset=offset,
                 sort_desc=sort_desc,
                 workflow_id_prefix=workflow_id_prefix,
+                load_input=load_input,
+                load_output=load_output,
             )
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
             fn, "DBOS.listWorkflows"
+        )
+
+    @classmethod
+    async def list_workflows_async(
+        cls,
+        *,
+        workflow_ids: Optional[List[str]] = None,
+        status: Optional[Union[str, List[str]]] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        name: Optional[str] = None,
+        app_version: Optional[str] = None,
+        user: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        sort_desc: bool = False,
+        workflow_id_prefix: Optional[str] = None,
+        load_input: bool = True,
+        load_output: bool = True,
+    ) -> List[WorkflowStatus]:
+        await cls._configure_asyncio_thread_pool()
+        return await asyncio.to_thread(
+            cls.list_workflows,
+            workflow_ids=workflow_ids,
+            status=status,
+            start_time=start_time,
+            end_time=end_time,
+            name=name,
+            app_version=app_version,
+            user=user,
+            limit=limit,
+            offset=offset,
+            sort_desc=sort_desc,
+            workflow_id_prefix=workflow_id_prefix,
+            load_input=load_input,
+            load_output=load_output,
         )
 
     @classmethod
@@ -1065,6 +1140,7 @@ class DBOS:
         limit: Optional[int] = None,
         offset: Optional[int] = None,
         sort_desc: bool = False,
+        load_input: bool = True,
     ) -> List[WorkflowStatus]:
         def fn() -> List[WorkflowStatus]:
             return list_queued_workflows(
@@ -1077,10 +1153,39 @@ class DBOS:
                 limit=limit,
                 offset=offset,
                 sort_desc=sort_desc,
+                load_input=load_input,
             )
 
         return _get_dbos_instance()._sys_db.call_function_as_step(
             fn, "DBOS.listQueuedWorkflows"
+        )
+
+    @classmethod
+    async def list_queued_workflows_async(
+        cls,
+        *,
+        queue_name: Optional[str] = None,
+        status: Optional[Union[str, List[str]]] = None,
+        start_time: Optional[str] = None,
+        end_time: Optional[str] = None,
+        name: Optional[str] = None,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None,
+        sort_desc: bool = False,
+        load_input: bool = True,
+    ) -> List[WorkflowStatus]:
+        await cls._configure_asyncio_thread_pool()
+        return await asyncio.to_thread(
+            cls.list_queued_workflows,
+            queue_name=queue_name,
+            status=status,
+            start_time=start_time,
+            end_time=end_time,
+            name=name,
+            limit=limit,
+            offset=offset,
+            sort_desc=sort_desc,
+            load_input=load_input,
         )
 
     @classmethod
@@ -1093,6 +1198,11 @@ class DBOS:
         return _get_dbos_instance()._sys_db.call_function_as_step(
             fn, "DBOS.listWorkflowSteps"
         )
+
+    @classmethod
+    async def list_workflow_steps_async(cls, workflow_id: str) -> List[StepInfo]:
+        await cls._configure_asyncio_thread_pool()
+        return await asyncio.to_thread(cls.list_workflow_steps, workflow_id)
 
     @classproperty
     def logger(cls) -> Logger:
@@ -1266,31 +1376,3 @@ class DBOSConfiguredInstance:
     def __init__(self, config_name: str) -> None:
         self.config_name = config_name
         DBOS.register_instance(self)
-
-
-# Apps that import DBOS probably don't exit.  If they do, let's see if
-#   it looks like startup was abandoned or a call was forgotten...
-def _dbos_exit_hook() -> None:
-    if _dbos_global_registry is None:
-        # Probably used as or for a support module
-        return
-    if _dbos_global_instance is None:
-        print("DBOS exiting; functions were registered but DBOS() was not called")
-        dbos_logger.warning(
-            "DBOS exiting; functions were registered but DBOS() was not called"
-        )
-        return
-    if not _dbos_global_instance._launched:
-        if _dbos_global_instance.fastapi is not None:
-            # FastAPI lifespan middleware will call launch/destroy, so we can ignore this.
-            # This is likely to happen during fastapi dev runs, where the reloader loads the module multiple times.
-            return
-        print("DBOS exiting; DBOS exists but launch() was not called")
-        dbos_logger.warning("DBOS exiting; DBOS exists but launch() was not called")
-        return
-    # If we get here, we're exiting normally
-    _dbos_global_instance.destroy()
-
-
-# Register the exit hook
-atexit.register(_dbos_exit_hook)

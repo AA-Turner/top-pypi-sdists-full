@@ -7,7 +7,28 @@ from gway import gw
 from bottle import request
 
 _forced_style = None
+_default_style = None
 _side = "left"
+
+
+def _func_title(project: str, view: str) -> str | None:
+    try:
+        mod = gw.find_project(project)
+    except Exception:
+        mod = None
+    if not mod:
+        return None
+    func = None
+    for prefix in gw.prefixes:
+        cand = getattr(mod, f"{prefix}{view.replace('-', '_')}", None)
+        if callable(cand):
+            func = cand
+            break
+    if not func:
+        func = getattr(mod, view.replace('-', '_'), None)
+    if callable(func):
+        return getattr(func, "_title", None)
+    return None
 
 
 def render(*, homes=None, links=None):
@@ -49,13 +70,6 @@ def render(*, homes=None, links=None):
     if homes:
         for home_title, home_route in homes:
             home_routes.add(home_route.strip("/"))
-    if (
-        cookies_ok
-        and current_route not in home_routes
-        and current_route not in visited_set
-    ):
-        entries.append((current_title, current_route))
-        visited_set.add(current_route)
 
     # --- Build HTML links ---
     links_html = ""
@@ -73,18 +87,19 @@ def render(*, homes=None, links=None):
                         target_proj, view_name = name
                         target_root = target_proj.replace(".", "/")
                         sub_route = f"{target_root}/{view_name}".strip("/")
-                        label = (
+                        label = _func_title(target_proj, view_name) or (
                             view_name.replace("-", " ")
                             .replace("_", " ")
                             .title()
                         )
                     else:
                         sub_route = f"{proj_root}/{name}".strip("/")
-                        label = (
+                        proj = proj_root.replace("/", ".")
+                        label = _func_title(proj, name) or (
                             name.replace("-", " ").replace("_", " ").title()
                         )
                     active = (
-                        ' class="active"' if sub_route == current_route else ""
+                        ' class="current"' if sub_route == current_route else ""
                     )
                     links_html += (
                         f'<li><a href="/{sub_route}"{active}>{label}</a></li>'
@@ -178,7 +193,7 @@ def render(*, homes=None, links=None):
     if mode == "qr":
         try:
             url = current_url()
-            qr_url = gw.qr.generate_url(url)
+            qr_url = gw.studio.qr.generate_url(url)
             compass = f'<img src="{qr_url}" alt="QR Code" class="compass" />'
         except Exception as e:
             gw.debug(f"Could not generate QR compass: {e}")
@@ -276,6 +291,25 @@ def active_style():
                     else f"/static/{src}/styles/{fname}"
                 )
                 break
+    # Otherwise, use configured default
+    if not style_path and _default_style:
+        if _default_style == "random" and styles:
+            src, fname = random.choice(styles)
+            return (
+                f"/static/styles/{fname}"
+                if src == "global"
+                else f"/static/{src}/styles/{fname}"
+            )
+        for src, fname in styles:
+            if fname == _default_style:
+                style_path = (
+                    f"/static/styles/{fname}"
+                    if src == "global"
+                    else f"/static/{src}/styles/{fname}"
+                )
+                break
+        if not style_path and _default_style.startswith("/"):
+            style_path = _default_style
     # Otherwise, first available style
     if not style_path and styles:
         src, fname = styles[0]
@@ -428,6 +462,13 @@ def view_style_switcher(*, css=None, project=None):
             <h2>Theme Preview: {selected_style[:-4].replace('_', ' ').title()}</h2>
             <p>This is a preview of the <b>{selected_style}</b> theme.</p>
             <button>Sample button</button>
+            <input type="text" placeholder="Text input" style="display:block;margin:0.5em 0;">
+            <label style="display:block;margin:0.25em 0;"><input type="checkbox"> Checkbox</label>
+            <label style="display:block;margin:0.25em 0;"><input type="radio" name="r"> Radio</label>
+            <select style="display:block;margin:0.5em 0;">
+                <option>Option A</option>
+                <option>Option B</option>
+            </select>
             <pre>code block</pre>
         </div>
         """
@@ -524,14 +565,20 @@ def list_styles(project=None):
     return styles
 
 
-def setup_app(*, app=None, style=None, side="left", **_):
-    """Optional hook to set a default style and nav side when the project is added.
+def setup_app(*, app=None, style=None, default_style=None, default_css=None, side="left", **_):
+    """Optional hook to set nav defaults when the project is added.
 
-    Pass ``style='random'`` to select a random theme on each request.
-    Use ``side='right'`` to place the navigation on the right side or ``side='top'``
-    for a horizontal bar with drop-down menus.
+    ``style`` forces a theme (including ``random`` for per-request variation).
+    ``default_style``/``default_css`` chooses the fallback theme when no cookie
+    or query parameter is set. ``side`` accepts ``left``, ``right`` or ``top`` to
+    position the navigation bar.
     """
-    global _forced_style, _side
+    global _forced_style, _default_style, _side
+    if default_style is None:
+        default_style = default_css
+    if default_style:
+        _default_style = default_style
+        gw.info(f"web.nav default style: {default_style}")
     if style:
         _forced_style = style
         gw.info(f"web.nav forced style: {style}")

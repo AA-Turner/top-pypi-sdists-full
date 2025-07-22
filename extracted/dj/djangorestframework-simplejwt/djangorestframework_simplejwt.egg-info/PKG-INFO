@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: djangorestframework_simplejwt
-Version: 5.5.0
+Version: 5.5.1
 Summary: A minimal JSON Web Token authentication plugin for Django REST Framework
 Home-page: https://github.com/jazzband/djangorestframework-simplejwt
 Author: David Sanders
@@ -12,6 +12,7 @@ Classifier: Framework :: Django
 Classifier: Framework :: Django :: 4.2
 Classifier: Framework :: Django :: 5.0
 Classifier: Framework :: Django :: 5.1
+Classifier: Framework :: Django :: 5.2
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
@@ -27,7 +28,7 @@ Requires-Python: >=3.9
 License-File: LICENSE.txt
 Requires-Dist: django>=4.2
 Requires-Dist: djangorestframework>=3.14
-Requires-Dist: pyjwt<2.10.0,>=1.7.1
+Requires-Dist: pyjwt>=1.7.1
 Provides-Extra: test
 Requires-Dist: cryptography; extra == "test"
 Requires-Dist: freezegun; extra == "test"
@@ -42,7 +43,7 @@ Requires-Dist: yesqa; extra == "lint"
 Requires-Dist: pyupgrade; extra == "lint"
 Requires-Dist: pre-commit; extra == "lint"
 Provides-Extra: doc
-Requires-Dist: Sphinx<2,>=1.6.5; extra == "doc"
+Requires-Dist: Sphinx; extra == "doc"
 Requires-Dist: sphinx_rtd_theme>=0.1.9; extra == "doc"
 Provides-Extra: dev
 Requires-Dist: pytest-watch; extra == "dev"
@@ -60,7 +61,7 @@ Requires-Dist: ruff; extra == "dev"
 Requires-Dist: yesqa; extra == "dev"
 Requires-Dist: pyupgrade; extra == "dev"
 Requires-Dist: pre-commit; extra == "dev"
-Requires-Dist: Sphinx<2,>=1.6.5; extra == "dev"
+Requires-Dist: Sphinx; extra == "dev"
 Requires-Dist: sphinx_rtd_theme>=0.1.9; extra == "dev"
 Requires-Dist: python-jose==3.3.0; extra == "dev"
 Provides-Extra: python-jose
@@ -73,6 +74,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: home-page
 Dynamic: license
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python

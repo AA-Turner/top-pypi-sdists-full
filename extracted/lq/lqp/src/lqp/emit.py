@@ -2,34 +2,11 @@ import lqp.ir as ir
 from lqp.proto.v1 import logic_pb2, fragments_pb2, transactions_pb2
 from typing import Union, Dict, Any
 
-def convert_primitive_type(pt: ir.PrimitiveType) -> logic_pb2.PrimitiveType:
-    if pt == ir.PrimitiveType.STRING:
-        return logic_pb2.PRIMITIVE_TYPE_STRING
-    elif pt == ir.PrimitiveType.INT:
-        return logic_pb2.PRIMITIVE_TYPE_INT
-    elif pt == ir.PrimitiveType.FLOAT:
-        return logic_pb2.PRIMITIVE_TYPE_FLOAT
-    elif pt == ir.PrimitiveType.UINT128:
-        return logic_pb2.PRIMITIVE_TYPE_UINT128
-    elif pt == ir.PrimitiveType.INT128:
-        return logic_pb2.PRIMITIVE_TYPE_INT128
-    else:
-        return logic_pb2.PRIMITIVE_TYPE_UNSPECIFIED
-
-def convert_rel_value_type(rvt: ir.RelValueType) -> logic_pb2.RelValueType:
+def convert_primitive_type(rvt: ir.PrimitiveType) -> logic_pb2.PrimitiveType:
     try:
-        return getattr(logic_pb2.RelValueType, f"REL_VALUE_TYPE_{rvt.name}")
+        return getattr(logic_pb2.PrimitiveType, f"PRIMITIVE_TYPE_{rvt.name}")
     except AttributeError:
-        return logic_pb2.REL_VALUE_TYPE_UNSPECIFIED
-
-def convert_rel_type(rt: ir.RelType) -> logic_pb2.RelType:
-    if isinstance(rt, ir.PrimitiveType):
-        return logic_pb2.RelType(primitive_type=convert_primitive_type(rt))
-    elif isinstance(rt, ir.RelValueType):
-        return logic_pb2.RelType(value_type=convert_rel_value_type(rt))
-    else:
-        # Default or error case
-        return logic_pb2.RelType(primitive_type=logic_pb2.PRIMITIVE_TYPE_UNSPECIFIED)
+        return logic_pb2.PRIMITIVE_TYPE_UNSPECIFIED
 
 def convert_uint128(val: ir.UInt128) -> logic_pb2.UInt128:
     low = val.value & 0xFFFFFFFFFFFFFFFF
@@ -66,7 +43,7 @@ def convert_term(t: ir.Term) -> logic_pb2.Term:
         return logic_pb2.Term(constant=convert_value(t))
 
 def convert_relterm(t: ir.RelTerm) -> logic_pb2.RelTerm:
-    if isinstance(t, ir.Specialized):
+    if isinstance(t, ir.SpecializedValue):
         return logic_pb2.RelTerm(specialized_value=convert_value(t.value))
     else:
         return logic_pb2.RelTerm(term=convert_term(t))
@@ -86,7 +63,7 @@ def convert_attribute(attr: ir.Attribute) -> logic_pb2.Attribute:
 )
 
 def convert_abstraction(abst: ir.Abstraction) -> logic_pb2.Abstraction:
-    bindings = [logic_pb2.Binding(var=convert_var(var_tuple[0]), type=convert_rel_type(var_tuple[1]))
+    bindings = [logic_pb2.Binding(var=convert_var(var_tuple[0]), type=convert_primitive_type(var_tuple[1]))
                 for var_tuple in abst.vars]
     return logic_pb2.Abstraction(
         vars=bindings,
@@ -132,7 +109,6 @@ def convert_formula(f: ir.Formula) -> logic_pb2.Formula:
         return logic_pb2.Formula(rel_atom=rel_atom_proto)
     elif isinstance(f, ir.Cast):
         return logic_pb2.Formula(cast=logic_pb2.Cast(
-            type=convert_rel_type(f.type),
             input=convert_term(f.input),
             result=convert_term(f.result)
         ))
@@ -181,6 +157,15 @@ def convert_instruction(instr: ir.Instruction) -> logic_pb2.Instruction:
     elif isinstance(instr, ir.Upsert):
         dict: Dict[str, Any] = {'upsert': convert_upsert(instr)}
         return logic_pb2.Instruction(**dict)
+    elif isinstance(instr, ir.Copy):
+        dict: Dict[str, Any] = {'copy': convert_copy(instr)}
+        return logic_pb2.Instruction(**dict)
+    elif isinstance(instr, ir.MonoidDef):
+        dict: Dict[str, Any] = {'monoid_def': convert_monoid_def(instr)}
+        return logic_pb2.Instruction(**dict)
+    elif isinstance(instr, ir.MonusDef):
+        dict: Dict[str, Any] = {'monus_def': convert_monus_def(instr)}
+        return logic_pb2.Instruction(**dict)
     else:
         raise TypeError(f"Unsupported Instruction type: {type(instr)}")
 
@@ -202,6 +187,42 @@ def convert_upsert(instr: ir.Upsert) -> logic_pb2.Upsert:
         body=convert_abstraction(instr.body),
         attrs=[convert_attribute(attr) for attr in instr.attrs]
     )
+def convert_copy(instr: ir.Copy) -> logic_pb2.Copy:
+    return logic_pb2.Copy(
+        name=convert_relation_id(instr.name),
+        body=convert_abstraction(instr.body),
+        attrs=[convert_attribute(attr) for attr in instr.attrs]
+    )
+def convert_monoid_def(instr: ir.MonoidDef) -> logic_pb2.MonoidDef:
+    return logic_pb2.MonoidDef(
+        monoid=convert_monoid(instr.monoid),
+        name=convert_relation_id(instr.name),
+        body=convert_abstraction(instr.body),
+        attrs=[convert_attribute(attr) for attr in instr.attrs]
+    )
+def convert_monus_def(instr: ir.MonusDef) -> logic_pb2.MonusDef:
+    return logic_pb2.MonusDef(
+        monoid=convert_monoid(instr.monoid),
+        name=convert_relation_id(instr.name),
+        body=convert_abstraction(instr.body),
+        attrs=[convert_attribute(attr) for attr in instr.attrs]
+    )
+def convert_monoid(monoid: ir.Monoid) -> logic_pb2.Monoid:
+    from typing import Dict, Any
+    if isinstance(monoid, ir.OrMonoid):
+        return logic_pb2.Monoid(**{'or_monoid': logic_pb2.OrMonoid()})  # type: ignore
+    elif isinstance(monoid, ir.SumMonoid):
+        type = convert_primitive_type(monoid.type)
+        return logic_pb2.Monoid(**{'sum_monoid': logic_pb2.SumMonoid(type=type)})  # type: ignore
+    elif isinstance(monoid, ir.MinMonoid):
+        type = convert_primitive_type(monoid.type)
+        return logic_pb2.Monoid(**{'min_monoid': logic_pb2.MinMonoid(type=type)})  # type: ignore
+    elif isinstance(monoid, ir.MaxMonoid):
+        type = convert_primitive_type(monoid.type)
+        return logic_pb2.Monoid(**{'max_monoid': logic_pb2.MaxMonoid(type=type)})  # type: ignore
+    else:
+        raise TypeError(f"Unsupported Monoid: {monoid}")
+
 
 def convert_script(script: ir.Script) -> logic_pb2.Script:
     return logic_pb2.Script(constructs=[convert_construct(c) for c in script.constructs])
@@ -268,7 +289,7 @@ def convert_export_config(ec: ir.ExportCSVConfig) -> transactions_pb2.ExportCSVC
         path=ec.path,
         partition_size=ec.partition_size if ec.partition_size is not None else 0,
         compression=ec.compression if ec.compression is not None else "",
-        syntax_header_row=ec.syntax_header_row if ec.syntax_header_row is not None else True,
+        syntax_header_row=ec.syntax_header_row if ec.syntax_header_row is not None else True, # type: ignore
         syntax_missing_string=ec.syntax_missing_string if ec.syntax_missing_string is not None else "",
         syntax_delim=ec.syntax_delim if ec.syntax_delim is not None else ",",
         syntax_quotechar=ec.syntax_quotechar if ec.syntax_quotechar is not None else '"',
@@ -324,8 +345,7 @@ def ir_to_proto(node: ir.LqpNode) -> Union[
     transactions_pb2.Transaction,
     fragments_pb2.Fragment,
     logic_pb2.Declaration,
-    logic_pb2.Formula,
-    logic_pb2.Term
+    logic_pb2.Formula
 ]:
     if isinstance(node, ir.Transaction):
         return convert_transaction(node)

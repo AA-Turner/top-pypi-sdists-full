@@ -6,17 +6,25 @@ from gway import gw
 
 class SqlModelTests(unittest.TestCase):
     DB = "work/test_model.sqlite"
+    DB_DUCK = "work/test_model.duckdb"
 
     def setUp(self):
         path = gw.resource(self.DB)
         if os.path.exists(path):
             os.remove(path)
+        dpath = gw.resource(self.DB_DUCK)
+        if os.path.exists(dpath):
+            os.remove(dpath)
 
     def tearDown(self):
         gw.sql.close_connection(self.DB)
+        gw.sql.close_connection(self.DB_DUCK, sql_engine="duckdb")
         path = gw.resource(self.DB)
         if os.path.exists(path):
             os.remove(path)
+        dpath = gw.resource(self.DB_DUCK)
+        if os.path.exists(dpath):
+            os.remove(dpath)
 
     def test_dataclass_model(self):
         @dataclass
@@ -42,6 +50,44 @@ class SqlModelTests(unittest.TestCase):
         pid = pets.create(name="bob")
         row = pets.read(pid)
         self.assertEqual(row[1], "bob")
+
+    def test_multiline_string_model(self):
+        spec = """things_multi(
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            name TEXT
+        )"""
+        things = gw.sql.model(spec, dbfile=self.DB)
+        tid = things.create(name="baz")
+        row = things.read(tid)
+        self.assertEqual(row[1], "baz")
+
+    def test_duckdb_model(self):
+        spec = {"__name__": "items", "id": "INTEGER", "name": "TEXT"}
+        items = gw.sql.model(spec, dbfile=self.DB_DUCK, sql_engine="duckdb")
+        items.create(id=1, name="foo")
+        row = items.read(1, id_col="id")
+        self.assertEqual(row[1], "foo")
+
+    def test_context_defaults(self):
+        global DBFILE
+        DBFILE = self.DB
+        spec = {"__name__": "notes_auto", "id": "INTEGER PRIMARY KEY AUTOINCREMENT", "text": "TEXT"}
+        notes = gw.sql.model(spec)
+        nid = notes.create(text="auto")
+        row = notes.read(nid)
+        self.assertEqual(row[1], "auto")
+        gw.sql.close_connection(DBFILE)
+        del globals()["DBFILE"]
+
+    def test_add_missing_columns(self):
+        spec1 = {"__name__": "tbl", "id": "INTEGER PRIMARY KEY", "a": "TEXT"}
+        gw.sql.model(spec1, dbfile=self.DB)
+        spec2 = {"__name__": "tbl", "id": "INTEGER PRIMARY KEY", "a": "TEXT", "b": "INTEGER"}
+        gw.sql.model(spec2, dbfile=self.DB)
+        conn = gw.sql.open_db(self.DB)
+        cols = [r[1] for r in gw.sql.execute("PRAGMA table_info(tbl)", connection=conn)]
+        self.assertIn("b", cols)
+        gw.sql.close_connection(self.DB)
 
 if __name__ == "__main__":
     unittest.main()

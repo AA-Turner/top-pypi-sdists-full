@@ -1,12 +1,15 @@
 import contextlib
 import functools
+import hashlib
 import importlib
 import json
 import logging
 import os
+import random
 import re
 import time
 import threading
+import uuid
 
 import os.path
 
@@ -50,13 +53,16 @@ class Resolver:
     _RESOLVERS_LOCK = threading.Lock()
     _RESOLVERS = {}
 
+    __CACHE_LOCK = threading.Lock()
+    __CACHE = {}
+
     def __init__(self, name, root, source, reference=None):
         self.__name = name
         self.__root = root
         self.__source = source
         self.__reference = reference
         self.__changed = False
-        self.__cache = {}
+        self.__cacheid = None
 
         if self.__root and hasattr(self.__root, "logger"):
             self.__logger = self.__root.logger.getChild(f"resolver-{self.name}")
@@ -126,34 +132,80 @@ class Resolver:
         return self.urlparse.netloc
 
     @property
-    def changed(self):
+    def changed(self) -> bool:
         change = self.__changed
         self.__changed = False
         return change
 
+    @property
+    def cache_id(self) -> str:
+        if self.__cacheid is None:
+            hash = hashlib.sha1()
+            hash.update(self.__source.encode())
+            if self.__reference:
+                hash.update(self.__reference.encode())
+            else:
+                hash.update("".encode())
+
+            self.__cacheid = hash.hexdigest()
+        return self.__cacheid
+
     def set_changed(self):
         self.__changed = True
-
-    def set_cache(self, cache):
-        self.__cache = cache
 
     def resolve(self):
         raise NotImplementedError("child class must implement this")
 
+    @staticmethod
+    def __get_root_id(root):
+        STORAGE = "__Resolver_cache_id"
+        if not getattr(root, STORAGE, None):
+            setattr(root, STORAGE, uuid.uuid4().hex)
+        return getattr(root, STORAGE)
+
+    @staticmethod
+    def get_cache(root, name: str = None):
+        with Resolver.__CACHE_LOCK:
+            root_id = Resolver.__get_root_id(root)
+            if root_id not in Resolver.__CACHE:
+                Resolver.__CACHE[root_id] = {}
+
+            if name:
+                return Resolver.__CACHE[root_id].get(name, None)
+
+            return Resolver.__CACHE[root_id].copy()
+
+    @staticmethod
+    def set_cache(root, name: str, path: str):
+        with Resolver.__CACHE_LOCK:
+            root_id = Resolver.__get_root_id(root)
+            if root_id not in Resolver.__CACHE:
+                Resolver.__CACHE[root_id] = {}
+            Resolver.__CACHE[root_id][name] = path
+
+    @staticmethod
+    def reset_cache(root):
+        with Resolver.__CACHE_LOCK:
+            root_id = Resolver.__get_root_id(root)
+            if root_id in Resolver.__CACHE:
+                del Resolver.__CACHE[root_id]
+
     def get_path(self):
-        if self.name in self.__cache:
-            return self.__cache[self.name]
+        cache_path = Resolver.get_cache(self.__root, self.cache_id)
+        if cache_path:
+            return cache_path
 
         path = self.resolve()
         if not os.path.exists(path):
             raise FileNotFoundError(f"Unable to locate {self.name} at {path}")
 
-        if self.changed and self.name not in self.__cache:
+        if self.changed:
             self.logger.info(f'Saved {self.name} data to {path}')
         else:
             self.logger.info(f'Found {self.name} data at {path}')
-        self.__cache[self.name] = path
-        return self.__cache[self.name]
+
+        Resolver.set_cache(self.__root, self.cache_id, path)
+        return path
 
     def __resolve_env(self, path):
         env_save = os.environ.copy()
@@ -198,6 +250,7 @@ class RemoteResolver(Resolver):
         if not root:
             return Path(default_path)
 
+        path = None
         if root.valid('option', 'cachedir'):
             path = root.get('option', 'cachedir')
             if path:
@@ -249,32 +302,51 @@ class RemoteResolver(Resolver):
             return RemoteResolver._CACHE_LOCKS[self.name]
 
     @contextlib.contextmanager
-    def lock(self):
+    def __thread_lock(self):
         lock = self.thread_lock()
         lock_acquired = False
         try:
-            if lock.acquire_lock(timeout=self.timeout):
-                data_path_lock = InterProcessLock(self.lock_file)
-                sc_data_path_lock = None
-                try:
-                    lock_acquired = data_path_lock.acquire(timeout=self.timeout)
-                except (OSError, RuntimeError):
-                    if not lock_acquired:
-                        sc_data_path_lock = Path(self.sc_lock_file)
-                        max_seconds = self.timeout
-                        while sc_data_path_lock.exists():
-                            if max_seconds == 0:
-                                raise RuntimeError(f'Failed to access {self.cache_path}. '
-                                                   f'Lock {sc_data_path_lock} still exists.')
-                            time.sleep(1)
-                            max_seconds -= 1
-                        sc_data_path_lock.touch()
-                        lock_acquired = True
-                if lock_acquired:
-                    yield
+            timeout = self.timeout
+            while timeout > 0:
+                if lock.acquire_lock(timeout=1):
+                    lock_acquired = True
+                    break
+                sleep_time = random.randint(1, max(1, int(timeout / 10)))
+                timeout -= sleep_time + 1
+                time.sleep(sleep_time)
+            if lock_acquired:
+                yield
         finally:
             if lock.locked():
                 lock.release()
+
+        if not lock_acquired:
+            raise RuntimeError(f'Failed to access {self.cache_path}. '
+                               f'Another thread is currently holding the lock.')
+
+    @contextlib.contextmanager
+    def __file_lock(self):
+        data_path_lock = InterProcessLock(self.lock_file)
+        lock_acquired = False
+        sc_data_path_lock = None
+        try:
+            try:
+                lock_acquired = data_path_lock.acquire(timeout=self.timeout)
+            except (OSError, RuntimeError):
+                if not lock_acquired:
+                    sc_data_path_lock = Path(self.sc_lock_file)
+                    max_seconds = self.timeout
+                    while sc_data_path_lock.exists():
+                        if max_seconds == 0:
+                            raise RuntimeError(f'Failed to access {self.cache_path}. '
+                                               f'Lock {sc_data_path_lock} still exists.')
+                        time.sleep(1)
+                        max_seconds -= 1
+                    sc_data_path_lock.touch()
+                    lock_acquired = True
+            if lock_acquired:
+                yield
+        finally:
             if lock_acquired:
                 if data_path_lock.acquired:
                     data_path_lock.release()
@@ -285,6 +357,12 @@ class RemoteResolver(Resolver):
             raise RuntimeError(f'Failed to access {self.cache_path}. '
                                f'{self.lock_file} is still locked, if this is a mistake, '
                                'please delete it.')
+
+    @contextlib.contextmanager
+    def lock(self):
+        with self.__thread_lock():
+            with self.__file_lock():
+                yield
 
     def resolve_remote(self):
         raise NotImplementedError("child class must implement this")
@@ -324,11 +402,8 @@ class FileResolver(Resolver):
 
     @property
     def urlpath(self):
-        parse = self.urlparse
-        if parse.netloc:
-            return parse.netloc
-        else:
-            return parse.path
+        # Rebuild URL and remove scheme prefix
+        return self.urlparse.geturl()[7:]
 
     def resolve(self):
         return os.path.abspath(self.urlpath)
@@ -411,6 +486,34 @@ class PythonPathResolver(Resolver):
         root.register_source(name=package_name,
                              path=path,
                              ref=ref)
+
+    @staticmethod
+    def set_dataroot(root,
+                     package_name,
+                     python_module,
+                     alternative_path,
+                     alternative_ref=None,
+                     python_module_path_append=None):
+        '''
+        Helper function to register a python module as data source with an alternative in case
+        the module is not installed in an editable state
+        '''
+        # check if installed in an editable state
+        if PythonPathResolver.is_python_module_editable(python_module):
+            if python_module_path_append:
+                path = PythonPathResolver(
+                    python_module, root, f"python://{python_module}").resolve()
+                path = os.path.abspath(os.path.join(path, python_module_path_append))
+            else:
+                path = f"python://{python_module}"
+            ref = None
+        else:
+            path = alternative_path
+            ref = alternative_ref
+
+        root.set_dataroot(name=package_name,
+                          path=path,
+                          tag=ref)
 
     def resolve(self):
         module = importlib.import_module(self.urlpath)

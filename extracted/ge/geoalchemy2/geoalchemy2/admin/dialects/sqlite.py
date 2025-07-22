@@ -4,6 +4,7 @@ import os
 from typing import Optional
 
 from sqlalchemy import text
+from sqlalchemy.dialects.sqlite.base import ischema_names as _sqlite_ischema_names
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql import func
 from sqlalchemy.sql import select
@@ -12,11 +13,25 @@ from geoalchemy2 import functions
 from geoalchemy2.admin.dialects.common import _check_spatial_type
 from geoalchemy2.admin.dialects.common import _format_select_args
 from geoalchemy2.admin.dialects.common import _spatial_idx_name
+from geoalchemy2.admin.dialects.common import compile_bin_literal
 from geoalchemy2.admin.dialects.common import setup_create_drop
 from geoalchemy2.types import Geography
 from geoalchemy2.types import Geometry
+from geoalchemy2.types import Raster
 from geoalchemy2.types import _DummyGeometry
 from geoalchemy2.utils import authorized_values_in_docstring
+
+# Register Geometry, Geography and Raster to SQLAlchemy's reflection subsystems.
+_sqlite_ischema_names["GEOMETRY"] = Geometry
+_sqlite_ischema_names["POINT"] = Geometry
+_sqlite_ischema_names["LINESTRING"] = Geometry
+_sqlite_ischema_names["POLYGON"] = Geometry
+_sqlite_ischema_names["MULTIPOINT"] = Geometry
+_sqlite_ischema_names["MULTILINESTRING"] = Geometry
+_sqlite_ischema_names["MULTIPOLYGON"] = Geometry
+_sqlite_ischema_names["CURVE"] = Geometry
+_sqlite_ischema_names["GEOMETRYCOLLECTION"] = Geometry
+_sqlite_ischema_names["RASTER"] = Raster
 
 
 def load_spatialite_driver(dbapi_conn, *args):
@@ -171,7 +186,7 @@ def get_col_dim(col):
     """Get dimension of the column type."""
     if col.type.dimension == 4:
         dimension = "XYZM"
-    elif col.type.dimension == 2:
+    elif col.type.dimension == 2 or col.type.geometry_type is None:
         dimension = "XY"
     else:
         if col.type.geometry_type.endswith("M"):
@@ -183,6 +198,9 @@ def get_col_dim(col):
 
 def create_spatial_index(bind, table, col):
     """Create spatial index on the given column."""
+    if col.computed is not None:
+        # Do not create spatial index for computed columns
+        return
     stmt = select(*_format_select_args(func.CreateSpatialIndex(table.name, col.name)))
     stmt = stmt.execution_options(autocommit=True)
     bind.execute(stmt)
@@ -190,6 +208,10 @@ def create_spatial_index(bind, table, col):
 
 def disable_spatial_index(bind, table, col):
     """Disable spatial indexes if present."""
+    if col.computed is not None:
+        # Do not disable spatial index for computed columns because it can not exist
+        return
+    # Check if the spatial index is enabled
     stmt = select(*_format_select_args(func.CheckSpatialIndex(table.name, col.name)))
     if bind.execute(stmt).fetchone()[0] is not None:
         stmt = select(*_format_select_args(func.DisableSpatialIndex(table.name, col.name)))
@@ -276,7 +298,7 @@ def before_create(table, bind, **kw):
     current_indexes = set(table.indexes)
     for idx in current_indexes:
         for col in table.info["_saved_columns"]:
-            if (_check_spatial_type(col.type, Geometry, dialect)) and col in idx.columns.values():
+            if _check_spatial_type(col.type, Geometry, dialect) and col in idx.columns.values():
                 table.indexes.remove(idx)
                 if idx.name != _spatial_idx_name(table.name, col.name) or not getattr(
                     col.type, "spatial_index", False
@@ -293,11 +315,17 @@ def after_create(table, bind, **kw):
     table.columns = table.info.pop("_saved_columns")
     for col in table.columns:
         # Add the managed Geometry columns with RecoverGeometryColumn()
-        if _check_spatial_type(col.type, Geometry, dialect):
+        if _check_spatial_type(col.type, Geometry, dialect) and col.computed is None:
             col.type = col._actual_type
             del col._actual_type
             dimension = get_col_dim(col)
-            args = [table.name, col.name, col.type.srid, col.type.geometry_type, dimension]
+            args = [
+                table.name,
+                col.name,
+                col.type.srid,
+                col.type.geometry_type or "GEOMETRY",
+                dimension,
+            ]
 
             stmt = select(*_format_select_args(func.RecoverGeometryColumn(*args)))
             stmt = stmt.execution_options(autocommit=True)
@@ -322,6 +350,9 @@ def before_drop(table, bind, **kw):
     dialect, gis_cols, regular_cols = setup_create_drop(table, bind)
 
     for col in gis_cols:
+        if col.computed is not None:
+            # Computed columns are not managed
+            continue
         # Disable spatial indexes if present
         disable_spatial_index(bind, table, col)
 
@@ -341,7 +372,7 @@ def after_drop(table, bind, **kw):
 # the ST_ prefix.
 _SQLITE_FUNCTIONS = {
     "ST_GeomFromEWKT": "GeomFromEWKT",
-    "ST_GeomFromEWKB": "GeomFromEWKB",
+    # "ST_GeomFromEWKB": "GeomFromEWKB",
     "ST_AsBinary": "AsBinary",
     "ST_AsEWKB": "AsEWKB",
     "ST_AsGeoJSON": "AsGeoJSON",
@@ -372,3 +403,41 @@ def register_sqlite_mapping(mapping):
 
 
 register_sqlite_mapping(_SQLITE_FUNCTIONS)
+
+
+def _compile_GeomFromWKB_SQLite(element, compiler, *, identifier, **kw):
+    element.identifier = identifier
+
+    # Store the SRID
+    clauses = list(element.clauses)
+    try:
+        srid = clauses[1].value
+        element.type.srid = srid
+    except (IndexError, TypeError, ValueError):
+        srid = element.type.srid
+
+    if kw.get("literal_binds", False):
+        wkb_clause = compile_bin_literal(clauses[0])
+        prefix = "unhex("
+        suffix = ")"
+    else:
+        wkb_clause = clauses[0]
+        prefix = ""
+        suffix = ""
+
+    compiled = compiler.process(wkb_clause, **kw)
+
+    if srid > 0:
+        return "{}({}{}{}, {})".format(identifier, prefix, compiled, suffix, srid)
+    else:
+        return "{}({}{}{})".format(identifier, prefix, compiled, suffix)
+
+
+@compiles(functions.ST_GeomFromWKB, "sqlite")  # type: ignore
+def _SQLite_ST_GeomFromWKB(element, compiler, **kw):
+    return _compile_GeomFromWKB_SQLite(element, compiler, identifier="GeomFromWKB", **kw)
+
+
+@compiles(functions.ST_GeomFromEWKB, "sqlite")  # type: ignore
+def _SQLite_ST_GeomFromEWKB(element, compiler, **kw):
+    return _compile_GeomFromWKB_SQLite(element, compiler, identifier="GeomFromEWKB", **kw)

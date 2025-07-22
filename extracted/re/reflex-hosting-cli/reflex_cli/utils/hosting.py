@@ -178,14 +178,14 @@ class ScaleParams:
             The ScaleParams object with the scale type set.
 
         Raises:
-            ScaleParamError: If the scale type is not provided when using cloud.yml.
+            ScaleParamError: If the scale type is not provided when using cloud.yml or pyproject.toml.
 
         """
         scale_type = cli_args.type
 
         if scale_type is None and not cli_args.is_valid:
             raise ScaleParamError(
-                "specify the type of scaling using --scale-type when using cloud.yml"
+                "specify the type of scaling using --scale-type when using cloud.yml or pyproject.toml"
             )
 
         if scale_type is not None and cli_args.is_valid:
@@ -196,12 +196,12 @@ class ScaleParams:
         if not cli_args.is_valid:
             if scale_type == ScaleType.SIZE and not cli_args.vm_type:
                 raise ScaleParamError(
-                    f"'vmtype' should be provided in the {constants.Dirs.CLOUD} for size scaling"
+                    f"'vmtype' should be provided in the {constants.Dirs.CLOUD_YAML} for size scaling"
                 )
 
             if scale_type == ScaleType.REGION and not cli_args.regions:
                 raise ScaleParamError(
-                    f"'regions' should be provided in the {constants.Dirs.CLOUD} for region scaling"
+                    f"'regions' should be provided in the {constants.Dirs.CLOUD_YAML} for region scaling"
                 )
 
         if cli_args.is_valid:
@@ -562,7 +562,6 @@ def interactive_resolve_project_or_app_name_conflicts(
     headers: list[str],
     conflict_warn_msg: str,
     conflict_ask_msg: str,
-    **kwargs,
 ) -> dict:
     """Interactively resolve conflicts when multiple projects or apps are found.
 
@@ -572,14 +571,13 @@ def interactive_resolve_project_or_app_name_conflicts(
         headers: The headers of the table.
         conflict_warn_msg: The warning message to display.
         conflict_ask_msg: The question to ask the user.
-        **kwargs: Additional arguments to pass to tabulate.
 
     Returns:
         The selected item as a dictionary
 
     """
     console.warn(conflict_warn_msg)
-    console.print_table(rows, headers=headers, **kwargs)
+    console.print_table(rows, headers=list(headers))
     option = console.ask(
         conflict_ask_msg,
         choices=[str(i) for i in range(len(rows))],
@@ -2012,23 +2010,22 @@ def process_envs(envs: list[str]) -> dict[str, str]:
     return processed_envs
 
 
-def read_config(path: str) -> dict:
+def read_config(
+    config_path: str | None = None, env: str | None = None
+) -> Config | None:
     """Read the config file.
 
     Args:
-        path: The path to the config file.
+        config_path: The path to the config file. If None, defaults to 'cloud.yml'.
+        env: The environment to read the config for. If None, reads the default config.
 
     Returns:
-        dict: The config file as a dictionary.
+        Config | None: The config file as a Config instance, or None if not found or invalid.
 
     """
-    try:
-        import yaml
-
-        with Path(path).open() as config_file:
-            return yaml.safe_load(config_file)
-    except Exception:
-        return {}
+    if config_path:
+        return Config.from_yaml(Path(config_path))
+    return Config.from_yaml_or_toml_or_none()
 
 
 def generate_config(interactive: bool = True, token: str | None = None):
@@ -2041,7 +2038,11 @@ def generate_config(interactive: bool = True, token: str | None = None):
     Raises:
         click.exceptions.Exit: If authentication fails or user cancels operation.
     """
-    import yaml
+    try:
+        import yaml
+    except ImportError:
+        console.error("Please install PyYAML to use this command: pip install pyyaml")
+        return
 
     if Path("cloud.yml").exists():
         console.error("cloud.yml already exists.")

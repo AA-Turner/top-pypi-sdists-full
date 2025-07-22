@@ -27,7 +27,7 @@ class SqlTests(unittest.TestCase):
 
     def setUp(self):
         # Each test gets a fresh database connection
-        self.conn = gw.sql.open_connection(TEMP_DB)
+        self.conn = gw.sql.open_db(TEMP_DB)
 
     def tearDown(self):
         # Close thread's own connection
@@ -64,7 +64,7 @@ class SqlTests(unittest.TestCase):
         results = []
 
         def read_db():
-            c = gw.sql.open_connection(TEMP_DB)
+            c = gw.sql.open_db(TEMP_DB)
             out = gw.sql.execute("SELECT sum(x) FROM readers", connection=c)
             results.append(out[0][0])
             gw.sql.close_connection(TEMP_DB)
@@ -82,7 +82,7 @@ class SqlTests(unittest.TestCase):
         )
 
         def write_db(val):
-            c = gw.sql.open_connection(TEMP_DB)
+            c = gw.sql.open_db(TEMP_DB)
             gw.sql.execute(
                 "INSERT INTO writers (y) VALUES (?)",
                 connection=c, args=(val,)
@@ -179,7 +179,7 @@ class SqlTests(unittest.TestCase):
     def test_row_factory(self):
         """Can get dict-like rows using row_factory option."""
         gw.sql.close_connection(all=True)  # Ensure fresh conn
-        conn = gw.sql.open_connection(TEMP_DB, row_factory=True)
+        conn = gw.sql.open_db(TEMP_DB, row_factory=True)
         gw.sql.execute(
             "CREATE TABLE rf (k INT, v TEXT)",
             connection=conn
@@ -198,19 +198,32 @@ class SqlTests(unittest.TestCase):
         gw.sql.execute(
             "CREATE TABLE errtest (z INT)", connection=self.conn
         )
-        with self.assertRaises(Exception):
+        with self.assertRaises(Exception) as cm:
             gw.sql.execute("INSRT INTO errtest VALUES (9)", connection=self.conn)
+        self.assertIn("INSRT INTO errtest", str(cm.exception))
         # Table should be empty
         rows = gw.sql.execute("SELECT count(*) FROM errtest", connection=self.conn)
         self.assertEqual(rows[0][0], 0)
 
+    def test_open_db_invalid_path_message(self):
+        """open_db aborts with helpful message on invalid path."""
+        bad_dir = "work/bad_db"
+        full = gw.resource(bad_dir, dir=True)
+        from unittest.mock import patch
+        with patch.object(gw, "abort", side_effect=SystemExit(13)) as abort_fn:
+            with self.assertRaises(SystemExit):
+                gw.sql.open_db(bad_dir)
+        abort_msg = abort_fn.call_args[0][0]
+        self.assertIn(str(full), abort_msg)
+        self.assertIn("permission", abort_msg.lower())
+
     def test_close_all_connections(self):
         """close_connection(all=True) closes all and stops writer."""
-        c1 = gw.sql.open_connection(TEMP_DB)
-        c2 = gw.sql.open_connection(TEMP_DB)
+        c1 = gw.sql.open_db(TEMP_DB)
+        c2 = gw.sql.open_db(TEMP_DB)
         gw.sql.close_connection(all=True)
         # New connection after all closed should work
-        c3 = gw.sql.open_connection(TEMP_DB)
+        c3 = gw.sql.open_db(TEMP_DB)
         gw.sql.execute("CREATE TABLE foo (id INT)", connection=c3)
         gw.sql.close_connection(TEMP_DB)
 
@@ -253,6 +266,14 @@ class SqlTests(unittest.TestCase):
         self.assertEqual(rows[0][1], "hello")
 
         os.remove(log_path)
+
+    def test_open_db_persists_params(self):
+        """open_db() without args reuses last params."""
+        gw.sql.close_connection(all=True)
+        c1 = gw.sql.open_db("work/persist.sqlite")
+        c2 = gw.sql.open_db()
+        self.assertIs(c1, c2)
+        gw.sql.close_connection("work/persist.sqlite")
 
     def test_parse_log_default_mask(self):
         """Default mask parses standard GWay log lines."""

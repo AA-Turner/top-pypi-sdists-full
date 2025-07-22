@@ -57,12 +57,14 @@ RELEVANT_SCHEMA_LIMIT = 10
 DEFAULT_MIN_SCORE = 0.6
 DEFAULT_MMR_LAMBDA = 0.5
 MAX_SEARCH_DEPTH = 3
-MAX_QUERY_LENGTH = 32
+MAX_QUERY_LENGTH = 128
 
 
-def fulltext_query(query: str, group_ids: list[str] | None = None):
+def fulltext_query(query: str, group_ids: list[str] | None = None, fulltext_syntax: str = ''):
     group_ids_filter_list = (
-        [f'group_id:"{lucene_sanitize(g)}"' for g in group_ids] if group_ids is not None else []
+        [fulltext_syntax + f"group_id:'{lucene_sanitize(g)}'" for g in group_ids]
+        if group_ids is not None
+        else []
     )
     group_ids_filter = ''
     for f in group_ids_filter_list:
@@ -157,7 +159,7 @@ async def edge_fulltext_search(
     limit=RELEVANT_SCHEMA_LIMIT,
 ) -> list[EntityEdge]:
     # fulltext search over facts
-    fuzzy_query = fulltext_query(query, group_ids)
+    fuzzy_query = fulltext_query(query, group_ids, driver.fulltext_syntax)
     if fuzzy_query == '':
         return []
 
@@ -293,12 +295,12 @@ async def edge_bfs_search(
 
     query = (
         """
-                                    UNWIND $bfs_origin_node_uuids AS origin_uuid
-                                    MATCH path = (origin:Entity|Episodic {uuid: origin_uuid})-[:RELATES_TO|MENTIONS]->{1,3}(n:Entity)
-                                    UNWIND relationships(path) AS rel
-                                    MATCH (n:Entity)-[r:RELATES_TO]-(m:Entity)
-                                    WHERE r.uuid = rel.uuid
-                                    """
+                                        UNWIND $bfs_origin_node_uuids AS origin_uuid
+                                        MATCH path = (origin:Entity|Episodic {uuid: origin_uuid})-[:RELATES_TO|MENTIONS]->{1,3}(n:Entity)
+                                        UNWIND relationships(path) AS rel
+                                        MATCH (n:Entity)-[r:RELATES_TO]-(m:Entity)
+                                        WHERE r.uuid = rel.uuid
+                                        """
         + filter_query
         + """  
                 RETURN DISTINCT
@@ -340,7 +342,7 @@ async def node_fulltext_search(
     limit=RELEVANT_SCHEMA_LIMIT,
 ) -> list[EntityNode]:
     # BM25 search to get top nodes
-    fuzzy_query = fulltext_query(query, group_ids)
+    fuzzy_query = fulltext_query(query, group_ids, driver.fulltext_syntax)
     if fuzzy_query == '':
         return []
     filter_query, filter_params = node_search_filter_query_constructor(search_filter)
@@ -441,10 +443,10 @@ async def node_bfs_search(
 
     query = (
         """
-                            UNWIND $bfs_origin_node_uuids AS origin_uuid
-                            MATCH (origin:Entity|Episodic {uuid: origin_uuid})-[:RELATES_TO|MENTIONS]->{1,3}(n:Entity)
-                            WHERE n.group_id = origin.group_id
-                            """
+                                UNWIND $bfs_origin_node_uuids AS origin_uuid
+                                MATCH (origin:Entity|Episodic {uuid: origin_uuid})-[:RELATES_TO|MENTIONS]->{1,3}(n:Entity)
+                                WHERE n.group_id = origin.group_id
+                                """
         + filter_query
         + ENTITY_NODE_RETURN
         + """
@@ -472,7 +474,7 @@ async def episode_fulltext_search(
     limit=RELEVANT_SCHEMA_LIMIT,
 ) -> list[EpisodicNode]:
     # BM25 search to get top episodes
-    fuzzy_query = fulltext_query(query, group_ids)
+    fuzzy_query = fulltext_query(query, group_ids, driver.fulltext_syntax)
     if fuzzy_query == '':
         return []
 
@@ -516,7 +518,7 @@ async def community_fulltext_search(
     limit=RELEVANT_SCHEMA_LIMIT,
 ) -> list[CommunityNode]:
     # BM25 search to get top communities
-    fuzzy_query = fulltext_query(query, group_ids)
+    fuzzy_query = fulltext_query(query, group_ids, driver.fulltext_syntax)
     if fuzzy_query == '':
         return []
 
@@ -740,7 +742,7 @@ async def get_relevant_nodes(
             'uuid': node.uuid,
             'name': node.name,
             'name_embedding': node.name_embedding,
-            'fulltext_query': fulltext_query(node.name, [node.group_id]),
+            'fulltext_query': fulltext_query(node.name, [node.group_id], driver.fulltext_syntax),
         }
         for node in nodes
     ]

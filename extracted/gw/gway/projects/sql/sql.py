@@ -7,6 +7,7 @@ import sqlite3
 import threading
 import re
 import time
+import inspect
 from gway import gw
 
 # Regex mask matching the default gway logging pattern. This captures the
@@ -24,12 +25,12 @@ DEFAULT_LOG_MASK = (
 #
 # from gway import gw
 #
-# with gw.sql.open_connection() as cursor:
+# with gw.sql.open_db() as cursor:
 #      gq.sql.execute(query)
 #
 # # Or from a recipe:
 #
-# sql connect
+# sql open-db
 #   - execute "<SQL>"
 
 _write_queue = queue.Queue()
@@ -129,19 +130,20 @@ def load_csv(*, connection=None, folder="data", force=False):
                     exists = cursor.fetchone()
 
                     if exists and force:
-                        cursor.execute(f"DROP TABLE IF EXISTS [{table_name}]")
+                        cursor.execute(f'DROP TABLE IF EXISTS "{table_name}"')
                         gw.info(f"Dropped existing table: {table_name}")
 
                     if not exists or force:
                         colspec = ", ".join(
-                            f"[{unique_headers[i]}] {types[i]}"
+                            f'"{unique_headers[i]}" {types[i]}'
                             for i in range(len(unique_headers))
                         )
-                        create = f"CREATE TABLE [{table_name}] ({colspec})"
+                        create = f'CREATE TABLE "{table_name}" ({colspec})'
+                        columns_join = ", ".join(f'"{h}"' for h in unique_headers)
+                        placeholders = ", ".join("?" for _ in unique_headers)
                         insert = (
-                            f"INSERT INTO [{table_name}] "
-                            f"({', '.join(f'[{h}]' for h in unique_headers)}) "
-                            f"VALUES ({', '.join('?' for _ in unique_headers)})"
+                            f'INSERT INTO "{table_name}" ({columns_join}) '
+                            f'VALUES ({placeholders})'
                         )
 
                         cursor.execute(create)
@@ -244,18 +246,37 @@ def load_cdv(*, connection=None, file=None, folder="data", force=False):
 # --- Connection Management (Drop-in Replacement) ---
 
 _connection_cache = {}
+_db_configs = {}
 
-def open_connection(
-        datafile=None, *, 
-        sql_engine="sqlite", autoload=False, force=False, row_factory=False, **dbopts):
+def open_db(
+        datafile=None, *,
+        project=None,
+        sql_engine=None, autoload=False, force=False, row_factory=False, **dbopts):
+    """Initialize or reuse a database connection.
+
+    ``project`` allows configuring multiple databases which can later be
+    referenced by name.  Subsequent calls for the same ``project`` reuse the
+    stored configuration and cached connection.
     """
-    Initialize or reuse a database connection.
-    Caches connections by sql_engine, file path, and thread ID (if required).
-    Starts writer thread for SQLite.
-    """
-    # Build cache key (engine, datafile, thread)
-    _start_writer_thread()
-    base_key = (sql_engine, datafile or "default")
+    project = project or "default"
+    cfg = _db_configs.setdefault(project, {})
+    if datafile is not None:
+        cfg["datafile"] = datafile
+    if sql_engine is not None:
+        cfg["sql_engine"] = sql_engine
+    if row_factory:
+        cfg["row_factory"] = row_factory
+    if dbopts:
+        cfg.setdefault("dbopts", {}).update(dbopts)
+
+    datafile = datafile or cfg.get("datafile")
+    sql_engine = sql_engine or cfg.get("sql_engine", "sqlite")
+    row_factory = row_factory or cfg.get("row_factory", False)
+    dbopts = {**cfg.get("dbopts", {}), **dbopts}
+
+    if sql_engine != "duckdb":
+        _start_writer_thread()
+    base_key = (project, sql_engine, datafile or "default")
     thread_key = threading.get_ident() if sql_engine in ("sqlite", "duckdb") else "*"
     key = (base_key, thread_key)
 
@@ -271,7 +292,13 @@ def open_connection(
     if sql_engine == "sqlite":
         path = gw.resource(datafile or "work/data.sqlite")
         # Note: check_same_thread=False for sharing connections in the writer thread
-        conn = sqlite3.connect(path, check_same_thread=False)
+        try:
+            conn = sqlite3.connect(str(path), check_same_thread=False)
+        except sqlite3.OperationalError as e:
+            gw.abort(
+                f"Unable to open SQLite database at {str(path)}. "
+                f"Check the path and file permissions. ({e})"
+            )
         if row_factory:
             if row_factory is True:
                 conn.row_factory = sqlite3.Row
@@ -296,6 +323,7 @@ def open_connection(
 
     # Wrap and cache connection
     conn = WrappedConnection(conn)
+    conn._engine = sql_engine
     _connection_cache[key] = conn
 
     if autoload and sql_engine == "sqlite":
@@ -306,11 +334,12 @@ def open_connection(
     return conn
 
 
-def close_connection(datafile=None, *, sql_engine="sqlite", all=False):
+def close_connection(datafile=None, *, project=None, sql_engine=None, all=False):
     """
     Explicitly close one or all cached database connections.
     Shuts down writer thread if all connections closed.
     """
+    project = project or "default"
     if all:
         for key, connection in list(_connection_cache.items()):
             try:
@@ -322,8 +351,14 @@ def close_connection(datafile=None, *, sql_engine="sqlite", all=False):
         gw.info("All connections closed.")
         return
 
-    base_key = (sql_engine, datafile or "default")
-    thread_key = threading.get_ident() if sql_engine == "sqlite" else "*"
+    cfg = _db_configs.get(project, {})
+    if datafile is None:
+        datafile = cfg.get("datafile")
+    if sql_engine is None:
+        sql_engine = cfg.get("sql_engine", "sqlite")
+
+    base_key = (project, sql_engine, datafile or "default")
+    thread_key = threading.get_ident() if sql_engine in ("sqlite", "duckdb") else "*"
     key = (base_key, thread_key)
     connection = _connection_cache.pop(key, None)
     if connection:
@@ -333,6 +368,21 @@ def close_connection(datafile=None, *, sql_engine="sqlite", all=False):
         except Exception as e:
             gw.warning(f"Failed to close {key}: {e}")
 
+def _run(cursor, sql, *, args=None, is_script=False):
+    """Execute SQL and rethrow errors with the failing statement."""
+    try:
+        if is_script:
+            cursor.executescript(sql)
+            return None
+        if args:
+            cursor.execute(sql, args)
+        else:
+            cursor.execute(sql)
+        return cursor.fetchall() if cursor.description else None
+    except Exception as e:  # pragma: no cover - interactive
+        raise type(e)(f"{e}. SQL: {sql}") from e
+
+
 def execute(*sql, connection=None, script=None, sep='; ', args=None):
     """
     Thread-safe SQL execution.
@@ -341,7 +391,7 @@ def execute(*sql, connection=None, script=None, sep='; ', args=None):
     - Multi-statement scripts are supported via executescript.
     - All write queue items are always 5-tuple: (sql, args, conn, result_q, is_script)
     """
-    assert connection, "Pass connection= from gw.sql.open_connection()"
+    assert connection, "Pass connection= from gw.sql.open_db()"
 
     if script:
         script_text = gw.resource(script, text=True)
@@ -362,19 +412,31 @@ def execute(*sql, connection=None, script=None, sep='; ', args=None):
     if not _is_write_query(sql) and not is_script:
         cursor = connection.cursor()
         try:
-            cursor.execute(sql, args or ())
-            return cursor.fetchall() if cursor.description else None
+            return _run(cursor, sql, args=args)
         finally:
             cursor.close()
     else:
-        # All writes or scripts are serialized via the queue.
-        result_q = queue.Queue()
-        # Always enqueue a 5-item tuple: (sql, args, conn, result_q, is_script)
-        _write_queue.put((sql, args, connection._connection, result_q, is_script))
-        rows, error = result_q.get()
-        if error:
-            raise error
-        return rows
+        # DuckDB connections are not thread-safe, execute writes synchronously
+        if getattr(connection, "_engine", "sqlite") == "duckdb":
+            cursor = connection.cursor()
+            try:
+                rows = _run(cursor, sql, args=args, is_script=is_script)
+                connection.commit()
+                return rows
+            except Exception:
+                connection.rollback()
+                raise
+            finally:
+                cursor.close()
+        else:
+            # All writes or scripts are serialized via the queue.
+            result_q = queue.Queue()
+            # Always enqueue a 5-item tuple: (sql, args, conn, result_q, is_script)
+            _write_queue.put((sql, args, connection._connection, result_q, is_script))
+            rows, error = result_q.get()
+            if error:
+                raise error
+            return rows
 
 
 def _process_writes():
@@ -389,15 +451,7 @@ def _process_writes():
         sql, args, conn, result_q, is_script = item  # Always expect 5!
         try:
             cursor = conn.cursor()
-            if is_script:
-                cursor.executescript(sql)
-                rows = None
-            elif args:
-                cursor.execute(sql, args)
-                rows = cursor.fetchall() if cursor.description else None
-            else:
-                cursor.execute(sql)
-                rows = cursor.fetchall() if cursor.description else None
+            rows = _run(cursor, sql, args=args, is_script=is_script)
             conn.commit()
             result_q.put((rows, None))
         except Exception as e:
@@ -460,23 +514,23 @@ def parse_log(
             Defaults to ``DEFAULT_LOG_MASK`` which parses standard GWay logs.
         log_location (str): Path to the log file to monitor.
         table (str): Table to insert parsed records into.
-        connection: Database connection from :func:`open_connection`.
+        connection: Database connection from :func:`open_db`.
         start_at_end (bool): If True, begin tailing from end of file.
         poll_interval (float): Seconds to wait for new lines.
         stop_event (threading.Event): Optional event to stop the tail loop.
         flags (int): Regex flags for ``re.compile``.
     """
 
-    assert connection, "Pass connection= from gw.sql.open_connection()"
+    assert connection, "Pass connection= from gw.sql.open_db()"
 
     regex = re.compile(mask, flags)
     columns = list(regex.groupindex.keys())
     if not columns:
         raise ValueError("Mask must use named capturing groups for columns")
 
-    colspec = ", ".join(f"[{c}] TEXT" for c in columns)
+    colspec = ", ".join(f'"{c}" TEXT' for c in columns)
     gw.sql.execute(
-        f"CREATE TABLE IF NOT EXISTS [{table}] ({colspec})",
+        f'CREATE TABLE IF NOT EXISTS "{table}" ({colspec})',
         connection=connection,
     )
 
@@ -494,10 +548,10 @@ def parse_log(
             if not m:
                 continue
             values = m.groupdict()
-            columns_sql = ", ".join(f"[{c}]" for c in columns)
+            columns_sql = ", ".join(f'"{c}"' for c in columns)
             placeholders = ", ".join("?" for _ in columns)
             gw.sql.execute(
-                f"INSERT INTO [{table}] ({columns_sql}) VALUES ({placeholders})",
+                f'INSERT INTO "{table}" ({columns_sql}) VALUES ({placeholders})',
                 args=tuple(values[c] for c in columns),
                 connection=connection,
             )
@@ -521,7 +575,7 @@ def migrate(*, dbfile=None):
     if not sql_list:
         gw.info("No staged SQL to migrate")
         return 0
-    with open_connection(dbfile) as cur:
+    with open_db(dbfile) as cur:
         for stmt in sql_list:
             cur.executescript(stmt)
     gw.info(f"Applied {len(sql_list)} statements to {key}")
@@ -554,10 +608,10 @@ def setup_table(table: str, column: str = None, ctype: str = "TEXT", *,
     """
 
     if drop:
-        stage(f"DROP TABLE IF EXISTS [{table}]", dbfile=dbfile)
+        stage(f'DROP TABLE IF EXISTS "{table}"', dbfile=dbfile)
 
     if column:
-        spec = f"[{column}] {ctype}"
+        spec = f'"{column}" {ctype}'
         if primary:
             spec += " PRIMARY KEY"
         if auto:
@@ -566,11 +620,11 @@ def setup_table(table: str, column: str = None, ctype: str = "TEXT", *,
         key = (dbfile or 'default', table)
         created = getattr(setup_table, "_created", set())
         if key not in created:
-            stage(f"CREATE TABLE IF NOT EXISTS [{table}] ({spec})", dbfile=dbfile)
+            stage(f'CREATE TABLE IF NOT EXISTS "{table}" ({spec})', dbfile=dbfile)
             created.add(key)
             setattr(setup_table, "_created", created)
         else:
-            stage(f"ALTER TABLE [{table}] ADD COLUMN {spec}", dbfile=dbfile)
+            stage(f'ALTER TABLE "{table}" ADD COLUMN {spec}', dbfile=dbfile)
 
     if immediate:
         migrate(dbfile=dbfile)
@@ -579,30 +633,60 @@ def setup_table(table: str, column: str = None, ctype: str = "TEXT", *,
 class TableProxy:
     """Lightweight helper exposing CRUD operations for a table."""
 
-    def __init__(self, name: str, *, dbfile=None):
+    def __init__(self, name: str, *, dbfile=None, sql_engine="sqlite", project=None):
         self.name = name
         self.dbfile = dbfile
+        self.sql_engine = sql_engine
+        self.project = project
 
     def create(self, **fields):
         """Insert a record and return the last row id."""
-        return gw.sql.crud.api_create(table=self.name, dbfile=self.dbfile, **fields)
+        return gw.sql.crud.api_create(
+            table=self.name,
+            dbfile=self.dbfile,
+            sql_engine=self.sql_engine,
+            project=self.project,
+            **fields,
+        )
 
     def read(self, id, id_col: str = "id"):
         """Read a record by ``id``."""
-        return gw.sql.crud.api_read(table=self.name, id=id, id_col=id_col, dbfile=self.dbfile)
+        return gw.sql.crud.api_read(
+            table=self.name,
+            id=id,
+            id_col=id_col,
+            dbfile=self.dbfile,
+            sql_engine=self.sql_engine,
+            project=self.project,
+        )
 
     def update(self, id, id_col: str = "id", **fields):
         """Update fields for ``id``."""
-        gw.sql.crud.api_update(table=self.name, id=id, id_col=id_col, dbfile=self.dbfile, **fields)
+        gw.sql.crud.api_update(
+            table=self.name,
+            id=id,
+            id_col=id_col,
+            dbfile=self.dbfile,
+            sql_engine=self.sql_engine,
+            project=self.project,
+            **fields,
+        )
 
     def delete(self, id, id_col: str = "id"):
         """Delete record by ``id``."""
-        gw.sql.crud.api_delete(table=self.name, id=id, id_col=id_col, dbfile=self.dbfile)
+        gw.sql.crud.api_delete(
+            table=self.name,
+            id=id,
+            id_col=id_col,
+            dbfile=self.dbfile,
+            sql_engine=self.sql_engine,
+            project=self.project,
+        )
 
     def all(self):
         """Return all rows from the table."""
-        conn = gw.sql.open_connection(self.dbfile)
-        return gw.sql.execute(f"SELECT * FROM [{self.name}]", connection=conn)
+        conn = gw.sql.open_db(self.dbfile, sql_engine=self.sql_engine, project=self.project)
+        return gw.sql.execute(f'SELECT * FROM "{self.name}"', connection=conn)
 
 
 def _python_type_to_sql(tp):
@@ -627,7 +711,7 @@ def _parse_model_definition(defn, name=None):
             m = re.match(r"\s*create\s+table\s+(?:if\s+not\s+exists\s+)?\[?(?P<name>\w+)\]?\s*\((?P<cols>.+)\)" , defn, re.I | re.S)
             if m:
                 return m.group("name"), m.group("cols")
-            m = re.match(r"\s*(?P<name>\w+)\s*\((?P<cols>.+)\)\s*", defn)
+            m = re.match(r"\s*(?P<name>\w+)\s*\((?P<cols>.+)\)\s*", defn, re.S)
             if m:
                 return m.group("name"), m.group("cols")
         return defn, None
@@ -636,7 +720,7 @@ def _parse_model_definition(defn, name=None):
         tbl = name or defn.get("__name__") or defn.get("name") or defn.get("table")
         if not tbl:
             raise ValueError("Table name required for dict definition")
-        cols = [f"[{k}] {v}" for k, v in defn.items() if not k.startswith("__") and k not in ("name", "table")]
+        cols = [f'"{k}" {v}' for k, v in defn.items() if not k.startswith("__") and k not in ("__name__", "table")]
         return tbl, ", ".join(cols) if cols else None
 
     if dataclasses.is_dataclass(defn):
@@ -644,7 +728,7 @@ def _parse_model_definition(defn, name=None):
         cols = []
         for f in dataclasses.fields(defn):
             ctype = _python_type_to_sql(f.type)
-            spec = f"[{f.name}] {ctype}"
+            spec = f'"{f.name}" {ctype}'
             if f.name == "id" and ctype == "INTEGER":
                 spec += " PRIMARY KEY AUTOINCREMENT"
             cols.append(spec)
@@ -652,37 +736,65 @@ def _parse_model_definition(defn, name=None):
 
     if inspect.isclass(defn) and hasattr(defn, "_fields"):
         tbl = name or getattr(defn, "__name__", None)
-        cols = [f"[{f}] TEXT" for f in defn._fields]
+        cols = [f'"{f}" TEXT' for f in defn._fields]
         return tbl, ", ".join(cols)
 
     ann = getattr(defn, "__annotations__", None)
     if ann:
         tbl = name or getattr(defn, "__name__", None)
-        cols = [f"[{k}] {_python_type_to_sql(t)}" for k, t in ann.items()]
+        cols = [f'"{k}" {_python_type_to_sql(t)}' for k, t in ann.items()]
         return tbl, ", ".join(cols)
 
     return str(defn), None
 
-
-def model(defn, *, dbfile=None, create=True, name=None):
+  
+def model(defn, *, dbfile=None, create=True, name=None, sql_engine=None, project=None):
     """Return a :class:`TableProxy` for ``defn``.
 
     ``defn`` may be a table name, mapping, dataclass, namedtuple or SQL spec.
     If column definitions are available and ``create`` is True the table is
-    created automatically using ``CREATE TABLE IF NOT EXISTS``.
+    created automatically using ``CREATE TABLE IF NOT EXISTS``.  When the table
+    already exists any missing columns from ``defn`` are added via ``ALTER
+    TABLE`` so existing data is preserved.
     """
+
+    caller = inspect.currentframe().f_back
+    module = inspect.getmodule(caller)
+    if dbfile is None:
+        dbfile = getattr(module, "DBFILE", None)
+    if sql_engine is None:
+        sql_engine = getattr(module, "ENGINE", getattr(module, "SQL_ENGINE", "sqlite"))
+    if project is None:
+        project = getattr(module, "PROJECT", None)
 
     table, colspec = _parse_model_definition(defn, name)
     if not table:
         raise ValueError("Could not determine table name from definition")
 
     if colspec and create:
-        conn = gw.sql.open_connection(dbfile)
+        conn = gw.sql.open_db(dbfile, sql_engine=sql_engine, project=project)
         gw.sql.execute(
-            f"CREATE TABLE IF NOT EXISTS [{table}] ({colspec})",
+            f'CREATE TABLE IF NOT EXISTS "{table}" ({colspec})',
             connection=conn,
         )
+        rows = gw.sql.execute(
+            f'PRAGMA table_info("{table}")', connection=conn
+        )
+        existing = {r[1] for r in rows}
+        for col_def in [c.strip() for c in colspec.split(',') if c.strip()]:
+            m = re.match(r'[\[\"`]?([^\s\"`\]]+)', col_def)
+            if not m:
+                continue
+            col_name = m.group(1)
+            if col_name not in existing:
+                gw.sql.execute(
+                    f'ALTER TABLE "{table}" ADD COLUMN {col_def}',
+                    connection=conn,
+                )
 
-    return TableProxy(table, dbfile=dbfile)
+    return TableProxy(table, dbfile=dbfile, sql_engine=sql_engine, project=project)
 
+# Backwards compatibility aliases
+open_connection = open_db
+close_db = close_connection
 

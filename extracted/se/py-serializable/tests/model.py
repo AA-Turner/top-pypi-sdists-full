@@ -1,5 +1,3 @@
-# encoding: utf-8
-
 # This file is part of py-serializable
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -138,7 +136,9 @@ class Chapter:
         return hash((self.number, self.title))
 
 
-@py_serializable.serializable_class
+@py_serializable.serializable_class(
+    ignore_unknown_during_deserialization=True
+)
 class Publisher:
 
     def __init__(self, *, name: str, address: Optional[str] = None, email: Optional[str] = None) -> None:
@@ -293,8 +293,13 @@ class StockId(py_serializable.helpers.BaseHelper):
         return self._id
 
 
-@py_serializable.serializable_class(name='bigbook',
-                                    ignore_during_deserialization=['something_to_be_ignored', 'ignore_me', 'ignored'])
+@py_serializable.serializable_class(
+    name='bigbook',
+    ignore_during_deserialization={
+        'something_to_be_ignored', 'ignore_me', 'ignored',
+        '$schema', '$comment',
+    },
+)
 class Book:
 
     def __init__(self, title: str, isbn: str, publish_date: date, authors: Iterable[str],

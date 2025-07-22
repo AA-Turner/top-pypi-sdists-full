@@ -491,7 +491,7 @@ Ready? """
         """\n[2] Go to IAM > Policies. Create a new policy with the following permissions. Please, replace {replacements}:\n\n{access_policy}\n\n(The policy has been copied to your clipboard)\n\n"""
     )
     prompt_s3_iamrole_connection_policy_not_copied = prompt_message(
-        """\n[2] Go to IAM > Policies. Create a new policy with the following permissions. Please, copy this policy and replace <bucket> with your bucket name:\n\n{access_policy}\n\n"""
+        """\n[2] Go to IAM > Policies. Create a new policy with the following permissions. Please, copy this policy and replace <bucket> with your bucket name and <table_name> with your table name:\n\n{access_policy}\n\n"""
     )
     prompt_s3_iamrole_connection_role = prompt_message(
         """\n[3] Go to IAM > Roles. Create a new IAM Role using the following custom trust policy and attach the access policy you just created in the previous step:\n\n{trust_policy}\n\n(The policy has been copied to your clipboard)\n\n"""

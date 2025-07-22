@@ -424,6 +424,7 @@ __all__ = (
     "VendorGuidanceType",
     "WaiterName",
     "WarmPoolResourceStatusType",
+    "WorkforceIpAddressTypeType",
     "WorkforceStatusType",
 )
 
@@ -1917,6 +1918,7 @@ RelationType = Literal["EqualTo", "GreaterThanOrEqualTo"]
 RepositoryAccessModeType = Literal["Platform", "Vpc"]
 ReservedCapacityInstanceTypeType = Literal[
     "ml.p4d.24xlarge",
+    "ml.p4de.24xlarge",
     "ml.p5.48xlarge",
     "ml.p5e.48xlarge",
     "ml.p5en.48xlarge",
@@ -2375,6 +2377,7 @@ VariantPropertyTypeType = Literal["DataCaptureConfig", "DesiredInstanceCount", "
 VariantStatusType = Literal["ActivatingTraffic", "Baking", "Creating", "Deleting", "Updating"]
 VendorGuidanceType = Literal["ARCHIVED", "NOT_PROVIDED", "STABLE", "TO_BE_ARCHIVED"]
 WarmPoolResourceStatusType = Literal["Available", "InUse", "Reused", "Terminated"]
+WorkforceIpAddressTypeType = Literal["dualstack", "ipv4"]
 WorkforceStatusType = Literal["Active", "Deleting", "Failed", "Initializing", "Updating"]
 SageMakerServiceName = Literal["sagemaker"]
 ServiceName = Literal[

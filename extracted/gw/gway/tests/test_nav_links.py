@@ -36,7 +36,7 @@ class NavLinksTests(unittest.TestCase):
         nav.gw.web.cookies = self.orig_cookies
 
     def test_render_includes_project_links(self):
-        homes = [('Games', 'games/game-of-life')]
+        homes = [('Toy Games', 'games/game-of-life')]
         html = nav.render(homes=homes, links={'games/game-of-life': ['score', 'about']})
         soup = BeautifulSoup(html, 'html.parser')
         sub = soup.find('ul', class_='sub-links')
@@ -44,6 +44,27 @@ class NavLinksTests(unittest.TestCase):
         hrefs = [a['href'] for a in sub.find_all('a')]
         self.assertIn('/games/score', hrefs)
         self.assertIn('/games/about', hrefs)
+
+    def test_sub_link_highlight_and_no_current_page(self):
+        nav.gw.web.cookies = type('C', (), {'accepted': lambda self2: True,
+                                             'get': lambda self2, n, d=None: None})()
+        nav.gw.web.app = type('A', (), {'is_setup': lambda self2, n: True})()
+        nav.request = FakeRequest('/games/score')
+        homes = [('Toy Games', 'games/game-of-life')]
+        html = nav.render(homes=homes, links={'games/game-of-life': ['score', 'about']})
+        soup = BeautifulSoup(html, 'html.parser')
+        score_links = soup.find_all('a', href='/games/score')
+        self.assertEqual(len(score_links), 1)
+        self.assertIn('current', score_links[0].get('class', []))
+
+    def test_current_page_not_added_when_missing(self):
+        nav.gw.web.cookies = type('C', (), {'accepted': lambda self2: True,
+                                             'get': lambda self2, n, d=None: None})()
+        nav.gw.web.app = type('A', (), {'is_setup': lambda self2, n: True})()
+        nav.request = FakeRequest('/unlisted/page')
+        homes = [('Toy Games', 'games/game-of-life')]
+        html = nav.render(homes=homes)
+        self.assertNotIn('/unlisted/page', html)
 
 if __name__ == '__main__':
     unittest.main()

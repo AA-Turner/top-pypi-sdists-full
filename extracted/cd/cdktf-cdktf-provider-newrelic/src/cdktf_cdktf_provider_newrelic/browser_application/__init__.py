@@ -1,7 +1,7 @@
 r'''
 # `newrelic_browser_application`
 
-Refer to the Terraform Registry for docs: [`newrelic_browser_application`](https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application).
+Refer to the Terraform Registry for docs: [`newrelic_browser_application`](https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BrowserApplication(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.browserApplication.BrowserApplication",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application newrelic_browser_application}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application newrelic_browser_application}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class BrowserApplication(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application newrelic_browser_application} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application newrelic_browser_application} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The name of the application to monitor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#name BrowserApplication#name}
-        :param account_id: The account ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#account_id BrowserApplication#account_id}
-        :param cookies_enabled: Configure cookies. The default is enabled: true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#cookies_enabled BrowserApplication#cookies_enabled}
-        :param distributed_tracing_enabled: Configure distributed tracing in browser apps. The default is enabled: true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#distributed_tracing_enabled BrowserApplication#distributed_tracing_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#id BrowserApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param loader_type: Determines which browser loader is configured. The default is "SPA". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#loader_type BrowserApplication#loader_type}
+        :param name: The name of the application to monitor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#name BrowserApplication#name}
+        :param account_id: The account ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#account_id BrowserApplication#account_id}
+        :param cookies_enabled: Configure cookies. The default is enabled: true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#cookies_enabled BrowserApplication#cookies_enabled}
+        :param distributed_tracing_enabled: Configure distributed tracing in browser apps. The default is enabled: true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#distributed_tracing_enabled BrowserApplication#distributed_tracing_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#id BrowserApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param loader_type: Determines which browser loader is configured. The default is "SPA". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#loader_type BrowserApplication#loader_type}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class BrowserApplication(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BrowserApplication to import.
-        :param import_from_id: The id of the existing BrowserApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BrowserApplication that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BrowserApplication to import is found.
         '''
         if __debug__:
@@ -339,12 +339,12 @@ class BrowserApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The name of the application to monitor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#name BrowserApplication#name}
-        :param account_id: The account ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#account_id BrowserApplication#account_id}
-        :param cookies_enabled: Configure cookies. The default is enabled: true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#cookies_enabled BrowserApplication#cookies_enabled}
-        :param distributed_tracing_enabled: Configure distributed tracing in browser apps. The default is enabled: true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#distributed_tracing_enabled BrowserApplication#distributed_tracing_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#id BrowserApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param loader_type: Determines which browser loader is configured. The default is "SPA". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#loader_type BrowserApplication#loader_type}
+        :param name: The name of the application to monitor. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#name BrowserApplication#name}
+        :param account_id: The account ID. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#account_id BrowserApplication#account_id}
+        :param cookies_enabled: Configure cookies. The default is enabled: true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#cookies_enabled BrowserApplication#cookies_enabled}
+        :param distributed_tracing_enabled: Configure distributed tracing in browser apps. The default is enabled: true. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#distributed_tracing_enabled BrowserApplication#distributed_tracing_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#id BrowserApplication#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param loader_type: Determines which browser loader is configured. The default is "SPA". Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#loader_type BrowserApplication#loader_type}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -459,7 +459,7 @@ class BrowserApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the application to monitor.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#name BrowserApplication#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#name BrowserApplication#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -469,7 +469,7 @@ class BrowserApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The account ID.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#account_id BrowserApplication#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#account_id BrowserApplication#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -480,7 +480,7 @@ class BrowserApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Configure cookies. The default is enabled: true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#cookies_enabled BrowserApplication#cookies_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#cookies_enabled BrowserApplication#cookies_enabled}
         '''
         result = self._values.get("cookies_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -491,14 +491,14 @@ class BrowserApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Configure distributed tracing in browser apps. The default is enabled: true.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#distributed_tracing_enabled BrowserApplication#distributed_tracing_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#distributed_tracing_enabled BrowserApplication#distributed_tracing_enabled}
         '''
         result = self._values.get("distributed_tracing_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#id BrowserApplication#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#id BrowserApplication#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -510,7 +510,7 @@ class BrowserApplicationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def loader_type(self) -> typing.Optional[builtins.str]:
         '''Determines which browser loader is configured. The default is "SPA".
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/browser_application#loader_type BrowserApplication#loader_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/browser_application#loader_type BrowserApplication#loader_type}
         '''
         result = self._values.get("loader_type")
         return typing.cast(typing.Optional[builtins.str], result)

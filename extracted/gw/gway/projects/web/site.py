@@ -232,6 +232,23 @@ def view_help(topic="", *args, **kwargs):
                         + res_html + "</div>"
                     )
                 return "<div class='cli-result'>" + "<hr>".join(html_parts) + "</div>"
+            except SystemExit as ex:
+                if gw.debug_enabled:
+                    tb = traceback.format_exc()
+                    log_tail = ""
+                    try:
+                        log_path = gw.resource("logs", "gway.log")
+                        with open(log_path) as lf:
+                            log_tail = "".join(lf.readlines()[-20:])
+                    except Exception:
+                        log_tail = "(unable to read log)"
+                    return (
+                        "<h2>Command Error</h2>"
+                        f"<pre>{html.escape(str(ex))}</pre>"
+                        f"<pre>{html.escape(tb)}</pre>"
+                        f"<pre>{html.escape(log_tail)}</pre>"
+                    )
+                return f"<pre>{html.escape(str(ex))}</pre>"
             except Exception as ex:
                 if gw.debug_enabled:
                     tb = traceback.format_exc()
@@ -408,6 +425,25 @@ def _render_help_section(info, use_query_links=False, highlight=False, *args, **
         elif key in ("Signature", "Example CLI", "Example Code", "Sample CLI"):
             value = f"<pre><code class='python'>{html.escape(str(value))}</code></pre>"
 
+        elif key == "Parameters" and isinstance(value, list):
+            rows_html = []
+            for p in value:
+                builder = p.get("builder")
+                if builder and use_query_links:
+                    builder = f'<a href="?topic={builder}">{html.escape(builder)}</a>'
+                elif builder:
+                    builder = html.escape(builder)
+                else:
+                    builder = ""
+                rows_html.append(
+                    f"<tr><td>{html.escape(p['name'])}</td><td>{html.escape(p.get('type',''))}</td><td>{builder}</td></tr>"
+                )
+            value = (
+                "<table class='param-table'><tr><th>Name</th><th>Type</th><th>Builder</th></tr>"
+                + "".join(rows_html)
+                + "</table>"
+            )
+
         elif key in ("Docstring", "TODOs"):
             value = f"<div class='doc'>{html.escape(str(value))}</div>"
 
@@ -445,7 +481,7 @@ def view_qr_code(*args, value=None, **kwargs):
                 <button type="submit" class="submit">Generate QR</button>
             </form>
         '''
-    qr_url = gw.qr.generate_url(value)
+    qr_url = gw.studio.qr.generate_url(value)
     back_link = gw.web.app_url("qr-code")
     return f"""
         <h1>QR Code for:</h1>
@@ -522,17 +558,17 @@ def view_feedback(*, name=None, email=None, topic=None, message=None, create_iss
     issue_option = (
         "<label class=\"checkbox-right\">"
         "Optional: Create an Issue Report for GWAY or this website."
-        "<input type=\"checkbox\" name=\"create_issue\" value=\"1\" />"
+        "<input type=\"checkbox\" name=\"create_issue\" value=\"1\" {('checked' if create_issue else '')}/>"
         "</label>"
     ) if token else "<p>(GitHub issue creation unavailable)</p>"
     return f"""
         <h1>Send Feedback</h1>
         <p>Your name and message may be publicly displayed and processed. Your email will be kept private.</p>
         <form method="post">
-            <input type="text" name="name" placeholder="Your Name" required class="main" />
-            <input type="email" name="email" placeholder="Email" required class="main" />
-            <input type="text" name="topic" placeholder="Topic" required class="main" />
-            <textarea name="message" placeholder="Message" required rows="6" class="main"></textarea>
+            <input type="text" name="name" placeholder="Your Name" required class="main" value="{html.escape(name or '')}" />
+            <input type="email" name="email" placeholder="Email" required class="main" value="{html.escape(email or '')}" />
+            <input type="text" name="topic" placeholder="Topic" required class="main" value="{html.escape(topic or '')}" />
+            <textarea name="message" placeholder="Message" required rows="6" class="main">{html.escape(message or '')}</textarea>
             {issue_option}
             <button type="submit" class="submit btn-block">Submit</button>
         </form>
@@ -570,6 +606,58 @@ def view_debug_info():
     )
 
 
+def view_future_updates():
+    """Show pending version and changelog information."""
+    import html as _html
+    import requests
+
+    current = gw.version()
+    latest = None
+    try:
+        resp = requests.get("https://pypi.org/pypi/gway/json", timeout=5)
+        resp.raise_for_status()
+        latest = resp.json()["info"]["version"]
+    except Exception as e:
+        gw.verbose(f"Failed to fetch PyPI version: {e}")
+
+    if latest and latest != current:
+        notice = (
+            f"There is a newer version of GWAY pending: { _html.escape(latest) }"
+            f" (installed { _html.escape(current) })."
+        )
+    else:
+        latest = latest or current
+        notice = f"We are at the latest version ({ _html.escape(latest) })."
+
+    changes = ""
+    try:
+        from pathlib import Path
+
+        path = Path(gw.resource("CHANGELOG.rst"))
+        text = path.read_text(encoding="utf-8")
+        lines = text.splitlines()
+        if "Unreleased" in lines:
+            idx = lines.index("Unreleased") + 2
+            body = []
+            while idx < len(lines) and lines[idx].startswith("- "):
+                body.append(lines[idx])
+                idx += 1
+            changes = "\n".join(body).strip()
+    except Exception:
+        pass
+
+    if changes:
+        changelog = "<pre>" + _html.escape(changes) + "</pre>"
+    else:
+        changelog = "<p>No pending changes.</p>"
+
+    return (
+        "<h1>Future Updates</h1>"
+        f"<p>{notice}</p>"
+        "<h2>Unreleased Changes</h2>" + changelog
+    )
+
+
 def view_project_readmes():
     """Render an HTML tree of README links discovered under ``data/static``."""
     base_dir = Path(gw.resource("data", "static"))
@@ -589,7 +677,7 @@ def view_project_readmes():
         if parts and parts[-1].lower() == "readme":
             parts = parts[:-1]
         tome = "/".join(parts)
-        url = gw.web.app.build_url("web", "site", "reader", tome=tome)
+        url = gw.web.app.build_url("reader", tome=tome)
         insert(tree, parts, url)
 
     def render(node: dict, root: bool = False) -> str:
@@ -597,7 +685,7 @@ def view_project_readmes():
         for name, child in sorted(node.items()):
             if name == "_url":
                 continue
-            label = html.escape(name.replace("_", " "))
+            label = html.escape(name.replace("_", " ").title())
             url = child.get("_url")
             link = f"<a href='{url}'>{label}</a>" if url else label
             sub = render(child, False)
@@ -609,11 +697,222 @@ def view_project_readmes():
     return "<h1>Project READMEs</h1>" + body
 
 
+def view_gateway_cookbook(*, recipe: str | None = None) -> str:
+    """Display recipe files under ``recipes`` with optional file preview."""
+    base_dir = Path(gw.resource("recipes"))
+
+    if recipe:
+        safe = _sanitize_relpath(recipe)
+        if not safe:
+            return "<b>Invalid recipe path.</b>"
+        file_path = base_dir / safe
+        if file_path.is_dir():
+            recipe = None
+        elif file_path.suffix != ".gwr" or not file_path.is_file():
+            return "<b>Recipe not found.</b>"
+        if recipe:
+            content = file_path.read_text(encoding="utf-8")
+            title = html.escape(file_path.name)
+            body = html.escape(content)
+            run_btn = ""
+            if gw.web.server.is_local():
+                action = gw.web.app.build_url("gateway-cookbook")
+                run_btn = (
+                    "<form method='post' action='{0}' style='margin-top:1em'>"
+                    "<input type='hidden' name='recipe' value='{1}'>"
+                    "<button type='submit'>Run Recipe</button>"
+                    "</form>"
+                ).format(action, html.escape(safe, quote=True))
+            return (
+                f"<h1>{title}</h1><pre><code class='gwr'>{body}</code></pre>"
+                f"{run_btn}"
+            )
+
+    tree: dict = {}
+
+    def insert(node: dict, parts: tuple[str, ...], rel_path: str) -> None:
+        head, *tail = parts
+        if tail:
+            node = node.setdefault(head, {})
+            insert(node, tuple(tail), rel_path)
+        else:
+            node.setdefault("_files", []).append(rel_path)
+
+    for path in sorted(base_dir.rglob("*.gwr")):
+        rel = path.relative_to(base_dir)
+        parts = rel.parts
+        if any(_is_hidden_or_private(p) for p in parts):
+            continue
+        insert(tree, parts, rel.as_posix())
+
+    def render(node: dict, root: bool = False) -> str:
+        items = []
+        for name in sorted(k for k in node.keys() if k != "_files"):
+            sub = render(node[name], False)
+            items.append(f"<li>{html.escape(name)}{sub}</li>")
+        for rel_path in node.get("_files", []):
+            href = gw.web.app.build_url("gateway-cookbook", recipe=rel_path)
+            label = html.escape(Path(rel_path).stem.replace("_", " ").title())
+            items.append(f"<li><a href='{href}'>{label}</a></li>")
+        cls = " class='cookbook-list'" if root else ""
+        return f"<ul{cls}>" + "".join(items) + "</ul>" if items else ""
+
+    body = render(tree, True) if tree else "<p>No recipes found.</p>"
+    return "<h1>Gateway Cookbook</h1>" + body
+
+
+def view_post_gateway_cookbook(*, recipe: str | None = None, request=None) -> str:
+    """POST handler to execute a recipe when running locally."""
+    message = ""
+    base_dir = Path(gw.resource("recipes"))
+    if recipe and gw.web.server.is_local(request=request):
+        safe = _sanitize_relpath(recipe)
+        if safe:
+            file_path = base_dir / safe
+            if file_path.is_file():
+                try:
+                    gw.run_recipe(str(file_path))
+                    message = "<p>Recipe launched. Check console for output.</p>"
+                except Exception as e:  # pragma: no cover - unexpected errors
+                    message = f"<pre>{html.escape(str(e))}</pre>"
+            else:
+                message = "<b>Recipe not found.</b>"
+        else:
+            message = "<b>Invalid recipe path.</b>"
+    elif recipe:
+        message = "<b>Recipe execution only allowed in local mode.</b>"
+    return view_gateway_cookbook(recipe=recipe) + message
+
+
+def view_pending_todos():
+    """Render an HTML table of TODOs grouped by project."""
+    import ast
+    import inspect
+    import os
+    from pathlib import Path
+
+    def _extract_todos(source: str):
+        todos = []
+        lines = source.splitlines()
+        current = []
+        for line in lines:
+            stripped = line.strip()
+            if "# TODO" in stripped:
+                if current:
+                    todos.append("\n".join(current))
+                current = [stripped]
+            elif current and (stripped.startswith("#") or not stripped):
+                current.append(stripped)
+            elif current:
+                todos.append("\n".join(current))
+                current = []
+        if current:
+            todos.append("\n".join(current))
+        return todos
+
+    todos: dict[str, list[tuple[str, str]]] = {}
+    extract = _extract_todos
+    base = Path("projects")
+    for path in base.rglob("*.py"):
+        if path.name.startswith("_"):
+            continue
+        dotted = path.relative_to(base).with_suffix("").as_posix().replace("/", ".")
+        with open(path, "r", encoding="utf-8", errors="ignore") as f:
+            lines = f.readlines()
+        try:
+            tree = ast.parse("".join(lines))
+        except Exception:
+            continue
+        for node in tree.body:
+            if not isinstance(node, ast.FunctionDef):
+                continue
+            start = node.lineno - 1
+            end = node.end_lineno or start
+            prepend = []
+            i = start - 1
+            while i >= 0 and not lines[i].strip():
+                i -= 1
+            while i >= 0 and lines[i].strip().startswith("#"):
+                prepend.insert(0, lines[i])
+                i -= 1
+            block = "".join(prepend + lines[start:end])
+            for todo in extract(block) or []:
+                t = todo.strip()
+                if not t.startswith("# TODO"):
+                    continue
+                todos.setdefault(dotted, []).append((node.name, t))
+
+    if not todos:
+        return "<h1>No TODOs found.</h1>"
+
+    html_parts = ["<h1>Pending TODOs</h1>"]
+    for proj in sorted(todos):
+        html_parts.append(f"<h2>{html.escape(proj)}</h2>")
+
+        html_parts.append("<table class='todo-table'>")
+        for func, todo in todos[proj]:
+            link = gw.web.app.build_url("web", "site", "help", topic=f"{proj}/{func}")
+            html_parts.append(
+                f"<tr><td><a href='{link}'>{html.escape(func)}</a></td>"
+                f"<td><pre class='todo-text'>{html.escape(todo)}</pre></td></tr>"
+            )
+        html_parts.append("</table>")
+    return "".join(html_parts)
+
+
 def build_help_db(*, update: bool = False):
     """Compatibility wrapper for :func:`gw.help_db.build`."""
     gw.warning(
         "web.site.build_help_db is deprecated; use help-db.build instead"
     )
     return gw.help_db.build(update=update)
+
+
+def _broken_links_path() -> Path:
+    """Return path to the broken links log file under work/web."""
+    return Path(gw.resource("work", "web", "broken_links.txt"))
+
+
+def record_broken_link(url: str) -> None:
+    """Append a broken link URL to the log, avoiding duplicates."""
+    path = _broken_links_path()
+    path.parent.mkdir(parents=True, exist_ok=True)
+    try:
+        lines = {l.strip() for l in path.read_text(encoding="utf-8").splitlines() if l.strip()}
+    except FileNotFoundError:
+        lines = set()
+    if url not in lines:
+        lines.add(url)
+        path.write_text("\n".join(sorted(lines)))
+
+
+def view_broken_links():
+    """Render the list of recorded broken links with a copy-friendly textarea."""
+    path = _broken_links_path()
+    try:
+        links = [l.strip() for l in path.read_text(encoding="utf-8").splitlines() if l.strip()]
+    except FileNotFoundError:
+        links = []
+    links = sorted(set(links))
+    if not links:
+        return "<h1>Broken Links</h1><p>No broken links recorded.</p>"
+    text = "\n".join(links)
+    items = "".join(f"<li>{html.escape(l)}</li>" for l in links)
+    textarea = (
+        f"<textarea readonly class='main' style='width:100%' rows='{len(links) + 1}'>"
+        f"{html.escape(text)}</textarea>"
+    )
+    return f"<h1>Broken Links</h1>{textarea}<ol>{items}</ol>"
+
+
+def setup_app(*, app=None, footer=None, **_):
+    """Register default home and footer links for the site project."""
+    path = "web/site"
+    gw.web.app.add_home("reader", path, project="web.site")
+    home_route = f"{path}/reader"
+    gw.web.app.add_footer_links(home_route, "broken-links", project="web.site")
+    if footer:
+        gw.web.app.add_footer_links(home_route, footer, project="web.site")
+    return app
 
 

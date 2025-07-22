@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional
 from dataclasses import asdict
 import time
 from datetime import datetime, timezone
+import copy  # Added for deep copying detections to preserve original masks
 
 from ..core.base import BaseProcessor, ProcessingContext, ProcessingResult, ConfigProtocol, ResultFormat
 from ..utils import (
@@ -45,8 +46,7 @@ class WarehouseObjectConfig(BaseConfig):
 
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-            0:"pallet"
-
+            0:"pallet",
         }
     )
 
@@ -228,7 +228,7 @@ class WarehouseObjectUseCase(BaseProcessor):
     def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
                 stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """
-        Main entry point for  post-processing.
+        Main entry point for post-processing.
         Applies category mapping, smoothing, counting, alerting, and summary generation.
         Returns a ProcessingResult with all relevant outputs.
         """
@@ -244,10 +244,10 @@ class WarehouseObjectUseCase(BaseProcessor):
         input_format = match_results_structure(data)
         context.input_format = input_format
         context.confidence_threshold = config.confidence_threshold
-
+        
+        # Step 1: Confidence filtering
         if config.confidence_threshold is not None:
             processed_data = filter_by_confidence(data, config.confidence_threshold)
-            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
         else:
             processed_data = data
             self.logger.debug(f"Did not apply confidence filtering with threshold since nothing was provided")
@@ -255,28 +255,31 @@ class WarehouseObjectUseCase(BaseProcessor):
         # Step 2: Apply category mapping if provided
         if config.index_to_category:
             processed_data = apply_category_mapping(processed_data, config.index_to_category)
-            self.logger.debug("Applied category mapping")
 
+        # Step 3: Category filtering
         if config.target_categories:
             processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
-            self.logger.debug(f"Applied  category filtering")
 
-        # Apply bbox smoothing if enabled
+        # Step 4: Apply bbox smoothing if enabled
+        # Deep-copy detections so that we preserve the original masks before any
+        # smoothing/tracking logic potentially removes them.
+        raw_processed_data = [copy.deepcopy(det) for det in processed_data]
         if config.enable_smoothing:
             if self.smoothing_tracker is None:
                 smoothing_config = BBoxSmoothingConfig(
                     smoothing_algorithm=config.smoothing_algorithm,
                     window_size=config.smoothing_window_size,
                     cooldown_frames=config.smoothing_cooldown_frames,
-                    confidence_threshold=config.confidence_threshold,  # Use  threshold as default
+                    confidence_threshold=config.confidence_threshold,
                     confidence_range_factor=config.smoothing_confidence_range_factor,
                     enable_smoothing=True
                 )
                 self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+           
             processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
+            # Restore masks after smoothing
 
-
-        # Advanced tracking (BYTETracker-like)
+        # Step 5: Advanced tracking (BYTETracker-like)
         try:
             from ..advanced_tracker import AdvancedTracker
             from ..advanced_tracker.config import TrackerConfig
@@ -285,21 +288,23 @@ class WarehouseObjectUseCase(BaseProcessor):
             if self.tracker is None:
                 tracker_config = TrackerConfig()
                 self.tracker = AdvancedTracker(tracker_config)
-                self.logger.info("Initialized AdvancedTracker for  Monitoring and tracking")
-
-            # The tracker expects the data in the same format as input
-            # It will add track_id and frame_id to each detection
+                self.logger.info("Initialized AdvancedTracker for Monitoring and tracking")
+           
             processed_data = self.tracker.update(processed_data)
-
         except Exception as e:
             # If advanced tracker fails, fallback to unsmoothed detections
             self.logger.warning(f"AdvancedTracker failed: {e}")
 
-
-
-
-        # Update  tracking state for total count per label
+        # Update tracking state for total count per label
         self._update_tracking_state(processed_data)
+
+        # ------------------------------------------------------------------ #
+        # Re-attach segmentation masks that were present in the original input
+        # but may have been stripped during smoothing/tracking. We match each
+        # processed detection back to the raw detection with the highest IoU
+        # and copy over its "masks" field (if available).
+        # ------------------------------------------------------------------ #
+        processed_data = self._attach_masks_to_detections(processed_data, raw_processed_data)
 
         # Update frame counter
         self._total_frame_counter += 1
@@ -315,18 +320,19 @@ class WarehouseObjectUseCase(BaseProcessor):
                 frame_number = start_frame
 
         # Compute summaries and alerts
-        general_counting_summary = calculate_counting_summary(data) #done
-        counting_summary = self._count_categories(processed_data, config) #done
-        # Add total unique  counts after tracking using only local state
-        total_counts = self.get_total_counts() #done
-        counting_summary['total_counts'] = total_counts #done
-        insights = self._generate_insights(counting_summary, config)#done
-        alerts = self._check_alerts(counting_summary, config)#done
-        predictions = self._extract_predictions(processed_data)#done
-        summary = self._generate_summary(counting_summary, alerts)#done
+        general_counting_summary = calculate_counting_summary(data)
+        counting_summary = self._count_categories(processed_data, config)
+        # Add total unique counts after tracking using only local state
+        total_counts = self.get_total_counts()
+        counting_summary['total_counts'] = total_counts
+
+        insights = self._generate_insights(counting_summary, config)
+        alerts = self._check_alerts(counting_summary, config)
+        predictions = self._extract_predictions(processed_data)
+        summary = self._generate_summary(counting_summary, alerts)
 
         # Step: Generate structured events and tracking stats with frame-based keys
-        events_list = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)#done
+        events_list = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)
         tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number,
                                                             stream_info)
 
@@ -354,6 +360,8 @@ class WarehouseObjectUseCase(BaseProcessor):
         result.insights = insights
         result.predictions = predictions
         return result
+
+
 
 
 
@@ -409,7 +417,7 @@ class WarehouseObjectUseCase(BaseProcessor):
                     "max_value": 10,
                     "level_settings": {"info": 2, "warning": 5, "critical": 7}
                 },
-                "application_name": "Warehouse Object Segmentation System",
+                "application_name": "Warehouse Object detection System",
                 "application_version": "1.2",
                 "location_info": None,
                 "human_text": human_text
@@ -467,8 +475,7 @@ class WarehouseObjectUseCase(BaseProcessor):
             frame_number: Optional[int] = None,
             stream_info: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
-        """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info."""
-
+        """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info and detections with masks."""
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         tracking_stats = [{frame_key: []}]
         frame_tracking_stats = tracking_stats[0][frame_key]
@@ -503,7 +510,7 @@ class WarehouseObjectUseCase(BaseProcessor):
 
         # TOTAL SINCE section
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
-        human_text_lines.append(f"\t- Total  Detected: {cumulative_total}")
+        human_text_lines.append(f"\t- Total Detected: {cumulative_total}")
         # Add category-wise counts
         if total_counts:
             for cat, count in total_counts.items():
@@ -511,6 +518,19 @@ class WarehouseObjectUseCase(BaseProcessor):
                     human_text_lines.append(f"\t- {cat}: {count}")
 
         human_text = "\n".join(human_text_lines)
+
+        # Include detections with masks from counting_summary
+        detections = [
+            {
+                "category": det.get("category"),
+                "confidence": det.get("confidence"),
+                "bounding_box": det.get("bounding_box"),
+                "track_id": det.get("track_id"),
+                "frame_id": det.get("frame_id"),
+                "masks": det.get("masks", det.get("mask", []))  # Include masks, fallback to empty list
+            }
+            for det in counting_summary.get("detections", [])
+        ]
 
         tracking_stat = {
             "type": "warehouse_object_segmentation",
@@ -522,7 +542,8 @@ class WarehouseObjectUseCase(BaseProcessor):
             "human_text": human_text,
             "track_ids_info": track_ids_info,
             "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-            "local_frame_id": frame_key
+            "local_frame_id": frame_key,
+            "detections": detections  # Add detections with masks
         }
 
         frame_tracking_stats.append(tracking_stat)
@@ -531,32 +552,90 @@ class WarehouseObjectUseCase(BaseProcessor):
     def _count_categories(self, detections: list, config: WarehouseObjectConfig) -> dict:
         """
         Count the number of detections per category and return a summary dict.
-        The detections list is expected to have 'track_id' (from tracker), 'category', 'bounding_box', etc.
-        Output structure will include 'track_id' for each detection as per AdvancedTracker output.
+        The detections list is expected to have 'track_id' (from tracker), 'category', 'bounding_box', 'masks', etc.
+        Output structure will include 'track_id' and 'masks' for each detection as per AdvancedTracker output.
         """
         counts = {}
+        valid_detections = []
         for det in detections:
             cat = det.get('category', 'unknown')
+            if not all(k in det for k in ['category', 'confidence', 'bounding_box']):  # Validate required fields
+                self.logger.warning(f"Skipping invalid detection: {det}")
+                continue
             counts[cat] = counts.get(cat, 0) + 1
-        # Each detection dict will now include 'track_id' (and possibly 'frame_id')
+            valid_detections.append({
+                "bounding_box": det.get("bounding_box"),
+                "category": det.get("category"),
+                "confidence": det.get("confidence"),
+                "track_id": det.get("track_id"),
+                "frame_id": det.get("frame_id"),
+                "masks": det.get("masks", det.get("mask", []))  # Include masks, fallback to empty list
+            })
+        self.logger.debug(f"Valid detections after filtering: {len(valid_detections)}")
         return {
             "total_count": sum(counts.values()),
             "per_category_count": counts,
-            "detections": [
-                {
-                    "bounding_box": det.get("bounding_box"),
-                    "category": det.get("category"),
-                    "confidence": det.get("confidence"),
-                    "track_id": det.get("track_id"),
-                    "frame_id": det.get("frame_id")
-                }
-                for det in detections
-            ]
+            "detections": valid_detections
         }
+
+    # ------------------------------------------------------------------ #
+    # Helper to merge masks back into detections                        #
+    # ------------------------------------------------------------------ #
+    def _attach_masks_to_detections(
+        self,
+        processed_detections: List[Dict[str, Any]],
+        raw_detections: List[Dict[str, Any]],
+        iou_threshold: float = 0.5,
+    ) -> List[Dict[str, Any]]:
+        """
+        Attach segmentation masks from the original `raw_detections` list to the
+        `processed_detections` list returned after smoothing/tracking.
+
+        Matching between detections is performed using Intersection-over-Union
+        (IoU) of the bounding boxes. For each processed detection we select the
+        raw detection with the highest IoU above `iou_threshold` and copy its
+        `masks` (or `mask`) field. If no suitable match is found, the detection
+        keeps an empty list for `masks` to maintain a consistent schema.
+        """
+
+        if not processed_detections or not raw_detections:
+            # Nothing to do – ensure masks key exists for downstream logic.
+            for det in processed_detections:
+                det.setdefault("masks", [])
+            return processed_detections
+
+        # Track which raw detections have already been matched to avoid
+        # assigning the same mask to multiple processed detections.
+        used_raw_indices = set()
+
+        for det in processed_detections:
+            best_iou = 0.0
+            best_idx = None
+
+            for idx, raw_det in enumerate(raw_detections):
+                if idx in used_raw_indices:
+                    continue
+
+                iou = self._compute_iou(det.get("bounding_box"), raw_det.get("bounding_box"))
+                if iou > best_iou:
+                    best_iou = iou
+                    best_idx = idx
+
+            if best_idx is not None and best_iou >= iou_threshold:
+                raw_det = raw_detections[best_idx]
+                masks = raw_det.get("masks", raw_det.get("mask"))
+                if masks is not None:
+                    det["masks"] = masks
+                used_raw_indices.add(best_idx)
+            else:
+                # No adequate match – default to empty list to keep schema consistent.
+                det.setdefault("masks", ["EMPTY"])
+
+        return processed_detections
 
     # Human-friendly display names for  categories
     CATEGORY_DISPLAY = {
-        "pallet": "pallet"
+        "pothole": "pothole"
     }
 
     def _generate_insights(self, summary: dict, config: WarehouseObjectConfig) -> List[str]:

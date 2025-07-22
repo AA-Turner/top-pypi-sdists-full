@@ -81,7 +81,7 @@ def find_awg(
 
     def _calc(*, force_awg=None, limit_awg=None):
         local_conduit = conduit
-        with gw.sql.open_connection(autoload=True) as cursor:
+        with gw.sql.open_db(autoload=True) as cursor:
             sql = (
                 "SELECT awg_size, line_num, k_ohm_km, amps_60c, amps_75c, amps_90c "
                 "FROM awg_cable_size "
@@ -215,7 +215,7 @@ def find_awg(
 
 def find_conduit(awg, cables, *, conduit="emt"):
     """Calculate the kind of conduit required for a set of cables."""
-    with gw.sql.open_connection(autoload=True) as cursor:
+    with gw.sql.open_db(autoload=True) as cursor:
 
         assert conduit in ("emt", "imc", "rmc", "fmc"), "Allowed: emt, imc, rmc, fmc."
         assert 1 <= cables <= 30, "Valid for 1-30 cables per conduit."
@@ -254,13 +254,16 @@ def find_conduit(awg, cables, *, conduit="emt"):
 
 def view_awg_calculator(
     *, meters=None, amps="40", volts="220", material="cu",
-    max_lines="1", max_awg=None, phases="1", temperature=None,
+    max_lines="1", max_awg=None, phases="1", temperature="60",
     conduit=None, ground="1", neutral="0", **kwargs
 ):
     """Page builder for AWG calculator with HTML form and result."""
     if not meters:
         return '''<link rel="stylesheet" href="/static/awg/cable_finder.css">
+            <script src="/static/awg/calc_info.js"></script>
             <h1>Cable & Conduit Calculator</h1>
+            <div class="calc-layout">
+            <div class="form-wrapper">
             <form method="post" class="cable-form">
                 <table class="form-table two-col">
                     <tr>
@@ -298,10 +301,9 @@ def view_awg_calculator(
                         <td>
                             <label for="temperature">Temperature:</label>
                             <select id="temperature" name="temperature">
-                                <option value="auto">Auto</option>
-                                <option value="60">60C</option>
-                                <option value="75">75C</option>
-                                <option value="90">90C</option>
+                                <option value="60" selected>60C (140F)</option>
+                                <option value="75">75C (167F)</option>
+                                <option value="90">90C (194F)</option>
                             </select>
                         </td>
                     </tr>
@@ -347,6 +349,24 @@ def view_awg_calculator(
                     </tr>
                 </table>
             </form>
+            </div>
+            <div id="calc-info" class="calc-info">
+                <button type="button" id="info-close" class="info-close hidden">[X]</button>
+                <p>This tool helps you select cable sizes and conduit using standard AWG tables. Fill in your system details and press Calculate.</p>
+                <h3>Glossary</h3>
+                <ul class="glossary">
+                    <li><strong>AWG</strong>: American Wire Gauge</li>
+                    <li><strong>A</strong>: ampere (current)</li>
+                    <li><strong>V</strong>: volt (voltage)</li>
+                    <li><strong>m</strong>: meter (length)</li>
+                    <li><strong>°C</strong>: degrees Celsius</li>
+                    <li><strong>°F</strong>: degrees Fahrenheit</li>
+                    <li><strong>cu</strong>: copper conductor</li>
+                    <li><strong>al</strong>: aluminum conductor</li>
+                </ul>
+            </div>
+            <button type="button" id="info-toggle" class="info-toggle">&#128278;</button>
+            </div>
         '''
     if max_awg in (None, ""):
         max_awg = None

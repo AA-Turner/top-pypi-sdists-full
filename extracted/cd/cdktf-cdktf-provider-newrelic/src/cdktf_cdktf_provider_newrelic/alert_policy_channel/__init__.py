@@ -1,7 +1,7 @@
 r'''
 # `newrelic_alert_policy_channel`
 
-Refer to the Terraform Registry for docs: [`newrelic_alert_policy_channel`](https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel).
+Refer to the Terraform Registry for docs: [`newrelic_alert_policy_channel`](https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class AlertPolicyChannel(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.alertPolicyChannel.AlertPolicyChannel",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel newrelic_alert_policy_channel}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel newrelic_alert_policy_channel}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class AlertPolicyChannel(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel newrelic_alert_policy_channel} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel newrelic_alert_policy_channel} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param channel_ids: Array of channel IDs to apply to the specified policy. We recommended sorting channel IDs in ascending order to avoid drift your Terraform state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#channel_ids AlertPolicyChannel#channel_ids}
-        :param policy_id: The ID of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#policy_id AlertPolicyChannel#policy_id}
-        :param account_id: The New Relic account ID where you want to link the channel to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#account_id AlertPolicyChannel#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#id AlertPolicyChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#timeouts AlertPolicyChannel#timeouts}
+        :param channel_ids: Array of channel IDs to apply to the specified policy. We recommended sorting channel IDs in ascending order to avoid drift your Terraform state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#channel_ids AlertPolicyChannel#channel_ids}
+        :param policy_id: The ID of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#policy_id AlertPolicyChannel#policy_id}
+        :param account_id: The New Relic account ID where you want to link the channel to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#account_id AlertPolicyChannel#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#id AlertPolicyChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#timeouts AlertPolicyChannel#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class AlertPolicyChannel(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the AlertPolicyChannel to import.
-        :param import_from_id: The id of the existing AlertPolicyChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing AlertPolicyChannel that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the AlertPolicyChannel to import is found.
         '''
         if __debug__:
@@ -129,7 +129,7 @@ class AlertPolicyChannel(
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#create AlertPolicyChannel#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#create AlertPolicyChannel#create}.
         '''
         value = AlertPolicyChannelTimeouts(create=create)
 
@@ -284,11 +284,11 @@ class AlertPolicyChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param channel_ids: Array of channel IDs to apply to the specified policy. We recommended sorting channel IDs in ascending order to avoid drift your Terraform state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#channel_ids AlertPolicyChannel#channel_ids}
-        :param policy_id: The ID of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#policy_id AlertPolicyChannel#policy_id}
-        :param account_id: The New Relic account ID where you want to link the channel to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#account_id AlertPolicyChannel#account_id}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#id AlertPolicyChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#timeouts AlertPolicyChannel#timeouts}
+        :param channel_ids: Array of channel IDs to apply to the specified policy. We recommended sorting channel IDs in ascending order to avoid drift your Terraform state. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#channel_ids AlertPolicyChannel#channel_ids}
+        :param policy_id: The ID of the policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#policy_id AlertPolicyChannel#policy_id}
+        :param account_id: The New Relic account ID where you want to link the channel to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#account_id AlertPolicyChannel#account_id}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#id AlertPolicyChannel#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#timeouts AlertPolicyChannel#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -403,7 +403,7 @@ class AlertPolicyChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         We recommended sorting channel IDs in ascending order to avoid drift your Terraform state.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#channel_ids AlertPolicyChannel#channel_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#channel_ids AlertPolicyChannel#channel_ids}
         '''
         result = self._values.get("channel_ids")
         assert result is not None, "Required property 'channel_ids' is missing"
@@ -413,7 +413,7 @@ class AlertPolicyChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def policy_id(self) -> jsii.Number:
         '''The ID of the policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#policy_id AlertPolicyChannel#policy_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#policy_id AlertPolicyChannel#policy_id}
         '''
         result = self._values.get("policy_id")
         assert result is not None, "Required property 'policy_id' is missing"
@@ -423,14 +423,14 @@ class AlertPolicyChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The New Relic account ID where you want to link the channel to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#account_id AlertPolicyChannel#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#account_id AlertPolicyChannel#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#id AlertPolicyChannel#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#id AlertPolicyChannel#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -442,7 +442,7 @@ class AlertPolicyChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["AlertPolicyChannelTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#timeouts AlertPolicyChannel#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#timeouts AlertPolicyChannel#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["AlertPolicyChannelTimeouts"], result)
@@ -467,7 +467,7 @@ class AlertPolicyChannelConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class AlertPolicyChannelTimeouts:
     def __init__(self, *, create: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#create AlertPolicyChannel#create}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#create AlertPolicyChannel#create}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d507643c8528ae772f9e9ba4bd676c685047e191358956a39ae948dbaca74b9a)
@@ -478,7 +478,7 @@ class AlertPolicyChannelTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/alert_policy_channel#create AlertPolicyChannel#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/alert_policy_channel#create AlertPolicyChannel#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 

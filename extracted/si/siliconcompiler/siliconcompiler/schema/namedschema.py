@@ -15,12 +15,12 @@ class NamedSchema(BaseSchema):
         name (str): name of the schema
     '''
 
-    def __init__(self, name=None):
+    def __init__(self, name: str = None):
         super().__init__()
 
-        self.__name = name
+        self.set_name(name)
 
-    def name(self):
+    def name(self) -> str:
         '''
         Returns the name of the schema
         '''
@@ -29,7 +29,7 @@ class NamedSchema(BaseSchema):
         except AttributeError:
             return None
 
-    def set_name(self, name):
+    def set_name(self, name: str) -> None:
         """
         Set the name of this object
 
@@ -42,6 +42,8 @@ class NamedSchema(BaseSchema):
 
         if self.name() is not None:
             raise RuntimeError("Cannot call set_name more than once.")
+        if name is not None and "." in name:
+            raise ValueError("Named schema object cannot contains: .")
         self.__name = name
 
     def _reset(self) -> None:

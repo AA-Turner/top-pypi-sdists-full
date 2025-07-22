@@ -7,6 +7,7 @@
 # pylint: skip-file
 # fmt: off
 # isort: skip_file
+from .....schema_classes import AssetCollectionModuleParamsClass
 from .....schema_classes import DataHubPageModuleParamsClass
 from .....schema_classes import DataHubPageModulePropertiesClass
 from .....schema_classes import DataHubPageModuleTypeClass
@@ -16,6 +17,7 @@ from .....schema_classes import PageModuleScopeClass
 from .....schema_classes import RichTextModuleParamsClass
 
 
+AssetCollectionModuleParams = AssetCollectionModuleParamsClass
 DataHubPageModuleParams = DataHubPageModuleParamsClass
 DataHubPageModuleProperties = DataHubPageModulePropertiesClass
 DataHubPageModuleType = DataHubPageModuleTypeClass

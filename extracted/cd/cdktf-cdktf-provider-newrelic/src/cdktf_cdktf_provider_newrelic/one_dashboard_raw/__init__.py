@@ -1,7 +1,7 @@
 r'''
 # `newrelic_one_dashboard_raw`
 
-Refer to the Terraform Registry for docs: [`newrelic_one_dashboard_raw`](https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw).
+Refer to the Terraform Registry for docs: [`newrelic_one_dashboard_raw`](https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class OneDashboardRaw(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.oneDashboardRaw.OneDashboardRaw",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw newrelic_one_dashboard_raw}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw newrelic_one_dashboard_raw}.'''
 
     def __init__(
         self,
@@ -65,16 +65,16 @@ class OneDashboardRaw(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw newrelic_one_dashboard_raw} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw newrelic_one_dashboard_raw} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The dashboard's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#name OneDashboardRaw#name}
-        :param page: page block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#page OneDashboardRaw#page}
-        :param account_id: The New Relic account ID where you want to create the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#account_id OneDashboardRaw#account_id}
-        :param description: The dashboard's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#description OneDashboardRaw#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#id OneDashboardRaw#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param permissions: Determines who can see or edit the dashboard. Valid values are private, public_read_only, public_read_write. Defaults to public_read_only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#permissions OneDashboardRaw#permissions}
+        :param name: The dashboard's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#name OneDashboardRaw#name}
+        :param page: page block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#page OneDashboardRaw#page}
+        :param account_id: The New Relic account ID where you want to create the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#account_id OneDashboardRaw#account_id}
+        :param description: The dashboard's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#description OneDashboardRaw#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#id OneDashboardRaw#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param permissions: Determines who can see or edit the dashboard. Valid values are private, public_read_only, public_read_write. Defaults to public_read_only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#permissions OneDashboardRaw#permissions}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -118,7 +118,7 @@ class OneDashboardRaw(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the OneDashboardRaw to import.
-        :param import_from_id: The id of the existing OneDashboardRaw that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing OneDashboardRaw that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the OneDashboardRaw to import is found.
         '''
         if __debug__:
@@ -324,12 +324,12 @@ class OneDashboardRawConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The dashboard's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#name OneDashboardRaw#name}
-        :param page: page block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#page OneDashboardRaw#page}
-        :param account_id: The New Relic account ID where you want to create the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#account_id OneDashboardRaw#account_id}
-        :param description: The dashboard's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#description OneDashboardRaw#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#id OneDashboardRaw#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param permissions: Determines who can see or edit the dashboard. Valid values are private, public_read_only, public_read_write. Defaults to public_read_only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#permissions OneDashboardRaw#permissions}
+        :param name: The dashboard's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#name OneDashboardRaw#name}
+        :param page: page block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#page OneDashboardRaw#page}
+        :param account_id: The New Relic account ID where you want to create the dashboard. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#account_id OneDashboardRaw#account_id}
+        :param description: The dashboard's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#description OneDashboardRaw#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#id OneDashboardRaw#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param permissions: Determines who can see or edit the dashboard. Valid values are private, public_read_only, public_read_write. Defaults to public_read_only. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#permissions OneDashboardRaw#permissions}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -443,7 +443,7 @@ class OneDashboardRawConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The dashboard's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#name OneDashboardRaw#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#name OneDashboardRaw#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -455,7 +455,7 @@ class OneDashboardRawConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardRawPage"]]:
         '''page block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#page OneDashboardRaw#page}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#page OneDashboardRaw#page}
         '''
         result = self._values.get("page")
         assert result is not None, "Required property 'page' is missing"
@@ -465,7 +465,7 @@ class OneDashboardRawConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The New Relic account ID where you want to create the dashboard.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#account_id OneDashboardRaw#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#account_id OneDashboardRaw#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -474,14 +474,14 @@ class OneDashboardRawConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The dashboard's description.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#description OneDashboardRaw#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#description OneDashboardRaw#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#id OneDashboardRaw#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#id OneDashboardRaw#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -493,7 +493,7 @@ class OneDashboardRawConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def permissions(self) -> typing.Optional[builtins.str]:
         '''Determines who can see or edit the dashboard. Valid values are private, public_read_only, public_read_write. Defaults to public_read_only.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#permissions OneDashboardRaw#permissions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#permissions OneDashboardRaw#permissions}
         '''
         result = self._values.get("permissions")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -524,9 +524,9 @@ class OneDashboardRawPage:
         widget: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["OneDashboardRawPageWidget", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: The dashboard page's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#name OneDashboardRaw#name}
-        :param description: The dashboard page's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#description OneDashboardRaw#description}
-        :param widget: widget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#widget OneDashboardRaw#widget}
+        :param name: The dashboard page's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#name OneDashboardRaw#name}
+        :param description: The dashboard page's description. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#description OneDashboardRaw#description}
+        :param widget: widget block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#widget OneDashboardRaw#widget}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7c4c9bc41032b0134a93370aab0505ad2bf2c0262c2ec0eea0c331647cd0b287)
@@ -545,7 +545,7 @@ class OneDashboardRawPage:
     def name(self) -> builtins.str:
         '''The dashboard page's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#name OneDashboardRaw#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#name OneDashboardRaw#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -555,7 +555,7 @@ class OneDashboardRawPage:
     def description(self) -> typing.Optional[builtins.str]:
         '''The dashboard page's description.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#description OneDashboardRaw#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#description OneDashboardRaw#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -566,7 +566,7 @@ class OneDashboardRawPage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardRawPageWidget"]]]:
         '''widget block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#widget OneDashboardRaw#widget}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#widget OneDashboardRaw#widget}
         '''
         result = self._values.get("widget")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["OneDashboardRawPageWidget"]]], result)
@@ -817,14 +817,14 @@ class OneDashboardRawPageWidget:
         width: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#column OneDashboardRaw#column}.
-        :param configuration: The configuration of the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#configuration OneDashboardRaw#configuration}
-        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#row OneDashboardRaw#row}.
-        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#title OneDashboardRaw#title}
-        :param visualization_id: The visualization ID of the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#visualization_id OneDashboardRaw#visualization_id}
-        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#height OneDashboardRaw#height}.
-        :param linked_entity_guids: (Optional) Related entity GUIDs. Currently only supports Dashboard entity GUIDs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#linked_entity_guids OneDashboardRaw#linked_entity_guids}
-        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#width OneDashboardRaw#width}.
+        :param column: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#column OneDashboardRaw#column}.
+        :param configuration: The configuration of the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#configuration OneDashboardRaw#configuration}
+        :param row: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#row OneDashboardRaw#row}.
+        :param title: A title for the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#title OneDashboardRaw#title}
+        :param visualization_id: The visualization ID of the widget. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#visualization_id OneDashboardRaw#visualization_id}
+        :param height: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#height OneDashboardRaw#height}.
+        :param linked_entity_guids: (Optional) Related entity GUIDs. Currently only supports Dashboard entity GUIDs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#linked_entity_guids OneDashboardRaw#linked_entity_guids}
+        :param width: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#width OneDashboardRaw#width}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f0b8787d72b50b47b369df5c7aca8f56d70939db74c64204bf28e7359488d338)
@@ -852,7 +852,7 @@ class OneDashboardRawPageWidget:
 
     @builtins.property
     def column(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#column OneDashboardRaw#column}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#column OneDashboardRaw#column}.'''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
         return typing.cast(jsii.Number, result)
@@ -861,7 +861,7 @@ class OneDashboardRawPageWidget:
     def configuration(self) -> builtins.str:
         '''The configuration of the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#configuration OneDashboardRaw#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#configuration OneDashboardRaw#configuration}
         '''
         result = self._values.get("configuration")
         assert result is not None, "Required property 'configuration' is missing"
@@ -869,7 +869,7 @@ class OneDashboardRawPageWidget:
 
     @builtins.property
     def row(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#row OneDashboardRaw#row}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#row OneDashboardRaw#row}.'''
         result = self._values.get("row")
         assert result is not None, "Required property 'row' is missing"
         return typing.cast(jsii.Number, result)
@@ -878,7 +878,7 @@ class OneDashboardRawPageWidget:
     def title(self) -> builtins.str:
         '''A title for the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#title OneDashboardRaw#title}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#title OneDashboardRaw#title}
         '''
         result = self._values.get("title")
         assert result is not None, "Required property 'title' is missing"
@@ -888,7 +888,7 @@ class OneDashboardRawPageWidget:
     def visualization_id(self) -> builtins.str:
         '''The visualization ID of the widget.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#visualization_id OneDashboardRaw#visualization_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#visualization_id OneDashboardRaw#visualization_id}
         '''
         result = self._values.get("visualization_id")
         assert result is not None, "Required property 'visualization_id' is missing"
@@ -896,7 +896,7 @@ class OneDashboardRawPageWidget:
 
     @builtins.property
     def height(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#height OneDashboardRaw#height}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#height OneDashboardRaw#height}.'''
         result = self._values.get("height")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -904,14 +904,14 @@ class OneDashboardRawPageWidget:
     def linked_entity_guids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''(Optional) Related entity GUIDs. Currently only supports Dashboard entity GUIDs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#linked_entity_guids OneDashboardRaw#linked_entity_guids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#linked_entity_guids OneDashboardRaw#linked_entity_guids}
         '''
         result = self._values.get("linked_entity_guids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def width(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/one_dashboard_raw#width OneDashboardRaw#width}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/one_dashboard_raw#width OneDashboardRaw#width}.'''
         result = self._values.get("width")
         return typing.cast(typing.Optional[jsii.Number], result)
 

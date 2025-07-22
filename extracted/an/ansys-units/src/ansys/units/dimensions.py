@@ -25,7 +25,7 @@ from __future__ import annotations
 
 from typing import Union
 
-from ansys.units import BaseDimensions
+from ansys.units.base_dimensions import BaseDimensions
 
 
 class Dimensions:
@@ -127,6 +127,10 @@ class Dimensions:
 
     def __bool__(self):
         return bool(self._dimensions)
+
+    def __getitem__(self, key):
+        dimension_name = BaseDimensions[key]
+        return self._dimensions[dimension_name]
 
 
 class IncorrectDimensions(ValueError):

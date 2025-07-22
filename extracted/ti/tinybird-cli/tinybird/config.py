@@ -33,6 +33,7 @@ LEGACY_HOSTS = {
     "https://api.europe-west2.gcp.tinybird.co": "https://cloud.tinybird.co/gcp/europe-west2",
     "https://api.ap-east.aws.tinybird.co": "https://app.tinybird.co/aws/ap-east",
     "https://api.northamerica-northeast2.gcp.tinybird.co": "https://app.tinybird.co/gcp/northamerica-northeast2",
+    "https://api.us-west1.gcp.tinybird.co": "https://app.tinybird.co/gcp/us-west1",
     "https://api.wadus1.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus1",
     "https://api.wadus2.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus2",
     "https://api.wadus3.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus3",
@@ -55,6 +56,7 @@ LEGACY_HOSTS = {
     "https://ui.split.tinybird.co": "https://app.tinybird.co/aws/split-us-east",
     "https://ui.split.us-west-2.aws.tinybird.co": "https://app.tinybird.co/aws/split-us-west-2",
     "https://ui.northamerica-northeast2.gcp.tinybird.co": "https://app.tinybird.co/gcp/northamerica-northeast2",
+    "https://ui.us-west1.gcp.tinybird.co": "https://app.tinybird.co/gcp/us-west1",
     "https://api.split.tinybird.co": "https://app.tinybird.co/aws/split-us-east",
     "https://api.split.us-west-2.aws.tinybird.co": "https://app.tinybird.co/aws/split-us-west-2",
     "https://ui.wadus1.gcp.tinybird.co": "https://app.wadus.tinybird.co/gcp/wadus1",
@@ -81,6 +83,7 @@ CLOUD_HOSTS = {
     "https://api.eu-west-1.aws.tinybird.co": "https://cloud.tinybird.co/aws/eu-west-1",
     "https://api.europe-west2.gcp.tinybird.co": "https://cloud.tinybird.co/gcp/europe-west2",
     "https://api.northamerica-northeast2.gcp.tinybird.co": "https://cloud.tinybird.co/gcp/northamerica-northeast2",
+    "https://api.us-west1.gcp.tinybird.co": "https://cloud.tinybird.co/gcp/us-west1",
     "https://api.ap-east.aws.tinybird.co": "https://cloud.tinybird.co/aws/ap-east",
     "https://ui.tinybird.co": "https://cloud.tinybird.co/gcp/europe-west3",
     "https://ui.us-east.tinybird.co": "https://cloud.tinybird.co/gcp/us-east4",
@@ -89,6 +92,7 @@ CLOUD_HOSTS = {
     "https://ui.eu-central-1.aws.tinybird.co": "https://cloud.tinybird.co/aws/eu-central-1",
     "https://ui.europe-west2.gcp.tinybird.co": "https://cloud.tinybird.co/gcp/europe-west2",
     "https://ui.northamerica-northeast2.gcp.tinybird.co": "https://cloud.tinybird.co/gcp/northamerica-northeast2",
+    "https://ui.us-west1.gcp.tinybird.co": "https://cloud.tinybird.co/gcp/us-west1",
 }
 
 

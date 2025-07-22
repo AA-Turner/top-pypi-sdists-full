@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymilvus
-Version: 2.5.13
+Version: 2.5.14
 Summary: Python Sdk for Milvus
 Author-email: Milvus Team <milvus-team@zilliz.com>
 Project-URL: repository, https://github.com/milvus-io/pymilvus
@@ -28,6 +28,10 @@ Requires-Dist: requests; extra == "bulk-writer"
 Requires-Dist: minio>=7.0.0; extra == "bulk-writer"
 Requires-Dist: pyarrow>=12.0.0; extra == "bulk-writer"
 Requires-Dist: azure-storage-blob; extra == "bulk-writer"
+Provides-Extra: stage
+Requires-Dist: requests; extra == "stage"
+Requires-Dist: minio>=7.0.0; extra == "stage"
+Requires-Dist: urllib3; extra == "stage"
 Provides-Extra: model
 Requires-Dist: pymilvus.model>=0.3.0; extra == "model"
 Provides-Extra: dev

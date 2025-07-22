@@ -62,6 +62,8 @@ from montecarlodata.integrations.onboarding.fields import (
     ORACLE_DB_TYPE,
     POSTGRES_DB_TYPE,
     PRESTO_S3_CONNECTION_TYPE,
+    SALESFORCE_CRM_DATABASE_TYPE,
+    SALESFORCE_DATA_CLOUD_DATABASE_TYPE,
     SAP_HANA_DATABASE_TYPE,
     SECRETS_MANAGER_CREDENTIAL_MECHANISM,
     SELF_HOSTING_MECHANISMS,
@@ -2181,6 +2183,113 @@ def add_dremio(ctx, name, tls, **kwargs):
     ).onboard_transactional_db(
         warehouseName=name,
         dbType=DREMIO_DATABASE_TYPE,
+        **kwargs,
+    )
+
+
+@integrations.command(help=f"Setup a Salesforce CRM integration. {LIGHTWEIGHT_VERBIAGE}.")
+@click.pass_obj
+@click.option(
+    "--token",
+    help="Salesforce CRM token for authentication",
+    required=False,
+    cls=AdvancedOptions,
+    required_with_options=["user", "password"],
+    mutually_exclusive_options=["consumer_key"],
+)
+@click.option(
+    "--user",
+    help="Salesforce CRM username for authentication.",
+    required=False,
+    cls=AdvancedOptions,
+    required_with_options=["token", "password"],
+)
+@click.option(
+    "--password",
+    help="Salesforce CRM password for authentication.",
+    required=False,
+    cls=AdvancedOptions,
+    required_with_options=["token", "user"],
+    prompt_if_requested=True,
+)
+@click.option(
+    "--consumer-key",
+    "consumer_key",
+    help="Salesforce CRM consumer key for OAuth 2.0 client credentials.",
+    required=False,
+    cls=AdvancedOptions,
+    required_with_options=["consumer_secret", "domain"],
+    mutually_exclusive_options=["token"],
+)
+@click.option(
+    "--consumer-secret",
+    "consumer_secret",
+    help="Salesforce CRM consumer secret for OAuth 2.0 client credentials.",
+    required=False,
+    cls=AdvancedOptions,
+    required_with_options=["consumer_key", "domain"],
+    prompt_if_requested=True,
+)
+@click.option(
+    "--domain",
+    help='Salesforce "My Domain URL" for your organization.',
+    required=False,
+    cls=AdvancedOptions,
+    required_with_options=["consumer_key", "consumer_secret"],
+)
+@add_common_options(warehouse_create_option(required=True) + ONBOARDING_CONFIGURATION_OPTIONS)
+@click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
+def add_salesforce_crm(ctx, name, **kwargs):
+    """
+    Onboard a Salesforce CRM connection
+    """
+    TransactionalOnboardingService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="integrations add_salesforce_crm",
+    ).onboard_transactional_db(
+        warehouseName=name,
+        dbType=SALESFORCE_CRM_DATABASE_TYPE,
+        **kwargs,
+    )
+
+
+@integrations.command(help=f"Setup a Salesforce Data Cloud integration. {LIGHTWEIGHT_VERBIAGE}.")
+@click.pass_obj
+@click.option(
+    "--consumer-key",
+    "consumer_key",
+    help="Salesforce Connected App Consumer Key.",
+    required=True,
+    cls=AdvancedOptions,
+)
+@click.option(
+    "--consumer-secret",
+    "consumer_secret",
+    help="Salesforce Connected App Consumer Secret.",
+    required=True,
+    cls=AdvancedOptions,
+    prompt_if_requested=True,
+)
+@click.option(
+    "--domain",
+    help='Salesforce "My Domain URL" for your organization.',
+    required=True,
+    cls=AdvancedOptions,
+)
+@add_common_options(warehouse_create_option(required=True) + ONBOARDING_CONFIGURATION_OPTIONS)
+@click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
+def add_salesforce_data_cloud(ctx, name, **kwargs):
+    """
+    Onboard a Salesforce Data Cloud connection
+    """
+    TransactionalOnboardingService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="integrations add_salesforce_data_cloud",
+    ).onboard_transactional_db(
+        warehouseName=name,
+        dbType=SALESFORCE_DATA_CLOUD_DATABASE_TYPE,
         **kwargs,
     )
 

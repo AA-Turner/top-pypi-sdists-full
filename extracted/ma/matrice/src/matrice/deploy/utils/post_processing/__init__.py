@@ -94,8 +94,17 @@ from .usecases.child_monitoring import ChildMonitoringConfig
 from .usecases.gender_detection import GenderDetectionConfig
 from .usecases.concrete_crack_detection import ConcreteCrackConfig
 from .usecases.fashion_detection import FashionDetectionConfig, FashionDetectionUseCase
+from .usecases.shelf_inventory_detection import ShelfInventoryConfig
+from .usecases.road_lane_detection import LaneDetectionConfig
+
 from .usecases.warehouse_object_segmentation import WarehouseObjectConfig
 from .usecases.shopping_cart_analysis import ShoppingCartConfig
+from .usecases.anti_spoofing_detection import AntiSpoofingDetectionConfig
+
+from .usecases.shoplifting_detection import ShopliftingDetectionConfig, ShopliftingDetectionUseCase
+from .usecases.defect_detection_products import BottleDefectUseCase, BottleDefectConfig
+from .usecases.assembly_line_detection import AssemblyLineUseCase, AssemblyLineConfig
+from .usecases.car_part_segmentation import CarPartSegmentationUseCase, CarPartSegmentationConfig
 
 # Use case implementations
 from .usecases import (
@@ -133,7 +142,14 @@ from .usecases import (
     FashionDetectionUseCase,
     ConcreteCrackUseCase,
     WarehouseObjectUseCase,
-    ShoppingCartUseCase
+    ShoppingCartUseCase,
+    BottleDefectUseCase,
+    AssemblyLineUseCase,
+    AntiSpoofingDetectionUseCase,
+    ShelfInventoryUseCase,
+    LaneDetectionUseCase,
+
+    CarPartSegmentationUseCase
 )
 
 # Register use cases automatically
@@ -158,6 +174,8 @@ _banana_defect_detection = BananaMonitoringUseCase()
 _chicken_pose_detection = ChickenPoseDetectionUseCase()
 _theft_detection = TheftDetectionUseCase()
 _traffic_sign_monitoring = TrafficSignMonitoringUseCase()
+_shelf_inventory = ShelfInventoryUseCase()
+_lane_detection = LaneDetectionUseCase()
 
 _weld_defect_detection = WeldDefectUseCase()
 _pricetag_detection = PriceTagUseCase()
@@ -171,8 +189,16 @@ _gender_detection = GenderDetectionUseCase()
 _weapon_tracking = WeaponDetectionUseCase()
 _concrete_crack_detection = ConcreteCrackUseCase()
 _fashion_detection = FashionDetectionUseCase()
+
 _warehouse_object_segmentation = WarehouseObjectUseCase()
 _shopping_cart_analysis = ShoppingCartUseCase()
+_anti_spoofing_detection = AntiSpoofingDetectionUseCase()
+
+
+_shoplifting_detection = ShopliftingDetectionUseCase()
+_defect_detection_products = BottleDefectUseCase()
+_assembly_line_detection = AssemblyLineUseCase()
+_car_part_segmentation = CarPartSegmentationUseCase()
 
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
@@ -198,6 +224,9 @@ registry.register_use_case(_chicken_pose_detection.category, _chicken_pose_detec
 registry.register_use_case(_theft_detection.category, _theft_detection.name, TheftDetectionUseCase)
 registry.register_use_case(_traffic_sign_monitoring.category, _traffic_sign_monitoring.name, TrafficSignMonitoringUseCase)
 registry.register_use_case(_gender_detection.category, _gender_detection.name, GenderDetectionUseCase)
+registry.register_use_case(_anti_spoofing_detection.category, _anti_spoofing_detection.name, AntiSpoofingDetectionUseCase)
+registry.register_use_case(_shelf_inventory.category, _shelf_inventory.name, ShelfInventoryUseCase)
+registry.register_use_case(_lane_detection.category, _lane_detection.name, LaneDetectionUseCase)
 
 registry.register_use_case(_car_damage.category, _car_damage.name, CarDamageDetectionUseCase)
 registry.register_use_case(_distracted_driver.category, _distracted_driver.name, DistractedDriverUseCase)
@@ -209,8 +238,15 @@ registry.register_use_case(_child_monitoring.category, _child_monitoring.name, C
 registry.register_use_case(_weapon_tracking.category, _weapon_tracking.name, WeaponDetectionUseCase)
 registry.register_use_case(_concrete_crack_detection.category, _concrete_crack_detection.name, ConcreteCrackUseCase)
 registry.register_use_case(_fashion_detection.category, _fashion_detection.name, FashionDetectionUseCase)
+
 registry.register_use_case(_warehouse_object_segmentation.category, _warehouse_object_segmentation.name, WarehouseObjectUseCase)
 registry.register_use_case(_shopping_cart_analysis.category, _shopping_cart_analysis.name, ShoppingCartUseCase)
+
+
+registry.register_use_case(_shoplifting_detection.category, _shoplifting_detection.name, ShopliftingDetectionUseCase)
+registry.register_use_case(_defect_detection_products.category, _defect_detection_products.name, BottleDefectUseCase)
+registry.register_use_case(_assembly_line_detection.category, _assembly_line_detection.name, AssemblyLineUseCase)
+registry.register_use_case(_car_part_segmentation.category, _car_part_segmentation.name, CarPartSegmentationUseCase)
 
 # Utility functions - organized by category
 from .utils import (  # noqa: E402
@@ -345,6 +381,7 @@ __all__ = [
     'ColorDetectionConfig',
     'LicensePlateConfig',
     'MaskDetectionConfig',
+    'ShopliftingDetectionConfig',
     'CarDamageConfig',
     'ParkingSpaceConfig',
     'PotholeConfig',
@@ -376,6 +413,14 @@ __all__ = [
     'WeaponDetectionConfig',
     'ConcreteCrackConfig',
     'FashionDetectionConfig',
+    'WarehouseObjectConfig',
+    'ShoppingCartConfig',
+    'BottleDefectConfig',
+    'AssemblyLineConfig',
+    'AntiSpoofingDetectionConfig',
+    'ShelfInventoryConfig',
+    'CarPartSegmentationConfig',
+    'LaneDetectionConfig',
 
     # Use case classes
     'PeopleCountingUseCase',
@@ -396,6 +441,7 @@ __all__ = [
     'UnderwaterPlasticUseCase',
     'PedestrianDetectionUseCase',
     'AgeDetectionUseCase',
+    'ShopliftingDetectionUseCase',
     'WeldDefectUseCase',
     'BananaMonitoringUseCase',
     'PriceTagUseCase',
@@ -406,12 +452,20 @@ __all__ = [
     'TheftDetectionUseCase',
     'TrafficSignMonitoringUseCase',
     'WeaponDetectionUseCase',
+    'ShelfInventoryUseCase',
 
     'CropWeedDetectionUseCase',
     'ChildMonitoringUseCase',
     'GenderDetectionUseCase',
     'ConcreteCrackUseCase',
     'FashionDetectionUseCase',
+    'WarehouseObjectUseCase',
+    'ShoppingCartUseCase',
+    'BottleDefectUseCase',
+    'AssemblyLineUseCase',
+    'AntiSpoofingDetectionUseCase',
+    'CarPartSegmentationUseCase',
+    'LaneDetectionUseCase',
     
     # Base classes for extension
     'BaseProcessor',

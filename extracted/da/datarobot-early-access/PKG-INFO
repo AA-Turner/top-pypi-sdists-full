@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datarobot_early_access
-Version: 3.9.0.2025.7.14.174455
+Version: 3.9.0.2025.7.21.174427
 Summary: This client library is designed to support the DataRobot API.
 Home-page: https://datarobot.com
 Author: datarobot
@@ -214,8 +214,6 @@ Alternatively environment variables can be used.
 
    export DATAROBOT_API_TOKEN='your_token'
    export DATAROBOT_ENDPOINT='https://app.datarobot.com/api/v2'
-
-See `documentation`_ for example usage after configuring.
 
 Extra
 =========================

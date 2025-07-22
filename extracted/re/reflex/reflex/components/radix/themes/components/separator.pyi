@@ -11,7 +11,7 @@ from reflex.components.radix.themes.base import RadixThemesComponent
 from reflex.event import EventType, PointerEventInfo
 from reflex.vars.base import Var
 
-LiteralSeperatorSize = Literal["1", "2", "3", "4"]
+LiteralSeparatorSize = Literal["1", "2", "3", "4"]
 
 class Separator(RadixThemesComponent):
     @classmethod
@@ -127,8 +127,8 @@ class Separator(RadixThemesComponent):
 
         Args:
             *children: Child components.
-            size: The size of the select: "1" | "2" | "3" | "4"
-            color_scheme: The color of the select
+            size: The size of the separator: "1" | "2" | "3" | "4"
+            color_scheme: The color of the separator
             orientation: The orientation of the separator.
             decorative: When true, signifies that it is purely visual, carries no semantic meaning, and ensures it is not present in the accessibility tree.
             style: The style of the component.

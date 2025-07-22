@@ -2,10 +2,11 @@ from setuptools import setup, find_packages
 
 setup(
     name="canonmap",
-    version="0.2.43",
+    version="0.2.53",
     packages=find_packages(),
     install_requires=[
         "python-dotenv",
+        "pydantic",
         "google-cloud-storage",
         "pandas",
         "chardet",

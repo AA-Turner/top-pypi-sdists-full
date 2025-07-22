@@ -36,6 +36,7 @@ def build(
     help_db: bool = False,
     projects: bool = False,
     git: bool = False,
+    notify: bool = False,
     all: bool = False,
     force: bool = False
 ) -> None:
@@ -48,6 +49,7 @@ def build(
         twine (bool): Upload to PyPI if True.
         force (bool): Skip version-exists check on PyPI if True.
         git (bool): Require a clean git repo and commit/push after release if True.
+        notify (bool): Show a desktop notification when done.
         vscode (bool): Build the vscode extension.
     """
     from pathlib import Path
@@ -65,6 +67,7 @@ def build(
         twine = True
         git = True
         projects = True
+        notify = True
 
     gw.info(f"Running tests before project build.")
     test_result = gw.test()
@@ -246,20 +249,24 @@ def build(
                 gw.error("Build aborted. README syntax errors detected.")
                 return
 
-            gw.info("Twine check passed. Uploading to PyPI...")
-            upload_command = [
-                sys.executable, "-m", "twine", "upload", "dist/*"
-            ]
+            gw.info("Twine check passed.")
 
-            if token:
-                upload_command += ["--username", "__token__", "--password", token]
-            elif user and password:
-                upload_command += ["--username", user, "--password", password]
+            if token or (user and password):
+                gw.info("Uploading to PyPI...")
+                upload_command = [
+                    sys.executable, "-m", "twine", "upload", "dist/*"
+                ]
+                if token:
+                    upload_command += ["--username", "__token__", "--password", token]
+                else:
+                    upload_command += ["--username", user, "--password", password]
+
+                subprocess.run(upload_command, check=True)
+                gw.info("Package uploaded to PyPI successfully.")
             else:
-                gw.abort("Must provide either a PyPI API token or both username and password for Twine upload.")
-
-            subprocess.run(upload_command, check=True)
-            gw.info("Package uploaded to PyPI successfully.")
+                gw.warning(
+                    "Twine upload skipped: missing PyPI token or username/password."
+                )
 
     if git:
         files_to_add = ["VERSION", "BUILD", "pyproject.toml", "CHANGELOG.rst"]
@@ -270,6 +277,9 @@ def build(
         subprocess.run(["git", "commit", "-m", commit_msg], check=True)
         subprocess.run(["git", "push"], check=True)
         gw.info(f"Committed and pushed: {commit_msg}")
+
+    if notify:
+        gw.notify(f"Release v{version} build complete")
 
 
 def build_help_db():

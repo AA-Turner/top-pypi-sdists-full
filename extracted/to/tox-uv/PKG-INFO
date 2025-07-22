@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tox-uv
-Version: 1.26.1
+Version: 1.26.2
 Summary: Integration of uv with tox.
 Project-URL: Changelog, https://github.com/tox-dev/tox-uv/releases
 Project-URL: Documentation, https://github.com/tox-dev/tox-uv#tox-uv

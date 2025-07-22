@@ -411,13 +411,21 @@ class ConfigManager:
             "solar_panel": None,
             "crop_weed_detection": None,
             "emergency_vehicle_detection": None,
+            "shoplifting_detection":None,
             "price_tag_detection": None,
             "child_monitoring": None,
             "weapon_detection" : None,
             "concrete_crack_detection": None,
             "fashion_detection": None,
+            "pothole_segmentation": None,
             "warehouse_object_segmentation": None,
             "shopping_cart_analysis": None,
+            "defect_detection_products": None,
+            'assembly_line_detection': None,
+            'anti_spoofing_detection' : None,
+            'shelf_inventory' : None,
+            'car_part_segmentation': None,
+            'lane_detection' : None,
         }
 
     def register_config_class(self, usecase: str, config_class: type) -> None:
@@ -445,6 +453,30 @@ class ConfigManager:
         try:
             from ..usecases.banana_defect_detection import BananaMonitoringConfig
             return BananaMonitoringConfig
+        except ImportError:
+            return None
+        
+    def lane_detection_config_class(self):
+        """Get road lane monitoring class to avoid circular imports."""
+        try:
+            from ..usecases.road_lane_detection import LaneDetectionConfig
+            return LaneDetectionConfig
+        except ImportError:
+            return None
+        
+    def shelf_inventory_config_class(self):
+        """Get inventory monitoring class to avoid circular imports."""
+        try:
+            from ..usecases.shelf_inventory_detection import ShelfInventoryUseCase
+            return ShelfInventoryUseCase
+        except ImportError:
+            return None
+        
+    def anti_spoofing_detection_config_class(self):
+        """Get Anti-Spoofing class to avoid circular imports."""
+        try:
+            from ..usecases.anti_spoofing_detection import AntiSpoofingDetectionConfig
+            return AntiSpoofingDetectionConfig
         except ImportError:
             return None
         
@@ -485,6 +517,14 @@ class ConfigManager:
         try:
             from ..usecases.fire_detection import FireSmokeConfig
             return FireSmokeConfig
+        except ImportError:
+            return None
+
+    def _get_shoplifting_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.shoplifting_detection import ShopliftingDetectionConfig
+            return ShopliftingDetectionConfig
         except ImportError:
             return None
     
@@ -656,6 +696,30 @@ class ConfigManager:
             return ShoppingCartAnalysisConfig
         except ImportError:
             return None
+    
+    def bottle_defect_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.defect_detection_products import BottleDefectConfig
+            return BottleDefectConfig
+        except ImportError:
+            return None
+        
+    def assembly_line_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.assembly_line_detection import AssemblyLineConfig
+            return AssemblyLineConfig
+        except ImportError:
+            return None
+    
+    def car_part_segmentation_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.car_part_segmentation import CarPartSegmentationConfig
+            return CarPartSegmentationConfig
+        except ImportError:
+            return None
 
     def create_config(self, usecase: str, category: Optional[str] = None, **kwargs) -> BaseConfig:
         """
@@ -790,6 +854,21 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+        elif usecase == "shoplifting_detection":
+            # Import here to avoid circular import
+            from ..usecases.shoplifting_detection import ShopliftingDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = ShopliftingDetectionConfig(
+                category=category or "mask_detection",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
 
         elif usecase == "fire_smoke_detection":
             # Import here to avoid circular import
@@ -904,6 +983,54 @@ class ConfigManager:
                 **kwargs
             )
 
+        elif usecase == "lane_detection":
+            # Import here to avoid circular import
+            from ..usecases.road_lane_detection import LaneDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = LaneDetectionConfig(
+                category=category or "traffic",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
+        elif usecase == "shelf_inventory":
+            # Import here to avoid circular import
+            from ..usecases.shelf_inventory_detection import ShelfInventoryConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = ShelfInventoryConfig(
+                category=category or "retail",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
+        elif usecase == "anti_spoofing_detection":
+            # Import here to avoid circular import
+            from ..usecases.anti_spoofing_detection import AntiSpoofingDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = AntiSpoofingDetectionConfig(
+                category=category or "security",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
         elif usecase == "theft_detection":
             # Import here to avoid circular import
             from ..usecases.theft_detection import TheftDetectionConfig
@@ -936,7 +1063,7 @@ class ConfigManager:
                 **kwargs
             )
 
-        elif usecase == "traffic_sign_monitoring ":
+        elif usecase == "traffic_sign_monitoring":
             # Import here to avoid circular import
             from ..usecases.traffic_sign_monitoring import TrafficSignMonitoringConfig
 
@@ -1255,6 +1382,54 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+        
+        elif usecase == "defect_detection_products":
+            # Import here to avoid circular import
+            from ..usecases.defect_detection_products import BottleDefectConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = BottleDefectConfig(
+                category=category or "retail",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "assembly_line_detection":
+            # Import here to avoid circular import
+            from ..usecases.assembly_line_detection import AssemblyLineConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = AssemblyLineConfig(
+                category=category or "manufacturing",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "car_part_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.car_part_segmentation import CarPartSegmentationConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = CarPartSegmentationConfig(
+                category=category or "automobile",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
             
         else:
             raise ConfigValidationError(f"Unknown use case: {usecase}")
@@ -1373,6 +1548,12 @@ class ConfigManager:
             default_config = FireSmokeConfig()
             return default_config.to_dict()
 
+        elif usecase == "shoplifting_detection":
+            # Import here to avoid circular import
+            from ..usecases.shoplifting_detection import ShopliftingDetectionConfig
+            default_config = ShopliftingDetectionConfig()
+            return default_config.to_dict()
+
         elif usecase == "solar_panel":
             # Import here to avoid circular import
             from ..usecases.solar_panel import SolarPanelConfig
@@ -1407,6 +1588,24 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.banana_defect_detection import BananaMonitoringConfig
             default_config = BananaMonitoringConfig()
+            return default_config.to_dict()
+        
+        elif usecase == "lane_detection":
+            # Import here to avoid circular import
+            from ..usecases.road_lane_detection import LaneDetectionConfig 
+            default_config = LaneDetectionConfig()
+            return default_config.to_dict()
+        
+        elif usecase == "shelf_inventory":
+            # Import here to avoid circular import
+            from ..usecases.shelf_inventory_detection import ShelfInventoryConfig
+            default_config = ShelfInventoryConfig()
+            return default_config.to_dict()
+
+        elif usecase == "anti_spoofing_detection":
+            # Import here to avoid circular import
+            from ..usecases.anti_spoofing_detection import AntiSpoofingDetectionConfig
+            default_config = AntiSpoofingDetectionConfig()
             return default_config.to_dict()
         
         elif usecase == "traffic_sign_monitoring":
@@ -1460,6 +1659,7 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.underwater_pollution_detection import UnderwaterPlasticConfig
             default_config = UnderwaterPlasticConfig()
+            return default_config.to_dict()
         elif usecase == "pedestrian_detection":
             # Import here to avoid circular import
             from ..usecases.pedestrian_detection import PedestrianDetectionConfig
@@ -1519,6 +1719,21 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.shopping_cart_analysis import ShoppingCartConfig
             default_config = ShoppingCartConfig()
+            return default_config.to_dict()
+        elif usecase == "defect_detection_products":
+            # Import here to avoid circular import
+            from ..usecases.defect_detection_products import BottleDefectConfig
+            default_config = BottleDefectConfig()
+            return default_config.to_dict()
+        elif usecase == "assembly_line_detection":
+            # Import here to avoid circular import
+            from ..usecases.assembly_line_detection import AssemblyLineConfig
+            default_config = AssemblyLineConfig()
+            return default_config.to_dict()
+        elif usecase == "car_part_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.car_part_segmentation import CarPartSegmentationConfig
+            default_config = CarPartSegmentationConfig()
             return default_config.to_dict()
 
         elif usecase not in self._config_classes:

@@ -165,9 +165,9 @@ class AtomTypeChecker(LqpVisitor):
                 # this node as a leaf.
         return DefCollector(txn).atoms
 
-    # Helper to map Constants to their RelType.
+    # Helper to map Constants to their PrimitiveType.
     @staticmethod
-    def constant_type(c: ir.Constant) -> ir.RelType: # type: ignore
+    def constant_type(c: ir.Constant) -> ir.PrimitiveType: # type: ignore
         if isinstance(c, str):
             return ir.PrimitiveType.STRING
         elif isinstance(c, int):
@@ -180,7 +180,7 @@ class AtomTypeChecker(LqpVisitor):
             assert False
 
     @staticmethod
-    def type_error_message(atom: ir.Atom, index: int, expected: ir.RelType, actual: ir.RelType) -> str:
+    def type_error_message(atom: ir.Atom, index: int, expected: ir.PrimitiveType, actual: ir.PrimitiveType) -> str:
         term = atom.terms[index]
         pretty_term = p.to_str(term, 0)
         return \
@@ -190,7 +190,7 @@ class AtomTypeChecker(LqpVisitor):
     # Return a list of the types of the parameters of a Def.
     @staticmethod
     def get_relation_sig(d: Instructions):
-        # v[1] holds the RelType.
+        # v[1] holds the PrimitiveType.
         return [v[1] for v in d.body.vars]
 
     # The varargs passed be a State or nothing at all.
@@ -202,9 +202,9 @@ class AtomTypeChecker(LqpVisitor):
     @dataclass(frozen=True)
     class State:
         # Maps relations in scope to their types.
-        relation_types: Dict[ir.RelationId, List[ir.RelType]]
+        relation_types: Dict[ir.RelationId, List[ir.PrimitiveType]]
         # Maps variables in scope to their type.
-        var_types: Dict[str, ir.RelType]
+        var_types: Dict[str, ir.PrimitiveType]
 
     def __init__(self, txn: ir.Transaction):
         state = AtomTypeChecker.State(
@@ -322,24 +322,37 @@ class LoopyBadBreakFinder(LqpVisitor):
                     f"Break rule found outside of body at {i.meta}: '{i.name.id}'"
                 )
 
-# Loopy contract: Algorithm exports cannot be in loop body
+# Loopy contract: Algorithm globals cannot be in loop body unless they were already in init
 class LoopyBadGlobalFinder(LqpVisitor):
     def __init__(self, txn: ir.Transaction):
-        self.seen_ids: Set[ir.RelationId] = set()
+        self.globals: Set[ir.RelationId] = set()
+        self.init: Set[ir.RelationId] = set()
         self.visit(txn)
 
     def visit_Algorithm(self, node: ir.Algorithm, *args: Any) -> None:
-        self.seen_ids = self.seen_ids.union(node.global_)
+        self.globals = self.globals.union(node.global_)
         self.visit(node.body)
-        self.seen_ids.clear()
+        self.globals.clear()
 
     def visit_Loop(self, node: ir.Loop, *args: Any) -> None:
+        self.init = {x.name for x in node.init if isinstance(x, (ir.Break, ir.Assign, ir.Upsert))}
         for i in node.body.constructs:
             if isinstance(i, (ir.Break, ir.Assign, ir.Upsert)):
-                if i.name in self.seen_ids:
+                if (i.name in self.globals) and (i.name not in self.init):
                     raise ValidationError(
                         f"Global rule found in body at {i.meta}: '{i.name.id}'"
                     )
+
+class LoopyUpdatesShouldBeAtoms(LqpVisitor):
+    def __init__(self, txn: ir.Transaction):
+        self.generic_visit(txn)
+
+    def visit_instruction_with_atom_body(self, node: Any, *args: Any) -> None:
+        if not isinstance(node.body.value, ir.Atom):
+            instruction_type = node.__class__.__name__
+            raise ValidationError(f"{instruction_type} at {node.meta} must have an Atom as its value")
+
+    visit_Copy = visit_MonoidDef = visit_MonusDef = visit_Upsert = visit_instruction_with_atom_body
 
 def validate_lqp(lqp: ir.Transaction):
     ShadowedVariableFinder(lqp)
@@ -349,3 +362,4 @@ def validate_lqp(lqp: ir.Transaction):
     AtomTypeChecker(lqp)
     LoopyBadBreakFinder(lqp)
     LoopyBadGlobalFinder(lqp)
+    LoopyUpdatesShouldBeAtoms(lqp)

@@ -1,5 +1,5 @@
 import enum
-from typing import Optional
+from typing import Any, Optional
 
 import pyodbc
 
@@ -25,6 +25,12 @@ class MSSQLBooleanType(SqlBooleanType):
     def __str__(self) -> str:
         return "bit"
 
+    def value_to_sql_literal(self, value: Any) -> str:
+        if not isinstance(value, bool):
+            raise TypeError(f"expected: value of type `bool`, got: {type(value)}")
+
+        return "1" if value else "0"
+
 
 class MSSQLEncoding(enum.Enum):
     UTF8 = "utf-8"
@@ -34,9 +40,7 @@ class MSSQLEncoding(enum.Enum):
 class MSSQLVariableCharacterType(SqlVariableCharacterType):
     encoding: Optional[MSSQLEncoding] = None
 
-    def __init__(
-        self, limit: Optional[int] = None, encoding: Optional[MSSQLEncoding] = None
-    ) -> None:
+    def __init__(self, limit: Optional[int] = None, encoding: Optional[MSSQLEncoding] = None) -> None:
         super().__init__(limit)
         self.encoding = encoding
 

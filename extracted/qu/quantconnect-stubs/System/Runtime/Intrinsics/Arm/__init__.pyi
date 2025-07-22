@@ -7140,6 +7140,22 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def dot_product_rotate_complex(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int], rotation: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svcdot[_s32](svint32_t op_1, svint8_t op_2, svint8_t op_3, uint64_t imm_rotation)
+          CDOT Ztied1.S, Zop_2.B, Zop_3.B, #imm_rotation
+        """
+        ...
+
+    @staticmethod
+    def dot_product_rotate_complex_by_selected_index(op_1: System.Numerics.Vector[int], op_2: System.Numerics.Vector[int], op_3: System.Numerics.Vector[int], imm_index: int, rotation: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svcdot_lane[_s32](svint32_t op_1, svint8_t op_2, svint8_t op_3, uint64_t imm_index, uint64_t imm_rotation)
+          CDOT Ztied1.S, Zop_2.B, Zop_3.B[imm_index], #imm_rotation
+        """
+        ...
+
+    @staticmethod
     def fused_add_halving(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
         """
         svuint8_t svhadd[_u8]_m(svbool_t pg, svuint8_t op1, svuint8_t op2)

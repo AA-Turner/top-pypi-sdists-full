@@ -36,10 +36,12 @@ from .usecases import (
     PotholeSegmentationUseCase,
     PPEComplianceUseCase,
     VehicleMonitoringUseCase,
+    ShopliftingDetectionUseCase,
     BananaMonitoringUseCase,
     MaskDetectionUseCase,
     CarDamageDetectionUseCase,
     FireSmokeUseCase,
+    ShopliftingDetectionConfig,
     FlareAnalysisUseCase,
     ParkingSpaceUseCase,
     FaceEmotionUseCase,
@@ -48,6 +50,11 @@ from .usecases import (
     ChickenPoseDetectionUseCase,
     TheftDetectionUseCase,
     TrafficSignMonitoringUseCase,
+    AntiSpoofingDetectionUseCase,
+    ShelfInventoryUseCase,
+    LaneDetectionUseCase,
+
+
 
     AgeDetectionUseCase,
     WeldDefectUseCase,
@@ -64,8 +71,10 @@ from .usecases import (
     ConcreteCrackUseCase,
     FashionDetectionUseCase,
     WarehouseObjectUseCase,
-    ShoppingCartUseCase
-
+    ShoppingCartUseCase,
+    BottleDefectUseCase,
+    AssemblyLineUseCase,
+    CarPartSegmentationUseCase,
 
 )
 
@@ -140,6 +149,9 @@ class PostProcessor:
         registry.register_use_case("traffic", "fruit_monitoring", BananaMonitoringUseCase)
         registry.register_use_case("security", "theft_detection", TheftDetectionUseCase)
         registry.register_use_case("traffic", "traffic_sign_monitoring", TrafficSignMonitoringUseCase)
+        registry.register_use_case("security", "anti_spoofing_detection", AntiSpoofingDetectionUseCase)
+        registry.register_use_case("retail", "shelf_inventory", ShelfInventoryUseCase)
+        registry.register_use_case("traffic", "lane_detection", LaneDetectionUseCase)
         
         registry.register_use_case("hazard", "fire_smoke_detection", FireSmokeUseCase)
         registry.register_use_case("flare_detection", "flare_analysis", FlareAnalysisUseCase)
@@ -161,8 +173,14 @@ class PostProcessor:
         registry.register_use_case("security", "weapon_detection", WeaponDetectionUseCase)
         registry.register_use_case("general", "concrete_crack_detection", ConcreteCrackUseCase)
         registry.register_use_case("retail", "fashion_detection", FashionDetectionUseCase)
+
         registry.register_use_case("retail", "warehouse_object_segmentation", WarehouseObjectUseCase)
         registry.register_use_case("retail", "shopping_cart_analysis", ShoppingCartUseCase)
+
+        registry.register_use_case("security", "shoplifting_detection", ShopliftingDetectionUseCase)
+        registry.register_use_case("retail", "defect_detection_products", BottleDefectUseCase)
+        registry.register_use_case("manufacturing", "assembly_line_detection", AssemblyLineUseCase)
+        registry.register_use_case("automobile", "car_part_segmentation", CarPartSegmentationUseCase)
         
         logger.debug("Registered use cases with registry")
     
@@ -261,10 +279,6 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, ChickenPoseDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
-            elif isinstance(use_case, TheftDetectionUseCase):
-                result = use_case.process(data, parsed_config, context, stream_info)
-            elif isinstance(use_case, TrafficSignMonitoringUseCase):
-                result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, FlareAnalysisUseCase):
                 result = use_case.process(data, parsed_config,input_bytes, context, stream_info)
             elif isinstance(use_case,LicensePlateUseCase):
@@ -279,8 +293,26 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, FashionDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, ShopliftingDetectionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, PotholeSegmentationUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, AssemblyLineUseCase): 
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, AntiSpoofingDetectionUseCase): 
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, ShelfInventoryUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, CarPartSegmentationUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, ConcreteCrackUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, LaneDetectionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+
             else:
                 result = use_case.process(data, parsed_config, context, stream_info)
+
             
             # Add processing time
             result.processing_time = time.time() - start_time

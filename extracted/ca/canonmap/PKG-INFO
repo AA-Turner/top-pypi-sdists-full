@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: canonmap
-Version: 0.2.43
+Version: 0.2.53
 Summary: CanonMap - A Python library for entity canonicalization and mapping with enhanced configuration and response models
 Home-page: https://github.com/vinceberry/canonmap
 Author: Vince Berry
@@ -16,6 +16,7 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE.txt
 Requires-Dist: python-dotenv
+Requires-Dist: pydantic
 Requires-Dist: google-cloud-storage
 Requires-Dist: pandas
 Requires-Dist: chardet
@@ -145,6 +146,56 @@ request = ArtifactGenerationRequest(
 # Generate artifacts
 response = canonmap.generate_artifacts(request)
 print(f"Generated {len(response.generated_artifacts)} artifacts")
+```
+
+### Cache Prioritization (Prevents Repeated Downloads)
+
+CanonMap now prioritizes checking for models in your computer's cache directories before downloading them again. This prevents the same model from being downloaded multiple times across different projects.
+
+```python
+from canonmap import (
+    CanonMap,
+    CanonMapArtifactsConfig,
+    CanonMapEmbeddingConfig,
+    ArtifactGenerationRequest,
+    EntityField,
+    SemanticField
+)
+
+# Configuration with cache prioritization (default behavior)
+artifacts_config = CanonMapArtifactsConfig(
+    artifacts_local_path="./artifacts",
+    gcs_config=None
+)
+
+embedding_config = CanonMapEmbeddingConfig(
+    embedding_model_hf_name="sentence-transformers/all-MiniLM-L12-v2",
+    embedding_model_local_path="./models/sentence-transformers/all-MiniLM-L12-v2",
+    gcs_config=None,
+    prioritize_cache=True  # Default: True - checks cache first
+)
+
+# Initialize CanonMap
+canonmap = CanonMap(
+    artifacts_config=artifacts_config,
+    embedding_config=embedding_config,
+    verbose=True
+)
+```
+
+**Cache Locations Checked:**
+- `~/.huggingface_hub/`
+- `~/.sentence_transformers/`
+- `~/.cache/huggingface/`
+- `~/.cache/sentence_transformers/`
+
+**To disable cache prioritization:**
+```python
+embedding_config = CanonMapEmbeddingConfig(
+    embedding_model_hf_name="sentence-transformers/all-MiniLM-L12-v2",
+    embedding_model_local_path="./models/sentence-transformers/all-MiniLM-L12-v2",
+    prioritize_cache=False  # Use only the specified local path
+)
 ```
 
 ### With GCP Integration
@@ -351,6 +402,10 @@ Configuration for embedding model management:
 - `embedding_model_local_path`: Local path for model storage
 - `gcs_config`: **Optional** GCS configuration for model storage
 - `troubleshooting`: Enable troubleshooting mode
+- `prioritize_cache`: Check user's home directory cache first (default: True)
+  - Looks in `.huggingface_hub`, `.sentence_transformers`, and other common cache locations
+  - Prevents repeated downloads of the same model
+  - Can be disabled by setting to `False` if you want to use only the specified local path
 
 ### ArtifactGenerationRequest
 Comprehensive configuration for artifact generation:

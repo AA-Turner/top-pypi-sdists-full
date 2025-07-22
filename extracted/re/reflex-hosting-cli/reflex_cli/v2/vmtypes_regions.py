@@ -91,12 +91,16 @@ def get_vm_types(
         console.print(json.dumps(vmtypes))
         return
     if vmtypes:
-        ordered_vmtpes = [
-            {key: vmtype.get(key) for key in ["id", "name", "cpu", "ram"]}
+        ordered_vmtpes: list[list[str | float]] = [
+            [
+                value
+                for key in ["id", "name", "cpu", "ram"]
+                if (value := vmtype.get(key)) is not None
+            ]
             for vmtype in vmtypes
         ]
         headers = ["id", "name", "cpu (cores)", "ram (gb)"]
-        table = [list(vmtype.values()) for vmtype in ordered_vmtpes]
+        table = [list(map(str, vmtype)) for vmtype in ordered_vmtpes]
         console.print_table(table, headers=headers)
     else:
         console.print(str(vmtypes))

@@ -917,6 +917,7 @@ class ConnectionModelType(sgqlc.types.Enum):
     * `ATHENA`: Athena
     * `AZURE_DATA_FACTORY`: Azure Data Factory
     * `BIGQUERY`: BigQuery
+    * `CLICKHOUSE`: ClickHouse
     * `CONFLUENT_KAFKA`: Confluent Kafka
     * `CONFLUENT_KAFKA_CONNECT`: Confluent Kafka Connect
     * `DATABRICKS_DELTA`: Databricks Delta
@@ -967,6 +968,7 @@ class ConnectionModelType(sgqlc.types.Enum):
         "ATHENA",
         "AZURE_DATA_FACTORY",
         "BIGQUERY",
+        "CLICKHOUSE",
         "CONFLUENT_KAFKA",
         "CONFLUENT_KAFKA_CONNECT",
         "DATABRICKS_DELTA",
@@ -1048,6 +1050,7 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
     * `ATHENA`None
     * `AZURE_DATA_FACTORY`None
     * `BIGQUERY`None
+    * `CLICKHOUSE`None
     * `CONFLUENT_KAFKA`None
     * `CONFLUENT_KAFKA_CONNECT`None
     * `DATABRICKS_DELTA`None
@@ -1097,6 +1100,7 @@ class ConnectionTypeEnum(sgqlc.types.Enum):
         "ATHENA",
         "AZURE_DATA_FACTORY",
         "BIGQUERY",
+        "CLICKHOUSE",
         "CONFLUENT_KAFKA",
         "CONFLUENT_KAFKA_CONNECT",
         "DATABRICKS_DELTA",
@@ -1946,8 +1950,8 @@ class EventModelEventType(sgqlc.types.Enum):
 class EventMutingRuleModelRuleType(sgqlc.types.Enum):
     """Enumeration Choices:
 
-    * `EXACT_MATCH_RULE`: Exact match Rule
-    * `REGEX_RULE`: Regex Rule
+    * `EXACT_MATCH_RULE`None
+    * `REGEX_RULE`None
     """
 
     __schema__ = schema
@@ -4566,6 +4570,7 @@ class SqlDialect(sgqlc.types.Enum):
 
     * `ATHENA`None
     * `BIGQUERY`None
+    * `CLICKHOUSE`None
     * `DATABRICKS`None
     * `DREMIO`None
     * `HIVE`None
@@ -4590,6 +4595,7 @@ class SqlDialect(sgqlc.types.Enum):
     __choices__ = (
         "ATHENA",
         "BIGQUERY",
+        "CLICKHOUSE",
         "DATABRICKS",
         "DREMIO",
         "HIVE",
@@ -5308,6 +5314,7 @@ class WarehouseModelConnectionType(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `BIGQUERY`: BigQuery
+    * `CLICKHOUSE`: ClickHouse
     * `DATA_LAKE`: Data Lake
     * `DREMIO`: Dremio
     * `ETL`: etl
@@ -5326,6 +5333,7 @@ class WarehouseModelConnectionType(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "BIGQUERY",
+        "CLICKHOUSE",
         "DATA_LAKE",
         "DREMIO",
         "ETL",
@@ -19125,6 +19133,8 @@ class EventGroupMetadata(sgqlc.types.Type):
 
 
 class EventMutingRule(sgqlc.types.Type):
+    """Placeholder for deprecated API call"""
+
     __schema__ = schema
     __field_names__ = (
         "id",
@@ -19160,7 +19170,6 @@ class EventMutingRule(sgqlc.types.Type):
     event_types = sgqlc.types.Field(
         sgqlc.types.list_of(sgqlc.types.non_null(String)), graphql_name="eventTypes"
     )
-    """List of event types to mute. Mutes all if empty."""
 
 
 class EventOnbardingConfig(sgqlc.types.Type):
@@ -64059,10 +64068,10 @@ class Warehouse(sgqlc.types.Type):
         "events",
         "projects",
         "datasets",
-        "mute_rule",
         "fivetran_destinations",
         "monitored_table_rules",
         "dashboards",
+        "mute_rule",
         "user_has_access_to_sample_data",
         "data_sampling_enabled",
         "data_sampling_restricted",
@@ -64246,11 +64255,6 @@ class Warehouse(sgqlc.types.Type):
     * `project` (`String`)None
     """
 
-    mute_rule = sgqlc.types.Field(
-        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(EventMutingRule))),
-        graphql_name="muteRule",
-    )
-
     fivetran_destinations = sgqlc.types.Field(
         sgqlc.types.non_null(FivetranDestinationConnection),
         graphql_name="fivetranDestinations",
@@ -64299,6 +64303,11 @@ class Warehouse(sgqlc.types.Type):
     * `first` (`Int`)None
     * `last` (`Int`)None
     """
+
+    mute_rule = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(EventMutingRule))),
+        graphql_name="muteRule",
+    )
 
     user_has_access_to_sample_data = sgqlc.types.Field(
         Boolean, graphql_name="userHasAccessToSampleData"

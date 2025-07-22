@@ -42,14 +42,13 @@ def _get_qt_vers():
 _get_qt_vers()
 
 
-def setup():
+@pytest.fixture(autouse=True)
+def _setup_env():
     """start the global kernel (if it isn't running) and return its client"""
     global KM, KC
     KM, KC = start_new_kernel()
     flush_channels(KC)
-
-
-def teardown():
+    yield
     assert KM is not None
     assert KC is not None
     KC.stop_channels()
@@ -125,12 +124,16 @@ def test_cocoa_loop(kernel):
     loop_cocoa(kernel)
 
 
-@pytest.mark.skipif(
-    len(qt_guis_avail) == 0, reason="No viable version of PyQt or PySide installed."
-)
-def test_qt_enable_gui(kernel, capsys):
-    gui = qt_guis_avail[0]
-
+@pytest.mark.parametrize("gui", qt_guis_avail)
+def test_qt_enable_gui(gui, kernel, capsys):
+    if os.getenv("GITHUB_ACTIONS", None) == "true" and gui == "qt5":
+        pytest.skip("Qt5 and GitHub action crash CPython")
+    if gui == "qt6" and sys.version_info < (3, 10):
+        pytest.skip(
+            "qt6 fails on 3.9 with AttributeError: module 'PySide6.QtPrintSupport' has no attribute 'QApplication'"
+        )
+    if sys.platform == "linux" and gui == "qt6" and os.getenv("GITHUB_ACTIONS", None) == "true":
+        pytest.skip("qt6 fails on github CI with missing libEGL.so.1")
     enable_gui(gui, kernel)
 
     # We store the `QApplication` instance in the kernel.

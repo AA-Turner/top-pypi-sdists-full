@@ -1,5 +1,3 @@
-# encoding: utf-8
-
 # This file is part of py-serializable
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -25,7 +23,7 @@ from py_serializable.formatters import (
     KebabCasePropertyNameFormatter,
     SnakeCasePropertyNameFormatter,
 )
-from tests.base import FIXTURES_DIRECTORY, BaseTestCase
+from tests.base import FIXTURES_DIRECTORY, BaseTestCase, DeepCompareMixin
 from tests.model import (
     Book,
     SchemaVersion2,
@@ -37,7 +35,13 @@ from tests.model import (
 )
 
 
-class TestJson(BaseTestCase):
+class TestJson(BaseTestCase, DeepCompareMixin):
+
+    def tearDown(self) -> None:
+        CurrentFormatter.formatter = self._old_formatter
+
+    def setUp(self) -> None:
+        self._old_formatter = CurrentFormatter.formatter
 
     # region test_serialize
 
@@ -60,6 +64,25 @@ class TestJson(BaseTestCase):
         CurrentFormatter.formatter = CamelCasePropertyNameFormatter
         with open(os.path.join(FIXTURES_DIRECTORY, 'the-phoenix-project-camel-case-v4.json')) as expected_json:
             self.assertEqualJson(expected_json.read(), ThePhoenixProject.as_json(view_=SchemaVersion4))
+
+    def test_serialize_tfp_kc(self) -> None:
+        CurrentFormatter.formatter = KebabCasePropertyNameFormatter
+        with open(os.path.join(FIXTURES_DIRECTORY, 'the-phoenix-project-kebab-case.json')) as expected_json:
+            self.assertEqualJson(expected_json.read(), ThePhoenixProject.as_json())
+
+    def test_serialize_tfp_sc(self) -> None:
+        CurrentFormatter.formatter = SnakeCasePropertyNameFormatter
+        with open(os.path.join(FIXTURES_DIRECTORY, 'the-phoenix-project-snake-case.json')) as expected_json:
+            self.assertEqualJson(expected_json.read(), ThePhoenixProject.as_json())
+
+    def test_serialize_attr_none(self) -> None:
+        CurrentFormatter.formatter = CamelCasePropertyNameFormatter
+        with open(os.path.join(FIXTURES_DIRECTORY, 'the-phoenix-project-bookedition-none.json')) as expected_json:
+            self.assertEqualJson(expected_json.read(), ThePhoenixProject_attr_serialized_none.as_json())
+
+    # endregion test_serialize
+
+    # region test_deserialize
 
     def test_deserialize_tfp_cc(self) -> None:
         CurrentFormatter.formatter = CamelCasePropertyNameFormatter
@@ -105,11 +128,6 @@ class TestJson(BaseTestCase):
             self.assertEqual(ThePhoenixProject_v1.chapters, book.chapters)
             self.assertEqual(ThePhoenixProject_v1.rating, book.rating)
 
-    def test_serialize_tfp_kc(self) -> None:
-        CurrentFormatter.formatter = KebabCasePropertyNameFormatter
-        with open(os.path.join(FIXTURES_DIRECTORY, 'the-phoenix-project-kebab-case.json')) as expected_json:
-            self.assertEqualJson(expected_json.read(), ThePhoenixProject.as_json())
-
     def test_deserialize_tfp_kc(self) -> None:
         CurrentFormatter.formatter = KebabCasePropertyNameFormatter
         with open(os.path.join(FIXTURES_DIRECTORY, 'the-phoenix-project-kebab-case.json')) as input_json:
@@ -122,11 +140,6 @@ class TestJson(BaseTestCase):
             self.assertEqual(ThePhoenixProject_v1.publisher, book.publisher)
             self.assertEqual(ThePhoenixProject_v1.chapters, book.chapters)
             self.assertEqual(ThePhoenixProject_v1.rating, book.rating)
-
-    def test_serialize_tfp_sc(self) -> None:
-        CurrentFormatter.formatter = SnakeCasePropertyNameFormatter
-        with open(os.path.join(FIXTURES_DIRECTORY, 'the-phoenix-project-snake-case.json')) as expected_json:
-            self.assertEqualJson(expected_json.read(), ThePhoenixProject.as_json())
 
     def test_deserialize_tfp_sc(self) -> None:
         CurrentFormatter.formatter = SnakeCasePropertyNameFormatter
@@ -141,7 +154,21 @@ class TestJson(BaseTestCase):
             self.assertEqual(ThePhoenixProject_v1.chapters, book.chapters)
             self.assertEqual(ThePhoenixProject_v1.rating, book.rating)
 
-    def test_serialize_attr_none(self) -> None:
-        CurrentFormatter.formatter = CamelCasePropertyNameFormatter
-        with open(os.path.join(FIXTURES_DIRECTORY, 'the-phoenix-project-bookedition-none.json')) as expected_json:
-            self.assertEqualJson(expected_json.read(), ThePhoenixProject_attr_serialized_none.as_json())
+    def test_deserializable_with_unknown_ignored_properties(self) -> None:
+        expected = ThePhoenixProject
+        with open(
+            os.path.join(FIXTURES_DIRECTORY, 'the-phoenix-project_unknown_ignored_properties.json')
+        ) as input_json:
+            actual: Book = Book.from_json(data=json.loads(input_json.read()))
+        self.assertDeepEqual(expected, actual)
+
+    def test_deserializable_with_unknown_unignored_properties(self) -> None:
+        with open(
+            os.path.join(FIXTURES_DIRECTORY, 'the-phoenix-project_unknown_unignored_properties.json')
+        ) as input_json:
+            json_data = json.loads(input_json.read())
+        with self.assertRaises(Exception) as err:
+            Book.from_json(data=json_data)
+        self.assertRegex(str(err.exception), r'Unexpected key .+ in data being serialized to')
+
+    # endregion test_deserialize

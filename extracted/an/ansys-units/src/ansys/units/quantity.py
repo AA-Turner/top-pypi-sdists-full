@@ -27,7 +27,8 @@ from collections.abc import Iterable
 import operator
 from typing import Union
 
-from ansys.units import BaseDimensions, Dimensions
+from ansys.units.base_dimensions import BaseDimensions
+from ansys.units.dimensions import Dimensions
 from ansys.units.systems import UnitSystem
 from ansys.units.unit import Unit
 
@@ -37,6 +38,13 @@ try:
     _array = np
 except ImportError:
     _array = None
+
+try:
+    from pydantic_core import core_schema
+
+    _core_schema = core_schema
+except ImportError:
+    _core_schema = None
 
 try:
     from matplotlib.units import AxisInfo, ConversionInterface, registry
@@ -91,6 +99,7 @@ class Quantity:
         quantity_table: dict = None,
         dimensions: Dimensions = None,
         copy_from: Quantity = None,
+        **kwargs,
     ):
         if (
             (units and quantity_table)
@@ -133,10 +142,12 @@ class Quantity:
         if not isinstance(units, Unit):
             units = Unit(units)
 
+        min_value = value if isinstance(value, (int, float)) else min(value)
+
         if (
             (units.name in ["K", "R"] and value < 0)
-            or (units.name == "C" and value < -273.15)
-            or (units.name == "F" and value < -459.67)
+            or (units.name == "C" and min_value < -273.15)
+            or (units.name == "F" and min_value < -459.67)
         ):
             units = Unit(f"delta_{units.name}")
 
@@ -146,6 +157,8 @@ class Quantity:
             if unit.name != units.name and self.dimensions == unit.dimensions:
                 self._value = self.to(unit).value
                 self._unit = unit
+
+        self.extra_fields = kwargs
 
     @classmethod
     def preferred_units(
@@ -446,6 +459,54 @@ class Quantity:
     def __ne__(self, other):
         return not self.__eq__(other)
 
+    @classmethod
+    def __get_pydantic_core_schema__(cls, source_type, handler):
+        """Define the pydantic core schema for QuantityPydanticAdapter."""
+
+        def validate_quantity_type(obj):
+            if isinstance(obj, cls):
+                return obj
+            if isinstance(obj, Quantity):
+                return cls(
+                    value=(
+                        obj._value.tolist()
+                        if hasattr(obj._chosen_unitsvalue, "tolist")
+                        else obj.value
+                    ),
+                    units=obj.units.name,
+                )
+            if isinstance(obj, dict):
+                value = obj.get("value")
+                units = obj.get("units")
+                extras = {k: v for k, v in obj.items() if k not in {"value", "units"}}
+                return cls(value=value, units=units, **extras)
+            raise TypeError(
+                "Expected dict, Quantity, or QuantityPydanticAdapter instance."
+            )
+
+        def serialize(instance):
+            base = {"value": instance.value, "units": instance.units.name}
+            return {**base, **instance.extra_fields}
+
+        if _core_schema is None:
+            raise PydanticRequired()
+
+        return _core_schema.no_info_plain_validator_function(
+            validate_quantity_type,
+            json_schema_input_schema=_core_schema.model_fields_schema(
+                {
+                    "value": _core_schema.list_schema(
+                        items_schema=_core_schema.float_schema()
+                    ),
+                    "units": _core_schema.str_schema(),
+                },
+                extras_schema=_core_schema.any_schema(),
+            ),
+            serialization=_core_schema.plain_serializer_function_ser_schema(
+                serialize, return_schema=_core_schema.dict_schema()
+            ),
+        )
+
 
 def get_si_value(quantity: Quantity) -> float:
     """Returns a quantity's value in SI units."""
@@ -508,6 +569,15 @@ class NumPyRequired(ModuleNotFoundError):
 
     def __init__(self):
         super().__init__("To use NumPy arrays and lists install NumPy.")
+
+
+class PydanticRequired(ModuleNotFoundError):
+    """Raised when pydantic or pydantic_core is unavailable."""
+
+    def __init__(self):
+        super().__init__(
+            "To use pydantic features, install it using 'pip install ansys-units[additional]'."
+        )
 
 
 class InvalidFloatUsage(FloatingPointError):

@@ -134,8 +134,9 @@ class TableDetails:
         _version = self.details.get("version", None)
         return _version
 
-    def is_replicated(self):
-        return "Replicated" in self.details.get("engine", None)
+    def is_replicated(self) -> bool:
+        engine: Optional[str] = self.details.get("engine", None)
+        return engine is not None and "Replicated" in engine
 
     def is_mergetree_family(self) -> bool:
         return self.engine is not None and "mergetree" in self.engine.lower()
@@ -146,10 +147,9 @@ class TableDetails:
     def is_replacing_engine(self) -> bool:
         if self.engine:
             engine_lower = self.engine.lower()
-            is_aggregating = "aggregatingmergetree" in engine_lower
             is_replacing = "replacingmergetree" in engine_lower
             is_collapsing = "collapsingmergetree" in engine_lower
-            return is_aggregating or is_replacing or is_collapsing
+            return is_replacing or is_collapsing
         return False
 
     def diff_ttl(self, new_ttl: str) -> bool:
@@ -169,6 +169,10 @@ class TableDetails:
     @property
     def sorting_key(self) -> Optional[str]:
         _sorting_key = self.details.get("sorting_key", None)
+        # TODO: This should use ENABLED_ENGINES to guess if the sorting key is required or not
+        # Also checking this and raising an error in a getter is a bit of an anti-pattern,
+        # a data source could have a "wrong" sorting key and we won't be able to even show it in the API.
+        # All these checks be performed only on creation time.
         if self.is_replacing_engine() and not _sorting_key:
             raise ValueError(f"SORTING_KEY must be defined for the {self.engine} engine")
         if self.is_mergetree_family():

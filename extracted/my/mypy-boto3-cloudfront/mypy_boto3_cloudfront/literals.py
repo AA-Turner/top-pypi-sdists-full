@@ -59,6 +59,7 @@ __all__ = (
     "ListInvalidationsForDistributionTenantPaginatorName",
     "ListInvalidationsPaginatorName",
     "ListKeyValueStoresPaginatorName",
+    "ListOriginAccessControlsPaginatorName",
     "ListPublicKeysPaginatorName",
     "ListStreamingDistributionsPaginatorName",
     "ManagedCertificateStatusType",
@@ -135,6 +136,7 @@ ListInvalidationsForDistributionTenantPaginatorName = Literal[
 ]
 ListInvalidationsPaginatorName = Literal["list_invalidations"]
 ListKeyValueStoresPaginatorName = Literal["list_key_value_stores"]
+ListOriginAccessControlsPaginatorName = Literal["list_origin_access_controls"]
 ListPublicKeysPaginatorName = Literal["list_public_keys"]
 ListStreamingDistributionsPaginatorName = Literal["list_streaming_distributions"]
 ManagedCertificateStatusType = Literal[
@@ -620,6 +622,7 @@ PaginatorName = Literal[
     "list_invalidations",
     "list_invalidations_for_distribution_tenant",
     "list_key_value_stores",
+    "list_origin_access_controls",
     "list_public_keys",
     "list_streaming_distributions",
 ]

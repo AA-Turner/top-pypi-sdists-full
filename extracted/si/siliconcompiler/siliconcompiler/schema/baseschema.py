@@ -4,6 +4,7 @@
 # SC dependencies outside of its directory, since it may be used by tool drivers
 # that have isolated Python environments.
 
+import contextlib
 import copy
 
 try:
@@ -21,7 +22,7 @@ except ModuleNotFoundError:
 
 import os.path
 
-from .parameter import Parameter
+from .parameter import Parameter, NodeValue
 from .journal import Journal
 
 
@@ -36,6 +37,17 @@ class BaseSchema:
         self.__default = None
         self.__journal = Journal()
         self.__parent = self
+        self.__active = None
+        self.__key = None
+
+    @property
+    def _keypath(self):
+        '''
+        Returns the key to the current section of the schema
+        '''
+        if self.__parent is self:
+            return tuple()
+        return tuple([*self.__parent._keypath, self.__key])
 
     def _from_dict(self, manifest, keypath, version=None):
         '''
@@ -104,6 +116,9 @@ class BaseSchema:
                 raise RuntimeError("gzip is not available")
             return gzip.open(filepath, mode="rt" if is_read else "wt", encoding="utf-8")
         return open(filepath, mode="r" if is_read else "w", encoding="utf-8")
+
+    def __format_key(self, *key):
+        return f"[{','.join([*self._keypath, *key])}]"
 
     def read_manifest(self, filepath):
         """
@@ -216,21 +231,23 @@ class BaseSchema:
 
         try:
             require_leaf = True
+            insert_defaults = False
             if field == 'schema':
                 require_leaf = False
+                insert_defaults = True
             param = self.__search(
                 *keypath,
-                insert_defaults=False,
+                insert_defaults=insert_defaults,
                 use_default=True,
                 require_leaf=require_leaf)
             if field == 'schema':
                 if isinstance(param, Parameter):
-                    raise ValueError(f"[{','.join(keypath)}] is a complete keypath")
+                    raise ValueError(f"{self.__format_key(*keypath)} is a complete keypath")
                 self.__journal.record("get", keypath, field=field, step=step, index=index)
                 param.__journal = self.__journal.get_child(*keypath)
                 return param
         except KeyError:
-            raise KeyError(f"[{','.join(keypath)}] is not a valid keypath")
+            raise KeyError(f"{self.__format_key(*keypath)} is not a valid keypath")
         if field is None:
             return param
 
@@ -239,7 +256,7 @@ class BaseSchema:
             self.__journal.record("get", keypath, field=field, step=step, index=index)
             return get_ret
         except Exception as e:
-            new_msg = f"error while accessing [{','.join(keypath)}]: {e.args[0]}"
+            new_msg = f"error while accessing {self.__format_key(*keypath)}: {e.args[0]}"
             e.args = (new_msg, *e.args[1:])
             raise e
 
@@ -273,7 +290,7 @@ class BaseSchema:
         try:
             param = self.__search(*keypath, insert_defaults=True)
         except KeyError:
-            raise KeyError(f"[{','.join(keypath)}] is not a valid keypath")
+            raise KeyError(f"{self.__format_key(*keypath)} is not a valid keypath")
 
         try:
             set_ret = param.set(value, field=field, clobber=clobber,
@@ -281,9 +298,10 @@ class BaseSchema:
             if set_ret:
                 self.__journal.record("set", keypath, value=value, field=field,
                                       step=step, index=index)
+                self.__process_active(param, set_ret)
             return set_ret
         except Exception as e:
-            new_msg = f"error while setting [{','.join(keypath)}]: {e.args[0]}"
+            new_msg = f"error while setting {self.__format_key(*keypath)}: {e.args[0]}"
             e.args = (new_msg, *e.args[1:])
             raise e
 
@@ -316,16 +334,17 @@ class BaseSchema:
         try:
             param = self.__search(*keypath, insert_defaults=True)
         except KeyError:
-            raise KeyError(f"[{','.join(keypath)}] is not a valid keypath")
+            raise KeyError(f"{self.__format_key(*keypath)} is not a valid keypath")
 
         try:
             add_ret = param.add(value, field=field, step=step, index=index)
             if add_ret:
                 self.__journal.record("add", keypath, value=value, field=field,
                                       step=step, index=index)
+                self.__process_active(param, add_ret)
             return add_ret
         except Exception as e:
-            new_msg = f"error while adding to [{','.join(keypath)}]: {e.args[0]}"
+            new_msg = f"error while adding to {self.__format_key(*keypath)}: {e.args[0]}"
             e.args = (new_msg, *e.args[1:])
             raise e
 
@@ -358,13 +377,13 @@ class BaseSchema:
         try:
             param = self.__search(*keypath, use_default=True)
         except KeyError:
-            raise KeyError(f"[{','.join(keypath)}] is not a valid keypath")
+            raise KeyError(f"{self.__format_key(*keypath)} is not a valid keypath")
 
         try:
             param.unset(step=step, index=index)
             self.__journal.record("unset", keypath, step=step, index=index)
         except Exception as e:
-            new_msg = f"error while unsetting [{','.join(keypath)}]: {e.args[0]}"
+            new_msg = f"error while unsetting {self.__format_key(*keypath)}: {e.args[0]}"
             e.args = (new_msg, *e.args[1:])
             raise e
 
@@ -384,7 +403,7 @@ class BaseSchema:
         try:
             key_param = self.__search(*search_path, require_leaf=False)
         except KeyError:
-            raise KeyError(f"[{','.join(keypath)}] is not a valid keypath")
+            raise KeyError(f"{self.__format_key(*keypath)} is not a valid keypath")
 
         if removal_key not in key_param.__manifest:
             return
@@ -454,13 +473,13 @@ class BaseSchema:
             try:
                 key_param = self.__search(*keypath, require_leaf=False)
             except KeyError:
-                raise KeyError(f"[{','.join(keypath)}] is not a valid keypath")
+                raise KeyError(f"{self.__format_key(*keypath)} is not a valid keypath")
             if isinstance(key_param, Parameter):
                 return tuple()
         else:
             key_param = self
 
-        return tuple(key_param.__manifest.keys())
+        return tuple(sorted(key_param.__manifest.keys()))
 
     def allkeys(self, *keypath, include_default=True):
         '''
@@ -555,7 +574,32 @@ class BaseSchema:
         else:
             schema_copy.__parent = schema_copy
 
+        if key:
+            schema_copy.__key = key[-1]
+
         return schema_copy
+
+    def _find_files_search_paths(self, keypath, step, index):
+        """
+        Returns a list of paths to search during find files.
+
+        Args:
+            keypath (str): final component of keypath
+            step (str): Step name.
+            index (str): Index name.
+        """
+        return []
+
+    def _find_files_dataroot_resolvers(self):
+        """
+        Returns a dictionary of path resolevrs data directory handling for find_files
+
+        Returns:
+            dictionary of str to resolver mapping
+        """
+        if self.__parent is self:
+            return {}
+        return self.__parent._find_files_dataroot_resolvers()
 
     def find_files(self, *keypath, missing_ok=False, step=None, index=None,
                    packages=None, collection_dir=None, cwd=None):
@@ -592,10 +636,13 @@ class BaseSchema:
             the schema.
         """
 
-        param = self.get(*keypath, field=None)
+        base_schema = self.get(*keypath[0:-1], field="schema")
+
+        param = base_schema.get(keypath[-1], field=None)
         paramtype = param.get(field='type')
         if 'file' not in paramtype and 'dir' not in paramtype:
-            raise TypeError(f'Cannot find files on [{",".join(keypath)}], must be a path type')
+            raise TypeError(
+                f'Cannot find files on {self.__format_key(*keypath)}, must be a path type')
 
         paths = param.get(field=None, step=step, index=index)
 
@@ -615,23 +662,26 @@ class BaseSchema:
             cwd = os.getcwd()
 
         if packages is None:
-            packages = {}
+            packages = base_schema._find_files_dataroot_resolvers()
 
         resolved_paths = []
+        root_search_paths = base_schema._find_files_search_paths(keypath[-1], step, index)
         for path in paths:
-            search_paths = []
+            search_paths = root_search_paths.copy()
 
             package = path.get(field="package")
             if package:
                 if package not in packages:
-                    raise ValueError(f"Resolver for {package} not provided")
+                    raise ValueError(f"Resolver for {package} not provided: "
+                                     f"{self.__format_key(*keypath)}")
                 package_path = packages[package]
                 if isinstance(package_path, str):
                     search_paths.append(os.path.abspath(package_path))
                 elif callable(package_path):
                     search_paths.append(package_path())
                 else:
-                    raise TypeError(f"Resolver for {package} is not a recognized type")
+                    raise TypeError(f"Resolver for {package} is not a recognized type: "
+                                    f"{self.__format_key(*keypath)}")
             else:
                 if cwd:
                     search_paths.append(os.path.abspath(cwd))
@@ -644,10 +694,11 @@ class BaseSchema:
                 if not missing_ok:
                     if package:
                         raise FileNotFoundError(
-                            f'Could not find "{path.get()}" in {package} [{",".join(keypath)}]')
+                            f'Could not find "{path.get()}" in {package} '
+                            f'{self.__format_key(*keypath)}')
                     else:
                         raise FileNotFoundError(
-                            f'Could not find "{path.get()}" [{",".join(keypath)}]')
+                            f'Could not find "{path.get()}" {self.__format_key(*keypath)}')
             resolved_paths.append(resolved_path)
 
         if not is_list:
@@ -717,8 +768,8 @@ class BaseSchema:
                                 else:
                                     node_indicator = f" ({step}/{index})"
 
-                            logger.error(f"Parameter [{','.join(keypath)}]{node_indicator} path "
-                                         f"{check_file} is invalid")
+                            logger.error(f"Parameter {self.__format_key(*keypath)}{node_indicator} "
+                                         f"path {check_file} is invalid")
 
         return not error
 
@@ -735,3 +786,75 @@ class BaseSchema:
         if self.__parent is self:
             return self
         return self.__parent._parent(root=root)
+
+    @contextlib.contextmanager
+    def _active(self, **kwargs):
+        '''
+        Use this context to temporarily set additional fields in :meth:`.set` and :meth:`.add`.
+        Additional fields can be specified which can be accessed by :meth:`._get_active`.
+
+        Args:
+            kwargs (dict of str): keyword arguments that are used for setting values
+
+        Example:
+            >>> with schema._active(package="lambdalib"):
+            ...     schema.set("file", "top.v")
+            Sets the file to top.v and associates lambdalib as the package.
+        '''
+        if self.__active:
+            orig_active = self.__active.copy()
+        else:
+            orig_active = None
+
+        if self.__active is None:
+            self.__active = {}
+
+        self.__active.update(kwargs)
+        try:
+            yield
+        finally:
+            self.__active = orig_active
+
+    def _get_active(self, field, defvalue=None):
+        '''
+        Get the value of a specific field.
+
+        Args:
+            field (str): if None, return the current active dictionary,
+                         otherwise the value, if the field is not present, defvalue is returned.
+            defvalue (any): value to return if the field is not present.
+        '''
+        if self.__active is None:
+            return defvalue
+
+        if field is None:
+            return self.__active.copy()
+
+        return self.__active.get(field, defvalue)
+
+    def __process_active(self, param, nodevalues):
+        if not self.__active:
+            return
+
+        if not isinstance(nodevalues, (list, set, tuple)):
+            # Make everything a list
+            nodevalues = [nodevalues]
+
+        if not all([isinstance(v, NodeValue) for v in nodevalues]):
+            nodevalues = []
+            nodevalues_fields = []
+        else:
+            nodevalues_fields = nodevalues[0].fields
+
+        key_fields = ("copy", "lock")
+
+        for field, value in self.__active.items():
+            if field in key_fields:
+                param.set(value, field=field)
+                continue
+
+            if field not in nodevalues_fields:
+                continue
+
+            for param in nodevalues:
+                param.set(value, field=field)

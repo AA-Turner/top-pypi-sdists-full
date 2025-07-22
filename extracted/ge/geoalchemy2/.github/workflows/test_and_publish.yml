@@ -27,17 +27,15 @@ jobs:
       fail-fast: false
       matrix:
         python-version: [
-          {"pkg_name": "python==3.7.*", "flag": "3.7"},
-          {"pkg_name": "python==3.8.*", "flag": "3.8"},
-          {"pkg_name": "python==3.9.*", "flag": "3.9"},
           {"pkg_name": "python==3.10.*", "flag": "3.10"},
           {"pkg_name": "python==3.11.*", "flag": "3.11"},
           {"pkg_name": "python==3.12.*", "flag": "3.12"},
+          {"pkg_name": "python==3.13.*", "flag": "3.13"},
           {"pkg_name": "pypy3.10", "flag": "pypy3.10"},
         ]
 
     # The type of runner that the job will run on
-    runs-on: ubuntu-22.04
+    runs-on: ubuntu-24.04
 
     services:
       postgres:
@@ -97,11 +95,11 @@ jobs:
       with:
         python-version: ${{ matrix.python-version.flag }}
 
-    # Install MariaDB
-    - name: Install MariaDB and SpatiaLite
+    # Install SpatiaLite
+    - name: Install SpatiaLite
       run: |
         sudo apt-get update
-        sudo apt-get install -y mariadb-server mariadb-client libsqlite3-mod-spatialite libgdal-dev gdal-bin rasterio
+        sudo apt-get install -y libsqlite3-mod-spatialite libgdal-dev gdal-bin rasterio
 
     # Config PostgreSQL
     - name: Configure PostgreSQL
@@ -155,9 +153,9 @@ jobs:
         PYTEST_MARIADB_DB_URL: mariadb://gis:gis@127.0.0.1:3308/gis
       run: |
         if [[ ${{ matrix.python-version.flag }} == 'pypy3.10' ]]; then
-          export PYTEST_ADDOPTS=${PYTEST_ADDOPTS}' --ignore=tests/gallery/test_insert_raster.py'
           export PYTEST_SPATIALITE3_DB_URL="FAILING URL"
           export PYTEST_SPATIALITE4_DB_URL="FAILING URL"
+          export PYTEST_GEOPACKAGE_DB_URL="FAILING URL"
         else
           export PYTEST_ADDOPTS='--require-all-dialects'
         fi;

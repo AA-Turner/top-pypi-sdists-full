@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-mgmt-search
-Version: 9.1.0
+Version: 9.2.0
 Summary: Microsoft Azure Search Management Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -11,24 +11,23 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: isodate<1.0.0,>=0.6.1
-Requires-Dist: azure-common~=1.1
-Requires-Dist: azure-mgmt-core<2.0.0,>=1.3.2
-Requires-Dist: typing-extensions>=4.3.0; python_version < "3.8.0"
+Requires-Dist: isodate>=0.6.1
+Requires-Dist: typing-extensions>=4.6.0
+Requires-Dist: azure-common>=1.1
+Requires-Dist: azure-mgmt-core>=1.5.0
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Search Management Client Library.
-This package has been tested with Python 3.7+.
+This package has been tested with Python 3.9+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -39,7 +38,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.7+ is required to use this package.
+- Python 3.9+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -51,7 +50,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configure of following environment variables.
+By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -89,6 +88,116 @@ section of the project.
 
 
 # Release History
+
+## 9.2.0 (2025-07-21)
+
+### Features Added
+
+  - Client `SearchManagementClient` added operation group `network_security_perimeter_configurations`
+  - Model `Identity` added property `user_assigned_identities`
+  - Enum `IdentityType` added member `SYSTEM_ASSIGNED_USER_ASSIGNED`
+  - Enum `IdentityType` added member `USER_ASSIGNED`
+  - Model `NetworkRuleSet` added property `bypass`
+  - Model `Operation` added property `is_data_action`
+  - Model `Operation` added property `origin`
+  - Model `Operation` added property `action_type`
+  - Model `PrivateEndpointConnection` added property `system_data`
+  - Model `PrivateLinkResource` added property `system_data`
+  - Enum `PublicNetworkAccess` added member `SECURED_BY_PERIMETER`
+  - Model `Resource` added property `system_data`
+  - Model `SearchService` added property `endpoint`
+  - Model `SearchService` added property `compute_type`
+  - Model `SearchService` added property `data_exfiltration_protections`
+  - Model `SearchService` added property `e_tag`
+  - Model `SearchService` added property `upgrade_available`
+  - Model `SearchService` added property `service_upgraded_at`
+  - Model `SearchService` added property `system_data`
+  - Enum `SearchServiceStatus` added member `STOPPED`
+  - Model `SearchServiceUpdate` added property `endpoint`
+  - Model `SearchServiceUpdate` added property `compute_type`
+  - Model `SearchServiceUpdate` added property `data_exfiltration_protections`
+  - Model `SearchServiceUpdate` added property `e_tag`
+  - Model `SearchServiceUpdate` added property `upgrade_available`
+  - Model `SearchServiceUpdate` added property `service_upgraded_at`
+  - Model `SearchServiceUpdate` added property `system_data`
+  - Model `SharedPrivateLinkResource` added property `system_data`
+  - Model `TrackedResource` added property `system_data`
+  - Added model `AccessRule`
+  - Added enum `AccessRuleDirection`
+  - Added model `AccessRuleProperties`
+  - Added model `AccessRulePropertiesSubscriptionsItem`
+  - Added enum `ActionType`
+  - Added enum `ComputeType`
+  - Added enum `CreatedByType`
+  - Added enum `IssueType`
+  - Added model `NetworkSecurityPerimeter`
+  - Added model `NetworkSecurityPerimeterConfiguration`
+  - Added model `NetworkSecurityPerimeterConfigurationListResult`
+  - Added model `NetworkSecurityPerimeterConfigurationProperties`
+  - Added enum `NetworkSecurityPerimeterConfigurationProvisioningState`
+  - Added model `NetworkSecurityProfile`
+  - Added enum `Origin`
+  - Added model `ProvisioningIssue`
+  - Added model `ProvisioningIssueProperties`
+  - Added model `ProxyResource`
+  - Added model `ResourceAssociation`
+  - Added enum `ResourceAssociationAccessMode`
+  - Added enum `SearchBypass`
+  - Added enum `SearchDataExfiltrationProtection`
+  - Added enum `Severity`
+  - Added model `SystemData`
+  - Added enum `UpgradeAvailable`
+  - Added model `UserAssignedIdentity`
+  - Model `ServicesOperations` added method `begin_upgrade`
+  - Added operation group `NetworkSecurityPerimeterConfigurationsOperations`
+
+## 9.2.0b3 (2025-04-02)
+
+### Features Added
+
+  - Client `SearchManagementClient` added operation group `offerings`
+  - Model `SearchService` added property `system_data`
+  - Model `SearchService` added property `endpoint`
+  - Model `SearchService` added property `compute_type`
+  - Model `SearchService` added property `upgrade_available`
+  - Model `SearchService` added property `service_upgrade_date`
+  - Model `SearchServiceUpdate` added property `system_data`
+  - Model `SearchServiceUpdate` added property `endpoint`
+  - Model `SearchServiceUpdate` added property `compute_type`
+  - Model `SearchServiceUpdate` added property `upgrade_available`
+  - Model `SearchServiceUpdate` added property `service_upgrade_date`
+  - Added enum `ComputeType`
+  - Added enum `CreatedByType`
+  - Added enum `FeatureName`
+  - Added model `FeatureOffering`
+  - Added model `OfferingsByRegion`
+  - Added model `OfferingsListResult`
+  - Added model `SkuOffering`
+  - Added model `SkuOfferingLimits`
+  - Added model `SystemData`
+  - Operation group `ServicesOperations` added method `begin_upgrade`
+  - Added operation group `OfferingsOperations`
+
+## 9.2.0b2 (2024-07-18)
+
+### Other Changes
+
+  - Regular release
+
+## 9.2.0b1 (2024-03-18)
+
+### Features Added
+
+  - Added operation group NetworkSecurityPerimeterConfigurationsOperations
+  - Model Identity has a new parameter user_assigned_identities
+  - Model NetworkRuleSet has a new parameter bypass
+  - Model Operation has a new parameter is_data_action
+  - Model Operation has a new parameter origin
+  - Model Operation has a new parameter properties
+  - Model SearchService has a new parameter disabled_data_exfiltration_options
+  - Model SearchService has a new parameter e_tag
+  - Model SearchServiceUpdate has a new parameter disabled_data_exfiltration_options
+  - Model SearchServiceUpdate has a new parameter e_tag
 
 ## 9.1.0 (2023-10-23)
 

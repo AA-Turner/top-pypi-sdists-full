@@ -31,10 +31,13 @@ def assign_person_by_area(detections, customer_areas, staff_areas):
         customer_areas: Dict of area_name -> polygon (list of [x, y]).
         staff_areas: Dict of area_name -> polygon (list of [x, y]).
     """
-    # Track staff by track_id so staff status persists even if they enter customer area
+    # Only process detections with category 'person' for staff/customer assignment
     staff_track_ids = set()
     # First pass: assign staff and remember their track_ids
     for det in detections:
+        if det.get('category') != 'person' and det.get('category') != 'staff':
+            # Skip non-person, non-staff objects (e.g., chair, tie, etc.)
+            continue
         if det.get('category') == 'person':
             bbox = det.get('bbox', det.get('bounding_box', None))
             if bbox and len(bbox) == 4:
@@ -49,9 +52,11 @@ def assign_person_by_area(detections, customer_areas, staff_areas):
             staff_track_ids.add(det['track_id'])
     # Second pass: assign customer only if not a known staff track_id
     for det in detections:
-        if det.get('category') == 'person' and det.get('track_id') not in staff_track_ids:
+        if det.get('category') != 'person':
+            continue
+        if det.get('track_id') not in staff_track_ids:
             det['category'] = 'customer'
-        elif det.get('category') == 'person' and det.get('track_id') in staff_track_ids:
+        elif det.get('track_id') in staff_track_ids:
             det['category'] = 'staff'
 
 class AdvancedCustomerServiceUseCase(BaseProcessor):
@@ -112,34 +117,42 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             overall_performance = business_metrics.get("overall_performance", 0)
 
             # --- Build human_text ---
+
             human_text_lines = []
             human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
             human_text_lines.append(f"\t- Active Customers: {active_customers}")
             human_text_lines.append(f"\t\t- Queuing: {customers_queuing}")
             human_text_lines.append(f"\t\t- Being Served: {customers_being_served}")
-            human_text_lines.append(f"\t\t- Completed: {customers_completed}")
-            human_text_lines.append(f"\t\t- Left: {customers_left}")
             human_text_lines.append(f"\t- Active Staff: {active_staff}")
+            # ...removed duplicate active service area block...
+            # Add Customer/Staff Ratio and Queue Performance in current frame
+            human_text_lines.append(f"\t- Customer/Staff Ratio: {customer_staff_ratio:.2f}")
+            human_text_lines.append(f"\t- Queue Performance: {queue_performance*100:.1f}%")
+
+            # Show active service areas and per-area customer/staff counts
             human_text_lines.append(f"\t- Active Service Areas: {active_service_areas}")
             for area_name, area_info in service_areas_status.items():
-                n_customers = area_info.get("customers", 0)
-                n_staff = area_info.get("staff", 0)
-                human_text_lines.append(f"\t\t- {area_name}: {n_customers} customers, {n_staff} staff")
+                customers = area_info.get("customers", 0)
+                staff = area_info.get("staff", 0)
+                human_text_lines.append(f"\t\t- {area_name}: {customers} customers, {staff} staff")
 
             human_text_lines.append("")
             human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
-            human_text_lines.append(f"\t- Total Journeys: {total_journeys}")
-            for state in ["entering", "queuing", "being_served", "completed", "left"]:
-                count = journey_analytics.get("journey_states", {}).get(state, 0)
-                human_text_lines.append(f"\t\t- {state.replace('_', ' ').title()}: {count}")
-            human_text_lines.append(f"\t- Total Unique Staff: {total_staff}")
+            human_text_lines.append(f"\t- Total Customers: {total_journeys}")
+            # Only show completed and left in total since
+            completed_count = journey_analytics.get("journey_states", {}).get("completed", 0)
+            left_count = journey_analytics.get("journey_states", {}).get("left", 0)
+            human_text_lines.append(f"\t\t- Completed: {completed_count}")
+            human_text_lines.append(f"\t\t- Left: {left_count}")
+            human_text_lines.append(f"\t- Total Staff: {total_staff}")
+            avg_staff_count = staff_analytics.get("avg_staff_count", 0.0)
+            human_text_lines.append(f"\t- Average Staff Count: {avg_staff_count:.2f}")
             human_text_lines.append(f"\t- Average Wait Time: {avg_wait_time:.1f}s")
             human_text_lines.append(f"\t- Average Service Time: {avg_service_time:.1f}s")
             human_text_lines.append(f"\t- Average Journey Time: {avg_journey_time:.1f}s")
+            # Only show three business metrics in total since
             human_text_lines.append(f"\t- Business Metrics:")
-            human_text_lines.append(f"\t\t- Customer/Staff Ratio: {customer_staff_ratio:.2f}")
             human_text_lines.append(f"\t\t- Service Efficiency: {service_efficiency*100:.1f}%")
-            human_text_lines.append(f"\t\t- Queue Performance: {queue_performance*100:.1f}%")
             human_text_lines.append(f"\t\t- Staff Productivity: {staff_productivity:.2f} services/staff")
             human_text_lines.append(f"\t\t- Overall Performance: {overall_performance:.2f} / 1.0")
 
@@ -581,7 +594,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
     
     def _categorize_detections(self, detections: List[Dict], staff_categories: List[str],
                               customer_categories: List[str]) -> Tuple[List[Dict], List[Dict]]:
-        """Categorize detections into staff and customers, with persistent staff ID logic."""
+        """Categorize detections into staff and customers, with persistent staff ID logic. Only include detections whose category is in staff_categories or customer_categories."""
         staff_detections = []
         customer_detections = []
 
@@ -601,9 +614,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                     self.persistent_staff_ids.add(track_id)
             elif category in customer_categories:
                 customer_detections.append(detection)
-            else:
-                # Default to customer if category is unknown
-                customer_detections.append(detection)
+            # else: skip detection (do not add to either list)
 
         return staff_detections, customer_detections
     
@@ -892,7 +903,7 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         customers_queuing = 0
         customers_being_served = 0
         customers_completed = 0
-        wait_times_completed = []  # completed customers' wait times (list of dict)
+        # Only include ongoing wait times (exclude completed)
         wait_times_ongoing = []    # current customers still in queue (list of dict)
         chunk_ids = getattr(self, '_chunk_customer_ids', set())
         now = time.time()
@@ -909,12 +920,10 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                 customers_being_served += 1
             elif journey['state'] == self.JOURNEY_STATES['COMPLETED']:
                 customers_completed += 1
-                if journey['total_wait_time'] > 0:
-                    wait_times_completed.append({"track_id": track_id, "wait_time": journey['total_wait_time']})
 
-        # Calculate average_wait_time: (sum of completed + ongoing) / total
-        total_waits = [w['wait_time'] for w in wait_times_completed] + [w['wait_time'] for w in wait_times_ongoing]
-        n_total = customers_completed + customers_queuing
+        # Calculate average_wait_time: only ongoing wait times
+        total_waits = [w['wait_time'] for w in wait_times_ongoing]
+        n_total = customers_queuing
         average_wait_time = sum(total_waits) / n_total if n_total > 0 else 1.0
 
         queue_analytics = {
@@ -933,12 +942,11 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             "total_staff": len(self.global_staff_ids),
             "staff_distribution": {area_name: len(self.global_staff_ids_by_area[area_name]) for area_name in self.staff_areas},
             "staff_utilization": 0.0,
-            "active_staff": 0
+            "active_staff": 0,
+            "avg_staff_count": 0.0
         }
 
-        # Calculate staff efficiency (do not include in output, but keep for internal use)
         total_services = sum(self.staff_service_count.values())
-        # Improved logic: active_staff = all staff present in the chunk (not just those with services handled)
         chunk_staff_ids = set()
         for area_staff in self.staff_occupancy.values():
             for staff in area_staff:
@@ -952,7 +960,29 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         if total_staff_count > 0:
             staff_analytics["staff_utilization"] = len(chunk_staff_ids) / total_staff_count
 
-        # Internal: staff_efficiency (not shown in output)
+        # --- Avg staff count calculation ---
+        if not hasattr(self, '_staff_presence_history'):
+            self._staff_presence_history = []  # list of (timestamp, staff_count)
+        now = time.time()
+        staff_count_now = len(chunk_staff_ids)
+        self._staff_presence_history.append((now, staff_count_now))
+        avg_staff_count = 0.0
+        total_time = 0.0
+        history = self._staff_presence_history
+        if len(history) > 1:
+            for i in range(1, len(history)):
+                t0, c0 = history[i-1]
+                t1, c1 = history[i]
+                dt = t1 - t0
+                avg_staff_count += c0 * dt
+                total_time += dt
+            if total_time > 0:
+                staff_analytics["avg_staff_count"] = avg_staff_count / total_time
+            else:
+                staff_analytics["avg_staff_count"] = staff_count_now
+        else:
+            staff_analytics["avg_staff_count"] = staff_count_now
+
         staff_efficiency = {}
         for staff_id in self.global_staff_ids:
             service_count = self.staff_service_count.get(staff_id, 0)

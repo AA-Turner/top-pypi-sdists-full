@@ -762,13 +762,20 @@ def set_auth_for_url(url: Url | str) -> str:
         if username == AUTH_BEARER_USERNAME:
             # If the username indicates this is a token (which only happens for mamba auth)
             # the token should be embedded directly in the URL and not in the auth portion
-            if not path.startswith("/t/"):
+
+            if not password:
+                logger.warning(f"No token found for {parsed_url.url}")
+            # If the path has `/t//`, it's missing the token, so add it
+            elif path.startswith("/t//"):
+                parsed_url = parsed_url._replace(path=f"/t/{password}{path[3:]}")
+            # If the path doesn't have `/t/` at all, add it
+            elif not path.startswith("/t/"):
                 parsed_url = parsed_url._replace(path=f"/t/{password}{path}")
             parsed_url = parsed_url._replace(auth=None)
         elif username or password:
             parsed_url = parsed_url._replace(auth=f"{username or ''}:{password or ''}")
 
-        if username and not password:
+        if username and username != AUTH_BEARER_USERNAME and not password:
             logger.info(f"No password found for {parsed_url.url}")
         elif not username:
             logger.info(f"No username or password found for {parsed_url.url}")

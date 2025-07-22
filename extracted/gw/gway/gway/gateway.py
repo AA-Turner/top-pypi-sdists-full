@@ -16,11 +16,15 @@ from .sigils import Resolver, Sigil, Spool
 from .structs import Results, Project, Null
 from .runner import Runner
 
+# Prefixes used for functions mapped to web views or APIs.
+PREFIXES: tuple[str, ...] = ("view_", "api_", "render_")
+
 
 class Gateway(Resolver, Runner):
     _builtins = None  # Class-level: stores all discovered builtins only once
     _thread_local = threading.local()
     defaults = {}
+    prefixes = PREFIXES
 
     Null = Null  # Null is a black-hole, assign with care.
 
@@ -169,6 +173,15 @@ class Gateway(Resolver, Runner):
         self.info(message)
 
     def wrap_callable(self, func_name, func_obj, *, is_builtin=False):
+        title = getattr(func_obj, "_title", None)
+        if not title:
+            base = func_obj.__name__
+            for prefix in self.prefixes:
+                if base.startswith(prefix):
+                    base = base[len(prefix):]
+                    break
+            title = base.replace("_", " ").replace("-", " ").title()
+
         @functools.wraps(func_obj)
         def wrap(*args, **kwargs):
             try:
@@ -201,7 +214,9 @@ class Gateway(Resolver, Runner):
 
                     can_auto_inject = (subject is not None) and (name == subject) and not is_builtin
 
-                    if has_explicit:
+                    if name == "_title" and not has_explicit:
+                        value = title
+                    elif has_explicit:
                         value = bound_args.arguments[name]
                     elif can_auto_inject:
                         value = self.find_value(name)
@@ -302,6 +317,7 @@ class Gateway(Resolver, Runner):
                     self.exception(e)
                 raise
 
+        wrap._title = title
         return wrap
 
     def __getattr__(self, name):
@@ -348,7 +364,7 @@ class Gateway(Resolver, Runner):
                 return ns
 
             if os.path.isdir(base):
-                return self.recurse_ns(base, project_name)
+                return self._recurse_ns(base, project_name)
 
             base_path = Path(base)
             py_file = base_path if base_path.suffix == ".py" else base_path.with_suffix(".py")
@@ -450,8 +466,8 @@ class Gateway(Resolver, Runner):
             self.error(f"Failed to import {dotted_name} from {path}", exc_info=True)
             raise
         return mod
-
-    def recurse_ns(self, current_path: str, dotted_prefix: str):
+    
+    def _recurse_ns(self, current_path: str, dotted_prefix: str):
         """
         Recursively loads a project namespace. If a file matching the directory name
         exists (e.g. 'web/web.py'), its functions become root-level (e.g. gw.web.func).
@@ -479,7 +495,7 @@ class Gateway(Resolver, Runner):
                 subprojects[subname] = Project(dotted, sub_funcs, self)
             elif os.path.isdir(full) and not entry.startswith("__"):
                 dotted = f"{dotted_prefix}.{entry}"
-                subprojects[entry] = self.recurse_ns(full, dotted)
+                subprojects[entry] = self._recurse_ns(full, dotted)
 
         # 2. Load the root file (e.g., web/web.py) if present
         root_funcs = {}

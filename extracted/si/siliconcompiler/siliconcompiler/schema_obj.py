@@ -9,7 +9,6 @@ from siliconcompiler.schema import SafeSchema
 from siliconcompiler.schema import EditableSchema
 from siliconcompiler.schema import CommandLineSchema
 from siliconcompiler.schema import Parameter
-from siliconcompiler.schema.baseschema import json
 
 from siliconcompiler.schema.schema_cfg import schema_cfg
 
@@ -85,6 +84,9 @@ class SchemaTmp(Schema, CommandLineSchema):
 
         super()._from_dict(manifest, keypath, version=version)
 
+    def _find_files_dataroot_resolvers(self):
+        return self.get("package", field="schema").get_resolvers()
+
     def record_history(self):
         '''
         Copies all non-empty parameters from current job into the history
@@ -115,5 +117,5 @@ class SchemaTmp(Schema, CommandLineSchema):
 ##############################################################################
 # Main routine
 if __name__ == "__main__":
-    import json as main_json
-    print(main_json.dumps(SchemaTmp().getdict(), indent=4, sort_keys=True))
+    import json
+    print(json.dumps(SchemaTmp().getdict(), indent=4, sort_keys=True))

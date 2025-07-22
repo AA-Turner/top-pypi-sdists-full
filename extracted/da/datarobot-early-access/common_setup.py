@@ -58,8 +58,6 @@ Alternatively environment variables can be used.
    export DATAROBOT_API_TOKEN='your_token'
    export DATAROBOT_ENDPOINT='https://app.datarobot.com/api/v2'
 
-See `documentation`_ for example usage after configuring.
-
 Extra
 =========================
 

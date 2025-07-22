@@ -4,9 +4,6 @@ from siliconcompiler.schema.baseschema import BaseSchema
 from siliconcompiler.schema.editableschema import EditableSchema
 from siliconcompiler.schema.parameter import Parameter, Scope
 from siliconcompiler.schema.namedschema import NamedSchema
-from siliconcompiler.schema.utils import trim
-
-from siliconcompiler.package import Resolver
 
 
 class DependencySchema(BaseSchema):
@@ -26,49 +23,8 @@ class DependencySchema(BaseSchema):
                 '[str]',
                 scope=Scope.GLOBAL,
                 lock=True,
-                shorthelp="List of dependencies",
+                shorthelp="List of object dependencies",
                 help="List of named object dependencies included via add_dep()."))
-
-        schema.insert(
-            'package', 'default', 'root',
-            Parameter(
-                'str',
-                scope=Scope.GLOBAL,
-                shorthelp="Package: package root",
-                example=[
-                    "api: chip.set('source', "
-                    "'freepdk45_data', 'path', 'ssh://git@github.com/siliconcompiler/freepdk45/')"],
-                help=trim("""
-                    Package root path, this points the location where the package data can be
-                    retrieved or accessed.
-                    Allowed roots:
-
-                    * /path/on/network/drive
-                    * file:///path/on/network/drive
-                    * git+https://github.com/xyz/xyz
-                    * git://github.com/xyz/xyz
-                    * git+ssh://github.com/xyz/xyz
-                    * ssh://github.com/xyz/xyz
-                    * https://github.com/xyz/xyz/archive
-                    * https://zeroasic.com/xyz.tar.gz
-                    * github://siliconcompiler/lambdapdk/v1.0/asap7.tar.gz
-                    * python://siliconcompiler
-                    """)))
-
-        schema.insert(
-            'package', 'default', 'tag',
-            Parameter(
-                'str',
-                scope=Scope.GLOBAL,
-                shorthelp="Package: package tag/version",
-                example=[
-                    "api: chip.set('source', 'freepdk45_data', 'ref', '07ec4aa')"],
-                help=trim("""
-                    Package reference tag. The meaning of the this tag depends on the context of
-                    the root.
-                    For git, this can be a tag, branch, or commit id. For https this is the version
-                    of the file that will be downloaded.
-                    """)))
 
     def _from_dict(self, manifest, keypath, version=None):
         self.set("deps", False, field="lock")
@@ -94,6 +50,9 @@ class DependencySchema(BaseSchema):
 
         if not clobber and obj.name() in self.__deps:
             return False
+
+        if obj.name() is None:
+            raise ValueError("Cannot add an unnamed dependency")
 
         if obj.name() not in self.__deps:
             self.set("deps", False, field="lock")
@@ -217,6 +176,12 @@ class DependencySchema(BaseSchema):
 
         if name:
             if name not in self.__deps:
+                if "." in name:
+                    name0, *name1 = name.split(".")
+                    subdep = self.get_dep(name0)
+                    if isinstance(subdep, DependencySchema):
+                        return subdep.get_dep(".".join(name1))
+                    raise KeyError(f"{name} does not contain dependency information")
                 raise KeyError(f"{name} is not an imported module")
 
             return self.__deps[name]
@@ -261,132 +226,3 @@ class DependencySchema(BaseSchema):
 
             if isinstance(self.__deps[module], DependencySchema):
                 self.__deps[module]._populate_deps(module_map)
-
-    def register_package(self, name: str, root: str, tag: str = None):
-        """
-        Registers a package by its name with the root and associated tag.
-
-        Args:
-            name (str): Package name
-            root (str): Path to the root, can be directory, git url, or archive url
-            tag (str): Reference of the sources, can be commitid, branch name, tag
-
-        Examples:
-            >>> schema.register_package('siliconcompiler_data',
-                    'git+https://github.com/siliconcompiler/siliconcompiler',
-                    'v1.0.0')
-        """
-
-        if os.path.isfile(root):
-            root = os.path.dirname(os.path.abspath(root))
-
-        self.set("package", name, "root", root)
-        if tag:
-            self.set("package", name, "tag", tag)
-
-    def find_package(self, name: str):
-        """
-        Returns absolute path to the package root.
-
-        Raises:
-            ValueError: is package is not found
-
-        Args:
-            name (str): name of the package to find.
-
-        Returns:
-            Path to the package directory root.
-
-        Examples:
-            >>> schema.find_package('siliconcompiler')
-            Returns the path to the root of the siliconcompiler package.
-        """
-
-        if not self.valid("package", name):
-            raise ValueError(f"{name} is not a recognized source")
-
-        root = self.get("package", name, "root")
-        tag = self.get("package", name, "tag")
-
-        resolver = Resolver.find_resolver(root)
-        return resolver(name, self._parent(root=True), root, tag).get_path()
-
-    def __get_resolver_map(self):
-        """
-        Generate the resolver map got package handling for find_files and check_filepaths
-        """
-        schema_root = self._parent(root=True)
-        resolver_map = {}
-        for package in self.getkeys("package"):
-            root = self.get("package", package, "root")
-            tag = self.get("package", package, "tag")
-            resolver = Resolver.find_resolver(root)
-            resolver_map[package] = resolver(package, schema_root, root, tag).get_path
-        return resolver_map
-
-    def find_files(self, *keypath,
-                   missing_ok=False,
-                   step=None, index=None):
-        """
-        Returns absolute paths to files or directories based on the keypath
-        provided.
-
-        The keypath provided must point to a schema parameter of type file, dir,
-        or lists of either. Otherwise, it will trigger an error.
-
-        Args:
-            keypath (list of str): Variable length schema key list.
-            missing_ok (bool): If True, silently return None when files aren't
-                found. If False, print an error and set the error flag.
-            step (str): Step name to access for parameters that may be specified
-                on a per-node basis.
-            index (str): Index name to access for parameters that may be specified
-                on a per-node basis.
-
-        Returns:
-            If keys points to a scalar entry, returns an absolute path to that
-            file/directory, or None if not found. It keys points to a list
-            entry, returns a list of either the absolute paths or None for each
-            entry, depending on whether it is found.
-
-        Examples:
-            >>> schema.find_files('input', 'verilog')
-            Returns a list of absolute paths to source files, as specified in
-            the schema.
-        """
-        schema_root = self._parent(root=True)
-        cwd = getattr(schema_root, "cwd", os.getcwd())
-        collection_dir = getattr(schema_root, "collection_dir", None)
-        if collection_dir:
-            collection_dir = collection_dir()
-
-        return super().find_files(*keypath,
-                                  missing_ok=missing_ok,
-                                  step=step, index=index,
-                                  packages=self.__get_resolver_map(),
-                                  collection_dir=collection_dir,
-                                  cwd=cwd)
-
-    def check_filepaths(self, ignore_keys=None):
-        '''
-        Verifies that paths to all files in manifest are valid.
-
-        Args:
-            ignore_keys (list of keypaths): list of keypaths to ignore while checking
-
-        Returns:
-            True if all file paths are valid, otherwise False.
-        '''
-        schema_root = self._parent(root=True)
-        cwd = getattr(schema_root, "cwd", os.getcwd())
-        logger = getattr(schema_root, "logger", None)
-        collection_dir = getattr(schema_root, "collection_dir", None)
-        if collection_dir:
-            collection_dir = collection_dir()
-
-        return super().check_filepaths(
-            ignore_keys=ignore_keys,
-            logger=logger,
-            packages=self.__get_resolver_map(),
-            collection_dir=collection_dir,
-            cwd=cwd)

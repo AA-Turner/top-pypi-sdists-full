@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: tinybird_cli
-Version: 5.20.0
+Version: 5.21.0
 Summary: Tinybird Command Line Tool
 Home-page: https://www.tinybird.co/docs/cli
 Author: Tinybird
@@ -60,6 +60,17 @@ The Tinybird command-line tool allows you to use all the Tinybird functionality 
 
 Changelog
 ----------
+
+5.21.1.dev1
+***********
+
+- Internal changes.
+
+5.21.0
+***********
+
+- `Added` `tb pipe populate` and `tb push <PIPE> --populate` has a new `--on-demand-compute` flag to enable Compute-Compute Separation in populates.
+- `Added` When trying to push a materialized view with an unoptimized join, the CLI will now warn the user.
 
 5.19.0
 ***********
@@ -198,6 +209,7 @@ Changelog
 - `Added` `tb tag` commands to manage tags from the CLI.
 - `Added` support to `TAGS` in `tb fmt`.
 - `Added` support to `TAGS` in `tb pull` and `tb push`. Allows tagging resources for filtering in the UI.
+- `Changed` Improved message when creating a DynamoDB connection
 
 5.7.0
 **********

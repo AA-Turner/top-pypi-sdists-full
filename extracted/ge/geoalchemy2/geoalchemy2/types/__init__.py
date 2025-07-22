@@ -5,14 +5,14 @@ The :class:`geoalchemy2.types.Geometry`, :class:`geoalchemy2.types.Geography`, a
 columns/properties in models.
 """
 
+import re
 import warnings
 from typing import Any
 from typing import Dict
 from typing import Optional
 
+from sqlalchemy import Computed
 from sqlalchemy.dialects import postgresql
-from sqlalchemy.dialects.postgresql.base import ischema_names as _postgresql_ischema_names
-from sqlalchemy.dialects.sqlite.base import ischema_names as _sqlite_ischema_names
 from sqlalchemy.ext.compiler import compiles
 from sqlalchemy.sql import func
 from sqlalchemy.types import Float
@@ -116,17 +116,17 @@ class _GISType(UserDefinedType):
     def __init__(
         self,
         geometry_type: Optional[str] = "GEOMETRY",
-        srid=-1,
-        dimension=2,
-        spatial_index=True,
-        use_N_D_index=False,
+        srid: int = -1,
+        dimension: Optional[int] = None,
+        spatial_index: bool = True,
+        use_N_D_index: bool = False,
         use_typmod: Optional[bool] = None,
         from_text: Optional[str] = None,
         name: Optional[str] = None,
-        nullable=True,
+        nullable: bool = True,
         _spatial_index_reflected=None,
     ) -> None:
-        geometry_type, srid = self.check_ctor_args(
+        geometry_type, srid, dimension = self.check_ctor_args(
             geometry_type, srid, dimension, use_typmod, nullable
         )
         self.geometry_type = geometry_type
@@ -195,7 +195,21 @@ class _GISType(UserDefinedType):
                 'The "nullable" and "use_typmod" arguments can not be used together'
             )
 
-        return geometry_type, srid
+        if dimension not in [None, 2, 3, 4]:
+            raise ValueError("dimension must be one of [None, 2, 3, 4] " "but got %s" % dimension)
+        if geometry_type is not None:
+            if geometry_type.endswith("ZM"):
+                if dimension not in [None, 4]:
+                    raise ValueError("dimension must be 4 when geometry_type ends with 'ZM'")
+                dimension = 4
+            elif geometry_type[-1] in ["Z", "M"]:
+                if dimension not in [None, 3]:
+                    raise ValueError("dimension must be 3 when geometry_type ends with 'Z' or 'M'")
+                dimension = 3
+            else:
+                dimension = 2
+
+        return geometry_type, srid, dimension
 
 
 @compiles(_GISType, "mysql")
@@ -206,10 +220,23 @@ def get_col_spec_mysql(self, compiler, *args, **kwargs):
     else:
         spec = "GEOMETRY"
 
-    if not self.nullable or self.spatial_index:
-        spec += " NOT NULL"
-    if self.srid > 0 and compiler.dialect.name != "mariadb":
-        spec += " SRID %d" % self.srid
+    type_expression = kwargs.get("type_expression", None)
+    if type_expression is None or type_expression.computed is None:
+        if not self.nullable or self.spatial_index:
+            spec += " NOT NULL"
+        if self.srid > 0 and compiler.dialect.name != "mariadb":
+            spec += " SRID %d" % self.srid
+    return spec
+
+
+@compiles(Computed, "mysql")
+@compiles(Computed, "mariadb")
+def get_col_spec_computed_mysql(self, compiler, *args, **kwargs):
+    # MySQL uses a different syntax for computed columns
+    # than PostgreSQL, so we need to handle it here.
+    spec = self.sqltext.compile(compiler, **kwargs).string
+    pattern = re.compile("st_", re.IGNORECASE)
+    spec = "AS (%s)" % re.sub(pattern, "", spec)
     return spec
 
 
@@ -246,7 +273,7 @@ class Geometry(_GISType):
         ``result_processor`` method. """
 
     cache_ok = True
-    """ Disable cache for this type. """
+    """ Enable cache for this type. """
 
 
 class Geography(_GISType):
@@ -276,7 +303,7 @@ class Geography(_GISType):
         ``result_processor`` method. """
 
     cache_ok = True
-    """ Disable cache for this type. """
+    """ Enable cache for this type. """
 
 
 class Raster(_GISType):
@@ -316,26 +343,34 @@ class Raster(_GISType):
         ``result_processor`` method. """
 
     cache_ok = True
-    """ Disable cache for this type. """
+    """ Enable cache for this type. """
 
-    def __init__(self, spatial_index=True, from_text=None, name=None, nullable=True) -> None:
+    def __init__(
+        self,
+        spatial_index=True,
+        from_text=None,
+        name=None,
+        nullable=True,
+        _spatial_index_reflected=None,
+    ) -> None:
         # Enforce default values
         super(Raster, self).__init__(
             geometry_type=None,
             srid=-1,
-            dimension=2,
+            dimension=None,
             spatial_index=spatial_index,
             use_N_D_index=False,
             use_typmod=False,
             from_text=from_text,
             name=name,
             nullable=nullable,
+            _spatial_index_reflected=_spatial_index_reflected,
         )
         self.extended = None
 
     @staticmethod
     def check_ctor_args(*args, **kwargs):
-        return None, -1
+        return None, -1, None
 
 
 class _DummyGeometry(Geometry):
@@ -381,23 +416,6 @@ class GeometryDump(CompositeType):
 
     cache_ok = True
     """ Enable cache for this type. """
-
-
-# Register Geometry, Geography and Raster to SQLAlchemy's reflection subsystems.
-_postgresql_ischema_names["geometry"] = Geometry
-_postgresql_ischema_names["geography"] = Geography
-_postgresql_ischema_names["raster"] = Raster
-
-_sqlite_ischema_names["GEOMETRY"] = Geometry
-_sqlite_ischema_names["POINT"] = Geometry
-_sqlite_ischema_names["LINESTRING"] = Geometry
-_sqlite_ischema_names["POLYGON"] = Geometry
-_sqlite_ischema_names["MULTIPOINT"] = Geometry
-_sqlite_ischema_names["MULTILINESTRING"] = Geometry
-_sqlite_ischema_names["MULTIPOLYGON"] = Geometry
-_sqlite_ischema_names["CURVE"] = Geometry
-_sqlite_ischema_names["GEOMETRYCOLLECTION"] = Geometry
-_sqlite_ischema_names["RASTER"] = Raster
 
 
 class SummaryStats(CompositeType):

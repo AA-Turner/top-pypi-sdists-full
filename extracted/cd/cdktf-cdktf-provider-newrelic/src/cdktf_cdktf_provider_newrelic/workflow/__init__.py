@@ -1,7 +1,7 @@
 r'''
 # `newrelic_workflow`
 
-Refer to the Terraform Registry for docs: [`newrelic_workflow`](https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow).
+Refer to the Terraform Registry for docs: [`newrelic_workflow`](https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Workflow(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.workflow.Workflow",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow newrelic_workflow}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow newrelic_workflow}.'''
 
     def __init__(
         self,
@@ -69,20 +69,20 @@ class Workflow(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow newrelic_workflow} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow newrelic_workflow} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#destination Workflow#destination}
-        :param issues_filter: issues_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#issues_filter Workflow#issues_filter}
-        :param muting_rules_handling: The type of the muting rule handling. One of: (NOTIFY_ALL_ISSUES, DONT_NOTIFY_FULLY_MUTED_ISSUES, DONT_NOTIFY_FULLY_OR_PARTIALLY_MUTED_ISSUES). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#muting_rules_handling Workflow#muting_rules_handling}
-        :param name: (Required) The name of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#name Workflow#name}
-        :param account_id: The account id of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#account_id Workflow#account_id}
-        :param destinations_enabled: Indicates whether the destinations are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#destinations_enabled Workflow#destinations_enabled}
-        :param enabled: Indicates whether the workflow is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#enabled Workflow#enabled}
-        :param enrichments: enrichments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#enrichments Workflow#enrichments}
-        :param enrichments_enabled: Indicates whether the enrichments are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#enrichments_enabled Workflow#enrichments_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#id Workflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#destination Workflow#destination}
+        :param issues_filter: issues_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#issues_filter Workflow#issues_filter}
+        :param muting_rules_handling: The type of the muting rule handling. One of: (NOTIFY_ALL_ISSUES, DONT_NOTIFY_FULLY_MUTED_ISSUES, DONT_NOTIFY_FULLY_OR_PARTIALLY_MUTED_ISSUES). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#muting_rules_handling Workflow#muting_rules_handling}
+        :param name: (Required) The name of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#name Workflow#name}
+        :param account_id: The account id of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#account_id Workflow#account_id}
+        :param destinations_enabled: Indicates whether the destinations are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#destinations_enabled Workflow#destinations_enabled}
+        :param enabled: Indicates whether the workflow is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#enabled Workflow#enabled}
+        :param enrichments: enrichments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#enrichments Workflow#enrichments}
+        :param enrichments_enabled: Indicates whether the enrichments are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#enrichments_enabled Workflow#enrichments_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#id Workflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -130,7 +130,7 @@ class Workflow(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Workflow to import.
-        :param import_from_id: The id of the existing Workflow that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Workflow that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Workflow to import is found.
         '''
         if __debug__:
@@ -161,7 +161,7 @@ class Workflow(
         nrql: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["WorkflowEnrichmentsNrql", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param nrql: nrql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#nrql Workflow#nrql}
+        :param nrql: nrql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#nrql Workflow#nrql}
         '''
         value = WorkflowEnrichments(nrql=nrql)
 
@@ -176,9 +176,9 @@ class Workflow(
         predicate: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["WorkflowIssuesFilterPredicate", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: (Required) Filter's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#name Workflow#name}
-        :param type: (Required) The type of the filter. One of: (FILTER, VIEW). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#type Workflow#type}
-        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#predicate Workflow#predicate}
+        :param name: (Required) Filter's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#name Workflow#name}
+        :param type: (Required) The type of the filter. One of: (FILTER, VIEW). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#type Workflow#type}
+        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#predicate Workflow#predicate}
         '''
         value = WorkflowIssuesFilter(name=name, type=type, predicate=predicate)
 
@@ -460,16 +460,16 @@ class WorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#destination Workflow#destination}
-        :param issues_filter: issues_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#issues_filter Workflow#issues_filter}
-        :param muting_rules_handling: The type of the muting rule handling. One of: (NOTIFY_ALL_ISSUES, DONT_NOTIFY_FULLY_MUTED_ISSUES, DONT_NOTIFY_FULLY_OR_PARTIALLY_MUTED_ISSUES). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#muting_rules_handling Workflow#muting_rules_handling}
-        :param name: (Required) The name of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#name Workflow#name}
-        :param account_id: The account id of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#account_id Workflow#account_id}
-        :param destinations_enabled: Indicates whether the destinations are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#destinations_enabled Workflow#destinations_enabled}
-        :param enabled: Indicates whether the workflow is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#enabled Workflow#enabled}
-        :param enrichments: enrichments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#enrichments Workflow#enrichments}
-        :param enrichments_enabled: Indicates whether the enrichments are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#enrichments_enabled Workflow#enrichments_enabled}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#id Workflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param destination: destination block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#destination Workflow#destination}
+        :param issues_filter: issues_filter block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#issues_filter Workflow#issues_filter}
+        :param muting_rules_handling: The type of the muting rule handling. One of: (NOTIFY_ALL_ISSUES, DONT_NOTIFY_FULLY_MUTED_ISSUES, DONT_NOTIFY_FULLY_OR_PARTIALLY_MUTED_ISSUES). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#muting_rules_handling Workflow#muting_rules_handling}
+        :param name: (Required) The name of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#name Workflow#name}
+        :param account_id: The account id of the workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#account_id Workflow#account_id}
+        :param destinations_enabled: Indicates whether the destinations are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#destinations_enabled Workflow#destinations_enabled}
+        :param enabled: Indicates whether the workflow is enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#enabled Workflow#enabled}
+        :param enrichments: enrichments block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#enrichments Workflow#enrichments}
+        :param enrichments_enabled: Indicates whether the enrichments are enabled. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#enrichments_enabled Workflow#enrichments_enabled}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#id Workflow#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -599,7 +599,7 @@ class WorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WorkflowDestination"]]:
         '''destination block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#destination Workflow#destination}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#destination Workflow#destination}
         '''
         result = self._values.get("destination")
         assert result is not None, "Required property 'destination' is missing"
@@ -609,7 +609,7 @@ class WorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def issues_filter(self) -> "WorkflowIssuesFilter":
         '''issues_filter block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#issues_filter Workflow#issues_filter}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#issues_filter Workflow#issues_filter}
         '''
         result = self._values.get("issues_filter")
         assert result is not None, "Required property 'issues_filter' is missing"
@@ -619,7 +619,7 @@ class WorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def muting_rules_handling(self) -> builtins.str:
         '''The type of the muting rule handling. One of: (NOTIFY_ALL_ISSUES, DONT_NOTIFY_FULLY_MUTED_ISSUES, DONT_NOTIFY_FULLY_OR_PARTIALLY_MUTED_ISSUES).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#muting_rules_handling Workflow#muting_rules_handling}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#muting_rules_handling Workflow#muting_rules_handling}
         '''
         result = self._values.get("muting_rules_handling")
         assert result is not None, "Required property 'muting_rules_handling' is missing"
@@ -629,7 +629,7 @@ class WorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''(Required) The name of the workflow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#name Workflow#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#name Workflow#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -639,7 +639,7 @@ class WorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The account id of the workflow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#account_id Workflow#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#account_id Workflow#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -650,7 +650,7 @@ class WorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the destinations are enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#destinations_enabled Workflow#destinations_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#destinations_enabled Workflow#destinations_enabled}
         '''
         result = self._values.get("destinations_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -661,7 +661,7 @@ class WorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the workflow is enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#enabled Workflow#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#enabled Workflow#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -670,7 +670,7 @@ class WorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def enrichments(self) -> typing.Optional["WorkflowEnrichments"]:
         '''enrichments block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#enrichments Workflow#enrichments}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#enrichments Workflow#enrichments}
         '''
         result = self._values.get("enrichments")
         return typing.cast(typing.Optional["WorkflowEnrichments"], result)
@@ -681,14 +681,14 @@ class WorkflowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the enrichments are enabled.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#enrichments_enabled Workflow#enrichments_enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#enrichments_enabled Workflow#enrichments_enabled}
         '''
         result = self._values.get("enrichments_enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#id Workflow#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#id Workflow#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -726,9 +726,9 @@ class WorkflowDestination:
         update_original_message: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param channel_id: (Required) Destination's channel id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#channel_id Workflow#channel_id}
-        :param notification_triggers: List of triggers to notify about in this destination configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#notification_triggers Workflow#notification_triggers}
-        :param update_original_message: Update original notification message (Slack channels only). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#update_original_message Workflow#update_original_message}
+        :param channel_id: (Required) Destination's channel id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#channel_id Workflow#channel_id}
+        :param notification_triggers: List of triggers to notify about in this destination configuration. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#notification_triggers Workflow#notification_triggers}
+        :param update_original_message: Update original notification message (Slack channels only). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#update_original_message Workflow#update_original_message}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d0c7b4928cc92e4a09b3d0489d9d9a28dc1a1385a3df2aa9da4803d02f9217d0)
@@ -747,7 +747,7 @@ class WorkflowDestination:
     def channel_id(self) -> builtins.str:
         '''(Required) Destination's channel id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#channel_id Workflow#channel_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#channel_id Workflow#channel_id}
         '''
         result = self._values.get("channel_id")
         assert result is not None, "Required property 'channel_id' is missing"
@@ -757,7 +757,7 @@ class WorkflowDestination:
     def notification_triggers(self) -> typing.Optional[typing.List[builtins.str]]:
         '''List of triggers to notify about in this destination configuration.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#notification_triggers Workflow#notification_triggers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#notification_triggers Workflow#notification_triggers}
         '''
         result = self._values.get("notification_triggers")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -768,7 +768,7 @@ class WorkflowDestination:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Update original notification message (Slack channels only).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#update_original_message Workflow#update_original_message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#update_original_message Workflow#update_original_message}
         '''
         result = self._values.get("update_original_message")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1007,7 +1007,7 @@ class WorkflowEnrichments:
         nrql: typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["WorkflowEnrichmentsNrql", typing.Dict[builtins.str, typing.Any]]]],
     ) -> None:
         '''
-        :param nrql: nrql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#nrql Workflow#nrql}
+        :param nrql: nrql block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#nrql Workflow#nrql}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b2bd9c94bedca705b4c369ad6281407df8f08600b7b71abe69e855e5d39ec7d6)
@@ -1022,7 +1022,7 @@ class WorkflowEnrichments:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WorkflowEnrichmentsNrql"]]:
         '''nrql block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#nrql Workflow#nrql}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#nrql Workflow#nrql}
         '''
         result = self._values.get("nrql")
         assert result is not None, "Required property 'nrql' is missing"
@@ -1053,8 +1053,8 @@ class WorkflowEnrichmentsNrql:
         name: builtins.str,
     ) -> None:
         '''
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#configuration Workflow#configuration}
-        :param name: (Required) Enrichment's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#name Workflow#name}
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#configuration Workflow#configuration}
+        :param name: (Required) Enrichment's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#name Workflow#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8a9d6a3daf73a221ee386cc12c12e250d0063b61fa3c04f5b81076e9774b714)
@@ -1071,7 +1071,7 @@ class WorkflowEnrichmentsNrql:
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WorkflowEnrichmentsNrqlConfiguration"]]:
         '''configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#configuration Workflow#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#configuration Workflow#configuration}
         '''
         result = self._values.get("configuration")
         assert result is not None, "Required property 'configuration' is missing"
@@ -1081,7 +1081,7 @@ class WorkflowEnrichmentsNrql:
     def name(self) -> builtins.str:
         '''(Required) Enrichment's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#name Workflow#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#name Workflow#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1107,7 +1107,7 @@ class WorkflowEnrichmentsNrql:
 class WorkflowEnrichmentsNrqlConfiguration:
     def __init__(self, *, query: builtins.str) -> None:
         '''
-        :param query: enrichment's NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#query Workflow#query}
+        :param query: enrichment's NRQL query. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#query Workflow#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a94a5cf5a96648c059a02dd4f21ebfe336fbb6235266949f9395a67dd5d5c69e)
@@ -1120,7 +1120,7 @@ class WorkflowEnrichmentsNrqlConfiguration:
     def query(self) -> builtins.str:
         '''enrichment's NRQL query.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#query Workflow#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#query Workflow#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -1555,9 +1555,9 @@ class WorkflowIssuesFilter:
         predicate: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["WorkflowIssuesFilterPredicate", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: (Required) Filter's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#name Workflow#name}
-        :param type: (Required) The type of the filter. One of: (FILTER, VIEW). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#type Workflow#type}
-        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#predicate Workflow#predicate}
+        :param name: (Required) Filter's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#name Workflow#name}
+        :param type: (Required) The type of the filter. One of: (FILTER, VIEW). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#type Workflow#type}
+        :param predicate: predicate block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#predicate Workflow#predicate}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9d2ae436246fe35ae81f32404a8ff50723e8d26ee64cc7ccf2a0ed044c11287a)
@@ -1575,7 +1575,7 @@ class WorkflowIssuesFilter:
     def name(self) -> builtins.str:
         '''(Required) Filter's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#name Workflow#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#name Workflow#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1585,7 +1585,7 @@ class WorkflowIssuesFilter:
     def type(self) -> builtins.str:
         '''(Required) The type of the filter. One of: (FILTER, VIEW).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#type Workflow#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#type Workflow#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -1597,7 +1597,7 @@ class WorkflowIssuesFilter:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WorkflowIssuesFilterPredicate"]]]:
         '''predicate block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#predicate Workflow#predicate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#predicate Workflow#predicate}
         '''
         result = self._values.get("predicate")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WorkflowIssuesFilterPredicate"]]], result)
@@ -1733,9 +1733,9 @@ class WorkflowIssuesFilterPredicate:
         values: typing.Sequence[builtins.str],
     ) -> None:
         '''
-        :param attribute: (Required) predicate's attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#attribute Workflow#attribute}
-        :param operator: The type of the operator. One of: (CONTAINS, DOES_NOT_CONTAIN, DOES_NOT_EQUAL, DOES_NOT_EXACTLY_MATCH, ENDS_WITH, EQUAL, EXACTLY_MATCHES, GREATER_OR_EQUAL, GREATER_THAN, IS, IS_NOT, LESS_OR_EQUAL, LESS_THAN, STARTS_WITH). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#operator Workflow#operator}
-        :param values: List of predicate values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#values Workflow#values}
+        :param attribute: (Required) predicate's attribute. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#attribute Workflow#attribute}
+        :param operator: The type of the operator. One of: (CONTAINS, DOES_NOT_CONTAIN, DOES_NOT_EQUAL, DOES_NOT_EXACTLY_MATCH, ENDS_WITH, EQUAL, EXACTLY_MATCHES, GREATER_OR_EQUAL, GREATER_THAN, IS, IS_NOT, LESS_OR_EQUAL, LESS_THAN, STARTS_WITH). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#operator Workflow#operator}
+        :param values: List of predicate values. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#values Workflow#values}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3f409ceab39a6b903b35a472ca1dd695e52d10f7b6ec3936f53cc61ed709b90c)
@@ -1752,7 +1752,7 @@ class WorkflowIssuesFilterPredicate:
     def attribute(self) -> builtins.str:
         '''(Required) predicate's attribute.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#attribute Workflow#attribute}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#attribute Workflow#attribute}
         '''
         result = self._values.get("attribute")
         assert result is not None, "Required property 'attribute' is missing"
@@ -1764,7 +1764,7 @@ class WorkflowIssuesFilterPredicate:
 
         One of: (CONTAINS, DOES_NOT_CONTAIN, DOES_NOT_EQUAL, DOES_NOT_EXACTLY_MATCH, ENDS_WITH, EQUAL, EXACTLY_MATCHES, GREATER_OR_EQUAL, GREATER_THAN, IS, IS_NOT, LESS_OR_EQUAL, LESS_THAN, STARTS_WITH).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#operator Workflow#operator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#operator Workflow#operator}
         '''
         result = self._values.get("operator")
         assert result is not None, "Required property 'operator' is missing"
@@ -1774,7 +1774,7 @@ class WorkflowIssuesFilterPredicate:
     def values(self) -> typing.List[builtins.str]:
         '''List of predicate values.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workflow#values Workflow#values}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workflow#values Workflow#values}
         '''
         result = self._values.get("values")
         assert result is not None, "Required property 'values' is missing"

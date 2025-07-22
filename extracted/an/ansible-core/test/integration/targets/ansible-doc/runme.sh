@@ -28,7 +28,10 @@ ansible-playbook test.yml -i inventory "$@"
 # test keyword docs
 ansible-doc -t keyword -l | grep "${GREP_OPTS[@]}" 'vars_prompt: list of variables to prompt for.'
 ansible-doc -t keyword vars_prompt | grep "${GREP_OPTS[@]}" 'description: list of variables to prompt for.'
-ansible-doc -t keyword asldkfjaslidfhals 2>&1 | grep "${GREP_OPTS[@]}" 'Skipping Invalid keyword'
+ansible-doc -t keyword asldkfjaslidfhals 2>&1 | grep "${GREP_OPTS[@]}" 'Skipping invalid keyword'
+
+echo "Check if deprecation collection name is printed"
+ansible-doc --playbook-dir ./ testns.testcol.randommodule 2>&1 | grep "${GREP_OPTS[@]}" "Will be removed in: testns.testcol"
 
 # collections testing
 (
@@ -180,7 +183,7 @@ echo "testing metadata dump"
 # just ensure it runs
 ANSIBLE_LIBRARY='./nolibrary' ansible-doc --metadata-dump --playbook-dir /dev/null 1>/dev/null 2>&1
 
-# create broken role argument spec
+echo "test metadata dump on broken role metadata"
 mkdir -p broken-docs/collections/ansible_collections/testns/testcol/roles/testrole/meta
 cat <<EOF > broken-docs/collections/ansible_collections/testns/testcol/roles/testrole/meta/main.yml
 ---
@@ -205,14 +208,15 @@ EOF
 ANSIBLE_LIBRARY='./nolibrary' ansible-doc --metadata-dump --no-fail-on-errors --playbook-dir broken-docs testns.testcol 1>/dev/null 2>&1
 
 # ensure that --metadata-dump does fail when --no-fail-on-errors is not supplied
-output=$(ANSIBLE_LIBRARY='./nolibrary' ansible-doc --metadata-dump --playbook-dir broken-docs testns.testcol 2>&1 | grep -c 'ERROR!' || true)
+output=$(ANSIBLE_LIBRARY='./nolibrary' ansible-doc --metadata-dump --playbook-dir broken-docs testns.testcol 2>&1 | grep -c 'ERROR' || true)
 test "${output}" -eq 1
 
+echo "test doc list on broken role metadata"
 # ensure that role doc does not fail when --no-fail-on-errors is supplied
 ANSIBLE_LIBRARY='./nolibrary' ansible-doc --no-fail-on-errors --playbook-dir broken-docs testns.testcol.testrole -t role 1>/dev/null 2>&1
 
 # ensure that role doc does fail when --no-fail-on-errors is not supplied
-output=$(ANSIBLE_LIBRARY='./nolibrary' ansible-doc --playbook-dir broken-docs testns.testcol.testrole -t role 2>&1 | grep -c 'ERROR!' || true)
+output=$(ANSIBLE_LIBRARY='./nolibrary' ansible-doc --playbook-dir broken-docs testns.testcol.testrole -t role 2>&1 | grep -c 'ERROR' || true)
 test "${output}" -eq 1
 
 echo "testing legacy plugin listing"
@@ -283,3 +287,6 @@ echo "test 'sidecar' for no extension module  with .py doc"
 
 echo "test 'sidecar' for no extension module  with .yml doc"
 [ "$(ansible-doc -M ./library -l ansible.legacy |grep -v 'UNDOCUMENTED' |grep -c facts_one)" == "1" ]
+
+echo "Test j2 plugins get jinja2 instead of path"
+ansible-doc -t filter map 2>&1 |grep "${GREP_OPTS[@]}" '(Jinja2)'

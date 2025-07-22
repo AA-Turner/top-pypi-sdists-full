@@ -1,18 +1,17 @@
 Metadata-Version: 2.3
 Name: cmudict
-Version: 1.0.33
+Version: 1.1.0
 Summary: A versioned python wrapper package for The CMU Pronouncing Dictionary data files.
 License: GPL-3.0-or-later
 Keywords: cmudict
 Author: David L. Day
 Author-email: david@davidlday.com
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: GNU General Public License v3 or later (GPLv3+)
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -22,6 +21,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Text Processing :: Linguistic
 Requires-Dist: importlib-metadata (>=5)
 Requires-Dist: importlib-resources (>=5)
+Project-URL: Bug Tracker, https://github.com/prosegrinder/python-cmudict/issues
 Project-URL: Homepage, https://github.com/prosegrinder/python-cmudict
 Project-URL: Repository, https://github.com/prosegrinder/python-cmudict
 Description-Content-Type: text/markdown

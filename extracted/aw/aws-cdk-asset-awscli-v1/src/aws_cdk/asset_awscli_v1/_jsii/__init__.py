@@ -30,9 +30,9 @@ def check_type(argname: str, value: object, expected_type: typing.Any) -> typing
 
 __jsii_assembly__ = jsii.JSIIAssembly.load(
     "@aws-cdk/asset-awscli-v1",
-    "2.2.245",
+    "2.2.246",
     __name__[0:-6],
-    "asset-awscli-v1@2.2.245.jsii.tgz",
+    "asset-awscli-v1@2.2.246.jsii.tgz",
 )
 
 __all__ = [

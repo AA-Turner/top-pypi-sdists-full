@@ -36,6 +36,7 @@ from .paginator import (
     ListInvalidationsForDistributionTenantPaginator,
     ListInvalidationsPaginator,
     ListKeyValueStoresPaginator,
+    ListOriginAccessControlsPaginator,
     ListPublicKeysPaginator,
     ListStreamingDistributionsPaginator,
 )
@@ -2132,6 +2133,17 @@ class CloudFrontClient(BaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_key_value_stores"]
     ) -> ListKeyValueStoresPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront/client/get_paginator.html)
+        [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_cloudfront/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_origin_access_controls"]
+    ) -> ListOriginAccessControlsPaginator:
         """
         Create a paginator for an operation.
 

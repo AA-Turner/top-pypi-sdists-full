@@ -5,7 +5,7 @@ from typing import Optional
 import urllib.request
 
 # Replaced with the current commit when building the wheels.
-_SKYPILOT_COMMIT_SHA = '80235386457c47b3c178c1e1842e9b07ed75dc06'
+_SKYPILOT_COMMIT_SHA = '663a28261fc98dfa69214e1d4f1b0bb7b02664e0'
 
 
 def _get_git_commit():
@@ -35,7 +35,7 @@ def _get_git_commit():
 
 
 __commit__ = _get_git_commit()
-__version__ = '1.0.0.dev20250720'
+__version__ = '1.0.0.dev20250718'
 __root_dir__ = os.path.dirname(os.path.abspath(__file__))
 
 
@@ -104,7 +104,6 @@ from sky.client.sdk import job_status
 from sky.client.sdk import launch
 from sky.client.sdk import optimize
 from sky.client.sdk import queue
-from sky.client.sdk import reload_config
 from sky.client.sdk import start
 from sky.client.sdk import status
 from sky.client.sdk import stop
@@ -186,7 +185,6 @@ __all__ = [
     'optimize',
     'launch',
     'exec',
-    'reload_config',
     # core APIs
     'status',
     'start',

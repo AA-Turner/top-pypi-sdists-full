@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cs2_nav
-Version: 0.3.17
+Version: 0.3.18
 Classifier: Programming Language :: Rust
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy

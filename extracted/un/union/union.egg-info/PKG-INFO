@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: union
-Version: 0.1.187
+Version: 0.1.188
 Summary: Adds Union specific functionality to Flytekit
 Author-email: unionai <info@union.ai>
 License: Source code in this repository is licensed under the Business Source

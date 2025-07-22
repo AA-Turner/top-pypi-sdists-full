@@ -44,14 +44,23 @@ class OrionPyClient:
             self.entity_column_names,
         )
 
-    def generate_df_with_protobuf_messages(self, df, intra_batch_size: int = 20):
-        
+    def generate_df_with_protobuf_messages(self, df, add_kafka_partition_key: bool = False, intra_batch_size: int = 20):
+        from pyspark.sql.types import StructType, StructField, BinaryType, LongType
 
+        # Check condition globally once
+        should_add_partition_key = add_kafka_partition_key and intra_batch_size == 1
+        
+        if should_add_partition_key:
+            return self._generate_df_with_partition_keys(df, intra_batch_size)
+        else:
+            return self._generate_df_without_partition_keys(df, intra_batch_size)
+
+    def _generate_df_without_partition_keys(self, df, intra_batch_size: int):
+        """Generate DataFrame with protobuf messages without partition keys."""
         from pyspark.sql.types import StructType, StructField, BinaryType, LongType
 
         def process_partition(iterator):
             """Convert each partition of Spark DataFrame into Protobuf serialized messages."""
-
             from .proto.persist.persist_pb2 import (
                 Query,
                 FeatureGroupSchema,
@@ -70,170 +79,8 @@ class OrionPyClient:
             batch_id = 0
 
             for row in iterator:
-                feature_values = []
-                for fg_label, features in self.onfs_fg_to_ofs_feat_map.items():
-                    curr_datatype = self.fg_to_datatype_map[fg_label]
-
-                    values = Values()
-                    # For Scalar Data types
-                    
-                    if curr_datatype == "DataTypeFP8E5M2":
-                        values.fp32_values.extend(
-                            [np.float32(row[feature]) for feature in features]
-                        )                        
-                    elif curr_datatype == "DataTypeFP8E4M3":
-                        values.fp32_values.extend(
-                            [np.float32(row[feature]) for feature in features]
-                        )
-                    elif curr_datatype == "DataTypeFP16":
-                        values.fp32_values.extend(
-                            [np.float32(row[feature]) for feature in features]
-                        )
-                    elif curr_datatype == "DataTypeFP32":
-                        values.fp32_values.extend(
-                            [np.float32(row[feature]) for feature in features]
-                        )
-                    elif curr_datatype == "DataTypeFP64":
-                        values.fp64_values.extend(
-                            [np.float64(row[feature]) for feature in features]
-                        )
-                    elif curr_datatype == "DataTypeInt8":
-                        values.int32_values.extend(
-                            [np.int32(row[feature]) for feature in features]
-                        )
-                    elif curr_datatype == "DataTypeInt16":
-                        values.int32_values.extend(
-                            [np.int32(row[feature]) for feature in features]
-                        )
-                    elif curr_datatype == "DataTypeInt32":
-                        values.int32_values.extend(
-                            [np.int32(row[feature]) for feature in features]
-                        )
-                    elif curr_datatype == "DataTypeInt64":
-                        values.int64_values.extend(
-                            [np.int64(row[feature]) for feature in features]
-                        )
-                    elif curr_datatype == "DataTypeUint8":
-                        values.uint32_values.extend(
-                            [np.uint32(row[feature]) for feature in features]
-                        )
-                    elif curr_datatype == "DataTypeUint16":
-                        values.uint32_values.extend(
-                            [np.uint32(row[feature]) for feature in features]
-                        )
-                    elif curr_datatype == "DataTypeUint32":
-                        values.uint32_values.extend(
-                            [np.uint32(row[feature]) for feature in features]
-                        )
-                    elif curr_datatype == "DataTypeUint64":
-                        values.uint64_values.extend(
-                            [np.uint64(row[feature]) for feature in features]
-                        )
-                    elif curr_datatype == "DataTypeString":
-                        values.string_values.extend(
-                            [str(row[feature]) for feature in features]
-                        )
-                    elif curr_datatype == "DataTypeBool":
-                        values.bool_values.extend(
-                            [bool(row[feature]) for feature in features]
-                        )
-
-                    # For Vector Data types
-                    elif curr_datatype == "DataTypeFP16Vector":
-                        for feature in features:
-                            vector_values = Values(
-                                fp32_values=[np.float32(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeFP8E5M2Vector":
-                        for feature in features:
-                            vector_values = Values(
-                                fp32_values=[np.float32(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeFP8E4M3Vector":
-                        for feature in features:
-                            vector_values = Values(
-                                fp32_values=[np.float32(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))                            
-                    elif curr_datatype == "DataTypeFP32Vector":
-                        for feature in features:
-                            vector_values = Values(
-                                fp32_values=[np.float32(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeFP64Vector":
-                        for feature in features:
-                            vector_values = Values(
-                                fp64_values=[np.float64(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeInt8Vector":
-                        for feature in features:
-                            vector_values = Values(
-                                int32_values=[np.int32(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeInt16Vector":
-                        for feature in features:
-                            vector_values = Values(
-                                int32_values=[np.int32(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))                            
-                    elif curr_datatype == "DataTypeInt32Vector":
-                        for feature in features:
-                            vector_values = Values(
-                                int32_values=[np.int32(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeInt64Vector":
-                        for feature in features:
-                            vector_values = Values(
-                                int64_values=[np.int64(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeUint8Vector":
-                        for feature in features:
-                            vector_values = Values(
-                                uint32_values=[np.uint32(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeUint16Vector":
-                        for feature in features:
-                            vector_values = Values(
-                                uint32_values=[np.uint32(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeUint32Vector":
-                        for feature in features:
-                            vector_values = Values(
-                                uint32_values=[np.uint32(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeUint64Vector":
-                        for feature in features:
-                            vector_values = Values(
-                                uint64_values=[np.uint64(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeStringVector":
-                        for feature in features:
-                            vector_values = Values(
-                                string_values=[str(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))
-                    elif curr_datatype == "DataTypeBoolVector":
-                        for feature in features:
-                            vector_values = Values(
-                                bool_values=[bool(x) for x in row[feature]]
-                            )
-                            values.vector.append(Vector(values=vector_values))
-                    else:
-                        raise ValueError(f"Unsupported data type: {curr_datatype} for feature group: {fg_label}")
-
-                    feature_values.append(FeatureValues(values=values))
-
+                feature_values = self._create_feature_values(row)
+                
                 # Construct Data message for current row
                 data_msg = Data(
                     key_values=[str(row[col]) for col in self.entity_column_names],
@@ -242,7 +89,7 @@ class OrionPyClient:
 
                 current_batch.append(data_msg)
 
-                # When batch is full or at end of iterator, create and yield Query message
+                # When batch is full, create and yield Query message
                 if len(current_batch) >= intra_batch_size:
                     query = Query(
                         entity_label=self.entity_label,
@@ -274,6 +121,252 @@ class OrionPyClient:
         out_df = df.rdd.mapPartitions(process_partition).toDF(protobuf_schema)
         return out_df
 
+    def _generate_df_with_partition_keys(self, df, intra_batch_size: int):
+        """Generate DataFrame with protobuf messages including partition keys."""
+        from pyspark.sql.types import StructType, StructField, BinaryType, LongType, StringType
+
+        def process_partition(iterator):
+            """Convert each partition of Spark DataFrame into Protobuf serialized messages with partition keys."""
+            from .proto.persist.persist_pb2 import (
+                Query,
+                FeatureGroupSchema,
+                Data,
+                FeatureValues,
+                Values,
+                Vector,
+            )
+
+            feature_group_schema = [
+                FeatureGroupSchema(label=label, feature_labels=features)
+                for label, features in self.onfs_fg_to_onfs_feat_map.items()
+            ]
+
+            current_batch = []
+            batch_id = 0
+            current_row = None
+
+            for row in iterator:
+                current_row = row
+                feature_values = self._create_feature_values(row)
+                
+                # Construct Data message for current row
+                data_msg = Data(
+                    key_values=[str(row[col]) for col in self.entity_column_names],
+                    feature_values=feature_values,
+                )
+
+                current_batch.append(data_msg)
+
+                # When batch is full, create and yield Query message
+                if len(current_batch) >= intra_batch_size:
+                    query = Query(
+                        entity_label=self.entity_label,
+                        keys_schema=self.entity_column_names,
+                        feature_group_schema=feature_group_schema,
+                        data=current_batch,
+                    )
+                    
+                    # Create partition key from entity values
+                    partition_key = "|".join([str(row[col]) for col in self.entity_column_names])
+                    yield (query.SerializeToString(), batch_id, partition_key)
+                    
+                    current_batch = []
+                    batch_id += 1
+
+            # Handle any remaining items in the last batch
+            if current_batch:
+                query = Query(
+                    entity_label=self.entity_label,
+                    keys_schema=self.entity_column_names,
+                    feature_group_schema=feature_group_schema,
+                    data=current_batch,
+                )
+                
+                # For the last batch, use the current row's entity values
+                partition_key = "|".join([str(current_row[col]) for col in self.entity_column_names])
+                yield (query.SerializeToString(), batch_id, partition_key)
+
+        # Define output schema with partition key
+        protobuf_schema = StructType([
+            StructField("value", BinaryType(), False),
+            StructField("intra_batch_id", LongType(), False),
+            StructField("partition_key", StringType(), False)
+        ])
+
+        # Apply mapPartitions
+        out_df = df.rdd.mapPartitions(process_partition).toDF(protobuf_schema)
+        return out_df
+
+    def _create_feature_values(self, row):
+        """Create feature values for a given row."""
+        from .proto.persist.persist_pb2 import FeatureValues, Values, Vector
+        
+        feature_values = []
+        for fg_label, features in self.onfs_fg_to_ofs_feat_map.items():
+            curr_datatype = self.fg_to_datatype_map[fg_label]
+
+            values = Values()
+            # For Scalar Data types
+            
+            if curr_datatype == "DataTypeFP8E5M2":
+                values.fp32_values.extend(
+                    [np.float32(row[feature]) for feature in features]
+                )                        
+            elif curr_datatype == "DataTypeFP8E4M3":
+                values.fp32_values.extend(
+                    [np.float32(row[feature]) for feature in features]
+                )
+            elif curr_datatype == "DataTypeFP16":
+                values.fp32_values.extend(
+                    [np.float32(row[feature]) for feature in features]
+                )
+            elif curr_datatype == "DataTypeFP32":
+                values.fp32_values.extend(
+                    [np.float32(row[feature]) for feature in features]
+                )
+            elif curr_datatype == "DataTypeFP64":
+                values.fp64_values.extend(
+                    [np.float64(row[feature]) for feature in features]
+                )
+            elif curr_datatype == "DataTypeInt8":
+                values.int32_values.extend(
+                    [np.int32(row[feature]) for feature in features]
+                )
+            elif curr_datatype == "DataTypeInt16":
+                values.int32_values.extend(
+                    [np.int32(row[feature]) for feature in features]
+                )
+            elif curr_datatype == "DataTypeInt32":
+                values.int32_values.extend(
+                    [np.int32(row[feature]) for feature in features]
+                )
+            elif curr_datatype == "DataTypeInt64":
+                values.int64_values.extend(
+                    [np.int64(row[feature]) for feature in features]
+                )
+            elif curr_datatype == "DataTypeUint8":
+                values.uint32_values.extend(
+                    [np.uint32(row[feature]) for feature in features]
+                )
+            elif curr_datatype == "DataTypeUint16":
+                values.uint32_values.extend(
+                    [np.uint32(row[feature]) for feature in features]
+                )
+            elif curr_datatype == "DataTypeUint32":
+                values.uint32_values.extend(
+                    [np.uint32(row[feature]) for feature in features]
+                )
+            elif curr_datatype == "DataTypeUint64":
+                values.uint64_values.extend(
+                    [np.uint64(row[feature]) for feature in features]
+                )
+            elif curr_datatype == "DataTypeString":
+                values.string_values.extend(
+                    [str(row[feature]) for feature in features]
+                )
+            elif curr_datatype == "DataTypeBool":
+                values.bool_values.extend(
+                    [bool(row[feature]) for feature in features]
+                )
+
+            # For Vector Data types
+            elif curr_datatype == "DataTypeFP16Vector":
+                for feature in features:
+                    vector_values = Values(
+                        fp32_values=[np.float32(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))
+            elif curr_datatype == "DataTypeFP8E5M2Vector":
+                for feature in features:
+                    vector_values = Values(
+                        fp32_values=[np.float32(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))
+            elif curr_datatype == "DataTypeFP8E4M3Vector":
+                for feature in features:
+                    vector_values = Values(
+                        fp32_values=[np.float32(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))                            
+            elif curr_datatype == "DataTypeFP32Vector":
+                for feature in features:
+                    vector_values = Values(
+                        fp32_values=[np.float32(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))
+            elif curr_datatype == "DataTypeFP64Vector":
+                for feature in features:
+                    vector_values = Values(
+                        fp64_values=[np.float64(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))
+            elif curr_datatype == "DataTypeInt8Vector":
+                for feature in features:
+                    vector_values = Values(
+                        int32_values=[np.int32(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))
+            elif curr_datatype == "DataTypeInt16Vector":
+                for feature in features:
+                    vector_values = Values(
+                        int32_values=[np.int32(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))                            
+            elif curr_datatype == "DataTypeInt32Vector":
+                for feature in features:
+                    vector_values = Values(
+                        int32_values=[np.int32(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))
+            elif curr_datatype == "DataTypeInt64Vector":
+                for feature in features:
+                    vector_values = Values(
+                        int64_values=[np.int64(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))
+            elif curr_datatype == "DataTypeUint8Vector":
+                for feature in features:
+                    vector_values = Values(
+                        uint32_values=[np.uint32(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))
+            elif curr_datatype == "DataTypeUint16Vector":
+                for feature in features:
+                    vector_values = Values(
+                        uint32_values=[np.uint32(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))
+            elif curr_datatype == "DataTypeUint32Vector":
+                for feature in features:
+                    vector_values = Values(
+                        uint32_values=[np.uint32(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))
+            elif curr_datatype == "DataTypeUint64Vector":
+                for feature in features:
+                    vector_values = Values(
+                        uint64_values=[np.uint64(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))
+            elif curr_datatype == "DataTypeStringVector":
+                for feature in features:
+                    vector_values = Values(
+                        string_values=[str(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))
+            elif curr_datatype == "DataTypeBoolVector":
+                for feature in features:
+                    vector_values = Values(
+                        bool_values=[bool(x) for x in row[feature]]
+                    )
+                    values.vector.append(Vector(values=vector_values))
+            else:
+                raise ValueError(f"Unsupported data type: {curr_datatype} for feature group: {fg_label}")
+
+            feature_values.append(FeatureValues(values=values))
+        
+        return feature_values
+
     def write_protobuf_df_to_kafka(
         self,
         df,
@@ -297,6 +390,8 @@ class OrionPyClient:
         # Write to Kafka
         if kafka_num_batches == 1:
             df = df.drop("intra_batch_id")
+            print(df.printSchema())
+            print(df)
             df.write.format("kafka").options(**kafka_config).save()
         else:
             import pyspark.sql.functions as F

@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.1
 Name: minio
-Version: 7.2.15
+Version: 7.2.16
 Summary: MinIO Python SDK for Amazon S3 Compatible Cloud Storage
 Home-page: https://github.com/minio/minio-py
 Download-URL: https://github.com/minio/minio-py/releases
@@ -23,22 +23,6 @@ Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: NOTICE
-Requires-Dist: certifi
-Requires-Dist: urllib3
-Requires-Dist: argon2-cffi
-Requires-Dist: pycryptodome
-Requires-Dist: typing-extensions
-Dynamic: author
-Dynamic: author-email
-Dynamic: classifier
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: download-url
-Dynamic: home-page
-Dynamic: license
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 # MinIO Python Client SDK for Amazon S3 Compatible Cloud Storage [![Slack](https://slack.min.io/slack?type=svg)](https://slack.min.io) [![Apache V2 License](https://img.shields.io/badge/license-Apache%20V2-blue.svg)](https://github.com/minio/minio-py/blob/master/LICENSE)
 

@@ -11,7 +11,7 @@ import aiofiles
 import click
 import yaml
 
-from tinybird.datafile import create_release, wait_job
+from tinybird.datafile_common import create_release, wait_job
 from tinybird.feedback_manager import FeedbackManager
 from tinybird.tb_cli_modules.cli import cli
 from tinybird.tb_cli_modules.common import (
@@ -597,9 +597,8 @@ async def regression_tests(
                 await print_branch_regression_tests_summary(client, job_id, config["host"])
         except Exception as e:
             raise CLIBranchException(FeedbackManager.error_exception(error=str(e)))
-    else:
-        if not ctx.invoked_subcommand:
-            await _run_regression(type="coverage", wait=wait, run_in_main=main)
+    elif not ctx.invoked_subcommand:
+        await _run_regression(type="coverage", wait=wait, run_in_main=main)
 
 
 async def _run_regression(

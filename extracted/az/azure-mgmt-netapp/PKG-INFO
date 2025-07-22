@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-mgmt-netapp
-Version: 13.5.0
+Version: 13.6.0
 Summary: Microsoft Azure NetApp Files Management Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -11,24 +11,23 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
 Requires-Dist: typing-extensions>=4.6.0
 Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.3.2
+Requires-Dist: azure-mgmt-core>=1.5.0
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure NetApp Files Management Client Library.
-This package has been tested with Python 3.8+.
+This package has been tested with Python 3.9+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -39,7 +38,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.8+ is required to use this package.
+- Python 3.9+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -89,6 +88,64 @@ section of the project.
 
 
 # Release History
+
+## 13.6.0 (2025-07-21)
+
+### Features Added
+
+  - Model `SubscriptionQuotaItemList` added property `next_link`
+
+## 14.0.0b1 (2025-05-20)
+
+### Features Added
+
+  - Client `NetAppManagementClient` added operation group `net_app_resource_quota_limits_account`
+  - Client `NetAppManagementClient` added operation group `buckets`
+  - Model `CapacityPool` added property `custom_throughput_mibps`
+  - Model `CapacityPoolPatch` added property `custom_throughput_mibps`
+  - Model `NetAppAccount` added property `ldap_configuration`
+  - Model `NetAppAccountPatch` added property `ldap_configuration`
+  - Model `ReplicationObject` added property `external_replication_setup_status`
+  - Model `ReplicationObject` added property `external_replication_setup_info`
+  - Enum `ServiceLevel` added member `FLEXIBLE`
+  - Model `Volume` added property `accept_grow_capacity_pool_for_short_term_clone_split`
+  - Model `Volume` added property `ldap_server_type`
+  - Model `Volume` added property `inherited_size_in_bytes`
+  - Model `Volume` added property `language`
+  - Model `VolumeGroupVolumeProperties` added property `accept_grow_capacity_pool_for_short_term_clone_split`
+  - Model `VolumeGroupVolumeProperties` added property `ldap_server_type`
+  - Model `VolumeGroupVolumeProperties` added property `inherited_size_in_bytes`
+  - Model `VolumeGroupVolumeProperties` added property `language`
+  - Added enum `AcceptGrowCapacityPoolForShortTermCloneSplit`
+  - Added model `Bucket`
+  - Added model `BucketCredentialsExpiry`
+  - Added model `BucketGenerateCredentials`
+  - Added model `BucketList`
+  - Added model `BucketPatch`
+  - Added model `BucketServerPatchProperties`
+  - Added model `BucketServerProperties`
+  - Added model `CifsUser`
+  - Added enum `CredentialsStatus`
+  - Added enum `ExternalReplicationSetupStatus`
+  - Added model `FileSystemUser`
+  - Added model `LdapConfiguration`
+  - Added enum `LdapServerType`
+  - Added model `ListQuotaReportResponse`
+  - Added enum `NetappProvisioningState`
+  - Added model `NfsUser`
+  - Added model `QuotaItem`
+  - Added model `QuotaItemList`
+  - Added model `QuotaReport`
+  - Added enum `VolumeLanguage`
+  - Model `VolumesOperations` added method `begin_list_quota_report`
+  - Model `VolumesOperations` added method `begin_split_clone_from_parent`
+  - Added operation group `BucketsOperations`
+  - Added operation group `NetAppResourceQuotaLimitsAccountOperations`
+
+### Breaking Changes
+
+  - Deleted or renamed model `SubscriptionQuotaItem`
+  - Deleted or renamed model `SubscriptionQuotaItemList`
 
 ## 13.5.0 (2025-04-21)
 

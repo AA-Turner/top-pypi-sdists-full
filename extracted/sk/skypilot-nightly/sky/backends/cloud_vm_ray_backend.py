@@ -3988,16 +3988,12 @@ class CloudVmRayBackend(backends.Backend['CloudVmRayResourceHandle']):
         return dict(zip(job_ids, local_log_dirs))
 
     @context_utils.cancellation_guard
-    def tail_logs(
-            self,
-            handle: CloudVmRayResourceHandle,
-            job_id: Optional[int],
-            managed_job_id: Optional[int] = None,
-            follow: bool = True,
-            tail: int = 0,
-            require_outputs: bool = False,
-            stream_logs: bool = True,
-            process_stream: bool = False) -> Union[int, Tuple[int, str, str]]:
+    def tail_logs(self,
+                  handle: CloudVmRayResourceHandle,
+                  job_id: Optional[int],
+                  managed_job_id: Optional[int] = None,
+                  follow: bool = True,
+                  tail: int = 0) -> int:
         """Tail the logs of a job.
 
         Args:
@@ -4007,9 +4003,6 @@ class CloudVmRayBackend(backends.Backend['CloudVmRayResourceHandle']):
             follow: Whether to follow the logs.
             tail: The number of lines to display from the end of the
                 log file. If 0, print all lines.
-            require_outputs: Whether to return the stdout/stderr of the command.
-            stream_logs: Whether to stream the logs to stdout/stderr.
-            process_stream: Whether to process the stream.
 
         Returns:
             The exit code of the tail command. Returns code 100 if the job has
@@ -4029,19 +4022,18 @@ class CloudVmRayBackend(backends.Backend['CloudVmRayResourceHandle']):
             signal.signal(signal.SIGINT, backend_utils.interrupt_handler)
             signal.signal(signal.SIGTSTP, backend_utils.stop_handler)
         try:
-            final = self.run_on_head(
+            returncode = self.run_on_head(
                 handle,
                 code,
-                stream_logs=stream_logs,
-                process_stream=process_stream,
-                require_outputs=require_outputs,
+                stream_logs=True,
+                process_stream=False,
                 # Allocate a pseudo-terminal to disable output buffering.
                 # Otherwise, there may be 5 minutes delay in logging.
                 ssh_mode=command_runner.SshMode.INTERACTIVE,
             )
         except SystemExit as e:
-            final = e.code
-        return final
+            returncode = e.code
+        return returncode
 
     def tail_managed_job_logs(self,
                               handle: CloudVmRayResourceHandle,

@@ -161,7 +161,7 @@ def _read_password_file(b_path):
 
 
 def _gen_candidate_chars(characters):
-    '''Generate a string containing all valid chars as defined by ``characters``
+    """Generate a string containing all valid chars as defined by ``characters``
 
     :arg characters: A list of character specs. The character specs are
         shorthand names for sets of characters like 'digits', 'ascii_letters',
@@ -182,7 +182,7 @@ def _gen_candidate_chars(characters):
     the question mark and pipe characters directly. Return will be the string::
 
         u'0123456789?|'
-    '''
+    """
     chars = []
     for chars_spec in characters:
         # getattr from string expands things like "ascii_letters" and "digits"
@@ -193,11 +193,11 @@ def _gen_candidate_chars(characters):
 
 
 def _parse_content(content):
-    '''parse our password data format into password and salt
+    """parse our password data format into password and salt
 
     :arg content: The data read from the file
     :returns: password and salt
-    '''
+    """
     password = content
     salt = None
     ident = None
@@ -348,7 +348,7 @@ class LookupModule(LookupBase):
 
         return relpath, params
 
-    def run(self, terms, variables, **kwargs):
+    def run(self, terms, variables=None, **kwargs):
         ret = []
 
         for term in terms:

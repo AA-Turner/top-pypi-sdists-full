@@ -74,9 +74,8 @@ async def auth(ctx: click.Context, token: str, host: str, region: str, connector
     # do a clean auth
     if not token and not ctx.parent.params.get("token") and not env_token:
         config.set_token(None)
-    else:
-        if env_token and not token:
-            click.echo(FeedbackManager.info_reading_from_env(value="token", envvar="TB_TOKEN"))
+    elif env_token and not token:
+        click.echo(FeedbackManager.info_reading_from_env(value="token", envvar="TB_TOKEN"))
 
     regions: Optional[List[Region]] = None
     try_all_regions = True

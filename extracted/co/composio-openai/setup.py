@@ -6,12 +6,11 @@ from pathlib import Path
 
 from setuptools import setup
 
-
 setup(
     name="composio_openai",
-    version="0.7.20",
-    author="Sawradip",
-    author_email="sawradip@composio.dev",
+    version="0.8.0",
+    author="Composio",
+    author_email="tech@composio.dev",
     description="Use Composio to get an array of tools with your OpenAI Function Call.",
     long_description=(Path(__file__).parent / "README.md").read_text(encoding="utf-8"),
     long_description_content_type="text/markdown",
@@ -22,6 +21,6 @@ setup(
         "Operating System :: OS Independent",
     ],
     python_requires=">=3.9,<4",
-    install_requires=["composio_core>=0.7.0,<0.8.0", "openai"],
+    install_requires=["openai"],
     include_package_data=True,
 )

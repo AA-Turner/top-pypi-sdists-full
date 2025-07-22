@@ -1,7 +1,7 @@
 r'''
 # `newrelic_workload`
 
-Refer to the Terraform Registry for docs: [`newrelic_workload`](https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload).
+Refer to the Terraform Registry for docs: [`newrelic_workload`](https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Workload(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-newrelic.workload.Workload",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload newrelic_workload}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload newrelic_workload}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class Workload(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload newrelic_workload} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload newrelic_workload} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param name: The workload's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#name Workload#name}
-        :param account_id: The New Relic account ID where you want to create the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#account_id Workload#account_id}
-        :param description: Relevant information about the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#description Workload#description}
-        :param entity_guids: A list of entity GUIDs manually assigned to this workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#entity_guids Workload#entity_guids}
-        :param entity_search_query: entity_search_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#entity_search_query Workload#entity_search_query}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#id Workload#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param scope_account_ids: A list of account IDs that will be used to get entities from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#scope_account_ids Workload#scope_account_ids}
-        :param status_config_automatic: status_config_automatic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#status_config_automatic Workload#status_config_automatic}
-        :param status_config_static: status_config_static block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#status_config_static Workload#status_config_static}
+        :param name: The workload's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#name Workload#name}
+        :param account_id: The New Relic account ID where you want to create the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#account_id Workload#account_id}
+        :param description: Relevant information about the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#description Workload#description}
+        :param entity_guids: A list of entity GUIDs manually assigned to this workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#entity_guids Workload#entity_guids}
+        :param entity_search_query: entity_search_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#entity_search_query Workload#entity_search_query}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#id Workload#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param scope_account_ids: A list of account IDs that will be used to get entities from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#scope_account_ids Workload#scope_account_ids}
+        :param status_config_automatic: status_config_automatic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#status_config_automatic Workload#status_config_automatic}
+        :param status_config_static: status_config_static block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#status_config_static Workload#status_config_static}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class Workload(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Workload to import.
-        :param import_from_id: The id of the existing Workload that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Workload that should be imported. Refer to the {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Workload to import is found.
         '''
         if __debug__:
@@ -160,9 +160,9 @@ class Workload(
         rule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["WorkloadStatusConfigAutomaticRule", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Whether the automatic status configuration is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#enabled Workload#enabled}
-        :param remaining_entities_rule: remaining_entities_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#remaining_entities_rule Workload#remaining_entities_rule}
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#rule Workload#rule}
+        :param enabled: Whether the automatic status configuration is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#enabled Workload#enabled}
+        :param remaining_entities_rule: remaining_entities_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#remaining_entities_rule Workload#remaining_entities_rule}
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#rule Workload#rule}
         '''
         value = WorkloadStatusConfigAutomatic(
             enabled=enabled, remaining_entities_rule=remaining_entities_rule, rule=rule
@@ -180,10 +180,10 @@ class Workload(
         summary: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Whether the static status configuration is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#enabled Workload#enabled}
-        :param status: The status of the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#status Workload#status}
-        :param description: A description that provides additional details about the status of the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#description Workload#description}
-        :param summary: A short description of the status of the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#summary Workload#summary}
+        :param enabled: Whether the static status configuration is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#enabled Workload#enabled}
+        :param status: The status of the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#status Workload#status}
+        :param description: A description that provides additional details about the status of the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#description Workload#description}
+        :param summary: A short description of the status of the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#summary Workload#summary}
         '''
         value = WorkloadStatusConfigStatic(
             enabled=enabled, status=status, description=description, summary=summary
@@ -446,15 +446,15 @@ class WorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param name: The workload's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#name Workload#name}
-        :param account_id: The New Relic account ID where you want to create the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#account_id Workload#account_id}
-        :param description: Relevant information about the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#description Workload#description}
-        :param entity_guids: A list of entity GUIDs manually assigned to this workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#entity_guids Workload#entity_guids}
-        :param entity_search_query: entity_search_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#entity_search_query Workload#entity_search_query}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#id Workload#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param scope_account_ids: A list of account IDs that will be used to get entities from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#scope_account_ids Workload#scope_account_ids}
-        :param status_config_automatic: status_config_automatic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#status_config_automatic Workload#status_config_automatic}
-        :param status_config_static: status_config_static block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#status_config_static Workload#status_config_static}
+        :param name: The workload's name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#name Workload#name}
+        :param account_id: The New Relic account ID where you want to create the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#account_id Workload#account_id}
+        :param description: Relevant information about the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#description Workload#description}
+        :param entity_guids: A list of entity GUIDs manually assigned to this workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#entity_guids Workload#entity_guids}
+        :param entity_search_query: entity_search_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#entity_search_query Workload#entity_search_query}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#id Workload#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param scope_account_ids: A list of account IDs that will be used to get entities from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#scope_account_ids Workload#scope_account_ids}
+        :param status_config_automatic: status_config_automatic block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#status_config_automatic Workload#status_config_automatic}
+        :param status_config_static: status_config_static block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#status_config_static Workload#status_config_static}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -582,7 +582,7 @@ class WorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The workload's name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#name Workload#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#name Workload#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -592,7 +592,7 @@ class WorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def account_id(self) -> typing.Optional[jsii.Number]:
         '''The New Relic account ID where you want to create the workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#account_id Workload#account_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#account_id Workload#account_id}
         '''
         result = self._values.get("account_id")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -601,7 +601,7 @@ class WorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''Relevant information about the workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#description Workload#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#description Workload#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -610,7 +610,7 @@ class WorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def entity_guids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of entity GUIDs manually assigned to this workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#entity_guids Workload#entity_guids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#entity_guids Workload#entity_guids}
         '''
         result = self._values.get("entity_guids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -621,14 +621,14 @@ class WorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WorkloadEntitySearchQuery"]]]:
         '''entity_search_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#entity_search_query Workload#entity_search_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#entity_search_query Workload#entity_search_query}
         '''
         result = self._values.get("entity_search_query")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WorkloadEntitySearchQuery"]]], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#id Workload#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#id Workload#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -640,7 +640,7 @@ class WorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def scope_account_ids(self) -> typing.Optional[typing.List[jsii.Number]]:
         '''A list of account IDs that will be used to get entities from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#scope_account_ids Workload#scope_account_ids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#scope_account_ids Workload#scope_account_ids}
         '''
         result = self._values.get("scope_account_ids")
         return typing.cast(typing.Optional[typing.List[jsii.Number]], result)
@@ -651,7 +651,7 @@ class WorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional["WorkloadStatusConfigAutomatic"]:
         '''status_config_automatic block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#status_config_automatic Workload#status_config_automatic}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#status_config_automatic Workload#status_config_automatic}
         '''
         result = self._values.get("status_config_automatic")
         return typing.cast(typing.Optional["WorkloadStatusConfigAutomatic"], result)
@@ -660,7 +660,7 @@ class WorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def status_config_static(self) -> typing.Optional["WorkloadStatusConfigStatic"]:
         '''status_config_static block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#status_config_static Workload#status_config_static}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#status_config_static Workload#status_config_static}
         '''
         result = self._values.get("status_config_static")
         return typing.cast(typing.Optional["WorkloadStatusConfigStatic"], result)
@@ -685,7 +685,7 @@ class WorkloadConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 class WorkloadEntitySearchQuery:
     def __init__(self, *, query: builtins.str) -> None:
         '''
-        :param query: A valid entity search query; empty, and null values are considered invalid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#query Workload#query}
+        :param query: A valid entity search query; empty, and null values are considered invalid. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#query Workload#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b47eb6b510709dcb2f9bd4bae146c7c9048634fccc5ef6faad90d4dbc20f93fc)
@@ -698,7 +698,7 @@ class WorkloadEntitySearchQuery:
     def query(self) -> builtins.str:
         '''A valid entity search query; empty, and null values are considered invalid.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#query Workload#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#query Workload#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -885,9 +885,9 @@ class WorkloadStatusConfigAutomatic:
         rule: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["WorkloadStatusConfigAutomaticRule", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param enabled: Whether the automatic status configuration is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#enabled Workload#enabled}
-        :param remaining_entities_rule: remaining_entities_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#remaining_entities_rule Workload#remaining_entities_rule}
-        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#rule Workload#rule}
+        :param enabled: Whether the automatic status configuration is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#enabled Workload#enabled}
+        :param remaining_entities_rule: remaining_entities_rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#remaining_entities_rule Workload#remaining_entities_rule}
+        :param rule: rule block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#rule Workload#rule}
         '''
         if isinstance(remaining_entities_rule, dict):
             remaining_entities_rule = WorkloadStatusConfigAutomaticRemainingEntitiesRule(**remaining_entities_rule)
@@ -908,7 +908,7 @@ class WorkloadStatusConfigAutomatic:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the automatic status configuration is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#enabled Workload#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#enabled Workload#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -920,7 +920,7 @@ class WorkloadStatusConfigAutomatic:
     ) -> typing.Optional["WorkloadStatusConfigAutomaticRemainingEntitiesRule"]:
         '''remaining_entities_rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#remaining_entities_rule Workload#remaining_entities_rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#remaining_entities_rule Workload#remaining_entities_rule}
         '''
         result = self._values.get("remaining_entities_rule")
         return typing.cast(typing.Optional["WorkloadStatusConfigAutomaticRemainingEntitiesRule"], result)
@@ -931,7 +931,7 @@ class WorkloadStatusConfigAutomatic:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WorkloadStatusConfigAutomaticRule"]]]:
         '''rule block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#rule Workload#rule}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#rule Workload#rule}
         '''
         result = self._values.get("rule")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WorkloadStatusConfigAutomaticRule"]]], result)
@@ -975,7 +975,7 @@ class WorkloadStatusConfigAutomaticOutputReference(
         remaining_entities_rule_rollup: typing.Union["WorkloadStatusConfigAutomaticRemainingEntitiesRuleRemainingEntitiesRuleRollup", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param remaining_entities_rule_rollup: remaining_entities_rule_rollup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#remaining_entities_rule_rollup Workload#remaining_entities_rule_rollup}
+        :param remaining_entities_rule_rollup: remaining_entities_rule_rollup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#remaining_entities_rule_rollup Workload#remaining_entities_rule_rollup}
         '''
         value = WorkloadStatusConfigAutomaticRemainingEntitiesRule(
             remaining_entities_rule_rollup=remaining_entities_rule_rollup
@@ -1080,7 +1080,7 @@ class WorkloadStatusConfigAutomaticRemainingEntitiesRule:
         remaining_entities_rule_rollup: typing.Union["WorkloadStatusConfigAutomaticRemainingEntitiesRuleRemainingEntitiesRuleRollup", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param remaining_entities_rule_rollup: remaining_entities_rule_rollup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#remaining_entities_rule_rollup Workload#remaining_entities_rule_rollup}
+        :param remaining_entities_rule_rollup: remaining_entities_rule_rollup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#remaining_entities_rule_rollup Workload#remaining_entities_rule_rollup}
         '''
         if isinstance(remaining_entities_rule_rollup, dict):
             remaining_entities_rule_rollup = WorkloadStatusConfigAutomaticRemainingEntitiesRuleRemainingEntitiesRuleRollup(**remaining_entities_rule_rollup)
@@ -1097,7 +1097,7 @@ class WorkloadStatusConfigAutomaticRemainingEntitiesRule:
     ) -> "WorkloadStatusConfigAutomaticRemainingEntitiesRuleRemainingEntitiesRuleRollup":
         '''remaining_entities_rule_rollup block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#remaining_entities_rule_rollup Workload#remaining_entities_rule_rollup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#remaining_entities_rule_rollup Workload#remaining_entities_rule_rollup}
         '''
         result = self._values.get("remaining_entities_rule_rollup")
         assert result is not None, "Required property 'remaining_entities_rule_rollup' is missing"
@@ -1145,10 +1145,10 @@ class WorkloadStatusConfigAutomaticRemainingEntitiesRuleOutputReference(
         threshold_value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param group_by: The grouping to be applied to the remaining entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#group_by Workload#group_by}
-        :param strategy: The rollup strategy that is applied to a group of entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#strategy Workload#strategy}
-        :param threshold_type: Type of threshold defined for the rule. This is an optional field that only applies when strategy is WORST_STATUS_WINS. Use a threshold to roll up the worst status only after a certain amount of entities are not operational. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#threshold_type Workload#threshold_type}
-        :param threshold_value: Threshold value defined for the rule. This optional field is used in combination with thresholdType. If the threshold type is null, the threshold value will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#threshold_value Workload#threshold_value}
+        :param group_by: The grouping to be applied to the remaining entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#group_by Workload#group_by}
+        :param strategy: The rollup strategy that is applied to a group of entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#strategy Workload#strategy}
+        :param threshold_type: Type of threshold defined for the rule. This is an optional field that only applies when strategy is WORST_STATUS_WINS. Use a threshold to roll up the worst status only after a certain amount of entities are not operational. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#threshold_type Workload#threshold_type}
+        :param threshold_value: Threshold value defined for the rule. This optional field is used in combination with thresholdType. If the threshold type is null, the threshold value will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#threshold_value Workload#threshold_value}
         '''
         value = WorkloadStatusConfigAutomaticRemainingEntitiesRuleRemainingEntitiesRuleRollup(
             group_by=group_by,
@@ -1211,10 +1211,10 @@ class WorkloadStatusConfigAutomaticRemainingEntitiesRuleRemainingEntitiesRuleRol
         threshold_value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param group_by: The grouping to be applied to the remaining entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#group_by Workload#group_by}
-        :param strategy: The rollup strategy that is applied to a group of entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#strategy Workload#strategy}
-        :param threshold_type: Type of threshold defined for the rule. This is an optional field that only applies when strategy is WORST_STATUS_WINS. Use a threshold to roll up the worst status only after a certain amount of entities are not operational. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#threshold_type Workload#threshold_type}
-        :param threshold_value: Threshold value defined for the rule. This optional field is used in combination with thresholdType. If the threshold type is null, the threshold value will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#threshold_value Workload#threshold_value}
+        :param group_by: The grouping to be applied to the remaining entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#group_by Workload#group_by}
+        :param strategy: The rollup strategy that is applied to a group of entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#strategy Workload#strategy}
+        :param threshold_type: Type of threshold defined for the rule. This is an optional field that only applies when strategy is WORST_STATUS_WINS. Use a threshold to roll up the worst status only after a certain amount of entities are not operational. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#threshold_type Workload#threshold_type}
+        :param threshold_value: Threshold value defined for the rule. This optional field is used in combination with thresholdType. If the threshold type is null, the threshold value will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#threshold_value Workload#threshold_value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f1f3f45e15175ebaf1fa56327dbe4843f48ee615a4b65d97222926e15e258952)
@@ -1235,7 +1235,7 @@ class WorkloadStatusConfigAutomaticRemainingEntitiesRuleRemainingEntitiesRuleRol
     def group_by(self) -> builtins.str:
         '''The grouping to be applied to the remaining entities.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#group_by Workload#group_by}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#group_by Workload#group_by}
         '''
         result = self._values.get("group_by")
         assert result is not None, "Required property 'group_by' is missing"
@@ -1245,7 +1245,7 @@ class WorkloadStatusConfigAutomaticRemainingEntitiesRuleRemainingEntitiesRuleRol
     def strategy(self) -> builtins.str:
         '''The rollup strategy that is applied to a group of entities.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#strategy Workload#strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#strategy Workload#strategy}
         '''
         result = self._values.get("strategy")
         assert result is not None, "Required property 'strategy' is missing"
@@ -1257,7 +1257,7 @@ class WorkloadStatusConfigAutomaticRemainingEntitiesRuleRemainingEntitiesRuleRol
 
         This is an optional field that only applies when strategy is WORST_STATUS_WINS. Use a threshold to roll up the worst status only after a certain amount of entities are not operational.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#threshold_type Workload#threshold_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#threshold_type Workload#threshold_type}
         '''
         result = self._values.get("threshold_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1268,7 +1268,7 @@ class WorkloadStatusConfigAutomaticRemainingEntitiesRuleRemainingEntitiesRuleRol
 
         This optional field is used in combination with thresholdType. If the threshold type is null, the threshold value will be ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#threshold_value Workload#threshold_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#threshold_value Workload#threshold_value}
         '''
         result = self._values.get("threshold_value")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1417,9 +1417,9 @@ class WorkloadStatusConfigAutomaticRule:
         nrql_query: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["WorkloadStatusConfigAutomaticRuleNrqlQuery", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param rollup: rollup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#rollup Workload#rollup}
-        :param entity_guids: A list of entity GUIDs composing the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#entity_guids Workload#entity_guids}
-        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#nrql_query Workload#nrql_query}
+        :param rollup: rollup block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#rollup Workload#rollup}
+        :param entity_guids: A list of entity GUIDs composing the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#entity_guids Workload#entity_guids}
+        :param nrql_query: nrql_query block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#nrql_query Workload#nrql_query}
         '''
         if isinstance(rollup, dict):
             rollup = WorkloadStatusConfigAutomaticRuleRollup(**rollup)
@@ -1440,7 +1440,7 @@ class WorkloadStatusConfigAutomaticRule:
     def rollup(self) -> "WorkloadStatusConfigAutomaticRuleRollup":
         '''rollup block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#rollup Workload#rollup}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#rollup Workload#rollup}
         '''
         result = self._values.get("rollup")
         assert result is not None, "Required property 'rollup' is missing"
@@ -1450,7 +1450,7 @@ class WorkloadStatusConfigAutomaticRule:
     def entity_guids(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of entity GUIDs composing the rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#entity_guids Workload#entity_guids}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#entity_guids Workload#entity_guids}
         '''
         result = self._values.get("entity_guids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1461,7 +1461,7 @@ class WorkloadStatusConfigAutomaticRule:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WorkloadStatusConfigAutomaticRuleNrqlQuery"]]]:
         '''nrql_query block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#nrql_query Workload#nrql_query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#nrql_query Workload#nrql_query}
         '''
         result = self._values.get("nrql_query")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["WorkloadStatusConfigAutomaticRuleNrqlQuery"]]], result)
@@ -1579,7 +1579,7 @@ class WorkloadStatusConfigAutomaticRuleList(
 class WorkloadStatusConfigAutomaticRuleNrqlQuery:
     def __init__(self, *, query: builtins.str) -> None:
         '''
-        :param query: The entity search query that is used to perform the search of a group of entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#query Workload#query}
+        :param query: The entity search query that is used to perform the search of a group of entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#query Workload#query}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3ddc5ab23486a42232d9d2dc1d674e88e10fbe9c8619ffbb0df085680967eeac)
@@ -1592,7 +1592,7 @@ class WorkloadStatusConfigAutomaticRuleNrqlQuery:
     def query(self) -> builtins.str:
         '''The entity search query that is used to perform the search of a group of entities.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#query Workload#query}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#query Workload#query}
         '''
         result = self._values.get("query")
         assert result is not None, "Required property 'query' is missing"
@@ -1812,9 +1812,9 @@ class WorkloadStatusConfigAutomaticRuleOutputReference(
         threshold_value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param strategy: The rollup strategy that is applied to a group of entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#strategy Workload#strategy}
-        :param threshold_type: Type of threshold defined for the rule. This is an optional field that only applies when strategy is WORST_STATUS_WINS. Use a threshold to roll up the worst status only after a certain amount of entities are not operational. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#threshold_type Workload#threshold_type}
-        :param threshold_value: Threshold value defined for the rule. This optional field is used in combination with thresholdType. If the threshold type is null, the threshold value will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#threshold_value Workload#threshold_value}
+        :param strategy: The rollup strategy that is applied to a group of entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#strategy Workload#strategy}
+        :param threshold_type: Type of threshold defined for the rule. This is an optional field that only applies when strategy is WORST_STATUS_WINS. Use a threshold to roll up the worst status only after a certain amount of entities are not operational. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#threshold_type Workload#threshold_type}
+        :param threshold_value: Threshold value defined for the rule. This optional field is used in combination with thresholdType. If the threshold type is null, the threshold value will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#threshold_value Workload#threshold_value}
         '''
         value = WorkloadStatusConfigAutomaticRuleRollup(
             strategy=strategy,
@@ -1909,9 +1909,9 @@ class WorkloadStatusConfigAutomaticRuleRollup:
         threshold_value: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param strategy: The rollup strategy that is applied to a group of entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#strategy Workload#strategy}
-        :param threshold_type: Type of threshold defined for the rule. This is an optional field that only applies when strategy is WORST_STATUS_WINS. Use a threshold to roll up the worst status only after a certain amount of entities are not operational. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#threshold_type Workload#threshold_type}
-        :param threshold_value: Threshold value defined for the rule. This optional field is used in combination with thresholdType. If the threshold type is null, the threshold value will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#threshold_value Workload#threshold_value}
+        :param strategy: The rollup strategy that is applied to a group of entities. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#strategy Workload#strategy}
+        :param threshold_type: Type of threshold defined for the rule. This is an optional field that only applies when strategy is WORST_STATUS_WINS. Use a threshold to roll up the worst status only after a certain amount of entities are not operational. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#threshold_type Workload#threshold_type}
+        :param threshold_value: Threshold value defined for the rule. This optional field is used in combination with thresholdType. If the threshold type is null, the threshold value will be ignored. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#threshold_value Workload#threshold_value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__498c7b5ea1bd945eaf6204c90473fa9d1bf4b2e7ded651d98efe0cac8094e786)
@@ -1930,7 +1930,7 @@ class WorkloadStatusConfigAutomaticRuleRollup:
     def strategy(self) -> builtins.str:
         '''The rollup strategy that is applied to a group of entities.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#strategy Workload#strategy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#strategy Workload#strategy}
         '''
         result = self._values.get("strategy")
         assert result is not None, "Required property 'strategy' is missing"
@@ -1942,7 +1942,7 @@ class WorkloadStatusConfigAutomaticRuleRollup:
 
         This is an optional field that only applies when strategy is WORST_STATUS_WINS. Use a threshold to roll up the worst status only after a certain amount of entities are not operational.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#threshold_type Workload#threshold_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#threshold_type Workload#threshold_type}
         '''
         result = self._values.get("threshold_type")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1953,7 +1953,7 @@ class WorkloadStatusConfigAutomaticRuleRollup:
 
         This optional field is used in combination with thresholdType. If the threshold type is null, the threshold value will be ignored.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#threshold_value Workload#threshold_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#threshold_value Workload#threshold_value}
         '''
         result = self._values.get("threshold_value")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -2087,10 +2087,10 @@ class WorkloadStatusConfigStatic:
         summary: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param enabled: Whether the static status configuration is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#enabled Workload#enabled}
-        :param status: The status of the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#status Workload#status}
-        :param description: A description that provides additional details about the status of the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#description Workload#description}
-        :param summary: A short description of the status of the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#summary Workload#summary}
+        :param enabled: Whether the static status configuration is enabled or not. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#enabled Workload#enabled}
+        :param status: The status of the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#status Workload#status}
+        :param description: A description that provides additional details about the status of the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#description Workload#description}
+        :param summary: A short description of the status of the workload. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#summary Workload#summary}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__94baa187d886028ef781ffa38a0e99d757889751620b355d227fdd2a830c94bc)
@@ -2111,7 +2111,7 @@ class WorkloadStatusConfigStatic:
     def enabled(self) -> typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]:
         '''Whether the static status configuration is enabled or not.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#enabled Workload#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#enabled Workload#enabled}
         '''
         result = self._values.get("enabled")
         assert result is not None, "Required property 'enabled' is missing"
@@ -2121,7 +2121,7 @@ class WorkloadStatusConfigStatic:
     def status(self) -> builtins.str:
         '''The status of the workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#status Workload#status}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#status Workload#status}
         '''
         result = self._values.get("status")
         assert result is not None, "Required property 'status' is missing"
@@ -2131,7 +2131,7 @@ class WorkloadStatusConfigStatic:
     def description(self) -> typing.Optional[builtins.str]:
         '''A description that provides additional details about the status of the workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#description Workload#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#description Workload#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2140,7 +2140,7 @@ class WorkloadStatusConfigStatic:
     def summary(self) -> typing.Optional[builtins.str]:
         '''A short description of the status of the workload.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.63.0/docs/resources/workload#summary Workload#summary}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/newrelic/newrelic/3.64.0/docs/resources/workload#summary Workload#summary}
         '''
         result = self._values.get("summary")
         return typing.cast(typing.Optional[builtins.str], result)

@@ -552,7 +552,7 @@ class TinyB:
     async def analyze_pipe_node(
         self, pipe_name: str, node: Dict[str, Any], dry_run: str = "false", datasource_name: Optional[str] = None
     ):
-        params = {**{"include_datafile": "true", "dry_run": dry_run}, **node.get("params", node)}
+        params = {"include_datafile": "true", "dry_run": dry_run, **node.get("params", node)}
         if "mode" in params:
             params.pop("mode")
         node_name = node["params"]["name"] if node.get("params", None) else node["name"]
@@ -569,6 +569,7 @@ class TinyB:
         populate_condition: Optional[str] = None,
         truncate: bool = True,
         unlink_on_populate_error: bool = False,
+        on_demand_compute: bool = False,
     ):
         params: Dict[str, Any] = {
             "truncate": "true" if truncate else "false",
@@ -578,6 +579,8 @@ class TinyB:
             params.update({"populate_subset": populate_subset})
         if populate_condition:
             params.update({"populate_condition": populate_condition})
+        if on_demand_compute:
+            params.update({"on_demand_compute": "true"})
         response = await self._req(
             f"/v0/pipes/{pipe_name}/nodes/{node_name}/population?{urlencode(params)}", method="POST"
         )

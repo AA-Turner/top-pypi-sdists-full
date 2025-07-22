@@ -16,17 +16,6 @@ from bottle import request, redirect, HTTPError
 
 from gway import gw
 
-
-def _is_ws_live(cid: str) -> bool:
-    """Return True if the charger has an active websocket connection."""
-    ws = globals().get("_active_cons", {}).get(cid)
-    if not ws:
-        return False
-    try:
-        return ws.application_state == WebSocketState.CONNECTED
-    except Exception:
-        return True
-
     
 def setup_app(*,
     app=None,
@@ -63,6 +52,11 @@ def setup_app(*,
             _is_new_app = app is None or not isinstance(app, _FastAPI)
     if _is_new_app:
         app = _FastAPI()
+        # Reset lingering connection states
+        try:
+            gw.ocpp.data.reset_connections()
+        except Exception as exc:
+            gw.warn(f"[OCPP] Failed to reset connections: {exc}")
 
     validator = None
     if isinstance(authorize, str):
@@ -418,7 +412,7 @@ def _render_charger_card(cid, tx, state, raw_hb, *, show_controls=True):
     if state == "online":
         status = "Charging"
     elif state == "available":
-        status = "Idle"
+        status = "Available"
     elif state == "error":
         status = "Error"
     else:
@@ -997,7 +991,7 @@ def purge(*, database: bool = False, logs: bool = False):
     gw.info("[OCPP] In-memory state purged.")
 
     if database:
-        conn = gw.ocpp.data.open_db()
+        conn = gw.sql.open_db(project="ocpp")
         gw.sql.execute("DELETE FROM transactions", connection=conn)
         gw.sql.execute("DELETE FROM meter_values", connection=conn)
         gw.sql.execute("DELETE FROM errors", connection=conn)

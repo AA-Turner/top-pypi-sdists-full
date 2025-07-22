@@ -16,7 +16,7 @@ from click import Context
 import tinybird.context as context
 from tinybird.client import AuthNoTokenException, DoesNotExistException, TinyB
 from tinybird.config import DEFAULT_API_HOST, FeatureFlags
-from tinybird.datafile import PipeNodeTypes, PipeTypes, folder_push, get_name_version, process_file, wait_job
+from tinybird.datafile_common import PipeNodeTypes, PipeTypes, folder_push, get_name_version, process_file, wait_job
 from tinybird.feedback_manager import FeedbackManager
 from tinybird.tb_cli_modules.branch import warn_if_in_live
 from tinybird.tb_cli_modules.cli import cli
@@ -234,6 +234,12 @@ async def pipe_ls(ctx: Context, match: str, format_: str):
     default=False,
     help="Waits for populate jobs to finish, showing a progress bar. Disabled by default.",
 )
+@click.option(
+    "--on-demand-compute",
+    is_flag=True,
+    default=False,
+    help="Use on-demand compute instances for the populate job.",
+)
 @click.pass_context
 @coro
 async def pipe_populate(
@@ -244,6 +250,7 @@ async def pipe_populate(
     truncate: bool,
     unlink_on_populate_error: bool,
     wait: bool,
+    on_demand_compute: bool,
 ):
     """Populate the result of a Materialized Node into the target Materialized View"""
     cl = create_tb_client(ctx)
@@ -270,6 +277,7 @@ async def pipe_populate(
         populate_condition=sql_condition,
         truncate=truncate,
         unlink_on_populate_error=unlink_on_populate_error,
+        on_demand_compute=on_demand_compute,
     )
     if "job" not in response:
         raise CLIPipeException(response)

@@ -14,45 +14,20 @@ class PrimitiveType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     PRIMITIVE_TYPE_FLOAT: _ClassVar[PrimitiveType]
     PRIMITIVE_TYPE_UINT128: _ClassVar[PrimitiveType]
     PRIMITIVE_TYPE_INT128: _ClassVar[PrimitiveType]
-
-class RelValueType(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
-    __slots__ = ()
-    REL_VALUE_TYPE_UNSPECIFIED: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_DATE: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_DATETIME: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_NANOSECOND: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_MICROSECOND: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_MILLISECOND: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_SECOND: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_MINUTE: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_HOUR: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_DAY: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_WEEK: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_MONTH: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_YEAR: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_DECIMAL64: _ClassVar[RelValueType]
-    REL_VALUE_TYPE_DECIMAL128: _ClassVar[RelValueType]
+    PRIMITIVE_TYPE_DATE: _ClassVar[PrimitiveType]
+    PRIMITIVE_TYPE_DATETIME: _ClassVar[PrimitiveType]
+    PRIMITIVE_TYPE_DECIMAL64: _ClassVar[PrimitiveType]
+    PRIMITIVE_TYPE_DECIMAL128: _ClassVar[PrimitiveType]
 PRIMITIVE_TYPE_UNSPECIFIED: PrimitiveType
 PRIMITIVE_TYPE_STRING: PrimitiveType
 PRIMITIVE_TYPE_INT: PrimitiveType
 PRIMITIVE_TYPE_FLOAT: PrimitiveType
 PRIMITIVE_TYPE_UINT128: PrimitiveType
 PRIMITIVE_TYPE_INT128: PrimitiveType
-REL_VALUE_TYPE_UNSPECIFIED: RelValueType
-REL_VALUE_TYPE_DATE: RelValueType
-REL_VALUE_TYPE_DATETIME: RelValueType
-REL_VALUE_TYPE_NANOSECOND: RelValueType
-REL_VALUE_TYPE_MICROSECOND: RelValueType
-REL_VALUE_TYPE_MILLISECOND: RelValueType
-REL_VALUE_TYPE_SECOND: RelValueType
-REL_VALUE_TYPE_MINUTE: RelValueType
-REL_VALUE_TYPE_HOUR: RelValueType
-REL_VALUE_TYPE_DAY: RelValueType
-REL_VALUE_TYPE_WEEK: RelValueType
-REL_VALUE_TYPE_MONTH: RelValueType
-REL_VALUE_TYPE_YEAR: RelValueType
-REL_VALUE_TYPE_DECIMAL64: RelValueType
-REL_VALUE_TYPE_DECIMAL128: RelValueType
+PRIMITIVE_TYPE_DATE: PrimitiveType
+PRIMITIVE_TYPE_DATETIME: PrimitiveType
+PRIMITIVE_TYPE_DECIMAL64: PrimitiveType
+PRIMITIVE_TYPE_DECIMAL128: PrimitiveType
 
 class Declaration(_message.Message):
     __slots__ = ("algorithm",)
@@ -101,13 +76,19 @@ class Loop(_message.Message):
     def __init__(self, init: _Optional[_Iterable[_Union[Instruction, _Mapping]]] = ..., body: _Optional[_Union[Script, _Mapping]] = ...) -> None: ...
 
 class Instruction(_message.Message):
-    __slots__ = ("assign", "upsert")
+    __slots__ = ("assign", "upsert", "copy", "monoid_def", "monus_def")
     ASSIGN_FIELD_NUMBER: _ClassVar[int]
     UPSERT_FIELD_NUMBER: _ClassVar[int]
     BREAK_FIELD_NUMBER: _ClassVar[int]
+    COPY_FIELD_NUMBER: _ClassVar[int]
+    MONOID_DEF_FIELD_NUMBER: _ClassVar[int]
+    MONUS_DEF_FIELD_NUMBER: _ClassVar[int]
     assign: Assign
     upsert: Upsert
-    def __init__(self, assign: _Optional[_Union[Assign, _Mapping]] = ..., upsert: _Optional[_Union[Upsert, _Mapping]] = ..., **kwargs) -> None: ...
+    copy: Copy
+    monoid_def: MonoidDef
+    monus_def: MonusDef
+    def __init__(self, assign: _Optional[_Union[Assign, _Mapping]] = ..., upsert: _Optional[_Union[Upsert, _Mapping]] = ..., copy: _Optional[_Union[Copy, _Mapping]] = ..., monoid_def: _Optional[_Union[MonoidDef, _Mapping]] = ..., monus_def: _Optional[_Union[MonusDef, _Mapping]] = ..., **kwargs) -> None: ...
 
 class Assign(_message.Message):
     __slots__ = ("name", "body", "attrs")
@@ -139,13 +120,81 @@ class Break(_message.Message):
     attrs: _containers.RepeatedCompositeFieldContainer[Attribute]
     def __init__(self, name: _Optional[_Union[RelationId, _Mapping]] = ..., body: _Optional[_Union[Abstraction, _Mapping]] = ..., attrs: _Optional[_Iterable[_Union[Attribute, _Mapping]]] = ...) -> None: ...
 
+class Copy(_message.Message):
+    __slots__ = ("name", "body", "attrs")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    ATTRS_FIELD_NUMBER: _ClassVar[int]
+    name: RelationId
+    body: Abstraction
+    attrs: _containers.RepeatedCompositeFieldContainer[Attribute]
+    def __init__(self, name: _Optional[_Union[RelationId, _Mapping]] = ..., body: _Optional[_Union[Abstraction, _Mapping]] = ..., attrs: _Optional[_Iterable[_Union[Attribute, _Mapping]]] = ...) -> None: ...
+
+class MonoidDef(_message.Message):
+    __slots__ = ("monoid", "name", "body", "attrs")
+    MONOID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    ATTRS_FIELD_NUMBER: _ClassVar[int]
+    monoid: Monoid
+    name: RelationId
+    body: Abstraction
+    attrs: _containers.RepeatedCompositeFieldContainer[Attribute]
+    def __init__(self, monoid: _Optional[_Union[Monoid, _Mapping]] = ..., name: _Optional[_Union[RelationId, _Mapping]] = ..., body: _Optional[_Union[Abstraction, _Mapping]] = ..., attrs: _Optional[_Iterable[_Union[Attribute, _Mapping]]] = ...) -> None: ...
+
+class MonusDef(_message.Message):
+    __slots__ = ("monoid", "name", "body", "attrs")
+    MONOID_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    BODY_FIELD_NUMBER: _ClassVar[int]
+    ATTRS_FIELD_NUMBER: _ClassVar[int]
+    monoid: Monoid
+    name: RelationId
+    body: Abstraction
+    attrs: _containers.RepeatedCompositeFieldContainer[Attribute]
+    def __init__(self, monoid: _Optional[_Union[Monoid, _Mapping]] = ..., name: _Optional[_Union[RelationId, _Mapping]] = ..., body: _Optional[_Union[Abstraction, _Mapping]] = ..., attrs: _Optional[_Iterable[_Union[Attribute, _Mapping]]] = ...) -> None: ...
+
+class Monoid(_message.Message):
+    __slots__ = ("or_monoid", "min_monoid", "max_monoid", "sum_monoid")
+    OR_MONOID_FIELD_NUMBER: _ClassVar[int]
+    MIN_MONOID_FIELD_NUMBER: _ClassVar[int]
+    MAX_MONOID_FIELD_NUMBER: _ClassVar[int]
+    SUM_MONOID_FIELD_NUMBER: _ClassVar[int]
+    or_monoid: OrMonoid
+    min_monoid: MinMonoid
+    max_monoid: MaxMonoid
+    sum_monoid: SumMonoid
+    def __init__(self, or_monoid: _Optional[_Union[OrMonoid, _Mapping]] = ..., min_monoid: _Optional[_Union[MinMonoid, _Mapping]] = ..., max_monoid: _Optional[_Union[MaxMonoid, _Mapping]] = ..., sum_monoid: _Optional[_Union[SumMonoid, _Mapping]] = ...) -> None: ...
+
+class OrMonoid(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class MinMonoid(_message.Message):
+    __slots__ = ("type",)
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    type: PrimitiveType
+    def __init__(self, type: _Optional[_Union[PrimitiveType, str]] = ...) -> None: ...
+
+class MaxMonoid(_message.Message):
+    __slots__ = ("type",)
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    type: PrimitiveType
+    def __init__(self, type: _Optional[_Union[PrimitiveType, str]] = ...) -> None: ...
+
+class SumMonoid(_message.Message):
+    __slots__ = ("type",)
+    TYPE_FIELD_NUMBER: _ClassVar[int]
+    type: PrimitiveType
+    def __init__(self, type: _Optional[_Union[PrimitiveType, str]] = ...) -> None: ...
+
 class Binding(_message.Message):
     __slots__ = ("var", "type")
     VAR_FIELD_NUMBER: _ClassVar[int]
     TYPE_FIELD_NUMBER: _ClassVar[int]
     var: Var
-    type: RelType
-    def __init__(self, var: _Optional[_Union[Var, _Mapping]] = ..., type: _Optional[_Union[RelType, _Mapping]] = ...) -> None: ...
+    type: PrimitiveType
+    def __init__(self, var: _Optional[_Union[Var, _Mapping]] = ..., type: _Optional[_Union[PrimitiveType, str]] = ...) -> None: ...
 
 class Abstraction(_message.Message):
     __slots__ = ("vars", "value")
@@ -257,14 +306,12 @@ class RelAtom(_message.Message):
     def __init__(self, name: _Optional[str] = ..., terms: _Optional[_Iterable[_Union[RelTerm, _Mapping]]] = ...) -> None: ...
 
 class Cast(_message.Message):
-    __slots__ = ("type", "input", "result")
-    TYPE_FIELD_NUMBER: _ClassVar[int]
+    __slots__ = ("input", "result")
     INPUT_FIELD_NUMBER: _ClassVar[int]
     RESULT_FIELD_NUMBER: _ClassVar[int]
-    type: RelType
     input: Term
     result: Term
-    def __init__(self, type: _Optional[_Union[RelType, _Mapping]] = ..., input: _Optional[_Union[Term, _Mapping]] = ..., result: _Optional[_Union[Term, _Mapping]] = ...) -> None: ...
+    def __init__(self, input: _Optional[_Union[Term, _Mapping]] = ..., result: _Optional[_Union[Term, _Mapping]] = ...) -> None: ...
 
 class RelTerm(_message.Message):
     __slots__ = ("specialized_value", "term")
@@ -303,14 +350,6 @@ class RelationId(_message.Message):
     id_low: int
     id_high: int
     def __init__(self, id_low: _Optional[int] = ..., id_high: _Optional[int] = ...) -> None: ...
-
-class RelType(_message.Message):
-    __slots__ = ("primitive_type", "value_type")
-    PRIMITIVE_TYPE_FIELD_NUMBER: _ClassVar[int]
-    VALUE_TYPE_FIELD_NUMBER: _ClassVar[int]
-    primitive_type: PrimitiveType
-    value_type: RelValueType
-    def __init__(self, primitive_type: _Optional[_Union[PrimitiveType, str]] = ..., value_type: _Optional[_Union[RelValueType, str]] = ...) -> None: ...
 
 class Value(_message.Message):
     __slots__ = ("string_value", "int_value", "float_value", "uint128_value", "int128_value")

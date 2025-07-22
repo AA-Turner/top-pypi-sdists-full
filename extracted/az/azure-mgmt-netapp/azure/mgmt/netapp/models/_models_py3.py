@@ -1,4 +1,4 @@
-# pylint: disable=too-many-lines
+# pylint: disable=line-too-long,useless-suppression,too-many-lines
 # coding=utf-8
 # --------------------------------------------------------------------------
 # Copyright (c) Microsoft Corporation. All rights reserved.
@@ -10,7 +10,7 @@
 import datetime
 from typing import Any, Dict, List, Optional, TYPE_CHECKING, Union
 
-from .. import _serialization
+from .._utils import serialization as _serialization
 
 if TYPE_CHECKING:
     from .. import models as _models
@@ -267,8 +267,8 @@ class ActiveDirectory(_serialization.Model):
         self.password = password
         self.domain = domain
         self.dns = dns
-        self.status = None
-        self.status_details = None
+        self.status: Optional[Union[str, "_models.ActiveDirectoryStatus"]] = None
+        self.status_details: Optional[str] = None
         self.smb_server_name = smb_server_name
         self.organizational_unit = organizational_unit
         self.site = site
@@ -313,7 +313,7 @@ class Resource(_serialization.Model):
     Variables are only populated by the server, and will be ignored when sending a request.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -342,10 +342,10 @@ class Resource(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
-        self.system_data = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
+        self.system_data: Optional["_models.SystemData"] = None
 
 
 class ProxyResource(Resource):
@@ -355,7 +355,7 @@ class ProxyResource(Resource):
     Variables are only populated by the server, and will be ignored when sending a request.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -376,7 +376,7 @@ class Backup(ProxyResource):
     All required parameters must be populated in order to send to server.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -483,20 +483,20 @@ class Backup(ProxyResource):
         :paramtype snapshot_name: str
         """
         super().__init__(**kwargs)
-        self.backup_id = None
-        self.creation_date = None
-        self.snapshot_creation_date = None
-        self.completion_date = None
-        self.provisioning_state = None
-        self.size = None
+        self.backup_id: Optional[str] = None
+        self.creation_date: Optional[datetime.datetime] = None
+        self.snapshot_creation_date: Optional[datetime.datetime] = None
+        self.completion_date: Optional[datetime.datetime] = None
+        self.provisioning_state: Optional[str] = None
+        self.size: Optional[int] = None
         self.label = label
-        self.backup_type = None
-        self.failure_reason = None
+        self.backup_type: Optional[Union[str, "_models.BackupType"]] = None
+        self.failure_reason: Optional[str] = None
         self.volume_resource_id = volume_resource_id
         self.use_existing_snapshot = use_existing_snapshot
         self.snapshot_name = snapshot_name
-        self.backup_policy_resource_id = None
-        self.is_large_volume = None
+        self.backup_policy_resource_id: Optional[str] = None
+        self.is_large_volume: Optional[bool] = None
 
 
 class BackupPatch(_serialization.Model):
@@ -548,7 +548,7 @@ class TrackedResource(Resource):
     All required parameters must be populated in order to send to server.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -601,7 +601,7 @@ class BackupPolicy(TrackedResource):
     All required parameters must be populated in order to send to server.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -692,15 +692,15 @@ class BackupPolicy(TrackedResource):
         :paramtype enabled: bool
         """
         super().__init__(tags=tags, location=location, **kwargs)
-        self.etag = None
-        self.backup_policy_id = None
-        self.provisioning_state = None
+        self.etag: Optional[str] = None
+        self.backup_policy_id: Optional[str] = None
+        self.provisioning_state: Optional[str] = None
         self.daily_backups_to_keep = daily_backups_to_keep
         self.weekly_backups_to_keep = weekly_backups_to_keep
         self.monthly_backups_to_keep = monthly_backups_to_keep
-        self.volumes_assigned = None
+        self.volumes_assigned: Optional[int] = None
         self.enabled = enabled
-        self.volume_backups = None
+        self.volume_backups: Optional[List["_models.VolumeBackups"]] = None
 
 
 class BackupPolicyPatch(_serialization.Model):
@@ -789,18 +789,18 @@ class BackupPolicyPatch(_serialization.Model):
         """
         super().__init__(**kwargs)
         self.location = location
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.tags = tags
-        self.backup_policy_id = None
-        self.provisioning_state = None
+        self.backup_policy_id: Optional[str] = None
+        self.provisioning_state: Optional[str] = None
         self.daily_backups_to_keep = daily_backups_to_keep
         self.weekly_backups_to_keep = weekly_backups_to_keep
         self.monthly_backups_to_keep = monthly_backups_to_keep
-        self.volumes_assigned = None
+        self.volumes_assigned: Optional[int] = None
         self.enabled = enabled
-        self.volume_backups = None
+        self.volume_backups: Optional[List["_models.VolumeBackups"]] = None
 
 
 class BackupRestoreFiles(_serialization.Model):
@@ -965,15 +965,15 @@ class BackupStatus(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.healthy = None
-        self.relationship_status = None
-        self.mirror_state = None
-        self.unhealthy_reason = None
-        self.error_message = None
-        self.last_transfer_size = None
-        self.last_transfer_type = None
-        self.total_transfer_bytes = None
-        self.transfer_progress_bytes = None
+        self.healthy: Optional[bool] = None
+        self.relationship_status: Optional[Union[str, "_models.RelationshipStatus"]] = None
+        self.mirror_state: Optional[Union[str, "_models.MirrorState"]] = None
+        self.unhealthy_reason: Optional[str] = None
+        self.error_message: Optional[str] = None
+        self.last_transfer_size: Optional[int] = None
+        self.last_transfer_type: Optional[str] = None
+        self.total_transfer_bytes: Optional[int] = None
+        self.transfer_progress_bytes: Optional[int] = None
 
 
 class BackupVault(TrackedResource):
@@ -984,7 +984,7 @@ class BackupVault(TrackedResource):
     All required parameters must be populated in order to send to server.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -1029,7 +1029,7 @@ class BackupVault(TrackedResource):
         :paramtype location: str
         """
         super().__init__(tags=tags, location=location, **kwargs)
-        self.provisioning_state = None
+        self.provisioning_state: Optional[str] = None
 
 
 class BackupVaultPatch(_serialization.Model):
@@ -1146,7 +1146,7 @@ class CapacityPool(TrackedResource):
     All required parameters must be populated in order to send to server.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -1258,13 +1258,13 @@ class CapacityPool(TrackedResource):
         :paramtype encryption_type: str or ~azure.mgmt.netapp.models.EncryptionType
         """
         super().__init__(tags=tags, location=location, **kwargs)
-        self.etag = None
-        self.pool_id = None
+        self.etag: Optional[str] = None
+        self.pool_id: Optional[str] = None
         self.size = size
         self.service_level = service_level
-        self.provisioning_state = None
-        self.total_throughput_mibps = None
-        self.utilized_throughput_mibps = None
+        self.provisioning_state: Optional[str] = None
+        self.total_throughput_mibps: Optional[float] = None
+        self.utilized_throughput_mibps: Optional[float] = None
         self.qos_type = qos_type
         self.cool_access = cool_access
         self.encryption_type = encryption_type
@@ -1364,9 +1364,9 @@ class CapacityPoolPatch(_serialization.Model):
         """
         super().__init__(**kwargs)
         self.location = location
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.tags = tags
         self.size = size
         self.qos_type = qos_type
@@ -1700,7 +1700,7 @@ class EncryptionIdentity(_serialization.Model):
         :paramtype federated_client_id: str
         """
         super().__init__(**kwargs)
-        self.principal_id = None
+        self.principal_id: Optional[str] = None
         self.user_assigned_identity = user_assigned_identity
         self.federated_client_id = federated_client_id
 
@@ -1764,8 +1764,8 @@ class ErrorAdditionalInfo(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.type = None
-        self.info = None
+        self.type: Optional[str] = None
+        self.info: Optional[JSON] = None
 
 
 class ErrorDetail(_serialization.Model):
@@ -1804,11 +1804,11 @@ class ErrorDetail(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.code = None
-        self.message = None
-        self.target = None
-        self.details = None
-        self.additional_info = None
+        self.code: Optional[str] = None
+        self.message: Optional[str] = None
+        self.target: Optional[str] = None
+        self.details: Optional[List["_models.ErrorDetail"]] = None
+        self.additional_info: Optional[List["_models.ErrorAdditionalInfo"]] = None
 
 
 class ErrorResponse(_serialization.Model):
@@ -2242,11 +2242,11 @@ class KeyVaultProperties(_serialization.Model):
         :paramtype key_vault_resource_id: str
         """
         super().__init__(**kwargs)
-        self.key_vault_id = None
+        self.key_vault_id: Optional[str] = None
         self.key_vault_uri = key_vault_uri
         self.key_name = key_name
         self.key_vault_resource_id = key_vault_resource_id
-        self.status = None
+        self.status: Optional[Union[str, "_models.KeyVaultStatus"]] = None
 
 
 class LdapSearchScopeOpt(_serialization.Model):
@@ -2361,7 +2361,7 @@ class ManagedServiceIdentity(_serialization.Model):
     :vartype type: str or ~azure.mgmt.netapp.models.ManagedServiceIdentityType
     :ivar user_assigned_identities: The set of user assigned identities associated with the
      resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form:
-     '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}.  # pylint: disable=line-too-long
+     '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}.
      The dictionary values can be empty objects ({}) in requests.
     :vartype user_assigned_identities: dict[str, ~azure.mgmt.netapp.models.UserAssignedIdentity]
     """
@@ -2393,13 +2393,13 @@ class ManagedServiceIdentity(_serialization.Model):
         :paramtype type: str or ~azure.mgmt.netapp.models.ManagedServiceIdentityType
         :keyword user_assigned_identities: The set of user assigned identities associated with the
          resource. The userAssignedIdentities dictionary keys will be ARM resource ids in the form:
-         '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}.  # pylint: disable=line-too-long
+         '/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/Microsoft.ManagedIdentity/userAssignedIdentities/{identityName}.
          The dictionary values can be empty objects ({}) in requests.
         :paramtype user_assigned_identities: dict[str, ~azure.mgmt.netapp.models.UserAssignedIdentity]
         """
         super().__init__(**kwargs)
-        self.principal_id = None
-        self.tenant_id = None
+        self.principal_id: Optional[str] = None
+        self.tenant_id: Optional[str] = None
         self.type = type
         self.user_assigned_identities = user_assigned_identities
 
@@ -2672,13 +2672,13 @@ class MountTarget(_serialization.Model):
         """
         super().__init__(**kwargs)
         self.location = location
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.tags = tags
-        self.mount_target_id = None
+        self.mount_target_id: Optional[str] = None
         self.file_system_id = file_system_id
-        self.ip_address = None
+        self.ip_address: Optional[str] = None
         self.smb_server_fqdn = smb_server_fqdn
 
 
@@ -2730,9 +2730,9 @@ class MountTargetProperties(_serialization.Model):
         :paramtype smb_server_fqdn: str
         """
         super().__init__(**kwargs)
-        self.mount_target_id = None
+        self.mount_target_id: Optional[str] = None
         self.file_system_id = file_system_id
-        self.ip_address = None
+        self.ip_address: Optional[str] = None
         self.smb_server_fqdn = smb_server_fqdn
 
 
@@ -2744,7 +2744,7 @@ class NetAppAccount(TrackedResource):
     All required parameters must be populated in order to send to server.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -2836,14 +2836,14 @@ class NetAppAccount(TrackedResource):
         :paramtype nfs_v4_id_domain: str
         """
         super().__init__(tags=tags, location=location, **kwargs)
-        self.etag = None
+        self.etag: Optional[str] = None
         self.identity = identity
-        self.provisioning_state = None
+        self.provisioning_state: Optional[str] = None
         self.active_directories = active_directories
         self.encryption = encryption
-        self.disable_showmount = None
+        self.disable_showmount: Optional[bool] = None
         self.nfs_v4_id_domain = nfs_v4_id_domain
-        self.multi_ad_status = None
+        self.multi_ad_status: Optional[Union[str, "_models.MultiAdStatus"]] = None
 
 
 class NetAppAccountList(_serialization.Model):
@@ -2961,17 +2961,17 @@ class NetAppAccountPatch(_serialization.Model):
         """
         super().__init__(**kwargs)
         self.location = location
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.tags = tags
         self.identity = identity
-        self.provisioning_state = None
+        self.provisioning_state: Optional[str] = None
         self.active_directories = active_directories
         self.encryption = encryption
-        self.disable_showmount = None
+        self.disable_showmount: Optional[bool] = None
         self.nfs_v4_id_domain = nfs_v4_id_domain
-        self.multi_ad_status = None
+        self.multi_ad_status: Optional[Union[str, "_models.MultiAdStatus"]] = None
 
 
 class NetworkSiblingSet(_serialization.Model):
@@ -2984,7 +2984,7 @@ class NetworkSiblingSet(_serialization.Model):
     :vartype network_sibling_set_id: str
     :ivar subnet_id: The Azure Resource URI for a delegated subnet. Must have the delegation
      Microsoft.NetApp/volumes. Example
-     /subscriptions/subscriptionId/resourceGroups/resourceGroup/providers/Microsoft.Network/virtualNetworks/testVnet/subnets/{mySubnet}.  # pylint: disable=line-too-long
+     /subscriptions/subscriptionId/resourceGroups/resourceGroup/providers/Microsoft.Network/virtualNetworks/testVnet/subnets/{mySubnet}.
     :vartype subnet_id: str
     :ivar network_sibling_set_state_id: Network sibling set state Id identifying the current state
      of the sibling set.
@@ -3034,7 +3034,7 @@ class NetworkSiblingSet(_serialization.Model):
         :paramtype network_sibling_set_id: str
         :keyword subnet_id: The Azure Resource URI for a delegated subnet. Must have the delegation
          Microsoft.NetApp/volumes. Example
-         /subscriptions/subscriptionId/resourceGroups/resourceGroup/providers/Microsoft.Network/virtualNetworks/testVnet/subnets/{mySubnet}.  # pylint: disable=line-too-long
+         /subscriptions/subscriptionId/resourceGroups/resourceGroup/providers/Microsoft.Network/virtualNetworks/testVnet/subnets/{mySubnet}.
         :paramtype subnet_id: str
         :keyword network_sibling_set_state_id: Network sibling set state Id identifying the current
          state of the sibling set.
@@ -3050,7 +3050,7 @@ class NetworkSiblingSet(_serialization.Model):
         self.subnet_id = subnet_id
         self.network_sibling_set_state_id = network_sibling_set_state_id
         self.network_features = network_features
-        self.provisioning_state = None
+        self.provisioning_state: Optional[Union[str, "_models.NetworkSiblingSetProvisioningState"]] = None
         self.nic_info_list = nic_info_list
 
 
@@ -3080,7 +3080,7 @@ class NicInfo(_serialization.Model):
         :paramtype volume_resource_ids: list[str]
         """
         super().__init__(**kwargs)
-        self.ip_address = None
+        self.ip_address: Optional[str] = None
         self.volume_resource_ids = volume_resource_ids
 
 
@@ -3204,7 +3204,7 @@ class OperationListResult(_serialization.Model):
         """
         super().__init__(**kwargs)
         self.value = value
-        self.next_link = None
+        self.next_link: Optional[str] = None
 
 
 class PeerClusterForVolumeMigrationRequest(_serialization.Model):
@@ -3308,7 +3308,7 @@ class QueryNetworkSiblingSetRequest(_serialization.Model):
     :vartype network_sibling_set_id: str
     :ivar subnet_id: The Azure Resource URI for a delegated subnet. Must have the delegation
      Microsoft.NetApp/volumes. Example
-     /subscriptions/subscriptionId/resourceGroups/resourceGroup/providers/Microsoft.Network/virtualNetworks/testVnet/subnets/{mySubnet}.  # pylint: disable=line-too-long
+     /subscriptions/subscriptionId/resourceGroups/resourceGroup/providers/Microsoft.Network/virtualNetworks/testVnet/subnets/{mySubnet}.
      Required.
     :vartype subnet_id: str
     """
@@ -3335,7 +3335,7 @@ class QueryNetworkSiblingSetRequest(_serialization.Model):
         :paramtype network_sibling_set_id: str
         :keyword subnet_id: The Azure Resource URI for a delegated subnet. Must have the delegation
          Microsoft.NetApp/volumes. Example
-         /subscriptions/subscriptionId/resourceGroups/resourceGroup/providers/Microsoft.Network/virtualNetworks/testVnet/subnets/{mySubnet}.  # pylint: disable=line-too-long
+         /subscriptions/subscriptionId/resourceGroups/resourceGroup/providers/Microsoft.Network/virtualNetworks/testVnet/subnets/{mySubnet}.
          Required.
         :paramtype subnet_id: str
         """
@@ -3491,7 +3491,7 @@ class RegionInfoResource(ProxyResource):
     Variables are only populated by the server, and will be ignored when sending a request.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -3706,7 +3706,7 @@ class Replication(_serialization.Model):
         :paramtype remote_volume_region: str
         """
         super().__init__(**kwargs)
-        self.replication_id = None
+        self.replication_id: Optional[str] = None
         self.endpoint_type = endpoint_type
         self.replication_schedule = replication_schedule
         self.remote_volume_resource_id = remote_volume_resource_id
@@ -3739,6 +3739,7 @@ class ReplicationObject(_serialization.Model):
 
     _validation = {
         "replication_id": {"readonly": True},
+        "endpoint_type": {"readonly": True},
         "destination_replications": {"readonly": True},
     }
 
@@ -3755,7 +3756,6 @@ class ReplicationObject(_serialization.Model):
     def __init__(
         self,
         *,
-        endpoint_type: Optional[Union[str, "_models.EndpointType"]] = None,
         replication_schedule: Optional[Union[str, "_models.ReplicationSchedule"]] = None,
         remote_volume_resource_id: Optional[str] = None,
         remote_path: Optional["_models.RemotePath"] = None,
@@ -3763,9 +3763,6 @@ class ReplicationObject(_serialization.Model):
         **kwargs: Any
     ) -> None:
         """
-        :keyword endpoint_type: Indicates whether the local volume is the source or destination for the
-         Volume Replication. Known values are: "src" and "dst".
-        :paramtype endpoint_type: str or ~azure.mgmt.netapp.models.EndpointType
         :keyword replication_schedule: Schedule. Known values are: "_10minutely", "hourly", and
          "daily".
         :paramtype replication_schedule: str or ~azure.mgmt.netapp.models.ReplicationSchedule
@@ -3779,13 +3776,13 @@ class ReplicationObject(_serialization.Model):
         :paramtype remote_volume_region: str
         """
         super().__init__(**kwargs)
-        self.replication_id = None
-        self.endpoint_type = endpoint_type
+        self.replication_id: Optional[str] = None
+        self.endpoint_type: Optional[Union[str, "_models.EndpointType"]] = None
         self.replication_schedule = replication_schedule
         self.remote_volume_resource_id = remote_volume_resource_id
         self.remote_path = remote_path
         self.remote_volume_region = remote_volume_region
-        self.destination_replications = None
+        self.destination_replications: Optional[List["_models.DestinationReplication"]] = None
 
 
 class ReplicationStatus(_serialization.Model):
@@ -3875,8 +3872,8 @@ class ResourceIdentity(_serialization.Model):
         :paramtype type: str
         """
         super().__init__(**kwargs)
-        self.principal_id = None
-        self.tenant_id = None
+        self.principal_id: Optional[str] = None
+        self.tenant_id: Optional[str] = None
         self.type = type
 
 
@@ -3970,12 +3967,12 @@ class RestoreStatus(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.healthy = None
-        self.relationship_status = None
-        self.mirror_state = None
-        self.unhealthy_reason = None
-        self.error_message = None
-        self.total_transfer_bytes = None
+        self.healthy: Optional[bool] = None
+        self.relationship_status: Optional[Union[str, "_models.RelationshipStatus"]] = None
+        self.mirror_state: Optional[Union[str, "_models.MirrorState"]] = None
+        self.unhealthy_reason: Optional[str] = None
+        self.error_message: Optional[str] = None
+        self.total_transfer_bytes: Optional[int] = None
 
 
 class ServiceSpecification(_serialization.Model):
@@ -4018,7 +4015,7 @@ class Snapshot(ProxyResource):
     All required parameters must be populated in order to send to server.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -4072,9 +4069,9 @@ class Snapshot(ProxyResource):
         """
         super().__init__(**kwargs)
         self.location = location
-        self.snapshot_id = None
-        self.created = None
-        self.provisioning_state = None
+        self.snapshot_id: Optional[str] = None
+        self.created: Optional[datetime.datetime] = None
+        self.provisioning_state: Optional[str] = None
 
 
 class SnapshotPoliciesList(_serialization.Model):
@@ -4105,7 +4102,7 @@ class SnapshotPolicy(TrackedResource):
     All required parameters must be populated in order to send to server.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -4190,13 +4187,13 @@ class SnapshotPolicy(TrackedResource):
         :paramtype enabled: bool
         """
         super().__init__(tags=tags, location=location, **kwargs)
-        self.etag = None
+        self.etag: Optional[str] = None
         self.hourly_schedule = hourly_schedule
         self.daily_schedule = daily_schedule
         self.weekly_schedule = weekly_schedule
         self.monthly_schedule = monthly_schedule
         self.enabled = enabled
-        self.provisioning_state = None
+        self.provisioning_state: Optional[str] = None
 
 
 class SnapshotPolicyDetails(_serialization.Model):
@@ -4279,16 +4276,16 @@ class SnapshotPolicyDetails(_serialization.Model):
         """
         super().__init__(**kwargs)
         self.location = location
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.tags = tags
         self.hourly_schedule = hourly_schedule
         self.daily_schedule = daily_schedule
         self.weekly_schedule = weekly_schedule
         self.monthly_schedule = monthly_schedule
         self.enabled = enabled
-        self.provisioning_state = None
+        self.provisioning_state: Optional[str] = None
 
 
 class SnapshotPolicyPatch(_serialization.Model):
@@ -4371,16 +4368,16 @@ class SnapshotPolicyPatch(_serialization.Model):
         """
         super().__init__(**kwargs)
         self.location = location
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.tags = tags
         self.hourly_schedule = hourly_schedule
         self.daily_schedule = daily_schedule
         self.weekly_schedule = weekly_schedule
         self.monthly_schedule = monthly_schedule
         self.enabled = enabled
-        self.provisioning_state = None
+        self.provisioning_state: Optional[str] = None
 
 
 class SnapshotPolicyVolumeList(_serialization.Model):
@@ -4461,7 +4458,7 @@ class SubscriptionQuotaItem(ProxyResource):
     Variables are only populated by the server, and will be ignored when sending a request.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -4498,8 +4495,8 @@ class SubscriptionQuotaItem(ProxyResource):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.current = None
-        self.default = None
+        self.current: Optional[int] = None
+        self.default: Optional[int] = None
 
 
 class SubscriptionQuotaItemList(_serialization.Model):
@@ -4507,19 +4504,31 @@ class SubscriptionQuotaItemList(_serialization.Model):
 
     :ivar value: A list of SubscriptionQuotaItems.
     :vartype value: list[~azure.mgmt.netapp.models.SubscriptionQuotaItem]
+    :ivar next_link: URL to get the next set of results.
+    :vartype next_link: str
     """
 
     _attribute_map = {
         "value": {"key": "value", "type": "[SubscriptionQuotaItem]"},
+        "next_link": {"key": "nextLink", "type": "str"},
     }
 
-    def __init__(self, *, value: Optional[List["_models.SubscriptionQuotaItem"]] = None, **kwargs: Any) -> None:
+    def __init__(
+        self,
+        *,
+        value: Optional[List["_models.SubscriptionQuotaItem"]] = None,
+        next_link: Optional[str] = None,
+        **kwargs: Any
+    ) -> None:
         """
         :keyword value: A list of SubscriptionQuotaItems.
         :paramtype value: list[~azure.mgmt.netapp.models.SubscriptionQuotaItem]
+        :keyword next_link: URL to get the next set of results.
+        :paramtype next_link: str
         """
         super().__init__(**kwargs)
         self.value = value
+        self.next_link = next_link
 
 
 class SubvolumeInfo(ProxyResource):
@@ -4528,7 +4537,7 @@ class SubvolumeInfo(ProxyResource):
     Variables are only populated by the server, and will be ignored when sending a request.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -4587,7 +4596,7 @@ class SubvolumeInfo(ProxyResource):
         self.path = path
         self.size = size
         self.parent_path = parent_path
-        self.provisioning_state = None
+        self.provisioning_state: Optional[str] = None
 
 
 class SubvolumeModel(_serialization.Model):
@@ -4683,9 +4692,9 @@ class SubvolumeModel(_serialization.Model):
         :paramtype provisioning_state: str
         """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.path = path
         self.parent_path = parent_path
         self.size = size
@@ -4850,7 +4859,7 @@ class UpdateNetworkSiblingSetRequest(_serialization.Model):
     :vartype network_sibling_set_id: str
     :ivar subnet_id: The Azure Resource URI for a delegated subnet. Must have the delegation
      Microsoft.NetApp/volumes. Example
-     /subscriptions/subscriptionId/resourceGroups/resourceGroup/providers/Microsoft.Network/virtualNetworks/testVnet/subnets/{mySubnet}.  # pylint: disable=line-too-long
+     /subscriptions/subscriptionId/resourceGroups/resourceGroup/providers/Microsoft.Network/virtualNetworks/testVnet/subnets/{mySubnet}.
      Required.
     :vartype subnet_id: str
     :ivar network_sibling_set_state_id: Network sibling set state Id identifying the current state
@@ -4895,7 +4904,7 @@ class UpdateNetworkSiblingSetRequest(_serialization.Model):
         :paramtype network_sibling_set_id: str
         :keyword subnet_id: The Azure Resource URI for a delegated subnet. Must have the delegation
          Microsoft.NetApp/volumes. Example
-         /subscriptions/subscriptionId/resourceGroups/resourceGroup/providers/Microsoft.Network/virtualNetworks/testVnet/subnets/{mySubnet}.  # pylint: disable=line-too-long
+         /subscriptions/subscriptionId/resourceGroups/resourceGroup/providers/Microsoft.Network/virtualNetworks/testVnet/subnets/{mySubnet}.
          Required.
         :paramtype subnet_id: str
         :keyword network_sibling_set_state_id: Network sibling set state Id identifying the current
@@ -4974,11 +4983,11 @@ class UsageResult(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.id = None
-        self.name = None
-        self.current_value = None
-        self.limit = None
-        self.unit = None
+        self.id: Optional[str] = None
+        self.name: Optional["_models.UsageName"] = None
+        self.current_value: Optional[int] = None
+        self.limit: Optional[int] = None
+        self.unit: Optional[str] = None
 
 
 class UsagesListResult(_serialization.Model):
@@ -5033,8 +5042,8 @@ class UserAssignedIdentity(_serialization.Model):
     def __init__(self, **kwargs: Any) -> None:
         """ """
         super().__init__(**kwargs)
-        self.principal_id = None
-        self.client_id = None
+        self.principal_id: Optional[str] = None
+        self.client_id: Optional[str] = None
 
 
 class Volume(TrackedResource):
@@ -5045,7 +5054,7 @@ class Volume(TrackedResource):
     All required parameters must be populated in order to send to server.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -5543,28 +5552,28 @@ class Volume(TrackedResource):
         :paramtype is_large_volume: bool
         """
         super().__init__(tags=tags, location=location, **kwargs)
-        self.etag = None
+        self.etag: Optional[str] = None
         self.zones = zones
-        self.file_system_id = None
+        self.file_system_id: Optional[str] = None
         self.creation_token = creation_token
         self.service_level = service_level
         self.usage_threshold = usage_threshold
         self.export_policy = export_policy
         self.protocol_types = protocol_types
-        self.provisioning_state = None
+        self.provisioning_state: Optional[str] = None
         self.snapshot_id = snapshot_id
         self.delete_base_snapshot = delete_base_snapshot
         self.backup_id = backup_id
-        self.baremetal_tenant_id = None
+        self.baremetal_tenant_id: Optional[str] = None
         self.subnet_id = subnet_id
         self.network_features = network_features
-        self.effective_network_features = None
-        self.network_sibling_set_id = None
-        self.storage_to_network_proximity = None
-        self.mount_targets = None
+        self.effective_network_features: Optional[Union[str, "_models.NetworkFeatures"]] = None
+        self.network_sibling_set_id: Optional[str] = None
+        self.storage_to_network_proximity: Optional[Union[str, "_models.VolumeStorageToNetworkProximity"]] = None
+        self.mount_targets: Optional[List["_models.MountTargetProperties"]] = None
         self.volume_type = volume_type
         self.data_protection = data_protection
-        self.is_restoring = None
+        self.is_restoring: Optional[bool] = None
         self.snapshot_directory_visible = snapshot_directory_visible
         self.kerberos_enabled = kerberos_enabled
         self.security_style = security_style
@@ -5573,7 +5582,7 @@ class Volume(TrackedResource):
         self.smb_non_browsable = smb_non_browsable
         self.smb_continuously_available = smb_continuously_available
         self.throughput_mibps = throughput_mibps
-        self.actual_throughput_mibps = None
+        self.actual_throughput_mibps: Optional[float] = None
         self.encryption_key_source = encryption_key_source
         self.key_vault_private_endpoint_resource_id = key_vault_private_endpoint_resource_id
         self.ldap_enabled = ldap_enabled
@@ -5582,25 +5591,25 @@ class Volume(TrackedResource):
         self.cool_access_retrieval_policy = cool_access_retrieval_policy
         self.cool_access_tiering_policy = cool_access_tiering_policy
         self.unix_permissions = unix_permissions
-        self.clone_progress = None
-        self.file_access_logs = None
+        self.clone_progress: Optional[int] = None
+        self.file_access_logs: Optional[Union[str, "_models.FileAccessLogs"]] = None
         self.avs_data_store = avs_data_store
-        self.data_store_resource_id = None
+        self.data_store_resource_id: Optional[List[str]] = None
         self.is_default_quota_enabled = is_default_quota_enabled
         self.default_user_quota_in_ki_bs = default_user_quota_in_ki_bs
         self.default_group_quota_in_ki_bs = default_group_quota_in_ki_bs
-        self.maximum_number_of_files = None
-        self.volume_group_name = None
+        self.maximum_number_of_files: Optional[int] = None
+        self.volume_group_name: Optional[str] = None
         self.capacity_pool_resource_id = capacity_pool_resource_id
         self.proximity_placement_group = proximity_placement_group
-        self.t2_network = None
+        self.t2_network: Optional[str] = None
         self.volume_spec_name = volume_spec_name
-        self.encrypted = None
+        self.encrypted: Optional[bool] = None
         self.placement_rules = placement_rules
         self.enable_subvolumes = enable_subvolumes
-        self.provisioned_availability_zone = None
+        self.provisioned_availability_zone: Optional[str] = None
         self.is_large_volume = is_large_volume
-        self.originating_resource_id = None
+        self.originating_resource_id: Optional[str] = None
 
 
 class VolumeBackupProperties(_serialization.Model):
@@ -5738,10 +5747,10 @@ class VolumeGroup(_serialization.Model):
         """
         super().__init__(**kwargs)
         self.location = location
-        self.id = None
-        self.name = None
-        self.type = None
-        self.provisioning_state = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
+        self.provisioning_state: Optional[str] = None
         self.group_meta_data = group_meta_data
 
 
@@ -5801,10 +5810,10 @@ class VolumeGroupDetails(_serialization.Model):
         """
         super().__init__(**kwargs)
         self.location = location
-        self.id = None
-        self.name = None
-        self.type = None
-        self.provisioning_state = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
+        self.provisioning_state: Optional[str] = None
         self.group_meta_data = group_meta_data
         self.volumes = volumes
 
@@ -5882,7 +5891,7 @@ class VolumeGroupMetaData(_serialization.Model):
         self.application_type = application_type
         self.application_identifier = application_identifier
         self.global_placement_rules = global_placement_rules
-        self.volumes_count = None
+        self.volumes_count: Optional[int] = None
 
 
 class VolumeGroupVolumeProperties(_serialization.Model):
@@ -6375,31 +6384,31 @@ class VolumeGroupVolumeProperties(_serialization.Model):
         :paramtype is_large_volume: bool
         """
         super().__init__(**kwargs)
-        self.id = None
+        self.id: Optional[str] = None
         self.name = name
-        self.type = None
+        self.type: Optional[str] = None
         self.tags = tags
         self.zones = zones
-        self.file_system_id = None
+        self.file_system_id: Optional[str] = None
         self.creation_token = creation_token
         self.service_level = service_level
         self.usage_threshold = usage_threshold
         self.export_policy = export_policy
         self.protocol_types = protocol_types
-        self.provisioning_state = None
+        self.provisioning_state: Optional[str] = None
         self.snapshot_id = snapshot_id
         self.delete_base_snapshot = delete_base_snapshot
         self.backup_id = backup_id
-        self.baremetal_tenant_id = None
+        self.baremetal_tenant_id: Optional[str] = None
         self.subnet_id = subnet_id
         self.network_features = network_features
-        self.effective_network_features = None
-        self.network_sibling_set_id = None
-        self.storage_to_network_proximity = None
-        self.mount_targets = None
+        self.effective_network_features: Optional[Union[str, "_models.NetworkFeatures"]] = None
+        self.network_sibling_set_id: Optional[str] = None
+        self.storage_to_network_proximity: Optional[Union[str, "_models.VolumeStorageToNetworkProximity"]] = None
+        self.mount_targets: Optional[List["_models.MountTargetProperties"]] = None
         self.volume_type = volume_type
         self.data_protection = data_protection
-        self.is_restoring = None
+        self.is_restoring: Optional[bool] = None
         self.snapshot_directory_visible = snapshot_directory_visible
         self.kerberos_enabled = kerberos_enabled
         self.security_style = security_style
@@ -6408,7 +6417,7 @@ class VolumeGroupVolumeProperties(_serialization.Model):
         self.smb_non_browsable = smb_non_browsable
         self.smb_continuously_available = smb_continuously_available
         self.throughput_mibps = throughput_mibps
-        self.actual_throughput_mibps = None
+        self.actual_throughput_mibps: Optional[float] = None
         self.encryption_key_source = encryption_key_source
         self.key_vault_private_endpoint_resource_id = key_vault_private_endpoint_resource_id
         self.ldap_enabled = ldap_enabled
@@ -6417,25 +6426,25 @@ class VolumeGroupVolumeProperties(_serialization.Model):
         self.cool_access_retrieval_policy = cool_access_retrieval_policy
         self.cool_access_tiering_policy = cool_access_tiering_policy
         self.unix_permissions = unix_permissions
-        self.clone_progress = None
-        self.file_access_logs = None
+        self.clone_progress: Optional[int] = None
+        self.file_access_logs: Optional[Union[str, "_models.FileAccessLogs"]] = None
         self.avs_data_store = avs_data_store
-        self.data_store_resource_id = None
+        self.data_store_resource_id: Optional[List[str]] = None
         self.is_default_quota_enabled = is_default_quota_enabled
         self.default_user_quota_in_ki_bs = default_user_quota_in_ki_bs
         self.default_group_quota_in_ki_bs = default_group_quota_in_ki_bs
-        self.maximum_number_of_files = None
-        self.volume_group_name = None
+        self.maximum_number_of_files: Optional[int] = None
+        self.volume_group_name: Optional[str] = None
         self.capacity_pool_resource_id = capacity_pool_resource_id
         self.proximity_placement_group = proximity_placement_group
-        self.t2_network = None
+        self.t2_network: Optional[str] = None
         self.volume_spec_name = volume_spec_name
-        self.encrypted = None
+        self.encrypted: Optional[bool] = None
         self.placement_rules = placement_rules
         self.enable_subvolumes = enable_subvolumes
-        self.provisioned_availability_zone = None
+        self.provisioned_availability_zone: Optional[str] = None
         self.is_large_volume = is_large_volume
-        self.originating_resource_id = None
+        self.originating_resource_id: Optional[str] = None
 
 
 class VolumeList(_serialization.Model):
@@ -6683,9 +6692,9 @@ class VolumePatch(_serialization.Model):
         """
         super().__init__(**kwargs)
         self.location = location
-        self.id = None
-        self.name = None
-        self.type = None
+        self.id: Optional[str] = None
+        self.name: Optional[str] = None
+        self.type: Optional[str] = None
         self.tags = tags
         self.service_level = service_level
         self.usage_threshold = usage_threshold
@@ -6832,7 +6841,7 @@ class VolumeQuotaRule(TrackedResource):
     All required parameters must be populated in order to send to server.
 
     :ivar id: Fully qualified resource ID for the resource. E.g.
-     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".  # pylint: disable=line-too-long
+     "/subscriptions/{subscriptionId}/resourceGroups/{resourceGroupName}/providers/{resourceProviderNamespace}/{resourceType}/{resourceName}".
     :vartype id: str
     :ivar name: The name of the resource.
     :vartype name: str
@@ -6909,7 +6918,7 @@ class VolumeQuotaRule(TrackedResource):
         :paramtype quota_target: str
         """
         super().__init__(tags=tags, location=location, **kwargs)
-        self.provisioning_state = None
+        self.provisioning_state: Optional[Union[str, "_models.ProvisioningState"]] = None
         self.quota_size_in_ki_bs = quota_size_in_ki_bs
         self.quota_type = quota_type
         self.quota_target = quota_target
@@ -6973,7 +6982,7 @@ class VolumeQuotaRulePatch(_serialization.Model):
         """
         super().__init__(**kwargs)
         self.tags = tags
-        self.provisioning_state = None
+        self.provisioning_state: Optional[Union[str, "_models.ProvisioningState"]] = None
         self.quota_size_in_ki_bs = quota_size_in_ki_bs
         self.quota_type = quota_type
         self.quota_target = quota_target
@@ -7026,7 +7035,7 @@ class VolumeRelocationProperties(_serialization.Model):
         """
         super().__init__(**kwargs)
         self.relocation_requested = relocation_requested
-        self.ready_to_be_finalized = None
+        self.ready_to_be_finalized: Optional[bool] = None
 
 
 class VolumeRevert(_serialization.Model):

@@ -28,7 +28,7 @@ from tinybird.client import (
     TinyB,
 )
 from tinybird.config import CURRENT_VERSION, SUPPORTED_CONNECTORS, VERSION, FeatureFlags, get_config
-from tinybird.datafile import (
+from tinybird.datafile_common import (
     AlreadyExistsException,
     CLIGitRelease,
     CLIGitReleaseException,
@@ -431,10 +431,9 @@ async def init(
                 error = True
             else:
                 click.echo(FeedbackManager.info_cicd_already_exists(provider=cicd_provider.name))
-        else:
-            if cicd:
-                data_project_dir = os.path.relpath(folder, cli_git_release.working_dir())
-                await init_cicd(client, path=cli_git_release.working_dir(), data_project_dir=data_project_dir)
+        elif cicd:
+            data_project_dir = os.path.relpath(folder, cli_git_release.working_dir())
+            await init_cicd(client, path=cli_git_release.working_dir(), data_project_dir=data_project_dir)
 
     if final_response:
         if error:
@@ -603,6 +602,12 @@ def check(filenames: List[str], debug: bool) -> None:
     help="The user token is required for sharing a datasource that contains the SHARED_WITH entry.",
     type=click.types.STRING,
 )
+@click.option(
+    "--on-demand-compute",
+    is_flag=True,
+    default=False,
+    help="Use on-demand compute instances for populate jobs. Only effective when used with --populate.",
+)
 @click.pass_context
 @coro
 async def push(
@@ -634,6 +639,7 @@ async def push(
     check_requests_from_main: bool,
     folder: str,
     user_token: Optional[str],
+    on_demand_compute: bool,
 ) -> None:
     """Push files to Tinybird."""
 
@@ -675,6 +681,7 @@ async def push(
         config=CLIConfig.get_project_config(),
         user_token=user_token,
         is_internal=is_internal,
+        on_demand_compute=on_demand_compute,
     )
 
 
@@ -1463,12 +1470,11 @@ async def deploy(
                             )
                         else:
                             click.echo(FeedbackManager.info_minor_patch_release_with_autopromote(version=new_version))
-                else:
-                    if show_feedback:
-                        if dry_run:
-                            click.echo(FeedbackManager.info_dry_minor_patch_release_no_autopromote(version=new_version))
-                        else:
-                            click.echo(FeedbackManager.info_minor_patch_release_no_autopromote(version=new_version))
+                elif show_feedback:
+                    if dry_run:
+                        click.echo(FeedbackManager.info_dry_minor_patch_release_no_autopromote(version=new_version))
+                    else:
+                        click.echo(FeedbackManager.info_minor_patch_release_no_autopromote(version=new_version))
                 new_release = True
 
         if new_release:

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: a2a-sdk
-Version: 0.2.14
+Version: 0.2.16
 Summary: A2A Python SDK
 Project-URL: homepage, https://a2a-protocol.org/
 Project-URL: repository, https://github.com/a2aproject/a2a-python
@@ -82,6 +82,12 @@ When you're working within a uv project or a virtual environment managed by uv, 
 uv add a2a-sdk
 ```
 
+To install with gRPC support:
+
+```bash
+uv add "a2a-sdk[grpc]"
+```
+
 To install with database support:
 
 ```bash
@@ -104,6 +110,12 @@ If you prefer to use pip, the standard Python package installer, you can install
 
 ```bash
 pip install a2a-sdk
+```
+
+To install with gRPC support:
+
+```bash
+pip install "a2a-sdk[grpc]"
 ```
 
 To install with database support:

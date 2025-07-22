@@ -112,6 +112,7 @@ class AdvancedOptions(Option):
 
         friendly_options = ", ".join([f"'{normalize_gql(option)}'" for option in friendly_options])
         if last_element:
+            last_element = normalize_gql(last_element)
             friendly_options = f"{friendly_options}, and '{last_element}'"
         return friendly_options
 

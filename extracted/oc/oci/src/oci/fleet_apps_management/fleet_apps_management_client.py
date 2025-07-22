@@ -163,7 +163,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/change_fleet_compartment.py.html>`__ to see an example of how to use change_fleet_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/change_fleet_compartment.py.html>`__ to see an example of how to use change_fleet_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -273,7 +273,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/check_resource_tagging.py.html>`__ to see an example of how to use check_resource_tagging API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/check_resource_tagging.py.html>`__ to see an example of how to use check_resource_tagging API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -375,7 +375,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/confirm_targets.py.html>`__ to see an example of how to use confirm_targets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/confirm_targets.py.html>`__ to see an example of how to use confirm_targets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -483,7 +483,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/create_fleet.py.html>`__ to see an example of how to use create_fleet API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/create_fleet.py.html>`__ to see an example of how to use create_fleet API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -584,7 +584,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/create_fleet_credential.py.html>`__ to see an example of how to use create_fleet_credential API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/create_fleet_credential.py.html>`__ to see an example of how to use create_fleet_credential API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -697,7 +697,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/create_fleet_property.py.html>`__ to see an example of how to use create_fleet_property API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/create_fleet_property.py.html>`__ to see an example of how to use create_fleet_property API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -810,7 +810,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/create_fleet_resource.py.html>`__ to see an example of how to use create_fleet_resource API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/create_fleet_resource.py.html>`__ to see an example of how to use create_fleet_resource API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -920,7 +920,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/delete_fleet.py.html>`__ to see an example of how to use delete_fleet API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/delete_fleet.py.html>`__ to see an example of how to use delete_fleet API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -1028,7 +1028,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/delete_fleet_credential.py.html>`__ to see an example of how to use delete_fleet_credential API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/delete_fleet_credential.py.html>`__ to see an example of how to use delete_fleet_credential API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetCredentialId', 'fleetId']
@@ -1137,7 +1137,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/delete_fleet_property.py.html>`__ to see an example of how to use delete_fleet_property API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/delete_fleet_property.py.html>`__ to see an example of how to use delete_fleet_property API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetPropertyId', 'fleetId']
@@ -1246,7 +1246,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/delete_fleet_resource.py.html>`__ to see an example of how to use delete_fleet_resource API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/delete_fleet_resource.py.html>`__ to see an example of how to use delete_fleet_resource API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetResourceId', 'fleetId']
@@ -1355,7 +1355,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/generate_compliance_report.py.html>`__ to see an example of how to use generate_compliance_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/generate_compliance_report.py.html>`__ to see an example of how to use generate_compliance_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -1459,7 +1459,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/get_compliance_report.py.html>`__ to see an example of how to use get_compliance_report API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/get_compliance_report.py.html>`__ to see an example of how to use get_compliance_report API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId', 'complianceReportId']
@@ -1558,7 +1558,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/get_fleet.py.html>`__ to see an example of how to use get_fleet API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/get_fleet.py.html>`__ to see an example of how to use get_fleet API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -1659,7 +1659,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/get_fleet_credential.py.html>`__ to see an example of how to use get_fleet_credential API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/get_fleet_credential.py.html>`__ to see an example of how to use get_fleet_credential API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetCredentialId', 'fleetId']
@@ -1761,7 +1761,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/get_fleet_property.py.html>`__ to see an example of how to use get_fleet_property API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/get_fleet_property.py.html>`__ to see an example of how to use get_fleet_property API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetPropertyId', 'fleetId']
@@ -1863,7 +1863,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/get_fleet_resource.py.html>`__ to see an example of how to use get_fleet_resource API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/get_fleet_resource.py.html>`__ to see an example of how to use get_fleet_resource API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetResourceId', 'fleetId']
@@ -1985,7 +1985,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/list_announcements.py.html>`__ to see an example of how to use list_announcements API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/list_announcements.py.html>`__ to see an example of how to use list_announcements API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
@@ -2142,7 +2142,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/list_fleet_credentials.py.html>`__ to see an example of how to use list_fleet_credentials API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/list_fleet_credentials.py.html>`__ to see an example of how to use list_fleet_credentials API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -2323,7 +2323,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/list_fleet_products.py.html>`__ to see an example of how to use list_fleet_products API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/list_fleet_products.py.html>`__ to see an example of how to use list_fleet_products API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -2484,7 +2484,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/list_fleet_properties.py.html>`__ to see an example of how to use list_fleet_properties API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/list_fleet_properties.py.html>`__ to see an example of how to use list_fleet_properties API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -2653,7 +2653,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/list_fleet_resources.py.html>`__ to see an example of how to use list_fleet_resources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/list_fleet_resources.py.html>`__ to see an example of how to use list_fleet_resources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -2822,7 +2822,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/list_fleet_targets.py.html>`__ to see an example of how to use list_fleet_targets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/list_fleet_targets.py.html>`__ to see an example of how to use list_fleet_targets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -3000,7 +3000,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/list_fleets.py.html>`__ to see an example of how to use list_fleets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/list_fleets.py.html>`__ to see an example of how to use list_fleets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
@@ -3194,7 +3194,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/list_inventory_resources.py.html>`__ to see an example of how to use list_inventory_resources API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/list_inventory_resources.py.html>`__ to see an example of how to use list_inventory_resources API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId', 'resourceCompartmentId']
@@ -3344,7 +3344,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/list_targets.py.html>`__ to see an example of how to use list_targets API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/list_targets.py.html>`__ to see an example of how to use list_targets API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -3482,7 +3482,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/request_resource_validation.py.html>`__ to see an example of how to use request_resource_validation API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/request_resource_validation.py.html>`__ to see an example of how to use request_resource_validation API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -3593,7 +3593,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/request_target_discovery.py.html>`__ to see an example of how to use request_target_discovery API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/request_target_discovery.py.html>`__ to see an example of how to use request_target_discovery API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -3704,7 +3704,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/update_fleet.py.html>`__ to see an example of how to use update_fleet API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/update_fleet.py.html>`__ to see an example of how to use update_fleet API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetId']
@@ -3819,7 +3819,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/update_fleet_credential.py.html>`__ to see an example of how to use update_fleet_credential API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/update_fleet_credential.py.html>`__ to see an example of how to use update_fleet_credential API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetCredentialId', 'fleetId']
@@ -3933,7 +3933,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/update_fleet_property.py.html>`__ to see an example of how to use update_fleet_property API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/update_fleet_property.py.html>`__ to see an example of how to use update_fleet_property API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetPropertyId', 'fleetId']
@@ -4049,7 +4049,7 @@ class FleetAppsManagementClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/fleetappsmanagement/update_fleet_resource.py.html>`__ to see an example of how to use update_fleet_resource API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/fleetappsmanagement/update_fleet_resource.py.html>`__ to see an example of how to use update_fleet_resource API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['fleetResourceId', 'fleetId']

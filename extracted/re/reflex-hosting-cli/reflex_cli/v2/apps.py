@@ -67,9 +67,9 @@ def app_history(
         )
 
         if not app_id:
-            config = hosting.read_config("cloud.yml")
+            config = hosting.read_config()
             if config:
-                app_id = config.get("appid", None)
+                app_id = config.appid
                 if not isinstance(app_id, (str, type(None))):
                     console.error(
                         "app_id must be a string or None. Please check your config file."
@@ -222,9 +222,9 @@ def stop_app(
         )
 
         if not app_id:
-            config = hosting.read_config("cloud.yml")
+            config = hosting.read_config()
             if config:
-                app_id = config.get("appid", None)
+                app_id = config.appid
                 if not isinstance(app_id, (str, type(None))):
                     console.error(
                         "app_id must be a string or None. Please check your config file."
@@ -286,9 +286,9 @@ def start_app(
         )
 
         if not app_id:
-            config = hosting.read_config("cloud.yml")
+            config = hosting.read_config()
             if config:
-                app_id = config.get("appid", None)
+                app_id = config.appid
                 if not isinstance(app_id, (str, type(None))):
                     console.error(
                         "app_id must be a string or None. Please check your config file."
@@ -350,9 +350,9 @@ def delete_app(
         )
 
         if not app_id:
-            config = hosting.read_config("cloud.yml")
+            config = hosting.read_config()
             if config:
-                app_id = config.get("appid", None)
+                app_id = config.appid
                 if not isinstance(app_id, (str, type(None))):
                     console.error(
                         "app_id must be a string or None. Please check your config file."
@@ -435,9 +435,9 @@ def app_logs(
     )
 
     if not app_id:
-        config = hosting.read_config("cloud.yml")
+        config = hosting.read_config()
         if config:
-            app_id = config.get("appid", None)
+            app_id = config.appid
             if not isinstance(app_id, (str, type(None))):
                 console.error(
                     "app_id must be a string or None. Please check your config file."
@@ -629,9 +629,9 @@ def scale_app(
         )
 
         if not app_id:
-            config_dict = hosting.read_config("cloud.yml")
-            if config_dict:
-                app_id = config_dict.get("appid", None)
+            config = hosting.read_config()
+            if config:
+                app_id = config.appid
                 if not isinstance(app_id, (str, type(None))):
                     console.error(
                         "app_id must be a string or None. Please check your config file."
@@ -641,20 +641,20 @@ def scale_app(
         cli_args = hosting.ScaleAppCliArgs.create(
             regions=list(regions), vm_type=vm_type, scale_type=scale_type
         )
-        config = Config.from_yaml_or_default().with_overrides(
+        config = Config.from_yaml_or_toml_or_default().with_overrides(
             vmtype=cli_args.vm_type,
             regions=cli_args.regions,
         )
 
         if not config.exists() and not cli_args.is_valid:
             console.error(
-                "specify either --vm-type or --regions or add them to the cloud.yml file"
+                "specify either --vm-type or --regions or add them to the cloud.yml or pyproject.toml file"
             )
             raise click.exceptions.Exit(1)
 
         if config.exists() and cli_args.is_valid:
             console.warn(
-                "CLI arguments will override the values in the cloud.yml file."
+                "CLI arguments will override the values in the cloud.yml or pyproject.toml file."
             )
         scale_params = hosting.ScaleParams.from_config(config).set_type_from_cli_args(
             cli_args
@@ -733,9 +733,9 @@ def inspect_app(
         )
 
         if not app_id:
-            config_dict = hosting.read_config("cloud.yml")
-            if config_dict:
-                app_id = config_dict.get("appid", None)
+            config = hosting.read_config()
+            if config:
+                app_id = config.appid
                 if not isinstance(app_id, (str, type(None))):
                     console.error(
                         "app_id must be a string or None. Please check your config file."
@@ -743,7 +743,9 @@ def inspect_app(
                     raise click.exceptions.Exit(1)
 
         if not app_id:
-            console.error("No valid app_id provided or found in cloud.yml.")
+            console.error(
+                "No valid app_id provided or found in cloud.yml or pyproject.toml."
+            )
             raise click.exceptions.Exit(1)
 
         app_info = hosting.get_app(app_id=app_id, client=authenticated_client)

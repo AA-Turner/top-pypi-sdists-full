@@ -7,6 +7,7 @@ from typing import (
     Protocol,
     Sequence,
     Tuple,
+    Type,
     Union,
     cast,
 )
@@ -27,7 +28,7 @@ from faststream.redis.message import (
     PubSubMessage,
     bDATA_KEY,
 )
-from faststream.redis.parser import RawMessage, RedisPubSubParser
+from faststream.redis.parser import MessageFormat, RedisPubSubParser
 from faststream.redis.publisher.producer import RedisFastProducer
 from faststream.redis.schemas import INCORRECT_SETUP_MSG
 from faststream.redis.subscriber.usecase import (
@@ -82,7 +83,7 @@ class TestRedisBroker(TestBroker[RedisBroker]):
         *args: Any,
         **kwargs: Any,
     ) -> AsyncMock:
-        broker._producer = FakeProducer(broker)
+        broker._producer = FakeProducer(broker, broker.message_format)
         connection = MagicMock()
 
         pub_sub = AsyncMock()
@@ -98,10 +99,13 @@ class TestRedisBroker(TestBroker[RedisBroker]):
 
 
 class FakeProducer(RedisFastProducer):
-    def __init__(self, broker: RedisBroker) -> None:
+    def __init__(
+        self, broker: RedisBroker, message_format: Type["MessageFormat"]
+    ) -> None:
         self.broker = broker
+        self.message_format = message_format
 
-        default = RedisPubSubParser()
+        default = RedisPubSubParser(message_format=message_format)
         self._parser = resolve_custom_func(
             broker._parser,
             default.parse_message,
@@ -127,6 +131,7 @@ class FakeProducer(RedisFastProducer):
         rpc_timeout: Optional[float] = 30.0,
         raise_timeout: bool = False,
         pipeline: Optional["Pipeline[bytes]"] = None,
+        message_format: Optional[Type["MessageFormat"]] = None,
     ) -> Optional[Any]:
         if rpc and reply_to:
             raise WRONG_PUBLISH_ARGS
@@ -135,6 +140,7 @@ class FakeProducer(RedisFastProducer):
 
         body = build_message(
             message=message,
+            message_format=(message_format or self.message_format),
             reply_to=reply_to,
             correlation_id=correlation_id,
             headers=headers,
@@ -171,11 +177,13 @@ class FakeProducer(RedisFastProducer):
         maxlen: Optional[int] = None,
         headers: Optional["AnyDict"] = None,
         timeout: Optional[float] = 30.0,
+        message_format: Optional[Type["MessageFormat"]] = None,
     ) -> "PubSubMessage":
         correlation_id = correlation_id or gen_cor_id()
 
         body = build_message(
             message=message,
+            message_format=(message_format or self.message_format),
             correlation_id=correlation_id,
             headers=headers,
         )
@@ -204,10 +212,12 @@ class FakeProducer(RedisFastProducer):
         headers: Optional["AnyDict"] = None,
         correlation_id: Optional[str] = None,
         pipeline: Optional["Pipeline[bytes]"] = None,
+        message_format: Optional[Type["MessageFormat"]] = None,
     ) -> None:
         data_to_send = [
             build_message(
                 m,
+                message_format=(message_format or self.message_format),
                 correlation_id=correlation_id or gen_cor_id(),
                 headers=headers,
             )
@@ -235,6 +245,7 @@ class FakeProducer(RedisFastProducer):
             type="message",
             data=build_message(
                 message=result.body,
+                message_format=self.message_format,
                 headers=result.headers,
                 correlation_id=result.correlation_id or "",
             ),
@@ -247,10 +258,11 @@ def build_message(
     message: Union[Sequence["SendableMessage"], "SendableMessage"],
     *,
     correlation_id: str,
+    message_format: Type["MessageFormat"],
     reply_to: str = "",
     headers: Optional["AnyDict"] = None,
 ) -> bytes:
-    data = RawMessage.encode(
+    data = message_format.encode(
         message=message,
         reply_to=reply_to,
         headers=headers,

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-cloudfront
-Version: 1.39.8
-Summary: Type annotations for boto3 CloudFront 1.39.8 service generated with mypy-boto3-builder 8.11.0
+Version: 1.39.10
+Summary: Type annotations for boto3 CloudFront 1.39.10 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -56,8 +56,9 @@ Dynamic: summary
 
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
-Type annotations for [boto3 CloudFront 1.39.8](https://pypi.org/project/boto3/)
-compatible with [VSCode](https://code.visualstudio.com/),
+Type annotations for
+[boto3 CloudFront 1.39.10](https://pypi.org/project/boto3/) compatible with
+[VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
 [Sublime Text](https://www.sublimetext.com/),
@@ -119,7 +120,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.39.8' mypy-boto3-builder`
+   `uvx --with 'boto3==1.39.10' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `CloudFront` service.
 4. Use provided commands to install generated packages.
@@ -363,6 +364,7 @@ from mypy_boto3_cloudfront.paginator import (
     ListInvalidationsForDistributionTenantPaginator,
     ListInvalidationsPaginator,
     ListKeyValueStoresPaginator,
+    ListOriginAccessControlsPaginator,
     ListPublicKeysPaginator,
     ListStreamingDistributionsPaginator,
 )
@@ -400,6 +402,9 @@ list_invalidations_paginator: ListInvalidationsPaginator = client.get_paginator(
 )
 list_key_value_stores_paginator: ListKeyValueStoresPaginator = client.get_paginator(
     "list_key_value_stores"
+)
+list_origin_access_controls_paginator: ListOriginAccessControlsPaginator = client.get_paginator(
+    "list_origin_access_controls"
 )
 list_public_keys_paginator: ListPublicKeysPaginator = client.get_paginator("list_public_keys")
 list_streaming_distributions_paginator: ListStreamingDistributionsPaginator = client.get_paginator(

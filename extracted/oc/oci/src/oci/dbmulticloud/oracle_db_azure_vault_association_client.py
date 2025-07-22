@@ -166,14 +166,14 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/cascading_delete_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use cascading_delete_oracle_db_azure_vault_association API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/cascading_delete_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use cascading_delete_oracle_db_azure_vault_association API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultAssociationId']
         resource_path = "/oracleDbAzureVaultAssociation/{oracleDbAzureVaultAssociationId}/actions/cascadingDelete"
         method = "POST"
         operation_name = "cascading_delete_oracle_db_azure_vault_association"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureVaultAssociation/CascadingDeleteOracleDbAzureVaultAssociation"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -284,14 +284,14 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/change_oracle_db_azure_vault_association_compartment.py.html>`__ to see an example of how to use change_oracle_db_azure_vault_association_compartment API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/change_oracle_db_azure_vault_association_compartment.py.html>`__ to see an example of how to use change_oracle_db_azure_vault_association_compartment API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultAssociationId']
         resource_path = "/oracleDbAzureVaultAssociation/{oracleDbAzureVaultAssociationId}/actions/changeCompartment"
         method = "POST"
         operation_name = "change_oracle_db_azure_vault_association_compartment"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureVaultAssociation/ChangeOracleDbAzureVaultAssociationCompartment"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -401,14 +401,14 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/create_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use create_oracle_db_azure_vault_association API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/create_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use create_oracle_db_azure_vault_association API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = []
         resource_path = "/oracleDbAzureVaultAssociation"
         method = "POST"
         operation_name = "create_oracle_db_azure_vault_association"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureVaultAssociation/CreateOracleDbAzureVaultAssociation"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -501,14 +501,14 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/delete_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use delete_oracle_db_azure_vault_association API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/delete_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use delete_oracle_db_azure_vault_association API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultAssociationId']
         resource_path = "/oracleDbAzureVaultAssociation/{oracleDbAzureVaultAssociationId}"
         method = "DELETE"
         operation_name = "delete_oracle_db_azure_vault_association"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureVaultAssociation/DeleteOracleDbAzureVaultAssociation"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -610,14 +610,14 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/get_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use get_oracle_db_azure_vault_association API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/get_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use get_oracle_db_azure_vault_association API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultAssociationId']
         resource_path = "/oracleDbAzureVaultAssociation/{oracleDbAzureVaultAssociationId}"
         method = "GET"
         operation_name = "get_oracle_db_azure_vault_association"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureVaultAssociation/GetOracleDbAzureVaultAssociation"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -763,14 +763,14 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/list_oracle_db_azure_vault_associations.py.html>`__ to see an example of how to use list_oracle_db_azure_vault_associations API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/list_oracle_db_azure_vault_associations.py.html>`__ to see an example of how to use list_oracle_db_azure_vault_associations API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['compartmentId']
         resource_path = "/oracleDbAzureVaultAssociation"
         method = "GET"
         operation_name = "list_oracle_db_azure_vault_associations"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureVaultAssociation/ListOracleDbAzureVaultAssociations"
 
         # Don't accept unknown kwargs
         expected_kwargs = [
@@ -905,14 +905,14 @@ class OracleDbAzureVaultAssociationClient(object):
         :rtype: :class:`~oci.response.Response`
 
         :example:
-        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.155.2/dbmulticloud/update_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use update_oracle_db_azure_vault_association API.
+        Click `here <https://docs.cloud.oracle.com/en-us/iaas/tools/python-sdk-examples/2.156.0/dbmulticloud/update_oracle_db_azure_vault_association.py.html>`__ to see an example of how to use update_oracle_db_azure_vault_association API.
         """
         # Required path and query arguments. These are in camelCase to replace values in service endpoints.
         required_arguments = ['oracleDbAzureVaultAssociationId']
         resource_path = "/oracleDbAzureVaultAssociation/{oracleDbAzureVaultAssociationId}"
         method = "PUT"
         operation_name = "update_oracle_db_azure_vault_association"
-        api_reference_link = ""
+        api_reference_link = "https://docs.oracle.com/iaas/api/#/en/database-multicloud-integrations/20240501/OracleDbAzureVaultAssociation/UpdateOracleDbAzureVaultAssociation"
 
         # Don't accept unknown kwargs
         expected_kwargs = [

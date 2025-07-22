@@ -21,7 +21,6 @@ from collections.abc import (
 import types
 from inspect import getcoroutinestate, CORO_CREATED, CORO_SUSPENDED, isawaitable
 import sys
-import itertools
 from functools import cached_property, partial
 import enum
 from contextlib import asynccontextmanager, contextmanager, AbstractAsyncContextManager
@@ -101,12 +100,9 @@ class TaskState(enum.Enum):
     '''
 
 
-_next_Task_uid = itertools.count().__next__
-
-
 class Task:
     __slots__ = (
-        '_uid', '_root_coro', '_root_coro_send', '_state', '_result', '_on_end',
+        '_root_coro', '_root_coro_send', '_state', '_result', '_on_end',
         '_exc_caught', '_suppresses_exc',
         '_cancel_disabled', '_current_depth', '_requested_cancel_level',
     )
@@ -114,7 +110,6 @@ class Task:
     def __init__(self, aw: Awaitable, /):
         if not isawaitable(aw):
             raise ValueError(str(aw) + " is not awaitable.")
-        self._uid = _next_Task_uid()
         self._cancel_disabled = False
         self._root_coro = self._wrapper(aw)
         self._root_coro_send = self._root_coro.send
@@ -126,14 +121,7 @@ class Task:
         self._suppresses_exc = False
 
     def __str__(self):
-        return f'Task(state={self._state.name}, uid={self._uid})'
-
-    @property
-    def uid(self) -> int:
-        '''
-        An unique integer assigned to the task.
-        '''
-        return self._uid
+        return f'Task(state={self._state.name})'
 
     @property
     def root_coro(self) -> Coroutine:
@@ -434,6 +422,38 @@ class ExclusiveEvent:
 
     def _attach_task(self, task):
         self._callback = task._step
+
+    @types.coroutine
+    def wait_args(self) -> Generator[YieldType, SendType, tuple]:
+        '''
+        (experimental)
+
+        ``await event.wait_args()`` is equivalent to ``(await event.wait())[0]``.
+
+        :meta private:
+        '''
+        if self._callback is not None:
+            raise InvalidStateError("There's already a task waiting for the event to fire.")
+        try:
+            return (yield self._attach_task)[0]
+        finally:
+            self._callback = None
+
+    @types.coroutine
+    def wait_args_0(self) -> Generator[YieldType, SendType, Any]:
+        '''
+        (experimental)
+
+        ``await event.wait_args_0()`` is equivalent to ``(await event.wait())[0][0]``.
+
+        :meta private:
+        '''
+        if self._callback is not None:
+            raise InvalidStateError("There's already a task waiting for the event to fire.")
+        try:
+            return (yield self._attach_task)[0][0]
+        finally:
+            self._callback = None
 
 
 class Event:

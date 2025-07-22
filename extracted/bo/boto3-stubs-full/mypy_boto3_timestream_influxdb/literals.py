@@ -51,6 +51,7 @@ ClusterStatusType = Literal["AVAILABLE", "CREATING", "DELETED", "DELETING", "FAI
 DbInstanceTypeType = Literal[
     "db.influx.12xlarge",
     "db.influx.16xlarge",
+    "db.influx.24xlarge",
     "db.influx.2xlarge",
     "db.influx.4xlarge",
     "db.influx.8xlarge",

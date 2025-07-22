@@ -317,7 +317,7 @@ def test_run_summary(results: List[TestSummaryResults], only_fail: bool = False,
             if test.error:
                 click.secho(test.error, fg=test.status.color, bold=True, nl=True, err=True)
 
-    if len(total_counts):
+    if total_counts:
         click.echo("\nTotals:")
         for key_status, value_total in total_counts.items():
             code_summary = f"Total {key_status.description}: {value_total}"

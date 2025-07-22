@@ -760,6 +760,9 @@ mutation testTransactionalDbCredentials(
     $user:String,
     $password:String,
     $token:String,
+    $consumerKey:String,
+    $consumerSecret:String,
+    $domain:String,
     $connectionSettings:TransactionalDbConnectionSettings,
     $dcId:UUID,
     $validationName:String!
@@ -773,6 +776,9 @@ mutation testTransactionalDbCredentials(
             user:$user,
             password:$password,
             token:$token,
+            consumerKey:$consumerKey,
+            consumerSecret:$consumerSecret,
+            domain:$domain,
             connectionSettings:$connectionSettings
         },
         connectionOptions: {

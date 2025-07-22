@@ -56,9 +56,9 @@ def get_secrets(
         )
 
         if not app_id:
-            config = hosting.read_config("cloud.yml")
+            config = hosting.read_config()
             if config:
-                app_id = config.get("appid", None)
+                app_id = config.appid
                 if not isinstance(app_id, (str, type(None))):
                     console.error(
                         "app_id must be a string or None. Please check your config file."
@@ -136,9 +136,9 @@ def update_secrets(
     )
 
     if not app_id:
-        config = hosting.read_config("cloud.yml")
+        config = hosting.read_config()
         if config:
-            app_id = config.get("appid", None)
+            app_id = config.appid
             if not isinstance(app_id, (str, type(None))):
                 console.error(
                     "app_id must be a string or None. Please check your config file."
@@ -215,9 +215,9 @@ def delete_secret(
         )
 
         if not app_id:
-            config = hosting.read_config("cloud.yml")
+            config = hosting.read_config()
             if config:
-                app_id = config.get("appid", None)
+                app_id = config.appid
                 if not isinstance(app_id, (str, type(None))):
                     console.error(
                         "app_id must be a string or None. Please check your config file."
