@@ -376,17 +376,30 @@ class JobBase(HasReqsHints, metaclass=ABCMeta):
         except OSError as e:
             if e.errno == 2:
                 if runtime:
-                    _logger.error("'%s' not found: %s", runtime[0], str(e))
+                    _logger.error(
+                        "'%s' not found: %s", runtime[0], str(e), exc_info=runtimeContext.debug
+                    )
                 else:
-                    _logger.error("'%s' not found: %s", self.command_line[0], str(e))
+                    _logger.error(
+                        "'%s' not found: %s",
+                        self.command_line[0],
+                        str(e),
+                        exc_info=runtimeContext.debug,
+                    )
             else:
-                _logger.exception("Exception while running job")
+                _logger.exception(
+                    "Exception while running job: %s", str(e), exc_info=runtimeContext.debug
+                )
             processStatus = "permanentFail"
         except WorkflowException as err:
-            _logger.error("[job %s] Job error:\n%s", self.name, str(err))
+            _logger.error(
+                "[job %s] Job error:\n%s", self.name, str(err), exc_info=runtimeContext.debug
+            )
             processStatus = "permanentFail"
-        except Exception:
-            _logger.exception("Exception while running job")
+        except Exception as err:
+            _logger.exception(
+                "Exception while running job: %s.", str(err), exc_info=runtimeContext.debug
+            )
             processStatus = "permanentFail"
         if (
             runtimeContext.research_obj is not None
@@ -456,6 +469,29 @@ class JobBase(HasReqsHints, metaclass=ABCMeta):
         # By default, don't do anything; ContainerCommandLineJob below
         # will issue a warning.
 
+    @staticmethod
+    def extract_environment(
+        runtimeContext: RuntimeContext, envVarReq: Mapping[str, str]
+    ) -> Mapping[str, str]:
+        """Extract environment variables that should be preserved."""
+        # Start empty
+        env: dict[str, str] = {}
+        # Preserve any env vars
+        if runtimeContext.preserve_entire_environment:
+            env.update(os.environ)
+        elif runtimeContext.preserve_environment:
+            for key in runtimeContext.preserve_environment:
+                try:
+                    env[key] = os.environ[key]
+                except KeyError:
+                    _logger.warning(
+                        f"Attempting to preserve environment variable {key!r} which is not present"
+                    )
+        # Apply EnvVarRequirement
+        env.update(envVarReq)
+
+        return env
+
     def prepare_environment(
         self, runtimeContext: RuntimeContext, envVarReq: Mapping[str, str]
     ) -> None:
@@ -468,26 +504,15 @@ class JobBase(HasReqsHints, metaclass=ABCMeta):
         """
         # Start empty
         env: dict[str, str] = {}
-
-        # Preserve any env vars
         if runtimeContext.preserve_entire_environment:
             self._preserve_environment_on_containers_warning()
-            env.update(os.environ)
         elif runtimeContext.preserve_environment:
             self._preserve_environment_on_containers_warning(runtimeContext.preserve_environment)
-            for key in runtimeContext.preserve_environment:
-                try:
-                    env[key] = os.environ[key]
-                except KeyError:
-                    _logger.warning(
-                        f"Attempting to preserve environment variable {key!r} which is not present"
-                    )
+
+        env.update(self.extract_environment(runtimeContext, envVarReq))
 
         # Set required env vars
         env.update(self._required_env())
-
-        # Apply EnvVarRequirement
-        env.update(envVarReq)
 
         # Set on ourselves
         self.environment = env
@@ -795,7 +820,7 @@ class ContainerCommandLineJob(JobBase, metaclass=ABCMeta):
                     )
             except Exception as err:
                 container = "Singularity" if runtimeContext.singularity else "Docker"
-                _logger.debug("%s error", container, exc_info=True)
+                _logger.debug("%s error", container, exc_info=runtimeContext.debug)
                 if docker_is_req:
                     raise UnsupportedRequirement(
                         f"{container} is required to run this tool: {str(err)}"

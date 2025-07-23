@@ -244,6 +244,8 @@ class AgentsClient:
         enable_sleeptime: typing.Optional[bool] = OMIT,
         response_format: typing.Optional[CreateAgentRequestResponseFormat] = OMIT,
         timezone: typing.Optional[str] = OMIT,
+        max_files_open: typing.Optional[int] = OMIT,
+        per_file_view_window_char_limit: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AgentState:
         """
@@ -368,6 +370,12 @@ class AgentsClient:
         timezone : typing.Optional[str]
             The timezone of the agent (IANA format).
 
+        max_files_open : typing.Optional[int]
+            Maximum number of files that can be open at once for this agent. Setting this too high may exceed the context window, which will break the agent.
+
+        per_file_view_window_char_limit : typing.Optional[int]
+            The per-file view window character limit for this agent. Setting this too high may exceed the context window, which will break the agent.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -441,6 +449,8 @@ class AgentsClient:
                     object_=response_format, annotation=CreateAgentRequestResponseFormat, direction="write"
                 ),
                 "timezone": timezone,
+                "max_files_open": max_files_open,
+                "per_file_view_window_char_limit": per_file_view_window_char_limit,
             },
             headers={
                 "content-type": "application/json",
@@ -827,6 +837,8 @@ class AgentsClient:
         last_run_completion: typing.Optional[dt.datetime] = OMIT,
         last_run_duration_ms: typing.Optional[int] = OMIT,
         timezone: typing.Optional[str] = OMIT,
+        max_files_open: typing.Optional[int] = OMIT,
+        per_file_view_window_char_limit: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AgentState:
         """
@@ -911,6 +923,12 @@ class AgentsClient:
         timezone : typing.Optional[str]
             The timezone of the agent (IANA format).
 
+        max_files_open : typing.Optional[int]
+            Maximum number of files that can be open at once for this agent. Setting this too high may exceed the context window, which will break the agent.
+
+        per_file_view_window_char_limit : typing.Optional[int]
+            The per-file view window character limit for this agent. Setting this too high may exceed the context window, which will break the agent.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -968,6 +986,8 @@ class AgentsClient:
                 "last_run_completion": last_run_completion,
                 "last_run_duration_ms": last_run_duration_ms,
                 "timezone": timezone,
+                "max_files_open": max_files_open,
+                "per_file_view_window_char_limit": per_file_view_window_char_limit,
             },
             headers={
                 "content-type": "application/json",
@@ -1043,6 +1063,137 @@ class AgentsClient:
                     typing.List[str],
                     construct_type(
                         type_=typing.List[str],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        construct_type(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def open_file(
+        self, agent_id: str, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.List[str]:
+        """
+        Opens a specific file for a given agent.
+
+        This endpoint marks a specific file as open in the agent's file state.
+        The file will be included in the agent's working memory view.
+        Returns a list of file names that were closed due to LRU eviction.
+
+        Parameters
+        ----------
+        agent_id : str
+
+        file_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.List[str]
+            Successful Response
+
+        Examples
+        --------
+        from letta_client import Letta
+
+        client = Letta(
+            project="YOUR_PROJECT",
+            token="YOUR_TOKEN",
+        )
+        client.agents.open_file(
+            agent_id="agent_id",
+            file_id="file_id",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"v1/agents/{jsonable_encoder(agent_id)}/files/{jsonable_encoder(file_id)}/open",
+            method="PATCH",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    typing.List[str],
+                    construct_type(
+                        type_=typing.List[str],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        construct_type(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    def close_file(
+        self, agent_id: str, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.Optional[typing.Any]:
+        """
+        Closes a specific file for a given agent.
+
+        This endpoint marks a specific file as closed in the agent's file state.
+        The file will be removed from the agent's working memory view.
+
+        Parameters
+        ----------
+        agent_id : str
+
+        file_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.Optional[typing.Any]
+            Successful Response
+
+        Examples
+        --------
+        from letta_client import Letta
+
+        client = Letta(
+            project="YOUR_PROJECT",
+            token="YOUR_TOKEN",
+        )
+        client.agents.close_file(
+            agent_id="agent_id",
+            file_id="file_id",
+        )
+        """
+        _response = self._client_wrapper.httpx_client.request(
+            f"v1/agents/{jsonable_encoder(agent_id)}/files/{jsonable_encoder(file_id)}/close",
+            method="PATCH",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    typing.Optional[typing.Any],
+                    construct_type(
+                        type_=typing.Optional[typing.Any],  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1417,6 +1568,8 @@ class AsyncAgentsClient:
         enable_sleeptime: typing.Optional[bool] = OMIT,
         response_format: typing.Optional[CreateAgentRequestResponseFormat] = OMIT,
         timezone: typing.Optional[str] = OMIT,
+        max_files_open: typing.Optional[int] = OMIT,
+        per_file_view_window_char_limit: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AgentState:
         """
@@ -1541,6 +1694,12 @@ class AsyncAgentsClient:
         timezone : typing.Optional[str]
             The timezone of the agent (IANA format).
 
+        max_files_open : typing.Optional[int]
+            Maximum number of files that can be open at once for this agent. Setting this too high may exceed the context window, which will break the agent.
+
+        per_file_view_window_char_limit : typing.Optional[int]
+            The per-file view window character limit for this agent. Setting this too high may exceed the context window, which will break the agent.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -1622,6 +1781,8 @@ class AsyncAgentsClient:
                     object_=response_format, annotation=CreateAgentRequestResponseFormat, direction="write"
                 ),
                 "timezone": timezone,
+                "max_files_open": max_files_open,
+                "per_file_view_window_char_limit": per_file_view_window_char_limit,
             },
             headers={
                 "content-type": "application/json",
@@ -2048,6 +2209,8 @@ class AsyncAgentsClient:
         last_run_completion: typing.Optional[dt.datetime] = OMIT,
         last_run_duration_ms: typing.Optional[int] = OMIT,
         timezone: typing.Optional[str] = OMIT,
+        max_files_open: typing.Optional[int] = OMIT,
+        per_file_view_window_char_limit: typing.Optional[int] = OMIT,
         request_options: typing.Optional[RequestOptions] = None,
     ) -> AgentState:
         """
@@ -2132,6 +2295,12 @@ class AsyncAgentsClient:
         timezone : typing.Optional[str]
             The timezone of the agent (IANA format).
 
+        max_files_open : typing.Optional[int]
+            Maximum number of files that can be open at once for this agent. Setting this too high may exceed the context window, which will break the agent.
+
+        per_file_view_window_char_limit : typing.Optional[int]
+            The per-file view window character limit for this agent. Setting this too high may exceed the context window, which will break the agent.
+
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
 
@@ -2197,6 +2366,8 @@ class AsyncAgentsClient:
                 "last_run_completion": last_run_completion,
                 "last_run_duration_ms": last_run_duration_ms,
                 "timezone": timezone,
+                "max_files_open": max_files_open,
+                "per_file_view_window_char_limit": per_file_view_window_char_limit,
             },
             headers={
                 "content-type": "application/json",
@@ -2280,6 +2451,153 @@ class AsyncAgentsClient:
                     typing.List[str],
                     construct_type(
                         type_=typing.List[str],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        construct_type(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def open_file(
+        self, agent_id: str, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.List[str]:
+        """
+        Opens a specific file for a given agent.
+
+        This endpoint marks a specific file as open in the agent's file state.
+        The file will be included in the agent's working memory view.
+        Returns a list of file names that were closed due to LRU eviction.
+
+        Parameters
+        ----------
+        agent_id : str
+
+        file_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.List[str]
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from letta_client import AsyncLetta
+
+        client = AsyncLetta(
+            project="YOUR_PROJECT",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.agents.open_file(
+                agent_id="agent_id",
+                file_id="file_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"v1/agents/{jsonable_encoder(agent_id)}/files/{jsonable_encoder(file_id)}/open",
+            method="PATCH",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    typing.List[str],
+                    construct_type(
+                        type_=typing.List[str],  # type: ignore
+                        object_=_response.json(),
+                    ),
+                )
+            if _response.status_code == 422:
+                raise UnprocessableEntityError(
+                    typing.cast(
+                        HttpValidationError,
+                        construct_type(
+                            type_=HttpValidationError,  # type: ignore
+                            object_=_response.json(),
+                        ),
+                    )
+                )
+            _response_json = _response.json()
+        except JSONDecodeError:
+            raise ApiError(status_code=_response.status_code, body=_response.text)
+        raise ApiError(status_code=_response.status_code, body=_response_json)
+
+    async def close_file(
+        self, agent_id: str, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
+    ) -> typing.Optional[typing.Any]:
+        """
+        Closes a specific file for a given agent.
+
+        This endpoint marks a specific file as closed in the agent's file state.
+        The file will be removed from the agent's working memory view.
+
+        Parameters
+        ----------
+        agent_id : str
+
+        file_id : str
+
+        request_options : typing.Optional[RequestOptions]
+            Request-specific configuration.
+
+        Returns
+        -------
+        typing.Optional[typing.Any]
+            Successful Response
+
+        Examples
+        --------
+        import asyncio
+
+        from letta_client import AsyncLetta
+
+        client = AsyncLetta(
+            project="YOUR_PROJECT",
+            token="YOUR_TOKEN",
+        )
+
+
+        async def main() -> None:
+            await client.agents.close_file(
+                agent_id="agent_id",
+                file_id="file_id",
+            )
+
+
+        asyncio.run(main())
+        """
+        _response = await self._client_wrapper.httpx_client.request(
+            f"v1/agents/{jsonable_encoder(agent_id)}/files/{jsonable_encoder(file_id)}/close",
+            method="PATCH",
+            request_options=request_options,
+        )
+        try:
+            if 200 <= _response.status_code < 300:
+                return typing.cast(
+                    typing.Optional[typing.Any],
+                    construct_type(
+                        type_=typing.Optional[typing.Any],  # type: ignore
                         object_=_response.json(),
                     ),
                 )

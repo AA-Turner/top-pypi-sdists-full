@@ -84,7 +84,7 @@ def view_ocpp_dashboard(*, _title="OCPP Dashboard", **_):
         ("Energy Time Series", "/ocpp/time-series",
          f"Total Energy: {energy} kWh"),
         ("CP Simulator", "/ocpp/evcs/cp-simulator",
-         f"Simulator: {sim_running}"),
+         sim_running),
     ]
 
     html = ["<h1>OCPP Dashboard</h1>"]
@@ -109,10 +109,6 @@ def view_ocpp_dashboard(*, _title="OCPP Dashboard", **_):
     html.append(
         '<li><a href="https://www.openchargealliance.org/" target="_blank">'
         'Open Charge Alliance</a></li>'
-    )
-    html.append(
-        '<li><a href="https://github.com/OpenChargeAlliance/ocpp" target="_blank">'
-        'OCPP Specification</a></li>'
     )
     html.append('</ul>')
 

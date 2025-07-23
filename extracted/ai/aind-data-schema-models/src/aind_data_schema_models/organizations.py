@@ -109,6 +109,15 @@ class _Applied_Scientific_Instrumentation(OrganizationModel):
     registry_identifier: Optional[str] = Field(default=None)
 
 
+class _Arduino(OrganizationModel):
+    """Model Arduino"""
+
+    name: Literal["Arduino"] = "Arduino"
+    abbreviation: Literal[None] = None
+    registry: Optional[Registry] = Field(default=None)
+    registry_identifier: Optional[str] = Field(default=None)
+
+
 class _Arecont_Vision_Costar(OrganizationModel):
     """Model Arecont Vision Costar"""
 
@@ -1019,6 +1028,7 @@ class Organization:
     AIND = _Allen_Institute_For_Neural_Dynamics()
     ALLIED = _Allied()
     ASI = _Applied_Scientific_Instrumentation()
+    ARDUINO = _Arduino()
     ARECONT_VISION_COSTAR = _Arecont_Vision_Costar()
     BASLER = _Basler()
     BCM = _Baylor_College_Of_Medicine()
@@ -1190,6 +1200,7 @@ Organization.LENS_MANUFACTURERS = one_of_instance(
 Organization.DAQ_DEVICE_MANUFACTURERS = one_of_instance(
     [
         Organization.AIND,
+        Organization.ARDUINO,
         Organization.CHAMPALIMAUD,
         Organization.NATIONAL_INSTRUMENTS,
         Organization.IMEC,

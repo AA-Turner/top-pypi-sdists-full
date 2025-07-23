@@ -27,7 +27,7 @@ export class JSONEditorView extends HTMLBoxView {
             this.editor.options.templates = this.model.templates;
         });
         this.on_change([menu], () => {
-            this.editor.options.menu = this.model.menu;
+            this.editor.options.mainMenuBar = this.model.menu;
         });
         this.on_change([search], () => {
             this.editor.options.search = this.model.search;
@@ -55,14 +55,14 @@ export class JSONEditorView extends HTMLBoxView {
         super.render();
         const mode = this.model.disabled ? "view" : this.model.mode;
         this.editor = new window.JSONEditor(this.shadow_el, {
-            menu: this.model.menu,
+            mainMenuBar: this.model.menu,
             mode,
             onChangeJSON: (json) => {
-                this.model.data = json;
+                this.model.trigger_event(new JSONEditEvent(json));
             },
             onChangeText: (text) => {
                 try {
-                    this.model.data = JSON.parse(text);
+                    this.model.trigger_event(new JSONEditEvent(JSON.parse(text)));
                 }
                 catch (e) {
                     console.warn(e);

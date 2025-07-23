@@ -130,11 +130,12 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             human_text_lines.append(f"\t- Queue Performance: {queue_performance*100:.1f}%")
 
             # Show active service areas and per-area customer/staff counts
-            human_text_lines.append(f"\t- Active Service Areas: {active_service_areas}")
+            human_text_lines.append(f"\t- Service Areas: {len(service_areas_status)}")
             for area_name, area_info in service_areas_status.items():
                 customers = area_info.get("customers", 0)
                 staff = area_info.get("staff", 0)
-                human_text_lines.append(f"\t\t- {area_name}: {customers} customers, {staff} staff")
+                status = area_info.get("status", "inactive")
+                human_text_lines.append(f"\t\t- {area_name}: {status} with {customers} customers and {staff} staff")
 
             human_text_lines.append("")
             human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
@@ -903,28 +904,31 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
         customers_queuing = 0
         customers_being_served = 0
         customers_completed = 0
-        # Only include ongoing wait times (exclude completed)
-        wait_times_ongoing = []    # current customers still in queue (list of dict)
+        # Collect wait times for all customers who have ever queued in this chunk
+        wait_times = []
         chunk_ids = getattr(self, '_chunk_customer_ids', set())
         now = time.time()
         for track_id in chunk_ids:
             journey = self.customer_journey.get(track_id)
             if not journey:
                 continue
+            # Only include if customer has ever queued (should always be true for chunk ids)
+            # Use their total_wait_time if they have left QUEUING state, else ongoing
             if journey['state'] == self.JOURNEY_STATES['QUEUING']:
                 customers_queuing += 1
-                # Ongoing: time since queue_start_time
                 if journey['queue_start_time']:
-                    wait_times_ongoing.append({"track_id": track_id, "wait_time": now - journey['queue_start_time']})
+                    wait_times.append(now - journey['queue_start_time'])
             elif journey['state'] == self.JOURNEY_STATES['BEING_SERVED']:
                 customers_being_served += 1
-            elif journey['state'] == self.JOURNEY_STATES['COMPLETED']:
+                if journey['total_wait_time']:
+                    wait_times.append(journey['total_wait_time'])
+            elif journey['state'] in [self.JOURNEY_STATES['COMPLETED'], self.JOURNEY_STATES['LEFT']]:
                 customers_completed += 1
+                if journey['total_wait_time']:
+                    wait_times.append(journey['total_wait_time'])
 
-        # Calculate average_wait_time: only ongoing wait times
-        total_waits = [w['wait_time'] for w in wait_times_ongoing]
-        n_total = customers_queuing
-        average_wait_time = sum(total_waits) / n_total if n_total > 0 else 1.0
+        n_total = len(wait_times)
+        average_wait_time = sum(wait_times) / n_total if n_total > 0 else 1.0
 
         queue_analytics = {
             "active_customers": active_customers,
@@ -1015,43 +1019,22 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             customers_in_area = set()
             staff_in_area = set()
 
-            # Customers: count if inside service area polygon OR within proximity threshold OR in overlapping area
+            # Customers: count only if inside service area polygon
             for occ in all_customers:
                 center = occ.get('center')
                 tid = occ.get('track_id')
                 if center is None or tid is None:
                     continue
-                # Check polygon inclusion
-                in_polygon = point_in_polygon(center, polygon)
-                in_proximity = any(
-                    math.hypot(center[0] - pt[0], center[1] - pt[1]) <= service_proximity_threshold for pt in polygon
-                )
-                # Check if this area is also a customer area (overlap)
-                in_overlap = False
-                for cust_area_name, cust_polygon in self.customer_areas.items():
-                    if area_name == cust_area_name and point_in_polygon(center, cust_polygon):
-                        in_overlap = True
-                        break
-                if in_polygon or in_proximity or in_overlap:
+                if point_in_polygon(center, polygon):
                     customers_in_area.add(tid)
 
-            # Staff: count if inside service area polygon OR within proximity threshold OR in overlapping area
+            # Staff: count only if inside service area polygon
             for occ in all_staff:
                 center = occ.get('center')
                 tid = occ.get('track_id')
                 if center is None or tid is None:
                     continue
-                in_polygon = point_in_polygon(center, polygon)
-                in_proximity = any(
-                    math.hypot(center[0] - pt[0], center[1] - pt[1]) <= service_proximity_threshold for pt in polygon
-                )
-                # Check if this area is also a staff area (overlap)
-                in_overlap = False
-                for staff_area_name, staff_polygon in self.staff_areas.items():
-                    if area_name == staff_area_name and point_in_polygon(center, staff_polygon):
-                        in_overlap = True
-                        break
-                if in_polygon or in_proximity or in_overlap:
+                if point_in_polygon(center, polygon):
                     staff_in_area.add(tid)
 
             service_analytics["service_areas_status"][area_name] = {

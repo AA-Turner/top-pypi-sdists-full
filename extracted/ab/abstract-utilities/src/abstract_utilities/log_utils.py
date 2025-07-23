@@ -142,40 +142,41 @@ def get_logger_callable(logger, level="info"):
     else:
         return None
 
-def get_caller_info():
-    caller_idx = _find_caller_frame_index()
-    stack = inspect.stack()
-    caller_frame = stack[caller_idx]
-    caller_path = caller_frame.filename
-    return caller_path,caller_frame
-def print_or_log(message, logger=True, level="info"):
-    """
-    Print or log a message. If logger=True, find the first caller outside this module
-    and name the logger after that caller’s basename. Then emit the log with a
-    stacklevel that points directly at that same caller.
-    """
-    # 1) Find the first frame index outside logging_utils (and also outside the logging stdlib).
-    caller_path,caller_frame = get_caller_info()
-    # e.g. "/home/joe/project/app/routes.py"
-    bpName = os.path.splitext(os.path.basename(caller_path))[0]
-    del caller_frame
-    del stack
 
+def _find_caller_frame_index():
+    """
+    Return the index in inspect.stack() of the first frame
+    that’s not in this module or the logging stdlib.
+    """
+    for idx, frame_info in enumerate(inspect.stack()):
+        fn = frame_info.filename
+        if not fn.endswith("logging_utils.py") and "logging" not in os.path.basename(fn):
+            return idx
+    return 0  # fallback
+
+def get_caller_info():
+    """
+    Returns (caller_path, caller_idx).
+    caller_idx is the index into inspect.stack() where the call came from.
+    """
+    idx = _find_caller_frame_index()
+    frame = inspect.stack()[idx]
+    return frame.filename, idx
+
+def print_or_log(message, logger=True, level="info"):
+    # 1) grab both the path and the numeric index
+    caller_path, caller_idx = get_caller_info()
+
+    # 2) decide which logger object to use
     if logger is True:
-        # 2) Now get (or create) a logger named after the original caller’s basename:
+        bpName = os.path.splitext(os.path.basename(caller_path))[0]
         logger = get_logFile(bpName)
 
+    # 3) pick the right logging method
     log_callable = get_logger_callable(logger, level=level)
     if log_callable:
-        # 3) Use the same index as stacklevel, so that the LogRecord’s pathname
-        #    is exactly caller_path.
+        # pass the integer stacklevel = caller_idx + 1
         log_callable(message, stacklevel=caller_idx + 1)
-        # Explanation:
-        #   - stacklevel=1 => log record’s pathname points to log_callable() itself
-        #   - stacklevel=2 => pathname points to print_or_log()
-        #   - stacklevel=3 => pathname points to initialize_call_log() (if called)
-        #   - ...
-        #   - stacklevel=caller_idx+1 => pathname points exactly to stack[caller_idx].filename
     else:
         print(message)
 

@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "dao-treasury"
-version = "0.0.40"
+version = "0.0.41"
 description = "Produce comprehensive financial reports for your on-chain org"
 authors = ["BobTheBuidler <bobthebuidlerdefi@gmail.com>"]
 license = "MIT"
@@ -11,7 +11,7 @@ dao-treasury = "dao_treasury.main:main"
 
 [tool.poetry.dependencies]
 python = ">=3.10,<3.13"
-eth-portfolio-temp = ">=0.0.35.dev0,<0.1"
+eth-portfolio-temp = ">=0.0.38.dev0,<0.1"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^6.2.5"
@@ -29,7 +29,7 @@ myst-parser = "*"
 requires = [
     "setuptools", 
     "wheel", 
-    "mypy[mypyc]==1.16.1", 
+    "mypy[mypyc]==1.17.0", 
     "tomli>=2.0.0; python_version < '3.11'", 
     "types-tqdm", 
     "types-PyYAML",

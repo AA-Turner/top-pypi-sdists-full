@@ -326,8 +326,8 @@ def _even_split_pyarrow(
     join_keys: List[str],
     split_count: int,
 ) -> List[pyarrow.Table]:
-    sort_indices = pyarrow.compute.sort_indices(spine, sort_keys=[(key, "ascending") for key in join_keys])
-    spine_sorted = spine.take(sort_indices)
+    assert join_keys, "join_keys must be provided for even spine split"
+    spine_sorted = sort_pyarrow_table_using_duckdb(spine, join_keys)
 
     total_rows = spine_sorted.num_rows
     rows_per_split = total_rows // split_count
@@ -440,3 +440,26 @@ def merge_validity_periods(df_list, valid_time_range, fdw):
     ).as_ref()
 
     return qt
+
+
+def sort_pyarrow_table_using_duckdb(table: pyarrow.Table, sort_keys: List[str]) -> pyarrow.Table:
+    """
+    Sort a PyArrow table using DuckDB to avoid PyArrow offset overflow issues when sorting datasets with long string values.
+
+    NOTE: DuckDB does not have ns precision with timezones, so we will lose timestamp precision from ns -> us by using DuckDB to convert.
+    This loss in precision is acceptable because we use DuckDB throughout our query tree so the precision inevitably become microseconds.
+    We cast back to nanoseconds in order to keep pyarrow tables consistent for concatenation purposes.
+    """
+    original_schema = table.schema
+    connection = duckdb_factory.create_connection()
+    try:
+        connection.register("input_table", table)
+
+        escaped_keys = ['"' + key.replace('"', '""') + '"' for key in sort_keys]
+        order_by_clause = ", ".join(escaped_keys)
+        query = f"SELECT * FROM input_table ORDER BY {order_by_clause}"
+
+        result = connection.sql(query).arrow()
+        return result.cast(original_schema)
+    finally:
+        connection.close()

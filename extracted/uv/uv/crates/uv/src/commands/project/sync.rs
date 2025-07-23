@@ -273,7 +273,7 @@ pub(crate) async fn sync(
                         dry_run: dry_run.enabled(),
                     };
                     if let Some(output) = report.format(output_format) {
-                        writeln!(printer.stdout(), "{output}")?;
+                        writeln!(printer.stdout_important(), "{output}")?;
                     }
                     return Ok(ExitStatus::Success);
                 }
@@ -363,7 +363,7 @@ pub(crate) async fn sync(
     };
 
     if let Some(output) = report.format(output_format) {
-        writeln!(printer.stdout(), "{output}")?;
+        writeln!(printer.stdout_important(), "{output}")?;
     }
 
     // Identify the installation target.
@@ -573,6 +573,7 @@ pub(super) async fn do_sync(
         keyring_provider,
         dependency_metadata,
         config_setting,
+        config_settings_package,
         no_build_isolation,
         no_build_isolation_package,
         exclude_newer,
@@ -709,6 +710,7 @@ pub(super) async fn do_sync(
         state.clone().into_inner(),
         index_strategy,
         config_setting,
+        config_settings_package,
         build_isolation,
         link_mode,
         build_options,
@@ -733,6 +735,7 @@ pub(super) async fn do_sync(
         compile_bytecode,
         index_locations,
         config_setting,
+        config_settings_package,
         &hasher,
         &tags,
         &client,

@@ -195,7 +195,7 @@ def _get(key: str) -> Optional[str]:
             return val
 
     if ConfSource.BLOCKING_REMOTE_MDS_CONFIG in allowed_sources:
-        _force_initialize_mds_config()
+        _force_initialize_mds_config(timeout_seconds=2.0)
 
     # Config from MDS
     if ConfSource.REMOTE_MDS_CONFIG in allowed_sources or ConfSource.BLOCKING_REMOTE_MDS_CONFIG in allowed_sources:
@@ -754,13 +754,23 @@ def _init_metadata_server_config(mds_response):
         _remote_mds_configs = dict(mds_response.key_values)
 
 
-def _force_initialize_mds_config() -> None:
+def _force_initialize_mds_config(timeout_seconds: Optional[float] = None) -> None:
     runtime_mode = get_or_none("TECTON_RUNTIME_MODE")
     if runtime_mode in ("MATERIALIZATION", "EVALUATION"):
         return
     from tecton._internals import metadata_service  # noqa: TID251
 
-    metadata_service.instance()
+    with _mds_config_lock:
+        if _remote_mds_configs:
+            return
+
+    if timeout_seconds is not None:
+        thread = threading.Thread(target=metadata_service.instance)
+        thread.daemon = True
+        thread.start()
+        thread.join(timeout_seconds)
+    else:
+        metadata_service.instance()
 
 
 def _clear_metadata_server_config():
@@ -770,19 +780,22 @@ def _clear_metadata_server_config():
 
 
 class FeatureFlag:
-    def __init__(self, key: str, owner: str, default_enabled: bool) -> None:
-        _VALID_KEYS_TO_ALLOWED_SOURCES[key] = (
-            ConfSource.SESSION_OVERRIDE,
-            ConfSource.OS_ENV,
-            ConfSource.REPO_CONFIG,
-        )
+    def __init__(self, key: str, owner: str, default_enabled: bool, allowed_sources: Optional[tuple] = None) -> None:
+        if allowed_sources is None:
+            allowed_sources = (
+                ConfSource.SESSION_OVERRIDE,
+                ConfSource.OS_ENV,
+                ConfSource.REPO_CONFIG,
+            )
+
+        _VALID_KEYS_TO_ALLOWED_SOURCES[key] = allowed_sources
         _DEFAULTS[key] = lambda: default_enabled
         self.key = key
         self.owner = owner
         self.default_enabled = default_enabled
+        self.allowed_sources = allowed_sources
 
     def enabled(self) -> bool:
-        # Custom logic for checking if the feature is enabled
         return get_bool(self.key)
 
 
@@ -811,6 +824,31 @@ QUERYTREE_ENABLE_PARTITIONED_EXECUTION = FeatureFlag(
 )
 
 QUERYTREE_VERBOSE = FeatureFlag(key="QUERYTREE_VERBOSE", owner="Batch Data", default_enabled=False)
+
+
+STREAM_INGEST_V2_ENABLED = FeatureFlag(
+    key="STREAM_INGEST_V2_ENABLED",
+    owner="Stream Ingest",
+    default_enabled=False,
+    allowed_sources=(
+        ConfSource.SESSION_OVERRIDE,
+        ConfSource.OS_ENV,
+        ConfSource.REPO_CONFIG,
+        ConfSource.BLOCKING_REMOTE_MDS_CONFIG,
+    ),
+)
+
+TRANSFORM_SERVER_GROUPS_ENABLED = FeatureFlag(
+    key="TRANSFORM_SERVER_GROUPS_ENABLED",
+    owner="Feature Server",
+    default_enabled=False,
+    allowed_sources=(
+        ConfSource.SESSION_OVERRIDE,
+        ConfSource.OS_ENV,
+        ConfSource.REPO_CONFIG,
+        ConfSource.BLOCKING_REMOTE_MDS_CONFIG,
+    ),
+)
 
 
 _init_configs()

@@ -1,6 +1,8 @@
 """
 """
 
+import shutil
+
 from pathlib import Path
 
 from .. import utils
@@ -31,4 +33,7 @@ if Config.zero_gpu:
 
     torch.patch()
     gradio.one_launch(startup)
-    Path(Config.zerogpu_offload_dir).mkdir(parents=True, exist_ok=True)
+
+    # Cleanup offload directory
+    shutil.rmtree(Config.zerogpu_offload_dir, ignore_errors=True)
+    Path(Config.zerogpu_offload_dir).mkdir(parents=True)

@@ -1,6 +1,7 @@
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet, HashMap, HashSet},
+    num::{NonZeroU16, NonZeroUsize},
     sync::Arc,
 };
 
@@ -222,6 +223,7 @@ impl PySnapshotInfo {
             id = self.id,
             parent = format_option_to_string(self.parent_id.as_ref()),
             at = datetime_repr(&self.written_at),
+            // TODO: what would be a better default here?
             message = self.message.chars().take(10).collect::<String>() + "...",
         )
     }
@@ -650,7 +652,7 @@ impl PyRepository {
                             Arc::clone(lock.asset_manager()),
                         )
                     };
-                    asset_manager.snapshot_ancestry(&snapshot_id).await
+                    asset_manager.snapshot_info_ancestry(&snapshot_id).await
                 })
                 .map_err(PyIcechunkStoreError::RepositoryError)?
                 .map_err(PyIcechunkStoreError::RepositoryError);
@@ -1015,6 +1017,10 @@ impl PyRepository {
         &self,
         py: Python<'_>,
         delete_object_older_than: DateTime<Utc>,
+        dry_run: bool,
+        max_snapshots_in_memory: NonZeroU16,
+        max_compressed_manifest_mem_bytes: NonZeroUsize,
+        max_concurrent_manifest_fetches: NonZeroU16,
     ) -> PyResult<PyGCSummary> {
         // This function calls block_on, so we need to allow other thread python to make progress
         py.allow_threads(move || {
@@ -1024,6 +1030,10 @@ impl PyRepository {
                         delete_object_older_than,
                         delete_object_older_than,
                         Default::default(),
+                        max_snapshots_in_memory,
+                        max_compressed_manifest_mem_bytes,
+                        max_concurrent_manifest_fetches,
+                        dry_run,
                     );
                     let (storage, storage_settings, asset_manager) = {
                         let lock = self.0.read().await;
@@ -1048,7 +1058,13 @@ impl PyRepository {
         })
     }
 
-    pub fn total_chunks_storage(&self, py: Python<'_>) -> PyResult<u64> {
+    pub fn total_chunks_storage(
+        &self,
+        py: Python<'_>,
+        max_snapshots_in_memory: NonZeroU16,
+        max_compressed_manifest_mem_bytes: NonZeroUsize,
+        max_concurrent_manifest_fetches: NonZeroU16,
+    ) -> PyResult<u64> {
         // This function calls block_on, so we need to allow other thread python to make progress
         py.allow_threads(move || {
             let result =
@@ -1065,6 +1081,9 @@ impl PyRepository {
                         storage.as_ref(),
                         &storage_settings,
                         asset_manager,
+                        max_snapshots_in_memory,
+                        max_compressed_manifest_mem_bytes,
+                        max_concurrent_manifest_fetches,
                     )
                     .await
                     .map_err(PyIcechunkStoreError::RepositoryError)?;

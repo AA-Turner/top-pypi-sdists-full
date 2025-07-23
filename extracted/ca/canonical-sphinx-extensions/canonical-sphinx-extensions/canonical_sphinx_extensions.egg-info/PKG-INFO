@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: canonical-sphinx-extensions
-Version: 0.0.31
+Version: 0.0.33
 Summary: A collection of Sphinx extensions used by Canonical documentation
 Home-page: https://github.com/canonical/canonical-sphinx-extensions
 Author: Michael Park
 Author-email: michael.park@canonical.com
-Requires-Python: >=3.6
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: sphinx
@@ -335,6 +335,8 @@ Note: This supports `:input` as part of the initial configuration block. but req
 :input: command#3
 ```
 ````
+
+Note: You can use the `:copy:` option, or `copybutton` class to enable terminal inputs to be copyable.
 
 ### Filtered ToC
 

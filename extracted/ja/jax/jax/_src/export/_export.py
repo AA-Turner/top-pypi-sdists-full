@@ -39,12 +39,13 @@ from jax._src import effects
 from jax._src import mesh as mesh_lib
 from jax._src.interpreters import mlir
 from jax._src.interpreters import pxla
+from jax._src.lib import ifrt_version
 from jax._src.lib import xla_client
 from jax._src.lib import _jax
+from jax._src.lib import jaxlib_extension_version
 from jax._src.lib.mlir import ir, passmanager
 from jax._src.lib.mlir.dialects import hlo
-from jax._src.lib.mlir.dialects import func as func_dialect
-from jax._src import mesh
+from jax._src.lib.mlir.dialects import func as func_dialect, sdy
 from jax._src import pjit
 from jax._src import sharding
 from jax._src import sharding_impls
@@ -71,7 +72,7 @@ HloSharding = xla_client.HloSharding
 # The minimum and maximum supported calling convention version.
 # See https://docs.jax.dev/en/latest/export/export.html#export-calling-convention-version
 minimum_supported_calling_convention_version = 9
-maximum_supported_calling_convention_version = 9
+maximum_supported_calling_convention_version = 10
 
 
 class DisabledSafetyCheck:
@@ -217,7 +218,7 @@ class Exported:
 
   def in_shardings_jax(
     self,
-    mesh: mesh.Mesh) -> Sequence[sharding.Sharding | None]:
+    mesh: mesh_lib.Mesh) -> Sequence[sharding.Sharding | None]:
     """Creates Shardings corresponding to self.in_shardings_hlo.
 
     The Exported object stores `in_shardings_hlo` as HloShardings, which are
@@ -227,6 +228,8 @@ class Exported:
 
     Example usage:
 
+      >>> from jax._src.lib import ifrt_version
+      >>> if ifrt_version < 12: jax.config.update("jax_use_shardy_partitioner", False)
       >>> from jax import export, sharding
       >>> # Prepare the exported object:
       >>> exp_mesh = sharding.Mesh(jax.devices(), ("a",))
@@ -257,7 +260,7 @@ class Exported:
 
   def out_shardings_jax(
       self,
-      mesh: mesh.Mesh) -> Sequence[sharding.Sharding | None]:
+      mesh: mesh_lib.Mesh) -> Sequence[sharding.Sharding | None]:
     """Creates Shardings corresponding to `self.out_shardings_hlo`.
 
     See documentation for in_shardings_jax.
@@ -693,8 +696,8 @@ def _export_lowered(
   # Shardy was used during lowering if we can find the Shardy mesh in the
   # module. Note that the mesh should have been lifted by the
   # `sdy-lift-inlined-meshes` pass in mlir.py.
-  shardy_enabled = _jax.sdy.lowered_with_shardy(
-      mlir.module_to_bytecode(mlir_module))
+  shardy_enabled = has_sdy_mesh(ir.SymbolTable(mlir_module.operation),
+                                mlir_module)
 
   mlir_module_serialized = _module_to_bytecode(mlir_module)
 
@@ -742,7 +745,7 @@ def _export_lowered(
     export_sharding(s, aval)
     for s, aval in zip(lowering.compile_args["out_shardings"], out_avals_flat))
 
-  device_assignment = lowering.compile_args["device_assignment"]
+  device_assignment = lowering._device_list  # type: ignore
   if _device_assignment_for_internal_jax2tf_use_only is not None:
     _device_assignment_for_internal_jax2tf_use_only[0] = device_assignment
 
@@ -835,8 +838,15 @@ def _module_to_bytecode(module: ir.Module) -> bytes:
   else:
     target_version = hlo.get_version_from_compatibility_requirement(
       hlo.StablehloCompatibilityRequirement.WEEK_4)
-  module_serialized = xla_client._xla.mlir.serialize_portable_artifact(  # type: ignore
-      mlir_str, target_version)
+  if jaxlib_extension_version >= 357 and ifrt_version >= 14:
+    module_serialized = xla_client._xla.mlir.serialize_portable_artifact(  # type: ignore
+        mlir_str, target_version, xb.get_backend().serialize_with_sdy)
+  else:
+    # pylint: disable=no-value-for-parameter
+    module_serialized = xla_client._xla.mlir.serialize_portable_artifact(  # type: ignore
+        mlir_str, target_version)
+    # pylint: disable=no-value-for-parameter
+
   return module_serialized
 
 
@@ -960,7 +970,8 @@ def _wrap_main_func(
           ))
       ctx = mlir.LoweringRuleContext(
         module_context=module_context,
-        name_stack=source_info_util.new_name_stack(), primitive=None,
+        name_stack=source_info_util.new_name_stack(), traceback=None,
+        primitive=None,
         avals_in=args_avals_flat, avals_out=None,
         tokens_in=mlir.TokenSet(), tokens_out=None)
       # We compute dim_values from the array arguments.
@@ -1004,6 +1015,9 @@ def _wrap_main_func(
                                  orig_main_args)
       func_dialect.ReturnOp([call.results[idx] for idx in new_main_result_indices])
     symbol_table.set_symbol_name(new_main_op, "main")
+    pipeline = passmanager.PassManager.parse(
+        'builtin.module(symbol-dce)')
+    pipeline.run(wrapped_module.operation)
 
   return wrapped_module
 
@@ -1121,7 +1135,7 @@ _CUSTOM_CALL_TARGETS_GUARANTEED_STABLE = {
     "shape_assertion",  # Used by shape_poly to evaluate assertions
 }
 
-check_sharding_pattern = re.compile(r"^({replicated}|{unknown shard_as.*}|\[({}, )*{}\]"")$")
+check_sharding_pattern = re.compile(r"^({replicated}|{unknown shard_as.*}|.*\[({}, )*{}\]"")$")
 
 def _check_module(mod: ir.Module, *,
                   disabled_checks: Sequence[DisabledSafetyCheck],
@@ -1147,7 +1161,7 @@ def _check_module(mod: ir.Module, *,
   module_uses_non_replicated_sharding = False
   def check_sharding(op: ir.Operation, loc: ir.Location):
     try:
-      sharding = (op.attributes["sdy.sharding"] if shardy_enabled else
+      sharding = (op.attributes["sharding"] if shardy_enabled else
                   op.attributes["mhlo.sharding"])
     except KeyError:
       pass
@@ -1176,6 +1190,8 @@ def _check_module(mod: ir.Module, *,
         disallowed_custom_call_ops.append(f"{op} at {op.location}")
       if call_target_name_attr == sharding_attr:
         check_sharding(op, op.location)
+    elif op_name == "sdy.sharding_constraint":
+      check_sharding(op, op.location)
 
   def walk_operations(op):
     check_op(op)
@@ -1224,7 +1240,7 @@ def _hlo_sharding_to_named_sharding(
     mesh: mesh_lib.Mesh | mesh_lib.AbstractMesh):
   if hlo_sharding is None:
     return None
-  return sharding_impls.create_mesh_pspec_sharding(
+  return sharding_impls.cached_named_sharding(
       mesh, sharding_impls.parse_flatten_op_sharding(hlo_sharding, mesh)[0])
 
 
@@ -1420,29 +1436,66 @@ def _call_exported_impl(*args, exported: Exported):
 
 call_exported_p.def_impl(_call_exported_impl)
 
+
+def get_mesh_from_symbol(symtab: ir.SymbolTable) -> mesh_lib.AbstractMesh:
+  if "mesh" not in symtab:
+    return mesh_lib.empty_abstract_mesh
+  mesh_attr = sdy.MeshAttr(symtab["mesh"].mesh)
+  axes = [sdy.MeshAxisAttr(a) for a in mesh_attr.axes]
+  if not axes:
+    return mesh_lib.empty_abstract_mesh
+  axes_sizes = tuple(a.size for a in axes)
+  axes_names = tuple(a.name for a in axes)
+  return mesh_lib.AbstractMesh(axes_sizes, axes_names)
+
+def has_sdy_meshes_in_frontend_attributes(submodule: ir.Module) -> bool:
+  if "mhlo.frontend_attributes" not in submodule.operation.attributes:
+    return False
+  frontend_attributes = submodule.operation.attributes[
+      "mhlo.frontend_attributes"
+  ]
+  return "xla.sdy.meshes" in frontend_attributes
+
+def has_sdy_mesh(symtab: ir.SymbolTable, submodule: ir.Module) -> bool:
+  for mesh_name in ("mesh", "empty_mesh", "maximal_mesh_0"):
+    if mesh_name in symtab:
+      return isinstance(symtab[mesh_name], sdy.MeshOp)
+  return has_sdy_meshes_in_frontend_attributes(submodule)
+
 def _call_exported_lowering(ctx: mlir.LoweringRuleContext, *args,
                             exported: Exported):
   if exported.uses_global_constants:
     ctx.module_context.shape_poly_state.uses_dim_vars = True
   submodule = ir.Module.parse(exported.mlir_module())
 
-  submodule_bc = mlir.module_to_bytecode(submodule)
-  shardy_enabled = _jax.sdy.lowered_with_shardy(submodule_bc)
+  symtab = ir.SymbolTable(submodule.operation)
+  shardy_enabled = has_sdy_mesh(symtab, submodule)
   if shardy_enabled:
-    submodule = ir.Module.parse(
-        _jax.sdy.sdy_round_trip_import_shardings(submodule_bc)
-    )
+    if not config.use_shardy_partitioner.value:
+      raise ValueError(
+          "The function was exported with shardy enabled but you are calling "
+          "it with Shardy disabled. Please enable Shardy using "
+          "`--jax_use_shardy_partitioner=True`.")
+    # TODO(b/422690222): remove this pass once we don't need to support 6m
+    # old exported modules.
+    if has_sdy_meshes_in_frontend_attributes(submodule):
+      if jaxlib_extension_version < 356:
+        submodule = ir.Module.parse(
+            _jax.sdy.sdy_round_trip_import_shardings(
+                mlir.module_to_bytecode(submodule)))  # type: ignore[module-attr]
+      else:
+        with submodule.context:
+          pipeline = passmanager.PassManager.parse(
+              'builtin.module(xla-sdy-round-trip-import-shardy-attrs)')
+          pipeline.run(submodule.operation)
 
   with submodule.context:
     pipeline = passmanager.PassManager.parse(
         'builtin.module(sdy-lift-inlined-meshes)')
     pipeline.run(submodule.operation)
-
   mesh = None
   if shardy_enabled:
-    sdy_mesh_axes = _jax.sdy.get_mesh(mlir.module_to_bytecode(submodule))
-    mesh = (mesh_lib.AbstractMesh(*list(zip(*sdy_mesh_axes))[::-1])
-            if sdy_mesh_axes else mesh_lib.empty_abstract_mesh)
+    mesh = get_mesh_from_symbol(symtab)
 
   axis_context = ctx.module_context.axis_context
   if isinstance(axis_context, sharding_impls.ShardingContext):
@@ -1453,36 +1506,29 @@ def _call_exported_lowering(ctx: mlir.LoweringRuleContext, *args,
     num_devices = axis_context.axis_env.nreps
   else:
     raise NotImplementedError(type(axis_context))
-  if num_devices != exported.nr_devices:
-    # In some special cases we allow running with a different number of devices
-    # than the function was exported for.
-    err_msg = ""
-    if exported.nr_devices != 1:
-      err_msg = "the function was exported for more than 1 device."
-    elif (_check_module(submodule, disabled_checks=(), shardy_enabled=shardy_enabled)
-          or any(s is not None and not s.is_replicated()
-                 for s in exported.in_shardings_hlo + exported.out_shardings_hlo)):
-      err_msg = "the function contains non-replicated sharding annotations."
-    if err_msg:
-      raise ValueError(
+  if num_devices != exported.nr_devices and exported.nr_devices != 1:
+    raise ValueError(
         f"Function {exported.fun_name} was exported for "
         f"{exported.nr_devices} devices and is called in a context with "
-        f"{num_devices} devices. This is disallowed because: {err_msg}"
-      )
+        f"{num_devices} devices, which is not allowed."
+    )
 
   # Apply in_shardings
-  if shardy_enabled:
+  if mesh:
+    # A mesh only exists if Shardy is enabled.
     args = tuple(
         wrap_with_sharding(
             ctx, x, x_aval,
-            _hlo_sharding_to_named_sharding(x_sharding, mesh))  # type: ignore[arg-type]
+            _hlo_sharding_to_named_sharding(x_sharding, mesh), use_shardy=True)  # type: ignore[arg-type]
         for x, x_aval, x_sharding in zip(args, ctx.avals_in, exported.in_shardings_hlo))
   else:
+    # Since there is no mesh - either due to shardy being disabled or the loaded
+    # function being lowered for GSPMD (so no shardy mesh) - need to create a
+    # GSPMD sharding from the HLO sharding (can't use shardy lowering).
     args = tuple(
-        wrap_with_sharding(ctx, x, x_aval, x_sharding)
+        wrap_with_sharding(ctx, x, x_aval, x_sharding, use_shardy=False)
         for x, x_aval, x_sharding in zip(args, ctx.avals_in, exported.in_shardings_hlo))
 
-  symtab = ir.SymbolTable(submodule.operation)
   # The called function may have been exported with polymorphic shapes and called
   # now with more refined shapes. We insert hlo.ConvertOp to ensure the module
   # is valid.
@@ -1568,14 +1614,19 @@ def _call_exported_lowering(ctx: mlir.LoweringRuleContext, *args,
       for out, out_aval, refined_out_aval in zip(call.results[len(ordered_effects):],
                                                  exported.out_avals, ctx.avals_out))
   # Apply out_shardings
-  if shardy_enabled:
+  if mesh:
+    # A mesh only exists if Shardy is enabled.
     results = tuple(
         wrap_with_sharding(
-            ctx, x, x_aval, _hlo_sharding_to_named_sharding(x_sharding, mesh))  # type: ignore[arg-type]
+            ctx, x, x_aval, _hlo_sharding_to_named_sharding(x_sharding, mesh),
+            use_shardy=True)  # type: ignore[arg-type]
         for x, x_aval, x_sharding in zip(results, ctx.avals_out, exported.out_shardings_hlo))
   else:
+    # Since there is no mesh - either due to shardy being disabled or the loaded
+    # function being lowered for GSPMD (so no shardy mesh) - need to create a
+    # GSPMD sharding from the HLO sharding (can't use shardy lowering).
     results = tuple(
-        wrap_with_sharding(ctx, x, x_aval, x_sharding)
+        wrap_with_sharding(ctx, x, x_aval, x_sharding, use_shardy=False)
         for x, x_aval, x_sharding in zip(results, ctx.avals_out, exported.out_shardings_hlo))
   return results
 
@@ -1586,12 +1637,14 @@ def wrap_with_sharding(
     ctx: mlir.LoweringRuleContext,
     x: ir.Value,
     x_aval: core.AbstractValue,
-    x_sharding: sharding_impls.NamedSharding | HloSharding | None,
+    x_sharding: sharding_impls.NamedSharding | sharding_impls.GSPMDSharding | HloSharding | None,
+    use_shardy: bool,
 ) -> ir.Value:
   if x_sharding is None:
     return x
-  if config.use_shardy_partitioner.value:
+  if use_shardy:
     x_sharding = x_sharding._to_sdy_sharding(x_aval.ndim)  # type: ignore
   else:
     x_sharding = x_sharding.to_proto()  # type: ignore
-  return mlir.wrap_with_sharding_op(ctx, x, x_aval, x_sharding)  # type: ignore[arg-type]
+  return mlir.wrap_with_sharding_op(ctx, x, x_aval, x_sharding,  # type: ignore[arg-type]
+                                    allow_shardy_lowering=use_shardy)

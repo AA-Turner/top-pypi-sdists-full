@@ -14,6 +14,7 @@ import textwrap
 import urllib.parse
 import uuid
 from collections.abc import Iterable, Iterator, MutableMapping, MutableSequence, Sized
+from importlib.resources import files
 from os import scandir
 from typing import TYPE_CHECKING, Any, Callable, Optional, Union, cast
 
@@ -54,7 +55,6 @@ from .utils import (
     aslist,
     cmp_like_py2,
     ensure_writable,
-    files,
     get_listing,
     normalizeFilesDirs,
     random_outdir,
@@ -230,7 +230,7 @@ def stage_files(
     items = pathmapper.items() if not symlink else pathmapper.items_exclude_children()
     targets: dict[str, MapperEnt] = {}
     for key, entry in list(items):
-        if "File" not in entry.type:
+        if entry.type is None or "File" not in entry.type:
             continue
         if entry.target not in targets:
             targets[entry.target] = entry
@@ -305,7 +305,7 @@ def relocateOutputs(
         return outputObj
 
     def _collectDirEntries(
-        obj: Union[CWLObjectType, MutableSequence[CWLObjectType], None]
+        obj: Union[CWLObjectType, MutableSequence[CWLObjectType], None],
     ) -> Iterator[CWLObjectType]:
         if isinstance(obj, dict):
             if obj.get("class") in ("File", "Directory"):
@@ -444,7 +444,7 @@ def avroize_type(
                 cast(MutableSequence[CWLOutputType], field_type["items"]), name_prefix
             )
         else:
-            field_type["type"] = avroize_type(cast(CWLOutputType, field_type["type"]), name_prefix)
+            field_type["type"] = avroize_type(field_type["type"], name_prefix)
     elif field_type == "File":
         return "org.w3id.cwl.cwl.File"
     elif field_type == "Directory":
@@ -490,10 +490,10 @@ def var_spool_cwl_detector(
             r = True
     elif isinstance(obj, MutableMapping):
         for mkey, mvalue in obj.items():
-            r = var_spool_cwl_detector(cast(CWLOutputType, mvalue), obj, mkey) or r
+            r = var_spool_cwl_detector(mvalue, obj, mkey) or r
     elif isinstance(obj, MutableSequence):
         for lkey, lvalue in enumerate(obj):
-            r = var_spool_cwl_detector(cast(CWLOutputType, lvalue), obj, lkey) or r
+            r = var_spool_cwl_detector(lvalue, obj, lkey) or r
     return r
 
 
@@ -810,11 +810,46 @@ hints:
         tmpdir = ""
         stagedir = ""
 
-        docker_req, _ = self.get_requirement("DockerRequirement")
+        docker_req, docker_required = self.get_requirement("DockerRequirement")
         default_docker = None
+        mpi_req, mpi_required = self.get_requirement(MPIRequirementName)
 
         if docker_req is None and runtime_context.default_container:
             default_docker = runtime_context.default_container
+
+        if (
+            docker_req is not None
+            and runtime_context.use_container
+            and not runtime_context.singularity
+            and not runtime_context.user_space_docker_cmd
+            and mpi_req is not None
+        ):
+            if mpi_required:
+                if docker_required:
+                    raise UnsupportedRequirement(
+                        "No support for DockerRequirement and MPIRequirement "
+                        "both being required, unless Singularity or uDocker is being used."
+                    )
+                else:
+                    _logger.warning(
+                        "MPI has been required while DockerRequirement is hinted "
+                        "and neither Singularity nor uDocker is being used, discarding Docker hint(s)."
+                    )
+                    self.hints = [h for h in self.hints if h["class"] != "DockerRequirement"]
+                    docker_req = None
+                    docker_required = False
+            else:
+                if docker_required:
+                    _logger.warning(
+                        "Docker has been required (and neither Singularity nor "
+                        "uDocker is being used) while MPI is hinted, discarding MPI hint(s)/"
+                    )
+                    self.hints = [h for h in self.hints if h["class"] != MPIRequirementName]
+                else:
+                    raise UnsupportedRequirement(
+                        "Both Docker and MPI have been hinted and neither "
+                        "Singularity nor uDocker are being used - don't know what to do."
+                    )
 
         if (docker_req or default_docker) and runtime_context.use_container:
             if docker_req is not None:
@@ -1074,7 +1109,6 @@ _names: set[str] = set()
 
 def uniquename(stem: str, names: Optional[set[str]] = None) -> str:
     """Construct a thread-unique name using the given stem as a prefix."""
-    global _names
     if names is None:
         names = _names
     c = 1

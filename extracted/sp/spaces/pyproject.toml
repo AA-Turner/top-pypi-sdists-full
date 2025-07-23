@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "spaces"
-version = "0.37.1"
+version = "0.38.1"
 description = "Utilities for Hugging Face Spaces"
 authors = ["Charles Bensimon <charles@huggingface.co>"]
 readme = "README.md"

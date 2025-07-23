@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ob-metaflow
-Version: 2.16.4.2
+Version: 2.16.4.3
 Summary: Metaflow: More AI and ML, Less Engineering
 Author: Netflix, Outerbounds & the Metaflow Community
 Author-email: help@outerbounds.co
@@ -12,7 +12,7 @@ Requires-Dist: boto3
 Requires-Dist: pylint
 Requires-Dist: kubernetes
 Provides-Extra: stubs
-Requires-Dist: metaflow-stubs==2.16.4.2; extra == "stubs"
+Requires-Dist: metaflow-stubs==2.16.4.3; extra == "stubs"
 Dynamic: author
 Dynamic: author-email
 Dynamic: description

@@ -17,6 +17,7 @@ from sqlglot.parser import logger as parser_logger
 from tests.dialects.test_dialect import Validator
 from sqlglot.optimizer.annotate_types import annotate_types
 from sqlglot.optimizer.qualify import qualify
+from sqlglot.optimizer.qualify_tables import qualify_tables
 
 
 class TestBigQuery(Validator):
@@ -1776,12 +1777,6 @@ WHERE
             transpile("DATE_ADD(x, day)", read="bigquery")
 
     def test_warnings(self):
-        with self.assertLogs(parser_logger) as cm:
-            self.validate_identity(
-                "/* some comment */ DECLARE foo DATE DEFAULT DATE_SUB(current_date, INTERVAL 2 day)"
-            )
-            self.assertIn("contains unsupported syntax", cm.output[0])
-
         with self.assertLogs(helper_logger) as cm:
             self.validate_identity(
                 "WITH cte(c) AS (SELECT * FROM t) SELECT * FROM cte",
@@ -2199,6 +2194,28 @@ OPTIONS (
                 "bigquery": "WITH Races AS (SELECT '800M' AS race) SELECT race, participant FROM Races AS r CROSS JOIN UNNEST([STRUCT('Rudisha' AS name, [23.4, 26.3, 26.4, 26.1] AS laps)]) AS participant",
                 "duckdb": "WITH Races AS (SELECT '800M' AS race) SELECT race, participant FROM Races AS r CROSS JOIN (SELECT UNNEST([{'name': 'Rudisha', 'laps': [23.4, 26.3, 26.4, 26.1]}], max_depth => 2)) AS participant",
             },
+        )
+
+    def test_qualified_unnest(self):
+        sql = """
+        SELECT x, ys, zs
+        FROM UNNEST([STRUCT('x' AS x, ['y1', 'y2', 'y3'] AS y, ['z1', 'z2', 'z3'] AS z)]),
+        UNNEST(y) AS ys,
+        UNNEST(z) AS zs
+        """
+        ast = qualify_tables(self.parse_one(sql), dialect="bigquery")
+
+        self.assertEqual(
+            ast.sql("bigquery"),
+            "SELECT x, ys, zs FROM UNNEST([STRUCT('x' AS x, ['y1', 'y2', 'y3'] AS y, ['z1', 'z2', 'z3'] AS z)]) AS _q_0 CROSS JOIN UNNEST(y) AS ys CROSS JOIN UNNEST(z) AS zs",
+        )
+        self.assertEqual(
+            ast.sql("duckdb"),
+            "SELECT x, ys, zs FROM (SELECT UNNEST([{'x': 'x', 'y': ['y1', 'y2', 'y3'], 'z': ['z1', 'z2', 'z3']}], max_depth => 2)) AS _q_0 CROSS JOIN UNNEST(y) AS _q_1(ys) CROSS JOIN UNNEST(z) AS _q_2(zs)",
+        )
+        self.assertEqual(
+            ast.sql("snowflake"),
+            "SELECT _q_0['x'] AS x, ys, zs FROM TABLE(FLATTEN(INPUT => [OBJECT_CONSTRUCT('x', 'x', 'y', ['y1', 'y2', 'y3'], 'z', ['z1', 'z2', 'z3'])])) AS _q_0(seq, key, path, index, _q_0, this) CROSS JOIN TABLE(FLATTEN(INPUT => _q_0['y'])) AS _q_1(seq, key, path, index, ys, this) CROSS JOIN TABLE(FLATTEN(INPUT => _q_0['z'])) AS _q_2(seq, key, path, index, zs, this)",
         )
 
     def test_range_type(self):
@@ -2695,3 +2712,17 @@ OPTIONS (
         self.validate_identity("JSON_ARRAY([])")
         self.validate_identity("JSON_ARRAY(STRUCT(10 AS a, 'foo' AS b))")
         self.validate_identity("JSON_ARRAY(10, ['foo', 'bar'], [20, 30])")
+
+    def test_declare(self):
+        # supported cases
+        self.validate_identity("DECLARE X INT64")
+        self.validate_identity("DECLARE X INT64 DEFAULT 1")
+        self.validate_identity("DECLARE X FLOAT64 DEFAULT 0.9")
+        self.validate_identity("DECLARE X INT64 DEFAULT (SELECT MAX(col) FROM foo)")
+        self.validate_identity("DECLARE X, Y, Z INT64")
+        self.validate_identity("DECLARE X, Y, Z INT64 DEFAULT 42")
+        self.validate_identity("DECLARE X, Y, Z INT64 DEFAULT (SELECT 42)")
+        self.validate_identity("DECLARE START_DATE DATE DEFAULT CURRENT_DATE - 1")
+        self.validate_identity(
+            "DECLARE TS TIMESTAMP DEFAULT CURRENT_TIMESTAMP() - INTERVAL '1' HOUR"
+        )

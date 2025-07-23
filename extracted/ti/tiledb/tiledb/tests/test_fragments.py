@@ -358,7 +358,22 @@ class FragmentInfoTest(DiskTestCase):
 
         self.assertEqual(fragment_info.get_cell_num(), (len(a), len(b)))
 
-    def test_consolidated_fragment_metadata(self):
+    @pytest.mark.parametrize(
+        "consolidate_kwargs",
+        [
+            {
+                "config": tiledb.Config(
+                    params={"sm.consolidation.mode": "fragment_meta"}
+                )
+            },
+            {
+                "ctx": tiledb.Ctx(
+                    config=tiledb.Config({"sm.consolidation.mode": "fragment_meta"})
+                )
+            },
+        ],
+    )
+    def test_consolidated_fragment_metadata(self, consolidate_kwargs):
         fragments = 3
 
         A = np.zeros(fragments)
@@ -381,9 +396,7 @@ class FragmentInfoTest(DiskTestCase):
             fragment_info.get_has_consolidated_metadata(), (False, False, False)
         )
 
-        tiledb.consolidate(
-            uri, config=tiledb.Config(params={"sm.consolidation.mode": "fragment_meta"})
-        )
+        tiledb.consolidate(uri, **consolidate_kwargs)
 
         fragment_info = PyFragmentInfo(uri, schema, False, tiledb.default_ctx())
 
@@ -523,6 +536,35 @@ class FragmentInfoTest(DiskTestCase):
         assert array_fragments[0].mbrs == expected_mbrs[0]
         assert array_fragments[1].mbrs == expected_mbrs[1]
         assert array_fragments[2].mbrs == expected_mbrs[2]
+
+    @pytest.mark.skipif(
+        tiledb.version() <= (0, 34, 0),
+        reason="dump was segfaulting for TileDB-Py 0.34.0 and earlier",
+    )
+    def test_dump(self):
+        uri = self.path("test_dump")
+        dom = tiledb.Domain(tiledb.Dim(domain=(1, 4)))
+        att = tiledb.Attr()
+        schema = tiledb.ArraySchema(sparse=True, domain=dom, attrs=(att,))
+
+        tiledb.SparseArray.create(uri, schema)
+
+        fragment_info = PyFragmentInfo(uri, schema, False, tiledb.default_ctx())
+        self.assertTrue("Fragment num: 0" in fragment_info.dump())
+
+        with tiledb.SparseArray(uri, mode="w") as T:
+            a = np.array([1, 2, 3, 4])
+            T[a] = a
+
+        with tiledb.SparseArray(uri, mode="w") as T:
+            b = np.array([1, 2])
+            T[b] = b
+
+        fragment_info = PyFragmentInfo(uri, schema, False, tiledb.default_ctx())
+        dump_output = fragment_info.dump()
+        self.assertTrue("Fragment num: 2" in dump_output)
+        self.assertTrue("Fragment #1" in dump_output)
+        self.assertTrue("Fragment #2" in dump_output)
 
 
 class CreateArrayFromFragmentsTest(DiskTestCase):

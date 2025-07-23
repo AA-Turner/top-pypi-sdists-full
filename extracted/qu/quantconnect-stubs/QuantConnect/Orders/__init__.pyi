@@ -1999,6 +1999,14 @@ class OrderTicket(System.Object):
         ...
 
     @property
+    def quantity_remaining(self) -> float:
+        """
+        Gets the remaining quantity for this order ticket.
+        This is the difference between the total quantity ordered and the total quantity filled.
+        """
+        ...
+
+    @property
     def time(self) -> datetime.datetime:
         """Gets the time this order was last updated"""
         ...

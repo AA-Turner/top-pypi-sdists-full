@@ -223,8 +223,8 @@ class VICRegLLoss(Module):
         Returns:
             The computed invariance loss from global features.
         """
-        loss = torch.tensor(0.0)
-        loss_count = torch.tensor(0)
+        loss = global_view_features[0][0].new_zeros(1)
+        loss_count = loss.new_zeros(1)
 
         # Compute invariance loss between global views
         for global_features_a, _ in global_view_features:
@@ -261,9 +261,9 @@ class VICRegLLoss(Module):
         if local_view_features is not None:
             view_features = view_features + list(local_view_features)
 
-        var_loss = torch.tensor(0.0)
-        cov_loss = torch.tensor(0.0)
-        loss_count = torch.tensor(0)
+        var_loss = global_view_features[0][0].new_zeros(1)
+        cov_loss = var_loss.new_zeros(1)
+        loss_count = var_loss.new_zeros(1)
         for global_features, _ in view_features:
             if self.gather_distributed and dist.is_initialized():
                 world_size = dist.get_world_size()
@@ -311,8 +311,8 @@ class VICRegLLoss(Module):
         Returns:
             The computed loss from local features based on nearest neighbor matching.
         """
-        loss = torch.tensor(0.0)
-        loss_count = torch.tensor(0)
+        loss = global_view_features[0][0].new_zeros(1)
+        loss_count = loss.new_zeros(1)
 
         # Compute the loss for global views
         for (_, z_a_local_features), grid_a in zip(

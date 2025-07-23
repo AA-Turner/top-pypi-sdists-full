@@ -424,8 +424,14 @@ class ConfigManager:
             'assembly_line_detection': None,
             'anti_spoofing_detection' : None,
             'shelf_inventory' : None,
+            'wound_segmentation': None,
+            'leaf_disease_detection': None,
+            'field_mapping': None,
             'car_part_segmentation': None,
             'lane_detection' : None,
+            'windmill_maintenance': None,
+            'face_emotion': None,
+            'flower_segmentation': None,
         }
 
     def register_config_class(self, usecase: str, config_class: type) -> None:
@@ -437,6 +443,27 @@ class ConfigManager:
         try:
             from ..usecases.license_plate_detection import LicensePlateConfig
             return LicensePlateConfig
+        except ImportError:
+            return None
+    def _get_wound_segmentation_config_class(self):
+        """Get LicensePlateConfig class to avoid circular imports."""
+        try:
+            from ..usecases.wound_segmentation import WoundConfig
+            return WoundConfig
+        except ImportError:
+            return None
+    def _get_leaf_disease_config_class(self):
+        """Get LicensePlateConfig class to avoid circular imports."""
+        try:
+            from ..usecases.leaf_disease import LeafDiseaseDetectionConfig
+            return LeafDiseaseDetectionConfig
+        except ImportError:
+            return None
+    def _get_field_mapping_config_class(self):
+        """Get LicensePlateConfig class to avoid circular imports."""
+        try:
+            from ..usecases.field_mapping import FieldMappingConfig
+            return FieldMappingConfig
         except ImportError:
             return None
 
@@ -720,6 +747,22 @@ class ConfigManager:
             return CarPartSegmentationConfig
         except ImportError:
             return None
+        
+    def windmill_maintenance_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.windmill_maintenance import WindmillMaintenanceConfig
+            return WindmillMaintenanceConfig
+        except ImportError:
+            return None
+    
+    def flower_segmentation_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.flower_segmentation import FlowerConfig
+            return FlowerConfig
+        except ImportError:
+            return None
 
     def create_config(self, usecase: str, category: Optional[str] = None, **kwargs) -> BaseConfig:
         """
@@ -839,6 +882,37 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+        elif usecase == "field_mapping":
+            # Import here to avoid circular import
+            from ..usecases.field_mapping import FieldMappingConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = FieldMappingConfig(
+                category=category or "infrastructure",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
+        elif usecase == "leaf_disease_detection":
+            # Import here to avoid circular import
+            from ..usecases.leaf_disease import LeafDiseaseDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = LeafDiseaseDetectionConfig(
+                category=category or "agriculture",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
         elif usecase == "mask_detection":
             # Import here to avoid circular import
             from ..usecases.mask_detection import MaskDetectionConfig
@@ -896,6 +970,21 @@ class ConfigManager:
                 alert_config = AlertConfig(**alert_config)
 
             config = SolarPanelConfig(
+                category=category or "energy",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        elif usecase == "wound_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.wound_segmentation import WoundConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = WoundConfig(
                 category=category or "energy",
                 usecase=usecase,
                 alert_config=alert_config,
@@ -1430,6 +1519,38 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+        
+        elif usecase == "windmill_maintenance":
+            # Import here to avoid circular import
+            from ..usecases.windmill_maintenance import WindmillMaintenanceConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = WindmillMaintenanceConfig(
+                category=category or "manufacturing",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        
+        elif usecase == "flower_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.flower_segmentation import FlowerConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = FlowerConfig(
+                category=category or "agriculture",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
             
         else:
             raise ConfigValidationError(f"Unknown use case: {usecase}")
@@ -1531,6 +1652,11 @@ class ConfigManager:
             from ..usecases.license_plate_detection import LicensePlateConfig
             default_config = LicensePlateConfig()
             return default_config.to_dict()
+        elif usecase == "field_mapping":
+            # Import here to avoid circular import
+            from ..usecases.field_mapping import FieldMappingConfig
+            default_config = FieldMappingConfig()
+            return default_config.to_dict()
         elif usecase == "parking_space_detection":
             # Import here to avoid circular import
             from ..usecases.parking_space_detection import ParkingSpaceConfig
@@ -1546,6 +1672,12 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.fire_detection import FireSmokeConfig
             default_config = FireSmokeConfig()
+            return default_config.to_dict()
+
+        elif usecase == "wound_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.wound_segmentation import WoundConfig
+            default_config = WoundConfig()
             return default_config.to_dict()
 
         elif usecase == "shoplifting_detection":
@@ -1570,6 +1702,12 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.pothole_segmentation import PotholeConfig
             default_config = PotholeConfig()
+            return default_config.to_dict()
+
+        elif usecase == "leaf_disease_detection":
+            # Import here to avoid circular import
+            from ..usecases.leaf_disease import LeafDiseaseDetectionConfig
+            default_config = LeafDiseaseDetectionConfig()
             return default_config.to_dict()
 
         elif usecase == "vehicle_monitoring":
@@ -1734,6 +1872,16 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.car_part_segmentation import CarPartSegmentationConfig
             default_config = CarPartSegmentationConfig()
+            return default_config.to_dict()
+        elif usecase == "windmill_maintenance":
+            # Import here to avoid circular import
+            from ..usecases.windmill_maintenance import WindmillMaintenanceConfig
+            default_config = WindmillMaintenanceConfig()
+            return default_config.to_dict()
+        elif usecase == "flower_segmentation":
+            # Import here to avoid circular import
+            from ..usecases.flower_segmentation import FlowerConfig
+            default_config = FlowerConfig()
             return default_config.to_dict()
 
         elif usecase not in self._config_classes:

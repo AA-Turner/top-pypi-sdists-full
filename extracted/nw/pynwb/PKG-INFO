@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pynwb
-Version: 3.1.0
+Version: 3.1.1
 Summary: Package for working with Neurodata stored in the NWB format.
 Project-URL: Homepage, https://github.com/NeurodataWithoutBorders/pynwb
 Project-URL: Bug Tracker, https://github.com/NeurodataWithoutBorders/pynwb/issues

@@ -978,6 +978,30 @@ class TestDuckDB(Validator):
         self.validate_identity("SELECT #2, #1 FROM (VALUES (1, 'foo'))")
         self.validate_identity("SELECT #2 AS a, #1 AS b FROM (VALUES (1, 'foo'))")
 
+        self.validate_all(
+            "LIST_CONTAINS([1, 2, NULL], 1)",
+            write={
+                "duckdb": "ARRAY_CONTAINS([1, 2, NULL], 1)",
+                "postgres": "CASE WHEN 1 IS NULL THEN NULL ELSE COALESCE(1 = ANY(ARRAY[1, 2, NULL]), FALSE) END",
+            },
+        )
+        self.validate_all(
+            "LIST_CONTAINS([1, 2, NULL], NULL)",
+            write={
+                "duckdb": "ARRAY_CONTAINS([1, 2, NULL], NULL)",
+                "postgres": "CASE WHEN NULL IS NULL THEN NULL ELSE COALESCE(NULL = ANY(ARRAY[1, 2, NULL]), FALSE) END",
+            },
+        )
+        self.validate_all(
+            "LIST_HAS_ANY([1, 2, 3], [1,2])",
+            write={
+                "duckdb": "[1, 2, 3] && [1, 2]",
+                "postgres": "ARRAY[1, 2, 3] && ARRAY[1, 2]",
+            },
+        )
+        self.validate_identity("LISTAGG(x, ', ')")
+        self.validate_identity("STRING_AGG(x, ', ')", "LISTAGG(x, ', ')")
+
     def test_array_index(self):
         with self.assertLogs(helper_logger) as cm:
             self.validate_all(
@@ -1697,6 +1721,17 @@ class TestDuckDB(Validator):
         self.validate_identity("SET VARIABLE location_map = (SELECT foo FROM bar)")
 
         self.validate_identity("SET VARIABLE my_var TO 30", "SET VARIABLE my_var = 30")
+
+    def test_reset(self):
+        self.validate_identity("RESET threads", check_command_warning=True)
+        self.validate_identity("RESET memory_limit", check_command_warning=True)
+        self.validate_identity("RESET default_collation", check_command_warning=True)
+
+        # Test RESET with scope modifiers
+        self.validate_identity("RESET SESSION threads", check_command_warning=True)
+        self.validate_identity("RESET GLOBAL memory_limit", check_command_warning=True)
+        self.validate_identity("RESET LOCAL threads", check_command_warning=True)
+        self.validate_identity("RESET SESSION default_collation", check_command_warning=True)
 
     def test_map_struct(self):
         self.validate_identity("MAP {1: 'a', 2: 'b'}")

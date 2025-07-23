@@ -8,13 +8,13 @@ use std::num::ParseIntError;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-use anyhow::{bail, format_err, Context, Error, Result};
+use anyhow::{bail, format_err, Context as _, Error, Result};
 use clap::ArgMatches;
 use ini::Ini;
 use lazy_static::lazy_static;
 use log::{debug, info, set_max_level, warn};
 use parking_lot::Mutex;
-use secrecy::ExposeSecret;
+use secrecy::ExposeSecret as _;
 use sentry::types::Dsn;
 
 use crate::constants::CONFIG_INI_FILE_PATH;
@@ -159,7 +159,7 @@ impl Config {
         // Remove all non-user permissions for the newly created file
         #[cfg(not(windows))]
         {
-            use std::os::unix::fs::OpenOptionsExt;
+            use std::os::unix::fs::OpenOptionsExt as _;
             options.mode(0o600);
         }
 
@@ -646,8 +646,7 @@ fn load_cli_config() -> Result<(PathBuf, Ini)> {
 
     let (path, mut rv) = if let Some(project_config_path) = find_project_config_file() {
         let file_desc = format!(
-            "{} file from project path ({})",
-            CONFIG_RC_FILE_NAME,
+            "{CONFIG_RC_FILE_NAME} file from project path ({})",
             project_config_path.display()
         );
         let mut f = fs::File::open(&project_config_path)

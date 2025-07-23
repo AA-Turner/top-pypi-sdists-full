@@ -53,6 +53,37 @@ def rule_frta_2_1_9(
     hook=ValidationHook.XBRL_FINALLY,
     disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
 )
+def rule_frta_2_1_10(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET: [FRTA.2.1.10] All extension taxonomy concepts must have a standard label.
+    """
+    errors = []
+    for concept in val.modelXbrl.qnameConcepts.values():
+        if pluginData.isStandardTaxonomyUrl(concept.modelDocument.uri, val.modelXbrl):
+            continue
+        if not concept.label(XbrlConst.standardLabel, fallbackToQname=False):
+            errors.append(concept)
+    if len(errors) > 0:
+        yield Validation.warning(
+            codes='EDINET.FRTA.2.1.10',  # Not associated with EC5710W code.
+            msg=_("All extension taxonomy concepts must have a standard label. "
+                  "A standard label is not specified for a concept in an "
+                  "extension taxonomy. When adding a concept to an extension taxonomy, "
+                  "please provide Japanese and English labels in the standard, verbose, and "
+                  "documentation roles."),
+            modelObject=errors,
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
 def rule_frta_2_1_11(
         pluginData: PluginValidationDataExtension,
         val: ValidateXbrl,
@@ -121,3 +152,31 @@ def rule_frta_2_1_11(
                     lang=lang,
                     modelObject=concepts,
                 )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_frta_3_1_10(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5710W: [FRTA.3.1.10] Role types defined in the extension taxonomy must have a definition.
+    """
+    errors = []
+    for uri, roleTypes in val.modelXbrl.roleTypes.items():
+        for roleType in roleTypes:
+            if pluginData.isStandardTaxonomyUrl(roleType.document.uri, val.modelXbrl):
+                continue
+            if not roleType.definition:
+                errors.append(roleType)
+    if len(errors) > 0:
+        yield Validation.warning(
+            codes='EDINET.EC5710W.FRTA.3.1.10',
+            msg=_("Role types defined in the extension taxonomy must have a definition."),
+            modelObject=errors,
+        )

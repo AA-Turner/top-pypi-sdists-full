@@ -8,7 +8,7 @@ except ImportError:
 
 import time
 import uuid
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Optional, cast
 
 from posthoganalytics.ai.utils import (
     call_llm_and_track_usage,
@@ -17,6 +17,7 @@ from posthoganalytics.ai.utils import (
     with_privacy_mode,
 )
 from posthoganalytics.client import Client as PostHogClient
+from posthoganalytics import setup
 
 
 class Anthropic(anthropic.Anthropic):
@@ -26,14 +27,14 @@ class Anthropic(anthropic.Anthropic):
 
     _ph_client: PostHogClient
 
-    def __init__(self, posthog_client: PostHogClient, **kwargs):
+    def __init__(self, posthog_client: Optional[PostHogClient] = None, **kwargs):
         """
         Args:
             posthog_client: PostHog client for tracking usage
             **kwargs: Additional arguments passed to the Anthropic client
         """
         super().__init__(**kwargs)
-        self._ph_client = posthog_client
+        self._ph_client = posthog_client or setup()
         self.messages = WrappedMessages(self)
 
 

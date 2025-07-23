@@ -14,6 +14,7 @@ environ["RAY_DEDUP_LOGS"] = "0"
 import ray
 
 from tecton_core import conf
+from tecton_core.data_processing_utils import sort_pyarrow_table_using_duckdb
 from tecton_core.duckdb_factory import DuckDBConfig
 from tecton_core.errors import TectonInternalError
 from tecton_core.query.node_interface import EmptyPartition
@@ -83,8 +84,8 @@ def _write_fragments(input_: pyarrow.Table, partition_key: str, target_partition
                 p2: [p0_2, p1_2, p2_2]
                 p3: [p0_3, p1_3, p2_3]
     """
+    input_sorted = sort_pyarrow_table_using_duckdb(input_, [partition_key])
 
-    input_sorted = input_.sort_by(partition_key)
     count_per_partition = input_sorted.group_by(partition_key).aggregate([(partition_key, "count")]).to_pylist()
     count_per_partition = sorted(count_per_partition, key=lambda r: r[partition_key])
     cumsum = 0

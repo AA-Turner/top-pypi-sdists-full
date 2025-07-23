@@ -32,7 +32,7 @@ def read(*rnames):
 
 setup(
     name='zope.event',
-    version='5.1',
+    version='5.1.1',
     url='https://github.com/zopefoundation/zope.event',
     license='ZPL-2.1',
     description='Very basic event publishing system',
@@ -67,7 +67,7 @@ setup(
     namespace_packages=['zope', ],
     include_package_data=True,
     python_requires='>=3.9',
-    install_requires=['setuptools'],
+    install_requires=['setuptools >= 75.8.2'],
     zip_safe=False,
     extras_require={
         'docs': [

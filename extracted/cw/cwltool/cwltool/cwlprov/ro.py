@@ -668,13 +668,13 @@ class ResearchObject:
                     del structure["path"]
 
             if structure.get("class") == "Directory":
-                # TODO: Generate anonymoys Directory with a "listing"
+                # TODO: Generate anonymous Directory with a "listing"
                 # pointing to the hashed files
                 del structure["location"]
 
             for val in structure.values():
                 try:
-                    self._relativise_files(cast(CWLOutputType, val))
+                    self._relativise_files(val)
                 except OSError:
                     pass
             return
@@ -682,4 +682,4 @@ class ResearchObject:
         if isinstance(structure, MutableSequence):
             for obj in structure:
                 # Recurse and rewrite any nested File objects
-                self._relativise_files(cast(CWLOutputType, obj))
+                self._relativise_files(obj)

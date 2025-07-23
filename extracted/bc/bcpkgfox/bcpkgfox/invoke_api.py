@@ -420,7 +420,6 @@ def login_2fac(driver, certificate, system, token, code_timeout=60):
                         break
 
             if not(code_insertion):
-                mostrar_mensagem('Código WHOOM não chegou dentro do timeout estabelecido')
                 raise TimeoutError('Código WHOOM não chegou dentro do timeout estabelecido')
 
             # Selects the system to access

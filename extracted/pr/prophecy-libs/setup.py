@@ -2,7 +2,7 @@ from setuptools import setup, find_packages
 
 setup(
     name="prophecy-libs",
-    version="2.0.9",
+    version="2.0.11",
     url="https://github.com/SimpleDataLabsInc/prophecy-python-libs",
     packages=find_packages(exclude=["test.*", "test"]),
     package_data={

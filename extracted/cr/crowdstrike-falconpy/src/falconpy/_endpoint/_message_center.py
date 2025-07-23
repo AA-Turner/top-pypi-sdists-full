@@ -126,34 +126,6 @@ _message_center_endpoints = [
     ]
   ],
   [
-    "CreateCase",
-    "POST",
-    "/message-center/entities/case/v1",
-    "create a new case",
-    "message_center",
-    [
-      {
-        "name": "body",
-        "in": "body",
-        "required": True
-      }
-    ]
-  ],
-  [
-    "UpdateCase",
-    "PATCH",
-    "/message-center/entities/case/v1",
-    "update an existing case",
-    "message_center",
-    [
-      {
-        "name": "body",
-        "in": "body",
-        "required": True
-      }
-    ]
-  ],
-  [
     "CreateCaseV2",
     "POST",
     "/message-center/entities/case/v2",
@@ -196,6 +168,8 @@ _message_center_endpoints = [
       },
       {
         "enum": [
+          "activity.type.asc",
+          "activity.type.desc",
           "activity.created_time.asc",
           "activity.created_time.desc"
         ],
@@ -242,6 +216,14 @@ _message_center_endpoints = [
       },
       {
         "enum": [
+          "case.created_time.asc",
+          "case.created_time.desc",
+          "case.last_modified_time.asc",
+          "case.last_modified_time.desc",
+          "case.status.asc",
+          "case.status.desc",
+          "case.type.asc",
+          "case.type.desc",
           "case.id.asc",
           "case.id.desc"
         ],
@@ -256,7 +238,8 @@ _message_center_endpoints = [
         "description": "Optional filter and sort criteria in the form of an FQL query. Allowed filters are: _a "
         "ll\nactivity.body\ncase.aids\ncase.assigner.display_name\ncase.assigner.first_name\ncase.assigner.last_name\nc "
         "ase.assigner.uid\ncase.assigner.uuid\ncase.body\ncase.created_time\ncase.detections.id\ncase.hosts\ncase.id\nc "
-        "ase.incidents.id\ncase.ip_addresses\ncase.key\ncase.last_modified_time\ncase.status\ncase.title\ncase.type",
+        "ase.incidents.id\ncase.ip_addresses\ncase.key\ncase.last_modified_time\ncase.status\ncase.status\ncase.title\n "
+        "case.type",
         "name": "filter",
         "in": "query"
       },

@@ -7,7 +7,7 @@ from typing import Any, Callable
 
 import pytest
 
-from duty.validation import _get_params_caster, cast_arg, to_bool
+from duty._internal.validation import _get_params_caster, cast_arg, to_bool
 from tests.fixtures import validation as valfix
 
 
@@ -46,7 +46,7 @@ def test_bool_casting(value: str, expected: bool) -> None:
     assert to_bool(value) == expected
 
 
-class CustomType1:
+class CustomType1:  # noqa: PLW1641
     """Dummy type to test type-casting."""
 
     def __init__(self, value: str):  # noqa: D107

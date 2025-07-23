@@ -14,7 +14,7 @@ use crate::api::Api;
 use crate::config::Config;
 use crate::constants::DEFAULT_MAX_WAIT;
 use crate::utils::appcenter::{get_appcenter_package, get_react_native_appcenter_release};
-use crate::utils::args::{validate_distribution, ArgExt};
+use crate::utils::args::{validate_distribution, ArgExt as _};
 use crate::utils::file_search::ReleaseFileSearch;
 use crate::utils::file_upload::UploadContext;
 use crate::utils::sourcemaps::SourceMapProcessor;
@@ -209,8 +209,8 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
         Some(dists) => {
             for dist in dists {
                 println!(
-                    "Uploading sourcemaps for release {} distribution {}",
-                    &release, dist
+                    "Uploading sourcemaps for release {} distribution {dist}",
+                    &release
                 );
 
                 processor.upload(&UploadContext {

@@ -38,6 +38,8 @@ from tecton.cli.cli_utils import timestamp_to_string
 from tecton.cli.command import TectonCommand
 from tecton.cli.command import TectonCommandCategory
 from tecton.cli.command import TectonGroup
+from tecton_core.conf import STREAM_INGEST_V2_ENABLED
+from tecton_core.conf import TRANSFORM_SERVER_GROUPS_ENABLED
 from tecton_proto.servergroupservice.server_group_service__client_pb2 import AutoscalingConfig
 from tecton_proto.servergroupservice.server_group_service__client_pb2 import FeatureServerCache
 from tecton_proto.servergroupservice.server_group_service__client_pb2 import FeatureServerGroup
@@ -933,6 +935,7 @@ def delete_feature_server_group_cmd(id: str):
     "ingest-server-group",
     cls=TectonGroup,
     command_category=TectonCommandCategory.INFRA,
+    feature_flag=STREAM_INGEST_V2_ENABLED,
 )
 def ingest_server_group():
     """Provision and manage Ingest Server Groups.
@@ -1086,6 +1089,7 @@ def delete_ingest_server_group_cmd(id: str):
     "transform-server-group",
     cls=TectonGroup,
     command_category=TectonCommandCategory.INFRA,
+    feature_flag=TRANSFORM_SERVER_GROUPS_ENABLED,
 )
 def transform_server_group():
     """Provision and manage Transform Server Groups."""
@@ -1277,7 +1281,7 @@ def logs(id: str, start: Optional[str] = None, end: Optional[str] = None, tail: 
     _display_realtime_logs(server_group_logs)
 
 
-@click.command(name="isg", hidden=True, cls=TectonGroup)
+@click.command(name="isg", hidden=True, cls=TectonGroup, feature_flag=STREAM_INGEST_V2_ENABLED)
 def isg():
     """Provision and manage Ingest Server Groups."""
 
@@ -1289,7 +1293,7 @@ isg.add_command(update_ingest_server_group_cmd)
 isg.add_command(delete_ingest_server_group_cmd)
 
 
-@click.command(name="tsg", hidden=True, cls=TectonGroup)
+@click.command(name="tsg", hidden=True, cls=TectonGroup, feature_flag=TRANSFORM_SERVER_GROUPS_ENABLED)
 def tsg():
     """Provision and manage Transform Server Groups."""
 

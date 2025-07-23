@@ -341,7 +341,7 @@ def globaltimer(kind: Literal["low", "high"] | None = None):
   if kind is None:
     i64 = ir.IntegerType.get_signless(64)
     return llvm.inline_asm(
-        i64, [], "mov.u32  $0,%globaltimer;",
+        i64, [], "mov.u64  $0,%globaltimer;",
         "=l", asm_dialect=0, has_side_effects=True,
     )
   i32 = ir.IntegerType.get_signless(32)
@@ -748,6 +748,16 @@ def warp_barrier():
   nvvm.bar_warp_sync(c(0xffffffff, ir.IntegerType.get_signless(32)))
 
 
+def system_memory_barrier():
+  llvm.inline_asm(
+      ir.Type.parse("!llvm.void"),
+      [],
+      "fence.sys;",
+      "",
+      has_side_effects=True,
+  )
+
+
 @dataclasses.dataclass(frozen=True)
 class BarrierRef:
   base_address: ir.Value
@@ -787,6 +797,8 @@ class BarrierRef:
   def __getitem__(self, offset: ir.Value | int) -> "BarrierRef":
     i32 = ir.IntegerType.get_signless(32)
     if isinstance(offset, int):
+      if offset >= self.num_barriers:
+        raise IndexError(f"Barrier offset {offset} is out of bounds")
       offset = c(offset, i32)
     elif ir.IndexType.isinstance(offset.type):
       offset = arith.index_castui(i32, offset)
@@ -799,23 +811,23 @@ class BarrierRef:
         1,
     )
 
-  def wait_parity(self, parity, for_tensor_core=False):
+  def wait_parity(self, parity, orders_tensor_core=False):
     i32 = ir.IntegerType.get_signless(32)
     ticks = arith.constant(i32, 10000000)
     parity = arith.extui(i32, parity)
     nvvm.mbarrier_try_wait_parity_shared(self.get_ptr(), parity, ticks)
-    if for_tensor_core:
+    if orders_tensor_core:
       llvm.inline_asm(
           ir.Type.parse("!llvm.void"),
           [], "tcgen05.fence::after_thread_sync;", "",
           has_side_effects=True,
       )
 
-  def wait(self, for_tensor_core: bool = False):
+  def wait(self, orders_tensor_core: bool = False):
     parities = memref.load(self.phases, [])
     parity, new_parities = self.update_parities(parities)
     memref.store(new_parities, self.phases, [])
-    self.wait_parity(parity, for_tensor_core)
+    self.wait_parity(parity, orders_tensor_core)
 
   def update_parities(self, parities: ir.Value) -> tuple[ir.Value, ir.Value]:
     i32 = ir.IntegerType.get_signless(32)
@@ -829,21 +841,31 @@ class BarrierRef:
       self,
       arrival_count: int = 1,
       can_complete: bool = True,
-      for_tensor_core: bool = False,
+      orders_tensor_core: bool = False,
+      predicate: ir.Value | None = None,
   ):
     i64 = ir.IntegerType.get_signless(64)
-    if for_tensor_core:
+    if orders_tensor_core:
       llvm.inline_asm(
           ir.Type.parse("!llvm.void"),
           [], "tcgen05.fence::before_thread_sync;", "",
           has_side_effects=True,
       )
     if can_complete:
-      if arrival_count > 1:
-        count = c(arrival_count - 1, ir.IntegerType.get_signless(32))
-        nvvm.mbarrier_arrive_nocomplete_shared(i64, self.get_ptr(), count)
-      nvvm.mbarrier_arrive_shared(i64, self.get_ptr())
+      pred_ptx = pred_constraint = ""
+      if predicate is not None:
+        pred_ptx = "@$2"
+        pred_constraint = ",b"
+      llvm.inline_asm(
+          ir.IntegerType.get_signless(64),
+          [self.get_ptr()] + ([predicate] if predicate is not None else []),
+          f"{pred_ptx} mbarrier.arrive.release.cta.shared::cta.b64 $0, [$1], {arrival_count};",
+          "=l,r" + pred_constraint,
+          has_side_effects=True,
+      )
     else:
+      if predicate is not None:
+        raise NotImplementedError("Predicate not supported for no-complete arrive")
       count = c(arrival_count, ir.IntegerType.get_signless(32))
       nvvm.mbarrier_arrive_nocomplete_shared(i64, self.get_ptr(), count)
 
@@ -904,12 +926,12 @@ class DialectBarrierRef:
   def __getitem__(self, offset: ir.Value | int) -> "DialectBarrierRef":
     return DialectBarrierRef(self.barrier_ref[offset])
 
-  def wait_parity(self, parity, for_tensor_core=False):
-    self.barrier_ref.wait_parity(parity, for_tensor_core)
+  def wait_parity(self, parity, orders_tensor_core=False):
+    self.barrier_ref.wait_parity(parity, orders_tensor_core)
 
-  def wait(self, for_tensor_core: bool = False):
+  def wait(self, orders_tensor_core: bool = False):
     assert self.barrier_ref.phases is not None
-    self.barrier_ref.wait(for_tensor_core)
+    self.barrier_ref.wait(orders_tensor_core)
 
   def update_parities(self, parities: ir.Value) -> tuple[ir.Value, ir.Value]:
     return self.barrier_ref.update_parities(parities)
@@ -1001,12 +1023,12 @@ class CollectiveBarrierRef:
   def __getitem__(self, offset):
     return CollectiveBarrierRef(self.barrier[offset], self.cluster_mask)
 
-  def arrive(self, for_tensor_core: bool = False):
+  def arrive(self, orders_tensor_core: bool = False):
     """Arrives on a barrier in all blocks that share at least one of the coordinates along the collective dimensions.
 
     Note that unlike in arrive, each warpgroup arrives once.
     """
-    if for_tensor_core:
+    if orders_tensor_core:
       llvm.inline_asm(
           ir.Type.parse("!llvm.void"),
           [], "tcgen05.fence::before_thread_sync;", "",
@@ -1538,3 +1560,25 @@ def is_known_divisible(value, divisor, max_depth=10) -> bool:
       )
 
   return False
+
+
+def smem() -> ir.Attribute:
+  """Returns the attribute for the SMEM memory space."""
+  return ir.Attribute.parse("#gpu.address_space<workgroup>")
+
+
+def tmem() -> ir.Attribute:
+  """Returns the attribute for the TMEM memory space."""
+  return ir.Attribute.parse("#mosaic_gpu.tmem")
+
+
+def is_smem_ref(ref: ir.Value | ir.Type) -> bool:
+  """Returns true if the input mem ref or memref type points to SMEM.
+  If the input is not at all of a memref type, raises a ValueError.
+  """
+  if isinstance(ref, ir.Value):
+    ref = ref.type
+  if not ir.MemRefType.isinstance(ref):
+    raise ValueError(f"Expected a memref type but got {ref}")
+  ref = ir.MemRefType(ref)
+  return ref.memory_space is not None and ref.memory_space == smem()

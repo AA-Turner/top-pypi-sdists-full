@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ffmpy
-Version: 0.6.0
+Version: 0.6.1
 Summary: A simple Python wrapper for FFmpeg
 Keywords: ffmpeg,ffprobe,ffplay,ffserver,wrapper,media,audio,video,transcoding
 Author: Andrii Yurchuk

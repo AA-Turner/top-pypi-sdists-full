@@ -104,8 +104,20 @@ class Runner:
                     target = "gway"
                 events.append(watcher(target, on_change=lambda r=reason: shutdown(r)))
         try:
-            while any(thread.is_alive() for thread in self._async_threads):
-                time.sleep(0.1)
+            while True:
+                # Discard finished threads
+                self._async_threads[:] = [t for t in self._async_threads if t.is_alive()]
+
+                if self._async_threads:
+                    time.sleep(0.1)
+                    continue
+
+                # Keep looping if any watcher is still active
+                if any(e and not e.is_set() for e in events):
+                    time.sleep(0.1)
+                    continue
+
+                break
         except KeyboardInterrupt:
             if hasattr(self, "critical"):
                 self.critical("KeyboardInterrupt received. Exiting immediately.")
@@ -240,8 +252,8 @@ def _retry_loop(fn, *, interval, stop_event, label):
         time.sleep(interval)
 
 
-def watch_url(url, on_change, *, 
-              interval=60.0, event="change", resend=False, value=None):
+def watch_url(url, on_change, *,
+              interval=300.0, event="change", resend=False, value=None):
     stop_event = threading.Event()
 
     def _check():
@@ -286,7 +298,7 @@ def watch_url(url, on_change, *,
     return stop_event
 
 
-def watch_pypi_package(package_name, on_change, *, interval=3000.0):
+def watch_pypi_package(package_name, on_change, *, interval=1800.0):
     stop_event = threading.Event()
     url = f"https://pypi.org/pypi/{package_name}/json"
 

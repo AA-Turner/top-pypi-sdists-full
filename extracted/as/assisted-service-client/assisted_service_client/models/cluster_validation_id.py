@@ -68,6 +68,9 @@ class ClusterValidationId(object):
     FENCE_AGENTS_REMEDIATION_REQUIREMENTS_SATISFIED = "fence-agents-remediation-requirements-satisfied"
     NODE_MAINTENANCE_REQUIREMENTS_SATISFIED = "node-maintenance-requirements-satisfied"
     KUBE_DESCHEDULER_REQUIREMENTS_SATISFIED = "kube-descheduler-requirements-satisfied"
+    CLUSTER_OBSERVABILITY_REQUIREMENTS_SATISFIED = "cluster-observability-requirements-satisfied"
+    NUMA_RESOURCES_REQUIREMENTS_SATISFIED = "numa-resources-requirements-satisfied"
+    OADP_REQUIREMENTS_SATISFIED = "oadp-requirements-satisfied"
 
     """
     Attributes:

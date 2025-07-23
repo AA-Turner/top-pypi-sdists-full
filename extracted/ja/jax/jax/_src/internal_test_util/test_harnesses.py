@@ -44,7 +44,7 @@ import os
 from functools import partial
 from typing import Any, NamedTuple, Union
 
-from absl import testing
+from absl.testing import parameterized as absl_parameterized
 import numpy as np
 
 import jax
@@ -400,7 +400,7 @@ def parameterized(harnesses: Iterable[Harness],
   if not cases:
     # We filtered out all the harnesses.
     return jtu.skip_on_devices(jtu.device_under_test())
-  return testing.parameterized.named_parameters(*cases)
+  return absl_parameterized.named_parameters(*cases)
 
 
 ###############################################################################
@@ -3131,7 +3131,7 @@ _make_conv_harness(
 # feature_group_count is supported for enable_xla=False only if we are doing a
 # depthwise convolution, i.e.: in_channels == feature_group_count.
 # See explanation of depthwise convolution at
-# https://www.tensorflow.org/xla/operation_semantics#conv_convolution.
+# https://www.openxla.org/xla/operation_semantics#conv_convolution.
 _make_conv_harness(
     "depthwise2d",
     lhs_shape=(2, 3, 9, 9),  # "NCHW": in_channels == 3

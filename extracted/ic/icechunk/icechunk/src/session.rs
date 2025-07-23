@@ -80,7 +80,7 @@ pub enum SessionErrorKind {
     #[error("invalid snapshot timestamp ordering. parent: `{parent}`, child: `{child}` ")]
     InvalidSnapshotTimestampOrdering { parent: DateTime<Utc>, child: DateTime<Utc> },
     #[error(
-        "snapshot timestamp is invalid: timestamp: `{snapshot_time}`, object store clock: `{object_store_time}` "
+        "snapshot timestamp is invalid, please verify if the machine clock has drifted: local clock: `{snapshot_time}`, object store clock: `{object_store_time}`"
     )]
     InvalidSnapshotTimestamp {
         object_store_time: DateTime<Utc>,
@@ -1177,7 +1177,7 @@ impl Session {
             let current_snapshot =
                 self.asset_manager.fetch_snapshot(&ref_data.snapshot).await?;
             let ancestry = Arc::clone(&self.asset_manager)
-                .snapshot_ancestry(&current_snapshot.id())
+                .snapshot_info_ancestry(&current_snapshot.id())
                 .await?
                 .map_ok(|meta| meta.id);
             let new_commits =

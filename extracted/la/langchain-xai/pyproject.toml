@@ -8,13 +8,13 @@ build-backend = "pdm.backend"
 authors = []
 requires-python = ">=3.9"
 dependencies = [
-    "langchain-openai<0.4,>=0.3.18",
-    "langchain-core<1.0.0,>=0.3.62",
+    "langchain-openai<0.4,>=0.3.28",
+    "langchain-core<1.0.0,>=0.3.70",
     "requests<3,>=2",
     "aiohttp<4,>=3.9.1",
 ]
 name = "langchain-xai"
-version = "0.2.4"
+version = "0.2.5"
 description = "An integration package connecting xAI and LangChain"
 readme = "README.md"
 
@@ -45,7 +45,7 @@ codespell = [
 ]
 test_integration = []
 lint = [
-    "ruff<1.0,>=0.5",
+    "ruff<0.13,>=0.12.2",
 ]
 typing = [
     "mypy<2.0,>=1.10",
@@ -81,6 +81,7 @@ select = [
     "I",
     "D",
     "UP",
+    "S",
 ]
 ignore = [
     "UP007",
@@ -92,6 +93,12 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
     "D",
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "S101",
+    "S311",
 ]
 
 [tool.coverage.run]

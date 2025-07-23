@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytest-excel
-Version: 1.8.0
+Version: 1.8.1
 Summary: pytest plugin for generating excel reports
 Project-URL: Homepage, https://github.com/ssrikanta/pytest-excel
 Project-URL: Source, https://github.com/ssrikanta/pytest-excel

@@ -1,47 +1,52 @@
 Metadata-Version: 2.2
 Name: jax
-Version: 0.6.2
+Version: 0.7.0
 Summary: Differentiate, compile, and transform Numpy code.
 Home-page: https://github.com/jax-ml/jax
 Author: JAX team
 Author-email: jax-dev@google.com
 License: Apache-2.0
 Classifier: Development Status :: 5 - Production/Stable
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Free Threading :: 3 - Stable
-Requires-Python: >=3.10
+Requires-Python: >=3.11
 Description-Content-Type: text/markdown
 License-File: LICENSE
 License-File: AUTHORS
-Requires-Dist: jaxlib<=0.6.2,>=0.6.2
+Requires-Dist: jaxlib<=0.7.0,>=0.7.0
 Requires-Dist: ml_dtypes>=0.5.0
 Requires-Dist: numpy>=1.26
 Requires-Dist: opt_einsum
 Requires-Dist: scipy>=1.12
 Provides-Extra: minimum-jaxlib
-Requires-Dist: jaxlib==0.6.2; extra == "minimum-jaxlib"
+Requires-Dist: jaxlib==0.7.0; extra == "minimum-jaxlib"
 Provides-Extra: cpu
 Provides-Extra: ci
-Requires-Dist: jaxlib==0.6.1; extra == "ci"
+Requires-Dist: jaxlib==0.6.2; extra == "ci"
 Provides-Extra: tpu
-Requires-Dist: jaxlib<=0.6.2,>=0.6.2; extra == "tpu"
-Requires-Dist: libtpu==0.0.17.*; extra == "tpu"
+Requires-Dist: jaxlib<=0.7.0,>=0.7.0; extra == "tpu"
+Requires-Dist: libtpu==0.0.19.*; extra == "tpu"
 Requires-Dist: requests; extra == "tpu"
 Provides-Extra: cuda
-Requires-Dist: jaxlib<=0.6.2,>=0.6.2; extra == "cuda"
-Requires-Dist: jax-cuda12-plugin[with-cuda]<=0.6.2,>=0.6.2; extra == "cuda"
+Requires-Dist: jaxlib<=0.7.0,>=0.7.0; extra == "cuda"
+Requires-Dist: jax-cuda12-plugin[with-cuda]<=0.7.0,>=0.7.0; extra == "cuda"
 Provides-Extra: cuda12
-Requires-Dist: jaxlib<=0.6.2,>=0.6.2; extra == "cuda12"
-Requires-Dist: jax-cuda12-plugin[with-cuda]<=0.6.2,>=0.6.2; extra == "cuda12"
+Requires-Dist: jaxlib<=0.7.0,>=0.7.0; extra == "cuda12"
+Requires-Dist: jax-cuda12-plugin[with-cuda]<=0.7.0,>=0.7.0; extra == "cuda12"
+Provides-Extra: cuda13
+Requires-Dist: jaxlib<=0.7.0,>=0.7.0; extra == "cuda13"
+Requires-Dist: jax-cuda13-plugin[with-cuda]<=0.7.0,>=0.7.0; extra == "cuda13"
 Provides-Extra: cuda12-local
-Requires-Dist: jaxlib<=0.6.2,>=0.6.2; extra == "cuda12-local"
-Requires-Dist: jax-cuda12-plugin<=0.6.2,>=0.6.2; extra == "cuda12-local"
+Requires-Dist: jaxlib<=0.7.0,>=0.7.0; extra == "cuda12-local"
+Requires-Dist: jax-cuda12-plugin<=0.7.0,>=0.7.0; extra == "cuda12-local"
+Provides-Extra: cuda13-local
+Requires-Dist: jaxlib<=0.7.0,>=0.7.0; extra == "cuda13-local"
+Requires-Dist: jax-cuda13-plugin<=0.7.0,>=0.7.0; extra == "cuda13-local"
 Provides-Extra: rocm
-Requires-Dist: jaxlib<=0.6.2,>=0.6.2; extra == "rocm"
-Requires-Dist: jax-rocm60-plugin<=0.6.2,>=0.6.2; extra == "rocm"
+Requires-Dist: jaxlib<=0.7.0,>=0.7.0; extra == "rocm"
+Requires-Dist: jax-rocm60-plugin<=0.7.0,>=0.7.0; extra == "rocm"
 Provides-Extra: k8s
 Requires-Dist: kubernetes; extra == "k8s"
 Provides-Extra: xprof
@@ -86,7 +91,7 @@ derivatives. It supports reverse-mode differentiation (a.k.a. backpropagation)
 via [`jax.grad`](#automatic-differentiation-with-grad) as well as forward-mode differentiation,
 and the two can be composed arbitrarily to any order.
 
-JAX uses [XLA](https://www.tensorflow.org/xla)
+JAX uses [XLA](https://www.openxla.org/xla)
 to compile and scale your NumPy programs on TPUs, GPUs, and other hardware accelerators.
 You can compile your own pure functions with [`jax.jit`](#compilation-with-jit).
 Compilation and automatic differentiation can be composed arbitrarily.

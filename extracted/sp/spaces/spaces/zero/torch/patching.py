@@ -36,6 +36,8 @@ from .utils import empty_like_raw_alloc
 from .types import AliasId
 
 
+PINNED_MEMORY_RATIO_LIMIT = 0.1
+
 OPS_INPUTS_CHECK_NO_RETURN = (
     torch.Tensor.equal,
 )
@@ -55,6 +57,7 @@ _cuda_exchange_device = torch.cuda._exchange_device
 _cuda_available      = torch.cuda.is_available
 _cuda_device_count   = torch.cuda.device_count
 _cuda_current_device = torch.cuda.current_device
+_cuda_synchronize    = torch.cuda.synchronize
 _cuda_get_device_capability   = torch.cuda.get_device_capability
 _cuda_get_device_properties   = torch.cuda.get_device_properties
 _cuda_get_device_name         = torch.cuda.get_device_name
@@ -305,6 +308,7 @@ def patch():
     torch.cuda.is_available   = lambda: True
     torch.cuda.device_count   = lambda: 1
     torch.cuda.current_device = lambda: 0
+    torch.cuda.synchronize    = lambda *args: None
     torch.cuda.get_device_capability = lambda *args, **kwargs: CUDA_DEVICE_CAPABILITY
     torch.cuda.get_device_properties = lambda *args, **kwargs: CUDA_DEVICE_PROPERTIES
     torch.cuda.get_device_name       = lambda *args, **kwargs: CUDA_DEVICE_NAME
@@ -331,6 +335,7 @@ def unpatch():
     torch.cuda.is_available   = _cuda_available
     torch.cuda.device_count   = _cuda_device_count
     torch.cuda.current_device = _cuda_current_device
+    torch.cuda.synchronize    = _cuda_synchronize
     torch.cuda.get_device_capability = _cuda_get_device_capability
     torch.cuda.get_device_properties = _cuda_get_device_properties
     torch.cuda.get_device_name       = _cuda_get_device_name
@@ -394,13 +399,19 @@ def size():
 def _move(callback: Callable[[int]] | None = None):
     callback = callback if callback is not None else lambda _: None
     # CPU -> CUDA
+    pinned_limit = _total_unpacked_size() * PINNED_MEMORY_RATIO_LIMIT
     moved: dict[AliasId, torch.Tensor] = {}
     for fake, original in cuda_aliases.items():
         if original is not None:
             original_id = AliasId.from_tensor(original)
             if original_id not in moved:
-                moved[original_id] = original.cuda()
+                if original.numel() * original.element_size() < pinned_limit:
+                    original_cuda = original.pin_memory().cuda(non_blocking=True)
+                else:
+                    original_cuda = original.cuda()
+                moved[original_id] = original_cuda
                 callback(fake.numel() * fake.element_size())
+    torch.cuda.synchronize()
     for fake, original in cuda_aliases.items():
         if original is not None:
             fake.data = moved[AliasId.from_tensor(original)]

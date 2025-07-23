@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: cwltool
-Version: 3.1.20250110105449
+Version: 3.1.20250715140722
 Summary: Common workflow language reference implementation
 Home-page: https://github.com/common-workflow-language/cwltool
 Download-URL: https://github.com/common-workflow-language/cwltool
@@ -36,20 +36,21 @@ License-File: LICENSE.txt
 Requires-Dist: requests>=2.6.1
 Requires-Dist: ruamel.yaml<0.19,>=0.16
 Requires-Dist: rdflib<7.2.0,>=4.2.2
-Requires-Dist: schema-salad<9,>=8.7
+Requires-Dist: schema-salad<9,>=8.9
 Requires-Dist: prov==1.5.1
 Requires-Dist: mypy-extensions
 Requires-Dist: psutil>=5.6.6
 Requires-Dist: coloredlogs
-Requires-Dist: pydot<3,>=1.4.1
+Requires-Dist: pydot>=1.4.1
 Requires-Dist: argcomplete>=1.12.0
 Requires-Dist: pyparsing!=3.0.2
 Requires-Dist: cwl-utils>=0.32
 Requires-Dist: spython>=0.3.0
 Requires-Dist: rich-argparse
 Provides-Extra: deps
-Requires-Dist: galaxy-tool-util!=23.0.1,!=23.0.2,!=23.0.3,!=23.0.4,!=23.0.5,<24.2,>=22.1.2; extra == "deps"
-Requires-Dist: galaxy-util<24.2; extra == "deps"
+Requires-Dist: galaxy-tool-util!=23.0.1,!=23.0.2,!=23.0.3,!=23.0.4,!=23.0.5,<25.1,>=22.1.2; extra == "deps"
+Requires-Dist: galaxy-util<25.1; extra == "deps"
+Requires-Dist: pillow; extra == "deps"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -57,6 +58,7 @@ Dynamic: description
 Dynamic: description-content-type
 Dynamic: download-url
 Dynamic: home-page
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python

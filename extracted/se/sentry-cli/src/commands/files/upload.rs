@@ -3,7 +3,7 @@
 use std::collections::BTreeMap;
 use std::ffi::OsStr;
 use std::fs;
-use std::io::Read;
+use std::io::Read as _;
 use std::path::Path;
 use std::sync::Arc;
 use std::time::Duration;
@@ -202,7 +202,7 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
             .iter()
             .map(|source| {
                 let local_path = source.path.strip_prefix(&source.base_path).unwrap();
-                let url = format!("{}/{}{}", url_prefix, path_as_url(local_path), url_suffix);
+                let url = format!("{url_prefix}/{}{url_suffix}", path_as_url(local_path));
 
                 (
                     url.clone(),

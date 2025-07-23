@@ -19,29 +19,30 @@ from ..utils import (
 from dataclasses import dataclass, field
 from ..core.config import BaseConfig, AlertConfig, ZoneConfig
 
+
 @dataclass
 class FaceEmotionConfig(BaseConfig):
-    """Configuration for emotion detection use case in Face Emotion Detection."""
+    """Configuration for mask detection use case in mask monitoring."""
     # Smoothing configuration
     enable_smoothing: bool = True
     smoothing_algorithm: str = "observability"  # "window" or "observability"
-    smoothing_window_size: int = 20
-    smoothing_cooldown_frames: int = 5
-    smoothing_confidence_range_factor: float = 0.5
-    
-    # emotion confidence thresholds
+    smoothing_window_size: int = 10
+    smoothing_cooldown_frames: int = 2
+    smoothing_confidence_range_factor: float = 0.3
+
+    #confidence thresholds
     confidence_threshold: float = 0.3
 
-    
-    emotion_categories: List[str] = field(
-        default_factory=lambda: ['angry','happy','sad','surprised']
+    usecase_categories: List[str] = field(
+        default_factory=lambda: ['angry', 'happy', 'sad', 'surprised']
     )
 
-    target_emotion_categories: List[str] = field(
-        default_factory=lambda: ['angry','happy','sad','surprised']
+    target_categories: List[str] = field(
+        default_factory=lambda: ['angry', 'happy', 'sad', 'surprised']
     )
 
     alert_config: Optional[AlertConfig] = None
+
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
             0: "angry",
@@ -51,10 +52,11 @@ class FaceEmotionConfig(BaseConfig):
         }
     )
 
+
 class FaceEmotionUseCase(BaseProcessor):
     def _get_track_ids_info(self, detections: list) -> Dict[str, Any]:
         """
-        Get detailed information about track IDs for emotions (per frame).
+        Get detailed information about track IDs (per frame).
         """
         # Collect all track_ids in this frame
         frame_track_ids = set()
@@ -64,7 +66,7 @@ class FaceEmotionUseCase(BaseProcessor):
                 frame_track_ids.add(tid)
         # Use persistent total set for unique counting
         total_track_ids = set()
-        for s in getattr(self, '_emotion_total_track_ids', {}).values():
+        for s in getattr(self, '_per_category_total_track_ids', {}).values():
             total_track_ids.update(s)
         return {
             "total_count": len(total_track_ids),
@@ -75,79 +77,40 @@ class FaceEmotionUseCase(BaseProcessor):
             "total_frames_processed": getattr(self, '_total_frame_counter', 0)
         }
 
-    @staticmethod
-    def _iou(bbox1, bbox2):
-        """Compute IoU between two bboxes (dicts with xmin/ymin/xmax/ymax)."""
-        x1 = max(bbox1["xmin"], bbox2["xmin"])
-        y1 = max(bbox1["ymin"], bbox2["ymin"])
-        x2 = min(bbox1["xmax"], bbox2["xmax"])
-        y2 = min(bbox1["ymax"], bbox2["ymax"])
-        inter_w = max(0, x2 - x1)
-        inter_h = max(0, y2 - y1)
-        inter_area = inter_w * inter_h
-        area1 = (bbox1["xmax"] - bbox1["xmin"]) * (bbox1["ymax"] - bbox1["ymin"])
-        area2 = (bbox2["xmax"] - bbox2["xmin"]) * (bbox2["ymax"] - bbox2["ymin"])
-        union = area1 + area2 - inter_area
-        if union == 0:
-            return 0.0
-        return inter_area / union
 
-    @staticmethod
-    def _deduplicate_emotions(detections, iou_thresh=0.7):
-        """Suppress duplicate/overlapping emotions with same label and high IoU."""
-        filtered = []
-        used = [False] * len(detections)
-        for i, det in enumerate(detections):
-            if used[i]:
-                continue
-            group = [i]
-            for j in range(i+1, len(detections)):
-                if used[j]:
-                    continue
-                if det.get("category") == detections[j].get("category"):
-                    bbox1 = det.get("bounding_box")
-                    bbox2 = detections[j].get("bounding_box")
-                    if bbox1 and bbox2:
-                        iou = FaceEmotionUseCase._iou(bbox1, bbox2)
-                        if iou > iou_thresh:
-                            used[j] = True
-                            group.append(j)
-            # Keep the highest confidence detection in the group
-            best_idx = max(group, key=lambda idx: detections[idx].get("confidence", 0))
-            filtered.append(detections[best_idx])
-            used[best_idx] = True
-        return filtered
 
-    def _update_emotion_tracking_state(self, detections: list):
+
+
+    def _update_tracking_state(self, detections: list):
         """
-        Track unique emotion track_ids per category for total count after tracking.
+        Track unique categories track_ids per category for total count after tracking.
         Applies canonical ID merging to avoid duplicate counting when the underlying
         tracker loses an object temporarily and assigns a new ID.
         """
         # Lazily initialise storage dicts
-        if not hasattr(self, "_emotion_total_track_ids"):
-            self._emotion_total_track_ids = {cat: set() for cat in self.emotion_categories}
-        self._emotion_current_frame_track_ids = {cat: set() for cat in self.emotion_categories}
+        if not hasattr(self, "_per_category_total_track_ids"):
+            self._per_category_total_track_ids = {cat: set() for cat in self.target_categories}
+        self._current_frame_track_ids = {cat: set() for cat in self.target_categories}
 
         for det in detections:
             cat = det.get("category")
             raw_track_id = det.get("track_id")
-            if cat not in self.emotion_categories or raw_track_id is None:
+            if cat not in self.target_categories or raw_track_id is None:
                 continue
             bbox = det.get("bounding_box", det.get("bbox"))
             canonical_id = self._merge_or_register_track(raw_track_id, bbox)
             # Propagate canonical ID back to detection so downstream logic uses it
             det["track_id"] = canonical_id
 
-            self._emotion_total_track_ids.setdefault(cat, set()).add(canonical_id)
-            self._emotion_current_frame_track_ids[cat].add(canonical_id)
+            self._per_category_total_track_ids.setdefault(cat, set()).add(canonical_id)
+            self._current_frame_track_ids[cat].add(canonical_id)
 
-    def get_total_emotion_counts(self):
+    def get_total_counts(self):
         """
-        Return total unique track_id count for each emotion category.
+        Return total unique track_id count for each category.
         """
-        return {cat: len(ids) for cat, ids in getattr(self, '_emotion_total_track_ids', {}).items()}
-    
+        return {cat: len(ids) for cat, ids in getattr(self, '_per_category_total_track_ids', {}).items()}
+
     def _format_timestamp_for_video(self, timestamp: float) -> str:
         """Format timestamp for video chunks (HH:MM:SS.ms format)."""
         hours = int(timestamp // 3600)
@@ -164,14 +127,14 @@ class FaceEmotionUseCase(BaseProcessor):
         """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
-        
+
         is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        
+
         # if is_video_chunk:
         #     # For video chunks, use video_timestamp from stream_info
         #     video_timestamp = stream_info.get("video_timestamp", 0.0)
         #     return self._format_timestamp_for_video(video_timestamp)
-        if stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
             # If video format, return video timestamp
             stream_time_str = stream_info.get("video_timestamp", "")
             return stream_time_str[:8]
@@ -196,13 +159,13 @@ class FaceEmotionUseCase(BaseProcessor):
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
-        
+
         is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        
+
         if is_video_chunk:
             # For video chunks, start from 00:00:00
             return "00:00:00"
-        elif stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+        elif stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
             # If video format, start from 00:00:00
             return "00:00:00"
         else:
@@ -221,27 +184,29 @@ class FaceEmotionUseCase(BaseProcessor):
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()
-            
+
             dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
             # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
             dt = dt.replace(minute=0, second=0, microsecond=0)
             return dt.strftime('%Y:%m:%d %H:%M:%S')
 
-    """Face Emotion Detection use case with emotion smoothing and alerting."""
+    """ Monitoring use case with smoothing and alerting."""
 
     def __init__(self):
         super().__init__("face_emotion")
         self.category = "general"
-        
-        # List of emotion categories to track
-        self.emotion_categories = ['angry','happy','sad','surprised']
-        
+
+        # List of  categories to track
+        self.target_categories = ["angry", "happy", "sad", "surprised"]
+
+
+
         # Initialize smoothing tracker
         self.smoothing_tracker = None
-        
+
         # Initialize advanced tracker (will be created on first use)
         self.tracker = None
-        
+
         # Initialize tracking state variables
         self._total_frame_counter = 0
         self._global_frame_offset = 0
@@ -259,19 +224,21 @@ class FaceEmotionUseCase(BaseProcessor):
         self._track_aliases: Dict[Any, Any] = {}
         self._canonical_tracks: Dict[Any, Dict[str, Any]] = {}
         # Tunable parameters – adjust if necessary for specific scenarios
-        self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 → same emotion
-        self._track_merge_time_window: float = 7.0    # seconds within which to merge
+        self._track_merge_iou_threshold: float = 0.05  # IoU ≥ 0.05 →
+        self._track_merge_time_window: float = 7.0  # seconds within which to merge
 
-    def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
+    def process(self, data: Any, config: ConfigProtocol, context: Optional[ProcessingContext] = None,
+                stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
         """
-        Main entry point for Face Emotion Detection post-processing.
-        Applies category mapping, emotion smoothing, counting, alerting, and summary generation.
+        Main entry point for  post-processing.
+        Applies category mapping, smoothing, counting, alerting, and summary generation.
         Returns a ProcessingResult with all relevant outputs.
         """
         start_time = time.time()
         # Ensure config is correct type
         if not isinstance(config, FaceEmotionConfig):
-            return self.create_error_result("Invalid config type", usecase=self.name, category=self.category, context=context)
+            return self.create_error_result("Invalid config type", usecase=self.name, category=self.category,
+                                            context=context)
         if context is None:
             context = ProcessingContext()
 
@@ -281,21 +248,20 @@ class FaceEmotionUseCase(BaseProcessor):
         context.confidence_threshold = config.confidence_threshold
 
         if config.confidence_threshold is not None:
-                processed_data = filter_by_confidence(data, config.confidence_threshold)
-                self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
+            processed_data = filter_by_confidence(data, config.confidence_threshold)
+            self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
         else:
-                processed_data = data
-                self.logger.debug(f"Did not apply confidence filtering with threshold since nothing was provided")
-            
+            processed_data = data
+            self.logger.debug(f"Did not apply confidence filtering with threshold since nothing was provided")
+
         # Step 2: Apply category mapping if provided
         if config.index_to_category:
-                processed_data = apply_category_mapping(processed_data, config.index_to_category)
-                self.logger.debug("Applied category mapping")
+            processed_data = apply_category_mapping(processed_data, config.index_to_category)
+            self.logger.debug("Applied category mapping")
 
-
-        if config.target_emotion_categories:
-                processed_data = [d for d in processed_data if d.get('category') in self.emotion_categories]
-                self.logger.debug(f"Applied emotion category filtering")
+        if config.target_categories:
+            processed_data = [d for d in processed_data if d.get('category') in self.target_categories]
+            self.logger.debug(f"Applied  category filtering")
 
         # Apply bbox smoothing if enabled
         if config.enable_smoothing:
@@ -309,34 +275,34 @@ class FaceEmotionUseCase(BaseProcessor):
                     enable_smoothing=True
                 )
                 self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-            smoothed_emotions = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
-            processed_data = smoothed_emotions
+            processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
+
 
         # Advanced tracking (BYTETracker-like)
         try:
             from ..advanced_tracker import AdvancedTracker
             from ..advanced_tracker.config import TrackerConfig
-            
+
             # Create tracker instance if it doesn't exist (preserves state across frames)
             if self.tracker is None:
                 tracker_config = TrackerConfig()
                 self.tracker = AdvancedTracker(tracker_config)
-                self.logger.info("Initialized AdvancedTracker for Face Emotion Detection and tracking")
-            
+                self.logger.info("Initialized AdvancedTracker for  Monitoring and tracking")
+
             # The tracker expects the data in the same format as input
             # It will add track_id and frame_id to each detection
             processed_data = self.tracker.update(processed_data)
-            
+
         except Exception as e:
             # If advanced tracker fails, fallback to unsmoothed detections
             self.logger.warning(f"AdvancedTracker failed: {e}")
 
-        # Deduplicate overlapping emotions (same label, high IoU)
-        processed_data = self._deduplicate_emotions(processed_data, iou_thresh=0.95)
 
-        # Update emotion tracking state for total count per label
-        self._update_emotion_tracking_state(processed_data)
-        
+
+
+        # Update  tracking state for total count per label
+        self._update_tracking_state(processed_data)
+
         # Update frame counter
         self._total_frame_counter += 1
 
@@ -351,19 +317,20 @@ class FaceEmotionUseCase(BaseProcessor):
                 frame_number = start_frame
 
         # Compute summaries and alerts
-        general_counting_summary = calculate_counting_summary(data)
-        counting_summary = self._count_categories(processed_data, config)
-        # Add total unique emotion counts after tracking using only local state
-        total_emotion_counts = self.get_total_emotion_counts()
-        counting_summary['total_emotion_counts'] = total_emotion_counts
-        insights = self._generate_insights(counting_summary, config)
-        alerts = self._check_alerts(counting_summary, config)
-        predictions = self._extract_predictions(processed_data)
-        summary = self._generate_summary(counting_summary, alerts)
+        general_counting_summary = calculate_counting_summary(data) #done
+        counting_summary = self._count_categories(processed_data, config) #done
+        # Add total unique  counts after tracking using only local state
+        total_counts = self.get_total_counts() #done
+        counting_summary['total_counts'] = total_counts #done
+        insights = self._generate_insights(counting_summary, config)#done
+        alerts = self._check_alerts(counting_summary, config)#done
+        predictions = self._extract_predictions(processed_data)#done
+        summary = self._generate_summary(counting_summary, alerts)#done
 
         # Step: Generate structured events and tracking stats with frame-based keys
-        events_list = self._generate_events(counting_summary, alerts, config, frame_number,stream_info)
-        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number,stream_info)
+        events_list = self._generate_events(counting_summary, alerts, config, frame_number, stream_info)#done
+        tracking_stats_list = self._generate_tracking_stats(counting_summary, insights, summary, config, frame_number,
+                                                            stream_info)
 
         # Extract frame-based dictionaries from the lists
         events = events_list[0] if events_list else {}
@@ -377,7 +344,7 @@ class FaceEmotionUseCase(BaseProcessor):
                 "counting_summary": counting_summary,
                 "general_counting_summary": general_counting_summary,
                 "alerts": alerts,
-                "total_emotions": counting_summary.get("total_count", 0),
+                "total_detections": counting_summary.get("total_count", 0),
                 "events": events,
                 "tracking_stats": tracking_stats,
             },
@@ -389,42 +356,12 @@ class FaceEmotionUseCase(BaseProcessor):
         result.insights = insights
         result.predictions = predictions
         return result
-    
-    def reset_tracker(self) -> None:
-        """
-        Reset the advanced tracker instance.
-        
-        This should be called when:
-        - Starting a completely new tracking session
-        - Switching to a different video/stream
-        - Manual reset requested by user
-        """
-        if self.tracker is not None:
-            self.tracker.reset()
-            self.logger.info("AdvancedTracker reset for new tracking session")
-    
-    def reset_emotion_tracking(self) -> None:
-        """
-        Reset emotion tracking state (total counts, track IDs, etc.).
-        """
-        self._emotion_total_track_ids = {cat: set() for cat in self.emotion_categories}
-        self._total_frame_counter = 0
-        self._global_frame_offset = 0
-        self._tracking_start_time = None
-        # Also clear canonical tracking structures
-        self._track_aliases.clear()
-        self._canonical_tracks.clear()
-        self.logger.info("Face Emotion Detection tracking state reset")
-    
-    def reset_all_tracking(self) -> None:
-        """
-        Reset both advanced tracker and emotion tracking state.
-        """
-        self.reset_tracker()
-        self.reset_emotion_tracking()
-        self.logger.info("All emotions tracking state reset")
-        
-    def _generate_events(self, counting_summary: Dict, alerts: List, config: FaceEmotionConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+
+
+
+    def _generate_events(self, counting_summary: Dict, alerts: List, config: FaceEmotionConfig,
+                         frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[
+        Dict]:
         """Generate structured events for the output format with frame-based keys."""
         from datetime import datetime, timezone
 
@@ -432,16 +369,16 @@ class FaceEmotionUseCase(BaseProcessor):
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         events = [{frame_key: []}]
         frame_events = events[0][frame_key]
-        total_emotions = counting_summary.get("total_count", 0)
+        total_detections = counting_summary.get("total_count", 0)
 
-        if total_emotions > 0:
+        if total_detections > 0:
             # Determine event level based on thresholds
             level = "info"
             intensity = 5.0
             if config.alert_config and config.alert_config.count_thresholds:
                 threshold = config.alert_config.count_thresholds.get("all", 15)
-                intensity = min(10.0, (total_emotions / threshold) * 10)
-                
+                intensity = min(10.0, (total_detections / threshold) * 10)
+
                 if intensity >= 7:
                     level = "critical"
                 elif intensity >= 5:
@@ -449,19 +386,19 @@ class FaceEmotionUseCase(BaseProcessor):
                 else:
                     level = "info"
             else:
-                if total_emotions > 25:
+                if total_detections > 25:
                     level = "critical"
                     intensity = 9.0
-                elif total_emotions > 15:
-                    level = "warning" 
+                elif total_detections > 15:
+                    level = "warning"
                     intensity = 7.0
                 else:
                     level = "info"
-                    intensity = min(10.0, total_emotions / 3.0)
+                    intensity = min(10.0, total_detections / 3.0)
 
             # Generate human text in new format
             human_text_lines = ["EVENTS DETECTED:"]
-            human_text_lines.append(f"\t- {total_emotions} emotion(s) detected [INFO]")
+            human_text_lines.append(f"    - {total_detections}  detected [INFO]")
             human_text = "\n".join(human_text_lines)
 
             event = {
@@ -474,7 +411,7 @@ class FaceEmotionUseCase(BaseProcessor):
                     "max_value": 10,
                     "level_settings": {"info": 2, "warning": 5, "critical": 7}
                 },
-                "application_name": "Face Emotion Detection System",
+                "application_name": "face emotion detection System",
                 "application_version": "1.2",
                 "location_info": None,
                 "human_text": human_text
@@ -483,26 +420,26 @@ class FaceEmotionUseCase(BaseProcessor):
 
         # Add alert events
         for alert in alerts:
-            total_emotions = counting_summary.get("total_count", 0)
-            intensity_message = "ALERT: Low emotion in the scene"
+            total_detections = counting_summary.get("total_count", 0)
+            intensity_message = "ALERT: Low congestion in the scene"
             if config.alert_config and config.alert_config.count_thresholds:
                 threshold = config.alert_config.count_thresholds.get("all", 15)
-                percentage = (total_emotions / threshold) * 100 if threshold > 0 else 0
+                percentage = (total_detections / threshold) * 100 if threshold > 0 else 0
                 if percentage < 20:
-                    intensity_message = "ALERT: Low emotion in the scene"
+                    intensity_message = "ALERT: Low congestion in the scene"
                 elif percentage <= 50:
-                    intensity_message = "ALERT: Moderate emotion in the scene"
+                    intensity_message = "ALERT: Moderate congestion in the scene"
                 elif percentage <= 70:
-                    intensity_message = "ALERT: Heavy emotion in the scene"
+                    intensity_message = "ALERT: Heavy congestion in the scene"
                 else:
-                    intensity_message = "ALERT: Severe emotion in the scene"
+                    intensity_message = "ALERT: Severe congestion in the scene"
             else:
-                if total_emotions > 15:
-                    intensity_message = "ALERT: Heavy emotion in the scene"
-                elif total_emotions == 1:
-                    intensity_message = "ALERT: Low emotion in the scene"
+                if total_detections > 15:
+                    intensity_message = "ALERT: Heavy congestion in the scene"
+                elif total_detections == 1:
+                    intensity_message = "ALERT: Low congestion in the scene"
                 else:
-                    intensity_message = "ALERT: Moderate emotion in the scene"
+                    intensity_message = "ALERT: Moderate congestion in the scene"
 
             alert_event = {
                 "type": alert.get("type", "congestion_alert"),
@@ -517,7 +454,7 @@ class FaceEmotionUseCase(BaseProcessor):
                 "application_name": "Congestion Alert System",
                 "application_version": "1.2",
                 "location_info": alert.get("zone"),
-                "human_text": f"{intensity_message}"
+                "human_text": f"{datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')} : {intensity_message}"
             }
             frame_events.append(alert_event)
 
@@ -533,17 +470,14 @@ class FaceEmotionUseCase(BaseProcessor):
             stream_info: Optional[Dict[str, Any]] = None
     ) -> List[Dict]:
         """Generate structured tracking stats for the output format with frame-based keys, including track_ids_info."""
-
-
         frame_key = str(frame_number) if frame_number is not None else "current_frame"
         tracking_stats = [{frame_key: []}]
         frame_tracking_stats = tracking_stats[0][frame_key]
 
-        total_emotions = counting_summary.get("total_count", 0)
-        total_emotion_counts = counting_summary.get("total_emotion_counts", {})
-        cumulative_total = sum(total_emotion_counts.values()) if total_emotion_counts else 0
+        total_detections = counting_summary.get("total_count", 0)
+        total_counts = counting_summary.get("total_counts", {})
+        cumulative_total = sum(total_counts.values()) if total_counts else 0
         per_category_count = counting_summary.get("per_category_count", {})
-
 
         track_ids_info = self._get_track_ids_info(counting_summary.get("detections", []))
 
@@ -554,35 +488,35 @@ class FaceEmotionUseCase(BaseProcessor):
 
         # CURRENT FRAME section
         human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-        if total_emotions > 0:
-            category_counts = [f"\t{count} {cat}" for cat, count in per_category_count.items()]
+        if total_detections > 0:
+            category_counts = [f"{count} {cat}" for cat, count in per_category_count.items()]
             if len(category_counts) == 1:
-                emotions_text = f"\t{category_counts[0]} detected"
+                detection_text = category_counts[0] + " detected"
             elif len(category_counts) == 2:
-                emotions_text = f"\t{category_counts[0]} and {category_counts[1]} detected"
+                detection_text = f"{category_counts[0]} and {category_counts[1]} detected"
             else:
-                emotions_text = f"\t{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
-            human_text_lines.append(f"\t- {emotions_text}")
+                detection_text = f"{', '.join(category_counts[:-1])}, and {category_counts[-1]} detected"
+            human_text_lines.append(f"\t- {detection_text}")
         else:
-            human_text_lines.append(f"\t- No emotions detected")
+            human_text_lines.append(f"\t- No detections")
 
         human_text_lines.append("")  # spacing
 
         # TOTAL SINCE section
         human_text_lines.append(f"TOTAL SINCE {start_timestamp}:")
-        human_text_lines.append(f"\t- Total emotions Detected: {cumulative_total}")
-        # Add category-wise emotion counts
-        if total_emotion_counts:
-            for cat, count in total_emotion_counts.items():
+        human_text_lines.append(f"\t- Total  Detected: {cumulative_total}")
+        # Add category-wise counts
+        if total_counts:
+            for cat, count in total_counts.items():
                 if count > 0:  # Only include categories with non-zero counts
                     human_text_lines.append(f"\t- {cat}: {count}")
 
         human_text = "\n".join(human_text_lines)
 
         tracking_stat = {
-            "type": "face_tracking",
-            "category": "face",
-            "count": total_emotions,
+            "type": "face_emotion",
+            "category": "general",
+            "count": total_detections,
             "insights": insights,
             "summary": summary,
             "timestamp": datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC'),
@@ -590,7 +524,7 @@ class FaceEmotionUseCase(BaseProcessor):
             "track_ids_info": track_ids_info,
             "global_frame_offset": getattr(self, '_global_frame_offset', 0),
             "local_frame_id": frame_key,
-            "detections": counting_summary.get("detections", []) 
+            "detections": counting_summary.get("detections", [])  # Added line to include detections
         }
 
         frame_tracking_stats.append(tracking_stat)
@@ -622,51 +556,46 @@ class FaceEmotionUseCase(BaseProcessor):
             ]
         }
 
-    # Human-friendly display names for emotion categories
+    # Human-friendly display names for  categories
     CATEGORY_DISPLAY = {
-        "Angry":"angry",
-        "Happy":"happy",
-        "Sad":"sad",
-        "Surprised": "surprised",
-        }
+        "angry": "angry",
+        "happy": "happy",
+        "sad": "sad",
+        "surprised": "surprised",
+    }
 
     def _generate_insights(self, summary: dict, config: FaceEmotionConfig) -> List[str]:
         """
-        Generate human-readable insights for each emotion category.
+        Generate human-readable insights for each category.
         """
         insights = []
         per_cat = summary.get("per_category_count", {})
-        total_emotions = summary.get("total_count", 0)
+        total_detections = summary.get("total_count", 0)
 
-        if total_emotions == 0:
-            insights.append("No emotions detected in the scene")
+        if total_detections == 0:
+            insights.append("No detections in the scene")
             return insights
-        insights.append(f"EVENT: Detected {total_emotions} emotions in the scene")
+        insights.append(f"EVENT: Detected {total_detections}  in the scene")
         # Intensity calculation based on threshold percentage
         intensity_threshold = None
-        if (config.alert_config and 
-            config.alert_config.count_thresholds and 
-            "all" in config.alert_config.count_thresholds):
+        if (config.alert_config and
+                config.alert_config.count_thresholds and
+                "all" in config.alert_config.count_thresholds):
             intensity_threshold = config.alert_config.count_thresholds["all"]
-        
+
         if intensity_threshold is not None:
             # Calculate percentage relative to threshold
-            percentage = (total_emotions / intensity_threshold) * 100
-            
+            percentage = (total_detections / intensity_threshold) * 100
+
             if percentage < 20:
-                insights.append(f"INTENSITY: Low emotion in the scene ({percentage:.1f}% of capacity)")
+                insights.append(f"INTENSITY: Low congestion in the scene ({percentage:.1f}% of capacity)")
             elif percentage <= 50:
-                insights.append(f"INTENSITY: Moderate emotion in the scene ({percentage:.1f}% of capacity)")
+                insights.append(f"INTENSITY: Moderate congestion in the scene ({percentage:.1f}% of capacity)")
             elif percentage <= 70:
-                insights.append(f"INTENSITY:  Heavy emotion in the scene ({percentage:.1f}% of capacity)")
+                insights.append(f"INTENSITY:  Heavy congestion in the scene ({percentage:.1f}% of capacity)")
             else:
-                insights.append(f"INTENSITY: Severe emotion in the scene ({percentage:.1f}% of capacity)")
-        # else:
-        #     # Fallback to hardcoded thresholds if no alert config is set
-        #     if total_emotions > 15:
-        #         insights.append(f"INTENSITY: Heavy congestion in the scene with {total_emotions} emotions")
-        #     elif total_emotions == 1:
-        #         insights.append(f"INTENSITY: Low congestion in the scene")
+                insights.append(f"INTENSITY: Severe congestion in the scene ({percentage:.1f}% of capacity)")
+
 
         for cat, count in per_cat.items():
             display = self.CATEGORY_DISPLAY.get(cat, cat)
@@ -685,14 +614,14 @@ class FaceEmotionUseCase(BaseProcessor):
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total >= threshold:
                     timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')
-                    alert_description = f"emotions count ({total}) exceeds threshold ({threshold})"
+                    alert_description = f"detections count ({total}) exceeds threshold ({threshold})"
                     alerts.append({
-                    "type": "count_threshold",
-                    "severity": "warning",
-                    "message": f"Total emotion count ({total}) exceeds threshold ({threshold})",
-                    "category": category,
-                    "current_count": total,
-                    "threshold": threshold
+                        "type": "count_threshold",
+                        "severity": "warning",
+                        "message": f"Total detections count ({total}) exceeds threshold ({threshold})",
+                        "category": category,
+                        "current_count": total,
+                        "threshold": threshold
                     })
                 elif category in summary.get("per_category_count", {}):
                     count = summary.get("per_category_count", {})[category]
@@ -723,23 +652,23 @@ class FaceEmotionUseCase(BaseProcessor):
     def _generate_summary(self, summary: dict, alerts: List) -> str:
         """
         Generate a human_text string for the result, including per-category insights if available.
-        Adds a tab before each emotion label for better formatting.
-        Also always includes the cumulative emotion count so far.
+        Adds a tab before each  label for better formatting.
+        Also always includes the cumulative count so far.
         """
         total = summary.get("total_count", 0)
         per_cat = summary.get("per_category_count", {})
-        cumulative = summary.get("total_emotion_counts", {}) 
+        cumulative = summary.get("total_counts", {})
         cumulative_total = sum(cumulative.values()) if cumulative else 0
         lines = []
         if total > 0:
-            lines.append(f"{total} emotion(s) detected")
+            lines.append(f"{total} detections")
             if per_cat:
-                lines.append("emotions:")
+                lines.append("detections:")
                 for cat, count in per_cat.items():
                     lines.append(f"\t{cat}:{count}")
         else:
-            lines.append("No emotion detected")
-        lines.append(f"Total emotions detected: {cumulative_total}")
+            lines.append("No  detections")
+        lines.append(f"Total detections: {cumulative_total}")
         if alerts:
             lines.append(f"{len(alerts)} alert(s)")
         return "\n".join(lines)
@@ -750,6 +679,7 @@ class FaceEmotionUseCase(BaseProcessor):
     def _compute_iou(self, box1: Any, box2: Any) -> float:
         """Compute IoU between two bounding boxes which may be dicts or lists.
         Falls back to 0 when insufficient data is available."""
+
         # Helper to convert bbox (dict or list) to [x1, y1, x2, y2]
         def _bbox_to_list(bbox):
             if bbox is None:
@@ -797,7 +727,7 @@ class FaceEmotionUseCase(BaseProcessor):
     def _merge_or_register_track(self, raw_id: Any, bbox: Any) -> Any:
         """Return a stable canonical ID for a raw tracker ID, merging fragmented
         tracks when IoU and temporal constraints indicate they represent the
-        same physical emotion."""
+        same physical."""
         if raw_id is None or bbox is None:
             # Nothing to merge
             return raw_id
@@ -837,7 +767,7 @@ class FaceEmotionUseCase(BaseProcessor):
             "raw_ids": {raw_id},
         }
         return canonical_id
-    
+
     def _format_timestamp(self, timestamp: float) -> str:
         """Format a timestamp for human-readable output."""
         return datetime.fromtimestamp(timestamp, timezone.utc).strftime('%Y-%m-%d %H:%M:%S UTC')

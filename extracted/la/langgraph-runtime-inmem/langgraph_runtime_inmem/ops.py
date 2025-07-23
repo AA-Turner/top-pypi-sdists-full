@@ -2023,6 +2023,8 @@ class Runs(Authenticated):
 
         stream_manager = get_stream_manager()
         coros = []
+        cancelable_runs = []
+        
         for run in candidate_runs:
             run_id = run["run_id"]
             control_message = Message(
@@ -2034,6 +2036,7 @@ class Runs(Authenticated):
             queues = stream_manager.get_queues(run_id)
 
             if run["status"] in ("pending", "running"):
+                cancelable_runs.append(run)
                 if queues or action != "rollback":
                     if run["status"] == "pending":
                         thread = next(
@@ -2063,12 +2066,18 @@ class Runs(Authenticated):
                     status=run["status"],
                 )
 
+        if not cancelable_runs:
+            raise HTTPException(
+                status_code=404,
+                detail="No matching runs to cancel. Please verify the thread ID and run IDs are correct, and the runs haven't been deleted or completed.",
+            )
+
         if coros:
             await asyncio.gather(*coros)
 
         await logger.ainfo(
             "Cancelled runs",
-            run_ids=[str(r["run_id"]) for r in candidate_runs],
+            run_ids=[str(r["run_id"]) for r in cancelable_runs],
             thread_id=str(thread_id) if thread_id else None,
             status=status,
             action=action,

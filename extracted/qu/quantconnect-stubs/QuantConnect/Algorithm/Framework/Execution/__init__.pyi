@@ -33,6 +33,23 @@ class IExecutionModel(QuantConnect.Algorithm.Framework.INotifiedSecurityChanges,
 class ExecutionModel(System.Object, QuantConnect.Algorithm.Framework.Execution.IExecutionModel):
     """Provides a base class for execution models"""
 
+    @property
+    def asynchronous(self) -> bool:
+        """
+        If true, orders should be submitted asynchronously.
+        
+        This property is protected.
+        """
+        ...
+
+    def __init__(self, asynchronous: bool = True) -> None:
+        """
+        Initializes a new instance of the ExecutionModel class.
+        
+        :param asynchronous: If true, orders should be submitted asynchronously
+        """
+        ...
+
     def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
         """
         Submit orders for the specified portfolio targets.
@@ -102,6 +119,14 @@ class ImmediateExecutionModel(QuantConnect.Algorithm.Framework.Execution.Executi
     Provides an implementation of IExecutionModel that immediately submits
     market orders to achieve the desired portfolio targets
     """
+
+    def __init__(self, asynchronous: bool = True) -> None:
+        """
+        Initializes a new instance of the ImmediateExecutionModel class.
+        
+        :param asynchronous: If true, orders will be submitted asynchronously
+        """
+        ...
 
     def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
         """
@@ -179,13 +204,14 @@ class StandardDeviationExecutionModel(QuantConnect.Algorithm.Framework.Execution
     def maximum_order_value(self, value: float) -> None:
         ...
 
-    def __init__(self, period: int = 60, deviations: float = 2, resolution: QuantConnect.Resolution = ...) -> None:
+    def __init__(self, period: int = 60, deviations: float = 2, resolution: QuantConnect.Resolution = ..., asynchronous: bool = True) -> None:
         """
         Initializes a new instance of the StandardDeviationExecutionModel class
         
         :param period: Period of the standard deviation indicator
         :param deviations: The number of deviations away from the mean before submitting an order
         :param resolution: The resolution of the STD and SMA indicators
+        :param asynchronous: If true, orders should be submitted asynchronously
         """
         ...
 
@@ -268,6 +294,14 @@ class VolumeWeightedAveragePriceExecutionModel(QuantConnect.Algorithm.Framework.
     def maximum_order_quantity_percent_volume(self, value: float) -> None:
         ...
 
+    def __init__(self, asynchronous: bool = True) -> None:
+        """
+        Initializes a new instance of the VolumeWeightedAveragePriceExecutionModel class.
+        
+        :param asynchronous: If true, orders will be submitted asynchronously
+        """
+        ...
+
     def execute(self, algorithm: QuantConnect.Algorithm.QCAlgorithm, targets: typing.List[QuantConnect.Algorithm.Framework.Portfolio.IPortfolioTarget]) -> None:
         """
         Submit orders for the specified portfolio targets.
@@ -307,11 +341,12 @@ class VolumeWeightedAveragePriceExecutionModel(QuantConnect.Algorithm.Framework.
 class SpreadExecutionModel(QuantConnect.Algorithm.Framework.Execution.ExecutionModel):
     """Execution model that submits orders while the current spread is in desirably tight extent."""
 
-    def __init__(self, accepting_spread_percent: float = 0.005) -> None:
+    def __init__(self, accepting_spread_percent: float = 0.005, asynchronous: bool = True) -> None:
         """
         Initializes a new instance of the SpreadExecutionModel class
         
         :param accepting_spread_percent: Maximum spread accepted comparing to current price in percentage.
+        :param asynchronous: If true, orders will be submitted asynchronously
         """
         ...
 

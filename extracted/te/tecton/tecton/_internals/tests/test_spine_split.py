@@ -58,6 +58,14 @@ class SpineSplitTest(TestCase):
         assert split_tables[1].equals(pyarrow.table({"join_key": ["dbc", "dbe", "xya"]}))
         assert split_tables[2].equals(pyarrow.table({"join_key": ["xyz", "xzz"]}))
 
+    def test_spine_split_even_magic_chars_in_keys(self):
+        join_key = '"join_key'  # join key contains "
+        split_tables = _even_split_pyarrow(pyarrow.table({join_key: ["a1", "a2", "a3"]}), [join_key], split_count=3)
+
+        assert split_tables[0].equals(pyarrow.table({join_key: ["a1"]}))
+        assert split_tables[1].equals(pyarrow.table({join_key: ["a2"]}))
+        assert split_tables[2].equals(pyarrow.table({join_key: ["a3"]}))
+
     def test_get_total_row_number(self):
         delta_table_path = f"/tmp/test_spine_split/delta_table_{uuid.uuid4()}"
         _set_up_delta_table(delta_table_path)

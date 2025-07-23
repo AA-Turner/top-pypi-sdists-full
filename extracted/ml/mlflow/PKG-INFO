@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mlflow
-Version: 3.1.1
+Version: 3.1.4
 Summary: MLflow is an open source platform for the complete machine learning lifecycle
 Maintainer-email: Databricks <mlflow-oss-maintainers@googlegroups.com>
 License: Copyright 2018 Databricks, Inc.  All rights reserved.
@@ -224,7 +224,7 @@ Classifier: Programming Language :: Python :: 3.9
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
-Requires-Dist: mlflow-skinny==3.1.1
+Requires-Dist: mlflow-skinny==3.1.4
 Requires-Dist: Flask<4
 Requires-Dist: alembic!=1.10.0,<2
 Requires-Dist: docker<8,>=4.0.0
@@ -256,8 +256,8 @@ Requires-Dist: boto3>1; extra == "databricks"
 Requires-Dist: botocore; extra == "databricks"
 Requires-Dist: databricks-agents<2.0,>=1.0.0; extra == "databricks"
 Provides-Extra: mlserver
-Requires-Dist: mlserver!=1.3.1,>=1.2.0; extra == "mlserver"
-Requires-Dist: mlserver-mlflow!=1.3.1,>=1.2.0; extra == "mlserver"
+Requires-Dist: mlserver!=1.3.1,<2.0.0,>=1.2.0; extra == "mlserver"
+Requires-Dist: mlserver-mlflow!=1.3.1,<2.0.0,>=1.2.0; extra == "mlserver"
 Provides-Extra: gateway
 Requires-Dist: fastapi<1; extra == "gateway"
 Requires-Dist: uvicorn[standard]<1; extra == "gateway"

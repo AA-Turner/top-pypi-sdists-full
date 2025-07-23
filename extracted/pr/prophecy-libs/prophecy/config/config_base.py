@@ -35,15 +35,15 @@ class ConfigBase:
 
         @lru_cache()
         def __str__(self):
-            if (self.prophecy_spark is not None and self.prophecy_spark.sparkContext.getConf().get("prophecy.schema.analysis") == "True"):
-                return f"{self.secretScope}:{self.secretKey}"
-
             if is_serverless:
                 from prophecy.utils.secrets import ProphecySecrets
                 self.secret_manager = ProphecySecrets
-            else:
-                self.jvm = self.prophecy_spark.sparkContext._jvm
-                self.secret_manager = self.jvm.io.prophecy.libs.secrets.ProphecySecrets
+                return self.secret_manager.get(self.secretScope, self.secretKey, self.providerType)
+
+            if (self.prophecy_spark is not None and self.prophecy_spark.sparkContext.getConf().get("prophecy.schema.analysis") == "True"):
+                return f"{self.secretScope}:{self.secretKey}"
+            self.jvm = self.prophecy_spark.sparkContext._jvm
+            self.secret_manager = self.jvm.io.prophecy.libs.secrets.ProphecySecrets
             return self.secret_manager.get(self.secretScope, self.secretKey, self.providerType)
 
     def updateSpark(self, spark):

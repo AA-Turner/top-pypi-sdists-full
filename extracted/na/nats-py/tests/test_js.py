@@ -795,11 +795,6 @@ class PullSubscribeTest(SingleJetStreamServerTestCase):
 
     @async_test
     async def test_fetch_cancelled_errors_raised(self):
-        try:
-            from unittest.mock import AsyncMock
-        except ImportError:
-            pytest.skip("skip since cannot use AsyncMock")
-
         import tracemalloc
 
         tracemalloc.start()
@@ -822,15 +817,37 @@ class PullSubscribeTest(SingleJetStreamServerTestCase):
 
         sub = await js.pull_subscribe("test.a", "test", stream="test")
 
-        # FIXME: RuntimeWarning: coroutine 'Queue.get' was never awaited
-        # is raised here due to the mock usage.
         with self.assertRaises(asyncio.CancelledError):
-            with unittest.mock.patch(
-                    "asyncio.wait_for",
-                    unittest.mock.AsyncMock(side_effect=asyncio.CancelledError
-                                            ),
-            ):
+
+            async def wait_for_mock(future, _):
+                # Avoid RuntimeWarning: coroutine 'Queue.get' was never awaited
+                future.close()
+                raise asyncio.CancelledError
+
+            with unittest.mock.patch("asyncio.wait_for", wait_for_mock):
                 await sub.fetch(batch=1, timeout=0.1)
+
+        await nc.close()
+
+    @async_test
+    async def test_fetch_being_cancelled_early(self):
+        nc = NATS()
+        await nc.connect()
+
+        js = nc.jetstream()
+        await js.add_stream(name="test", subjects=["test.a"])
+        sub = await js.pull_subscribe("test.a", "test", stream="test")
+
+        task = asyncio.create_task(sub.fetch())
+
+        # Allow "task" to reach the point where it has just finished calling
+        # asyncio.create_task() inside nats.client.Subscription.next_msg().
+        await asyncio.sleep(0)
+
+        # Cancel the call to sub.fetch() to provoke issue #646.
+        task.cancel()
+        with self.assertRaises(asyncio.CancelledError):
+            await task
 
         await nc.close()
 
@@ -1615,11 +1632,11 @@ class SubscribeTest(SingleJetStreamServerTestCase):
 
         # Create a sync subscriber now.
         sub2 = await js.subscribe("pbound", durable="two")
-        msg = await sub2.next_msg()
-        assert msg.data == b"Hello World 0"
-        assert msg.metadata.sequence.stream == 1
-        assert msg.metadata.sequence.consumer == 1
-        assert sub2.pending_msgs == 9
+        for i in range(10):
+            msg = await sub2.next_msg()
+            assert msg.data == f"Hello World {i}".encode()
+            assert msg.metadata.sequence.stream == i + 1
+            assert msg.metadata.sequence.consumer == i + 1
 
         await nc.close()
 
@@ -2673,6 +2690,111 @@ class KVTest(SingleJetStreamServerTestCase):
             await js.key_value(bucket="TEST3")
 
     @async_test
+    async def test_bucket_name_validation(self):
+        nc = await nats.connect()
+        js = nc.jetstream()
+
+        invalid_bucket_names = [
+            " x y",
+            "x ",
+            "x!",
+            "xx$",
+            "*",
+            ">",
+            "x.>",
+            "x.*",
+            ".",
+            ".x",
+            ".x.",
+            "x.",
+        ]
+
+        for bucket_name in invalid_bucket_names:
+            with self.subTest(bucket_name):
+                with pytest.raises(InvalidBucketNameError):
+                    await js.create_key_value(
+                        bucket=bucket_name, history=5, ttl=3600
+                    )
+
+                with pytest.raises(InvalidBucketNameError):
+                    await js.key_value(bucket_name)
+
+                with pytest.raises(InvalidBucketNameError):
+                    await js.delete_key_value(bucket_name)
+
+    @async_test
+    async def test_key_validation(self):
+        nc = await nats.connect()
+        js = nc.jetstream()
+
+        kv = await js.create_key_value(bucket="TEST", history=5, ttl=3600)
+        invalid_keys = [
+            " x y",
+            "x ",
+            "x!",
+            "xx$",
+            "*",
+            ">",
+            "x.>",
+            "x.*",
+            ".",
+            ".x",
+            ".x.",
+            "x.",
+        ]
+
+        for key in invalid_keys:
+            with self.subTest(key):
+                # Invalid put (empty)
+                with pytest.raises(InvalidKeyError):
+                    await kv.put(key, b'')
+
+                with pytest.raises(InvalidKeyError):
+                    await kv.get(key)
+
+                with pytest.raises(InvalidKeyError):
+                    await kv.update(key, b'')
+
+    @async_test
+    async def test_key_validation_bypass(self):
+        nc = await nats.connect()
+        js = nc.jetstream()
+
+        kv = await js.create_key_value(bucket="TEST", history=5, ttl=3600)
+        invalid_keys = [
+            "x!",
+            "x.>",
+            "x.*",
+        ]
+
+        for key in invalid_keys:
+            with self.subTest(key):
+                # Should succeed with validate_keys=False
+                seq = await kv.put(key, b'test_value', validate_keys=False)
+                assert seq > 0
+
+                # Should be able to get with validate_keys=False
+                entry = await kv.get(key, validate_keys=False)
+                assert entry.value == b'test_value'
+
+                # Should be able to update with validate_keys=False
+                seq2 = await kv.update(
+                    key, b'updated_value', last=seq, validate_keys=False
+                )
+                assert seq2 > seq
+
+                # Should be able to delete with validate_keys=False
+                result = await kv.delete(key, validate_keys=False)
+                assert result is True
+
+                # Should still fail with default validate_keys=True
+                with pytest.raises(InvalidKeyError):
+                    await kv.put(key, b'fail')
+
+                with pytest.raises(InvalidKeyError):
+                    await kv.get(key)
+
+    @async_test
     async def test_kv_basic(self):
         errors = []
 
@@ -2682,6 +2804,9 @@ class KVTest(SingleJetStreamServerTestCase):
 
         nc = await nats.connect(error_cb=error_handler)
         js = nc.jetstream()
+
+        with pytest.raises(nats.js.errors.InvalidBucketNameError):
+            await js.create_key_value(bucket="notok!")
 
         bucket = "TEST"
         kv = await js.create_key_value(

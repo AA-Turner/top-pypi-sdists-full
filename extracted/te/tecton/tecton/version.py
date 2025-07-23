@@ -1,4 +1,5 @@
 import datetime
+from typing import Tuple
 
 from semantic_version import Version
 
@@ -34,14 +35,18 @@ def get_hash() -> str:
     return status.get("GIT_COMMIT", "n/a")
 
 
-def summary():
+def get_summary() -> Tuple[str, str, str]:
+    """Returns the version, git commit, and build datetime."""
     status = get_status()
-
     ts_seconds = status.get("BUILD_TIMESTAMP", None)
     ts = datetime.datetime.utcfromtimestamp(int(ts_seconds)).isoformat() if ts_seconds else "n/a"
-
     commit = status.get("GIT_COMMIT", "n/a")
+    return get_version(), commit, ts
 
-    print(f"Version: {get_version()}")
+
+def summary():
+    """Prints the version, git commit, and build datetime to the console."""
+    (version_number, commit, build_datetime) = get_summary()
+    print(f"Version: {version_number}")
     print(f"Git Commit: {commit}")
-    print(f"Build Datetime: {ts}")
+    print(f"Build Timestamp: {build_datetime}")

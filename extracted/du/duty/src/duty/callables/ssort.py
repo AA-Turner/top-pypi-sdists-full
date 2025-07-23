@@ -1,38 +1,17 @@
-"""Callable for [ssort](https://github.com/bwhmather/ssort)."""
+"""Deprecated. Use [`duty.tools.ssort`][] instead."""
 
-from __future__ import annotations
+# YORE: Bump 2: Remove file.
 
-import sys
+import warnings
+from typing import Any
 
-from failprint.lazy import lazy
+from duty._internal.callables import ssort as _ssort
 
 
-@lazy(name="ssort")
-def run(
-    *files: str,
-    diff: bool | None = None,
-    check: bool | None = None,
-) -> int:
-    """Run `ssort`.
-
-    Parameters:
-        *files: Files to format.
-        diff: Prints a diff of all changes ssort would make to a file.
-        check: Check the file for unsorted statements. Returns 0 if nothing needs to be changed. Otherwise returns 1.
-    """
-    from ssort._main import main as ssort
-
-    cli_args = list(files)
-
-    if diff:
-        cli_args.append("--diff")
-
-    if check:
-        cli_args.append("--check")
-
-    old_sys_argv = sys.argv
-    sys.argv = ["ssort*", *cli_args]
-    try:
-        return ssort()
-    finally:
-        sys.argv = old_sys_argv
+def __getattr__(name: str) -> Any:
+    warnings.warn(
+        "Callables are deprecated in favor of tools, use `duty.tools.ssort` instead of `duty.callables.ssort`.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return getattr(_ssort, name)

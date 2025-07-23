@@ -131,7 +131,6 @@ from .cspm_registration import CSPMRegistration
 from .custom_ioa import CustomIOA
 from .custom_storage import CustomStorage
 from .d4c_registration import D4CRegistration
-from .datascanner import DataScanner
 from .delivery_settings import DeliverySettings
 from .deployments import Deployments
 from .detects import Detects
@@ -164,6 +163,7 @@ from .intelligence_feeds import IntelligenceFeeds
 from .ioa_exclusions import IOAExclusions
 from .ioc import IOC
 from .iocs import Iocs
+from .it_automation import ITAutomation, F4IT
 from .kubernetes_container_compliance import KubernetesContainerCompliance
 from .kubernetes_protection import KubernetesProtection
 from .malquery import MalQuery
@@ -242,14 +242,14 @@ __all__ = [
     "ContainerVulnerabilities", "DriftIndicators", "UnidentifiedContainers",
     "ImageAssessmentPolicies", "APIIntegrations", "ThreatGraph", "ExposureManagement",
     "CertificateBasedExclusions", "ComplianceAssessments", "HostMigration", "QuickScanPro",
-    "DataScanner", "SensorUsage", "Downloads", "DeliverySettings", "ASPM", "IntelligenceFeeds",
+    "SensorUsage", "Downloads", "DeliverySettings", "ASPM", "IntelligenceFeeds",
     "NGSIEM", "CorrelationRules", "CloudAWSRegistration", "CloudAzureRegistration",
     "CloudOCIRegistration", "CloudSecurityAssets", "Deployments", "ServerlessVulnerabilities",
     "DeviceContent", "IntelligenceIndicatorGraph", "ContentUpdatePolicies", "CAOHunting",
     "ContainerImageCompliance", "FaaSExecution", "HEC", "IngestBaseURL", "IngestFormat",
     "IngestPayload", "HTTPEventCollector", "IngestConfig", "SessionManager", "TimeUnit",
     "Color", "Indicator", "random_string", "KubernetesContainerCompliance", "find_operation",
-    "InvalidRoute", "InvalidServiceCollection", "InvalidOperationSearch"
+    "InvalidRoute", "InvalidServiceCollection", "InvalidOperationSearch", "ITAutomation", "F4IT"
     ]
 """
 This is free and unencumbered software released into the public domain.

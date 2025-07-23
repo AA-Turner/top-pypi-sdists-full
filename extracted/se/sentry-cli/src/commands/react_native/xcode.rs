@@ -18,7 +18,7 @@ use serde_json::Value;
 use crate::api::Api;
 use crate::config::Config;
 use crate::constants::DEFAULT_MAX_WAIT;
-use crate::utils::args::{validate_distribution, ArgExt};
+use crate::utils::args::{validate_distribution, ArgExt as _};
 use crate::utils::file_search::ReleaseFileSearch;
 use crate::utils::file_upload::UploadContext;
 use crate::utils::fs::TempFile;
@@ -361,7 +361,7 @@ pub fn execute(matches: &ArgMatches) -> Result<()> {
                         // Successfully discovered and parsed Info.plist
                         let dist_string = plist.build().to_owned();
                         let release_string =
-                            format!("{}@{}+{}", plist.bundle_id(), plist.version(), dist_string);
+                            format!("{}@{}+{dist_string}", plist.bundle_id(), plist.version());
                         info!("Parse result from Info.plist: {:?}", &plist);
                         (Some(dist_string), Some(release_string))
                     }

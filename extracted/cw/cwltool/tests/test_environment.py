@@ -204,7 +204,7 @@ def test_basic(crt_params: CheckHolder, tmp_path: Path, monkeypatch: pytest.Monk
         "USEDVAR": "VARVAL",
         "UNUSEDVAR": "VARVAL",
     }
-    args = crt_params.flags + [f"--tmpdir-prefix={tmp_prefix}"]
+    args = crt_params.flags + [f"--tmpdir-prefix={tmp_prefix}", "--debug"]
     env = get_tool_env(
         tmp_path,
         args,
@@ -239,6 +239,33 @@ def test_preserve_single(
     )
     checks = crt_params.checks(tmp_prefix)
     checks["USEDVAR"] = extra_env["USEDVAR"]
+    assert_env_matches(checks, env)
+
+
+@CRT_PARAMS
+def test_preserve_single_missing(
+    crt_params: CheckHolder,
+    tmp_path: Path,
+    monkeypatch: pytest.MonkeyPatch,
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """Test that attempting to preserve an unset env var produces a warning."""
+    tmp_prefix = str(tmp_path / "canary")
+    args = crt_params.flags + [
+        f"--tmpdir-prefix={tmp_prefix}",
+        "--preserve-environment=RANDOMVAR",
+    ]
+    env = get_tool_env(
+        tmp_path,
+        args,
+        monkeypatch=monkeypatch,
+        runtime_env_accepts_null=crt_params.env_accepts_null,
+    )
+    checks = crt_params.checks(tmp_prefix)
+    assert "RANDOMVAR" not in checks
+    assert (
+        "Attempting to preserve environment variable " "'RANDOMVAR' which is not present"
+    ) in caplog.text
     assert_env_matches(checks, env)
 
 

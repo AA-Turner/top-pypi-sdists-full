@@ -21,7 +21,7 @@ from .region import _detect_region
 from .throttled_http_client import ThrottledHttpClient
 from .cloudshell import _is_running_in_cloud_shell
 from .sku import SKU, __version__
-
+from .oauth2cli.authcode import is_wsl
 
 
 logger = logging.getLogger(__name__)
@@ -164,6 +164,8 @@ def _preferred_browser():
             pass  # We may still proceed
     return None
 
+def _is_ssh_cert_or_pop_request(token_type, auth_scheme) -> bool:
+    return token_type == "ssh-cert" or token_type == "pop" or isinstance(auth_scheme, msal.auth_scheme.PopAuthScheme)
 
 class _ClientWithCcsRoutingInfo(Client):
 
@@ -208,6 +210,11 @@ def _msal_extension_check():
         pass  # The optional msal_extensions is not installed. Business as usual.
     except ValueError:
         logger.exception(f"msal_extensions version {v} not in major.minor.patch format")
+    except:
+        logger.exception(
+            "Unable to import msal_extensions during an optional check. "
+            "This exception can be safely ignored."
+            )
 
 
 class ClientApplication(object):
@@ -329,7 +336,7 @@ class ClientApplication(object):
                         "client_assertion": "...a JWT with claims aud, exp, iss, jti, nbf, and sub..."
                     }
 
-            .. admonition:: Supporting reading client cerficates from PFX files
+            .. admonition:: Supporting reading client certificates from PFX files
 
                 *Added in version 1.29.0*:
                 Feed in a dictionary containing the path to a PFX file::
@@ -488,10 +495,13 @@ class ClientApplication(object):
 
             If your app is a command-line app (CLI),
             you would want to persist your http_cache across different CLI runs.
+            The persisted file's format may change due to, but not limited to,
+            `unstable protocol <https://docs.python.org/3/library/pickle.html#data-stream-format>`_,
+            so your implementation shall tolerate unexpected loading errors.
             The following recipe shows a way to do so::
 
                 # Just add the following lines at the beginning of your CLI script
-                import sys, atexit, pickle
+                import sys, atexit, pickle, logging
                 http_cache_filename = sys.argv[0] + ".http_cache"
                 try:
                     with open(http_cache_filename, "rb") as f:
@@ -501,6 +511,9 @@ class ClientApplication(object):
                         pickle.UnpicklingError,  # A corrupted http cache file
                         AttributeError,  # Cache created by a different version of MSAL
                         ):
+                    persisted_http_cache = {}  # Recover by starting afresh
+                except:  # Unexpected exceptions
+                    logging.exception("You may want to debug this")
                     persisted_http_cache = {}  # Recover by starting afresh
                 atexit.register(lambda: pickle.dump(
                     # When exit, flush it back to the file.
@@ -706,7 +719,7 @@ class ClientApplication(object):
 
     def is_pop_supported(self):
         """Returns True if this client supports Proof-of-Possession Access Token."""
-        return self._enable_broker
+        return self._enable_broker and sys.platform in ("win32", "darwin")
 
     def _decorate_scope(
             self, scopes,
@@ -1578,10 +1591,12 @@ The reserved list: {}""".format(list(scope_set), list(reserved_scope)))
                     raise ValueError("auth_scheme is not supported in Cloud Shell")
                 return self._acquire_token_by_cloud_shell(scopes, data=data)
 
+            is_ssh_cert_or_pop_request = _is_ssh_cert_or_pop_request(data.get("token_type"), auth_scheme)
+
             if self._enable_broker and account and account.get("account_source") in (
                 _GRANT_TYPE_BROKER,  # Broker successfully established this account previously.
                 None,  # Unknown data from older MSAL. Broker might still work.
-            ):
+            ) and (sys.platform in ("win32", "darwin") or not is_ssh_cert_or_pop_request):
                 from .broker import _acquire_token_silently
                 response = _acquire_token_silently(
                     "https://{}/{}".format(self.authority.instance, self.authority.tenant),
@@ -1828,7 +1843,7 @@ The reserved list: {}""".format(list(scope_set), list(reserved_scope)))
         """
         claims = _merge_claims_challenge_and_capabilities(
                 self._client_capabilities, claims_challenge)
-        if self._enable_broker:
+        if self._enable_broker and sys.platform in ("win32", "darwin"):
             from .broker import _signin_silently
             response = _signin_silently(
                 "https://{}/{}".format(self.authority.instance, self.authority.tenant),
@@ -1925,13 +1940,13 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
         *,
         enable_broker_on_windows=None,
         enable_broker_on_mac=None,
+        enable_broker_on_linux=None,
+        enable_broker_on_wsl=None,
         **kwargs):
         """Same as :func:`ClientApplication.__init__`,
         except that ``client_credential`` parameter shall remain ``None``.
 
         .. note::
-
-            You may set enable_broker_on_windows and/or enable_broker_on_mac to True.
 
             **What is a broker, and why use it?**
 
@@ -1950,20 +1965,26 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
             so that your broker-enabled apps (even a CLI)
             could automatically SSO from a previously established signed-in session.
 
-            **You shall only enable broker when your app:**
+            **How to opt in to use broker?**
 
-            1. is running on supported platforms,
-               and already registered their corresponding redirect_uri
+            1. You can set any combination of the following opt-in parameters to true:
 
-               * ``ms-appx-web://Microsoft.AAD.BrokerPlugin/your_client_id``
-                 if your app is expected to run on Windows 10+
-               * ``msauth.com.msauth.unsignedapp://auth``
-                 if your app is expected to run on Mac
+               +--------------------------+-----------------------------------+------------------------------------------------------------------------------------+
+               | Opt-in flag              | If app will run on                | App has registered this as a Desktop platform redirect URI in Azure Portal         |
+               +==========================+===================================+====================================================================================+
+               | enable_broker_on_windows | Windows 10+                       | ms-appx-web://Microsoft.AAD.BrokerPlugin/your_client_id                            |
+               +--------------------------+-----------------------------------+------------------------------------------------------------------------------------+
+               | enable_broker_on_wsl     | WSL                               | ms-appx-web://Microsoft.AAD.BrokerPlugin/your_client_id                            |
+               +--------------------------+-----------------------------------+------------------------------------------------------------------------------------+
+               | enable_broker_on_mac     | Mac with Company Portal installed | msauth.com.msauth.unsignedapp://auth                                               |
+               +--------------------------+-----------------------------------+------------------------------------------------------------------------------------+
+               | enable_broker_on_linux   | Linux with Intune installed       | ``https://login.microsoftonline.com/common/oauth2/nativeclient`` (MUST be enabled) |
+               +--------------------------+-----------------------------------+------------------------------------------------------------------------------------+
 
-            2. installed broker dependency,
-               e.g. ``pip install msal[broker]>=1.31,<2``.
+            2. Install broker dependency,
+               e.g. ``pip install msal[broker]>=1.33,<2``.
 
-            3. tested with ``acquire_token_interactive()`` and ``acquire_token_silent()``.
+            3. Test with ``acquire_token_interactive()`` and ``acquire_token_silent()``.
 
             **The fallback behaviors of MSAL Python's broker support**
 
@@ -1999,12 +2020,29 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
             This parameter defaults to None, which means MSAL will not utilize a broker.
 
             New in MSAL Python 1.31.0.
+
+        :param boolean enable_broker_on_linux:
+            This setting is only effective if your app is running on Linux, including WSL.
+            This parameter defaults to None, which means MSAL will not utilize a broker.
+
+            New in MSAL Python 1.33.0.
+
+        :param boolean enable_broker_on_wsl:
+            This setting is only effective if your app is running on WSL.
+            This parameter defaults to None, which means MSAL will not utilize a broker.
+
+            New in MSAL Python 1.33.0.
         """
         if client_credential is not None:
             raise ValueError("Public Client should not possess credentials")
+
         self._enable_broker = bool(
             enable_broker_on_windows and sys.platform == "win32"
-            or enable_broker_on_mac and sys.platform == "darwin")
+            or enable_broker_on_mac and sys.platform == "darwin"
+            or enable_broker_on_linux and sys.platform == "linux"
+            or enable_broker_on_wsl and is_wsl()
+            )
+
         super(PublicClientApplication, self).__init__(
             client_id, client_credential=None, **kwargs)
 
@@ -2133,6 +2171,8 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
             False
             ) and data.get("token_type") != "ssh-cert"  # Work around a known issue as of PyMsalRuntime 0.8
         self._validate_ssh_cert_input_data(data)
+        is_ssh_cert_or_pop_request = _is_ssh_cert_or_pop_request(data.get("token_type"), auth_scheme)
+
         if not on_before_launching_ui:
             on_before_launching_ui = lambda **kwargs: None
         if _is_running_in_cloud_shell() and prompt == "none":
@@ -2141,7 +2181,7 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
             return self._acquire_token_by_cloud_shell(scopes, data=data)
         claims = _merge_claims_challenge_and_capabilities(
             self._client_capabilities, claims_challenge)
-        if self._enable_broker:
+        if self._enable_broker and (sys.platform in ("win32", "darwin") or not is_ssh_cert_or_pop_request):
             if parent_window_handle is None:
                 raise ValueError(
                     "parent_window_handle is required when you opted into using broker. "
@@ -2166,7 +2206,9 @@ class PublicClientApplication(ClientApplication):  # browser app or mobile app
                 )
             return self._process_broker_response(response, scopes, data)
 
-        if auth_scheme:
+        if isinstance(auth_scheme, msal.auth_scheme.PopAuthScheme) and sys.platform == "linux":
+            raise ValueError("POP is not supported on Linux")
+        elif auth_scheme:
             raise ValueError(self._AUTH_SCHEME_UNSUPPORTED)
         on_before_launching_ui(ui="browser")
         telemetry_context = self._build_telemetry_context(

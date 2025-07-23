@@ -51,7 +51,7 @@ dependencies = [
     "pymdown-extensions>=6.3",
     "importlib-metadata>=4.6; python_version < '3.10'",
 ]
-version = "0.29.1"
+version = "0.30.0"
 
 [project.optional-dependencies]
 crystal = [
@@ -84,6 +84,7 @@ getter = "scripts.get_version:get_version"
 [tool.pdm.build]
 excludes = [
     "**/.pytest_cache",
+    "**/.mypy_cache",
 ]
 source-includes = [
     "config",
@@ -134,7 +135,7 @@ docs = [
     "mkdocs>=1.6",
     "mkdocs-coverage>=1.0",
     "mkdocs-git-revision-date-localized-plugin>=1.2",
-    "mkdocs-llmstxt>=0.1",
+    "mkdocs-llmstxt>=0.2",
     "mkdocs-material>=9.5",
     "mkdocs-minify-plugin>=0.8",
     "mkdocs-redirects>=1.2.1",

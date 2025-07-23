@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: llama-index-core
-Version: 0.12.51
+Version: 0.12.52
 Summary: Interface between LLMs and your data
 Project-URL: Homepage, https://llamaindex.ai
 Project-URL: Repository, https://github.com/run-llama/llama_index
@@ -16,7 +16,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Python: <4.0,>=3.9
 Requires-Dist: aiohttp<4,>=3.8.6
 Requires-Dist: aiosqlite
-Requires-Dist: banks<3,>=2.0.0
+Requires-Dist: banks<3,>=2.2.0
 Requires-Dist: dataclasses-json
 Requires-Dist: deprecated>=1.2.9.3
 Requires-Dist: dirtyjson<2,>=1.0.8

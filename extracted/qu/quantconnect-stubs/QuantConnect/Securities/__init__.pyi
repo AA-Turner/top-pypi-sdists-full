@@ -3441,6 +3441,45 @@ class SecurityManager(QuantConnect.ExtendedDictionary[QuantConnect.Symbol, Quant
         ...
 
 
+class ProjectedHoldings(System.Object):
+    """DTO for the projected holdings of a security"""
+
+    @property
+    def holdings_quantity(self) -> float:
+        """The current holdings for the security"""
+        ...
+
+    @holdings_quantity.setter
+    def holdings_quantity(self, value: float) -> None:
+        ...
+
+    @property
+    def open_orders_quantity(self) -> float:
+        """The currently open orders quantity for the security"""
+        ...
+
+    @open_orders_quantity.setter
+    def open_orders_quantity(self, value: float) -> None:
+        ...
+
+    @property
+    def projected_quantity(self) -> float:
+        """
+        Gets the projected holdings for the specified security, which is the sum of the current holdings
+        plus the sum of the open orders quantity.
+        """
+        ...
+
+    def __init__(self, holdings_quantity: float, open_orders_quantity: float) -> None:
+        """
+        Initializes a new instance of the ProjectedHoldings class.
+        
+        :param holdings_quantity: The current holdings quantity
+        :param open_orders_quantity: The currently open orders quantity for the security
+        """
+        ...
+
+
 class IOrderProvider(metaclass=abc.ABCMeta):
     """Represents a type capable of fetching Order instances by its QC order id or by a brokerage id"""
 
@@ -3512,6 +3551,15 @@ class IOrderProvider(metaclass=abc.ABCMeta):
         
         :param filter: The filter predicate used to find the required order tickets. If null is specified then all tickets are returned
         :returns: An enumerable of OrderTicket matching the specified.
+        """
+        ...
+
+    def get_projected_holdings(self, security: QuantConnect.Securities.Security) -> QuantConnect.Securities.ProjectedHoldings:
+        """
+        Calculates the projected holdings for the specified security based on the current open orders.
+        
+        :param security: The security
+        :returns: The projected holdings for the specified security, which is the sum of the current holdings plus the sum of the open orders quantity.
         """
         ...
 
@@ -3832,6 +3880,15 @@ class SecurityTransactionManager(System.Object, QuantConnect.Securities.IOrderPr
         
         :param filter: The filter predicate used to find the required order tickets
         :returns: An enumerable of OrderTicket matching the specified.
+        """
+        ...
+
+    def get_projected_holdings(self, security: QuantConnect.Securities.Security) -> QuantConnect.Securities.ProjectedHoldings:
+        """
+        Calculates the projected holdings for the specified security based on the current open orders.
+        
+        :param security: The security
+        :returns: The projected holdings for the specified security, which is the sum of the current holdings plus the sum of the open orders quantity.
         """
         ...
 

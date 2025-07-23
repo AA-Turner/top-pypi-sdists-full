@@ -1,12 +1,22 @@
+import os
 import asyncio
 import concurrent.futures
-import functools
 import inspect
 import time
-import pickle
-from concurrent.futures import ThreadPoolExecutor, ProcessPoolExecutor, as_completed
+from concurrent.futures import (
+    ThreadPoolExecutor,
+    ProcessPoolExecutor,
+    as_completed,
+)
 from functools import wraps
-from typing import Any, Callable, Dict, List, Optional, Union, TypeVar, Generic
+from typing import (
+    Any,
+    Callable,
+    List,
+    Optional,
+    TypeVar,
+    Generic,
+)
 from dataclasses import dataclass
 from enum import Enum
 
@@ -14,8 +24,8 @@ from swarms.utils.loguru_logger import initialize_logger
 
 logger = initialize_logger("concurrent_wrapper")
 
-T = TypeVar('T')
-R = TypeVar('R')
+T = TypeVar("T")
+R = TypeVar("R")
 
 
 # Global function for process pool execution (must be picklable)
@@ -24,10 +34,19 @@ def _execute_task_in_process(task_data):
     Execute a task in a separate process.
     This function must be at module level to be picklable.
     """
-    func, task_args, task_kwargs, task_id, max_retries, retry_on_failure, retry_delay, return_exceptions = task_data
-    
+    (
+        func,
+        task_args,
+        task_kwargs,
+        task_id,
+        max_retries,
+        retry_on_failure,
+        retry_delay,
+        return_exceptions,
+    ) = task_data
+
     start_time = time.time()
-    
+
     for attempt in range(max_retries + 1):
         try:
             result = func(*task_args, **task_kwargs)
@@ -35,7 +54,7 @@ def _execute_task_in_process(task_data):
             return ConcurrentResult(
                 value=result,
                 execution_time=execution_time,
-                worker_id=task_id
+                worker_id=task_id,
             )
         except Exception as e:
             if attempt == max_retries or not retry_on_failure:
@@ -44,19 +63,22 @@ def _execute_task_in_process(task_data):
                     return ConcurrentResult(
                         exception=e,
                         execution_time=execution_time,
-                        worker_id=task_id
+                        worker_id=task_id,
                     )
                 else:
                     raise
             else:
-                time.sleep(retry_delay * (2 ** attempt))
-    
+                time.sleep(retry_delay * (2**attempt))
+
     # This should never be reached, but just in case
-    return ConcurrentResult(exception=Exception("Max retries exceeded"))
+    return ConcurrentResult(
+        exception=Exception("Max retries exceeded")
+    )
 
 
 class ExecutorType(Enum):
     """Enum for different types of executors."""
+
     THREAD = "thread"
     PROCESS = "process"
     ASYNC = "async"
@@ -65,6 +87,7 @@ class ExecutorType(Enum):
 @dataclass
 class ConcurrentConfig:
     """Configuration for concurrent execution."""
+
     name: Optional[str] = None
     description: Optional[str] = None
     max_workers: int = 4
@@ -80,15 +103,20 @@ class ConcurrentConfig:
 
 class ConcurrentResult(Generic[T]):
     """Result wrapper for concurrent execution."""
-    
-    def __init__(self, value: T = None, exception: Exception = None, 
-                 execution_time: float = 0.0, worker_id: Optional[int] = None):
+
+    def __init__(
+        self,
+        value: T = None,
+        exception: Exception = None,
+        execution_time: float = 0.0,
+        worker_id: Optional[int] = None,
+    ):
         self.value = value
         self.exception = exception
         self.execution_time = execution_time
         self.worker_id = worker_id
         self.success = exception is None
-    
+
     def __repr__(self):
         if self.success:
             return f"ConcurrentResult(value={self.value}, time={self.execution_time:.3f}s)"
@@ -111,7 +139,7 @@ def concurrent(
 ):
     """
     A decorator that enables concurrent execution of functions.
-    
+
     Args:
         name (Optional[str]): Name for the concurrent operation
         description (Optional[str]): Description of the operation
@@ -124,15 +152,19 @@ def concurrent(
         retry_on_failure (bool): Whether to retry failed tasks
         max_retries (int): Maximum number of retries per task
         retry_delay (float): Delay between retries in seconds
-    
+
     Returns:
         Callable: Decorated function that can execute concurrently
     """
-    
+
+    if max_workers is None:
+        max_workers = os.cpu_count()
+
     def decorator(func: Callable[..., T]) -> Callable[..., T]:
         config = ConcurrentConfig(
             name=name or func.__name__,
-            description=description or f"Concurrent execution of {func.__name__}",
+            description=description
+            or f"Concurrent execution of {func.__name__}",
             max_workers=max_workers,
             timeout=timeout,
             executor_type=executor_type,
@@ -141,17 +173,19 @@ def concurrent(
             ordered=ordered,
             retry_on_failure=retry_on_failure,
             max_retries=max_retries,
-            retry_delay=retry_delay
+            retry_delay=retry_delay,
         )
-        
+
         @wraps(func)
         def wrapper(*args, **kwargs):
             return func(*args, **kwargs)
-        
-        def _execute_single_task(task_args, task_kwargs, task_id=None):
+
+        def _execute_single_task(
+            task_args, task_kwargs, task_id=None
+        ):
             """Execute a single task with retry logic."""
             start_time = time.time()
-            
+
             for attempt in range(config.max_retries + 1):
                 try:
                     result = func(*task_args, **task_kwargs)
@@ -159,16 +193,19 @@ def concurrent(
                     return ConcurrentResult(
                         value=result,
                         execution_time=execution_time,
-                        worker_id=task_id
+                        worker_id=task_id,
                     )
                 except Exception as e:
-                    if attempt == config.max_retries or not config.retry_on_failure:
+                    if (
+                        attempt == config.max_retries
+                        or not config.retry_on_failure
+                    ):
                         execution_time = time.time() - start_time
                         if config.return_exceptions:
                             return ConcurrentResult(
                                 exception=e,
                                 execution_time=execution_time,
-                                worker_id=task_id
+                                worker_id=task_id,
                             )
                         else:
                             raise
@@ -176,13 +213,15 @@ def concurrent(
                         logger.warning(
                             f"Task {task_id} failed (attempt {attempt + 1}/{config.max_retries + 1}): {e}"
                         )
-                        time.sleep(config.retry_delay * (2 ** attempt))
-        
+                        time.sleep(config.retry_delay * (2**attempt))
+
         def concurrent_execute(*args_list, **kwargs_list):
             """Execute the function concurrently with multiple argument sets."""
             if not args_list and not kwargs_list:
-                raise ValueError("At least one set of arguments must be provided")
-            
+                raise ValueError(
+                    "At least one set of arguments must be provided"
+                )
+
             # Prepare tasks
             tasks = []
             if args_list:
@@ -191,17 +230,21 @@ def concurrent(
                         tasks.append((args, {}))
                     else:
                         tasks.append(([args], {}))
-            
+
             if kwargs_list:
                 for kwargs in kwargs_list:
                     if isinstance(kwargs, dict):
                         tasks.append(((), kwargs))
                     else:
-                        raise ValueError("kwargs_list must contain dictionaries")
-            
-            logger.info(f"Starting concurrent execution of {len(tasks)} tasks with {config.max_workers} workers")
+                        raise ValueError(
+                            "kwargs_list must contain dictionaries"
+                        )
+
+            logger.info(
+                f"Starting concurrent execution of {len(tasks)} tasks with {config.max_workers} workers"
+            )
             start_time = time.time()
-            
+
             try:
                 if config.executor_type == ExecutorType.THREAD:
                     results = _execute_with_thread_pool(tasks)
@@ -210,64 +253,86 @@ def concurrent(
                 elif config.executor_type == ExecutorType.ASYNC:
                     results = _execute_with_async(tasks)
                 else:
-                    raise ValueError(f"Unsupported executor type: {config.executor_type}")
-                
+                    raise ValueError(
+                        f"Unsupported executor type: {config.executor_type}"
+                    )
+
                 total_time = time.time() - start_time
-                successful_tasks = sum(1 for r in results if r.success)
-                
+                successful_tasks = sum(
+                    1 for r in results if r.success
+                )
+
                 logger.info(
                     f"Completed {len(tasks)} tasks in {total_time:.3f}s "
                     f"({successful_tasks}/{len(tasks)} successful)"
                 )
-                
+
                 return results
-                
+
             except Exception as e:
                 logger.error(f"Concurrent execution failed: {e}")
                 raise
-        
+
         def _execute_with_thread_pool(tasks):
             """Execute tasks using ThreadPoolExecutor."""
             results = []
-            
-            with ThreadPoolExecutor(max_workers=config.max_workers) as executor:
+
+            with ThreadPoolExecutor(
+                max_workers=config.max_workers
+            ) as executor:
                 if config.ordered:
                     future_to_task = {
-                        executor.submit(_execute_single_task, task[0], task[1], i): i 
+                        executor.submit(
+                            _execute_single_task, task[0], task[1], i
+                        ): i
                         for i, task in enumerate(tasks)
                     }
-                    
-                    for future in as_completed(future_to_task, timeout=config.timeout):
+
+                    for future in as_completed(
+                        future_to_task, timeout=config.timeout
+                    ):
                         try:
-                            result = future.result(timeout=config.timeout)
+                            result = future.result(
+                                timeout=config.timeout
+                            )
                             results.append(result)
                         except Exception as e:
                             if config.return_exceptions:
-                                results.append(ConcurrentResult(exception=e))
+                                results.append(
+                                    ConcurrentResult(exception=e)
+                                )
                             else:
                                 raise
                 else:
                     futures = [
-                        executor.submit(_execute_single_task, task[0], task[1], i)
+                        executor.submit(
+                            _execute_single_task, task[0], task[1], i
+                        )
                         for i, task in enumerate(tasks)
                     ]
-                    
-                    for future in as_completed(futures, timeout=config.timeout):
+
+                    for future in as_completed(
+                        futures, timeout=config.timeout
+                    ):
                         try:
-                            result = future.result(timeout=config.timeout)
+                            result = future.result(
+                                timeout=config.timeout
+                            )
                             results.append(result)
                         except Exception as e:
                             if config.return_exceptions:
-                                results.append(ConcurrentResult(exception=e))
+                                results.append(
+                                    ConcurrentResult(exception=e)
+                                )
                             else:
                                 raise
-            
+
             return results
-        
+
         def _execute_with_process_pool(tasks):
             """Execute tasks using ProcessPoolExecutor."""
             results = []
-            
+
             # Prepare task data for process execution
             task_data_list = []
             for i, task in enumerate(tasks):
@@ -279,70 +344,94 @@ def concurrent(
                     config.max_retries,
                     config.retry_on_failure,
                     config.retry_delay,
-                    config.return_exceptions
+                    config.return_exceptions,
                 )
                 task_data_list.append(task_data)
-            
-            with ProcessPoolExecutor(max_workers=config.max_workers) as executor:
+
+            with ProcessPoolExecutor(
+                max_workers=config.max_workers
+            ) as executor:
                 if config.ordered:
                     future_to_task = {
-                        executor.submit(_execute_task_in_process, task_data): i 
+                        executor.submit(
+                            _execute_task_in_process, task_data
+                        ): i
                         for i, task_data in enumerate(task_data_list)
                     }
-                    
-                    for future in as_completed(future_to_task, timeout=config.timeout):
+
+                    for future in as_completed(
+                        future_to_task, timeout=config.timeout
+                    ):
                         try:
-                            result = future.result(timeout=config.timeout)
+                            result = future.result(
+                                timeout=config.timeout
+                            )
                             results.append(result)
                         except Exception as e:
                             if config.return_exceptions:
-                                results.append(ConcurrentResult(exception=e))
+                                results.append(
+                                    ConcurrentResult(exception=e)
+                                )
                             else:
                                 raise
                 else:
                     futures = [
-                        executor.submit(_execute_task_in_process, task_data)
+                        executor.submit(
+                            _execute_task_in_process, task_data
+                        )
                         for task_data in task_data_list
                     ]
-                    
-                    for future in as_completed(futures, timeout=config.timeout):
+
+                    for future in as_completed(
+                        futures, timeout=config.timeout
+                    ):
                         try:
-                            result = future.result(timeout=config.timeout)
+                            result = future.result(
+                                timeout=config.timeout
+                            )
                             results.append(result)
                         except Exception as e:
                             if config.return_exceptions:
-                                results.append(ConcurrentResult(exception=e))
+                                results.append(
+                                    ConcurrentResult(exception=e)
+                                )
                             else:
                                 raise
-            
+
             return results
-        
+
         async def _execute_with_async(tasks):
             """Execute tasks using asyncio."""
-            async def _async_task(task_args, task_kwargs, task_id=None):
+
+            async def _async_task(
+                task_args, task_kwargs, task_id=None
+            ):
                 start_time = time.time()
-                
+
                 for attempt in range(config.max_retries + 1):
                     try:
                         loop = asyncio.get_event_loop()
                         result = await loop.run_in_executor(
-                            None, 
-                            lambda: func(*task_args, **task_kwargs)
+                            None,
+                            lambda: func(*task_args, **task_kwargs),
                         )
                         execution_time = time.time() - start_time
                         return ConcurrentResult(
                             value=result,
                             execution_time=execution_time,
-                            worker_id=task_id
+                            worker_id=task_id,
                         )
                     except Exception as e:
-                        if attempt == config.max_retries or not config.retry_on_failure:
+                        if (
+                            attempt == config.max_retries
+                            or not config.retry_on_failure
+                        ):
                             execution_time = time.time() - start_time
                             if config.return_exceptions:
                                 return ConcurrentResult(
                                     exception=e,
                                     execution_time=execution_time,
-                                    worker_id=task_id
+                                    worker_id=task_id,
                                 )
                             else:
                                 raise
@@ -350,19 +439,23 @@ def concurrent(
                             logger.warning(
                                 f"Async task {task_id} failed (attempt {attempt + 1}/{config.max_retries + 1}): {e}"
                             )
-                            await asyncio.sleep(config.retry_delay * (2 ** attempt))
-            
+                            await asyncio.sleep(
+                                config.retry_delay * (2**attempt)
+                            )
+
             semaphore = asyncio.Semaphore(config.max_workers)
-            
+
             async def _limited_task(task_args, task_kwargs, task_id):
                 async with semaphore:
-                    return await _async_task(task_args, task_kwargs, task_id)
-            
+                    return await _async_task(
+                        task_args, task_kwargs, task_id
+                    )
+
             tasks_coros = [
-                _limited_task(task[0], task[1], i) 
+                _limited_task(task[0], task[1], i)
                 for i, task in enumerate(tasks)
             ]
-            
+
             if config.ordered:
                 results = []
                 for coro in asyncio.as_completed(tasks_coros):
@@ -371,44 +464,56 @@ def concurrent(
                         results.append(result)
                     except Exception as e:
                         if config.return_exceptions:
-                            results.append(ConcurrentResult(exception=e))
+                            results.append(
+                                ConcurrentResult(exception=e)
+                            )
                         else:
                             raise
                 return results
             else:
-                return await asyncio.gather(*tasks_coros, return_exceptions=config.return_exceptions)
-        
-        def concurrent_batch(items: List[Any], batch_size: Optional[int] = None, 
-                           **kwargs) -> List[ConcurrentResult]:
+                return await asyncio.gather(
+                    *tasks_coros,
+                    return_exceptions=config.return_exceptions,
+                )
+
+        def concurrent_batch(
+            items: List[Any],
+            batch_size: Optional[int] = None,
+            **kwargs,
+        ) -> List[ConcurrentResult]:
             """Execute the function concurrently on a batch of items."""
             batch_size = batch_size or config.chunk_size or len(items)
-            
+
             tasks = []
             for item in items:
                 if isinstance(item, (list, tuple)):
                     tasks.append((item, kwargs))
                 else:
                     tasks.append(([item], kwargs))
-            
-            return concurrent_execute(*[task[0] for task in tasks], 
-                                    **[task[1] for task in tasks])
-        
-        def concurrent_map(items: List[Any], **kwargs) -> List[ConcurrentResult]:
+
+            return concurrent_execute(
+                *[task[0] for task in tasks],
+                **[task[1] for task in tasks],
+            )
+
+        def concurrent_map(
+            items: List[Any], **kwargs
+        ) -> List[ConcurrentResult]:
             """Map the function over a list of items concurrently."""
             return concurrent_batch(items, **kwargs)
-        
+
         # Attach methods to the wrapper
         wrapper.concurrent_execute = concurrent_execute
         wrapper.concurrent_batch = concurrent_batch
         wrapper.concurrent_map = concurrent_map
         wrapper.config = config
-        
+
         # Add metadata
         wrapper.__concurrent_config__ = config
         wrapper.__concurrent_enabled__ = True
-        
+
         return wrapper
-    
+
     return decorator
 
 
@@ -428,7 +533,7 @@ def concurrent_class_executor(
 ):
     """
     A decorator that enables concurrent execution for class methods.
-    
+
     Args:
         name (Optional[str]): Name for the concurrent operation
         description (Optional[str]): Description of the operation
@@ -442,15 +547,16 @@ def concurrent_class_executor(
         max_retries (int): Maximum number of retries per task
         retry_delay (float): Delay between retries in seconds
         methods (Optional[List[str]]): List of method names to make concurrent
-    
+
     Returns:
         Class: Class with concurrent execution capabilities
     """
-    
+
     def decorator(cls):
         config = ConcurrentConfig(
             name=name or f"{cls.__name__}_concurrent",
-            description=description or f"Concurrent execution for {cls.__name__}",
+            description=description
+            or f"Concurrent execution for {cls.__name__}",
             max_workers=max_workers,
             timeout=timeout,
             executor_type=executor_type,
@@ -459,19 +565,22 @@ def concurrent_class_executor(
             ordered=ordered,
             retry_on_failure=retry_on_failure,
             max_retries=max_retries,
-            retry_delay=retry_delay
+            retry_delay=retry_delay,
         )
-        
+
         # Get methods to make concurrent
         target_methods = methods or [
-            name for name, method in inspect.getmembers(cls, inspect.isfunction)
-            if not name.startswith('_')
+            name
+            for name, method in inspect.getmembers(
+                cls, inspect.isfunction
+            )
+            if not name.startswith("_")
         ]
-        
+
         for method_name in target_methods:
             if hasattr(cls, method_name):
                 original_method = getattr(cls, method_name)
-                
+
                 # Create concurrent version of the method
                 concurrent_decorator = concurrent(
                     name=f"{cls.__name__}.{method_name}",
@@ -486,16 +595,20 @@ def concurrent_class_executor(
                     max_retries=config.max_retries,
                     retry_delay=config.retry_delay,
                 )
-                
+
                 # Apply the concurrent decorator to the method
-                setattr(cls, method_name, concurrent_decorator(original_method))
-        
+                setattr(
+                    cls,
+                    method_name,
+                    concurrent_decorator(original_method),
+                )
+
         # Add class-level concurrent configuration
         cls.__concurrent_config__ = config
         cls.__concurrent_enabled__ = True
-        
+
         return cls
-    
+
     return decorator
 
 
@@ -517,4 +630,4 @@ def async_executor(**kwargs):
 
 def batch_executor(batch_size: int = 10, **kwargs):
     """Convenience decorator for batch processing."""
-    return concurrent(chunk_size=batch_size, **kwargs) 
+    return concurrent(chunk_size=batch_size, **kwargs)

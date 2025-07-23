@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cysignals
-Version: 1.12.3
+Version: 1.12.4
 Summary: Interrupt and signal handling for Cython
 Author-Email: The Sage Developers <sage-support@googlegroups.com>
 License:                    GNU LESSER GENERAL PUBLIC LICENSE
@@ -192,11 +192,8 @@ Description-Content-Type: text/x-rst
 cysignals: interrupt and signal handling for Cython
 ===================================================
 
-.. image:: https://travis-ci.org/sagemath/cysignals.svg?branch=master
-    :target: https://travis-ci.org/sagemath/cysignals
-
 .. image:: https://readthedocs.org/projects/cysignals/badge/?version=latest
-    :target: http://cysignals.readthedocs.org
+    :target: https://cysignals.readthedocs.org
 
 Cython and interrupts
 ---------------------

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pymc
-Version: 5.24.1
+Version: 5.25.0
 Summary: Probabilistic Programming in Python: Bayesian Modeling and Probabilistic Machine Learning with PyTensor
 Home-page: http://github.com/pymc-devs/pymc
 Maintainer: PyMC Developers
@@ -26,7 +26,7 @@ Requires-Dist: cachetools>=4.2.1
 Requires-Dist: cloudpickle
 Requires-Dist: numpy>=1.25.0
 Requires-Dist: pandas>=0.24.0
-Requires-Dist: pytensor<2.32,>=2.31.2
+Requires-Dist: pytensor<2.32,>=2.31.7
 Requires-Dist: rich>=13.7.1
 Requires-Dist: scipy>=1.4.1
 Requires-Dist: threadpoolctl<4.0.0,>=3.1.0

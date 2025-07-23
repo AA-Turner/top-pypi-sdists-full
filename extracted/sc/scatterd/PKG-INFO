@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scatterd
-Version: 1.3.9
+Version: 1.4.0
 Summary: scatterd is an easy and fast way of creating beautiful scatter plots.
 Author-email: Erdogan Taskesen <erdogant@gmail.com>
 License: MIT License
@@ -35,6 +35,7 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: scipy
 Requires-Dist: matplotlib
 Requires-Dist: numpy
 Requires-Dist: colourmap>=1.1.19

@@ -60,7 +60,12 @@ class WorkflowJobStep:
     ) -> JobsGeneratorType:
         runtimeContext = runtimeContext.copy()
         runtimeContext.part_of = self.name
-        runtimeContext.name = shortname(self.id)
+
+        if runtimeContext.workflow_job_step_name_callback is not None:
+            vfinputs = {shortname(k): v for k, v in joborder.items()}
+            runtimeContext.name = runtimeContext.workflow_job_step_name_callback(self, vfinputs)
+        else:
+            runtimeContext.name = shortname(self.id)
 
         _logger.info("[%s] start", self.name)
 
@@ -406,7 +411,7 @@ def object_from_state(
                                 ("merge_nested" if len(connections) > 1 else None),
                             ),
                         ),
-                        valueFrom=cast(str, inp.get("valueFrom")),
+                        valueFrom=cast(Optional[str], inp.get("valueFrom")),
                     ):
                         raise WorkflowException(
                             "Type mismatch between source '%s' (%s) and "

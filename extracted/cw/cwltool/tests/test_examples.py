@@ -1118,7 +1118,7 @@ def test_cid_file_dir_arg_is_file_instead_of_dir(tmp_path: Path, factor: str) ->
 @needs_docker
 @pytest.mark.parametrize("factor", test_factors)
 def test_cid_file_non_existing_dir(tmp_path: Path, factor: str) -> None:
-    """Test that --cachedir with a bad path should produce a specific error."""
+    """Test that --cidefile-dir with a bad path should produce a specific error."""
     test_file = "cache_test_workflow.cwl"
     bad_cidfile_dir = tmp_path / "cidfile-dir-badpath"
     commands = factor.split()
@@ -1233,11 +1233,11 @@ def test_secondary_files_v1_0(tmp_path: Path, factor: str) -> None:
     assert error_code == 0
 
 
-@needs_docker
 @pytest.mark.parametrize("factor", test_factors)
-def test_wf_without_container(tmp_path: Path, factor: str) -> None:
-    """Confirm that we can run a workflow without a container."""
-    test_file = "hello-workflow.cwl"
+def test_cache_environment_variable(tmp_path: Path, factor: str) -> None:
+    """Ensure that changing the environment variables will result in different cache keys"""
+    test_file = "cache_environment_tool.cwl"
+    test_job_file = "cache_environment.yml"
     cache_dir = str(tmp_path / "cwltool_cache")
     commands = factor.split()
     commands.extend(
@@ -1246,105 +1246,38 @@ def test_wf_without_container(tmp_path: Path, factor: str) -> None:
             cache_dir,
             "--outdir",
             str(tmp_path / "outdir"),
-            get_data("tests/wf/" + test_file),
-            "--usermessage",
-            "hello",
-        ]
-    )
-    error_code, _, stderr = get_main_output(commands)
-
-    stderr = re.sub(r"\s\s+", " ", stderr)
-    assert "completed success" in stderr
-    assert error_code == 0
-
-
-@needs_docker
-@pytest.mark.parametrize("factor", test_factors)
-def test_issue_740_fixed(tmp_path: Path, factor: str) -> None:
-    """Confirm that re-running a particular workflow with caching succeeds."""
-    test_file = "cache_test_workflow.cwl"
-    cache_dir = str(tmp_path / "cwltool_cache")
-    commands = factor.split()
-    commands.extend(["--cachedir", cache_dir, get_data("tests/wf/" + test_file)])
-    error_code, _, stderr = get_main_output(commands)
-
-    stderr = re.sub(r"\s\s+", " ", stderr)
-    assert "completed success" in stderr
-    assert error_code == 0
-
-    commands = factor.split()
-    commands.extend(["--cachedir", cache_dir, get_data("tests/wf/" + test_file)])
-    error_code, _, stderr = get_main_output(commands)
-
-    stderr = re.sub(r"\s\s+", " ", stderr)
-    assert "Output of job will be cached in" not in stderr
-    assert error_code == 0, stderr
-
-
-@needs_docker
-@pytest.mark.parametrize("factor", test_factors)
-def test_cache_relative_paths(tmp_path: Path, factor: str) -> None:
-    """Confirm that re-running a particular workflow with caching succeeds."""
-    test_file = "secondary-files.cwl"
-    test_job_file = "secondary-files-job.yml"
-    cache_dir = str(tmp_path / "cwltool_cache")
-    commands = factor.split()
-    commands.extend(
-        [
-            "--out",
-            str(tmp_path / "out"),
-            "--cachedir",
-            cache_dir,
-            get_data(f"tests/{test_file}"),
+            get_data("tests/" + test_file),
             get_data(f"tests/{test_job_file}"),
         ]
     )
     error_code, _, stderr = get_main_output(commands)
 
     stderr = re.sub(r"\s\s+", " ", stderr)
-    assert "completed success" in stderr
-    assert error_code == 0
+    assert "Output of job will be cached in" in stderr
+    assert error_code == 0, stderr
 
-    commands = factor.split()
-    commands.extend(
-        [
-            "--out",
-            str(tmp_path / "out2"),
-            "--cachedir",
-            cache_dir,
-            get_data(f"tests/{test_file}"),
-            get_data(f"tests/{test_job_file}"),
-        ]
-    )
     error_code, _, stderr = get_main_output(commands)
-
-    stderr = re.sub(r"\s\s+", " ", stderr)
     assert "Output of job will be cached in" not in stderr
     assert error_code == 0, stderr
 
-    assert (tmp_path / "cwltool_cache" / "27903451fc1ee10c148a0bdeb845b2cf").exists()
-
-
-@pytest.mark.parametrize("factor", test_factors)
-def test_cache_default_literal_file(tmp_path: Path, factor: str) -> None:
-    """Confirm that running a CLT with a default literal file with caching succeeds."""
-    test_file = "tests/wf/extract_region_specs.cwl"
-    cache_dir = str(tmp_path / "cwltool_cache")
     commands = factor.split()
+    test_job_file = "cache_environment2.yml"
     commands.extend(
         [
-            "--out",
-            str(tmp_path / "out"),
             "--cachedir",
             cache_dir,
-            get_data(test_file),
+            "--outdir",
+            str(tmp_path / "outdir"),
+            get_data("tests/" + test_file),
+            get_data(f"tests/{test_job_file}"),
         ]
     )
+
     error_code, _, stderr = get_main_output(commands)
 
     stderr = re.sub(r"\s\s+", " ", stderr)
-    assert "completed success" in stderr
-    assert error_code == 0
+    assert "Output of job will be cached in" in stderr
+    assert error_code == 0, stderr
 
 
 def test_write_summary(tmp_path: Path) -> None:
@@ -1878,7 +1811,7 @@ def test_invalid_nested_array() -> None:
     stdout = re.sub(r"\s\s+", " ", stdout)
     assert "Tool definition failed validation:" in stdout
     assert (
-        "tests/nested-array.cwl:6:5: Field 'type' references unknown identifier 'string[][]'"
+        "tests/nested-array.cwl:7:5: Field 'type' references unknown identifier 'string[][]'"
     ) in stdout
 
 

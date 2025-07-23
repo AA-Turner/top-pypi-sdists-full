@@ -1164,6 +1164,8 @@ class CustomRuleComparisonOperator(sgqlc.types.Enum):
     """Enumeration Choices:
 
     * `AUTO`None
+    * `AUTO_HIGH`None
+    * `AUTO_LOW`None
     * `EQ`None
     * `GT`None
     * `GTE`None
@@ -1179,6 +1181,8 @@ class CustomRuleComparisonOperator(sgqlc.types.Enum):
     __schema__ = schema
     __choices__ = (
         "AUTO",
+        "AUTO_HIGH",
+        "AUTO_LOW",
         "EQ",
         "GT",
         "GTE",
@@ -19879,6 +19883,8 @@ class FieldMetricDefinition(sgqlc.types.Type):
         "deprecated",
         "supports_manual_threshold",
         "supports_auto_threshold",
+        "supports_auto_high_threshold",
+        "supports_auto_low_threshold",
         "is_grouped",
         "is_field_level",
     )
@@ -19915,15 +19921,29 @@ class FieldMetricDefinition(sgqlc.types.Type):
     supports_manual_threshold = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="supportsManualThreshold"
     )
-    """Indicates whether the metric can be used in a Field Metrics
-    monitor with manual thresholds
+    """Indicates whether the metric can be used in a Metric Monitor with
+    manual thresholds
     """
 
     supports_auto_threshold = sgqlc.types.Field(
         sgqlc.types.non_null(Boolean), graphql_name="supportsAutoThreshold"
     )
-    """Indicates whether the metric can be used in a Field Metrics
-    monitor with automatic thresholds
+    """Indicates whether the metric can be used in a Metric Monitor with
+    automatic thresholds
+    """
+
+    supports_auto_high_threshold = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsAutoHighThreshold"
+    )
+    """Indicates whether the metric can be used in a Metric Monitor with
+    automatic thresholds (considering only anomalously high values)
+    """
+
+    supports_auto_low_threshold = sgqlc.types.Field(
+        sgqlc.types.non_null(Boolean), graphql_name="supportsAutoLowThreshold"
+    )
+    """Indicates whether the metric can be used in a Metric Monitor with
+    automatic thresholds (considering only anomalously low values)
     """
 
     is_grouped = sgqlc.types.Field(sgqlc.types.non_null(Boolean), graphql_name="isGrouped")

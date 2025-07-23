@@ -1,11 +1,11 @@
 Metadata-Version: 2.3
 Name: pyspark-data-sources
-Version: 0.1.7
+Version: 0.1.8
 Summary: Custom Spark data sources for reading and writing data in Apache Spark, using the Python Data Source API
 License: Apache-2.0
 Author: allisonwang-db
 Author-email: allison.wang@databricks.com
-Requires-Python: >=3.9,<=3.12
+Requires-Python: >=3.9,<3.13
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9

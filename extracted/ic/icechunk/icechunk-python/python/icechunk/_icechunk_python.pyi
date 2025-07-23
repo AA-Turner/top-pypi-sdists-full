@@ -1350,13 +1350,25 @@ class PyRepository:
         delete_expired_branches: bool = False,
         delete_expired_tags: bool = False,
     ) -> set[str]: ...
-    def garbage_collect(
-        self, delete_object_older_than: datetime.datetime
-    ) -> GCSummary: ...
     def rewrite_manifests(
         self, message: str, *, branch: str, metadata: dict[str, Any] | None = None
     ) -> str: ...
-    def total_chunks_storage(self) -> int: ...
+    def garbage_collect(
+        self,
+        delete_object_older_than: datetime.datetime,
+        *,
+        dry_run: bool = False,
+        max_snapshots_in_memory: int = 50,
+        max_compressed_manifest_mem_bytes: int = 512 * 1024 * 1024,
+        max_concurrent_manifest_fetches: int = 500,
+    ) -> GCSummary: ...
+    def total_chunks_storage(
+        self,
+        *,
+        max_snapshots_in_memory: int = 50,
+        max_compressed_manifest_mem_bytes: int = 512 * 1024 * 1024,
+        max_concurrent_manifest_fetches: int = 500,
+    ) -> int: ...
 
 class PySession:
     @classmethod
@@ -1929,41 +1941,37 @@ class ConflictError(Exception):
 __version__: str
 
 class ConflictType(Enum):
-    """Type of conflict detected
-
-    Attributes:
-        NewNodeConflictsWithExistingNode: int
-            A new node conflicts with an existing node
-        NewNodeInInvalidGroup: tuple[int]
-            A new node is in an invalid group
-        ZarrMetadataDoubleUpdate: tuple[int]
-            A zarr metadata update conflicts with an existing zarr metadata update
-        ZarrMetadataUpdateOfDeletedArray: tuple[int]
-            A zarr metadata update is attempted on a deleted array
-        ZarrMetadataUpdateOfDeletedGroup: tuple[int]
-            A zarr metadata update is attempted on a deleted group
-        ChunkDoubleUpdate: tuple[int]
-            A chunk update conflicts with an existing chunk update
-        ChunksUpdatedInDeletedArray: tuple[int]
-            Chunks are updated in a deleted array
-        ChunksUpdatedInUpdatedArray: tuple[int]
-            Chunks are updated in an updated array
-        DeleteOfUpdatedArray: tuple[int]
-            A delete is attempted on an updated array
-        DeleteOfUpdatedGroup: tuple[int]
-            A delete is attempted on an updated group
-    """
+    """Type of conflict detected"""
 
     NewNodeConflictsWithExistingNode = (1,)
+    """A new node conflicts with an existing node"""
+
     NewNodeInInvalidGroup = (2,)
+    """A new node is in an invalid group"""
+
     ZarrMetadataDoubleUpdate = (3,)
+    """A zarr metadata update conflicts with an existing zarr metadata update"""
+
     ZarrMetadataUpdateOfDeletedArray = (4,)
+    """A zarr metadata update is attempted on a deleted array"""
+
     ZarrMetadataUpdateOfDeletedGroup = (5,)
+    """A zarr metadata update is attempted on a deleted group"""
+
     ChunkDoubleUpdate = (6,)
+    """A chunk update conflicts with an existing chunk update"""
+
     ChunksUpdatedInDeletedArray = (7,)
+    """Chunks are updated in a deleted array"""
+
     ChunksUpdatedInUpdatedArray = (8,)
+    """Chunks are updated in an updated array"""
+
     DeleteOfUpdatedArray = (9,)
+    """A delete is attempted on an updated array"""
+
     DeleteOfUpdatedGroup = (10,)
+    """A delete is attempted on an updated group"""
 
 class Conflict:
     """A conflict detected between snapshots"""

@@ -46,7 +46,7 @@ dependencies = [
     "ptyprocess~=0.6; sys_platform != 'win32'",
     "typing-extensions>=4.1; python_version < '3.10'",
 ]
-version = "1.0.4"
+version = "1.0.5"
 
 [project.urls]
 Homepage = "https://pawamoy.github.io/failprint"

@@ -38,11 +38,14 @@ from .usecases import (
     VehicleMonitoringUseCase,
     ShopliftingDetectionUseCase,
     BananaMonitoringUseCase,
+    FieldMappingUseCase,
     MaskDetectionUseCase,
     CarDamageDetectionUseCase,
+    LeafDiseaseDetectionUseCase,
     FireSmokeUseCase,
     ShopliftingDetectionConfig,
     FlareAnalysisUseCase,
+    WoundSegmentationUseCase,
     ParkingSpaceUseCase,
     FaceEmotionUseCase,
     UnderwaterPlasticUseCase,
@@ -75,6 +78,8 @@ from .usecases import (
     BottleDefectUseCase,
     AssemblyLineUseCase,
     CarPartSegmentationUseCase,
+    WindmillMaintenanceUseCase,
+    FlowerUseCase,
 
 )
 
@@ -181,7 +186,15 @@ class PostProcessor:
         registry.register_use_case("retail", "defect_detection_products", BottleDefectUseCase)
         registry.register_use_case("manufacturing", "assembly_line_detection", AssemblyLineUseCase)
         registry.register_use_case("automobile", "car_part_segmentation", CarPartSegmentationUseCase)
+
+        registry.register_use_case("manufacturing", "windmill_maintenance", WindmillMaintenanceUseCase)
+
+        registry.register_use_case("infrastructure", "field_mapping", FieldMappingUseCase)
+        registry.register_use_case("medical", "wound_segmentation", WoundSegmentationUseCase)
+        registry.register_use_case("agriculture", "leaf_disease_detection", LeafDiseaseDetectionUseCase)
+        registry.register_use_case("agriculture", "flower_segmentation", FlowerUseCase)
         
+
         logger.debug("Registered use cases with registry")
     
     def _generate_cache_key(self, config: BaseConfig, stream_key: Optional[str] = None) -> str:
@@ -308,6 +321,18 @@ class PostProcessor:
             elif isinstance(use_case, ConcreteCrackUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, LaneDetectionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+
+            elif isinstance(use_case, WindmillMaintenanceUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+
+            elif isinstance(use_case, FieldMappingUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, WoundSegmentationUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, LeafDiseaseDetectionUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, FlowerUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
 
             else:

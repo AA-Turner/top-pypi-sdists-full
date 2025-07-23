@@ -32,7 +32,6 @@ from __future__ import annotations
 
 import dataclasses
 import enum
-import functools
 from collections.abc import Sequence
 from dataclasses import dataclass
 from typing import Any, NamedTuple, Protocol, Union, runtime_checkable
@@ -43,10 +42,9 @@ from jax._src import sharding as sharding_lib
 from jax._src import source_info_util
 from jax._src import traceback_util
 from jax._src import tree_util
-from jax._src import typing
 from jax._src import util
 from jax._src.sharding_impls import UnspecifiedValue, AUTO
-from jax._src.layout import Format, DeviceLocalLayout
+from jax._src.layout import Format, Layout, AutoLayout
 from jax._src.interpreters import mlir
 from jax._src.lib.mlir import ir
 from jax._src.lib import _jax
@@ -99,11 +97,11 @@ class Executable:
     raise NotImplementedError(
         "compiled executable carries no output sharding information")
 
-  def input_layouts(self):
+  def input_formats(self):
     raise NotImplementedError(
         "compiled executable carries no input layout information")
 
-  def output_layouts(self):
+  def output_formats(self):
     raise NotImplementedError(
         "compiled executable carries no output layout information")
 
@@ -223,7 +221,8 @@ class Lowering:
         f"cost analysis unsupported on XLA computation: {type(self)}")
 
   def compile(
-      self, compiler_options: CompilerOptions | None = None) -> Executable:
+      self, compiler_options: CompilerOptions | None = None, *,
+      device_assignment: tuple[xc.Device, ...] | None = None) -> Executable:
     """Compile and return a corresponding ``Executable``."""
     raise NotImplementedError(
         f"cost analysis unsupported on XLA computation: {type(self)}")
@@ -307,13 +306,6 @@ class ArgInfo:
   @property
   def dtype(self):
     return self._aval.dtype  # pytype: disable=attribute-error
-
-
-@dataclass(frozen=True)
-class OutInfo:
-  shape: tuple[int, ...]
-  dtype: typing.DTypeLike
-  sharding: sharding_lib.Sharding | None = None
 
 
 class Stage:
@@ -426,6 +418,14 @@ class Compiled(Stage):
     except NotImplementedError:
       return None
 
+  @property
+  def out_info(self):  # PyTree of jax.ShapeDtypeStruct
+    out_avals = self._executable.out_avals
+    out_formats_flat = self._output_formats_flat
+    return self.out_tree.unflatten(
+        [core.ShapeDtypeStruct(o.shape, o.dtype, sharding=f)
+         for o, f in zip(out_avals, out_formats_flat)])
+
   def runtime_executable(self) -> Any | None:
     """An arbitrary object representation of this executable.
 
@@ -474,22 +474,16 @@ class Compiled(Stage):
     return tree_util.tree_unflatten(self.in_tree, formats_flat)  # pytype: disable=attribute-error
 
   @property
-  def output_formats(self):
+  def _output_formats_flat(self):
     layouts_flat = self._executable._xla_out_layouts
     shardings_flat = self._executable._out_shardings
-    assert all(isinstance(l, DeviceLocalLayout) for l in layouts_flat)
-    formats_flat = [Format(l, s) for l, s in zip(layouts_flat, shardings_flat)]
+    assert all(isinstance(l, Layout) for l in layouts_flat)
+    return [Format(l, s) for l, s in zip(layouts_flat, shardings_flat)]
+
+  @property
+  def output_formats(self):
+    formats_flat = self._output_formats_flat
     return tree_util.tree_unflatten(self.out_tree, formats_flat)  # pytype: disable=attribute-error
-
-  # TODO(frostig, yashkatariya): remove
-  @property
-  def input_layouts(self):
-    return self.input_formats
-
-  # TODO(frostig, yashkatariya): remove
-  @property
-  def output_layouts(self):
-    return self.output_formats
 
   @staticmethod
   def call(*args, **kwargs):
@@ -610,14 +604,24 @@ class Lowered(Stage):
   def out_info(self):  # PyTree of OutInfo
     out_avals = self._lowering.compile_args["global_out_avals"]
     out_shardings = self._lowering.compile_args["out_shardings"]
-    return self.out_tree.unflatten(
-        [OutInfo(o.shape, o.dtype, None if isinstance(s, (UnspecifiedValue, AUTO)) else s)
-         for o, s in zip(out_avals, out_shardings)])
+    out_layouts = self._lowering.compile_args["out_layouts"]
+    outs = []
+    for o, l, s in zip(out_avals, out_layouts, out_shardings):
+      s = None if isinstance(s, (UnspecifiedValue, AUTO)) else s
+      l = None if isinstance(l, AutoLayout) else l
+      format = Format(l, s)
+      outs.append(core.ShapeDtypeStruct(o.shape, o.dtype, sharding=format))
+    return self.out_tree.unflatten(outs)
 
   def compile(
-      self, compiler_options: CompilerOptions | None = None) -> Compiled:
+      self, compiler_options: CompilerOptions | None = None, *,
+      device_assignment: tuple[xc.Device, ...] | None = None) -> Compiled:
     """Compile, returning a corresponding ``Compiled`` instance."""
-    kw: dict[str, Any] = {"compiler_options": compiler_options}
+
+    kw: dict[str, Any] = {
+        "compiler_options": compiler_options,
+        "device_assignment": device_assignment
+    }
     return Compiled(
         self._lowering.compile(**kw),  # pytype: disable=wrong-keyword-args
         self.args_info,
@@ -692,7 +696,7 @@ class Traced(Stage):
 
   def __init__(self, jaxpr: core.ClosedJaxpr, args_info, fun_name, out_tree,
                lower_callable, args_flat=None, arg_names=None,
-               num_consts: int = 0):
+               num_consts: int = 0, params_out_shardings=None):
     self.jaxpr = jaxpr
     self.args_info = args_info
     self.fun_name = fun_name
@@ -701,28 +705,41 @@ class Traced(Stage):
     self._args_flat = args_flat
     self._arg_names = arg_names
     self._num_consts = num_consts
+    self._params_out_shardings = params_out_shardings
 
   @property
   def out_info(self):
-    return self._out_tree.unflatten(
-        [OutInfo(o.shape, o.dtype) for o in self.jaxpr.out_avals])
+    return self.eval_shape()
 
   def lower(self, *, lowering_platforms: tuple[str, ...] | None = None,
             _private_parameters: mlir.LoweringParameters | None = None):
     """Lower to compiler input, returning a ``Lowered`` instance."""
     if _private_parameters is None:
       _private_parameters = mlir.LoweringParameters()
-    new_callable = functools.partial(
-        self._lower_callable, lowering_platforms=lowering_platforms,
-        lowering_parameters=_private_parameters)
     try:
-      lowering = new_callable()
+      lowering = self._lower_callable(
+          lowering_platforms=lowering_platforms,
+          lowering_parameters=_private_parameters)
     except DeviceAssignmentMismatchError as e:
       fails, = e.args
       msg = _device_assignment_mismatch_error(
           self.fun_name, fails, self._args_flat, 'jit', self._arg_names)
       raise ValueError(msg) from None
     return Lowered(lowering, self.args_info, self._out_tree)
+
+  def eval_shape(self):
+    out_shardings = [None if isinstance(s, UnspecifiedValue) else s
+                     for s in self._params_out_shardings]
+    out = []
+    for a, out_s in zip(self.jaxpr.out_avals, out_shardings):
+      s = (a.sharding if a.sharding.mesh._are_all_axes_explicit else out_s
+           if out_s is None else out_s)
+      # TODO(yashkatariya): Add `Layout` to SDS.
+      out.append(
+          core.ShapeDtypeStruct(
+              a.shape, a.dtype, sharding=s, weak_type=a.weak_type,
+              vma=(a.vma if config._check_vma.value else None)))
+    return tree_util.tree_unflatten(self._out_tree, out)
 
 
 @runtime_checkable

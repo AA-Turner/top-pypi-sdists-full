@@ -452,8 +452,14 @@ async def cancel_runs(
                 status_code=422,
                 detail="Invalid status: must be 'pending', 'running', or 'all'",
             )
-        thread_id = None
+        if body.get("thread_id") or body.get("run_ids"):
+            raise HTTPException(
+                status_code=422,
+                detail="When providing a 'status', 'thread_id' and 'run_ids' must be omitted. "
+                "The 'status' parameter cancels all runs with the given status, regardless of thread or run ID.",
+            )
         run_ids = None
+        thread_id = None
     else:
         thread_id = body.get("thread_id")
         run_ids = body.get("run_ids")

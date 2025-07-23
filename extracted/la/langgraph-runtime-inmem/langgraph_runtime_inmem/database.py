@@ -172,9 +172,14 @@ async def start_pool() -> None:
             logger.error("Failed to load cached data: %s", str(e))
             await asyncio.to_thread(os.remove, OPS_FILENAME)
             await asyncio.to_thread(os.remove, RETRY_COUNTER_FILENAME)
-    for k in ["runs", "threads", "assistants", "assistant_versions"]:
+    for k in ["runs", "threads", "assistant_versions", "assistants"]:
         if not GLOBAL_STORE.get(k):
             GLOBAL_STORE[k] = []
+    # Remove agents that were created by the system to avoid removed graphs
+    if GLOBAL_STORE.get("assistants"):
+        for a in GLOBAL_STORE["assistants"]:
+            if a["metadata"].get("created_by") == "system":
+                GLOBAL_STORE["assistants"].remove(a)
     for k in ["crons"]:
         if not GLOBAL_STORE.get(k):
             GLOBAL_STORE[k] = {}

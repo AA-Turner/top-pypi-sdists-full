@@ -14,7 +14,7 @@ import typing
 import warnings
 from pathlib import Path
 from types import MappingProxyType
-from typing import TYPE_CHECKING, Any, Callable
+from typing import TYPE_CHECKING, Any, Callable, Final
 
 if TYPE_CHECKING:
     from collections import OrderedDict
@@ -43,13 +43,13 @@ from kedro.framework.project import (
 from kedro.framework.session import KedroSession
 from kedro.framework.startup import bootstrap_project
 from kedro.pipeline.node import Node
-from kedro.utils import _find_kedro_project, _is_databricks
+from kedro.utils import _is_databricks, find_kedro_project
 
 logger = logging.getLogger(__name__)
 
 FunctionParameters = MappingProxyType
 
-RICH_INSTALLED = True if importlib.util.find_spec("rich") is not None else False
+RICH_INSTALLED: Final = importlib.util.find_spec("rich") is not None
 
 
 def load_ipython_extension(ipython: InteractiveShell) -> None:
@@ -64,7 +64,7 @@ def load_ipython_extension(ipython: InteractiveShell) -> None:
     ipython.register_magic_function(func=magic_load_node, magic_name="load_node")  # type: ignore[call-arg]
     logger.info("Registered line magic '%load_node'")
 
-    if _find_kedro_project(Path.cwd()) is None:
+    if find_kedro_project(Path.cwd()) is None:
         logger.warning(
             "Kedro extension was registered but couldn't find a Kedro project. "
             "Make sure you run '%reload_kedro <project_root>'."
@@ -112,7 +112,7 @@ def magic_reload_kedro(
 def reload_kedro(
     path: str | None = None,
     env: str | None = None,
-    extra_params: dict[str, Any] | None = None,
+    runtime_params: dict[str, Any] | None = None,
     local_namespace: dict[str, Any] | None = None,
     conf_source: str | None = None,
 ) -> None:  # pragma: no cover
@@ -128,7 +128,7 @@ def reload_kedro(
     session = KedroSession.create(
         project_path,
         env=env,
-        extra_params=extra_params,
+        runtime_params=runtime_params,
         conf_source=conf_source,
     )
     context = session.load_context()
@@ -175,7 +175,7 @@ def _resolve_project_path(
         ):
             project_path = local_namespace["context"].project_path
         else:
-            project_path = _find_kedro_project(Path.cwd())
+            project_path = find_kedro_project(Path.cwd())
         if project_path:
             logger.info(
                 "Resolved project path as: %s.\nTo set a different path, run "
@@ -287,7 +287,7 @@ def _create_cell_with_text(text: str) -> None:
 
 def _print_cells(cells: list[str]) -> None:
     for cell in cells:
-        if RICH_INSTALLED is True:
+        if RICH_INSTALLED:
             rich_console.Console().print("")
             rich_console.Console().print(
                 rich_syntax.Syntax(cell, "python", theme="monokai", line_numbers=False)

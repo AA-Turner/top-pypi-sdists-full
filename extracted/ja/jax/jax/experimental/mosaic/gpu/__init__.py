@@ -47,6 +47,10 @@ from .layout_inference import (
     infer_layout as infer_layout,
 )
 
+from .layout_inference2 import (
+    infer_layout as infer_layout2,  # noqa: F401
+)
+
 from .layouts import (
     to_layout_attr as to_layout_attr,
 )
@@ -59,6 +63,7 @@ from .fragmented_array import (
     FragmentedArray as FragmentedArray,
     FragmentedLayout as FragmentedLayout,
     TCGEN05_LAYOUT as TCGEN05_LAYOUT,
+    TCGEN05_TRANSPOSED_LAYOUT as TCGEN05_TRANSPOSED_LAYOUT,
     TCGEN05_ROW_LAYOUT as TCGEN05_ROW_LAYOUT,
     TCGEN05_COL_LAYOUT as TCGEN05_COL_LAYOUT,
     TiledLayout as TiledLayout,
@@ -95,6 +100,7 @@ from .utils import (
     memref_unsqueeze as memref_unsqueeze,
     single_thread as single_thread,
     single_thread_predicate as single_thread_predicate,
+    system_memory_barrier as system_memory_barrier,
     thread_idx as thread_idx,
     tile_shape as tile_shape,
     warp_idx as warp_idx,
@@ -106,3 +112,5 @@ from .wgmma import (
     WGMMAAccumulator as WGMMAAccumulator,
     wgmma as wgmma,
 )
+
+from . import tcgen05 as tcgen05

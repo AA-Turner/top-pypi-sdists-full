@@ -14787,6 +14787,26 @@ async def fun_empty(txt):
         await asyncio.sleep(round(random.uniform(1, 2), 2))
 
 
+async def get_lz_code(lc):
+    result = 'en'
+    try:
+        if lc in {'zh','zh-chs','zh-cht','ja','ko','zh-CN','zh-TW','th','vi','tw','sg'}:
+            result = 'zh'
+        elif lc in {'ar-XA','ar','tr','ur','fa','tj','dz','eg','iq','sy','ae','sa','tn','ir','af'}:
+            result = 'ar'
+        elif lc in {'es','ar','cl','co','cu','ve','bo','pe','ec','pt','br','ao','mz'}:
+            result = 'es'
+        elif lc in {'fr','ch','be','ca'}:
+            result = 'fr'
+        elif lc in {'ru','kz','kg','uz','tm','md','am','uk-UA','uk','kk','tk','ky'}:
+            result = 'ru'
+    except Exception as e:
+        logger.info(log_ % str(e))
+        await asyncio.sleep(round(random.uniform(1, 2), 2))
+    return result
+
+
+
 async def lz_code(chat_id, lan, BASE_D):
     result = 'en'
     try:

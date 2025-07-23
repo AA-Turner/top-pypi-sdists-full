@@ -20,6 +20,8 @@ from tecton.cli.infra_commands import interactive_create_transform_server_group
 from tecton.cli.interactive_menu import create_workspace_menu
 from tecton.cli.workspace_utils import WorkspaceType
 from tecton.cli.workspace_utils import switch_to_workspace
+from tecton_core.conf import STREAM_INGEST_V2_ENABLED
+from tecton_core.conf import TRANSFORM_SERVER_GROUPS_ENABLED
 from tecton_proto.common import compute_identity__client_pb2 as compute_identity_pb2
 
 
@@ -157,40 +159,63 @@ def create(workspace, live, skip_server_groups):
     switch_to_workspace(workspace)
 
     if live and not skip_server_groups:
-        printer.rich_print(
-            Panel(
-                Text.assemble(
+        # Build the info panel content dynamically based on enabled features
+        info_text_parts = []
+
+        if TRANSFORM_SERVER_GROUPS_ENABLED.enabled():
+            info_text_parts.extend(
+                [
                     ("Transform Server Groups: ", "bold blue"),
                     (
                         "Used to execute user defined transformations for streaming and realtime feature computations.\n",
                         "",
                     ),
+                ]
+            )
+
+        if STREAM_INGEST_V2_ENABLED.enabled():
+            info_text_parts.extend(
+                [
                     ("Ingest Server Groups: ", "bold green"),
                     ("Used to ingest streaming data for Tecton's Stream Ingest API.\n\n", ""),
-                    (
-                        "These server groups provide the compute infrastructure needed for realtime and streaming features.",
-                        "dim",
-                    ),
-                ),
-                title="Create Server Groups",
-                border_style="cyan",
-                padding=(1, 2),
+                ]
             )
-        )
 
-        create_tsg = Confirm.ask("Would you like to create a Transform Server Group?", default=False)
-        if create_tsg:
-            tsg = interactive_create_transform_server_group(
-                workspace, show_description=False, provide_name_defaults=True
+        # Only show the panel if at least one feature is enabled
+        if info_text_parts:
+            info_text_parts.append(
+                (
+                    "These server groups provide the compute infrastructure needed for realtime and streaming features.",
+                    "dim",
+                )
             )
-            if tsg:
-                printer.safe_print()
 
-        create_isg = Confirm.ask("Would you like to create an Ingest Server Group?", default=False)
-        if create_isg:
-            isg = interactive_create_ingest_server_group(workspace, show_description=False, provide_name_defaults=True)
-            if isg:
-                printer.safe_print()
+            printer.rich_print(
+                Panel(
+                    Text.assemble(*info_text_parts),
+                    title="Create Server Groups",
+                    border_style="cyan",
+                    padding=(1, 2),
+                )
+            )
+
+        if TRANSFORM_SERVER_GROUPS_ENABLED.enabled():
+            create_tsg = Confirm.ask("Would you like to create a Transform Server Group?", default=False)
+            if create_tsg:
+                tsg = interactive_create_transform_server_group(
+                    workspace, show_description=False, provide_name_defaults=True
+                )
+                if tsg:
+                    printer.safe_print()
+
+        if STREAM_INGEST_V2_ENABLED.enabled():
+            create_isg = Confirm.ask("Would you like to create an Ingest Server Group?", default=False)
+            if create_isg:
+                isg = interactive_create_ingest_server_group(
+                    workspace, show_description=False, provide_name_defaults=True
+                )
+                if isg:
+                    printer.safe_print()
 
     printer.safe_print(
         """

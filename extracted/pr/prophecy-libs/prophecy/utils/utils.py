@@ -63,6 +63,9 @@ from prophecy.libs.utils import (
     createScalaOption,
     isBlank,
 )
+
+# DONT REMOVE THIS - It is imported in few places within Prophecy (e.g., Python schema analysis), which in turn loads all dependencies.
+from prophecy.libs.utils import *
 from prophecy.utils.pipeline_monitoring import (
     sendGemProgressEvent2,
     sendGemProgressEvent3,
@@ -844,10 +847,10 @@ class MetricsCollector:
         Placeholder implementation: assumes each part is
         base64-encoded + gzipped bytes of UTF-8 JSON text.
         """
-        import base64
+        import base64 as base64_std
         import gzip
 
-        raw: bytes = base64.b64decode(encoded)
+        raw: bytes = base64_std.b64decode(encoded)
         return gzip.decompress(raw).decode("utf-8")
 
     @classmethod

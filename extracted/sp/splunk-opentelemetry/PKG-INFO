@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: splunk-opentelemetry
-Version: 2.4.0
+Version: 2.5.0
 Project-URL: Documentation, https://github.com/signalfx/splunk-otel-python#readme
 Project-URL: Issues, https://github.com/signalfx/splunk-otel-python/issues
 Project-URL: Source, https://github.com/signalfx/splunk-otel-python
@@ -8,7 +8,6 @@ License-Expression: Apache-2.0
 License-File: LICENSE.txt
 Classifier: Development Status :: 4 - Beta
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -16,15 +15,15 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
-Requires-Python: >=3.8
-Requires-Dist: opentelemetry-api==1.33.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.33.1
-Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.33.1
-Requires-Dist: opentelemetry-instrumentation-system-metrics==0.54b1
-Requires-Dist: opentelemetry-instrumentation==0.54b1
-Requires-Dist: opentelemetry-propagator-b3==1.33.1
-Requires-Dist: opentelemetry-sdk==1.33.1
-Requires-Dist: opentelemetry-semantic-conventions==0.54b1
+Requires-Python: >=3.9
+Requires-Dist: opentelemetry-api==1.35.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-grpc==1.35.0
+Requires-Dist: opentelemetry-exporter-otlp-proto-http==1.35.0
+Requires-Dist: opentelemetry-instrumentation-system-metrics==0.56b0
+Requires-Dist: opentelemetry-instrumentation==0.56b0
+Requires-Dist: opentelemetry-propagator-b3==1.35.0
+Requires-Dist: opentelemetry-sdk==1.35.0
+Requires-Dist: opentelemetry-semantic-conventions==0.56b0
 Description-Content-Type: text/markdown
 
 # splunk-opentelemetry
@@ -54,7 +53,7 @@ This distribution comes with the following defaults:
 
 ## Requirements
 
-This Splunk Distribution of OpenTelemetry requires Python 3.8 or later. Supported
+This Splunk Distribution of OpenTelemetry requires Python 3.9 or later. Supported
 libraries are listed
 [here](https://github.com/open-telemetry/opentelemetry-python-contrib/tree/main/instrumentation).
 

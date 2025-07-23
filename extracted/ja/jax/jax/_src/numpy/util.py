@@ -16,8 +16,9 @@ from __future__ import annotations
 from collections.abc import Sequence
 from functools import partial
 from typing import Any, overload
-
 import warnings
+
+import numpy as np
 
 from jax._src import api
 from jax._src import config
@@ -27,11 +28,11 @@ from jax._src.lax import lax
 from jax._src.lib import xla_client as xc
 from jax._src.sharding_impls import SingleDeviceSharding
 from jax._src.util import safe_zip, safe_map, set_module
+from jax._src.sharding import Sharding
+from jax._src.sharding_impls import (NamedSharding, PartitionSpec as P,
+                                     canonicalize_sharding)
 from jax._src.typing import (
     Array, ArrayLike, DimSize, Shape, SupportsNdim, SupportsShape, SupportsSize)
-from jax.sharding import Sharding
-
-import numpy as np
 
 zip, unsafe_zip = safe_zip, zip
 map, unsafe_map = safe_map, map
@@ -321,6 +322,19 @@ def normalize_device_to_sharding(device: xc.Device | Sharding | None) -> Shardin
     return SingleDeviceSharding(device)
   else:
     return device
+
+def choose_device_or_out_sharding(device: xc.Device | Sharding | None,
+                                  out_sharding: NamedSharding | P | None,
+                                  name: str) -> Sharding | NamedSharding | None:
+  if device is not None and out_sharding is not None:
+    raise ValueError(
+        f"Only one of `device` or `out_sharding` can be set. Got {device=} and"
+        f" {out_sharding=}")
+  if device is not None and out_sharding is None:
+    return normalize_device_to_sharding(device)
+  if device is None and out_sharding is not None:
+    return canonicalize_sharding(out_sharding, name)
+  return None
 
 
 @export

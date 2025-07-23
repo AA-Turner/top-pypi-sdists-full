@@ -58,6 +58,15 @@ class PyQueryCondition {
         }
     }
 
+    void init_null(
+        const string& attribute_name, tiledb_query_condition_op_t op) {
+        try {
+            qc_->init(attribute_name, nullptr, 0, op);
+        } catch (TileDBError& e) {
+            TPY_ERROR_LOC(e.what());
+        }
+    }
+
     shared_ptr<QueryCondition> ptr() {
         return qc_;
     }
@@ -112,6 +121,17 @@ class PyQueryCondition {
         return pyqc;
     }
 
+    PyQueryCondition negate() const {
+        try {
+            auto negated_qc = qc_->negate();
+            auto pyqc = PyQueryCondition(nullptr, ctx_.ptr().get());
+            pyqc.qc_ = std::make_shared<QueryCondition>(std::move(negated_qc));
+            return pyqc;
+        } catch (TileDBError& e) {
+            TPY_ERROR_LOC(e.what());
+        }
+    }
+
    private:
     PyQueryCondition(shared_ptr<QueryCondition> qc, tiledb_ctx_t* c_ctx)
         : qc_(qc) {
@@ -135,6 +155,11 @@ void init_query_condition(py::module& m) {
          * https://github.com/pybind/pybind11/issues/1667
          */
 
+        .def(
+            "init_null",
+            static_cast<void (PyQueryCondition::*)(
+                const string&, tiledb_query_condition_op_t)>(
+                &PyQueryCondition::init_null))
         .def(
             "init_string",
             static_cast<void (PyQueryCondition::*)(
@@ -194,6 +219,7 @@ void init_query_condition(py::module& m) {
         .def("__capsule__", &PyQueryCondition::__capsule__)
 
         .def("combine", &PyQueryCondition::combine)
+        .def("negate", &PyQueryCondition::negate)
 
         .def_static(
             "create_string",

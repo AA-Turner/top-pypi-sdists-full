@@ -3,18 +3,20 @@
 from __future__ import annotations
 
 import os
+import re
 import sys
 from contextlib import contextmanager
 from importlib.metadata import version as pkgversion
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from duty import duty, tools
+from duty import duty
+from duty._internal import tools
 
 if TYPE_CHECKING:
     from collections.abc import Iterator
 
-    from duty.context import Context
+    from duty._internal.context import Context
 
 
 PY_SRC_PATHS = (Path(_) for _ in ("src", "tests", "duties.py", "scripts"))
@@ -26,7 +28,7 @@ PTY = not WINDOWS and not CI
 MULTIRUN = os.environ.get("MULTIRUN", "0") == "1"
 
 
-def pyprefix(title: str) -> str:  # noqa: D103
+def pyprefix(title: str) -> str:
     if MULTIRUN:
         prefix = f"(python{sys.version_info.major}.{sys.version_info.minor})"
         return f"{prefix:14}{title}"
@@ -34,7 +36,7 @@ def pyprefix(title: str) -> str:  # noqa: D103
 
 
 @contextmanager
-def material_insiders() -> Iterator[bool]:  # noqa: D103
+def material_insiders() -> Iterator[bool]:
     if "+insiders" in pkgversion("mkdocs-material"):
         os.environ["MATERIAL_INSIDERS"] = "true"
         try:
@@ -45,6 +47,12 @@ def material_insiders() -> Iterator[bool]:  # noqa: D103
         yield False
 
 
+def _get_changelog_version() -> str:
+    changelog_version_re = re.compile(r"^## \[(\d+\.\d+\.\d+)\].*$")
+    with Path(__file__).parent.joinpath("CHANGELOG.md").open("r", encoding="utf8") as file:
+        return next(filter(bool, map(changelog_version_re.match, file))).group(1)  # type: ignore[union-attr]
+
+
 @duty
 def changelog(ctx: Context, bump: str = "") -> None:
     """Update the changelog in-place with latest commits.
@@ -53,6 +61,7 @@ def changelog(ctx: Context, bump: str = "") -> None:
         bump: Bump option passed to git-changelog.
     """
     ctx.run(tools.git_changelog(bump=bump or None), title="Updating changelog")
+    ctx.run(tools.yore.check(bump=bump or _get_changelog_version()), title="Checking legacy code")
 
 
 @duty(pre=["check-quality", "check-types", "check-docs", "check-api"])
@@ -185,7 +194,7 @@ def coverage(ctx: Context) -> None:
 
 
 @duty
-def test(ctx: Context, *cli_args: str, match: str = "") -> None:
+def test(ctx: Context, *cli_args: str, match: str = "") -> None:  # noqa: PT028
     """Run the test suite.
 
     Parameters:

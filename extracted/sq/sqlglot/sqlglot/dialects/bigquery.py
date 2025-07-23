@@ -530,7 +530,7 @@ class BigQuery(Dialect):
             "BYTES": TokenType.BINARY,
             "CURRENT_DATETIME": TokenType.CURRENT_DATETIME,
             "DATETIME": TokenType.TIMESTAMP,
-            "DECLARE": TokenType.COMMAND,
+            "DECLARE": TokenType.DECLARE,
             "ELSEIF": TokenType.COMMAND,
             "EXCEPTION": TokenType.COMMAND,
             "EXPORT": TokenType.EXPORT,
@@ -671,6 +671,7 @@ class BigQuery(Dialect):
             TokenType.END: lambda self: self._parse_as_command(self._prev),
             TokenType.FOR: lambda self: self._parse_for_in(),
             TokenType.EXPORT: lambda self: self._parse_export_data(),
+            TokenType.DECLARE: lambda self: self._parse_declare(),
         }
 
         BRACKET_OFFSETS = {
@@ -1361,3 +1362,12 @@ class BigQuery(Dialect):
                     return f"{self.sql(expression, 'to')}{self.sql(this)}"
 
             return super().cast_sql(expression, safe_prefix=safe_prefix)
+
+        def declareitem_sql(self, expression: exp.DeclareItem) -> str:
+            variables = self.expressions(expression, "this")
+            default = self.sql(expression, "default")
+            default = f" DEFAULT {default}" if default else ""
+            kind = self.sql(expression, "kind")
+            kind = f" {kind}" if kind else ""
+
+            return f"{variables}{kind}{default}"

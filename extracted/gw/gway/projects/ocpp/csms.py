@@ -452,11 +452,15 @@ def _render_charger_card(cid, tx, state, raw_hb, *, show_controls=True):
         <tr>
           <td class="charger-info-td">
             <table class="charger-info-table">
+              <colgroup>
+                <col class="label-col">
+                <col class="value-col">
+                <col class="label-col">
+                <col class="value-col">
+              </colgroup>
               <tr>
                 <td class="label">ID</td>
                 <td class="value">{cid}</td>
-              </tr>
-              <tr>
                 <td class="label">TXN</td>
                 <td class="value">{tx_id}</td>
               </tr>
@@ -478,11 +482,9 @@ def _render_charger_card(cid, tx, state, raw_hb, *, show_controls=True):
               </tr>
               <tr>
                 <td class="label">Updated</td>
-                <td class="value" colspan="3">{last_updated}</td>
-              </tr>
-              <tr>
+                <td class="value">{last_updated}</td>
                 <td class="label">Status</td>
-                <td class="value" colspan="3">{status}</td>
+                <td class="value">{status}</td>
               </tr>
             </table>
           </td>
@@ -657,10 +659,14 @@ def view_charger_detail(*, charger_id=None, **_):
     )
 
     html.append(
-        f'''<form id="tx-range" method="get" style="margin:1em 0;">
+        f'''<form id="tx-range" method="get">
             <input type="hidden" name="charger_id" value="{charger_id}">
-            <label>From: <input type="date" name="since" value="{since}"></label>
-            <label>To: <input type="date" name="until" value="{until}"></label>
+            <label>From:
+                <input type="date" name="since" value="{since}">
+            </label>
+            <label>To:
+                <input type="date" name="until" value="{until}">
+            </label>
             <button type="submit">Apply</button>
         </form>'''
     )

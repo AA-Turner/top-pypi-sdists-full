@@ -53,6 +53,8 @@ extras_require = {
 def package_files(directory):
     paths = []
     for path, _, filenames in os.walk(directory):
+        if os.path.basename(path) == "tests":  # skip test directory
+            continue
         for filename in filenames:
             paths.append(os.path.join("..", path, filename))
     return paths

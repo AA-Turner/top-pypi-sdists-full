@@ -12,9 +12,31 @@ from jsonschema.validators import Draft7Validator, extend
 
 from dbt import deprecations
 from dbt.include.jsonschemas import JSONSCHEMAS_PATH
+from dbt_common.context import get_invocation_context
 
 _PROJECT_SCHEMA: Optional[Dict[str, Any]] = None
 _RESOURCES_SCHEMA: Optional[Dict[str, Any]] = None
+
+_JSONSCHEMA_SUPPORTED_ADAPTERS = {
+    "bigquery",
+    "databricks",
+    "redshift",
+    "snowflake",
+}
+
+_HIERARCHICAL_CONFIG_KEYS = {
+    "seeds",
+    "sources",
+    "models",
+    "snapshots",
+    "tests",
+    "exposures",
+    "data_tests",
+    "metrics",
+    "saved_queries",
+    "semantic_models",
+    "unit_tests",
+}
 
 
 def load_json_from_package(jsonschema_type: str, filename: str) -> Dict[str, Any]:
@@ -85,9 +107,16 @@ def _validate_with_schema(
     return validator.iter_errors(json)
 
 
-def jsonschema_validate(schema: Dict[str, Any], json: Dict[str, Any], file_path: str) -> None:
-
+def _can_run_validations() -> bool:
     if not os.environ.get("DBT_ENV_PRIVATE_RUN_JSONSCHEMA_VALIDATIONS"):
+        return False
+
+    invocation_context = get_invocation_context()
+    return invocation_context.adapter_types.issubset(_JSONSCHEMA_SUPPORTED_ADAPTERS)
+
+
+def jsonschema_validate(schema: Dict[str, Any], json: Dict[str, Any], file_path: str) -> None:
+    if not _can_run_validations():
         return
 
     errors = _validate_with_schema(schema, json)
@@ -120,24 +149,43 @@ def jsonschema_validate(schema: Dict[str, Any], json: Dict[str, Any], file_path:
                             file=file_path,
                             key_path=key_path,
                         )
-        elif error.validator == "type" and "deprecation_date" not in error_path:
-            # Not deprecating invalid types yet, except for pre-existing deprecation_date deprecation
+        elif error.validator == "anyOf" and len(error_path) > 0:
+            sub_errors = error.context or []
+            # schema yaml resource configs
+            if error_path[-1] == "config":
+                for sub_error in sub_errors:
+                    if (
+                        isinstance(sub_error, ValidationError)
+                        and sub_error.validator == "additionalProperties"
+                    ):
+                        keys = _additional_properties_violation_keys(sub_error)
+                        key_path = error_path_to_string(error)
+                        for key in keys:
+                            deprecations.warn(
+                                "custom-key-in-config-deprecation",
+                                key=key,
+                                file=file_path,
+                                key_path=key_path,
+                            )
+            # dbt_project.yml configs
+            elif "dbt_project.yml" in file_path and error_path[0] in _HIERARCHICAL_CONFIG_KEYS:
+                for sub_error in sub_errors:
+                    if isinstance(sub_error, ValidationError) and sub_error.validator == "type":
+                        # Only raise type-errors if they are indicating leaf config without a plus prefix
+                        if (
+                            len(sub_error.path) > 0
+                            and isinstance(sub_error.path[-1], str)
+                            and not sub_error.path[-1].startswith("+")
+                        ):
+                            deprecations.warn(
+                                "missing-plus-prefix-in-config-deprecation",
+                                key=sub_error.path[-1],
+                                file=file_path,
+                                key_path=error_path_to_string(sub_error),
+                            )
+        elif error.validator == "type":
+            # Not deprecating invalid types yet
             pass
-        elif error.validator == "anyOf" and len(error_path) > 0 and error_path[-1] == "config":
-            for sub_error in error.context or []:
-                if (
-                    isinstance(sub_error, ValidationError)
-                    and sub_error.validator == "additionalProperties"
-                ):
-                    keys = _additional_properties_violation_keys(sub_error)
-                    key_path = error_path_to_string(error)
-                    for key in keys:
-                        deprecations.warn(
-                            "custom-key-in-config-deprecation",
-                            key=key,
-                            file=file_path,
-                            key_path=key_path,
-                        )
         else:
             deprecations.warn(
                 "generic-json-schema-validation-deprecation",
@@ -148,7 +196,7 @@ def jsonschema_validate(schema: Dict[str, Any], json: Dict[str, Any], file_path:
 
 
 def validate_model_config(config: Dict[str, Any], file_path: str) -> None:
-    if not os.environ.get("DBT_ENV_PRIVATE_RUN_JSONSCHEMA_VALIDATIONS"):
+    if not _can_run_validations():
         return
 
     resources_jsonschema = resources_schema()

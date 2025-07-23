@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: snitun
-Version: 0.43.0
+Version: 0.44.0
 Summary: SNI proxy with TCP multiplexer
 Author-email: "Nabu Casa, Inc." <opensource@nabucasa.com>
 License: GPL v3

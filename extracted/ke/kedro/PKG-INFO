@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro
-Version: 0.19.14
+Version: 1.0.0
 Summary: Kedro helps you build production-ready data and analytics pipelines
 Author: Kedro
 License: Apache Software License (Apache 2.0)
@@ -9,11 +9,12 @@ Project-URL: Source, https://github.com/kedro-org/kedro
 Project-URL: Documentation, https://docs.kedro.org
 Project-URL: Tracker, https://github.com/kedro-org/kedro/issues
 Keywords: pipelines,machine learning,data pipelines,data science,data engineering
-Classifier: Development Status :: 4 - Beta
+Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE.md
@@ -25,6 +26,7 @@ Requires-Dist: cookiecutter<3.0,>=2.1.1
 Requires-Dist: dynaconf<4.0,>=3.1.2
 Requires-Dist: fsspec>=2021.4
 Requires-Dist: gitpython>=3.0
+Requires-Dist: importlib_resources<7.0,>=1.3
 Requires-Dist: importlib-metadata<9.0,>=3.6
 Requires-Dist: importlib_resources<7.0,>=1.3
 Requires-Dist: kedro-telemetry>=0.5.0
@@ -32,10 +34,8 @@ Requires-Dist: more_itertools>=8.14.0
 Requires-Dist: omegaconf>=2.1.1
 Requires-Dist: parse>=1.19.0
 Requires-Dist: pluggy>=1.0
-Requires-Dist: pre-commit-hooks
 Requires-Dist: PyYAML<7.0,>=4.2
 Requires-Dist: rich<15.0,>=12.0
-Requires-Dist: rope<2.0,>=0.21
 Requires-Dist: toml>=0.10.0
 Requires-Dist: typing_extensions>=4.0
 Provides-Extra: test
@@ -65,10 +65,16 @@ Requires-Dist: types-cachetools; extra == "test"
 Requires-Dist: types-requests; extra == "test"
 Requires-Dist: types-toml; extra == "test"
 Provides-Extra: docs
-Requires-Dist: ipykernel<7.0,>=5.3; extra == "docs"
-Requires-Dist: Jinja2<3.2.0; extra == "docs"
-Requires-Dist: kedro-sphinx-theme==2024.10.3; extra == "docs"
-Requires-Dist: sphinx-notfound-page!=1.0.3; extra == "docs"
+Requires-Dist: mkdocs>=1.6.1; extra == "docs"
+Requires-Dist: mkdocs-material>=9.6.11; extra == "docs"
+Requires-Dist: mkdocs-material-extensions>=1.3.1; extra == "docs"
+Requires-Dist: mkdocs-mermaid2-plugin>=1.2.1; extra == "docs"
+Requires-Dist: mkdocs-autorefs>=1.4.1; extra == "docs"
+Requires-Dist: mkdocs-get-deps>=0.2.0; extra == "docs"
+Requires-Dist: mkdocstrings>=0.29.1; extra == "docs"
+Requires-Dist: mkdocstrings-python>=0.29.1; extra == "docs"
+Requires-Dist: mkdocs-click; extra == "docs"
+Requires-Dist: griffe; extra == "docs"
 Provides-Extra: jupyter
 Requires-Dist: ipylab>=1.0.0; extra == "jupyter"
 Requires-Dist: notebook>=7.0.0; extra == "jupyter"
@@ -112,7 +118,7 @@ Kedro is an open-source Python framework hosted by the [LF AI & Data Foundation]
 To install Kedro from the Python Package Index (PyPI) run:
 
 ```
-pip install kedro
+uv pip install kedro
 ```
 
 It is also possible to install Kedro using `conda`:
@@ -126,7 +132,7 @@ Our [Get Started guide](https://docs.kedro.org/en/stable/get_started/install.htm
 ### Installation from source
 To access the latest Kedro version before its official release, install it from the `main` branch.
 ```
-pip install git+https://github.com/kedro-org/kedro@main
+uv pip install git+https://github.com/kedro-org/kedro@main
 ```
 
 ## What are the main features of Kedro?

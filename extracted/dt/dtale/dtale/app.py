@@ -619,8 +619,6 @@ def find_free_port():
 
 
 def build_startup_url_and_app_root(app_root=None):
-    global ACTIVE_HOST, ACTIVE_PORT, SSL_CONTEXT, JUPYTER_SERVER_PROXY, USE_COLAB
-
     if USE_COLAB:
         colab_host = use_colab(ACTIVE_PORT)
         if colab_host:
@@ -703,6 +701,8 @@ def show(data=None, data_loader=None, name=None, context_vars=None, **options):
     :type inplace: bool, optional
     :param drop_index: If true, this will drop any pre-existing index on the dataframe input.
     :type drop_index: bool, optional
+    :param theme: display themes for the app. Options are "light" & "dark" (default is "light")
+    :type theme: str, optional
     :param hide_shutdown: If true, this will hide the "Shutdown" buton from users
     :type hide_shutdown: bool, optional
     :param github_fork: If true, this will display a "Fork me on GitHub" ribbon in the upper right-hand corner of the
@@ -746,7 +746,7 @@ def show(data=None, data_loader=None, name=None, context_vars=None, **options):
 
         ..link displayed in logging can be copied and pasted into any browser
     """
-    global ACTIVE_HOST, ACTIVE_PORT, SSL_CONTEXT, USE_COLAB, USE_NGROK
+    global ACTIVE_HOST, ACTIVE_PORT, SSL_CONTEXT
 
     if name:
         if global_state.get_data_id_by_name(name):
@@ -824,6 +824,7 @@ def show(data=None, data_loader=None, name=None, context_vars=None, **options):
             is_proxy=JUPYTER_SERVER_PROXY,
             app_root=final_app_root,
             hide_shutdown=final_options.get("hide_shutdown"),
+            theme=final_options.get("theme"),
             column_edit_options=final_options.get("column_edit_options"),
             auto_hide_empty_columns=final_options.get("auto_hide_empty_columns"),
             highlight_filter=final_options.get("highlight_filter"),

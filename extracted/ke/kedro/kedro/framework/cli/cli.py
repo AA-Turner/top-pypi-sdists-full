@@ -31,7 +31,7 @@ from kedro.framework.cli.utils import (
 )
 from kedro.framework.project import LOGGING  # noqa: F401
 from kedro.framework.startup import bootstrap_project
-from kedro.utils import _find_kedro_project, _is_project
+from kedro.utils import find_kedro_project, is_kedro_project
 
 LOGO = rf"""
  _            _
@@ -43,7 +43,7 @@ v{version}
 """
 
 
-@click.group(context_settings=CONTEXT_SETTINGS, name="Kedro")
+@click.group(context_settings=CONTEXT_SETTINGS, name="kedro")
 @click.version_option(version, "--version", "-V", help="Show version and exit")
 def cli() -> None:  # pragma: no cover
     """Kedro is a CLI for creating and using Kedro projects. For more
@@ -89,13 +89,12 @@ def info() -> None:
 @click.group(
     context_settings=CONTEXT_SETTINGS,
     cls=LazyGroup,
-    name="Kedro",
+    name="kedro",
     lazy_subcommands={
         "registry": "kedro.framework.cli.registry.registry",
         "catalog": "kedro.framework.cli.catalog.catalog",
         "ipython": "kedro.framework.cli.project.ipython",
         "run": "kedro.framework.cli.project.run",
-        "micropkg": "kedro.framework.cli.micropkg.micropkg",
         "package": "kedro.framework.cli.project.package",
         "jupyter": "kedro.framework.cli.jupyter.jupyter",
         "pipeline": "kedro.framework.cli.pipeline.pipeline",
@@ -107,7 +106,7 @@ def project_commands() -> None:
 
 @click.group(
     context_settings=CONTEXT_SETTINGS,
-    name="Kedro",
+    name="kedro",
     cls=LazyGroup,
     lazy_subcommands={
         "new": "kedro.framework.cli.starters.new",
@@ -131,7 +130,7 @@ class KedroCLI(CommandCollection):
 
     def __init__(self, project_path: Path):
         self._metadata = None  # running in package mode
-        if _is_project(project_path):
+        if is_kedro_project(project_path):
             self._metadata = bootstrap_project(project_path)
         self._cli_hook_manager = get_cli_hook_manager()
 
@@ -257,7 +256,5 @@ def main() -> None:  # pragma: no cover
     commands to `kedro`'s before invoking the CLI.
     """
     _init_plugins()
-    cli_collection = KedroCLI(
-        project_path=_find_kedro_project(Path.cwd()) or Path.cwd()
-    )
+    cli_collection = KedroCLI(project_path=find_kedro_project(Path.cwd()) or Path.cwd())
     cli_collection()

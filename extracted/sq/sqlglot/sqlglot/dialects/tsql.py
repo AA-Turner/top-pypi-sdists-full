@@ -3,7 +3,7 @@ from __future__ import annotations
 import datetime
 import re
 import typing as t
-from functools import partial, reduce
+from functools import reduce
 
 from sqlglot import exp, generator, parser, tokens, transforms
 from sqlglot.dialects.dialect import (
@@ -390,6 +390,27 @@ def _timestrtotime_sql(self: TSQL.Generator, expression: exp.TimeStrToTime):
         # If you dont have AT TIME ZONE 'UTC', wrapping that expression in another cast back to DATETIME2 just drops the timezone information
         return self.sql(exp.AtTimeZone(this=sql, zone=exp.Literal.string("UTC")))
     return sql
+
+
+def _add_default_precision_to_varchar(expression: exp.Expression) -> exp.Expression:
+    """Transform function to add VARCHAR(MAX) or CHAR(MAX) for cross-dialect conversion."""
+    if (
+        isinstance(expression, exp.Create)
+        and expression.kind == "TABLE"
+        and isinstance(expression.this, exp.Schema)
+    ):
+        for column in expression.this.expressions:
+            if isinstance(column, exp.ColumnDef):
+                column_type = column.kind
+                if (
+                    isinstance(column_type, exp.DataType)
+                    and column_type.this in (exp.DataType.Type.VARCHAR, exp.DataType.Type.CHAR)
+                    and not column_type.expressions
+                ):
+                    # For transpilation, VARCHAR/CHAR without precision becomes VARCHAR(MAX)/CHAR(MAX)
+                    column_type.set("expressions", [exp.var("MAX")])
+
+    return expression
 
 
 def _build_datetrunc(args: t.List) -> exp.TimestampTrunc:
@@ -869,6 +890,22 @@ class TSQL(Dialect):
 
                     create.args["properties"].append("expressions", exp.TemporaryProperty())
 
+                # Transform VARCHAR/CHAR without precision to VARCHAR(1)/CHAR(1)
+                if create.kind == "TABLE" and isinstance(create.this, exp.Schema):
+                    for column in create.this.expressions:
+                        if isinstance(column, exp.ColumnDef):
+                            column_type = column.kind
+                            if (
+                                isinstance(column_type, exp.DataType)
+                                and column_type.this
+                                in (exp.DataType.Type.VARCHAR, exp.DataType.Type.CHAR)
+                                and not column_type.expressions
+                            ):
+                                # Add default precision of 1 to VARCHAR/CHAR without precision
+                                # When n isn't specified in a data definition or variable declaration statement, the default length is 1.
+                                # https://learn.microsoft.com/en-us/sql/t-sql/data-types/char-and-varchar-transact-sql?view=sql-server-ver17#remarks
+                                column_type.set("expressions", [exp.Literal.number("1")])
+
             return create
 
         def _parse_if(self) -> t.Optional[exp.Expression]:
@@ -910,31 +947,18 @@ class TSQL(Dialect):
 
             return partition
 
-        def _parse_declare(self) -> exp.Declare | exp.Command:
-            index = self._index
-            expressions = self._try_parse(partial(self._parse_csv, self._parse_declareitem))
-
-            if not expressions or self._curr:
-                self._retreat(index)
-                return self._parse_as_command(self._prev)
-
-            return self.expression(exp.Declare, expressions=expressions)
-
         def _parse_declareitem(self) -> t.Optional[exp.DeclareItem]:
             var = self._parse_id_var()
             if not var:
                 return None
 
-            value = None
             self._match(TokenType.ALIAS)
-            if self._match(TokenType.TABLE):
-                data_type = self._parse_schema()
-            else:
-                data_type = self._parse_types()
-                if self._match(TokenType.EQ):
-                    value = self._parse_bitwise()
-
-            return self.expression(exp.DeclareItem, this=var, kind=data_type, default=value)
+            return self.expression(
+                exp.DeclareItem,
+                this=var,
+                kind=self._parse_schema() if self._match(TokenType.TABLE) else self._parse_types(),
+                default=self._match(TokenType.EQ) and self._parse_bitwise(),
+            )
 
         def _parse_alter_table_alter(self) -> t.Optional[exp.Expression]:
             expression = super()._parse_alter_table_alter()
@@ -1019,6 +1043,7 @@ class TSQL(Dialect):
             exp.DateAdd: date_delta_sql("DATEADD"),
             exp.DateDiff: date_delta_sql("DATEDIFF"),
             exp.CTE: transforms.preprocess([qualify_derived_table_outputs]),
+            exp.Create: transforms.preprocess([_add_default_precision_to_varchar]),
             exp.CurrentDate: rename_func("GETDATE"),
             exp.CurrentTimestamp: rename_func("GETDATE"),
             exp.CurrentTimestampLTZ: rename_func("SYSDATETIMEOFFSET"),

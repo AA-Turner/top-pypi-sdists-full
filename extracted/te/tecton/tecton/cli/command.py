@@ -131,9 +131,10 @@ class TectonCommand(click.Command):
 class TectonGroup(RichGroup):
     """Routes group.command calls to use TectonCommand instead of the base Click command"""
 
-    def __init__(self, command_category=TectonCommandCategory.OTHER, *args, **kwargs):
+    def __init__(self, command_category=TectonCommandCategory.OTHER, feature_flag=None, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.command_category = command_category
+        self.feature_flag = feature_flag
 
     command_class = TectonCommand
 
@@ -159,6 +160,27 @@ class TectonGroup(RichGroup):
     def add_command(self, cmd: Command, name: Optional[str] = None) -> None:
         self._register_command_in_group(cmd.name, cmd.command_category.value)
         super().add_command(cmd, name)
+
+    def list_commands(self, ctx):
+        """Override to hide commands when their feature flags are disabled."""
+        commands = super().list_commands(ctx)
+        enabled_commands = []
+        for cmd_name in commands:
+            cmd = super().get_command(ctx, cmd_name)
+            if cmd and hasattr(cmd, "feature_flag") and cmd.feature_flag:
+                if cmd.feature_flag.enabled():
+                    enabled_commands.append(cmd_name)
+            else:
+                enabled_commands.append(cmd_name)
+        return enabled_commands
+
+    def get_command(self, ctx, cmd_name):
+        """Override to prevent access to commands when their feature flags are disabled."""
+        cmd = super().get_command(ctx, cmd_name)
+        if cmd and hasattr(cmd, "feature_flag") and cmd.feature_flag:
+            if not cmd.feature_flag.enabled():
+                return None
+        return cmd
 
     def add_deprecated_command(self, cmd: Command, name: str, new_target: t.Optional[str] = None) -> None:
         deprecation_warning = f" The command `{self.name} {name}` is deprecated and will removed in a future version."

@@ -20,10 +20,12 @@ from collections.abc import Sequence
 import dataclasses
 import enum
 import functools
-from typing import Any, ClassVar, Literal, Mapping
+from typing import Any, ClassVar, Literal
+from collections.abc import Mapping
 
 import jax
 from jax._src import core as jax_core
+from jax._src import state
 from jax._src import util
 from jax._src.frozen_dict import FrozenDict
 from jax._src.pallas import core as pallas_core
@@ -42,7 +44,6 @@ BlockSpecTree = pallas_core.BlockSpecTree
 GridMapping = pallas_core.GridMapping
 NoBlockSpec = pallas_core.NoBlockSpec
 ScratchShapeTree = pallas_core.ScratchShapeTree
-AbstractMemoryRef = pallas_core.AbstractMemoryRef
 no_block_spec = pallas_core.no_block_spec
 _convert_block_spec_to_block_mapping = pallas_core._convert_block_spec_to_block_mapping
 _out_shape_to_aval_mapping = pallas_core._out_shape_to_aval_mapping
@@ -57,13 +58,17 @@ class KernelType(enum.Enum):
 
 class GridDimensionSemantics(enum.Enum):
   PARALLEL = "parallel"
+  CORE_PARALLEL = "core_parallel"
   ARBITRARY = "arbitrary"
 
 PARALLEL = GridDimensionSemantics.PARALLEL
+CORE_PARALLEL = GridDimensionSemantics.CORE_PARALLEL
 ARBITRARY = GridDimensionSemantics.ARBITRARY
 
 
-DimensionSemantics = Literal["parallel", "arbitrary"] | GridDimensionSemantics
+DimensionSemantics = (
+    Literal["parallel", "core_parallel", "arbitrary"] | GridDimensionSemantics
+)
 
 
 @dataclasses.dataclass(frozen=True)
@@ -82,10 +87,13 @@ class CompilerParams(pallas_core.CompilerParams):
     collective_id: Indicates which barrier semaphore to use for the kernel. Note
       that using the same collective_id does not guarantee that the same barrier
       semaphore will be allocated between kernels.
+    has_side_effects: Set to True to prevent kernel being CSEd by XLA.
+    flags: A dictionary of command line flags for the kernel.
     internal_scratch_in_bytes: The size of the internal scratch space used by
       Mosaic.
-    flags: A dictionary of command line flags for the kernel.
     serialization_format: The serialization format for the kernel body.
+    kernel_type: Specify if the kernel is meant to run on TensorCore or one of
+      the SparseCores
     disable_bounds_checks: Disable bounds checks in the kernel.
   """
   BACKEND: ClassVar[pallas_core.Backend] = "mosaic_tpu"
@@ -139,7 +147,6 @@ class CompilerParams(pallas_core.CompilerParams):
   # Replace is a method, not a field.
   replace = dataclasses.replace
 
-
 class MemorySpace(enum.Enum):
   ANY = "any"  # TODO(b/368401328): Remove this and just use pl.ANY.
   VMEM = "vmem"
@@ -147,6 +154,7 @@ class MemorySpace(enum.Enum):
   CMEM = "cmem"
   SEMAPHORE = "semaphore_mem"
   HBM = "hbm"
+  HOST = "host"
 
   def __str__(self) -> str:
     return self.value
@@ -179,7 +187,7 @@ class SemaphoreType(enum.Enum):
   def get_array_aval(self) -> pallas_core.ShapedArrayWithMemorySpace:
     return self(()).get_array_aval()
 
-  def get_ref_aval(self) -> AbstractMemoryRef:
+  def get_ref_aval(self) -> state.AbstractRef:
     return self(()).get_ref_aval()
 
 @dataclasses.dataclass(frozen=True)
@@ -204,7 +212,7 @@ class PrefetchScalarGridSpec(pallas_core.GridSpec):
     self.scratch_shapes = tuple(scratch_shapes)
 
   def _make_scalar_ref_aval(self, aval):
-    return AbstractMemoryRef(jax_core.ShapedArray(aval.shape, aval.dtype),
+    return state.AbstractRef(jax_core.ShapedArray(aval.shape, aval.dtype),
                              MemorySpace.SMEM)
 
 
@@ -285,6 +293,16 @@ def _tensorcore_mesh_discharge_rule(
     raise ValueError(
         "dimension_semantics must be None for TensorCoreMesh"
     )
+  num_cores = len(mesh.devices)
+  if num_cores > 1:
+    # Since each core will have its own VMEM, we currently disallow VMEM inputs
+    # and outputs since we do not know how they are sharded across cores.
+    if any(pallas_core.get_memory_space_aval(aval) in {MemorySpace.VMEM, MemorySpace.SMEM}
+            for aval in in_avals):
+      raise NotImplementedError(
+          "TensorCoreMesh does not support VMEM/SMEM inputs/outputs when there"
+          " are >1 cores. Use HBM or ANY instead."
+      )
   return pallas_core.default_mesh_discharge_rule(
       in_avals,
       out_avals,

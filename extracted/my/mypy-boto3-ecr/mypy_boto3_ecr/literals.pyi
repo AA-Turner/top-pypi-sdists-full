@@ -34,6 +34,7 @@ __all__ = (
     "ImageActionTypeType",
     "ImageFailureCodeType",
     "ImageScanCompleteWaiterName",
+    "ImageTagMutabilityExclusionFilterTypeType",
     "ImageTagMutabilityType",
     "LayerAvailabilityType",
     "LayerFailureCodeType",
@@ -79,7 +80,10 @@ ImageFailureCodeType = Literal[
     "UpstreamUnavailable",
 ]
 ImageScanCompleteWaiterName = Literal["image_scan_complete"]
-ImageTagMutabilityType = Literal["IMMUTABLE", "MUTABLE"]
+ImageTagMutabilityExclusionFilterTypeType = Literal["WILDCARD"]
+ImageTagMutabilityType = Literal[
+    "IMMUTABLE", "IMMUTABLE_WITH_EXCLUSION", "MUTABLE", "MUTABLE_WITH_EXCLUSION"
+]
 LayerAvailabilityType = Literal["AVAILABLE", "UNAVAILABLE"]
 LayerFailureCodeType = Literal["InvalidLayerDigest", "MissingLayerDigest"]
 LifecyclePolicyPreviewCompleteWaiterName = Literal["lifecycle_policy_preview_complete"]
@@ -158,6 +162,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -390,6 +396,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -450,6 +457,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

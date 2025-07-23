@@ -1,13 +1,13 @@
 Metadata-Version: 2.1
 Name: metrics_layer
-Version: 0.15.7
+Version: 0.16.0
 Summary: The open source metrics layer.
 Home-page: https://github.com/Zenlytic/metrics_layer
 License: Apache 2.0
 Keywords: Metrics Layer,Business Intelligence,Analytics
 Author: Paul Blankley
 Author-email: paul@zenlytic.com
-Requires-Python: >=3.8.1,<3.13
+Requires-Python: >=3.9,<3.13
 Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -36,7 +36,7 @@ Requires-Dist: pyarrow (>=10) ; extra == "snowflake" or extra == "bigquery" or e
 Requires-Dist: redshift-connector (>=2.0.905,<3.0.0) ; extra == "redshift" or extra == "all"
 Requires-Dist: ruamel.yaml (>=0.17.20,<0.18.0)
 Requires-Dist: snowflake-connector-python (>=3.5.0,<4.0.0) ; extra == "snowflake" or extra == "all"
-Requires-Dist: sqlglot[rs] (>=20.7.1,<21.0.0)
+Requires-Dist: sqlglot[rs] (>=27.2.0,<28.0.0)
 Requires-Dist: sqlparse (>=0.4.1)
 Project-URL: Documentation, https://docs.zenlytic.com
 Project-URL: Repository, https://github.com/Zenlytic/metrics_layer

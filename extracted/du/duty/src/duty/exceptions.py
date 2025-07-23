@@ -1,14 +1,17 @@
-"""Module containing the project's exceptions."""
+"""Deprecated. Import from `duty` directly."""
+
+# YORE: Bump 2: Remove file.
+
+import warnings
+from typing import Any
+
+from duty._internal import exceptions
 
 
-class DutyFailure(Exception):  # noqa: N818
-    """An exception raised when a duty fails."""
-
-    def __init__(self, code: int) -> None:
-        """Initialize the object.
-
-        Parameters:
-            code: The exit code of a command.
-        """
-        super().__init__(self)
-        self.code = code
+def __getattr__(name: str) -> Any:
+    warnings.warn(
+        "Importing from `duty.exceptions` is deprecated. Import from `duty` directly.",
+        DeprecationWarning,
+        stacklevel=2,
+    )
+    return getattr(exceptions, name)

@@ -6,13 +6,13 @@ build-backend = "pdm.backend"
 
 [project]
 authors = []
-requires-python = "<4.0,>=3.9"
+requires-python = ">=3.9"
 dependencies = [
-    "langchain-core<1.0.0,>=0.3.52",
-    "openai<2.0.0,>=1.68.2",
+    "langchain-core<1.0.0,>=0.3.71",
+    "openai<2.0.0,>=1.97.1",
 ]
 name = "langchain-perplexity"
-version = "0.1.1"
+version = "0.1.2"
 description = "An integration package connecting Perplexity and LangChain"
 readme = "README.md"
 
@@ -43,7 +43,7 @@ codespell = [
     "codespell<3.0.0,>=2.2.0",
 ]
 lint = [
-    "ruff<1.0,>=0.5",
+    "ruff<0.13,>=0.12.2",
 ]
 dev = [
     "langchain-core",
@@ -85,9 +85,17 @@ select = [
     "I",
     "T201",
     "UP",
+    "S",
 ]
 ignore = [
     "UP007",
+    "UP045",
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "S101",
+    "S311",
 ]
 
 [tool.ruff.format]

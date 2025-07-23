@@ -1,4 +1,4 @@
-from typing import Any, Literal, Optional, Union
+from typing import Any, Literal, Optional, Union, List, Dict
 from io import BytesIO
 import os
 import requests
@@ -8,6 +8,10 @@ import tempfile
 import base64
 import re
 import uuid
+from concurrent.futures import ThreadPoolExecutor
+import glob
+from tqdm import tqdm
+import json
 
 # TODO:
 # support other input types such as lists, tensors, ...
@@ -15,7 +19,7 @@ import uuid
 
 def load_img(
     img: Union[str, bytes, np.ndarray, Image.Image],
-    output_type: Literal["pil", "numpy", "str", "base64", "ascii", "ansi"] = "pil",
+    output_type: Literal["pil", "numpy", "str", "base64", "ascii", "ansi", "url"] = "pil",
     input_type: Literal["auto", "base64", "file", "url", "numpy", "pil"] = "auto",
 ) -> Any:
     """Loads an image from various sources and returns it in a specified format.
@@ -25,7 +29,8 @@ def load_img(
             a NumPy array, or a Pillow Image object.
         output_type: The desired output type. Can be "pil" (Pillow Image),
             "numpy" (NumPy array), "str" (file path), "base64" (base64 string),
-            "ascii" (ASCII art), or "ansi" (ANSI art).
+            "ascii" (ASCII art), "ansi" (ANSI art), or "url" (a public URL
+            after uploading to a temporary hosting service).
         input_type: The type of the input image. If set to "auto", the function
             will try to automatically determine the type.
 
@@ -39,32 +44,126 @@ def load_img(
 
         # Convert to ANSI art
         ansi_art = load_img("image.png", output_type="ansi")
+
+        # Upload an image and get a temporary URL
+        # Note: This requires an active internet connection.
+        # url = load_img("image.png", output_type="url")
+        # print(f"Image available at: {url}")
         ```
     """
-    img, original_name = load(img, input_type)
+    try:
+        img, original_name = load(img, input_type)
+        
+        # Validate loaded image
+        is_valid, error_msg = validate_image(img.copy())
+        if not is_valid:
+            raise ValueError(f"Invalid image: {error_msg}")
+        
+        if output_type == "pil":
+            return img
+        elif output_type == "numpy":
+            return np.array(img)
+        elif output_type == "str":
+            secure_temp_dir = tempfile.mkdtemp(prefix="loadimg_", suffix="_folder")
+            file_name = original_name or f"{uuid.uuid4()}.png"
+            path = os.path.join(secure_temp_dir, file_name)
+            img.save(path)
+            return path
+        elif output_type == "base64":
+            img_type = img.format or "PNG"
+            with BytesIO() as buffer:
+                img.save(buffer, format=img_type)
+                img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
+            return f"data:image/{img_type.lower()};base64,{img_str}"
+        elif output_type == "url":
+            upload_url = "https://uguu.se/upload"
+            with BytesIO() as buffer:
+                img_format = img.format or "PNG"
+                img.save(buffer, format=img_format)
+                buffer.seek(0)
+                
+                file_name = original_name or f"{uuid.uuid4()}.{img_format.lower()}"
 
-    if output_type == "pil":
-        return img
-    elif output_type == "numpy":
-        return np.array(img)
-    elif output_type == "str":
-        secure_temp_dir = tempfile.mkdtemp(prefix="loadimg_", suffix="_folder")
-        file_name = original_name or f"{uuid.uuid4()}.png"
-        path = os.path.join(secure_temp_dir, file_name)
-        img.save(path)
-        return path
-    elif output_type == "base64":
-        img_type = img.format or "PNG"
-        with BytesIO() as buffer:
-            img.save(buffer, format=img_type)
-            img_str = base64.b64encode(buffer.getvalue()).decode("utf-8")
-        return f"data:image/{img_type.lower()};base64,{img_str}"
-    elif output_type == "ascii":
-        return image_to_ascii(img)
-    elif output_type == "ansi":
-        return image_to_ansi(img)
+                files = {'files[]': (file_name, buffer.getvalue(), f'image/{img_format.lower()}')}
+                
+                try:
+                    # Added a timeout for robustness
+                    response = requests.post(upload_url, files=files, timeout=15)
+                    response.raise_for_status()
+                    # The response body from uguu.se is expected to be the direct URL
+                    reply =  response.text.strip()
+                    return json.loads(reply)["files"][0]["url"]
+                except requests.exceptions.RequestException as e:
+                    raise IOError(f"Failed to upload image to {upload_url}: {e}") from e
+        elif output_type == "ascii":
+            return image_to_ascii(img)
+        elif output_type == "ansi":
+            return image_to_ansi(img)
+        else:
+            raise ValueError(f"Unsupported output type: {output_type}")
+            
+    except Exception as e:
+        raise ValueError(f"Failed to load image: {str(e)}") from e
+
+
+def load_imgs(
+    imgs: Union[str, List[Union[str, bytes, np.ndarray, Image.Image]]],
+    output_type: Literal["pil", "numpy", "str", "base64", "ascii", "ansi", "url"] = "pil",
+    input_type: Literal["auto", "base64", "file", "url", "numpy", "pil"] = "auto",
+    max_workers: int = 1,
+    glob_pattern: str = "*",
+) -> Dict[str, Any]:
+    """Loads multiple images from various sources.
+
+    Args:
+        imgs: Can be:
+            - Directory path (str)
+            - List of image sources
+            - Glob pattern
+        output_type: The desired output type. Can be "pil", "numpy", "str", "base64", "ascii", "ansi", or "url".
+        input_type: The type of input images
+        max_workers: Max number of parallel workers
+        glob_pattern: Pattern for filtering files when imgs is a directory
+
+    Returns:
+        Dict[str, Any]: Dictionary mapping filenames to loaded images
+    """
+    image_paths = []
+    
+    # Handle different input types
+    if isinstance(imgs, str):
+        if os.path.isdir(imgs):
+            # Load from directory
+            pattern = os.path.join(imgs, glob_pattern)
+            image_paths = glob.glob(pattern)
+        else:
+            # Single file or URL
+            image_paths = [imgs]
     else:
-        raise ValueError(f"Unsupported output type: {output_type}")
+        # List of sources
+        image_paths = imgs if isinstance(imgs, list) else [imgs]
+
+    results = {}
+    
+    # Use ThreadPoolExecutor for parallel processing
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        # Create tasks
+        future_to_path = {
+            executor.submit(load_img, path, output_type, input_type): path
+            for path in image_paths
+        }
+        
+        # Process with progress bar
+        for future in tqdm(future_to_path, desc="Loading images"):
+            path = future_to_path[future]
+            try:
+                result = future.result()
+                key = os.path.basename(path) if isinstance(path, str) else str(uuid.uuid4())
+                results[key] = result
+            except Exception as e:
+                print(f"Failed to load {path}: {e}")
+
+    return results
 
 
 def starts_with(pattern: str, url: str):
@@ -210,3 +309,25 @@ def image_to_ansi(image: Image.Image, new_width: int = 100) -> str:
             line.append(ansi_code)
         ansi_lines.append("".join(line) + "\x1b[0m")
     return "\n".join(ansi_lines)
+
+
+def validate_image(img: Image.Image) -> tuple[bool, str]:
+    """Validates an image for basic requirements.
+    
+    Args:
+        img: PIL Image to validate
+        
+    Returns:
+        tuple[bool, str]: (is_valid, error_message)
+    """
+    if not isinstance(img, Image.Image):
+        return False, "Input is not a PIL Image"
+    
+    if img.size[0] * img.size[1] == 0:
+        return False, "Image has zero dimensions"
+        
+    try:
+        img.verify()
+        return True, ""
+    except Exception as e:
+        return False, f"Image verification failed: {str(e)}"

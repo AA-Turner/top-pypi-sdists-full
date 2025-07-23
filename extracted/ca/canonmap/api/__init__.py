@@ -1,1 +1,0 @@
-# CanonMap API package 

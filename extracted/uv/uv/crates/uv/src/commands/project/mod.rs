@@ -43,6 +43,7 @@ use uv_scripts::Pep723ItemRef;
 use uv_settings::PythonInstallMirrors;
 use uv_static::EnvVars;
 use uv_types::{BuildIsolation, EmptyInstalledPackages, HashStrategy};
+use uv_virtualenv::remove_virtualenv;
 use uv_warnings::{warn_user, warn_user_once};
 use uv_workspace::dependency_groups::DependencyGroupError;
 use uv_workspace::pyproject::PyProjectToml;
@@ -939,13 +940,19 @@ impl ProjectInterpreter {
                         ));
                     }
                     InvalidEnvironmentKind::MissingExecutable(_) => {
+                        // If it's not an empty directory
                         if fs_err::read_dir(&root).is_ok_and(|mut dir| dir.next().is_some()) {
-                            return Err(ProjectError::InvalidProjectEnvironmentDir(
-                                root,
-                                "it is not a valid Python environment (no Python executable was found)"
-                                    .to_string(),
-                            ));
+                            // ... and there's no `pyvenv.cfg`
+                            if !root.join("pyvenv.cfg").try_exists().unwrap_or_default() {
+                                // ... then it's not a valid Python environment
+                                return Err(ProjectError::InvalidProjectEnvironmentDir(
+                                    root,
+                                    "it is not a valid Python environment (no Python executable was found)"
+                                        .to_string(),
+                                ));
+                            }
                         }
+                        // Otherwise, we'll delete it
                     }
                     // If the environment is an empty directory, it's fine to use
                     InvalidEnvironmentKind::Empty => {}
@@ -1373,7 +1380,7 @@ impl ProjectEnvironment {
 
                 // Remove the existing virtual environment if it doesn't meet the requirements.
                 if replace {
-                    match fs_err::remove_dir_all(&root) {
+                    match remove_virtualenv(&root) {
                         Ok(()) => {
                             writeln!(
                                 printer.stderr(),
@@ -1381,8 +1388,9 @@ impl ProjectEnvironment {
                                 root.user_display().cyan()
                             )?;
                         }
-                        Err(e) if e.kind() == std::io::ErrorKind::NotFound => {}
-                        Err(e) => return Err(e.into()),
+                        Err(uv_virtualenv::Error::Io(err))
+                            if err.kind() == std::io::ErrorKind::NotFound => {}
+                        Err(err) => return Err(err.into()),
                     }
                 }
 
@@ -1674,6 +1682,7 @@ pub(crate) async fn resolve_names(
             ResolverSettings {
                 build_options,
                 config_setting,
+                config_settings_package,
                 dependency_metadata,
                 exclude_newer,
                 fork_strategy: _,
@@ -1742,6 +1751,7 @@ pub(crate) async fn resolve_names(
         state.clone(),
         *index_strategy,
         config_setting,
+        config_settings_package,
         build_isolation,
         *link_mode,
         build_options,
@@ -1832,6 +1842,7 @@ pub(crate) async fn resolve_environment(
         fork_strategy,
         dependency_metadata,
         config_setting,
+        config_settings_package,
         no_build_isolation,
         no_build_isolation_package,
         exclude_newer,
@@ -1948,6 +1959,7 @@ pub(crate) async fn resolve_environment(
         state.clone().into_inner(),
         *index_strategy,
         config_setting,
+        config_settings_package,
         build_isolation,
         *link_mode,
         build_options,
@@ -2013,6 +2025,7 @@ pub(crate) async fn sync_environment(
         keyring_provider,
         dependency_metadata,
         config_setting,
+        config_settings_package,
         no_build_isolation,
         no_build_isolation_package,
         exclude_newer,
@@ -2084,6 +2097,7 @@ pub(crate) async fn sync_environment(
         state.clone().into_inner(),
         index_strategy,
         config_setting,
+        config_settings_package,
         build_isolation,
         link_mode,
         build_options,
@@ -2106,6 +2120,7 @@ pub(crate) async fn sync_environment(
         compile_bytecode,
         index_locations,
         config_setting,
+        config_settings_package,
         &hasher,
         tags,
         &client,
@@ -2169,6 +2184,7 @@ pub(crate) async fn update_environment(
             ResolverSettings {
                 build_options,
                 config_setting,
+                config_settings_package,
                 dependency_metadata,
                 exclude_newer,
                 fork_strategy,
@@ -2305,6 +2321,7 @@ pub(crate) async fn update_environment(
         state.clone(),
         *index_strategy,
         config_setting,
+        config_settings_package,
         build_isolation,
         *link_mode,
         build_options,
@@ -2362,6 +2379,7 @@ pub(crate) async fn update_environment(
         *compile_bytecode,
         index_locations,
         config_setting,
+        config_settings_package,
         &hasher,
         tags,
         &client,

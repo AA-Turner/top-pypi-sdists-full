@@ -38,6 +38,8 @@ builtinAttributes = {
     qnXsiSchemaLocation,
     qnXsiNoNamespaceSchemaLocation,
 }
+ref2004 = "http://www.xbrl.org/2004/ref"
+ref2006 = "http://www.xbrl.org/2006/ref"
 xml = "http://www.w3.org/XML/1998/namespace"
 xbrli = "http://www.xbrl.org/2003/instance"
 xhtmlBaseIdentifier = "{http://www.w3.org/1999/xhtml}base"
@@ -45,6 +47,7 @@ xmlBaseIdentifier = "{http://www.w3.org/XML/1998/namespace}base"
 eurofilingModelNamespace = "http://www.eurofiling.info/xbrl/ext/model"
 eurofilingModelPrefix = "model"
 qnNsmap = qname("nsmap")  # artificial parent for insertion of xmlns in saving xml documents
+qnXbrlScenario = qname("{http://www.xbrl.org/2003/instance}scenario")
 qnXbrliXbrl = qname("{http://www.xbrl.org/2003/instance}xbrli:xbrl")
 qnPrototypeXbrliXbrl = qname(
     "{http://arelle.org/prototype/xbrli}xbrl"
@@ -58,6 +61,7 @@ qnXbrliPeriod = qname("{http://www.xbrl.org/2003/instance}xbrli:period")
 qnXbrliStartDate = qname("{http://www.xbrl.org/2003/instance}xbrli:startDate")
 qnXbrliEndDate = qname("{http://www.xbrl.org/2003/instance}xbrli:endDate")
 qnXbrliInstant = qname("{http://www.xbrl.org/2003/instance}xbrli:instant")
+qnXbrliForever = qname("{http://www.xbrl.org/2003/instance}xbrli:forever")
 qnXbrliIdentifier = qname("{http://www.xbrl.org/2003/instance}xbrli:identifier")
 qnXbrliUnit = qname("{http://www.xbrl.org/2003/instance}xbrli:unit")
 qnXbrliStringItemType = qname("{http://www.xbrl.org/2003/instance}xbrli:stringItemType")
@@ -138,6 +142,7 @@ ixbrl11 = "http://www.xbrl.org/2013/inlineXBRL"
 ixbrlAll = {ixbrl, ixbrl11}
 ixbrlTags = ("{http://www.xbrl.org/2013/inlineXBRL}*", "{http://www.xbrl.org/2008/inlineXBRL}*")
 ixbrlTagPattern = re.compile("[{]http://www.xbrl.org/(2008|2013)/inlineXBRL[}]")
+ixt = "http://www.xbrl.org/inlineXBRL/transformation/2010-04-20"
 qnIXbrlResources = qname("{http://www.xbrl.org/2008/inlineXBRL}resources")
 qnIXbrlTuple = qname("{http://www.xbrl.org/2008/inlineXBRL}tuple")
 qnIXbrlNonNumeric = qname("{http://www.xbrl.org/2008/inlineXBRL}nonNumeric")

@@ -4,11 +4,11 @@ from __future__ import annotations
 
 import pytest
 
-from duty.collection import Collection, Duty
-from duty.decorator import duty as decorate
+from duty._internal.collection import Collection, Duty
+from duty._internal.decorator import duty as decorate
 
 
-def none(*args, **kwargs) -> None:  # noqa: ANN002, ANN003, D103
+def none(*args, **kwargs) -> None:  # noqa: ANN002, ANN003
     ...  # pragma: no cover
 
 

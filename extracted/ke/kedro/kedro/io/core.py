@@ -17,11 +17,14 @@ from glob import iglob
 from inspect import getcallargs
 from operator import attrgetter
 from pathlib import Path, PurePath, PurePosixPath
-from typing import (
+from typing import (  # noqa: UP035
     TYPE_CHECKING,
     Any,
     Callable,
     Generic,
+    Iterator,
+    List,
+    Literal,
     Protocol,
     TypeVar,
     runtime_checkable,
@@ -41,14 +44,17 @@ from kedro.utils import (  # noqa: F401
 
 if TYPE_CHECKING:
     import os
+    from multiprocessing.managers import SyncManager
 
-    from kedro.io.catalog_config_resolver import CatalogConfigResolver, Patterns
 
 VERSION_FORMAT = "%Y-%m-%dT%H.%M.%S.%fZ"
 VERSIONED_FLAG_KEY = "versioned"
 VERSION_KEY = "version"
 PROTOCOL_DELIMITER = "://"
 TYPE_KEY = "type"
+
+# Type alias for copy modes
+TCopyMode = Literal["deepcopy", "copy", "assign"]
 
 
 class DatasetError(Exception):
@@ -63,16 +69,16 @@ class DatasetError(Exception):
 
 
 class DatasetNotFoundError(DatasetError):
-    """``DatasetNotFoundError`` raised by ```DataCatalog`` and ``KedroDataCatalog``
-    classes in case of trying to use a non-existing dataset.
+    """``DatasetNotFoundError`` raised by ``DataCatalog``
+    class in case of trying to use a non-existing dataset.
     """
 
     pass
 
 
 class DatasetAlreadyExistsError(DatasetError):
-    """``DatasetAlreadyExistsError`` raised by ```DataCatalog`` and ``KedroDataCatalog``
-    classes in case of trying to add a dataset which already exists in the ``DataCatalog``.
+    """``DatasetAlreadyExistsError`` raised by ``DataCatalog``
+    class in case of trying to add a dataset which already exists in the ``DataCatalog``.
     """
 
     pass
@@ -87,8 +93,8 @@ class VersionNotFoundError(DatasetError):
 
 
 class VersionAlreadyExistsError(DatasetError):
-    """``VersionAlreadyExistsError`` raised by ``DataCatalog`` and ``KedroDataCatalog``
-    classes when attempting to add a dataset to a catalog with a save version
+    """``VersionAlreadyExistsError`` raised by ``DataCatalog``
+    class when attempting to add a dataset to a catalog with a save version
     that conflicts with the save version already set for the catalog.
     """
 
@@ -108,39 +114,38 @@ class AbstractDataset(abc.ABC, Generic[_DI, _DO]):
     the ``ParallelRunner``, such user-defined dataset should have the
     attribute `_SINGLE_PROCESS = True`.
     Example:
-    ::
+    ``` python
+    from pathlib import Path, PurePosixPath
+    import pandas as pd
+    from kedro.io import AbstractDataset
 
-        >>> from pathlib import Path, PurePosixPath
-        >>> import pandas as pd
-        >>> from kedro.io import AbstractDataset
-        >>>
-        >>>
-        >>> class MyOwnDataset(AbstractDataset[pd.DataFrame, pd.DataFrame]):
-        >>>     def __init__(self, filepath, param1, param2=True):
-        >>>         self._filepath = PurePosixPath(filepath)
-        >>>         self._param1 = param1
-        >>>         self._param2 = param2
-        >>>
-        >>>     def load(self) -> pd.DataFrame:
-        >>>         return pd.read_csv(self._filepath)
-        >>>
-        >>>     def save(self, df: pd.DataFrame) -> None:
-        >>>         df.to_csv(str(self._filepath))
-        >>>
-        >>>     def _exists(self) -> bool:
-        >>>         return Path(self._filepath.as_posix()).exists()
-        >>>
-        >>>     def _describe(self):
-        >>>         return dict(param1=self._param1, param2=self._param2)
 
+    class MyOwnDataset(AbstractDataset[pd.DataFrame, pd.DataFrame]):
+        def __init__(self, filepath, param1, param2=True):
+            self._filepath = PurePosixPath(filepath)
+            self._param1 = param1
+            self._param2 = param2
+
+        def load(self) -> pd.DataFrame:
+            return pd.read_csv(self._filepath)
+
+        def save(self, df: pd.DataFrame) -> None:
+            df.to_csv(str(self._filepath))
+
+        def _exists(self) -> bool:
+            return Path(self._filepath.as_posix()).exists()
+
+        def _describe(self):
+            return dict(param1=self._param1, param2=self._param2)
+    ```
     Example catalog.yml specification:
-    ::
-
-        my_dataset:
-            type: <path-to-my-own-dataset>.MyOwnDataset
-            filepath: data/01_raw/my_data.csv
-            param1: <param1-value> # param1 is a required argument
-            # param2 will be True by default
+    ``` yaml
+    my_dataset:
+        type: <path-to-my-own-dataset>.MyOwnDataset
+        filepath: data/01_raw/my_data.csv
+        param1: <param1-value> # param1 is a required argument
+        # param2 will be True by default
+    ```
     """
 
     """
@@ -202,10 +207,12 @@ class AbstractDataset(abc.ABC, Generic[_DI, _DO]):
             ) from err
         return dataset
 
-    def to_config(self) -> dict[str, Any]:
-        """Converts the dataset instance into a dictionary-based configuration for
-        serialization. Ensures that any subclass-specific details are handled, with
-        additional logic for versioning and caching implemented for `CachedDataset`.
+    def _init_config(self) -> dict[str, Any]:
+        """Internal method to capture the dataset's initial configuration
+        as provided during instantiation.
+
+        This configuration reflects only the arguments supplied at `__init__` time
+        and does not account for any runtime or dynamic changes to the dataset.
 
         Adds a key for the dataset's type using its module and class name and
         includes the initialization arguments.
@@ -236,7 +243,7 @@ class AbstractDataset(abc.ABC, Generic[_DI, _DO]):
             if isinstance(cached_ds, dict):
                 cached_ds_return_config = cached_ds
             elif isinstance(cached_ds, AbstractDataset):
-                cached_ds_return_config = cached_ds.to_config()
+                cached_ds_return_config = cached_ds._init_config()
             if VERSIONED_FLAG_KEY in cached_ds_return_config:
                 return_config[VERSIONED_FLAG_KEY] = cached_ds_return_config.pop(
                     VERSIONED_FLAG_KEY
@@ -257,34 +264,6 @@ class AbstractDataset(abc.ABC, Generic[_DI, _DO]):
     @property
     def _logger(self) -> logging.Logger:
         return logging.getLogger(__name__)
-
-    def __str__(self) -> str:
-        # TODO: Replace with __repr__ implementation in 1.0.0 release.
-        def _to_str(obj: Any, is_root: bool = False) -> str:
-            """Returns a string representation where
-            1. The root level (i.e. the Dataset.__init__ arguments) are
-            formatted like Dataset(key=value).
-            2. Dictionaries have the keys alphabetically sorted recursively.
-            3. None values are not shown.
-            """
-
-            fmt = "{}={}" if is_root else "'{}': {}"  # 1
-
-            if isinstance(obj, dict):
-                sorted_dict = sorted(obj.items(), key=lambda pair: str(pair[0]))  # 2
-
-                text = ", ".join(
-                    fmt.format(key, _to_str(value))  # 2
-                    for key, value in sorted_dict
-                    if value is not None  # 3
-                )
-
-                return text if is_root else "{" + text + "}"  # 1
-
-            # not a dictionary
-            return str(obj)
-
-        return f"{type(self).__name__}({_to_str(self._describe(), True)})"
 
     @classmethod
     def _load_wrapper(cls, load_func: Callable[[Self], _DO]) -> Callable[[Self], _DO]:
@@ -557,15 +536,6 @@ def parse_dataset_definition(
     """
     save_version = save_version or generate_timestamp()
     config = copy.deepcopy(config)
-
-    # TODO: remove when removing old catalog as moved to KedroDataCatalog
-    if TYPE_KEY not in config:
-        raise DatasetError(
-            "'type' is missing from dataset catalog configuration."
-            "\nHint: If this catalog entry is intended for variable interpolation, "
-            "make sure that the top level key is preceded by an underscore."
-        )
-
     dataset_type = config.pop(TYPE_KEY)
 
     # This check prevents the use of dataset types with uppercase 'S' in 'Dataset',
@@ -703,43 +673,43 @@ class AbstractVersionedDataset(AbstractDataset[_DI, _DO], abc.ABC):
     abstract class and implement the methods marked as abstract.
 
     Example:
-    ::
+    ``` python
+    from pathlib import Path, PurePosixPath
+    import pandas as pd
+    from kedro.io import AbstractVersionedDataset
 
-        >>> from pathlib import Path, PurePosixPath
-        >>> import pandas as pd
-        >>> from kedro.io import AbstractVersionedDataset
-        >>>
-        >>>
-        >>> class MyOwnDataset(AbstractVersionedDataset):
-        >>>     def __init__(self, filepath, version, param1, param2=True):
-        >>>         super().__init__(PurePosixPath(filepath), version)
-        >>>         self._param1 = param1
-        >>>         self._param2 = param2
-        >>>
-        >>>     def load(self) -> pd.DataFrame:
-        >>>         load_path = self._get_load_path()
-        >>>         return pd.read_csv(load_path)
-        >>>
-        >>>     def save(self, df: pd.DataFrame) -> None:
-        >>>         save_path = self._get_save_path()
-        >>>         df.to_csv(str(save_path))
-        >>>
-        >>>     def _exists(self) -> bool:
-        >>>         path = self._get_load_path()
-        >>>         return Path(path.as_posix()).exists()
-        >>>
-        >>>     def _describe(self):
-        >>>         return dict(version=self._version, param1=self._param1, param2=self._param2)
+
+    class MyOwnDataset(AbstractVersionedDataset):
+        def __init__(self, filepath, version, param1, param2=True):
+            super().__init__(PurePosixPath(filepath), version)
+            self._param1 = param1
+            self._param2 = param2
+
+        def load(self) -> pd.DataFrame:
+            load_path = self._get_load_path()
+            return pd.read_csv(load_path)
+
+        def save(self, df: pd.DataFrame) -> None:
+            save_path = self._get_save_path()
+            df.to_csv(str(save_path))
+
+        def _exists(self) -> bool:
+            path = self._get_load_path()
+            return Path(path.as_posix()).exists()
+
+        def _describe(self):
+            return dict(version=self._version, param1=self._param1, param2=self._param2)
+    ```
 
     Example catalog.yml specification:
-    ::
-
-        my_dataset:
-            type: <path-to-my-own-dataset>.MyOwnDataset
-            filepath: data/01_raw/my_data.csv
-            versioned: true
-            param1: <param1-value> # param1 is a required argument
-            # param2 will be True by default
+    ``` yaml
+    my_dataset:
+        type: <path-to-my-own-dataset>.MyOwnDataset
+        filepath: data/01_raw/my_data.csv
+        versioned: true
+        param1: <param1-value> # param1 is a required argument
+        # param2 will be True by default
+    ```
     """
 
     def __init__(
@@ -963,20 +933,49 @@ def validate_on_forbidden_chars(**kwargs: Any) -> None:
             )
 
 
+def is_parameter(dataset_name: str) -> bool:
+    """Check if dataset is a parameter."""
+    return dataset_name.startswith("params:") or dataset_name == "parameters"
+
+
 _C = TypeVar("_C")
+_DS = TypeVar("_DS")
 
 
 @runtime_checkable
-class CatalogProtocol(Protocol[_C]):
-    _datasets: dict[str, AbstractDataset]
+class CatalogProtocol(Protocol[_C, _DS]):
+    _datasets: dict[str, _DS]
+
+    def __repr__(self) -> str:
+        """Returns the canonical string representation of the object."""
+        ...
 
     def __contains__(self, ds_name: str) -> bool:
         """Check if a dataset is in the catalog."""
         ...
 
-    @property
-    def config_resolver(self) -> CatalogConfigResolver:
-        """Return a copy of the datasets dictionary."""
+    def keys(self) -> List[str]:  # noqa: UP006
+        """List all dataset names registered in the catalog."""
+        ...
+
+    def values(self) -> List[_DS]:  # noqa: UP006
+        """List all datasets registered in the catalog."""
+        ...
+
+    def items(self) -> List[tuple[str, _DS]]:  # noqa: UP006
+        """List all dataset names and datasets registered in the catalog."""
+        ...
+
+    def __iter__(self) -> Iterator[str]:
+        """Returns an iterator for the object."""
+        ...
+
+    def __getitem__(self, ds_name: str) -> _DS:
+        """Get a dataset by name from an internal collection of datasets."""
+        ...
+
+    def __setitem__(self, key: str, value: Any) -> None:
+        """Adds dataset using the given key as a dataset name and the provided data as the value."""
         ...
 
     @classmethod
@@ -984,17 +983,8 @@ class CatalogProtocol(Protocol[_C]):
         """Create a catalog instance from configuration."""
         ...
 
-    def _get_dataset(
-        self,
-        dataset_name: str,
-        version: Any = None,
-        suggest: bool = True,
-    ) -> AbstractDataset:
-        """Retrieve a dataset by its name."""
-        ...
-
-    def list(self, regex_search: str | None = None) -> list[str]:
-        """List all dataset names registered in the catalog."""
+    def get(self, key: str, fallback_to_runtime_pattern: bool = False) -> _DS | None:
+        """Get a dataset by name from an internal collection of datasets."""
         ...
 
     def save(self, name: str, data: Any) -> None:
@@ -1005,18 +995,6 @@ class CatalogProtocol(Protocol[_C]):
         """Load data from a registered dataset."""
         ...
 
-    def add(self, ds_name: str, dataset: Any, replace: bool = False) -> None:
-        """Add a new dataset to the catalog."""
-        ...
-
-    def add_feed_dict(self, datasets: dict[str, Any], replace: bool = False) -> None:
-        """Add datasets to the catalog using the data provided through the `feed_dict`."""
-        ...
-
-    def exists(self, name: str) -> bool:
-        """Checks whether registered dataset exists by calling its `exists()` method."""
-        ...
-
     def release(self, name: str) -> None:
         """Release any cached data associated with a dataset."""
         ...
@@ -1025,60 +1003,13 @@ class CatalogProtocol(Protocol[_C]):
         """Confirm a dataset by its name."""
         ...
 
-    def shallow_copy(self, extra_dataset_patterns: Patterns | None = None) -> _C:
-        """Returns a shallow copy of the current object."""
+    def exists(self, name: str) -> bool:
+        """Checks whether registered dataset exists by calling its `exists()` method."""
         ...
 
 
-def _validate_versions(
-    datasets: dict[str, AbstractDataset] | None,
-    load_versions: dict[str, str],
-    save_version: str | None,
-) -> tuple[dict[str, str], str | None]:
-    """Validates and synchronises dataset versions for loading and saving.
+@runtime_checkable
+class SharedMemoryCatalogProtocol(CatalogProtocol, Protocol):
+    def set_manager_datasets(self, manager: SyncManager) -> None: ...
 
-    Ensures consistency of dataset versions across a catalog, particularly
-    for versioned datasets. It updates load versions and validates that all
-    save versions are consistent.
-
-    Args:
-        datasets: A dictionary mapping dataset names to their instances.
-            if None, no validation occurs.
-        load_versions: A mapping between dataset names and versions
-            to load.
-        save_version: Version string to be used for ``save`` operations
-            by all datasets with versioning enabled.
-
-    Returns:
-        Updated ``load_versions`` with load versions specified in the ``datasets``
-            and resolved ``save_version``.
-
-    Raises:
-        VersionAlreadyExistsError: If a dataset's save version conflicts with
-            the catalog's save version.
-    """
-    if not datasets:
-        return load_versions, save_version
-
-    cur_load_versions = load_versions.copy()
-    cur_save_version = save_version
-
-    for ds_name, ds in datasets.items():
-        # TODO: Move to kedro/io/kedro_data_catalog.py when removing DataCatalog
-        # TODO: Make it a protected static method for KedroDataCatalog
-        # TODO: Replace with isinstance(ds, CachedDataset) - current implementation avoids circular import
-        cur_ds = ds._dataset if ds.__class__.__name__ == "CachedDataset" else ds  # type: ignore[attr-defined]
-
-        if isinstance(cur_ds, AbstractVersionedDataset) and cur_ds._version:
-            if cur_ds._version.load:
-                cur_load_versions[ds_name] = cur_ds._version.load
-            if cur_ds._version.save:
-                cur_save_version = cur_save_version or cur_ds._version.save
-                if cur_save_version != cur_ds._version.save:
-                    raise VersionAlreadyExistsError(
-                        f"Cannot add a dataset `{ds_name}` with `{cur_ds._version.save}` save version. "
-                        f"Save version set for the catalog is `{cur_save_version}`"
-                        f"All datasets in the catalog must have the same save version."
-                    )
-
-    return cur_load_versions, cur_save_version
+    def validate_catalog(self) -> None: ...

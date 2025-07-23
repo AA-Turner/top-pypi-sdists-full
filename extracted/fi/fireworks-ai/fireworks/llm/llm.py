@@ -101,6 +101,7 @@ class LLM:
         deployment_display_name: Optional[str] = None,
         base_id: Optional[str] = None,
         api_key: Optional[str] = None,
+        direct_route_api_key: Optional[str] = None,
         base_url: str = f"{FIREWORKS_API_BASE_URL}/inference/v1",
         max_retries: int = DEFAULT_MAX_RETRIES,
         scale_up_window: timedelta = timedelta(seconds=1),
@@ -137,6 +138,7 @@ class LLM:
         long_prompt_optimized: Optional[bool] = None,
         temperature: Optional[float] = None,
         perf_metrics_in_response: Optional[bool] = None,
+        max_connections: Optional[int] = None,
         client_kwargs: dict[str, Any] = {},
     ):
         """
@@ -157,6 +159,7 @@ class LLM:
                 If not provided, the deployment display name will be generated
                 from the filename of the caller where this LLM was instantiated.
             api_key: The API key to use.
+            direct_route_api_key: The API key to use for direct route.
             base_url: The base URL to use.
             accelerator_type: The accelerator type to use.
             scale_up_window: The scale up window to use.
@@ -164,6 +167,7 @@ class LLM:
             scale_to_zero_window: The scale to zero window to use.
             enable_metrics: Whether to enable metrics. Only records time to last token for non-streaming requests.
             max_retries: The maximum number of retries to use.
+            max_connections: The maximum number of concurrent connections to configure for the FireworksClient.
             client_kwargs: Additional keyword arguments to pass to the FireworksClient.
             For more information on parameters, see the [API Reference](https://docs.fireworks.ai/api-reference/post-chatcompletions)
         """
@@ -171,10 +175,17 @@ class LLM:
             raise ValueError("model is required")
         if deployment_type is None:
             raise ValueError('deployment_type is required - must be one of "serverless", "on-demand", or "auto"')
-        self._client = FireworksClient(api_key=api_key, base_url=base_url, **client_kwargs)
+        self._direct_route_api_key = direct_route_api_key
+        self._client = FireworksClient(
+            api_key=direct_route_api_key if self.direct_route_api_key else api_key,
+            base_url=base_url,
+            max_connections=max_connections,
+            **client_kwargs,
+        )
         self._id = id
         self._gateway = Gateway(api_key=api_key)
         self._deployment_display_name = deployment_display_name
+        self._direct_route_api_key = direct_route_api_key
         self._model = model
         if base_id is not None and not self.is_peft_addon():
             raise ValueError("base_id is only for PEFT addons. Use id instead for specifying an existing deployment.")
@@ -264,6 +275,10 @@ class LLM:
             raise ValueError(
                 f"Model {self.model} is not available on serverless, but deployment_type is serverless, please use deployment_type='auto' or 'on-demand'"
             )
+
+    @property
+    def direct_route_api_key(self) -> Optional[str]:
+        return self._direct_route_api_key
 
     @property
     def deployment_id(self) -> Optional[str]:

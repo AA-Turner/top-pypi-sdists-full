@@ -50,19 +50,30 @@ from ..usecases.shelf_inventory_detection import ShelfInventoryConfig,ShelfInven
 from ..usecases.car_part_segmentation import CarPartSegmentationUseCase, CarPartSegmentationConfig
 from ..usecases.road_lane_detection import LaneDetectionUseCase , LaneDetectionConfig
 
+from ..usecases.windmill_maintenance import WindmillMaintenanceUseCase, WindmillMaintenanceConfig
+
+from ..usecases.field_mapping import FieldMappingConfig, FieldMappingUseCase
+from ..usecases.wound_segmentation import WoundConfig,WoundSegmentationUseCase
+from ..usecases.leaf_disease import LeafDiseaseDetectionConfig, LeafDiseaseDetectionUseCase
+from ..usecases.flower_segmentation import FlowerUseCase, FlowerConfig
+
+
 __all__ = [
     'PeopleCountingUseCase',
     'CustomerServiceUseCase',
     'BananaMonitoringUseCase',
     'AdvancedCustomerServiceUseCase',
     'BasicCountingTrackingUseCase',
+    'FieldMappingUseCase',
     'LicensePlateUseCase',
     'ColorDetectionUseCase',
+    'LeafDiseaseDetectionUseCase',
     'PPEComplianceUseCase',
     'VehicleMonitoringUseCase',
     'FireSmokeUseCase',
     'PotholeSegmentationUseCase',
     'AntiSpoofingDetectionUseCase',
+    'WoundSegmentationUseCase',
     'ShelfInventoryUseCase',
     'LaneDetectionUseCase',
 
@@ -94,6 +105,8 @@ __all__ = [
     'BottleDefectUseCase',
     'AssemblyLineUseCase',
     'CarPartSegmentationUseCase',
+    'WindmillMaintenanceUseCase',
+    'FlowerUseCase',
 
 
 
@@ -107,12 +120,14 @@ __all__ = [
     'LicensePlateConfig',
     'ColorDetectionConfig',
     'VehicleMonitoringConfig',
+    'WoundConfig',
     'ParkingSpaceConfig',
     'MaskDetectionConfig',
     'FireSmokeConfig',
     'ShopliftingDetectionConfig',
     'CarDamageConfig',
     'FlareAnalysisConfig',
+    'FieldMappingConfig',
     'FaceEmotionConfig',
     'UnderwaterPlasticConfig',
     'PedestrianDetectionConfig',
@@ -129,6 +144,7 @@ __all__ = [
     'ChildMonitoringConfig',
     'GenderDetectionConfig',
     'WeaponDetectionConfig',
+    'LeafDiseaseDetectionConfig',
     'ConcreteCrackConfig',
     'FashionDetectionConfig',
     'WarehouseObjectConfig',
@@ -139,4 +155,6 @@ __all__ = [
     'ShelfInventoryConfig',
     'CarPartSegmentationConfig',
     'LaneDetectionConfig',
+    'WindmillMaintenanceConfig',
+    'FlowerConfig',
 ]

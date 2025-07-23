@@ -50,7 +50,7 @@ _cloud_security_assets_endpoints = [
         "account_name  assessment_id  business_impact  cloud_group  cloud_label  cloud_label_id  cloud_provider  "
         "cloud_scope  compliant  control.benchmark.name  control.benchmark.version  control.framework  control.name  "
         "control.type  control.version  environment  last_evaluated  region  resource_provider  resource_type  "
-        "resource_type_name  service  service_category  severities",
+        "resource_type_name  service  service_category  severities  tag_key  tag_value",
         "name": "filter",
         "in": "query"
       },
@@ -145,7 +145,8 @@ _cloud_security_assets_endpoints = [
         "compliant.section  configuration.id  creation_time  cve_ids  data_classifications.found  "
         "data_classifications.label  data_classifications.label_id  data_classifications.scanned  "
         "data_classifications.tag  data_classifications.tag_id  environment  exprt_ratings  first_seen  "
-        "highest_severity  id  insights.boolean_value  insights.id  instance_id  instance_state  ioa_count  iom_count  "
+        "highest_severity  id  insights.boolean_value  insights.date_value  insights.id  insights.integer_value  "
+        "insights.string_list_value  insights.string_value  instance_id  instance_state  ioa_count  iom_count  "
         "legacy_resource_id  legacy_uuid  managed_by  non_compliant.benchmark_name  non_compliant.benchmark_version  "
         "non_compliant.framework  non_compliant.policy_id  non_compliant.requirement  non_compliant.rule  "
         "non_compliant.section  non_compliant.severity  organization_Id  os_version  platform_name  publicly_exposed  "

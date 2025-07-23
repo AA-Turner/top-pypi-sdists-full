@@ -1023,6 +1023,38 @@ class QueryConditionTest(DiskTestCase):
         with tiledb.open(path) as A:
             assert_array_equal(A.query(cond="")[:]["a"], [0])
 
+    def test_not_operator(self):
+        with tiledb.open(self.create_input_array_UIDSA(sparse=True)) as A:
+            all_U = set(A[:]["U"])
+            result_lt5 = set(A.query(cond="U < 5", attrs=["U"])[:]["U"])
+            result_not_lt5 = set(A.query(cond="not U < 5", attrs=["U"])[:]["U"])
+            assert result_lt5.isdisjoint(result_not_lt5)
+            assert result_lt5.union(result_not_lt5) == all_U
+
+    def test_null_query_condition(self):
+        path = self.path("test_null_query_condition")
+        data = {
+            "data": np.array(["data", None, "base", None], dtype="O"),
+            "index": np.array([0, 1, 2, 3]),
+        }
+
+        dom = tiledb.Domain(
+            tiledb.Dim(name="index", domain=(0, 3), tile=1, dtype=np.uint32)
+        )
+        attrs = [tiledb.Attr(name="data", dtype="S", nullable=True)]
+        schema = tiledb.ArraySchema(domain=dom, attrs=attrs, sparse=True)
+        tiledb.Array.create(path, schema)
+        with tiledb.open(path, "w") as A:
+            A[data["index"]] = {"data": data["data"]}
+
+        with tiledb.open(path) as A:
+            # Query for nulls
+            result = A.query(cond="data == None")[:]
+            assert set(result["index"]) == {1, 3}
+            # Query for non-nulls
+            result = A.query(cond="data != None")[:]
+            assert set(result["index"]) == {0, 2}
+
 
 class QueryDeleteTest(DiskTestCase):
     def test_basic_sparse(self):

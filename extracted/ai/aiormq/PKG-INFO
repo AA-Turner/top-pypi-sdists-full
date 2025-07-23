@@ -1,13 +1,12 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: aiormq
-Version: 6.8.1
+Version: 6.9.0
 Summary: Pure python AMQP asynchronous client library
-Home-page: https://github.com/mosquito/aiormq
 License: Apache-2.0
 Keywords: rabbitmq,asyncio,amqp,amqp 0.9.1,driver,pamqp
 Author: Dmitry Orlov
 Author-email: me@mosquito.su
-Requires-Python: >=3.8,<4.0
+Requires-Python: >=3.9,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -17,11 +16,11 @@ Classifier: Operating System :: Microsoft
 Classifier: Operating System :: POSIX
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
@@ -30,9 +29,9 @@ Classifier: Topic :: Software Development
 Classifier: Topic :: Software Development :: Libraries
 Classifier: Topic :: System :: Clustering
 Requires-Dist: pamqp (==3.3.0)
-Requires-Dist: setuptools ; python_version < "3.8"
 Requires-Dist: yarl
 Project-URL: Documentation, https://github.com/mosquito/aiormq/blob/master/README.rst
+Project-URL: Homepage, https://github.com/mosquito/aiormq
 Project-URL: Source, https://github.com/mosquito/aiormq
 Project-URL: Tracker, https://github.com/mosquito/aiormq/issues
 Description-Content-Type: text/x-rst

@@ -6,6 +6,8 @@ from pathlib import Path
 from typing import Optional
 
 import rich_click as click
+from rich.panel import Panel
+from rich.text import Text
 
 import tecton
 from tecton import conf
@@ -99,7 +101,13 @@ cli.add_command(workspace.workspace)
 @cli.command(requires_auth=False)
 def version():
     """Print CLI version."""
-    tecton.version.summary()
+    version, commit, build_datetime = tecton.version.get_summary()
+
+    content = Text()
+    content.append(f"Version: {version}\n")
+    content.append(f"Git Commit: {commit}\n")
+    content.append(f"Build Timestamp: {build_datetime}")
+    printer.rich_print(Panel(content, title="Tecton CLI", expand=False))
 
 
 @cli.command(hidden=True)

@@ -276,11 +276,8 @@ def _infer_memref_view_transforms(op: memref.ViewOp) -> OptionalTransforms:
 
 
 def _get_tile_and_swizzle_transforms(
-    transforms: ir.ArrayAttr | None,
+    transforms: ir.ArrayAttr,
 ) -> tuple[ir.Attribute, ir.Attribute]:
-  if transforms is None:
-    return
-
   if len(transforms) == 2:
     tile_transform, swizzle_transform = transforms
     if not (
@@ -419,6 +416,22 @@ if jaxlib.version >= (0, 6, 2):
   ) -> OptionalTransforms:
     # Do not change the manually provided transforms.
     return [op.transforms], [op.transforms]
+
+
+# TODO(dasenov): Remove this after the minimal jaxlib version is 0.7.0.
+if jaxlib.version >= (0, 7, 0):
+  @partial(_add_transform_inference_rule, mgpu.TmemAllocOp)
+  def _infer_tmem_alloc_transforms(op: mgpu.TmemAllocOp) -> OptionalTransforms:
+    del op
+    return [], []
+
+
+@partial(_add_transform_inference_rule, mgpu.CustomPrimitiveOp)
+def _infer_mgpu_custom_primitive_transforms(
+    op: mgpu.CustomPrimitiveOp,
+) -> OptionalTransforms:
+  # Do not change the manually provided transforms.
+  return list(op.in_transforms), []
 
 
 def infer_transforms(module: ir.Module):

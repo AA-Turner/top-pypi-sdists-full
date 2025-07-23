@@ -152,6 +152,7 @@ class MicrobatchMacroOutsideOfBatchesDeprecation(DBTDeprecation):
 class GenericJSONSchemaValidationDeprecation(DBTDeprecation):
     _name = "generic-json-schema-validation-deprecation"
     _event = "GenericJSONSchemaValidationDeprecation"
+    _is_preview = True
 
 
 class UnexpectedJinjaBlockDeprecation(DBTDeprecation):
@@ -202,6 +203,26 @@ class PropertyMovedToConfigDeprecation(DBTDeprecation):
 class ModelParamUsageDeprecation(DBTDeprecation):
     _name = "model-param-usage-deprecation"
     _event = "ModelParamUsageDeprecation"
+
+
+class EnvironmentVariableNamespaceDeprecation(DBTDeprecation):
+    _name = "environment-variable-namespace-deprecation"
+    _event = "EnvironmentVariableNamespaceDeprecation"
+
+
+class MissingPlusPrefixDeprecation(DBTDeprecation):
+    _name = "missing-plus-prefix-in-config-deprecation"
+    _event = "MissingPlusPrefixDeprecation"
+
+
+class ArgumentsPropertyInGenericTestDeprecation(DBTDeprecation):
+    _name = "arguments-property-in-generic-test-deprecation"
+    _event = "ArgumentsPropertyInGenericTestDeprecation"
+
+
+class MissingArgumentsPropertyInGenericTestDeprecation(DBTDeprecation):
+    _name = "missing-arguments-property-in-generic-test-deprecation"
+    _event = "MissingArgumentsPropertyInGenericTestDeprecation"
 
 
 def renamed_env_var(old_name: str, new_name: str):
@@ -285,6 +306,10 @@ deprecations_list: List[DBTDeprecation] = [
     ModelParamUsageDeprecation(),
     WEOInlcudeExcludeDeprecation(),
     SourceOverrideDeprecation(),
+    EnvironmentVariableNamespaceDeprecation(),
+    MissingPlusPrefixDeprecation(),
+    ArgumentsPropertyInGenericTestDeprecation(),
+    MissingArgumentsPropertyInGenericTestDeprecation(),
 ]
 
 deprecations: Dict[str, DBTDeprecation] = {d.name: d for d in deprecations_list}

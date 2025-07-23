@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: langchain-ollama
-Version: 0.3.5
+Version: 0.3.6
 Summary: An integration package connecting Ollama and LangChain
 License: MIT
 Project-URL: Source Code, https://github.com/langchain-ai/langchain/tree/master/libs/partners/ollama
@@ -8,7 +8,7 @@ Project-URL: Release Notes, https://github.com/langchain-ai/langchain/releases?q
 Project-URL: repository, https://github.com/langchain-ai/langchain
 Requires-Python: >=3.9
 Requires-Dist: ollama<1.0.0,>=0.5.1
-Requires-Dist: langchain-core<1.0.0,>=0.3.69
+Requires-Dist: langchain-core<1.0.0,>=0.3.70
 Description-Content-Type: text/markdown
 
 # langchain-ollama

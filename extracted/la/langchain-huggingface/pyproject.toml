@@ -8,12 +8,12 @@ build-backend = "pdm.backend"
 authors = []
 requires-python = ">=3.9"
 dependencies = [
-    "langchain-core<1.0.0,>=0.3.65",
+    "langchain-core<1.0.0,>=0.3.70",
     "tokenizers>=0.19.1",
-    "huggingface-hub>=0.30.2",
+    "huggingface-hub>=0.33.4",
 ]
 name = "langchain-huggingface"
-version = "0.3.0"
+version = "0.3.1"
 description = "An integration package connecting Hugging Face and LangChain."
 readme = "README.md"
 
@@ -49,7 +49,7 @@ codespell = [
     "codespell<3.0.0,>=2.2.0",
 ]
 lint = [
-    "ruff<1.0,>=0.5",
+    "ruff<0.13,>=0.12.2",
 ]
 dev = [
     "ipykernel<7.0.0,>=6.29.2",
@@ -77,14 +77,68 @@ target-version = "py39"
 
 [tool.ruff.lint]
 select = [
+    "A",
+    "B",
+    "ASYNC",
+    "C4",
+    "COM",
+    "D",
+    "DOC",
     "E",
+    "EM",
     "F",
+    "FA",
+    "FBT",
+    "FLY",
     "I",
-    "T201",
+    "ICN",
+    "INT",
+    "ISC",
+    "PGH",
+    "PIE",
+    "PERF",
+    "PYI",
+    "Q",
+    "RET",
+    "RSE",
+    "RUF",
+    "S",
+    "SLF",
+    "SLOT",
+    "SIM",
+    "T10",
+    "T20",
+    "TID",
     "UP",
+    "W",
+    "YTT",
 ]
 ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    "D407",
+    "COM812",
+    "ISC001",
+    "PERF203",
+    "S112",
+    "RUF012",
+    "SLF001",
     "UP007",
+    "UP045",
+]
+unfixable = [
+    "B028",
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "S101",
+    "S311",
 ]
 
 [tool.coverage.run]

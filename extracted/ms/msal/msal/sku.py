@@ -2,5 +2,5 @@
 """
 
 # The __init__.py will import this. Not the other way around.
-__version__ = "1.32.3"
+__version__ = "1.33.0"
 SKU = "MSAL.Python"

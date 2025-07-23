@@ -24,7 +24,8 @@ import enum
 import functools
 import itertools
 import threading
-from typing import Any, ClassVar, Hashable, Literal, Protocol, TypeAlias, Union, runtime_checkable
+from typing import Any, ClassVar, Literal, Protocol, TypeAlias, Union, runtime_checkable
+from collections.abc import Hashable
 
 import jax
 from jax._src import api_util
@@ -210,55 +211,11 @@ class MemoryRef:
         self.shape, dtype, memory_space=self.memory_space
     )
 
-  def get_ref_aval(self) -> TransformedRef | AbstractMemoryRef:
+  def get_ref_aval(self) -> TransformedRef | state.AbstractRef:
     # TODO(sharadmv): Clean this up. ShapedArrayWithMemorySpace fails when we
     # try to apply JAX ops to it.
-    return AbstractMemoryRef(
+    return state.AbstractRef(
         jax_core.ShapedArray(self.shape, self.dtype), self.memory_space)
-
-
-class AbstractMemoryRef(state.AbstractRef):
-  __slots__ = ["inner_aval", "memory_space"]
-
-  inner_aval: jax_core.ShapedArray
-
-  def __init__(self, inner_aval: jax_core.ShapedArray, memory_space: Any):
-    if isinstance(inner_aval, ShapedArrayWithMemorySpace):
-      if inner_aval.memory_space is not None:
-        assert inner_aval.memory_space == memory_space, (
-            f"Mismatched memory spaces: {inner_aval.memory_space=},"
-            f" {memory_space=}"
-        )
-    self.inner_aval = inner_aval
-    self.memory_space = memory_space
-
-  def __repr__(self) -> str:
-    return f'MemRef<{self.memory_space}>{{{self.inner_aval.str_short()}}}'
-
-  def update_weak_type(self, weak_type):
-    return self.update(inner_aval=self.inner_aval.update_weak_type(weak_type))
-
-  def update_vma(self, vma):
-    return self.update(inner_aval=self.inner_aval.update_vma(vma))
-
-  def update(self, inner_aval=None, memory_space=None):
-    inner_aval = self.inner_aval if inner_aval is None else inner_aval
-    memory_space = self.memory_space if memory_space is None else memory_space
-    return AbstractMemoryRef(inner_aval, memory_space)
-
-  def to_tangent_aval(self):
-    return self.update(inner_aval=self.inner_aval.to_tangent_aval())
-
-  # TODO(dougalm, sharadmv): figure out how to avoid needing this
-  def normalize(self):
-    return state.AbstractRef(self.inner_aval).normalize()
-
-  def __eq__(self, other):
-    return (type(self) is type(other) and self.inner_aval == other.inner_aval
-            and self.memory_space == other.memory_space)
-
-  def __hash__(self):
-    return hash((self.__class__, self.inner_aval, self.memory_space))
 
 
 class MemorySpace(enum.Enum):
@@ -271,6 +228,7 @@ class MemorySpace(enum.Enum):
   ERROR = "error"  # Memory space for checkify errors.
   INDEX = "index"  # Memory space for scalar prefetch arguments.
   KEY = "key"  # Memory space for PRNG keys.
+  HOST = "host"  # Host memory space.
 
   def __str__(self) -> str:
     return self.value
@@ -501,7 +459,10 @@ class BlockSpec:
   ) -> BlockMapping:
     if self.index_map is None:
       index_map_func = default_index_map(len(array_aval.shape))
-      api_util.save_wrapped_fun_sourceinfo(index_map_func, default_index_map)
+      index_map_dbg = api_util.debug_info("pallas_call index_map",
+                                          default_index_map, (),{}
+                                          )._replace(arg_names=("",) * len(index_map_avals))
+      api_util.save_wrapped_fun_debug_info(index_map_func, index_map_dbg)
     else:
       index_map_func = self.index_map
     if self.block_shape is None:
@@ -530,7 +491,7 @@ class BlockSpec:
       )
     else:
       block_array_aval = array_aval.update(shape=ref_block_shape)
-    block_aval = AbstractMemoryRef(block_array_aval, self.memory_space)
+    block_aval = state.AbstractRef(block_array_aval, self.memory_space)
 
     if (
         not jax_core.is_constant_shape(block_aval.shape)
@@ -554,7 +515,7 @@ class BlockSpec:
         lu.wrap_init(index_map_func, debug_info=debug_info), index_map_tree
     )
     with tracing_grid_env(grid, mapped_dims):
-      jaxpr, out_avals, consts, () = pe.trace_to_jaxpr_dynamic(
+      jaxpr, out_avals, consts = pe.trace_to_jaxpr_dynamic(
           flat_index_map_fun, index_map_avals
       )
     index_map_out_tree = index_map_out_tree_thunk()
@@ -648,7 +609,7 @@ class BlockMapping:
   # TODO(apaszke,sharadmv): Replace mapped dims in block_shape with a transform.
   # After all, it's just indexing out singleton dimensions.
   block_shape: tuple[BlockDim, ...]
-  transformed_block_aval: AbstractMemoryRef
+  transformed_block_aval: state.AbstractRef
   index_map_jaxpr: jax_core.ClosedJaxpr
   index_map_out_tree: tree_util.PyTreeDef
   array_shape_dtype: jax.ShapeDtypeStruct  # The whole array
@@ -679,14 +640,14 @@ class BlockMapping:
     return new_self
 
   @property
-  def block_aval(self) -> AbstractMemoryRef:
+  def block_aval(self) -> state.AbstractRef:
     # If you hit this, make sure you take transforms into account and use either
     # ref_aval or transformed_block_aval.
     assert not self.transforms, "Lowering failed to handle transforms"
     return self.transformed_block_aval
 
   @property
-  def ref_aval(self) -> AbstractMemoryRef | TransformedRef:
+  def ref_aval(self) -> state.AbstractRef | TransformedRef:
     """Returns the abstract value of the Ref after transformations."""
     if not self.transforms:
       return self.transformed_block_aval
@@ -1251,6 +1212,30 @@ class CostEstimate:
     ).encode("ascii")
 
 
+def get_memory_space_aval(aval: jax_core.AbstractValue) -> Any:
+  """Queries the memory space of an array."""
+  if isinstance(aval, ShapedArrayWithMemorySpace):
+    return aval.memory_space
+  if isinstance(aval, state.AbstractRef):
+    if aval.memory_space is not None:
+      return aval.memory_space
+    return get_memory_space_aval(aval.inner_aval)
+  return None
+
+def _get_sds(aval: jax_core.AbstractValue):
+  match aval:
+    case state.AbstractRef(inner_aval=inner_aval):
+      if aval.memory_space is not None:
+        return aval.memory_space(aval.shape, aval.dtype)
+      return _get_sds(inner_aval)
+    case ShapedArrayWithMemorySpace():
+      return aval.memory_space(aval.shape, aval.dtype)
+    case jax_core.ShapedArray():
+      return jax.ShapeDtypeStruct(aval.shape, aval.dtype)
+    case _:
+      raise ValueError(f"Unsupported abstract value: {aval}")
+
+
 core_map_p = jax_core.Primitive("core_map")
 core_map_p.multiple_results = True
 
@@ -1277,7 +1262,6 @@ def core_map(
     cost_estimate: The cost estimate of the function.
   """
   def wrapped(f):
-    name_ = name or f.__name__
     flat_args, in_tree = tree_util.tree_flatten(((), {}))
     flat_fun, out_tree_thunk = api_util.flatten_fun(
         lu.wrap_init(f,
@@ -1288,15 +1272,23 @@ def core_map(
         tracing_grid_env(tuple(mesh.shape.values()), mapped_dims=()),
         jax_core.extend_axis_env_nd(mesh.shape.items()),
     ):
-      jaxpr, _, consts, () = pe.trace_to_jaxpr_dynamic(flat_fun, flat_args)
-    out = core_map_p.bind(*consts, jaxpr=jaxpr, mesh=mesh,
-                          compiler_params=compiler_params,
-                          interpret=interpret,
-                          debug=debug,
-                          cost_estimate=cost_estimate, name=name_)
+      jaxpr, _, consts = pe.trace_to_jaxpr_dynamic(flat_fun, flat_args)
+    out = core_map_p.bind(
+        *consts,
+        jaxpr=jaxpr,
+        mesh=mesh,
+        compiler_params=compiler_params,
+        interpret=(
+            config.pallas_tpu_interpret_mode_context_manager.value or interpret
+        ),
+        debug=debug,
+        cost_estimate=cost_estimate,
+        name=name or util.fun_name(f),
+    )
     if out:
       raise ValueError("core_map-ped functions must not return any outputs.")
     return tree_util.tree_unflatten(out_tree_thunk(), out)
+
   return wrapped
 
 
@@ -1328,7 +1320,7 @@ def _core_map_abstract_eval(*args, jaxpr, mesh, **kwargs):
 class Mesh(Protocol):
 
   @property
-  def backend(self) -> str:
+  def backend(self) -> Backend:
     ...
 
   @property
@@ -1337,6 +1329,32 @@ class Mesh(Protocol):
 
 
 _core_map_mesh_rules: dict[type[Any], Callable[..., Any]] = {}
+
+
+with_memory_space_constraint_p = jax_core.Primitive(
+    'with_memory_space_constraint')
+
+@with_memory_space_constraint_p.def_impl
+def with_memory_space_constraint_impl(x, *, memory_space):
+  del x, memory_space
+  raise ValueError("Cannot eagerly run with_memory_space_constraint.")
+
+
+@with_memory_space_constraint_p.def_abstract_eval
+def with_memory_space_constraint_abstract_eval(x, *, memory_space):
+  if not isinstance(x, jax_core.ShapedArray):
+    raise NotImplementedError("with_memory_space_constraint only supports "
+                              "arrays.")
+  return ShapedArrayWithMemorySpace(
+      x.shape, x.dtype, memory_space=memory_space
+  )
+
+def with_memory_space_constraint_lowering_rule(ctx, x, *, memory_space):
+  del ctx, memory_space
+  return [x]
+mlir.register_lowering(
+    with_memory_space_constraint_p, with_memory_space_constraint_lowering_rule
+)
 
 
 def default_mesh_discharge_rule(
@@ -1367,32 +1385,49 @@ def default_mesh_discharge_rule(
       for eff in jaxpr.effects
       if isinstance(eff, state_types.WriteEffect)
   )
-  spec = BlockSpec(memory_space=memory_space)
-  from jax._src.pallas import pallas_call  # Avoid circular dependency.
+  in_memory_spaces = [get_memory_space_aval(aval) for aval in in_avals]
+  in_memory_spaces = [
+      memory_space if m is None else m for m in in_memory_spaces
+  ]
+  @jax.jit
+  def jitted(*args):
+    args = [
+        with_memory_space_constraint_p.bind(arg, memory_space=memory_space)
+        if memory_space is not None else arg
+        for arg, memory_space in zip(args, in_memory_spaces)
+    ]
+    in_specs = [
+        BlockSpec(memory_space=memory_space) for memory_space in in_memory_spaces
+    ]
+    out_specs = [in_specs[idx] for idx in modified_idxs]
+    out_shapes = [_get_sds(in_avals[idx]) for idx in modified_idxs]
+    from jax._src.pallas import pallas_call  # Avoid circular dependency.
 
-  outs = pallas_call._pallas_call(
-      body,
-      name=name,
-      out_shape=[in_avals[idx] for idx in modified_idxs],
-      input_output_aliases={
-          in_idx: out_idx for out_idx, in_idx in enumerate(modified_idxs)
-      },
-      grid_spec=GridSpec(
-          grid=tuple(mesh.shape.items()),
-          in_specs=[spec] * len(in_avals),
-          out_specs=[spec] * len(modified_idxs),
-      ),
-      mesh=mesh,
-      compiler_params=compiler_params,
-      interpret=interpret,
-      debug=debug,
-      cost_estimate=cost_estimate,
-  )(*args)
+    outs = pallas_call._pallas_call(
+        body,
+        name=name,
+        out_shape=out_shapes,
+        input_output_aliases={
+            in_idx: out_idx for out_idx, in_idx in enumerate(modified_idxs)
+        },
+        grid_spec=GridSpec(
+            grid=tuple(mesh.shape.items()),
+            in_specs=in_specs,
+            out_specs=out_specs,
+        ),
+        mesh=mesh,
+        compiler_params=compiler_params,
+        interpret=interpret,
+        debug=debug,
+        cost_estimate=cost_estimate,
+    )(*args)
   # ``outs`` lacks the unmodified inputs. Add them back in.
-  all_outs = [None] * len(args)
-  for out_idx, in_idx in enumerate(modified_idxs):
-    all_outs[in_idx] = outs[out_idx]
-  return all_outs, ()
+    all_outs = [None] * len(args)
+    for out_idx, in_idx in enumerate(modified_idxs):
+      all_outs[in_idx] = outs[out_idx]
+    return all_outs
+  out = jitted(*args)
+  return out, ()
 
 
 @state_discharge.register_discharge_rule(core_map_p)
@@ -1430,11 +1465,19 @@ jax_core.custom_typechecks[core_map_p] = _core_map_typecheck_rule
 
 
 def lower_as_mlir(
-    f, *args, dynamic_shapes=False, device=None, static_argnames=(), **kwargs
+    f,
+    *args,
+    dynamic_shapes=False,
+    device=None,
+    static_argnames=(),
+    platforms=None,
+    **kwargs,
 ) -> mlir.ir.Module:
   with pallas_export_experimental(dynamic_shapes):
     f = jax.jit(f, device=device, static_argnames=static_argnames)
-    exported = export(f, platforms=["tpu"])(*args, **kwargs)
+    if platforms is None:
+      platforms = ["tpu"]
+    exported = export(f, platforms=platforms)(*args, **kwargs)
     stablehlo = exported.mlir_module()
 
   return stablehlo  # type: ignore[return-value]

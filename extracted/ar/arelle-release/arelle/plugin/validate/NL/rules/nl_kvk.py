@@ -9,8 +9,6 @@ from collections.abc import Iterable
 from datetime import date
 from typing import Any, cast, TYPE_CHECKING
 
-import zipfile
-
 from lxml.etree import Element
 
 from arelle.ModelDtsObject import ModelConcept, ModelLink, ModelResource, ModelType
@@ -82,7 +80,7 @@ def rule_nl_kvk_3_1_1_1(
     NL-KVK.3.1.1.1: xbrli:identifier content to match KVK number format that must consist of 8 consecutive digits;
     first two digits must not be '00'.
     """
-    entityIdentifierValues = pluginData.entityIdentifiersInDocument(val.modelXbrl)
+    entityIdentifierValues = val.modelXbrl.entityIdentifiersInDocument()
     for entityId in entityIdentifierValues:
         if not XBRLI_IDENTIFIER_PATTERN.match(entityId[1]):
             yield Validation.error(
@@ -107,7 +105,7 @@ def rule_nl_kvk_3_1_1_2(
     """
     NL-KVK.3.1.1.2: Scheme attribute of xbrli:identifier must be http://www.kvk.nl/kvk-id.
     """
-    entityIdentifierValues = pluginData.entityIdentifiersInDocument(val.modelXbrl)
+    entityIdentifierValues = val.modelXbrl.entityIdentifiersInDocument()
     for entityId in entityIdentifierValues:
         if XBRLI_IDENTIFIER_SCHEMA != entityId[0]:
             yield Validation.error(
@@ -220,7 +218,7 @@ def rule_nl_kvk_3_1_4_1 (
     """
      NL-KVK.3.1.4.1: All entity identifiers and schemes must have identical content.
     """
-    entityIdentifierValues = pluginData.entityIdentifiersInDocument(val.modelXbrl)
+    entityIdentifierValues = val.modelXbrl.entityIdentifiersInDocument()
     if len(entityIdentifierValues) >1:
         yield Validation.error(
             codes='NL.NL-KVK-RTS_Annex_IV_Par_1_G3-1-4_1.multipleIdentifiers',
@@ -1582,7 +1580,7 @@ def rule_nl_kvk_4_4_4_1(
         **kwargs: Any,
 ) -> Iterable[Validation]:
     """
-    NL-KVK.4.4.5.1: Custom labels roles SHOULD NOT be used.
+    NL-KVK.4.4.4.1: Duplicated line items in the presentation tree of extension taxonomy SHOULD use preferred labels on presentation links.
     """
     warnings = set()
     for ELR in val.modelXbrl.relationshipSet(XbrlConst.parentChild).linkRoleUris:
@@ -1820,9 +1818,9 @@ def rule_nl_kvk_RTS_Annex_II_Par_1_RTS_Annex_IV_par_7(
     for ELR in val.modelXbrl.relationshipSet(parentChild).linkRoleUris:
         relSet = val.modelXbrl.relationshipSet(parentChild, ELR)
         for rootConcept in relSet.rootConcepts:
-            if relSet.fromModelObject(rootConcept):
-                if not rootConcept.qname in permissibleAbstracts:
-                    warnings.append(rootConcept)
+            if rels := relSet.fromModelObject(rootConcept):
+                if rootConcept.qname not in permissibleAbstracts:
+                    warnings.append(rels[0])
     if len(warnings) > 0:
         yield Validation.warning(
             codes='NL.NL-KVK.RTS_Annex_II_Par_1_RTS_Annex_IV_par_7.missingRelevantPlaceholder',

@@ -48,6 +48,7 @@ dependencies = [
     "rich>=14.0.0",
     "reward-kit>=0.3.1",
     "toml>=0.10.2",
+    "aiohttp[speedups]>=3.12.11",
     "attrs==23.1.0",
 ]
 name = "fireworks-ai"
@@ -61,7 +62,7 @@ classifiers = [
     "Topic :: Scientific/Engineering :: Artificial Intelligence",
     "Development Status :: 3 - Alpha",
 ]
-version = "0.19.6"
+version = "0.19.7"
 
 [project.license]
 text = "MIT"

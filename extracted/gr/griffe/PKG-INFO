@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: griffe
-Version: 1.7.3
+Version: 1.8.0
 Summary: Signatures for entire Python programs. Extract the structure, the frame, the skeleton of your project, to generate API documentation or find breaking changes in your API.
 Keywords: api,signature,breaking-changes,static-analysis,dynamic-analysis
 Author-Email: =?utf-8?q?Timoth=C3=A9e_Mazzucotelli?= <dev@pawamoy.fr>

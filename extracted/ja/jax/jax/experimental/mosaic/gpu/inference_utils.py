@@ -20,7 +20,10 @@ from functools import partial
 import itertools
 from typing import cast, Union
 
+from jax._src.lib import mosaic_gpu_dialect as mgpu
 from jax._src.lib.mlir import ir
+
+from . import utils
 
 MlirOperation = Union[ir.Operation, ir.OpView]
 
@@ -147,13 +150,11 @@ def should_have_transforms(op: ir.OpView) -> bool:
 def is_transformable_smem_memref(v: ir.Value) -> bool:
   """Whether the value is a memref in SMEM on which transforms should be applied."""
   barrier_ty = ir.Type.parse("!mosaic_gpu.barrier")
-  smem = ir.Attribute.parse("#gpu.address_space<workgroup>")
   return (
       ir.MemRefType.isinstance(v.type)
       # barriers have no business being transformed
       and v.type.element_type != barrier_ty  # pylint: disable=attribute-error
-      and v.type.memory_space is not None  # pylint: disable=attribute-error
-      and v.type.memory_space == smem  # pylint: disable=attribute-error
+      and utils.is_smem_ref(v)
   )
 
 
@@ -227,14 +228,24 @@ def traverse_op(
     op: ir.OpView,
     callback: Callable[[ir.OpView], None],
     traversal_order: TraversalOrder = TraversalOrder.FORWARD,
+    do_not_recurse_into_ops: tuple[type, ...] = (mgpu.CustomPrimitiveOp,),
 ):
-  """Traverses the operation and applies the callback in the given order."""
-  for region in op.operation.regions:
-    for block in region:
-      if traversal_order == TraversalOrder.FORWARD:
-        ops_to_traverse = list(block)
-      else:
-        ops_to_traverse = reversed(list(block))  # type: ignore
-      for block_op in ops_to_traverse:
-        traverse_op(block_op, callback, traversal_order)
+  """Traverses the operation and applies the callback in the given order.
+
+  If do_not_recurse_into_ops is provided, the callback will be executed on these
+  ops, but any regions they might have will not be traversed.
+  """
+  if not isinstance(op, do_not_recurse_into_ops):
+    # The block of a mosaic_gpu.custom_primitive op is already lowered so it
+    # should not be traversed.
+    for region in op.operation.regions:
+      for block in region:
+        if traversal_order == TraversalOrder.FORWARD:
+          ops_to_traverse = list(block)
+        else:
+          ops_to_traverse = reversed(list(block))  # type: ignore
+        for block_op in ops_to_traverse:
+          traverse_op(
+              block_op, callback, traversal_order, do_not_recurse_into_ops
+          )
   callback(op)

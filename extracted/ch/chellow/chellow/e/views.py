@@ -2344,30 +2344,29 @@ def hh_datum_edit_post(datum_id):
 @e.route("/lafs")
 def lafs_get():
     llfc_id = req_int("llfc_id")
-    year = req_int("year")
-    month = req_int("month")
-
+    month_start = req_date("timestamp", resolution="month")
+    month_start_ct = to_ct(month_start)
     llfc = Llfc.get_by_id(g.sess, llfc_id)
     dno = llfc.dno
 
-    start_date, finish_date = next(
-        c_months_u(start_year=year, start_month=month, months=1)
-    )
-    lafs = (
-        g.sess.execute(
-            select(Laf)
-            .where(
-                Laf.llfc == llfc,
-                Laf.timestamp >= start_date,
-                Laf.timestamp <= finish_date,
-            )
-            .order_by(Laf.timestamp)
+    month_start, month_finish = next(
+        c_months_u(
+            start_year=month_start_ct.year, start_month=month_start_ct.month, months=1
         )
-        .scalars()
-        .all()
     )
+    lafs = g.sess.execute(
+        select(Laf)
+        .where(
+            Laf.llfc == llfc,
+            Laf.timestamp >= month_start,
+            Laf.timestamp <= month_finish,
+        )
+        .order_by(Laf.timestamp)
+    ).scalars()
 
-    return render_template("lafs.html", dno=dno, llfc=llfc, lafs=lafs)
+    return render_template(
+        "lafs.html", dno=dno, llfc=llfc, lafs=lafs, month_start=month_start
+    )
 
 
 @e.route("/lcc")
@@ -5715,31 +5714,28 @@ def supply_post(supply_id):
             start_date_str = req_str("start_date")
             start_date = parse_hh_start(start_date_str)
             if start_date is None:
-                raise BadRequest("The data of the MSN change is blank in ECOES.")
+                raise BadRequest("The date of the MSN change is blank.")
 
             msn = req_str("msn")
             msg = ""
             era = supply.find_era_at(g.sess, start_date)
-            if era is None:
-                raise BadRequest(f"There are no eras from {start_date|hh_format}")
-            else:
-                if era.start_date != start_date:
-                    era = supply.insert_era_at(g.sess, start_date)
-                    g.sess.commit()
-                for era in supply.find_eras(g.sess, start_date, None):
-                    if era.msn == msn:
-                        msg += (
-                            f"The era at {hh_format(era.start_date)} already has the "
-                            f"MSN {msn}. "
-                        )
-                    else:
-                        era.msn = msn
+            if era is not None and era.start_date != start_date:
+                era = supply.insert_era_at(g.sess, start_date)
+                g.sess.commit()
+            for era in supply.find_eras(g.sess, start_date, None):
+                if era.msn == msn:
+                    msg += (
+                        f"The era at {hh_format(era.start_date)} already has the "
+                        f"MSN {msn}. "
+                    )
+                else:
+                    era.msn = msn
 
-                        g.sess.commit()
-                        msg += (
-                            f"The era at {hh_format(era.start_date)} has been "
-                            f"successfully updated with the MSN {msn}. "
-                        )
+                    g.sess.commit()
+                    msg += (
+                        f"The era at {hh_format(era.start_date)} has been "
+                        f"successfully updated with the MSN {msn}. "
+                    )
             flash(msg)
         return render_template("supply_post.html")
 

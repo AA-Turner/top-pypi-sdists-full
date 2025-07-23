@@ -13,7 +13,7 @@ from arelle.PrototypeDtsObject import LocPrototype, ArcPrototype
 from arelle.UrlUtil import isHttpUrl, splitDecodeFragment
 from arelle.ValidateXbrl import ValidateXbrl
 from arelle.ValidateXbrlCalcs import insignificantDigits
-from arelle.XbrlConst import xhtmlBaseIdentifier, xmlBaseIdentifier
+from arelle.XbrlConst import qnXbrlScenario, qnXbrldiExplicitMember, xhtmlBaseIdentifier, xmlBaseIdentifier
 from arelle.XmlValidate import VALID
 from arelle.typing import TypeGetText
 from arelle.utils.PluginHooks import ValidationHook
@@ -26,6 +26,21 @@ from ..PluginValidationDataExtension import PluginValidationDataExtension
 _: TypeGetText
 
 GFM_CONTEXT_DATE_PATTERN = regex.compile(r"^[12][0-9]{3}-[01][0-9]-[0-3][0-9]$")
+GFM_RECOMMENDED_NAMESPACE_PREFIXES = {
+    XbrlConst.xbrli: ("xbrli",),
+    XbrlConst.xsi: ("xsi",),
+    XbrlConst.xsd: ("xs", "xsd",),
+    XbrlConst.link: ("link",),
+    XbrlConst.xl: ("xl",),
+    XbrlConst.xlink: ("xlink",),
+    XbrlConst.ref2004: ("ref",),
+    XbrlConst.ref2006: ("ref",),
+    XbrlConst.xbrldt: ("xbrldt",),
+    XbrlConst.xbrldi: ("xbrldi",),
+    XbrlConst.ixbrl: ("ix",),
+    XbrlConst.ixt: ("ixt",),
+    XbrlConst.xhtml: ("xhtml",),
+}
 
 
 @validation(
@@ -115,6 +130,88 @@ def rule_gfm_1_1_7(
             msg=_("Attribute xml:base must not appear in any filing document."),
             modelObject=baseElements,
         )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_2_3(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.2.3] All xbrli:identifier elements in an instance must have identical content.
+    """
+    entityIdentifierValues = val.modelXbrl.entityIdentifiersInDocument()
+    if len(entityIdentifierValues) >1:
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.1.2.3',
+            msg=_('All identifier elements must be identical.'),
+                modelObject = val.modelXbrl
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_2_4(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.2.4] Segment must not be used in the context.
+    """
+    allContexts = val.modelXbrl.contextsByDocument()
+    contextsWithSegments =[]
+    for contexts in allContexts.values():
+        for context in contexts:
+            if context.hasSegment:
+                contextsWithSegments.append(context)
+    if len(contextsWithSegments) > 0:
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.1.2.4',
+            msg=_('Set the scenario element in the context. Do not set the segment element.'),
+            modelObject = contextsWithSegments
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_2_5(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.2.5] If an xbrli:scenario element appears in a context, then its children
+    must be one or more xbrldi:explicitMember elements.
+    """
+    allContexts = val.modelXbrl.contextsByDocument()
+    contextsWithDisallowedScenarioChildren =[]
+    for contexts in allContexts.values():
+        for context in contexts:
+            for elt in context.iterdescendants(qnXbrlScenario.clarkNotation):
+                if isinstance(elt, ModelObject):
+                    if any(isinstance(child, ModelObject) and child.tag != qnXbrldiExplicitMember.clarkNotation
+                           for child in elt.iterchildren()):
+                        contextsWithDisallowedScenarioChildren.append(context)
+    if len(contextsWithDisallowedScenarioChildren) > 0:
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.1.2.5',
+            msg=_('Please delete all child elements other than the xbrldi:explicitMember '
+                  'element from the segment element or scenario element.'),
+            modelObject = contextsWithDisallowedScenarioChildren
+        )
+
 
 
 @validation(
@@ -290,4 +387,63 @@ def rule_gfm_1_2_27(
             codes='EDINET.EC5700W.GFM.1.2.27',
             msg=_("Delete unused units from the instance."),
             modelObject=list(unusedUnits)
+        )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_2_28(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.2.28] The prefix declaration for the namespace is incorrect.
+    """
+    for doc in val.modelXbrl.urlDocs.values():
+        rootElt = doc.xmlRootElement
+        for prefix, namespace in rootElt.nsmap.items():
+            if prefix is None:
+                continue
+            if namespace not in GFM_RECOMMENDED_NAMESPACE_PREFIXES:
+                continue
+            if prefix in GFM_RECOMMENDED_NAMESPACE_PREFIXES[namespace]:
+                continue
+            yield Validation.warning(
+                codes='EDINET.EC5700W.GFM.1.2.28',
+                msg=_("The prefix declaration '%(prefix)s' for the namespace '%(namespace)s' "
+                      "is incorrect. "
+                      "Correct the prefix (%(prefixes)s)."),
+                prefix=prefix,
+                namespace=namespace,
+                prefixes=", ".join(GFM_RECOMMENDED_NAMESPACE_PREFIXES[namespace]),
+                modelObject=rootElt
+            )
+
+
+@validation(
+    hook=ValidationHook.XBRL_FINALLY,
+    disclosureSystems=[DISCLOSURE_SYSTEM_EDINET],
+)
+def rule_gfm_1_2_30(
+        pluginData: PluginValidationDataExtension,
+        val: ValidateXbrl,
+        *args: Any,
+        **kwargs: Any,
+) -> Iterable[Validation]:
+    """
+    EDINET.EC5700W: [GFM 1.2.30] A context must not contain the xbrli:forever element.
+    """
+    errors = []
+    for context in val.modelXbrl.contexts.values():
+        for elt in context.iterdescendants(XbrlConst.qnXbrliForever.clarkNotation):
+            errors.append(elt)
+    if len(errors) > 0:
+        yield Validation.warning(
+            codes='EDINET.EC5700W.GFM.1.2.30',
+            msg=_("A context must not contain the xbrli:forever element."),
+            modelObject=errors
         )

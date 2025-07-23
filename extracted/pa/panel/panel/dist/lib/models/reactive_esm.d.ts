@@ -71,6 +71,7 @@ export declare namespace ReactiveESM {
         data: p.Property<any>;
         dev: p.Property<boolean>;
         esm: p.Property<string>;
+        events: p.Property<string[]>;
         importmap: p.Property<any>;
     };
 }
@@ -86,10 +87,11 @@ export declare class ReactiveESM extends HTMLBox {
     sucrase_transforms: Transform[];
     _destroyer: any | null;
     _esm_watchers: any;
+    _event_callbacks: Map<(data: unknown) => void, (data: unknown) => void>;
     constructor(attrs?: Partial<ReactiveESM.Attrs>);
     initialize(): void;
     connect_signals(): void;
-    watch(view: ReactiveESMView | null, prop: string, cb: any): void;
+    watch(view: ReactiveESMView | null, prop: string, cb: any, force?: boolean): void;
     unwatch(view: ReactiveESMView | null, prop: string, cb: any): boolean;
     disconnect_watchers(view: ReactiveESMView): void;
     protected _declare_importmap(): void;

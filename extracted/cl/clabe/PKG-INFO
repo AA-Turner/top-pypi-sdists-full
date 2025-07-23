@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: clabe
-Version: 2.1.4
+Version: 2.1.5
 Summary: Validate and generate the control digit of a CLABE in Mexico
 Home-page: https://github.com/cuenca-mx/clabe
 Author: Cuenca

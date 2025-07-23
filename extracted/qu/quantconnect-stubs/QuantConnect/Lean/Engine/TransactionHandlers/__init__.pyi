@@ -272,6 +272,15 @@ class BrokerageTransactionHandler(System.Object, QuantConnect.Lean.Engine.Transa
         """
         ...
 
+    def get_projected_holdings(self, security: QuantConnect.Securities.Security) -> QuantConnect.Securities.ProjectedHoldings:
+        """
+        Calculates the projected holdings for the specified security based on the current open orders.
+        
+        :param security: The security
+        :returns: The projected holdings for the specified security, which is the sum of the current holdings plus the sum of the open orders quantity.
+        """
+        ...
+
     def handle_order_request(self, request: QuantConnect.Orders.OrderRequest) -> None:
         """
         Handles a generic order request

@@ -44,7 +44,7 @@ class OrionPyClient:
             self.entity_column_names,
         )
 
-    def generate_df_with_protobuf_messages(self, df, add_kafka_partition_key: bool = False, intra_batch_size: int = 20):
+    def generate_df_with_protobuf_messages(self, df,  intra_batch_size: int = 20, add_kafka_partition_key: bool = False):
         from pyspark.sql.types import StructType, StructField, BinaryType, LongType
 
         # Check condition globally once
@@ -143,10 +143,8 @@ class OrionPyClient:
 
             current_batch = []
             batch_id = 0
-            current_row = None
 
             for row in iterator:
-                current_row = row
                 feature_values = self._create_feature_values(row)
                 
                 # Construct Data message for current row
@@ -166,8 +164,12 @@ class OrionPyClient:
                         data=current_batch,
                     )
                     
-                    # Create partition key from entity values
-                    partition_key = "|".join([str(row[col]) for col in self.entity_column_names])
+                    # Create partition key from the FIRST row in the batch (since all rows in batch should have same entity)
+                    first_row_entity_values = [str(current_batch[0].key_values[i]) for i in range(len(self.entity_column_names))]
+                    partition_key = "|".join(first_row_entity_values)
+                    print(f"DEBUG: Entity columns: {self.entity_column_names}")
+                    print(f"DEBUG: First row key_values: {current_batch[0].key_values}")
+                    print(f"DEBUG: Partition key: {partition_key}")
                     yield (query.SerializeToString(), batch_id, partition_key)
                     
                     current_batch = []
@@ -182,15 +184,19 @@ class OrionPyClient:
                     data=current_batch,
                 )
                 
-                # For the last batch, use the current row's entity values
-                partition_key = "|".join([str(current_row[col]) for col in self.entity_column_names])
+                # For the last batch, use the first row's entity values
+                first_row_entity_values = [str(current_batch[0].key_values[i]) for i in range(len(self.entity_column_names))]
+                partition_key = "|".join(first_row_entity_values)
+                print(f"DEBUG: Last batch - Entity columns: {self.entity_column_names}")
+                print(f"DEBUG: Last batch - First row key_values: {current_batch[0].key_values}")
+                print(f"DEBUG: Last batch - Partition key: {partition_key}")
                 yield (query.SerializeToString(), batch_id, partition_key)
 
         # Define output schema with partition key
         protobuf_schema = StructType([
             StructField("value", BinaryType(), False),
             StructField("intra_batch_id", LongType(), False),
-            StructField("partition_key", StringType(), False)
+            StructField("key", StringType(), False)
         ])
 
         # Apply mapPartitions
@@ -390,8 +396,6 @@ class OrionPyClient:
         # Write to Kafka
         if kafka_num_batches == 1:
             df = df.drop("intra_batch_id")
-            print(df.printSchema())
-            print(df)
             df.write.format("kafka").options(**kafka_config).save()
         else:
             import pyspark.sql.functions as F

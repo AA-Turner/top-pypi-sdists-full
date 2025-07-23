@@ -72333,6 +72333,37 @@ scout_rids_api_PendingReviewAlertState.__qualname__ = "PendingReviewAlertState"
 scout_rids_api_PendingReviewAlertState.__module__ = "nominal_api.scout_rids_api"
 
 
+class scout_rids_api_UserDuration(ConjureBeanType):
+    """Represents a time duration with a unit for user-facing display
+    """
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'duration': ConjureFieldDefinition('duration', float),
+            'unit': ConjureFieldDefinition('unit', api_TimeUnit)
+        }
+
+    __slots__: List[str] = ['_duration', '_unit']
+
+    def __init__(self, duration: float, unit: "api_TimeUnit") -> None:
+        self._duration = duration
+        self._unit = unit
+
+    @builtins.property
+    def duration(self) -> float:
+        return self._duration
+
+    @builtins.property
+    def unit(self) -> "api_TimeUnit":
+        return self._unit
+
+
+scout_rids_api_UserDuration.__name__ = "UserDuration"
+scout_rids_api_UserDuration.__qualname__ = "UserDuration"
+scout_rids_api_UserDuration.__module__ = "nominal_api.scout_rids_api"
+
+
 class scout_rids_api_VersionedVizId(ConjureBeanType):
 
     @builtins.classmethod
@@ -79534,6 +79565,29 @@ scout_video_api_VideoTimestampManifestVisitor.__qualname__ = "VideoTimestampMani
 scout_video_api_VideoTimestampManifestVisitor.__module__ = "nominal_api.scout_video_api"
 
 
+class scout_workbookcommon_api_AssetSettings(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'offset': ConjureFieldDefinition('offset', OptionalTypeWrapper[scout_rids_api_UserDuration])
+        }
+
+    __slots__: List[str] = ['_offset']
+
+    def __init__(self, offset: Optional["scout_rids_api_UserDuration"] = None) -> None:
+        self._offset = offset
+
+    @builtins.property
+    def offset(self) -> Optional["scout_rids_api_UserDuration"]:
+        return self._offset
+
+
+scout_workbookcommon_api_AssetSettings.__name__ = "AssetSettings"
+scout_workbookcommon_api_AssetSettings.__qualname__ = "AssetSettings"
+scout_workbookcommon_api_AssetSettings.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
 class scout_workbookcommon_api_CheckAlertReference(ConjureBeanType):
 
     @builtins.classmethod
@@ -79671,14 +79725,16 @@ class scout_workbookcommon_api_WorkbookContent(ConjureBeanType):
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'channel_variables': ConjureFieldDefinition('channelVariables', scout_channelvariables_api_WorkbookChannelVariableMap),
-            'charts': ConjureFieldDefinition('charts', scout_chartdefinition_api_WorkbookVizDefinitionMap)
+            'charts': ConjureFieldDefinition('charts', scout_chartdefinition_api_WorkbookVizDefinitionMap),
+            'settings': ConjureFieldDefinition('settings', OptionalTypeWrapper[scout_workbookcommon_api_WorkbookSettings])
         }
 
-    __slots__: List[str] = ['_channel_variables', '_charts']
+    __slots__: List[str] = ['_channel_variables', '_charts', '_settings']
 
-    def __init__(self, channel_variables: Dict[str, "scout_channelvariables_api_ChannelVariable"], charts: Dict[str, "scout_chartdefinition_api_VizDefinition"]) -> None:
+    def __init__(self, channel_variables: Dict[str, "scout_channelvariables_api_ChannelVariable"], charts: Dict[str, "scout_chartdefinition_api_VizDefinition"], settings: Optional["scout_workbookcommon_api_WorkbookSettings"] = None) -> None:
         self._channel_variables = channel_variables
         self._charts = charts
+        self._settings = settings
 
     @builtins.property
     def channel_variables(self) -> Dict[str, "scout_channelvariables_api_ChannelVariable"]:
@@ -79690,10 +79746,37 @@ class scout_workbookcommon_api_WorkbookContent(ConjureBeanType):
         """
         return self._charts
 
+    @builtins.property
+    def settings(self) -> Optional["scout_workbookcommon_api_WorkbookSettings"]:
+        return self._settings
+
 
 scout_workbookcommon_api_WorkbookContent.__name__ = "WorkbookContent"
 scout_workbookcommon_api_WorkbookContent.__qualname__ = "WorkbookContent"
 scout_workbookcommon_api_WorkbookContent.__module__ = "nominal_api.scout_workbookcommon_api"
+
+
+class scout_workbookcommon_api_WorkbookSettings(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'asset_settings': ConjureFieldDefinition('assetSettings', Dict[scout_rids_api_AssetRid, scout_workbookcommon_api_AssetSettings])
+        }
+
+    __slots__: List[str] = ['_asset_settings']
+
+    def __init__(self, asset_settings: Dict[str, "scout_workbookcommon_api_AssetSettings"]) -> None:
+        self._asset_settings = asset_settings
+
+    @builtins.property
+    def asset_settings(self) -> Dict[str, "scout_workbookcommon_api_AssetSettings"]:
+        return self._asset_settings
+
+
+scout_workbookcommon_api_WorkbookSettings.__name__ = "WorkbookSettings"
+scout_workbookcommon_api_WorkbookSettings.__qualname__ = "WorkbookSettings"
+scout_workbookcommon_api_WorkbookSettings.__module__ = "nominal_api.scout_workbookcommon_api"
 
 
 class secrets_api_CreateSecretRequest(ConjureBeanType):

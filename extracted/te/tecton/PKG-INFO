@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tecton
-Version: 1.2.0
+Version: 1.2.1
 Summary: Tecton Python SDK
 Author-email: "Tecton, Inc." <support@tecton.ai>
 License: Tecton Proprietary
@@ -18,8 +18,8 @@ Requires-Dist: deltalake==0.18.2; python_version > "3.7"
 Requires-Dist: jinja2~=3.0
 Requires-Dist: numpy~=1.16
 Requires-Dist: pathspec
-Requires-Dist: pendulum~=2.1; python_version < "3.12"
-Requires-Dist: pendulum==3.0.0; python_version >= "3.12"
+Requires-Dist: pendulum~=2.1; python_version < "3.10"
+Requires-Dist: pendulum~=3.0.0; python_version >= "3.10"
 Requires-Dist: protobuf<5,>=4.21.12
 Requires-Dist: pypika~=0.48.9
 Requires-Dist: pytimeparse
@@ -42,7 +42,7 @@ Requires-Dist: pyyaml
 Requires-Dist: setuptools
 Requires-Dist: pip
 Requires-Dist: pex~=2.1
-Requires-Dist: uv~=0.4.1; python_version > "3.7"
+Requires-Dist: uv<1.0,>=0.4.1; python_version > "3.7"
 Requires-Dist: rich
 Requires-Dist: rich-click>=1.0
 Provides-Extra: databricks-connect

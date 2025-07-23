@@ -106,7 +106,7 @@
     __esExport("IPyWidget", ipywidget_1.IPyWidget);
     var json_1 = require("245cd3cfde") /* ./json */;
     __esExport("JSON", json_1.JSON);
-    var jsoneditor_1 = require("d34360f699") /* ./jsoneditor */;
+    var jsoneditor_1 = require("a123a88e31") /* ./jsoneditor */;
     __esExport("JSONEditor", jsoneditor_1.JSONEditor);
     var katex_1 = require("f672d71a9f") /* ./katex */;
     __esExport("KaTeX", katex_1.KaTeX);
@@ -114,13 +114,13 @@
     __esExport("Location", location_1.Location);
     var mathjax_1 = require("d889a68424") /* ./mathjax */;
     __esExport("MathJax", mathjax_1.MathJax);
-    var modal_1 = require("90f76e3d2e") /* ./modal */;
+    var modal_1 = require("8c62aa80d9") /* ./modal */;
     __esExport("Modal", modal_1.Modal);
     var pdf_1 = require("f87ad1873c") /* ./pdf */;
     __esExport("PDF", pdf_1.PDF);
     var perspective_1 = require("29a0b0da9a") /* ./perspective */;
     __esExport("Perspective", perspective_1.Perspective);
-    var player_1 = require("b5cfca1687") /* ./player */;
+    var player_1 = require("96e805ccb5") /* ./player */;
     __esExport("Player", player_1.Player);
     var plotly_1 = require("7d9124b744") /* ./plotly */;
     __esExport("PlotlyPlot", plotly_1.PlotlyPlot);
@@ -130,11 +130,11 @@
     __esExport("QuillInput", quill_1.QuillInput);
     var radio_button_group_1 = require("25e2d7c208") /* ./radio_button_group */;
     __esExport("RadioButtonGroup", radio_button_group_1.RadioButtonGroup);
-    var react_component_1 = require("f79c27471d") /* ./react_component */;
+    var react_component_1 = require("e31ba19a89") /* ./react_component */;
     __esExport("ReactComponent", react_component_1.ReactComponent);
     var reactive_html_1 = require("d5752cda5a") /* ./reactive_html */;
     __esExport("ReactiveHTML", reactive_html_1.ReactiveHTML);
-    var reactive_esm_1 = require("5caa935b13") /* ./reactive_esm */;
+    var reactive_esm_1 = require("50fda3c782") /* ./reactive_esm */;
     __esExport("ReactiveESM", reactive_esm_1.ReactiveESM);
     var singleselect_1 = require("4155401209") /* ./singleselect */;
     __esExport("SingleSelect", singleselect_1.SingleSelect);
@@ -705,7 +705,7 @@
 "1f663ffe94": /* models/anywidget_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const reactive_esm_1 = require("5caa935b13") /* ./reactive_esm */;
+    const reactive_esm_1 = require("50fda3c782") /* ./reactive_esm */;
     class AnyWidgetModelAdapter {
         constructor(model) {
             this.view = null;
@@ -869,7 +869,7 @@ export default {render}`;
         _a.prototype.default_view = AnyWidgetComponentView;
     })();
 },
-"5caa935b13": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
+"50fda3c782": /* models/reactive_esm.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b, _c;
     __esModule();
     exports.model_getter = model_getter;
@@ -992,14 +992,14 @@ export default {render}`;
             };
         }
         else if (name === "on") {
-            return (prop, callback) => {
+            return (prop, callback, force = false) => {
                 const props = (0, types_1.isArray)(prop) ? prop : [prop];
                 for (let p of props) {
                     if (p.startsWith("change:")) {
                         p = p.slice("change:".length);
                     }
                     if (p in model.attributes || p.split(".")[0] in model.data.attributes) {
-                        model.watch(target, p, callback);
+                        model.watch(target, p, callback, force);
                         continue;
                     }
                     else if (p === "msg:custom") {
@@ -1418,6 +1418,7 @@ export default {render}`;
             this.sucrase_transforms = ["typescript"];
             this._destroyer = null;
             this._esm_watchers = {};
+            this._event_callbacks = new Map();
         }
         initialize() {
             super.initialize();
@@ -1432,7 +1433,7 @@ export default {render}`;
             this.connect(this.properties.esm.change, () => this.recompile());
             this.connect(this.properties.importmap.change, () => this.recompile());
         }
-        watch(view, prop, cb) {
+        watch(view, prop, cb, force = false) {
             if (prop in this._esm_watchers) {
                 this._esm_watchers[prop].push([view, cb]);
             }
@@ -1454,6 +1455,17 @@ export default {render}`;
             }
             if (target && target.properties && propPath[propPath.length - 1] in target.properties) {
                 resolvedProp = propPath[propPath.length - 1];
+            }
+            // Handle reset of param.Event properties
+            if (!force && target === this.data && resolvedProp && this.events.includes(resolvedProp)) {
+                const orig_cb = cb;
+                cb = () => {
+                    if (resolvedProp && this.data[resolvedProp]) {
+                        orig_cb();
+                        this.data.setv({ [resolvedProp]: false });
+                    }
+                };
+                this._event_callbacks.set(orig_cb, cb);
             }
             // Attach watcher if property is found
             if (resolvedProp && target) {
@@ -1497,6 +1509,10 @@ export default {render}`;
             }
             if (target && target.properties && propPath[propPath.length - 1] in target.properties) {
                 resolvedProp = propPath[propPath.length - 1];
+            }
+            if (this._event_callbacks.has(cb)) {
+                cb = this._event_callbacks.get(cb);
+                this._event_callbacks.delete(cb);
             }
             // Detach watcher if property is found
             if (resolvedProp && target) {
@@ -1696,6 +1712,7 @@ export default {render}`;
             data: [Any],
             dev: [Bool, false],
             esm: [Str, ""],
+            events: [Array(Str), []],
             importmap: [Any, {}],
         }));
     })();
@@ -25568,7 +25585,7 @@ ${namesToRegister
 "0dca2cd4f6": /* models/discrete_player.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
-    const player_1 = require("b5cfca1687") /* ./player */;
+    const player_1 = require("96e805ccb5") /* ./player */;
     const dom_1 = require("@bokehjs/core/dom");
     const pretty_1 = require("@bokehjs/core/util/pretty");
     class DiscretePlayerView extends player_1.PlayerView {
@@ -25599,7 +25616,7 @@ ${namesToRegister
         _a.override({ width: 400 });
     })();
 },
-"b5cfca1687": /* models/player.js */ function _(require, module, exports, __esModule, __esExport) {
+"96e805ccb5": /* models/player.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const kinds_1 = require("@bokehjs/core/kinds");
@@ -25866,6 +25883,7 @@ ${namesToRegister
             this.toggle_disable();
             this.update_css();
             this.shadow_el.appendChild(this.groupEl);
+            this.set_direction();
         }
         set_frame(frame, throttled = true) {
             this.model.value = frame;
@@ -27111,7 +27129,7 @@ ${namesToRegister
     }();
     exports.default = d;
 },
-"d34360f699": /* models/jsoneditor.js */ function _(require, module, exports, __esModule, __esExport) {
+"a123a88e31": /* models/jsoneditor.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
@@ -27141,7 +27159,7 @@ ${namesToRegister
                 this.editor.options.templates = this.model.templates;
             });
             this.on_change([menu], () => {
-                this.editor.options.menu = this.model.menu;
+                this.editor.options.mainMenuBar = this.model.menu;
             });
             this.on_change([search], () => {
                 this.editor.options.search = this.model.search;
@@ -27169,14 +27187,14 @@ ${namesToRegister
             super.render();
             const mode = this.model.disabled ? "view" : this.model.mode;
             this.editor = new window.JSONEditor(this.shadow_el, {
-                menu: this.model.menu,
+                mainMenuBar: this.model.menu,
                 mode,
                 onChangeJSON: (json) => {
-                    this.model.data = json;
+                    this.model.trigger_event(new JSONEditEvent(json));
                 },
                 onChangeText: (text) => {
                     try {
-                        this.model.data = JSON.parse(text);
+                        this.model.trigger_event(new JSONEditEvent(JSON.parse(text)));
                     }
                     catch (e) {
                         console.warn(e);
@@ -27383,7 +27401,7 @@ ${namesToRegister
         _a.prototype.default_view = MathJaxView;
     })();
 },
-"90f76e3d2e": /* models/modal.js */ function _(require, module, exports, __esModule, __esExport) {
+"8c62aa80d9": /* models/modal.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a, _b;
     __esModule();
     const tslib_1 = require("tslib");
@@ -27497,7 +27515,7 @@ ${namesToRegister
                 this.model.open = true;
                 dialog.style.display = "";
                 if (!first_open) {
-                    requestAnimationFrame(() => { this.invalidate_layout(); });
+                    requestAnimationFrame(() => { this.invalidate_layout(); dialog.focus(); });
                     first_open = true;
                 }
             });
@@ -28757,12 +28775,12 @@ ${namesToRegister
         }));
     })();
 },
-"f79c27471d": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
+"e31ba19a89": /* models/react_component.js */ function _(require, module, exports, __esModule, __esExport) {
     var _a;
     __esModule();
     const dom_1 = require("@bokehjs/core/dom");
     const types_1 = require("@bokehjs/core/util/types");
-    const reactive_esm_1 = require("5caa935b13") /* ./reactive_esm */;
+    const reactive_esm_1 = require("50fda3c782") /* ./reactive_esm */;
     class HostedStyleSheet extends dom_1.InlineStyleSheet {
         constructor(css, id, persistent = false, host_id = "") {
             super(css, id, persistent);
@@ -29145,13 +29163,21 @@ async function render(id) {
           const [value, setValue] = React.useState(targetModel.attributes[resolvedProp])
 
           React.useEffect(() => {
-            const cb = () => setValue(targetModel.attributes[resolvedProp])
-            react_proxy.on(prop, cb)
+            const cb = () => {
+              if (target.model.events.includes(resolvedProp)) {
+                targetModel.attributes[resolvedProp] && (setValue((v) => v+1) || targetModel.setv({[resolvedProp]: false}))
+              } else {
+                setValue(targetModel.attributes[resolvedProp])
+              }
+            }
+            react_proxy.on(prop, cb, true)
             return () => react_proxy.off(prop, cb)
           }, [])
 
           React.useEffect(() => {
-            targetModel.setv({ [resolvedProp]: value })
+            if (!target.model.events.includes(resolvedProp)) {
+              targetModel.setv({ [resolvedProp]: value })
+            }
           }, [value])
 
           return [value, setValue]
@@ -40495,5 +40521,5 @@ ${compiled}`;
         util_1.vtkns.FullScreenRenderWindowSynchronized = FullScreenRenderWindowSynchronized;
     }
 },
-}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"6227c89639","models/layout":"9b11ce01a3","models/util":"6ae1cb3800","models/anywidget_component":"1f663ffe94","models/reactive_esm":"5caa935b13","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"8694ed3f61","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"330f4a8735","models/column":"dd255421d9","styles/models/card.css":"edc7ee0090","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"7934c11cba","models/data":"be689f0377","styles/models/tabulator.css":"b0e650c65c","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"01df2ec63b","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"b5cfca1687","models/echarts":"315eb8f63a","models/feed":"4cfe0841a5","models/file_download":"84a13dddfb","models/file_dropper":"e8b7476f90","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"d34360f699","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"90f76e3d2e","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"ce7c8e2a4f","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"f79c27471d","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"2231cdc549","models/terminal":"121f00bd6f","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
+}, "4e90918c0a", {"index":"4e90918c0a","models/index":"2fe1822b2b","models/ace":"6227c89639","models/layout":"9b11ce01a3","models/util":"6ae1cb3800","models/anywidget_component":"1f663ffe94","models/reactive_esm":"50fda3c782","models/event-to-object":"a572dba9cd","models/html":"4c04683fdc","styles/models/html.css":"8694ed3f61","styles/models/esm.css":"727a14f76b","models/audio":"fd59c985b3","models/browser":"5a16cc23e6","models/button":"1db93211cd","models/button_icon":"1738ddeb3a","models/icon":"6c7fbea0ef","models/card":"330f4a8735","models/column":"dd255421d9","styles/models/card.css":"edc7ee0090","models/checkbox_button_group":"51fbe9e2d0","models/chatarea_input":"27a077673d","models/textarea_input":"b7d595d74a","models/comm_manager":"1bec1b1fcc","models/customselect":"92bbd30bd1","models/multiselect":"27b5580835","models/tabulator":"7934c11cba","models/data":"be689f0377","styles/models/tabulator.css":"b0e650c65c","models/datetime_picker":"100965d6f3","models/datetime_slider":"c97cc0eade","models/deckgl":"01df2ec63b","models/lumagl":"a49afbffe9","models/tooltips":"f8f8ea4284","models/discrete_player":"0dca2cd4f6","models/player":"96e805ccb5","models/echarts":"315eb8f63a","models/feed":"4cfe0841a5","models/file_download":"84a13dddfb","models/file_dropper":"e8b7476f90","styles/models/filedropper.css":"c03dd3c931","models/ipywidget":"8a8089cbf3","models/json":"245cd3cfde","models/jsoneditor":"a123a88e31","models/katex":"f672d71a9f","models/location":"bd8e0fe48b","models/mathjax":"d889a68424","models/modal":"8c62aa80d9","styles/models/modal.css":"be4b4352c6","models/pdf":"f87ad1873c","models/perspective":"29a0b0da9a","styles/models/perspective.css":"2e2913ea54","models/plotly":"7d9124b744","styles/models/plotly.css":"ce7c8e2a4f","models/progress":"b1f4d68596","models/quill":"f6d86c7342","models/radio_button_group":"25e2d7c208","models/react_component":"e31ba19a89","models/reactive_html":"d5752cda5a","models/singleselect":"4155401209","models/speech_to_text":"5ac2cab0ab","models/state":"92822cb73a","models/tabs":"2231cdc549","models/terminal":"121f00bd6f","models/text_input":"8be416b160","models/text_to_speech":"a04eb51988","models/time_picker":"1afcab4e45","models/toggle_icon":"ad985f285e","models/tooltip_icon":"ae3a172647","models/trend":"29d55a28a9","models/vega":"119dc23765","models/video":"79dc37b888","styles/models/video.css":"dfe21e6f1b","models/videostream":"f8afc4e661","models/vizzu":"1f7bc1f95b","models/vtk/index":"c51f25e2a7","models/vtk/vtkjs":"ac55912dc1","models/vtk/vtklayout":"b06d05fa3e","models/vtk/util":"df9946ff52","models/vtk/vtkcolorbar":"b1d68776a9","models/vtk/vtkaxes":"0379dcf1cd","models/vtk/vtkvolume":"18592eecef","models/vtk/vtksynchronized":"a4e5946204","models/vtk/panel_fullscreen_renwin_sync":"5e89c7b3eb"}, {});});
 //# sourceMappingURL=panel.js.map

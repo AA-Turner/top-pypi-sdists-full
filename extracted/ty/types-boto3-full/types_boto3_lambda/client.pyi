@@ -627,7 +627,7 @@ class LambdaClient(BaseClient):
         self, **kwargs: Unpack[InvokeAsyncRequestTypeDef]
     ) -> InvokeAsyncResponseTypeDef:
         """
-        For asynchronous function invocation, use <a>Invoke</a>.
+        <important> <p>For asynchronous function invocation, use <a>Invoke</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/lambda/client/invoke_async.html)
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_lambda/client/#invoke_async)

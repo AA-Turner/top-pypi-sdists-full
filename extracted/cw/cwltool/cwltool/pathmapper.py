@@ -1,11 +1,10 @@
-import collections
 import logging
 import os
 import stat
 import urllib
 import uuid
 from collections.abc import ItemsView, Iterable, Iterator, KeysView
-from typing import Optional, cast
+from typing import NamedTuple, Optional, cast
 
 from mypy_extensions import mypyc_attr
 from schema_salad.exceptions import ValidationException
@@ -16,31 +15,24 @@ from .loghandler import _logger
 from .stdfsaccess import abspath
 from .utils import CWLObjectType, dedup, downloadHttpFile
 
-MapperEnt = collections.namedtuple("MapperEnt", ["resolved", "target", "type", "staged"])
-""" Mapper entries.
 
-.. py:attribute:: resolved
-   :type: str
+class MapperEnt(NamedTuple):
+    """Mapper entries."""
 
-   The "real" path on the local file system (after resolving relative paths
-   and traversing symlinks
-
-.. py:attribute:: target
-   :type: str
-
-   The path on the target file system (under stagedir)
-
-.. py:attribute:: type
-   :type: str
-
-   The object type. One of "File", "Directory", "CreateFile", "WritableFile",
-   or "CreateWritableFile".
-
-.. py:attribute:: staged
-   :type: bool
-
-   If the File has been staged yet
-"""
+    resolved: str
+    """
+    The "real" path on the local file system (after resolving relative paths
+    and traversing symlinks
+    """
+    target: str
+    """The path on the target file system (under stagedir)"""
+    type: Optional[str]
+    """
+    The object type. One of "File", "Directory", "CreateFile", "WritableFile",
+    or "CreateWritableFile".
+    """
+    staged: Optional[bool]
+    """If the File has been staged yet."""
 
 
 @mypyc_attr(allow_interpreted_subclasses=True)
@@ -119,13 +111,13 @@ class PathMapper:
         copy: bool = False,
         staged: bool = False,
     ) -> None:
+        if obj["location"] in self._pathmap:
+            return
         stagedir = cast(Optional[str], obj.get("dirname")) or stagedir
         tgt = os.path.join(
             stagedir,
             cast(str, obj["basename"]),
         )
-        if obj["location"] in self._pathmap:
-            return
         if obj["class"] == "Directory":
             location = cast(str, obj["location"])
             if location.startswith("file://"):
@@ -149,7 +141,7 @@ class PathMapper:
             ab = abspath(path, basedir)
             if "contents" in obj and path.startswith("_:"):
                 self._pathmap[path] = MapperEnt(
-                    obj["contents"],
+                    cast(str, obj["contents"]),
                     tgt,
                     "CreateWritableFile" if copy else "CreateFile",
                     staged,
@@ -247,8 +239,10 @@ class PathMapper:
                 return (k, v[0])
         return None
 
-    def update(self, key: str, resolved: str, target: str, ctype: str, stage: bool) -> MapperEnt:
-        """Update an existine entry."""
+    def update(
+        self, key: str, resolved: str, target: str, ctype: Optional[str], stage: Optional[bool]
+    ) -> MapperEnt:
+        """Update an existing entry."""
         m = MapperEnt(resolved, target, ctype, stage)
         self._pathmap[key] = m
         return m

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyspark-extension
-Version: 2.13.0.3.5
+Version: 2.14.2.4.0
 Summary: A library that provides useful extensions to Apache Spark.
 Home-page: https://github.com/G-Research/spark-extension
 Author: Enrico Minack
@@ -8,16 +8,38 @@ Author-email: github@enrico.minack.dev
 License: http://www.apache.org/licenses/LICENSE-2.0.html
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Typing :: Typed
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
+Requires-Dist: typing_extensions
+Provides-Extra: test
+Requires-Dist: pandas>=1.0.5; extra == "test"
+Requires-Dist: py4j; extra == "test"
+Requires-Dist: pyarrow>=4.0.0; extra == "test"
+Requires-Dist: pyspark~=4.0.0; extra == "test"
+Requires-Dist: pytest; extra == "test"
+Requires-Dist: unittest-xml-reporting; extra == "test"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Spark Extension
 
@@ -115,7 +137,7 @@ Running your Python application on a Spark cluster will still require one of the
 to add the Scala package to the Spark environment.
 
 ```shell script
-pip install pyspark-extension==2.13.0.3.4
+pip install pyspark-extension==2.14.2.3.4
 ```
 
 Note: Pick the right Spark version (here 3.4) depending on your PySpark version.
@@ -129,7 +151,7 @@ from pyspark.sql import SparkSession
 
 spark = SparkSession \
     .builder \
-    .config("spark.jars.packages", "uk.co.gresearch.spark:spark-extension_2.12:2.13.0-3.4") \
+    .config("spark.jars.packages", "uk.co.gresearch.spark:spark-extension_2.12:2.14.2-3.4") \
     .getOrCreate()
 ```
 
@@ -140,7 +162,7 @@ Note: Pick the right Scala version (here 2.12) and Spark version (here 3.4) depe
 Launch the Python Spark REPL with the Spark Extension dependency (version ≥1.1.0) as follows:
 
 ```shell script
-pyspark --packages uk.co.gresearch.spark:spark-extension_2.12:2.13.0-3.4
+pyspark --packages uk.co.gresearch.spark:spark-extension_2.12:2.14.2-3.4
 ```
 
 Note: Pick the right Scala version (here 2.12) and Spark version (here 3.4) depending on your PySpark version.
@@ -150,7 +172,7 @@ Note: Pick the right Scala version (here 2.12) and Spark version (here 3.4) depe
 Run your Python scripts that use PySpark via `spark-submit`:
 
 ```shell script
-spark-submit --packages uk.co.gresearch.spark:spark-extension_2.12:2.13.0-3.4 [script.py]
+spark-submit --packages uk.co.gresearch.spark:spark-extension_2.12:2.14.2-3.4 [script.py]
 ```
 
 Note: Pick the right Scala version (here 2.12) and Spark version (here 3.4) depending on your Spark version.
@@ -160,7 +182,7 @@ Note: Pick the right Scala version (here 2.12) and Spark version (here 3.4) depe
 There are plenty of [Data Science notebooks](https://datasciencenotebook.org/) around. To use this library,
 add **a jar dependency** to your notebook using these **Maven coordinates**:
 
-    uk.co.gresearch.spark:spark-extension_2.12:2.13.0-3.4
+    uk.co.gresearch.spark:spark-extension_2.12:2.14.2-3.4
 
 Or [download the jar](https://mvnrepository.com/artifact/uk.co.gresearch.spark/spark-extension) and place it
 on a filesystem where it is accessible by the notebook, and reference that jar file directly.

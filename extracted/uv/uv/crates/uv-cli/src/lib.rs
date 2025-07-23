@@ -10,8 +10,9 @@ use clap::{Args, Parser, Subcommand};
 
 use uv_cache::CacheArgs;
 use uv_configuration::{
-    ConfigSettingEntry, ExportFormat, IndexStrategy, KeyringProviderType, PackageNameSpecifier,
-    ProjectBuildBackend, TargetTriple, TrustedHost, TrustedPublishing, VersionControlSystem,
+    ConfigSettingEntry, ConfigSettingPackageEntry, ExportFormat, IndexStrategy,
+    KeyringProviderType, PackageNameSpecifier, ProjectBuildBackend, TargetTriple, TrustedHost,
+    TrustedPublishing, VersionControlSystem,
 };
 use uv_distribution_types::{Index, IndexUrl, Origin, PipExtraIndex, PipFindLinks, PipIndex};
 use uv_normalize::{ExtraName, GroupName, PackageName, PipGroupName};
@@ -1201,6 +1202,14 @@ pub struct PipCompileArgs {
     #[arg(long, overrides_with("all_extras"), hide = true)]
     pub no_all_extras: bool,
 
+    /// Install the specified dependency group from a `pyproject.toml`.
+    ///
+    /// If no path is provided, the `pyproject.toml` in the working directory is used.
+    ///
+    /// May be provided multiple times.
+    #[arg(long, group = "sources")]
+    pub group: Vec<PipGroupName>,
+
     #[command(flatten)]
     pub resolver: ResolverArgs,
 
@@ -1214,14 +1223,6 @@ pub struct PipCompileArgs {
 
     #[arg(long, overrides_with("no_deps"), hide = true)]
     pub deps: bool,
-
-    /// Install the specified dependency group from a `pyproject.toml`.
-    ///
-    /// If no path is provided, the `pyproject.toml` in the working directory is used.
-    ///
-    /// May be provided multiple times.
-    #[arg(long, group = "sources")]
-    pub group: Vec<PipGroupName>,
 
     /// Write the compiled requirements to the given `requirements.txt` or `pylock.toml` file.
     ///
@@ -1517,6 +1518,30 @@ pub struct PipSyncArgs {
     #[arg(long, short, alias = "build-constraint", env = EnvVars::UV_BUILD_CONSTRAINT, value_delimiter = ' ', value_parser = parse_maybe_file_path)]
     pub build_constraints: Vec<Maybe<PathBuf>>,
 
+    /// Include optional dependencies from the specified extra name; may be provided more than once.
+    ///
+    /// Only applies to `pylock.toml`, `pyproject.toml`, `setup.py`, and `setup.cfg` sources.
+    #[arg(long, conflicts_with = "all_extras", value_parser = extra_name_with_clap_error)]
+    pub extra: Option<Vec<ExtraName>>,
+
+    /// Include all optional dependencies.
+    ///
+    /// Only applies to `pylock.toml`, `pyproject.toml`, `setup.py`, and `setup.cfg` sources.
+    #[arg(long, conflicts_with = "extra", overrides_with = "no_all_extras")]
+    pub all_extras: bool,
+
+    #[arg(long, overrides_with("all_extras"), hide = true)]
+    pub no_all_extras: bool,
+
+    /// Install the specified dependency group from a `pylock.toml` or `pyproject.toml`.
+    ///
+    /// If no path is provided, the `pylock.toml` or `pyproject.toml` in the working directory is
+    /// used.
+    ///
+    /// May be provided multiple times.
+    #[arg(long, group = "sources")]
+    pub group: Vec<PipGroupName>,
+
     #[command(flatten)]
     pub installer: InstallerArgs,
 
@@ -1797,18 +1822,27 @@ pub struct PipInstallArgs {
 
     /// Include optional dependencies from the specified extra name; may be provided more than once.
     ///
-    /// Only applies to `pyproject.toml`, `setup.py`, and `setup.cfg` sources.
+    /// Only applies to `pylock.toml`, `pyproject.toml`, `setup.py`, and `setup.cfg` sources.
     #[arg(long, conflicts_with = "all_extras", value_parser = extra_name_with_clap_error)]
     pub extra: Option<Vec<ExtraName>>,
 
     /// Include all optional dependencies.
     ///
-    /// Only applies to `pyproject.toml`, `setup.py`, and `setup.cfg` sources.
+    /// Only applies to `pylock.toml`, `pyproject.toml`, `setup.py`, and `setup.cfg` sources.
     #[arg(long, conflicts_with = "extra", overrides_with = "no_all_extras")]
     pub all_extras: bool,
 
     #[arg(long, overrides_with("all_extras"), hide = true)]
     pub no_all_extras: bool,
+
+    /// Install the specified dependency group from a `pylock.toml` or `pyproject.toml`.
+    ///
+    /// If no path is provided, the `pylock.toml` or `pyproject.toml` in the working directory is
+    /// used.
+    ///
+    /// May be provided multiple times.
+    #[arg(long, group = "sources")]
+    pub group: Vec<PipGroupName>,
 
     #[command(flatten)]
     pub installer: ResolverInstallerArgs,
@@ -1823,14 +1857,6 @@ pub struct PipInstallArgs {
 
     #[arg(long, overrides_with("no_deps"), hide = true)]
     pub deps: bool,
-
-    /// Install the specified dependency group from a `pyproject.toml`.
-    ///
-    /// If no path is provided, the `pyproject.toml` in the working directory is used.
-    ///
-    /// May be provided multiple times.
-    #[arg(long, group = "sources")]
-    pub group: Vec<PipGroupName>,
 
     /// Require a matching hash for each requirement.
     ///
@@ -2865,7 +2891,7 @@ pub struct InitArgs {
     /// Initialize a build-backend of choice for the project.
     ///
     /// Implicitly sets `--package`.
-    #[arg(long, value_enum, conflicts_with_all=["script", "no_package"])]
+    #[arg(long, value_enum, conflicts_with_all=["script", "no_package"], env = EnvVars::UV_INIT_BUILD_BACKEND)]
     pub build_backend: Option<ProjectBuildBackend>,
 
     /// Invalid option name for build backend.
@@ -4693,6 +4719,14 @@ pub struct ToolUpgradeArgs {
     )]
     pub config_setting: Option<Vec<ConfigSettingEntry>>,
 
+    /// Settings to pass to the PEP 517 build backend for a specific package, specified as `PACKAGE:KEY=VALUE` pairs.
+    #[arg(
+        long,
+        alias = "config-settings-package",
+        help_heading = "Build options"
+    )]
+    pub config_setting_package: Option<Vec<ConfigSettingPackageEntry>>,
+
     /// Disable isolation when building source distributions.
     ///
     /// Assumes that build dependencies specified by PEP 518 are already installed.
@@ -5484,6 +5518,14 @@ pub struct InstallerArgs {
     )]
     pub config_setting: Option<Vec<ConfigSettingEntry>>,
 
+    /// Settings to pass to the PEP 517 build backend for a specific package, specified as `PACKAGE:KEY=VALUE` pairs.
+    #[arg(
+        long,
+        alias = "config-settings-package",
+        help_heading = "Build options"
+    )]
+    pub config_settings_package: Option<Vec<ConfigSettingPackageEntry>>,
+
     /// Disable isolation when building source distributions.
     ///
     /// Assumes that build dependencies specified by PEP 518 are already installed.
@@ -5670,6 +5712,14 @@ pub struct ResolverArgs {
         help_heading = "Build options"
     )]
     pub config_setting: Option<Vec<ConfigSettingEntry>>,
+
+    /// Settings to pass to the PEP 517 build backend for a specific package, specified as `PACKAGE:KEY=VALUE` pairs.
+    #[arg(
+        long,
+        alias = "config-settings-package",
+        help_heading = "Build options"
+    )]
+    pub config_settings_package: Option<Vec<ConfigSettingPackageEntry>>,
 
     /// Disable isolation when building source distributions.
     ///
@@ -5859,6 +5909,14 @@ pub struct ResolverInstallerArgs {
         help_heading = "Build options"
     )]
     pub config_setting: Option<Vec<ConfigSettingEntry>>,
+
+    /// Settings to pass to the PEP 517 build backend for a specific package, specified as `PACKAGE:KEY=VALUE` pairs.
+    #[arg(
+        long,
+        alias = "config-settings-package",
+        help_heading = "Build options"
+    )]
+    pub config_settings_package: Option<Vec<ConfigSettingPackageEntry>>,
 
     /// Disable isolation when building source distributions.
     ///

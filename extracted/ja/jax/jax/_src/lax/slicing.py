@@ -45,6 +45,9 @@ from jax._src.lax.utils import (
 )
 from jax._src.lib.mlir import ir
 from jax._src.lib.mlir.dialects import hlo
+from jax._src.sharding_impls import canonicalize_sharding
+from jax._src.named_sharding import NamedSharding
+from jax._src.partition_spec import PartitionSpec as P
 from jax._src.typing import Array, ArrayLike, Shape
 from jax._src.util import safe_map, safe_zip
 
@@ -58,7 +61,7 @@ def slice(operand: ArrayLike, start_indices: Sequence[int],
           limit_indices: Sequence[int],
           strides: Sequence[int] | None = None) -> Array:
   """Wraps XLA's `Slice
-  <https://www.tensorflow.org/xla/operation_semantics#slice>`_
+  <https://www.openxla.org/xla/operation_semantics#slice>`_
   operator.
 
   Args:
@@ -118,7 +121,7 @@ def dynamic_slice(
     allow_negative_indices: bool | Sequence[bool] = True
 ) -> Array:
   """Wraps XLA's `DynamicSlice
-  <https://www.tensorflow.org/xla/operation_semantics#dynamicslice>`_
+  <https://www.openxla.org/xla/operation_semantics#dynamicslice>`_
   operator.
 
   Args:
@@ -186,7 +189,7 @@ def dynamic_update_slice(
     allow_negative_indices: bool | Sequence[bool] = True
 ) -> Array:
   """Wraps XLA's `DynamicUpdateSlice
-  <https://www.tensorflow.org/xla/operation_semantics#dynamicupdateslice>`_
+  <https://www.openxla.org/xla/operation_semantics#dynamicupdateslice>`_
   operator.
 
   Args:
@@ -244,7 +247,7 @@ def dynamic_update_slice(
 class GatherDimensionNumbers(NamedTuple):
   """
   Describes the dimension number arguments to an `XLA's Gather operator
-  <https://www.tensorflow.org/xla/operation_semantics#gather>`_. See the XLA
+  <https://www.openxla.org/xla/operation_semantics#gather>`_. See the XLA
   documentation for more details of what the dimension numbers mean.
 
   Args:
@@ -333,7 +336,7 @@ def gather(operand: ArrayLike, start_indices: ArrayLike,
   """Gather operator.
 
   Wraps `XLA's Gather operator
-  <https://www.tensorflow.org/xla/operation_semantics#gather>`_.
+  <https://www.openxla.org/xla/operation_semantics#gather>`_.
 
   :func:`gather` is a low-level operator with complicated semantics, and most JAX
   users will never need to call it directly. Instead, you should prefer using
@@ -433,7 +436,7 @@ def gather(operand: ArrayLike, start_indices: ArrayLike,
 class ScatterDimensionNumbers(NamedTuple):
   """
   Describes the dimension number arguments to an `XLA's Scatter operator
-  <https://www.tensorflow.org/xla/operation_semantics#scatter>`_. See the XLA
+  <https://www.openxla.org/xla/operation_semantics#scatter>`_. See the XLA
   documentation for more details of what the dimension numbers mean.
 
   Args:
@@ -473,11 +476,12 @@ def scatter_add(
   operand: ArrayLike, scatter_indices: ArrayLike, updates: ArrayLike,
   dimension_numbers: ScatterDimensionNumbers, *,
   indices_are_sorted: bool = False, unique_indices: bool = False,
-  mode: str | GatherScatterMode | None = None) -> Array:
+  mode: str | GatherScatterMode | None = None,
+  out_sharding: NamedSharding | P | None = None) -> Array:
   """Scatter-add operator.
 
   Wraps `XLA's Scatter operator
-  <https://www.tensorflow.org/xla/operation_semantics#scatter>`_, where
+  <https://www.openxla.org/xla/operation_semantics#scatter>`_, where
   addition is used to combine updates and values from `operand`.
 
   The semantics of scatter are complicated, and its API might change in the
@@ -490,33 +494,71 @@ def scatter_add(
     scatter_indices: an array that gives the indices in `operand` to which each
       update in `updates` should be applied.
     updates: the updates that should be scattered onto `operand`.
-    dimension_numbers: a `lax.ScatterDimensionNumbers` object that describes
-      how dimensions of `operand`, `scatter_indices`, `updates` and the output
+    dimension_numbers: a `lax.ScatterDimensionNumbers` object that describes how
+      dimensions of `operand`, `scatter_indices`, `updates` and the output
       relate.
     indices_are_sorted: whether `scatter_indices` is known to be sorted. If
       true, may improve performance on some backends.
     unique_indices: whether the elements to be updated in ``operand`` are
-      guaranteed to not overlap with each other. If true, may improve performance on
-      some backends. JAX does not check this promise: if the updated elements
-      overlap when ``unique_indices`` is ``True`` the behavior is undefined.
+      guaranteed to not overlap with each other. If true, may improve
+      performance on some backends. JAX does not check this promise: if the
+      updated elements overlap when ``unique_indices`` is ``True`` the behavior
+      is undefined.
     mode: how to handle indices that are out of bounds: when set to 'clip',
-      indices are clamped so that the slice is within bounds, and when
-      set to 'fill' or 'drop' out-of-bounds updates are dropped. The behavior
-      for out-of-bounds indices when set to 'promise_in_bounds' is
+      indices are clamped so that the slice is within bounds, and when set to
+      'fill' or 'drop' out-of-bounds updates are dropped. The behavior for
+      out-of-bounds indices when set to 'promise_in_bounds' is
       implementation-defined.
 
   Returns:
     An array containing the sum of `operand` and the scattered updates.
+
+  Examples:
+    As mentioned above, you should basically never use :func:`scatter_add`
+    directly, and instead perform scatter-style operations using NumPy-style
+    indexing expressions via :attr:`jax.numpy.ndarray.at`.
+
+    Here is and example of updating entries in an array using
+    :attr:`jax.numpy.ndarray.at`, which lowers to an XLA Scatter operation:
+
+    >>> x = jnp.ones(5)
+    >>> indices = jnp.array([1, 2, 4])
+    >>> values = jnp.array([2.0, 3.0, 4.0])
+
+    >>> x.at[indices].add(values)
+    Array([1., 3., 4., 1., 5.], dtype=float32)
+
+    This syntax also supports several of the optional arguments to
+    :func:`scatter_add`, for example:
+
+    >>> x.at[indices].add(values, indices_are_sorted=True,
+    ...                   mode='promise_in_bounds')
+    Array([1., 3., 4., 1., 5.], dtype=float32)
+
+    By comparison, here is the equivalent function call using
+    :func:`scatter_add` directly, which is not something typical users should
+    ever need to do:
+
+    >>> lax.scatter_add(x, indices[:, None], values,
+    ...                 dimension_numbers=lax.ScatterDimensionNumbers(
+    ...                     update_window_dims=(),
+    ...                     inserted_window_dims=(0,),
+    ...                     scatter_dims_to_operand_dims=(0,)),
+    ...                 indices_are_sorted=True,
+    ...                 mode=lax.GatherScatterMode.PROMISE_IN_BOUNDS)
+    Array([1., 3., 4., 1., 5.], dtype=float32)
   """
   jaxpr, consts = lax._reduction_jaxpr(lax.add,
                                        core.get_aval(lax._const(operand, 0)))
   operand, scatter_indices, updates = core.standard_insert_pvary(
       operand, scatter_indices, updates)
+  out_sharding = canonicalize_sharding(out_sharding, 'scatter_add')
   return scatter_add_p.bind(
       operand, scatter_indices, updates, update_jaxpr=jaxpr,
       update_consts=consts, dimension_numbers=dimension_numbers,
       indices_are_sorted=indices_are_sorted, unique_indices=unique_indices,
-      mode=GatherScatterMode.from_any(mode))
+      mode=GatherScatterMode.from_any(mode),
+      out_sharding=out_sharding)
 
 
 def scatter_sub(
@@ -532,7 +574,7 @@ def scatter_sub(
   """Scatter-sub operator.
 
   Wraps `XLA's Scatter operator
-  <https://www.tensorflow.org/xla/operation_semantics#scatter>`_, where
+  <https://www.openxla.org/xla/operation_semantics#scatter>`_, where
   subtraction is used to combine updates and values from `operand`.
 
   The semantics of scatter are complicated, and its API might change in the
@@ -561,7 +603,8 @@ def scatter_sub(
       implementation-defined.
 
   Returns:
-    An array containing the sum of `operand` and the scattered updates.
+    An array containing the difference between `operand` and the scattered
+    updates.
   """
   jaxpr, consts = lax._reduction_jaxpr(
       lax.sub, core.get_aval(lax._const(operand, 0))
@@ -589,7 +632,7 @@ def scatter_mul(
   """Scatter-multiply operator.
 
   Wraps `XLA's Scatter operator
-  <https://www.tensorflow.org/xla/operation_semantics#scatter>`_, where
+  <https://www.openxla.org/xla/operation_semantics#scatter>`_, where
   multiplication is used to combine updates and values from `operand`.
 
   The semantics of scatter are complicated, and its API might change in the
@@ -618,7 +661,7 @@ def scatter_mul(
       implementation-defined.
 
   Returns:
-    An array containing the sum of `operand` and the scattered updates.
+    An array containing the product of `operand` and the scattered updates.
   """
   jaxpr, consts = lax._reduction_jaxpr(lax.mul,
                                        core.get_aval(lax._const(operand, 1)))
@@ -638,7 +681,7 @@ def scatter_min(
   """Scatter-min operator.
 
   Wraps `XLA's Scatter operator
-  <https://www.tensorflow.org/xla/operation_semantics#scatter>`_, where
+  <https://www.openxla.org/xla/operation_semantics#scatter>`_, where
   the `min` function is used to combine updates and values from `operand`.
 
   The semantics of scatter are complicated, and its API might change in the
@@ -667,7 +710,7 @@ def scatter_min(
       implementation-defined.
 
   Returns:
-    An array containing the sum of `operand` and the scattered updates.
+    An array containing the min of `operand` and the scattered updates.
   """
   jaxpr, consts = lax._reduction_jaxpr(lax.min,
                                        core.get_aval(lax._const(operand, 0)))
@@ -687,7 +730,7 @@ def scatter_max(
   """Scatter-max operator.
 
   Wraps `XLA's Scatter operator
-  <https://www.tensorflow.org/xla/operation_semantics#scatter>`_, where
+  <https://www.openxla.org/xla/operation_semantics#scatter>`_, where
   the `max` function is used to combine updates and values from `operand`.
 
   The semantics of scatter are complicated, and its API might change in the
@@ -716,7 +759,7 @@ def scatter_max(
       implementation-defined.
 
   Returns:
-    An array containing the sum of `operand` and the scattered updates.
+    An array containing the max of `operand` and the scattered updates.
   """
   jaxpr, consts = lax._reduction_jaxpr(lax.max,
                                        core.get_aval(lax._const(operand, 0)))
@@ -741,7 +784,7 @@ def scatter_apply(
   """Scatter-apply operator.
 
   Wraps `XLA's Scatter operator
-  <https://www.tensorflow.org/xla/operation_semantics#scatter>`_, where values
+  <https://www.openxla.org/xla/operation_semantics#scatter>`_, where values
   from ``operand`` are replaced with ``func(operand)``, with duplicate indices
   resulting in multiple applications of ``func``.
 
@@ -805,7 +848,7 @@ def scatter(
   """Scatter-update operator.
 
   Wraps `XLA's Scatter operator
-  <https://www.tensorflow.org/xla/operation_semantics#scatter>`_, where updates
+  <https://www.openxla.org/xla/operation_semantics#scatter>`_, where updates
   replace values from `operand`.
 
   If multiple updates are performed to the same index of operand, they may be
@@ -836,7 +879,7 @@ def scatter(
       implementation-defined.
 
   Returns:
-    An array containing the sum of `operand` and the scattered updates.
+    An array containing the values of `operand` and the scattered updates.
 
   Examples:
     As mentioned above, you should basically never use :func:`scatter` directly,
@@ -846,18 +889,18 @@ def scatter(
     Here is and example of updating entries in an array using :attr:`jax.numpy.ndarray.at`,
     which lowers to an XLA Scatter operation:
 
-    >>> x = jnp.zeros(5)
+    >>> x = jnp.ones(5)
     >>> indices = jnp.array([1, 2, 4])
     >>> values = jnp.array([2.0, 3.0, 4.0])
 
     >>> x.at[indices].set(values)
-    Array([0., 2., 3., 0., 4.], dtype=float32)
+    Array([1., 2., 3., 1., 4.], dtype=float32)
 
     This syntax also supports several of the optional arguments to :func:`scatter`,
     for example:
 
     >>> x.at[indices].set(values, indices_are_sorted=True, mode='promise_in_bounds')
-    Array([0., 2., 3., 0., 4.], dtype=float32)
+    Array([1., 2., 3., 1., 4.], dtype=float32)
 
     By comparison, here is the equivalent function call using :func:`scatter` directly,
     which is not something typical users should ever need to do:
@@ -869,7 +912,7 @@ def scatter(
     ...                 scatter_dims_to_operand_dims=(0,)),
     ...             indices_are_sorted=True,
     ...             mode=lax.GatherScatterMode.PROMISE_IN_BOUNDS)
-    Array([0., 2., 3., 0., 4.], dtype=float32)
+    Array([1., 2., 3., 1., 4.], dtype=float32)
   """
   operand, scatter_indices, updates = core.standard_insert_pvary(
       operand, scatter_indices, updates)
@@ -1662,19 +1705,18 @@ def _dynamic_update_slice_jvp(primals, tangents):
 
 def _dynamic_update_slice_transpose_rule(t, operand, update, *start_indices):
   assert all(not ad.is_undefined_primal(x) for x in start_indices)
-  if ad.is_undefined_primal(update):
-    update_shape = update.aval.shape
-  else:
-    update_shape = update.shape
+  update_shape = (update.aval.shape if ad.is_undefined_primal(update) else
+                  update.shape)
+  update_sharding = update.aval.sharding
   if type(t) is ad_util.Zero:
     operand_t = ad_util.Zero(operand.aval) if ad.is_undefined_primal(operand) else None
     update_t = ad_util.Zero(update.aval) if ad.is_undefined_primal(update) else None
   else:
-    dus = dynamic_update_slice_p.bind
-    ds = dynamic_slice_p.bind
-    zeros = lax._zeros(t, shape=update_shape)
-    operand_t = dus(t, zeros, *start_indices) if ad.is_undefined_primal(operand) else None
-    update_t = ds(t, *start_indices, slice_sizes=update_shape) if ad.is_undefined_primal(update) else None
+    zeros = lax._zeros(t, shape=update_shape, sharding=update_sharding)
+    operand_t = (dynamic_update_slice_p.bind(t, zeros, *start_indices)
+                 if ad.is_undefined_primal(operand) else None)
+    update_t = (dynamic_slice_p.bind(t, *start_indices, slice_sizes=update_shape)
+                if ad.is_undefined_primal(update) else None)
   return [operand_t, update_t] + [None] * len(start_indices)
 
 def _dynamic_update_slice_batching_rule(batched_args, batch_dims):
@@ -1765,7 +1807,7 @@ def _gather_shape_rule(operand, indices, *, dimension_numbers,
   """Validates the well-formedness of the arguments to Gather.
 
   The code implements the checks based on the detailed operation semantics of
-  XLA's `Gather <https://www.tensorflow.org/xla/operation_semantics#gather>`_
+  XLA's `Gather <https://www.openxla.org/xla/operation_semantics#gather>`_
   operator and following the outline of the implementation of
   ShapeInference::InferGatherShape in TensorFlow.
   """
@@ -1947,20 +1989,129 @@ def _gather_shape_computation(indices, dimension_numbers, slice_sizes):
               else next(indices_shape_gen) for i in range(output_shape_rank))
   return ans
 
+
+def _gather_spec_computation(operand, indices, dimension_numbers, slice_sizes):
+  """Returns gather output sharding spec if unambiguous, else None.
+
+  Operand dimensions can be split into:
+    1. Batching dims which must resolve unambiguously with the corresponding
+      indices batching dims. `operand_batching_dims` in GatherDimensionNumbers.
+    2. Sliced dims which must be replicated. These are the subset of dims in
+      `start_index_map` where the slice size is not equal to the operand size.
+      A further subset of these (`collapsed_slice_dims`) are collapsed in the
+      output.
+    3. Unsliced dims, these correspond directly to dimensions in the
+      output and so propagate their shardings. These are the dimensions not
+      batched or sliced.
+
+  Indices dimensions can be split into:
+    1. Batching dims which must resolve unambiguously with the corresponding
+      operand batching dims. `start_indices_batching_dims` in
+      GatherDimensionNumbers.
+    2. Index vector dim which contains the start indices for each dimension of
+      the operand sliced in to. This must be replicated. It is the last
+      dimension of indices.
+    3. Other dims which correspond directly to dimensions in the output and
+      so propagate their shardings. These are the dimensions not present in
+      index batching dims and index vector dim.
+
+  If the axes of the corresponding batching dims between operand and indices are
+  both not None and do not match, then sharding propagation cannot be resolved
+  unambiguously and so we return None.
+  """
+  offset_dims = dimension_numbers.offset_dims
+  start_index_map = dimension_numbers.start_index_map
+  collapsed_slice_dims = dimension_numbers.collapsed_slice_dims
+  operand_batching_dims = dimension_numbers.operand_batching_dims
+  start_indices_batching_dims = dimension_numbers.start_indices_batching_dims
+  output_shape_rank = len(offset_dims) + indices.ndim - 1
+  index_vector_dim = indices.ndim - 1
+
+  operand_spec = operand.sharding.spec
+  indices_spec = list(indices.sharding.spec)
+
+  if (all(s is None for s in operand_spec) and
+      all(s is None for s in indices_spec)):
+    return P()
+
+  assert all(i in start_index_map for i in collapsed_slice_dims)
+
+  # start_index_map defined which operand dimensions are sliced in to. However,
+  # if that slice is a full slice then we can propagate the sharding.
+  operand_index_dims_full_slice_or_replicated = all(
+      slice_sizes[i] == operand.shape[i] or operand_spec[i] is None
+      for i in start_index_map)
+  batching_dims_resolve_unambiguously = all(
+      indices_spec[indices_dim] == operand_spec[operand_dim]
+      or operand_spec[operand_dim] is None
+      or indices_spec[indices_dim] is None
+      for (operand_dim, indices_dim) in zip(
+          operand_batching_dims, start_indices_batching_dims)
+  )
+  index_vector_dim_is_replicated = indices.sharding.spec[index_vector_dim] is None
+
+  if (operand_index_dims_full_slice_or_replicated
+      and batching_dims_resolve_unambiguously
+      and index_vector_dim_is_replicated):
+    # Resolve any batched shardings into indices shardings.
+    for operand_dim, indices_dim in zip(
+        operand_batching_dims, start_indices_batching_dims):
+      assert (indices_spec[indices_dim] == operand_spec[operand_dim]
+              or indices_spec[indices_dim] is None
+              or operand_spec[operand_dim] is None)
+      # Resolution and propagation of batching_dims is handled in indices,
+      # operand_batching_dims spec is resolved into indices spec (to match how
+      # the gather shape rule resolves output dimensions).
+      indices_spec[indices_dim] = indices_spec[indices_dim] or operand_spec[operand_dim]
+
+    slice_sizes_gen = (
+        (i, s) for i, s in enumerate(slice_sizes)
+        if i not in collapsed_slice_dims and i not in operand_batching_dims)
+    indices_spec_gen = iter(indices_spec)
+
+    out_spec = []
+    for i in range(output_shape_rank):
+      if i in offset_dims:
+        # The offset dims are the set of dimensions in the `gather` output that
+        # derive solely from the operand.
+        operand_dim, slice_size = next(slice_sizes_gen)
+        # Due to the `operand_index_dims_full_slice_or_replicated` check, if a
+        # slice is not full, it must be replicated.
+        assert (slice_size == operand.shape[operand_dim]
+                or operand_spec[operand_dim] is None)
+        out_spec.append(operand_spec[operand_dim])
+      else:
+        # The other dimensions are either batching dims (which derive from both
+        # indices and operand, and we resolved above) or solely from indices.
+        out_spec.append(next(indices_spec_gen))
+    return P(*out_spec)
+  return None
+
+
 def _gather_sharding_rule(operand, indices, *, dimension_numbers,
                           slice_sizes, unique_indices, indices_are_sorted,
                           mode, fill_value):
-  # TODO(yashkatariya): Write a proper gather sharding rule.
-  cur_mesh = mesh_lib.get_abstract_mesh()
-  if cur_mesh.empty or cur_mesh._are_all_axes_auto or cur_mesh._are_all_axes_manual:
-    return core.get_cur_mesh_sharding()
-  if (cur_mesh._are_all_axes_explicit and
-      all(s is None for s in operand.sharding.spec) and
-      all(s is None for s in indices.sharding.spec)):
-    return core.get_cur_mesh_sharding()
-  raise core.ShardingTypeError(
-      "Use `.at[...].get(out_sharding=)` to provide output PartitionSpec for"
-      " the gather indexing.")
+  if (operand.sharding.mesh.empty and indices.sharding.mesh.empty and
+      operand.sharding.mesh != indices.sharding.mesh):
+    raise core.ShardingTypeError(
+        'Mesh of both operand and indices should match. Got operand:'
+        f' {operand.sharding.mesh} and indices: {indices.sharding.mesh}')
+  if operand.sharding.mesh.empty and indices.sharding.mesh.empty:
+    out_mesh = mesh_lib.get_abstract_mesh()
+  elif operand.sharding.mesh.empty and not indices.sharding.mesh.empty:
+    out_mesh = indices.sharding.mesh
+  else:
+    assert not operand.sharding.mesh.empty
+    out_mesh = operand.sharding.mesh
+
+  out_spec = _gather_spec_computation(operand, indices, dimension_numbers,
+                                      slice_sizes)
+  if out_spec is None:
+    raise core.ShardingTypeError(
+        "Use `.at[...].get(out_sharding=)` to provide output PartitionSpec for"
+        " the gather indexing as out sharding could not be resolved"
+        " unambiguously (or would require collectives on inputs).")
+  return NamedSharding(out_mesh, out_spec)
 
 def _gather_fill(operand, indices, *, dimension_numbers, slice_sizes,
                  unique_indices, indices_are_sorted, fill_value,
@@ -1992,7 +2143,8 @@ def _gather_fill(operand, indices, *, dimension_numbers, slice_sizes,
                       indices_are_sorted=indices_are_sorted,
                       mode=GatherScatterMode.PROMISE_IN_BOUNDS)
   return lax.select(
-    lax.broadcast_in_dim(mask, output_shape, batch_dims_in_output),
+    lax.broadcast_in_dim(mask, output_shape, batch_dims_in_output,
+                         out_sharding=gather_out.aval.sharding),
     gather_out, lax.full_like(gather_out, fill_value=fill_value))
 
 
@@ -2008,11 +2160,12 @@ def _gather_transpose_rule(t, operand, indices, *, dimension_numbers,
                            slice_sizes, unique_indices, indices_are_sorted,
                            mode, fill_value):
   assert ad.is_undefined_primal(operand)
-  operand_shape = operand.aval.shape
   if type(t) is ad_util.Zero:
     out = ad_util.Zero(operand.aval)
   else:
-    zeros = lax.full(operand_shape, lax._zero(t))
+    zeros = lax.full(operand.aval.shape, 0, operand.aval.dtype,
+                     sharding=operand.aval.sharding)
+    zeros = core.pvary(zeros, tuple(operand.aval.vma))
     scatter_dnums = ScatterDimensionNumbers(
         update_window_dims=dimension_numbers.offset_dims,
         inserted_window_dims=dimension_numbers.collapsed_slice_dims,
@@ -2023,7 +2176,7 @@ def _gather_transpose_rule(t, operand, indices, *, dimension_numbers,
     out = scatter_add(zeros, indices, t, scatter_dnums,
                       unique_indices=unique_indices,
                       indices_are_sorted=indices_are_sorted,
-                      mode=mode)
+                      mode=mode, out_sharding=operand.aval.sharding)
   return [out, None]
 
 def _gather_batching_rule(batched_args, batch_dims, *, dimension_numbers,
@@ -2234,12 +2387,12 @@ def _scatter_dtype_rule(operand, indices, updates, **kwargs):
 
 def _scatter_shape_rule(operand, indices, updates, *, update_jaxpr,
                         update_consts, dimension_numbers, indices_are_sorted,
-                        unique_indices, mode):
+                        unique_indices, mode, **kwargs):
   """Validates the well-formedness of the ``dimension_numbers`` argument to
   Scatter.
 
   The code implements the checks based on the detailed operation semantics of
-  XLA's `Scatter <https://www.tensorflow.org/xla/operation_semantics#scatter>`_
+  XLA's `Scatter <https://www.openxla.org/xla/operation_semantics#scatter>`_
   operator and following the outline of the implementation of
   ShapeInference::InferScatterShape in TensorFlow.
   """
@@ -2392,6 +2545,13 @@ def _scatter_shape_rule(operand, indices, updates, *, update_jaxpr,
   return operand.shape
 
 
+def _scatter_sharding_rule(
+    operand, indices, updates, *, update_jaxpr, update_consts,
+    dimension_numbers, indices_are_sorted, unique_indices, mode, out_sharding):
+  if out_sharding is not None:
+    return out_sharding
+  raise NotImplementedError("sharding rule for scatter_add is not implemented.")
+
 def _clamp_scatter_indices(operand, indices, updates, *, dnums):
   """Clamps `indices` to be in-range for a scatter."""
   slice_sizes = []
@@ -2419,64 +2579,32 @@ def _clamp_scatter_indices(operand, indices, updates, *, dnums):
 
 
 def _scatter_addsub_jvp(
-    prim,
-    primals,
-    tangents,
-    *,
-    update_jaxpr,
-    update_consts,
-    dimension_numbers,
-    indices_are_sorted,
-    unique_indices,
-    mode,
-):
+    prim, primals, tangents, *, update_jaxpr, update_consts, dimension_numbers,
+    indices_are_sorted, unique_indices, mode, **kwargs):
   operand, indices, updates = primals
   g_operand, g_indices, g_updates = tangents
   del g_indices  # ignored
   val_out = prim.bind(
-      operand,
-      indices,
-      updates,
-      update_jaxpr=update_jaxpr,
-      update_consts=update_consts,
-      dimension_numbers=dimension_numbers,
-      indices_are_sorted=indices_are_sorted,
-      unique_indices=unique_indices,
-      mode=mode,
-  )
+      operand, indices, updates, update_jaxpr=update_jaxpr,
+      update_consts=update_consts, dimension_numbers=dimension_numbers,
+      indices_are_sorted=indices_are_sorted, unique_indices=unique_indices,
+      mode=mode, **kwargs)
   if type(g_operand) is ad_util.Zero and type(g_updates) is ad_util.Zero:
     tangent_out = ad_util.Zero.from_primal_value(val_out)
   else:
     g_operand = ad.instantiate_zeros(g_operand)
     g_updates = ad.instantiate_zeros(g_updates)
     tangent_out = prim.bind(
-        g_operand,
-        indices,
-        g_updates,
-        update_jaxpr=update_jaxpr,
-        update_consts=update_consts,
-        dimension_numbers=dimension_numbers,
-        indices_are_sorted=indices_are_sorted,
-        unique_indices=unique_indices,
-        mode=mode,
-    )
+        g_operand, indices, g_updates, update_jaxpr=update_jaxpr,
+        update_consts=update_consts, dimension_numbers=dimension_numbers,
+        indices_are_sorted=indices_are_sorted, unique_indices=unique_indices,
+        mode=mode, **kwargs)
   return val_out, tangent_out
 
 
 def _scatter_addsub_transpose_rule(
-    prim,
-    t,
-    operand,
-    indices,
-    updates,
-    *,
-    update_jaxpr,
-    update_consts,
-    dimension_numbers,
-    indices_are_sorted,
-    unique_indices,
-    mode,
-):
+    prim, t, operand, indices, updates, *, update_jaxpr, update_consts,
+    dimension_numbers, indices_are_sorted, unique_indices, mode, **kwargs):
   assert not ad.is_undefined_primal(indices)
   if ad.is_undefined_primal(updates):
     updates_shape = updates.aval.shape
@@ -2561,9 +2689,10 @@ def _scatter_mul_transpose_rule(t, operand, indices, updates, *,
   return [operand_t, None, update_t]
 
 
-def _scatter_batching_rule(scatter_op, batched_args, batch_dims, *,
+def _scatter_batching_rule(scatter_op, axis_data, batched_args, batch_dims, *,
                            update_jaxpr, update_consts, dimension_numbers,
-                           indices_are_sorted, unique_indices, mode):
+                           indices_are_sorted, unique_indices, mode,
+                           **kwargs):
   operand, indices, updates = batched_args
   operand_bdim, indices_bdim, updates_bdim = batch_dims
 
@@ -2572,8 +2701,13 @@ def _scatter_batching_rule(scatter_op, batched_args, batch_dims, *,
   size = next(x.shape[ax] for x, ax in zip(batched_args, batch_dims)
               if ax is not None)
   operand = batching.bdim_at_front(operand, operand_bdim, size)
-
   updates = batching.bdim_at_front(updates, updates_bdim, size)
+  if 'out_sharding' in kwargs:
+    out_s = kwargs['out_sharding']
+    kw = {'out_sharding': (None if out_s is None else
+                           batching.get_sharding_for_vmap(axis_data, out_s, 0))}
+  else:
+    kw = {}
 
   if indices_bdim is None:
     inserted_window_dims = tuple(np.add(1, dimension_numbers.inserted_window_dims))
@@ -2592,45 +2726,40 @@ def _scatter_batching_rule(scatter_op, batched_args, batch_dims, *,
     return scatter_op.bind(
       operand, indices, updates, dimension_numbers=dnums,
       indices_are_sorted=indices_are_sorted, unique_indices=unique_indices,
-      mode=mode, update_jaxpr=update_jaxpr, update_consts=update_consts), 0
+      mode=mode, update_jaxpr=update_jaxpr, update_consts=update_consts,
+      **kw), 0
 
   # see the third case in _gather_batching_rule for comparison and comments
   indices = batching.bdim_at_front(indices, indices_bdim, size)
 
   update_window_dims = tuple(np.add(1, dimension_numbers.update_window_dims))
-  inserted_window_dims = tuple(
-      np.add(1, dimension_numbers.inserted_window_dims)
-  )
+  inserted_window_dims = tuple(np.add(1, dimension_numbers.inserted_window_dims))
   operand_batching_dims = (0,) + tuple(
-      np.add(1, dimension_numbers.operand_batching_dims)
-  )
+      np.add(1, dimension_numbers.operand_batching_dims))
   scatter_indices_batching_dims = (0,) + tuple(
-      np.add(1, dimension_numbers.scatter_indices_batching_dims)
-  )
+      np.add(1, dimension_numbers.scatter_indices_batching_dims))
   scatter_dims_to_operand_dims = tuple(
-      np.add(1, dimension_numbers.scatter_dims_to_operand_dims)
-  )
-
+      np.add(1, dimension_numbers.scatter_dims_to_operand_dims))
   dnums = ScatterDimensionNumbers(
       update_window_dims=update_window_dims,
       inserted_window_dims=inserted_window_dims,
       scatter_dims_to_operand_dims=scatter_dims_to_operand_dims,
       operand_batching_dims=operand_batching_dims,
-      scatter_indices_batching_dims=scatter_indices_batching_dims,
-  )
+      scatter_indices_batching_dims=scatter_indices_batching_dims)
   return scatter_op.bind(
       operand, indices, updates, dimension_numbers=dnums,
       indices_are_sorted=indices_are_sorted, unique_indices=unique_indices,
-      mode=mode, update_jaxpr=update_jaxpr, update_consts=update_consts), 0
+      mode=mode, update_jaxpr=update_jaxpr, update_consts=update_consts,
+      **kw), 0
 
 scatter_add_p = standard_primitive(
     _scatter_shape_rule, _scatter_dtype_rule, 'scatter-add',
-    weak_type_rule=_argnum_weak_type(0),
+    weak_type_rule=_argnum_weak_type(0), sharding_rule=_scatter_sharding_rule,
     vma_rule=partial(core.standard_vma_rule, 'scatter_add'))
 ad.primitive_jvps[scatter_add_p] = partial(_scatter_addsub_jvp, scatter_add_p)
 ad.primitive_transposes[scatter_add_p] = partial(_scatter_addsub_transpose_rule, scatter_add_p)
-batching.primitive_batchers[scatter_add_p] = (
-  partial(_scatter_batching_rule, scatter_add_p))
+batching.fancy_primitive_batchers[scatter_add_p] = partial(_scatter_batching_rule, scatter_add_p)
+batching.skippable_batchers[scatter_add_p] = lambda _: ()
 
 scatter_sub_p = standard_primitive(
     _scatter_shape_rule,
@@ -2641,9 +2770,9 @@ scatter_sub_p = standard_primitive(
 )
 ad.primitive_jvps[scatter_sub_p] = partial(_scatter_addsub_jvp, scatter_sub_p)
 ad.primitive_transposes[scatter_sub_p] = partial(_scatter_addsub_transpose_rule, scatter_sub_p)
-batching.primitive_batchers[scatter_sub_p] = partial(
-    _scatter_batching_rule, scatter_sub_p
-)
+batching.fancy_primitive_batchers[scatter_sub_p] = partial(
+    _scatter_batching_rule, scatter_sub_p)
+batching.skippable_batchers[scatter_sub_p] = lambda _: ()
 
 scatter_mul_p = standard_primitive(
     _scatter_shape_rule, _scatter_dtype_rule, 'scatter-mul',
@@ -2665,8 +2794,9 @@ ad.defjvp(scatter_mul_p,
           None,
           _scatter_mul_jvp_rhs)
 ad.primitive_transposes[scatter_mul_p] = _scatter_mul_transpose_rule
-batching.primitive_batchers[scatter_mul_p] = (
+batching.fancy_primitive_batchers[scatter_mul_p] = (
   partial(_scatter_batching_rule, scatter_mul_p))
+batching.skippable_batchers[scatter_mul_p] = lambda _: ()
 
 def _scatter_extremal_jvp(scatter_op, primals, tangents, update_jaxpr,
                           update_consts, dimension_numbers,
@@ -2779,16 +2909,18 @@ scatter_min_p = standard_primitive(
     _scatter_shape_rule, _scatter_dtype_rule, 'scatter-min',
     weak_type_rule=_argnum_weak_type(0),
     vma_rule=partial(core.standard_vma_rule, 'scatter_min'))
-batching.primitive_batchers[scatter_min_p] = (
+batching.fancy_primitive_batchers[scatter_min_p] = (
   partial(_scatter_batching_rule, scatter_min_p))
+batching.skippable_batchers[scatter_min_p] = lambda _: ()
 ad.primitive_jvps[scatter_min_p] = partial(_scatter_extremal_jvp, scatter_min_p)
 
 scatter_max_p = standard_primitive(
     _scatter_shape_rule, _scatter_dtype_rule, 'scatter-max',
     weak_type_rule=_argnum_weak_type(0),
     vma_rule=partial(core.standard_vma_rule, 'scatter_max'))
-batching.primitive_batchers[scatter_max_p] = (
+batching.fancy_primitive_batchers[scatter_max_p] = (
   partial(_scatter_batching_rule, scatter_max_p))
+batching.skippable_batchers[scatter_max_p] = lambda _: ()
 ad.primitive_jvps[scatter_max_p] = partial(_scatter_extremal_jvp, scatter_max_p)
 
 def _scatter_jvp(primals, tangents, *, update_jaxpr, update_consts,
@@ -2948,8 +3080,9 @@ scatter_p = standard_primitive(
     vma_rule=partial(core.standard_vma_rule, 'scatter'))
 ad.primitive_jvps[scatter_p] = _scatter_jvp
 ad.primitive_transposes[scatter_p] = _scatter_transpose_rule
-batching.primitive_batchers[scatter_p] = (
+batching.fancy_primitive_batchers[scatter_p] = (
   partial(_scatter_batching_rule, scatter_p))
+batching.skippable_batchers[scatter_p] = lambda _: ()
 
 
 def _scatter_lower_opaque(ctx, operand, indices, updates, *,
@@ -2976,7 +3109,7 @@ def _scatter_lower_opaque(ctx, operand, indices, updates, *,
 
 def _scatter_lower(ctx, operand, indices, updates, *,
                    update_jaxpr, update_consts, dimension_numbers,
-                   indices_are_sorted, unique_indices, mode):
+                   indices_are_sorted, unique_indices, mode, **kwargs):
   if update_jaxpr is None:
     assert not update_consts
     operand_dtype = ctx.avals_in[0].dtype
@@ -3008,14 +3141,9 @@ def _scatter_lower(ctx, operand, indices, updates, *,
   result = mlir.aval_to_ir_type(aval_out)
   operand = [operand]
   updates = [updates]
-  op = hlo.ScatterOp(
-      (result,),
-      operand,
-      indices,
-      updates,
-      scatter_dnums,
-      indices_are_sorted=ir.BoolAttr.get(indices_are_sorted),
-      unique_indices=ir.BoolAttr.get(unique_indices))
+  op = hlo.ScatterOp((result,), operand, indices, updates, scatter_dnums,
+                     indices_are_sorted=ir.BoolAttr.get(indices_are_sorted),
+                     unique_indices=ir.BoolAttr.get(unique_indices))
   scalar_type = mlir.aval_to_ir_type(core.ShapedArray((), aval_out.dtype))
   update = op.update_computation.blocks.append(scalar_type, scalar_type)
   with ir.InsertionPoint(update):
@@ -3027,7 +3155,8 @@ def _scatter_lower(ctx, operand, indices, updates, *,
         update_consts, update.arguments[0], update.arguments[1],
         dim_var_values=ctx.dim_var_values)
     hlo.return_(mlir.flatten_ir_values(out_nodes))
-  return op.results
+  return [mlir.lower_with_sharding_in_types(ctx, r, aval)
+          for r, aval in safe_zip(op.results, ctx.avals_out)]
 
 mlir.register_lowering(scatter_p, _scatter_lower)
 mlir.register_lowering(scatter_add_p, _scatter_lower)
@@ -3041,19 +3170,9 @@ def _real_dtype(dtype): return np.finfo(dtype).dtype
 
 
 def _scatter_addsub_lower_gpu(
-    ctx,
-    operand,
-    indices,
-    updates,
-    *,
-    update_jaxpr,
-    update_consts,
-    dimension_numbers,
-    indices_are_sorted,
-    unique_indices,
-    mode,
-    reduce_op,
-):
+    ctx, operand, indices, updates, *, update_jaxpr, update_consts,
+    dimension_numbers, indices_are_sorted, unique_indices, mode,
+    reduce_op, **kwargs):
   operand_aval_in, _, updates_aval_in = ctx.avals_in
   if operand_aval_in.dtype != np.complex128:
     return _scatter_lower(ctx, operand, indices, updates,
@@ -3087,18 +3206,14 @@ def _scatter_addsub_lower_gpu(
     updates_part = [updates_part]
 
     scatter = hlo.ScatterOp(
-        (operand_type_part,),
-        operand_part,
-        indices,
-        updates_part,
-        scatter_dnums,
+        (operand_type_part,), operand_part, indices, updates_part, scatter_dnums,
         indices_are_sorted=ir.BoolAttr.get(indices_are_sorted),
         unique_indices=ir.BoolAttr.get(unique_indices))
     scalar_type = mlir.aval_to_ir_type(core.ShapedArray((), real_dtype))
     reducer = scatter.regions[0].blocks.append(scalar_type, scalar_type)
     with ir.InsertionPoint(reducer):
       hlo.return_([reduce_op(*reducer.arguments).result])
-    return scatter.result
+    return mlir.lower_with_sharding_in_types(ctx, scatter.result, aval_out)
 
   real = _scatter(hlo.real(operand), hlo.real(updates))
   imag = _scatter(hlo.imag(operand), hlo.imag(updates))

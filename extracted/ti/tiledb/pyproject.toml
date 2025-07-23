@@ -1,7 +1,7 @@
 [build-system]
 requires = [
     "scikit-build-core",
-    "pybind11",
+    "pybind11<3",
     "numpy>=2.0.1"
 ]
 build-backend = "scikit_build_core.build"
@@ -52,7 +52,7 @@ doc = [
 ]
 test = [
     "pytest",
-    "pytest-retry",
+    "pytest-rerunfailures",
     "hypothesis",
     "psutil",
     "pyarrow",
@@ -113,7 +113,7 @@ select = ["NPY201"]
 [tool.cibuildwheel]
 test-requires = [
     "pytest",
-    "pytest-retry",
+    "pytest-rerunfailures",
     "hypothesis",
     "psutil",
     "pyarrow",

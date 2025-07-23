@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pytubefix
-Version: 9.3.0
+Version: 9.4.1
 Summary: Python3 library for downloading YouTube Videos.
 Author-email: Juan Bindez <juanbindez780@gmail.com>
 License: MIT license
@@ -29,6 +29,7 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: aiohttp>=3.12.13
 Dynamic: license-file
 
 # Pytubefix

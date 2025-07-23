@@ -1,7 +1,7 @@
 r'''
 # `google_apihub_curation`
 
-Refer to the Terraform Registry for docs: [`google_apihub_curation`](https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation).
+Refer to the Terraform Registry for docs: [`google_apihub_curation`](https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ApihubCuration(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-google.apihubCuration.ApihubCuration",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation google_apihub_curation}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation google_apihub_curation}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class ApihubCuration(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation google_apihub_curation} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation google_apihub_curation} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param curation_id: The ID to use for the curation resource, which will become the final component of the curations's resource name. This field is optional. - If provided, the same will be used. The service will throw an error if the specified ID is already used by another curation resource in the API hub. - If not provided, a system generated ID will be used. This value should be 4-500 characters, and valid characters are /a-z[0-9]-_/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#curation_id ApihubCuration#curation_id}
-        :param display_name: The display name of the curation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#display_name ApihubCuration#display_name}
-        :param endpoint: endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#endpoint ApihubCuration#endpoint}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#location ApihubCuration#location}
-        :param description: The description of the curation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#description ApihubCuration#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#id ApihubCuration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#project ApihubCuration#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#timeouts ApihubCuration#timeouts}
+        :param curation_id: The ID to use for the curation resource, which will become the final component of the curations's resource name. This field is optional. - If provided, the same will be used. The service will throw an error if the specified ID is already used by another curation resource in the API hub. - If not provided, a system generated ID will be used. This value should be 4-500 characters, and valid characters are /a-z[0-9]-_/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#curation_id ApihubCuration#curation_id}
+        :param display_name: The display name of the curation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#display_name ApihubCuration#display_name}
+        :param endpoint: endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#endpoint ApihubCuration#endpoint}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#location ApihubCuration#location}
+        :param description: The description of the curation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#description ApihubCuration#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#id ApihubCuration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#project ApihubCuration#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#timeouts ApihubCuration#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class ApihubCuration(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ApihubCuration to import.
-        :param import_from_id: The id of the existing ApihubCuration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ApihubCuration that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ApihubCuration to import is found.
         '''
         if __debug__:
@@ -142,7 +142,7 @@ class ApihubCuration(
         application_integration_endpoint_details: typing.Union["ApihubCurationEndpointApplicationIntegrationEndpointDetails", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param application_integration_endpoint_details: application_integration_endpoint_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#application_integration_endpoint_details ApihubCuration#application_integration_endpoint_details}
+        :param application_integration_endpoint_details: application_integration_endpoint_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#application_integration_endpoint_details ApihubCuration#application_integration_endpoint_details}
         '''
         value = ApihubCurationEndpoint(
             application_integration_endpoint_details=application_integration_endpoint_details,
@@ -159,9 +159,9 @@ class ApihubCuration(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#create ApihubCuration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#delete ApihubCuration#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#update ApihubCuration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#create ApihubCuration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#delete ApihubCuration#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#update ApihubCuration#update}.
         '''
         value = ApihubCurationTimeouts(create=create, delete=delete, update=update)
 
@@ -405,14 +405,14 @@ class ApihubCurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param curation_id: The ID to use for the curation resource, which will become the final component of the curations's resource name. This field is optional. - If provided, the same will be used. The service will throw an error if the specified ID is already used by another curation resource in the API hub. - If not provided, a system generated ID will be used. This value should be 4-500 characters, and valid characters are /a-z[0-9]-_/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#curation_id ApihubCuration#curation_id}
-        :param display_name: The display name of the curation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#display_name ApihubCuration#display_name}
-        :param endpoint: endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#endpoint ApihubCuration#endpoint}
-        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#location ApihubCuration#location}
-        :param description: The description of the curation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#description ApihubCuration#description}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#id ApihubCuration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#project ApihubCuration#project}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#timeouts ApihubCuration#timeouts}
+        :param curation_id: The ID to use for the curation resource, which will become the final component of the curations's resource name. This field is optional. - If provided, the same will be used. The service will throw an error if the specified ID is already used by another curation resource in the API hub. - If not provided, a system generated ID will be used. This value should be 4-500 characters, and valid characters are /a-z[0-9]-_/. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#curation_id ApihubCuration#curation_id}
+        :param display_name: The display name of the curation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#display_name ApihubCuration#display_name}
+        :param endpoint: endpoint block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#endpoint ApihubCuration#endpoint}
+        :param location: Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#location ApihubCuration#location}
+        :param description: The description of the curation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#description ApihubCuration#description}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#id ApihubCuration#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param project: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#project ApihubCuration#project}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#timeouts ApihubCuration#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -544,7 +544,7 @@ class ApihubCurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         This value should be 4-500 characters, and valid characters
         are /a-z[0-9]-_/.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#curation_id ApihubCuration#curation_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#curation_id ApihubCuration#curation_id}
         '''
         result = self._values.get("curation_id")
         assert result is not None, "Required property 'curation_id' is missing"
@@ -554,7 +554,7 @@ class ApihubCurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def display_name(self) -> builtins.str:
         '''The display name of the curation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#display_name ApihubCuration#display_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#display_name ApihubCuration#display_name}
         '''
         result = self._values.get("display_name")
         assert result is not None, "Required property 'display_name' is missing"
@@ -564,7 +564,7 @@ class ApihubCurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def endpoint(self) -> "ApihubCurationEndpoint":
         '''endpoint block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#endpoint ApihubCuration#endpoint}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#endpoint ApihubCuration#endpoint}
         '''
         result = self._values.get("endpoint")
         assert result is not None, "Required property 'endpoint' is missing"
@@ -574,7 +574,7 @@ class ApihubCurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def location(self) -> builtins.str:
         '''Resource ID segment making up resource 'name'. It identifies the resource within its parent collection as described in https://google.aip.dev/122.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#location ApihubCuration#location}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#location ApihubCuration#location}
         '''
         result = self._values.get("location")
         assert result is not None, "Required property 'location' is missing"
@@ -584,14 +584,14 @@ class ApihubCurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''The description of the curation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#description ApihubCuration#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#description ApihubCuration#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#id ApihubCuration#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#id ApihubCuration#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -601,7 +601,7 @@ class ApihubCurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def project(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#project ApihubCuration#project}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#project ApihubCuration#project}.'''
         result = self._values.get("project")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -609,7 +609,7 @@ class ApihubCurationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ApihubCurationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#timeouts ApihubCuration#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#timeouts ApihubCuration#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ApihubCurationTimeouts"], result)
@@ -640,7 +640,7 @@ class ApihubCurationEndpoint:
         application_integration_endpoint_details: typing.Union["ApihubCurationEndpointApplicationIntegrationEndpointDetails", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param application_integration_endpoint_details: application_integration_endpoint_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#application_integration_endpoint_details ApihubCuration#application_integration_endpoint_details}
+        :param application_integration_endpoint_details: application_integration_endpoint_details block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#application_integration_endpoint_details ApihubCuration#application_integration_endpoint_details}
         '''
         if isinstance(application_integration_endpoint_details, dict):
             application_integration_endpoint_details = ApihubCurationEndpointApplicationIntegrationEndpointDetails(**application_integration_endpoint_details)
@@ -657,7 +657,7 @@ class ApihubCurationEndpoint:
     ) -> "ApihubCurationEndpointApplicationIntegrationEndpointDetails":
         '''application_integration_endpoint_details block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#application_integration_endpoint_details ApihubCuration#application_integration_endpoint_details}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#application_integration_endpoint_details ApihubCuration#application_integration_endpoint_details}
         '''
         result = self._values.get("application_integration_endpoint_details")
         assert result is not None, "Required property 'application_integration_endpoint_details' is missing"
@@ -683,8 +683,8 @@ class ApihubCurationEndpoint:
 class ApihubCurationEndpointApplicationIntegrationEndpointDetails:
     def __init__(self, *, trigger_id: builtins.str, uri: builtins.str) -> None:
         '''
-        :param trigger_id: The API trigger ID of the Application Integration workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#trigger_id ApihubCuration#trigger_id}
-        :param uri: The endpoint URI should be a valid REST URI for triggering an Application Integration. Format: 'https://integrations.googleapis.com/v1/{name=projects/* /locations/* /integrations/*}:execute' or 'https://{location}-integrations.googleapis.com/v1/{name=projects/* /locations/* /integrations/*}:execute'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#uri ApihubCuration#uri} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param trigger_id: The API trigger ID of the Application Integration workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#trigger_id ApihubCuration#trigger_id}
+        :param uri: The endpoint URI should be a valid REST URI for triggering an Application Integration. Format: 'https://integrations.googleapis.com/v1/{name=projects/* /locations/* /integrations/*}:execute' or 'https://{location}-integrations.googleapis.com/v1/{name=projects/* /locations/* /integrations/*}:execute'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#uri ApihubCuration#uri} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d86e8c1665905b0c10e68b448a1d0467e8f12608d3349822af83b50aed5d5d9c)
@@ -699,7 +699,7 @@ class ApihubCurationEndpointApplicationIntegrationEndpointDetails:
     def trigger_id(self) -> builtins.str:
         '''The API trigger ID of the Application Integration workflow.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#trigger_id ApihubCuration#trigger_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#trigger_id ApihubCuration#trigger_id}
         '''
         result = self._values.get("trigger_id")
         assert result is not None, "Required property 'trigger_id' is missing"
@@ -709,7 +709,7 @@ class ApihubCurationEndpointApplicationIntegrationEndpointDetails:
     def uri(self) -> builtins.str:
         '''The endpoint URI should be a valid REST URI for triggering an Application Integration. Format: 'https://integrations.googleapis.com/v1/{name=projects/* /locations/* /integrations/*}:execute' or 'https://{location}-integrations.googleapis.com/v1/{name=projects/* /locations/* /integrations/*}:execute'.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#uri ApihubCuration#uri}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#uri ApihubCuration#uri}
 
         Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
@@ -829,8 +829,8 @@ class ApihubCurationEndpointOutputReference(
         uri: builtins.str,
     ) -> None:
         '''
-        :param trigger_id: The API trigger ID of the Application Integration workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#trigger_id ApihubCuration#trigger_id}
-        :param uri: The endpoint URI should be a valid REST URI for triggering an Application Integration. Format: 'https://integrations.googleapis.com/v1/{name=projects/* /locations/* /integrations/*}:execute' or 'https://{location}-integrations.googleapis.com/v1/{name=projects/* /locations/* /integrations/*}:execute'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#uri ApihubCuration#uri} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
+        :param trigger_id: The API trigger ID of the Application Integration workflow. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#trigger_id ApihubCuration#trigger_id}
+        :param uri: The endpoint URI should be a valid REST URI for triggering an Application Integration. Format: 'https://integrations.googleapis.com/v1/{name=projects/* /locations/* /integrations/*}:execute' or 'https://{location}-integrations.googleapis.com/v1/{name=projects/* /locations/* /integrations/*}:execute'. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#uri ApihubCuration#uri} Note: The above comment contained a comment block ending sequence (* followed by /). We have introduced a space between to prevent syntax errors. Please ignore the space.
         '''
         value = ApihubCurationEndpointApplicationIntegrationEndpointDetails(
             trigger_id=trigger_id, uri=uri
@@ -1028,9 +1028,9 @@ class ApihubCurationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#create ApihubCuration#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#delete ApihubCuration#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#update ApihubCuration#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#create ApihubCuration#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#delete ApihubCuration#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#update ApihubCuration#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__72cc2f35769c217c957d1b0bbd5d920e6053a34158d080cff722fbcb1e93af66)
@@ -1047,19 +1047,19 @@ class ApihubCurationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#create ApihubCuration#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#create ApihubCuration#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#delete ApihubCuration#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#delete ApihubCuration#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs/resources/apihub_curation#update ApihubCuration#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs/resources/apihub_curation#update ApihubCuration#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

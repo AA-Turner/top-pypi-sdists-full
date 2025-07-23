@@ -38,26 +38,25 @@ For more information, please refer to <https://unlicense.org>
 
 _intelligence_indicator_graph_endpoints = [
   [
-    "GetIndicatorAggregates",
-    "POST",
-    "/intelligence/aggregates/indicators/v1",
-    "Get aggregates for indicators based on requests",
-    "intelligence_indicator_graph",
-    [
-      {
-        "name": "body",
-        "in": "body",
-        "required": True
-      }
-    ]
-  ],
-  [
     "SearchIndicators",
     "POST",
     "/intelligence/combined/indicators/v1",
     "Search indicators based on FQL filter.",
     "intelligence_indicator_graph",
     [
+      {
+        "type": "string",
+        "description": "Parameter to specify the order(field examples: FileDetails.SHA256, URLDetails.URL, "
+        "PublishDate, MaliciousConfidence) Ex: 'PublishDate|asc'.",
+        "name": "sort",
+        "in": "query"
+      },
+      {
+        "type": "string",
+        "description": "FQL query specifying the filter parameters.",
+        "name": "filter",
+        "in": "query"
+      },
       {
         "type": "integer",
         "description": "Limit",
@@ -70,6 +69,20 @@ _intelligence_indicator_graph_endpoints = [
         "name": "offset",
         "in": "query"
       },
+      {
+        "name": "body",
+        "in": "body",
+        "required": True
+      }
+    ]
+  ],
+  [
+    "LookupIndicators",
+    "POST",
+    "/intelligence/combined/lookup-indicators/v1",
+    "Get indicators based on their value.",
+    "intelligence_indicator_graph",
+    [
       {
         "name": "body",
         "in": "body",

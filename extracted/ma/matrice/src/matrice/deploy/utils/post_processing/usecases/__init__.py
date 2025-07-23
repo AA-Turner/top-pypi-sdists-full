@@ -52,6 +52,13 @@ from .shelf_inventory_detection import ShelfInventoryUseCase,ShelfInventoryConfi
 from .car_part_segmentation import CarPartSegmentationUseCase, CarPartSegmentationConfig
 from .road_lane_detection import LaneDetectionConfig , LaneDetectionUseCase
 
+from .windmill_maintenance import WindmillMaintenanceUseCase, WindmillMaintenanceConfig
+
+from .field_mapping import FieldMappingConfig, FieldMappingUseCase
+from .wound_segmentation import WoundConfig, WoundSegmentationUseCase
+from .leaf_disease import LeafDiseaseDetectionConfig, LeafDiseaseDetectionUseCase
+from .flower_segmentation import FlowerUseCase, FlowerConfig
+
 __all__ = [
     'PeopleCountingUseCase',
     'CustomerServiceUseCase',
@@ -61,6 +68,9 @@ __all__ = [
     'ColorDetectionUseCase',
     'PPEComplianceUseCase',
     'BananaMonitoringUseCase',
+    'WoundSegmentationUseCase',
+    'FieldMappingUseCase',
+    'LeafDiseaseDetectionUseCase',
     'VehicleMonitoringUseCase',
     'ShopliftingDetectionUseCase',
     'ParkingSpaceUseCase',
@@ -95,6 +105,11 @@ __all__ = [
     'ShelfInventoryUseCase',
     'CarPartSegmentationUseCase',
     'LaneDetectionUseCase',
+    'WindmillMaintenanceUseCase',
+    'FlowerUseCase',
+
+
+
     'PeopleCountingConfig',
     'ParkingSpaceConfig',
     'CustomerServiceConfig',
@@ -103,6 +118,7 @@ __all__ = [
     'LicensePlateConfig',
     'PotholeConfig',
     'ColorDetectionConfig',
+    'LeafDiseaseDetectionConfig',
     'CarDamageConfig',
     'CarDamageConfig',
     'VehicleMonitoringConfig',
@@ -111,6 +127,8 @@ __all__ = [
     'FlareAnalysisConfig',
     'FaceEmotionConfig',
     'UnderwaterPlasticConfig',
+    'FieldMappingConfig',
+    'WoundConfig',
     'PedestrianDetectionConfig',
     'ChickenPoseDetectionConfig',
     'AgeDetectionConfig',
@@ -136,4 +154,6 @@ __all__ = [
     'ShelfInventoryConfig',
     'CarPartSegmentationConfig',
     'LaneDetectionConfig',
+    'WindmillMaintenanceConfig',
+    'FlowerConfig',
 ]

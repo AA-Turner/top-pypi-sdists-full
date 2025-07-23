@@ -6,6 +6,7 @@ import logging
 
 from msal.throttled_http_client import (
     ThrottledHttpClientBase, ThrottledHttpClient, NormalizedResponse)
+from msal.exceptions import MsalServiceError
 
 from tests import unittest
 from tests.http_client import MinimalResponse as _MinimalResponse
@@ -49,20 +50,28 @@ class DummyHttpClient(object):
         raise CloseMethodCalled("Not used by MSAL, but our customers may use it")
 
 
-class DummyHttpClientWithoutResponseHeaders(DummyHttpClient):
-    def post(self, url, params=None, data=None, headers=None, **kwargs):
-        response = super().post(url, params, data, headers, **kwargs)
-        del response.headers  # Early versions of MSAL did not require http client to return headers
-        return response
-
-    def get(self, url, params=None, headers=None, **kwargs):
-        response = super().get(url, params, headers, **kwargs)
-        del response.headers  # Early versions of MSAL did not require http client to return headers
-        return response
-
-
 class CloseMethodCalled(Exception):
     pass
+
+
+class NormalizedResponseTestCase(unittest.TestCase):
+    def test_pickled_minimal_response_should_contain_signature(self):
+        self.assertIn(MinimalResponse.SIGNATURE, pickle.dumps(MinimalResponse(
+            status_code=200, headers={}, text="foo")))
+
+    def test_normalized_response_should_not_contain_signature(self):
+        response = NormalizedResponse(MinimalResponse(
+            status_code=200, headers={}, text="foo"))
+        self.assertNotIn(
+            MinimalResponse.SIGNATURE, pickle.dumps(response),
+            "A pickled object should not contain undesirable data")
+        self.assertEqual(response.text, "foo", "Should return the same response text")
+
+    def test_normalized_response_raise_for_status_should_raise(self):
+        response = NormalizedResponse(MinimalResponse(
+            status_code=400, headers={}, text="foo"))
+        with self.assertRaises(MsalServiceError):
+            response.raise_for_status()
 
 
 class ThrottledHttpClientBaseTestCase(unittest.TestCase):
@@ -77,14 +86,15 @@ class ThrottledHttpClientBaseTestCase(unittest.TestCase):
         self.assertIsInstance(response, NormalizedResponse)
         self.assertCleanPickle(response)
 
-    def test_pickled_minimal_response_should_contain_signature(self):
-        self.assertIn(MinimalResponse.SIGNATURE, pickle.dumps(MinimalResponse(
-            status_code=200, headers={}, text="foo")))
-
     def test_throttled_http_client_base_response_should_tolerate_headerless_response(self):
-        http_client = ThrottledHttpClientBase(DummyHttpClientWithoutResponseHeaders(
-            status_code=200, response_text="foo"))
-        response = http_client.post("https://example.com")
+        # MSAL Python 1.32.1 had a regression that caused it to require headers in the response.
+        # This was fixed in 1.32.2
+        # https://github.com/AzureAD/microsoft-authentication-library-for-python/compare/1.32.1...1.32.2
+        # This test case is to ensure that we can tolerate headerless response.
+        http_client = DummyHttpClient(status_code=200, response_text="foo")
+        raw_response = http_client.post("https://example.com")
+        self.assertFalse(hasattr(raw_response, "headers"), "Should not contain headers")
+        response = ThrottledHttpClientBase(http_client).post("https://example.com")
         self.assertEqual(response.text, "foo", "Should return the same response text")
 
     def test_throttled_http_client_base_response_should_not_contain_signature(self):

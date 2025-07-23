@@ -1,11 +1,21 @@
 Metadata-Version: 2.4
 Name: mlx-vlm
-Version: 0.3.1
-Summary: Vision Language Models (VLMs) and Omni Models (Vision, Audio and Video support) on Apple silicon with MLX and the Hugging Face Hub
-Home-page: https://github.com/Blaizzy/mlx-vlm
-Author: Prince Canuma
-Author-email: prince.gdt@gmail.com
+Version: 0.3.2
+Summary: MLX-VLM is a package for inference and fine-tuning of Vision Language Models (VLMs) and Omni Models (VLMs with audio and video support) on your Mac using MLX.
+Author-email: Prince Canuma <prince.gdt@gmail.com>
 License: MIT
+Project-URL: Homepage, https://github.com/Blaizzy/mlx-vlm
+Project-URL: Repository, https://github.com/Blaizzy/mlx-vlm
+Project-URL: Issues, https://github.com/Blaizzy/mlx-vlm/issues
+Classifier: Development Status :: 4 - Beta
+Classifier: Intended Audience :: Developers
+Classifier: License :: OSI Approved :: MIT License
+Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -13,26 +23,26 @@ Requires-Dist: mlx>=0.26.0
 Requires-Dist: datasets>=2.19.1
 Requires-Dist: tqdm>=4.66.2
 Requires-Dist: transformers>=4.53.0
-Requires-Dist: gradio>=5.19.0
 Requires-Dist: Pillow>=10.3.0
 Requires-Dist: requests>=2.31.0
-Requires-Dist: opencv-python==4.10.0.84
 Requires-Dist: mlx-lm>=0.23.0
 Requires-Dist: fastapi>=0.95.1
 Requires-Dist: soundfile>=0.13.1
 Requires-Dist: scipy>=1.15.3
+Requires-Dist: opencv-python>=4.12.0.88
 Requires-Dist: numpy
-Requires-Dist: mlx-audio
-Dynamic: author
-Dynamic: author-email
-Dynamic: description
-Dynamic: description-content-type
-Dynamic: home-page
-Dynamic: license
+Requires-Dist: uvicorn
+Provides-Extra: ui
+Requires-Dist: gradio>=5.19.0; extra == "ui"
+Provides-Extra: audio
+Requires-Dist: mlx-audio; extra == "audio"
+Provides-Extra: torch
+Requires-Dist: torch; extra == "torch"
+Requires-Dist: torchvision; extra == "torch"
+Requires-Dist: einops; extra == "torch"
+Requires-Dist: blobfile; extra == "torch"
+Requires-Dist: tiktoken; extra == "torch"
 Dynamic: license-file
-Dynamic: requires-dist
-Dynamic: requires-python
-Dynamic: summary
 
 [![Upload Python Package](https://github.com/Blaizzy/mlx-vlm/actions/workflows/python-publish.yml/badge.svg)](https://github.com/Blaizzy/mlx-vlm/actions/workflows/python-publish.yml)
 # MLX-VLM
@@ -65,6 +75,9 @@ pip install -U mlx-vlm
 Generate output from a model using the CLI:
 
 ```sh
+# Text generation
+mlx_vlm.generate --model mlx-community/Qwen2-VL-2B-Instruct-4bit --max-tokens 100 --prompt "Hello, how are you?"
+
 # Image generation
 mlx_vlm.generate --model mlx-community/Qwen2-VL-2B-Instruct-4bit --max-tokens 100 --temperature 0.0 --image http://images.cocodataset.org/val2017/000000039769.jpg
 
@@ -187,7 +200,21 @@ The server provides multiple endpoints for different use cases and supports dyna
 
 #### Usage Examples
 
-##### Basic Image Generation
+##### Text Generation
+
+```sh
+curl -X POST "http://localhost:8000/generate" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "mlx-community/Qwen2-VL-2B-Instruct-4bit",
+    "prompt": "Hello, how are you?",
+    "stream": true,
+    "max_tokens": 100
+  }'
+```
+
+##### Image Generation
+
 ```sh
 curl -X POST "http://localhost:8000/generate" \
   -H "Content-Type: application/json" \

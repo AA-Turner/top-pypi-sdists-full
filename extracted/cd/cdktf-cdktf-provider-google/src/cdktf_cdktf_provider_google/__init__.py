@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/google provider version 6.44.0
+# CDKTF prebuilt bindings for hashicorp/google provider version 6.45.0
 
-This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.44.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.45.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform google provider version 1:
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.44.0)
+* [Terraform google provider](https://registry.terraform.io/providers/hashicorp/google/6.45.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -272,6 +272,7 @@ __all__ = [
     "bigtable_instance_iam_policy",
     "bigtable_logical_view",
     "bigtable_materialized_view",
+    "bigtable_schema_bundle",
     "bigtable_table",
     "bigtable_table_iam_binding",
     "bigtable_table_iam_member",
@@ -1011,6 +1012,7 @@ __all__ = [
     "dialogflow_cx_environment",
     "dialogflow_cx_flow",
     "dialogflow_cx_generative_settings",
+    "dialogflow_cx_generator",
     "dialogflow_cx_intent",
     "dialogflow_cx_page",
     "dialogflow_cx_security_settings",
@@ -1273,6 +1275,7 @@ __all__ = [
     "migration_center_group",
     "migration_center_preference_set",
     "ml_engine_model",
+    "model_armor_floorsetting",
     "model_armor_template",
     "monitoring_alert_policy",
     "monitoring_custom_service",
@@ -1545,6 +1548,7 @@ __all__ = [
     "vertex_ai_dataset",
     "vertex_ai_deployment_resource_pool",
     "vertex_ai_endpoint",
+    "vertex_ai_endpoint_with_model_garden_deployment",
     "vertex_ai_feature_group",
     "vertex_ai_feature_group_feature",
     "vertex_ai_feature_online_store",
@@ -1721,6 +1725,7 @@ from . import bigtable_instance_iam_member
 from . import bigtable_instance_iam_policy
 from . import bigtable_logical_view
 from . import bigtable_materialized_view
+from . import bigtable_schema_bundle
 from . import bigtable_table
 from . import bigtable_table_iam_binding
 from . import bigtable_table_iam_member
@@ -2460,6 +2465,7 @@ from . import dialogflow_cx_entity_type
 from . import dialogflow_cx_environment
 from . import dialogflow_cx_flow
 from . import dialogflow_cx_generative_settings
+from . import dialogflow_cx_generator
 from . import dialogflow_cx_intent
 from . import dialogflow_cx_page
 from . import dialogflow_cx_security_settings
@@ -2722,6 +2728,7 @@ from . import memorystore_instance_desired_user_created_endpoints
 from . import migration_center_group
 from . import migration_center_preference_set
 from . import ml_engine_model
+from . import model_armor_floorsetting
 from . import model_armor_template
 from . import monitoring_alert_policy
 from . import monitoring_custom_service
@@ -2994,6 +3001,7 @@ from . import transcoder_job_template
 from . import vertex_ai_dataset
 from . import vertex_ai_deployment_resource_pool
 from . import vertex_ai_endpoint
+from . import vertex_ai_endpoint_with_model_garden_deployment
 from . import vertex_ai_feature_group
 from . import vertex_ai_feature_group_feature
 from . import vertex_ai_feature_online_store

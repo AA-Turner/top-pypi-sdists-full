@@ -448,11 +448,11 @@ class SecretManager:
     @staticmethod
     def _get_databricks_secret(scope: str, key: str) -> str:
         try:
-            from com.databricks.dbutils_v1 import DBUtilsHolder  # type: ignore
+            from databricks.sdk.runtime import dbutils  # public, forward-compatible
 
-            return DBUtilsHolder.dbutils.secrets.get(scope, key)
-        except Exception as exc:  # pragma: no cover
-            raise RuntimeError("Databricks secrets API not available") from exc
+            return dbutils.secrets.get(scope, key)
+        except Exception as exc:
+            raise RuntimeError("Failed to get Databricks secret") from exc
 
 
 # ──────────────────────────────────────────────────────────────────────────
@@ -633,7 +633,7 @@ def _split_mount_and_path(full_path: str) -> tuple[str, str]:
     m = _FIRST_SEG_RX.match(full_path.lstrip("/"))
     if not m:
         raise ValueError(f"Illegal Vault path: {full_path!r}")
-    return m.group(1), f"{m.group(2).strip("/")}/"
+    return m.group(1), f"{m.group(2).strip('/')}/"
 
 
 # ────────────────────────────────────────────────────────────────────────────────

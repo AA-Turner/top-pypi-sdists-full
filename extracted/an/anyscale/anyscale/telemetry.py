@@ -366,54 +366,46 @@ def _patch_click() -> None:
 
         @functools.wraps(original_invoke)
         def instrumented_invoke(self, ctx, *args, **kwargs):
-            try:
-                # Sampling
-                if SAMPLE_RATE <= 0 or random.random() > SAMPLE_RATE:
-                    return original_invoke(self, ctx, *args, **kwargs)
-                # Only instrument leaf commands
-                if isinstance(self, click.Group):
-                    return original_invoke(self, ctx, *args, **kwargs)
-
-                trace_id = _setup_trace_context()
-                start = time.perf_counter()
-
-                # Store start time in context for interactive commands
-                ctx.telemetry_start_time = start
-
-                code, exc = 0, None
-                should_emit_telemetry = True
-
-                try:
-                    result = original_invoke(self, ctx, *args, **kwargs)
-                    return result
-                except Exception as e:
-                    code, exc = 1, e.__class__.__name__
-                    raise
-                finally:
-                    # Only emit telemetry once per command invocation
-                    if _skip_click_patch_var.get():
-                        should_emit_telemetry = False
-
-                    if should_emit_telemetry:
-                        try:
-                            # Use actual end time for non-interactive commands
-                            dur = (time.perf_counter() - start) * 1_000
-                            body = _create_payload(
-                                trace_id=trace_id,
-                                ctx=ctx,
-                                duration_ms=dur,
-                                exit_code=code,
-                                exception_type=exc,
-                                event_type="command",
-                            )
-                            _emit_telemetry(body)
-                            _skip_click_patch_var.set(True)
-                        except Exception:  # noqa: BLE001
-                            # Telemetry should never crash the CLI
-                            pass
-            except Exception:  # noqa: BLE001
-                # If telemetry setup fails, just run the original command
+            if (
+                isinstance(self, click.Group)
+                or SAMPLE_RATE <= 0
+                or random.random() > SAMPLE_RATE
+            ):
                 return original_invoke(self, ctx, *args, **kwargs)
+
+            try:
+                trace_id = _setup_trace_context()
+            except Exception:  # noqa: BLE001
+                return original_invoke(self, ctx, *args, **kwargs)
+
+            start = time.perf_counter()
+            ctx.telemetry_start_time = start
+            exit_code, exc_name = 0, None
+
+            try:
+                result = original_invoke(self, ctx, *args, **kwargs)
+                return result
+            except Exception as e:  # noqa: BLE001
+                exit_code, exc_name = 1, e.__class__.__name__
+                raise
+            finally:
+                # Only emit telemetry once per command invocation
+                if not _skip_click_patch_var.get():
+                    try:
+                        duration_ms = (time.perf_counter() - start) * 1000
+                        body = _create_payload(
+                            trace_id=trace_id,
+                            ctx=ctx,
+                            duration_ms=duration_ms,
+                            exit_code=exit_code,
+                            exception_type=exc_name,
+                            event_type="command",
+                        )
+                        _emit_telemetry(body)
+                        # Prevent Click patch from emitting again
+                        _skip_click_patch_var.set(True)
+                    except Exception:  # noqa: BLE001
+                        pass
 
         click.Command.invoke = instrumented_invoke
         click._anyscale_telemetry_patched = (  # noqa: SLF001  # type: ignore[attr-defined]

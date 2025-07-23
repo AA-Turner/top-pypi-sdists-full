@@ -319,20 +319,29 @@ class BaseHandler:
         """
         raise NotImplementedError
 
-    def render(self, data: CollectorItem, options: HandlerOptions) -> str:
+    def render(self, data: CollectorItem, options: HandlerOptions, *, locale: str | None = None) -> str:
         """Render a template using provided data and configuration options.
 
         Arguments:
             data: The collected data to render.
             options: The final configuration options.
+            locale: The locale to use for translations, if any.
 
         Returns:
             The rendered template as HTML.
         """
         raise NotImplementedError
 
-    def render_backlinks(self, backlinks: Mapping[str, Iterable[Backlink]]) -> str:  # noqa: ARG002
-        """Render backlinks."""
+    def render_backlinks(self, backlinks: Mapping[str, Iterable[Backlink]], *, locale: str | None = None) -> str:  # noqa: ARG002
+        """Render backlinks.
+
+        Parameters:
+            backlinks: A mapping of identifiers to backlinks.
+            locale: The locale to use for translations, if any.
+
+        Returns:
+            The rendered backlinks as HTML.
+        """
         return ""
 
     def teardown(self) -> None:
@@ -359,7 +368,7 @@ class BaseHandler:
         """
         handler = handler or self.name
         try:
-            import mkdocstrings_handlers
+            import mkdocstrings_handlers  # noqa: PLC0415
         except ModuleNotFoundError as error:
             raise ModuleNotFoundError(f"Handler '{handler}' not found, is it installed?") from error
 
@@ -450,6 +459,7 @@ class BaseHandler:
         role: str | None = None,
         hidden: bool = False,
         toc_label: str | None = None,
+        skip_inventory: bool = False,
         **attributes: str,
     ) -> Markup:
         """Render an HTML heading and register it for the table of contents. For use inside templates.
@@ -460,6 +470,7 @@ class BaseHandler:
             role: An optional role for the object bound to this heading.
             hidden: If True, only register it for the table of contents, don't render anything.
             toc_label: The title to use in the table of contents ('data-toc-label' attribute).
+            skip_inventory: Flag element to not be registered in the inventory (by setting a `data-skip-inventory` attribute).
             **attributes: Any extra HTML attributes of the heading.
 
         Returns:
@@ -479,6 +490,8 @@ class BaseHandler:
         if toc_label is None:
             toc_label = content.unescape() if isinstance(content, Markup) else content
         el.set("data-toc-label", toc_label)
+        if skip_inventory:
+            el.set("data-skip-inventory", "true")
         if role:
             el.set("data-role", role)
         if content:
@@ -578,6 +591,7 @@ class Handlers:
         custom_templates: str | None = None,
         mdx: Sequence[str | Extension] | None = None,
         mdx_config: Mapping[str, Any] | None = None,
+        locale: str = "en",
         tool_config: Any,
     ) -> None:
         """Initialize the object.
@@ -591,6 +605,7 @@ class Handlers:
             custom_templates: The path to custom templates.
             mdx: A list of Markdown extensions to use.
             mdx_config: Configuration for the Markdown extensions.
+            locale: The locale to use for translations.
             tool_config: Tool configuration to pass down to handlers.
         """
         self._theme = theme
@@ -600,6 +615,7 @@ class Handlers:
         self._mdx = mdx or []
         self._mdx_config = mdx_config or {}
         self._handlers: dict[str, BaseHandler] = {}
+        self._locale = locale
         self._tool_config = tool_config
 
         self.inventory: Inventory = Inventory(project=inventory_project, version=inventory_version)

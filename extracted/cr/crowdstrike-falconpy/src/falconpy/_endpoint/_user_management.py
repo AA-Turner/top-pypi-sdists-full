@@ -114,7 +114,9 @@ _user_management_endpoints = [
           "role_name|asc",
           "role_name|desc",
           "type|asc",
-          "type|desc"
+          "type|desc",
+          "user_uuid|asc",
+          "user_uuid|desc"
         ],
         "type": "string",
         "default": "role_name|asc",
@@ -186,7 +188,9 @@ _user_management_endpoints = [
           "role_name|asc",
           "role_name|desc",
           "type|asc",
-          "type|desc"
+          "type|desc",
+          "user_uuid|asc",
+          "user_uuid|desc"
         ],
         "type": "string",
         "default": "role_name|asc",
@@ -248,8 +252,8 @@ _user_management_endpoints = [
     "user_management",
     [
       {
-        "description": "All fields including CID, RoleID(s), User UUID and Action are required. Allowed values "
-        "for Action param include 'grant' and 'revoke'.",
+        "description": "CID, RoleID(s), User UUID and Action are required. Allowed values for Action param "
+        "include 'grant' and 'revoke'.",
         "name": "body",
         "in": "body",
         "required": True

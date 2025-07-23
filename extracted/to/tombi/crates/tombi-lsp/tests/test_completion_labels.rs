@@ -1,4 +1,4 @@
-use tombi_config::{JSON_SCHEMA_STORE_CATALOG_URL, TOMBI_CATALOG_URL};
+use tombi_config::{JSON_SCHEMASTORE_CATALOG_URL, TOMBI_SCHEMASTORE_CATALOG_URL};
 use tombi_test_lib::{
     project_root_path, today_local_date, today_local_date_time, today_local_time,
     today_offset_date_time,
@@ -393,7 +393,7 @@ mod completion_labels {
                 "#,
                 Schema(tombi_schema_path()),
             ) -> Ok([
-                format!("[\"{TOMBI_CATALOG_URL}\", \"{JSON_SCHEMA_STORE_CATALOG_URL}\"]"),
+                format!("[\"{TOMBI_SCHEMASTORE_CATALOG_URL}\", \"{JSON_SCHEMASTORE_CATALOG_URL}\"]"),
                 "[]",
             ]);
         }
@@ -593,6 +593,65 @@ mod completion_labels {
                 "scripts",
                 "urls",
                 "version",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_project_dynamic_array(
+                r#"
+                [project]
+                dynamic = [█]
+                "#,
+                Schema(pyproject_schema_path()),
+            ) -> Ok([
+                "\"authors\"",
+                "\"classifiers\"",
+                "\"dependencies\"",
+                "\"description\"",
+                "\"entry-points\"",
+                "\"gui-scripts\"",
+                "\"keywords\"",
+                "\"license\"",
+                "\"license-files\"",
+                "\"maintainers\"",
+                "\"optional-dependencies\"",
+                "\"readme\"",
+                "\"requires-python\"",
+                "\"scripts\"",
+                "\"urls\"",
+                "\"version\"",
+            ]);
+        }
+
+        test_completion_labels! {
+            #[tokio::test]
+            async fn pyproject_project_dynamic_array_with_values(
+                // Check `unique_items = true` case.
+                r#"
+                [project]
+                dynamic = [
+                  "authors",
+                  "classifiers",
+                  █
+                ]
+                "#,
+                Schema(pyproject_schema_path()),
+            ) -> Ok([
+                "\"dependencies\"",
+                "\"description\"",
+                "\"entry-points\"",
+                "\"gui-scripts\"",
+                "\"keywords\"",
+                "\"license\"",
+                "\"license-files\"",
+                "\"maintainers\"",
+                "\"optional-dependencies\"",
+                "\"readme\"",
+                "\"requires-python\"",
+                "\"scripts\"",
+                "\"urls\"",
+                "\"version\"",
             ]);
         }
 

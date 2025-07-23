@@ -1,3 +1,4 @@
+import asyncio
 import os
 import re
 import textwrap
@@ -100,3 +101,26 @@ def get_api_key_from_env() -> Optional[str]:
         API key retrieved from env variable or None if missing.
     """
     return os.environ.get("FIREWORKS_API_KEY")
+
+
+def is_running_in_async_context() -> bool:
+    """
+    Check if the current code is running in an async context with a running event loop.
+
+    Returns:
+        True if running in an async context, False otherwise.
+
+    Example:
+        >>> if is_running_in_async_context():
+        ...     # We're in an async function or callback
+        ...     pass
+        ... else:
+        ...     # We're in a sync context
+        ...     pass
+    """
+    try:
+        asyncio.get_running_loop()
+        return True
+    except RuntimeError:
+        # No running event loop - we're in a sync context
+        return False

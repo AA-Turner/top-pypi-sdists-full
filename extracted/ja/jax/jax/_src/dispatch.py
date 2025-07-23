@@ -45,7 +45,7 @@ from jax._src.interpreters import mlir
 from jax._src.interpreters import pxla
 from jax._src.interpreters import xla
 from jax._src.api_util import InternalFloatingPointError
-from jax._src.layout import DeviceLocalLayout, Format
+from jax._src.layout import Layout, Format
 from jax._src.lib import xla_client as xc
 from jax._src.mesh import AbstractMesh, Mesh
 from jax._src.monitoring import record_scalar, record_event_duration_secs, record_event_time_span
@@ -256,7 +256,7 @@ def get_intermediate_shardings(
         continue
       source_info = SourceInfo(eqn.source_info, eqn.primitive.name)
       out.append((s, source_info))
-    elif eqn.primitive is pjit.pjit_p:
+    elif eqn.primitive is pjit.jit_p:
       source_info = SourceInfo(eqn.source_info, eqn.primitive.name)
       out.extend((i, source_info) for i in eqn.params['in_shardings'])
       out.extend((o, source_info) for o in eqn.params['out_shardings'])
@@ -382,14 +382,7 @@ def _reorder_shards(x, new_s, copy_semantics: CopySemantics):
 @util.cache()
 def _is_supported_cross_host_transfer(ndim, src_sharding, dst_sharding):
   """Returns True if src->dst is a supported cross-host transfer."""
-  backend = xla_bridge.get_backend()
-  # There is experimental support for cross-host device transfers on TFRT TPU
-  # backends only.
-  # TODO: https://github.com/jax-ml/jax/issues/26645 - Allow backends to be
-  # queried for their cross-host transfer support.
-  if (xla_bridge.process_count() == 1 or backend.platform not in {"gpu", "tpu"}
-      or (backend.platform == "gpu" and not backend.platform_version.startswith("cuda"))
-      or (backend.platform == "tpu" and not backend.platform_version.startswith("TFRT TPU"))):
+  if xla_bridge.process_count() == 1:
     return False
   if (src_sharding._internal_device_list.device_kind !=
       dst_sharding._internal_device_list.device_kind):
@@ -400,9 +393,22 @@ def _is_supported_cross_host_transfer(ndim, src_sharding, dst_sharding):
   # This check excludes the case where the source and destination shardings
   # have the same process index sets but there are shards that require
   # cross-host transfers. This case is supportable but expensive to check for.
-  return (src_sharding._internal_device_list.process_indices !=
-          dst_sharding._internal_device_list.process_indices)
-
+  different_process_inds = (
+      src_sharding._internal_device_list.process_indices !=
+      dst_sharding._internal_device_list.process_indices)
+  backend = xla_bridge.get_backend()
+  # If a cross-host device transfer is requested but the backend does not
+  # support it, then the user must set the flags to enable DCN-based transfers.
+  if (different_process_inds and
+      not getattr(backend, 'supports_cross_host_transfers', False) and
+      not xla_bridge.CROSS_HOST_TRANSFER_SOCKET_ADDRESS.value):
+    raise ValueError(
+        f"The backend ({backend.platform}, {backend.platform_version}) does "
+        "not support cross-host device transfers via ICI/NCCL. Please set "
+        "jax_cross_host_transfer_socket_address and (optionally) "
+        "jax_cross_host_transport_addresses flags to enable DCN-based cross "
+        "host device transfers.")
+  return different_process_inds
 
 @dataclasses.dataclass(frozen=True)
 class _DeferredShardArg:
@@ -446,7 +452,6 @@ def _device_put_sharding_impl(x, aval, device, copy):
       assert isinstance(s, Sharding)
       return _different_device_order_reshard(x, s, copy)
 
-    # There is experimental support for cross-host device transfers on TFRT TPU.
     if (isinstance(x, array.ArrayImpl) and x._committed
         and _is_supported_cross_host_transfer(x.ndim, x.sharding, s)):
       return xc.batched_copy_array_to_devices_with_sharding(
@@ -538,16 +543,16 @@ def _device_put_impl(
 
   if isinstance(device, Format):
     l = device
-    dll = l.device_local_layout
-    x_dll = x.format.device_local_layout if hasattr(x, 'format') else None
+    dll = l.layout
+    x_dll = x.format.layout if hasattr(x, 'format') else None
     if dll is None and l.sharding is None:
       return _device_put_sharding_impl(x, aval, l.sharding, copy)
     if (not isinstance(l.sharding, Sharding) or
-        not isinstance(dll, (DeviceLocalLayout, type(None)))):
+        not isinstance(dll, (Layout, type(None)))):
       raise ValueError(
-          "sharding and device_local_layout in `Layout` instance should be"
+          "sharding and layout in `Layout` instance should be"
           f" concrete. Got layout: {l} for input {aval.str_short()}")
-    if (getattr(x, 'layout', None) == l and getattr(x, '_committed', False) and
+    if (getattr(x, 'format', None) == l and getattr(x, '_committed', False) and
         copy == CopySemantics.ALIAS):
       return x
     if x_dll is None and dll is None:

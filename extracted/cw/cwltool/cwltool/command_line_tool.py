@@ -16,7 +16,7 @@ from collections.abc import Generator, Mapping, MutableMapping, MutableSequence
 from enum import Enum
 from functools import cmp_to_key, partial
 from re import Pattern
-from typing import TYPE_CHECKING, Any, Optional, TextIO, Union, cast
+from typing import TYPE_CHECKING, Any, Iterable, Optional, TextIO, Union, cast
 
 from mypy_extensions import mypyc_attr
 from ruamel.yaml.comments import CommentedMap, CommentedSeq
@@ -276,7 +276,7 @@ def revmap_file(builder: Builder, outdir: str, f: CWLObjectType) -> Optional[CWL
             )
         revmap_f = builder.pathmapper.reversemap(path)
 
-        if revmap_f and not builder.pathmapper.mapper(revmap_f[0]).type.startswith("Writable"):
+        if revmap_f and not builder.pathmapper.mapper(revmap_f[0]).type.startswith("Writable"):  # type: ignore[union-attr]
             f["location"] = revmap_f[1]
         elif (
             uripath == outdir
@@ -431,28 +431,6 @@ class CommandLineTool(Process):
                 return SingularityCommandLineJob
             elif runtimeContext.user_space_docker_cmd:
                 return UDockerCommandLineJob
-            if mpiReq is not None:
-                if mpiRequired:
-                    if dockerRequired:
-                        raise UnsupportedRequirement(
-                            "No support for Docker and MPIRequirement both being required"
-                        )
-                    else:
-                        _logger.warning(
-                            "MPI has been required while Docker is hinted, discarding Docker hint(s)"
-                        )
-                        self.hints = [h for h in self.hints if h["class"] != "DockerRequirement"]
-                        return CommandLineJob
-                else:
-                    if dockerRequired:
-                        _logger.warning(
-                            "Docker has been required while MPI is hinted, discarding MPI hint(s)"
-                        )
-                        self.hints = [h for h in self.hints if h["class"] != MPIRequirementName]
-                    else:
-                        raise UnsupportedRequirement(
-                            "Both Docker and MPI have been hinted - don't know what to do"
-                        )
             if runtimeContext.podman:
                 return PodmanCommandLineJob
             return DockerCommandLineJob
@@ -492,7 +470,14 @@ class CommandLineTool(Process):
         for ls in cast(list[CWLObjectType], fn.get("listing", [])):
             self.updatePathmap(os.path.join(outdir, cast(str, fn["basename"])), pathmap, ls)
 
-    def _initialworkdir(self, j: JobBase, builder: Builder) -> None:
+    def _initialworkdir(self, j: Optional[JobBase], builder: Builder) -> None:
+        """
+        Test and initialize the working directory.
+
+        :param j: A :py:class:`~cwltool.job.CommandLineJob` or a
+                  specialized container-based job.
+                  If 'None', then only tests will be performed, no setup.
+        """
         initialWorkdir, _ = self.get_requirement("InitialWorkDirRequirement")
         if initialWorkdir is None:
             return
@@ -516,7 +501,7 @@ class CommandLineTool(Process):
             if not isinstance(ls_evaluated, MutableSequence):
                 fail = ls_evaluated
             else:
-                ls_evaluated2 = cast(MutableSequence[Union[None, CWLOutputType]], ls_evaluated)
+                ls_evaluated2 = ls_evaluated
                 for entry in ls_evaluated2:
                     if entry == None:  # noqa
                         if classic_dirent:
@@ -626,10 +611,16 @@ class CommandLineTool(Process):
                             continue
 
                     et: CWLObjectType = {}
+                    writable = t.get("writable", False)
+                    et["writable"] = writable
                     if isinstance(entry, Mapping) and entry.get("class") in (
                         "File",
                         "Directory",
                     ):
+                        if writable and "secondaryFiles" in entry:
+                            secFiles = cast(MutableSequence[CWLObjectType], entry["secondaryFiles"])
+                            for sf in secFiles:
+                                sf["writable"] = writable
                         et["entry"] = cast(CWLOutputType, entry)
                     else:
                         if isinstance(entry, str):
@@ -665,7 +656,6 @@ class CommandLineTool(Process):
                             et["entryname"] = entryname_field
                     else:
                         et["entryname"] = None
-                    et["writable"] = t.get("writable", False)
                     ls.append(et)
                 else:
                     # Expression, must return a Dirent, File, Directory
@@ -715,13 +705,14 @@ class CommandLineTool(Process):
                 )
 
             if t2.get("entryname") or t2.get("writable"):
-                t2 = copy.deepcopy(t2)
-                t2entry = cast(CWLObjectType, t2["entry"])
+                t2copy = copy.deepcopy(t2)
+                t2entry = cast(CWLObjectType, t2copy["entry"])
                 if t2.get("entryname"):
-                    t2entry["basename"] = t2["entryname"]
-                t2entry["writable"] = t2.get("writable")
+                    t2entry["basename"] = t2copy["entryname"]
+                t2entry["writable"] = t2copy.get("writable")
+                t2["entry"] = t2entry
 
-            ls[i] = cast(CWLObjectType, t2["entry"])
+            ls[i] = t2["entry"]
 
         for i, t3 in enumerate(ls):
             if t3.get("class") not in ("File", "Directory"):
@@ -760,19 +751,29 @@ class CommandLineTool(Process):
                         "is in 'requirements'."
                     )
 
+        if j is None:
+            return  # Only testing
+
         with SourceLine(initialWorkdir, "listing", WorkflowException, debug):
             j.generatefiles["listing"] = ls
             for entry in ls:
                 if "basename" in entry:
                     basename = cast(str, entry["basename"])
-                    entry["dirname"] = os.path.join(builder.outdir, os.path.dirname(basename))
+                    dirname = os.path.join(builder.outdir, os.path.dirname(basename))
+                    entry["dirname"] = dirname
                     entry["basename"] = os.path.basename(basename)
+                    if "secondaryFiles" in entry:
+                        for sec_file in cast(
+                            MutableSequence[CWLObjectType], entry["secondaryFiles"]
+                        ):
+                            sec_file["dirname"] = dirname
                 normalizeFilesDirs(entry)
                 self.updatePathmap(
                     cast(Optional[str], entry.get("dirname")) or builder.outdir,
                     cast(PathMapper, builder.pathmapper),
                     entry,
                 )
+
                 if "listing" in entry:
 
                     def remove_dirname(d: CWLObjectType) -> None:
@@ -824,6 +825,7 @@ class CommandLineTool(Process):
                 _check_adjust,
             )
             visit_class([cachebuilder.files, cachebuilder.bindings], ("File"), _checksum)
+            self._initialworkdir(None, cachebuilder)  # test the initial working directory
 
             cmdline = flatten(list(map(cachebuilder.generate_arg, cachebuilder.bindings)))
             docker_req, _ = self.get_requirement("DockerRequirement")
@@ -858,8 +860,7 @@ class CommandLineTool(Process):
                 return None
 
             def remove_prefix(s: str, prefix: str) -> str:
-                # replace with str.removeprefix when Python 3.9+
-                return s[len(prefix) :] if s.startswith(prefix) else s
+                return s.removeprefix(prefix)
 
             for location, fobj in cachebuilder.pathmapper.items():
                 if fobj.type == "File":
@@ -887,6 +888,14 @@ class CommandLineTool(Process):
                     if cls in interesting and cls not in keydict:
                         keydict[cls] = r
 
+            # If there are environmental variables to preserve, add it to the key
+            env_var_requirement = cast(dict[str, str], keydict.get("EnvVarRequirement", {}))
+            env_def = self.get_requirement("EnvVarRequirement")[0] or {}
+            if runtimeContext.preserve_environment is not None:
+                env_def.update(JobBase.extract_environment(runtimeContext, env_var_requirement))
+
+            if env_def:
+                keydict["EnvVarRequirement"] = env_def
             keydictstr = json_dumps(keydict, separators=(",", ":"), sort_keys=True)
             cachekey = hashlib.md5(keydictstr.encode("utf-8")).hexdigest()  # nosec
 
@@ -1320,29 +1329,32 @@ class CommandLineTool(Process):
                                 key=cmp_to_key(locale.strcoll),
                             )
                             r.extend(
-                                [
-                                    {
-                                        "location": g,
-                                        "path": fs_access.join(
-                                            builder.outdir,
-                                            urllib.parse.unquote(g[len(prefix[0]) + 1 :]),
-                                        ),
-                                        "basename": decoded_basename,
-                                        "nameroot": os.path.splitext(decoded_basename)[0],
-                                        "nameext": os.path.splitext(decoded_basename)[1],
-                                        "class": "File" if fs_access.isfile(g) else "Directory",
-                                    }
-                                    for g, decoded_basename in zip(
-                                        sorted_glob_result,
-                                        map(
-                                            lambda x: os.path.basename(urllib.parse.unquote(x)),
+                                cast(
+                                    Iterable[CWLOutputType],
+                                    [
+                                        {
+                                            "location": g,
+                                            "path": fs_access.join(
+                                                builder.outdir,
+                                                urllib.parse.unquote(g[len(prefix[0]) + 1 :]),
+                                            ),
+                                            "basename": decoded_basename,
+                                            "nameroot": os.path.splitext(decoded_basename)[0],
+                                            "nameext": os.path.splitext(decoded_basename)[1],
+                                            "class": "File" if fs_access.isfile(g) else "Directory",
+                                        }
+                                        for g, decoded_basename in zip(
                                             sorted_glob_result,
-                                        ),
-                                    )
-                                ]
+                                            map(
+                                                lambda x: os.path.basename(urllib.parse.unquote(x)),
+                                                sorted_glob_result,
+                                            ),
+                                        )
+                                    ],
+                                )
                             )
                         except OSError as e:
-                            _logger.warning(str(e))
+                            _logger.warning(str(e), exc_info=builder.debug)
                         except Exception:
                             _logger.error("Unexpected error from fs_access", exc_info=True)
                             raise
@@ -1400,7 +1412,7 @@ class CommandLineTool(Process):
                                 "Multiple matches for output item that is a single file."
                             )
                         else:
-                            result = cast(CWLOutputType, result[0])
+                            result = result[0]
 
             if "secondaryFiles" in schema:
                 with SourceLine(schema, "secondaryFiles", WorkflowException, debug):

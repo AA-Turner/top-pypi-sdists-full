@@ -1,6 +1,9 @@
 #![allow(clippy::expect_used, clippy::unwrap_used, clippy::panic)]
 
-use std::sync::Arc;
+use std::{
+    num::{NonZeroU16, NonZeroUsize},
+    sync::Arc,
+};
 
 use bytes::Bytes;
 use chrono::Utc;
@@ -124,6 +127,9 @@ pub async fn do_test_repo_chunks_storage(
         storage.as_ref(),
         &storage_settings,
         Arc::clone(&asset_manager),
+        NonZeroU16::new(5).unwrap(),
+        NonZeroUsize::MIN,
+        NonZeroU16::try_from(10).unwrap(),
     )
     .await
     .unwrap();
@@ -135,6 +141,9 @@ pub async fn do_test_repo_chunks_storage(
         storage.as_ref(),
         &storage_settings,
         Arc::clone(&asset_manager),
+        NonZeroU16::new(5).unwrap(),
+        NonZeroUsize::MAX,
+        NonZeroU16::try_from(10).unwrap(),
     )
     .await
     .unwrap();
@@ -158,6 +167,9 @@ pub async fn do_test_repo_chunks_storage(
         storage.as_ref(),
         &storage_settings,
         Arc::clone(&asset_manager),
+        NonZeroU16::new(5).unwrap(),
+        NonZeroUsize::MIN,
+        NonZeroU16::try_from(10).unwrap(),
     )
     .await
     .unwrap();
@@ -188,6 +200,9 @@ pub async fn do_test_repo_chunks_storage(
         storage.as_ref(),
         &storage_settings,
         Arc::clone(&asset_manager),
+        NonZeroU16::new(5).unwrap(),
+        NonZeroUsize::MAX,
+        NonZeroU16::try_from(10).unwrap(),
     )
     .await
     .unwrap();

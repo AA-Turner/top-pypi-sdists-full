@@ -2,6 +2,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from lightly.transforms.add_grid_transform import AddGridTransform
 from lightly.transforms.multi_view_transform_v2 import MultiViewTransformV2
+from lightly.transforms.torchvision_v2_compatibility import ToTensor
 from lightly.transforms.torchvision_v2_compatibility import torchvision_transforms as T
 from lightly.transforms.utils import IMAGENET_NORMALIZE
 
@@ -21,9 +22,9 @@ class DetConSTransform(MultiViewTransformV2):
 
     Applies the following augmentations by default:
         - RandomResizedCrop
-        - RandomRotation
         - RandomHorizontalFlip
         - RandomVerticalFlip
+        - RandomRotation
         - ColorJitter
         - RandomGrayscale
         - GaussianBlur (only for the first view)
@@ -194,15 +195,15 @@ class DetConSViewTransform:
 
         transform = [
             T.RandomResizedCrop(size=input_size, scale=(min_scale, 1.0)),
-            T.RandomApply([T.RandomRotation(rr_degrees)], p=rr_prob),
             T.RandomHorizontalFlip(p=hf_prob),
             T.RandomVerticalFlip(p=vf_prob),
+            T.RandomApply([T.RandomRotation(rr_degrees)], p=rr_prob),
             T.RandomApply([color_jitter], p=cj_prob),
             T.RandomGrayscale(p=random_gray_scale),
             T.RandomApply(
                 [T.GaussianBlur(kernel_size=kernel_size, sigma=sigmas)], p=gaussian_blur
             ),
-            T.ToTensor(),
+            ToTensor(),
         ]
         if normalize:
             transform += [T.Normalize(mean=normalize["mean"], std=normalize["std"])]

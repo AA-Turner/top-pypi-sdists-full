@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: django-guid
-Version: 3.5.1
+Version: 3.5.2
 Summary: Middleware that enables single request-response cycle tracing by injecting a unique ID into project logs
 License: MIT
 Keywords: asgi,async,async support,correlation,correlation-id,django,guid,log id,logging,logging id,middleware,request,request id,request-id,uuid,web,sentry,celery
@@ -36,6 +36,7 @@ Classifier: Topic :: Software Development :: Libraries :: Application Frameworks
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: django (>=4.0,<5.0) ; python_version >= "3.8" and python_version < "3.10"
 Requires-Dist: django (>=4.0,<6.0) ; python_version >= "3.10"
+Requires-Dist: packaging
 Project-URL: Documentation, https://django-guid.readthedocs.io/en/latest
 Project-URL: Homepage, https://github.com/snok/django-guid
 Project-URL: Repository, https://github.com/snok/django-guid

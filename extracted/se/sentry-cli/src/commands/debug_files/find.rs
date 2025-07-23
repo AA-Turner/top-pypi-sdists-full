@@ -4,7 +4,7 @@ use std::ffi::OsStr;
 use std::fmt::Debug;
 use std::io;
 use std::path::PathBuf;
-use std::str::FromStr;
+use std::str::FromStr as _;
 
 use anyhow::Result;
 use clap::{builder::PossibleValuesParser, Arg, ArgAction, ArgMatches, Command};
@@ -186,7 +186,7 @@ fn find_ids(
             eprintln!();
             eprintln!("missing debug information files:");
             for id in &remaining {
-                eprintln!("  {} ({})", id, id_hint(id),);
+                eprintln!("  {id} ({})", id_hint(id),);
             }
         }
     }

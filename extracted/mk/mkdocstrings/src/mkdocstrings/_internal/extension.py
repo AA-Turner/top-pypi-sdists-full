@@ -23,6 +23,8 @@
 from __future__ import annotations
 
 import re
+from functools import partial
+from inspect import signature
 from typing import TYPE_CHECKING, Any
 from warnings import warn
 from xml.etree.ElementTree import Element
@@ -197,8 +199,12 @@ class AutoDocProcessor(BlockProcessor):
             self._updated_envs.add(handler_name)
 
         _logger.debug("Rendering templates")
+        if "locale" in signature(handler.render).parameters:
+            render = partial(handler.render, locale=self._handlers._locale)
+        else:
+            render = handler.render  # type: ignore[assignment]
         try:
-            rendered = handler.render(data, options)
+            rendered = render(data, options)
         except TemplateNotFound as exc:
             _logger.error(  # noqa: TRY400
                 "Template '%s' not found for '%s' handler and theme '%s'.",
@@ -245,6 +251,15 @@ class AutoDocProcessor(BlockProcessor):
 
         for heading in headings:
             rendered_id = heading.attrib["id"]
+
+            skip_inventory = "data-skip-inventory" in heading.attrib
+            if skip_inventory:
+                _logger.debug(
+                    "Skipping heading with id %r because data-skip-inventory is present",
+                    rendered_id,
+                )
+                continue
+
             # The title is registered to be used as tooltip by autorefs.
             self._autorefs.register_anchor(page, rendered_id, title=heading.text, primary=True)
 

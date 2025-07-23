@@ -8,13 +8,13 @@ build-backend = "pdm.backend"
 authors = []
 requires-python = ">=3.9"
 dependencies = [
-    "langchain-core>=0.3.60",
+    "langchain-core>=0.3.70",
     "numpy>=1.26.0; python_version < '3.13'",
     "numpy>=2.1.0; python_version >= '3.13'",
     "chromadb>=1.0.9",
 ]
 name = "langchain-chroma"
-version = "0.2.4"
+version = "0.2.5"
 description = "An integration package connecting Chroma and LangChain."
 readme = "README.md"
 
@@ -45,7 +45,7 @@ codespell = [
 ]
 test_integration = []
 lint = [
-    "ruff<1.0,>=0.5",
+    "ruff<0.13,>=0.12.2",
     "onnxruntime<1.20; python_version < \"3.10\"",
     "onnxruntime; python_version >= \"3.10\"",
 ]
@@ -54,7 +54,7 @@ dev = [
 ]
 typing = [
     "mypy<2.0,>=1.10",
-    "types-requests<3.0.0.0,>=2.31.0.20240406",
+    "types-requests>=2.31.0",
     "langchain-core",
 ]
 
@@ -74,15 +74,57 @@ target-version = "py39"
 
 [tool.ruff.lint]
 select = [
-    "E",
-    "F",
-    "I",
-    "T201",
+    "A",
+    "B",
+    "ASYNC",
+    "C4",
+    "COM",
     "D",
+    "DOC",
+    "E",
+    "EM",
+    "F",
+    "FA",
+    "FBT",
+    "FLY",
+    "I",
+    "ICN",
+    "INT",
+    "ISC",
+    "PGH",
+    "PIE",
+    "PERF",
+    "PYI",
+    "Q",
+    "RET",
+    "RSE",
+    "RUF",
+    "S",
+    "SLF",
+    "SLOT",
+    "SIM",
+    "T10",
+    "T20",
+    "TID",
     "UP",
+    "W",
+    "YTT",
 ]
 ignore = [
+    "D100",
+    "D101",
+    "D102",
+    "D103",
+    "D104",
+    "D105",
+    "D107",
+    "D407",
     "UP007",
+    "UP045",
+    "COM812",
+]
+unfixable = [
+    "B028",
 ]
 
 [tool.ruff.lint.pydocstyle]
@@ -91,6 +133,13 @@ convention = "google"
 [tool.ruff.lint.per-file-ignores]
 "tests/**" = [
     "D",
+]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"tests/**/*.py" = [
+    "S101",
+    "S311",
+    "SLF001",
 ]
 
 [tool.coverage.run]

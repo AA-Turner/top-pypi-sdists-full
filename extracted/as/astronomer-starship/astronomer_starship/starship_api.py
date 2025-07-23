@@ -715,6 +715,177 @@ class StarshipApi(BaseView):
             ),
         )
 
+    # @auth.has_access([(permissions.ACTION_CAN_READ, permissions.RESOURCE_TASK_INSTANCE)])
+    @expose("/task_log", methods=["GET", "POST", "DELETE"])
+    @csrf.exempt
+    def task_logs(self):
+        """
+        **EXPERIMENTAL**
+
+        Get, set or delete task logs.
+
+        **Requirements:**
+
+        - Airflow 2.8+
+        - Astro hosted deployments or local astro dev environment
+
+        ---
+
+        ### `GET /api/starship/task_log`
+
+        **Parameters:** Args
+
+        | Field (*=Required)       | Version | Type               | Example                              |
+        |--------------------------|---------|--------------------|--------------------------------------|
+        | dag_id*                  |         | str                | dag_0                                |
+        | run_id*                  |         | str                | scheduled__2025-06-30T20:00:00+00:00 |
+        | task_id*                 |         | str                | task_0                               |
+        | map_index*               |         | int                | -1                                   |
+        | try_number*              |         | int                | 1                                    |
+        | block_size               |         | int                | 1048576                              |
+
+
+        **Response**:
+
+        ```txt
+        [2025-06-30T21:02:11.417+0000] ...
+
+        ... Task exited with return code 0
+        ```
+
+        ### `POST /api/starship/task_log`
+
+        **Parameters:** Args
+
+        | Field (*=Required)       | Version | Type               | Example                              |
+        |--------------------------|---------|--------------------|--------------------------------------|
+        | dag_id*                  |         | str                | dag_0                                |
+        | run_id*                  |         | str                | scheduled__2025-06-30T20:00:00+00:00 |
+        | task_id*                 |         | str                | task_0                               |
+        | map_index*               |         | int                | -1                                   |
+        | try_number*              |         | int                | 1                                    |
+        | block_size               |         | int                | 1048576                              |
+
+        **Request**:
+
+        ```txt
+        [2025-06-30T21:02:11.417+0000] ...
+
+        ... Task exited with return code 0
+        ```
+
+        **Response:** None
+
+        ### DELETE /api/starship/task_log
+
+        **Parameters:** Args
+
+        | Field (*=Required)       | Version | Type               | Example                              |
+        |--------------------------|---------|--------------------|--------------------------------------|
+        | dag_id*                  |         | str                | dag_0                                |
+        | run_id*                  |         | str                | scheduled__2025-06-30T20:00:00+00:00 |
+        | task_id*                 |         | str                | task_0                               |
+        | map_index*               |         | int                | -1                                   |
+        | try_number*              |         | int                | 1                                    |
+
+        **Response:** None
+        """
+        return starship_route(
+            get=starship_compat.get_task_log,
+            post=starship_compat.set_task_log,
+            delete=starship_compat.delete_task_log,
+            kwargs_fn=partial(get_kwargs_fn, attrs=starship_compat.task_log_attrs()),
+        )
+
+    # @auth.has_access([(permissions.ACTION_CAN_READ, permissions.RESOURCE_TASK_INSTANCE)])
+    @expose("/xcom", methods=["GET", "POST", "DELETE"])
+    @csrf.exempt
+    def xcom(self):
+        """
+        **EXPERIMENTAL**
+
+        Get, set or delete XComs.
+
+        **Requirements:**
+
+        - Airflow 2.8+
+
+        ---
+
+        ### `GET /api/starship/xcom`
+
+        **Parameters:** Args
+
+        | Field (*=Required)       | Version | Type               | Example                              |
+        |--------------------------|---------|--------------------|--------------------------------------|
+        | dag_id*                  |         | str                | dag_0                                |
+        | run_id*                  |         | str                | scheduled__2025-06-30T20:00:00+00:00 |
+        | task_id*                 |         | str                | task_0                               |
+        | map_index*               |         | int                | -1                                   |
+
+        **Response**:
+
+        ```json
+        [
+            {
+                "dag_id": "example_xcom",
+                "key": "example_str",
+                "map_index": -1,
+                "run_id": "scheduled__2025-07-17T00:00:00+00:00",
+                "task_id": "run",
+                "value": "bnVsbA=="
+            }
+        ]
+        ```
+
+        ### `POST /api/starship/task_log`
+
+        **Parameters:** JSON
+
+        | Field (*=Required)       | Version | Type               | Example                              |
+        |--------------------------|---------|--------------------|--------------------------------------|
+        | dag_id*                  |         | str                | dag_0                                |
+        | run_id*                  |         | str                | scheduled__2025-06-30T20:00:00+00:00 |
+        | task_id*                 |         | str                | task_0                               |
+        | map_index*               |         | int                | -1                                   |
+        | key*                     |         | str                | return_value                         |
+        | value*                   |         | str                | bnVsbA==                             |
+
+        **Request**:
+
+        ```json
+        {
+            "dag_id": "example_dag2",
+            "log": "[2025-06-30T21:02:11.417+0000] ... Task exited with return code 0\\n",
+            "map_index": "0",
+            "run_id": "scheduled__2025-06-30T20:00:00+00:00",
+            "task_id": "example_task",
+            "try_number": "1"
+        }
+        ```
+
+        **Response**: None
+
+        ### DELETE /api/starship/task_log
+
+        **Parameters:** Args
+
+        | Field (*=Required)       | Version | Type               | Example                              |
+        |--------------------------|---------|--------------------|--------------------------------------|
+        | dag_id*                  |         | str                | dag_0                                |
+        | run_id*                  |         | str                | scheduled__2025-06-30T20:00:00+00:00 |
+        | task_id*                 |         | str                | task_0                               |
+        | map_index*               |         | int                | -1                                   |
+
+        **Response:** None
+        """
+        return starship_route(
+            get=starship_compat.get_xcom,
+            post=starship_compat.set_xcom,
+            delete=starship_compat.delete_xcom,
+            kwargs_fn=partial(get_kwargs_fn, attrs=starship_compat.xcom_attrs()),
+        )
+
 
 starship_compat = StarshipCompatabilityLayer()
 

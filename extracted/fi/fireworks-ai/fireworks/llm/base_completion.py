@@ -159,7 +159,7 @@ class BaseCompletion(ABC):
         """DRY helper for retrying async functions with backoff and optional metrics."""
         retries = 0
         delay = DEFAULT_DELAY
-        while retries < self._llm.max_retries:
+        while retries <= self._llm.max_retries:
             try:
                 if metric:
                     start_time = time.time()

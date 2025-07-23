@@ -42,29 +42,58 @@ class ProjectService:
                 default environment is not found.
         """
         try:
-            blueprints = self.datazone_api.list_environment_blueprints(  # type: ignore
+            tooling_blueprints = self.datazone_api.list_environment_blueprints(  # type: ignore
                 domainIdentifier=domain_identifier,
                 managed=True,
                 name="Tooling",
                 provider="Amazon SageMaker",
             ).get("items", [])
-            if len(blueprints) == 0:
+
+            if len(tooling_blueprints) == 0:
                 raise ValueError("Tooling environment blueprint not found")
-            env_blueprint = blueprints[0]
-            environments = self.datazone_api.list_environments(  # type: ignore
+
+            tooling_env_blueprint = list(
+                filter(lambda blueprint: blueprint["name"] == "Tooling", tooling_blueprints)
+            )[0]
+
+            tooling_environments = self.datazone_api.list_environments(  # type: ignore
                 domainIdentifier=domain_identifier,
                 projectIdentifier=project_identifier,
-                environmentBlueprintIdentifier=env_blueprint.get("id"),
+                environmentBlueprintIdentifier=tooling_env_blueprint.get("id"),
             ).get("items", [])
+
+            default_environment = find_default_tooling_environment(tooling_environments)
+            if default_environment:
+                return default_environment
+
+            tooling_lite_blueprints = self.datazone_api.list_environment_blueprints(
+                domainIdentifier=domain_identifier,
+                managed=True,
+                name="ToolingLite",
+                provider="Amazon SageMaker",
+            ).get("items", [])
+
+            if len(tooling_lite_blueprints) == 0:
+                raise ValueError("ToolingLite environment blueprint not found")
+
+            tooling_lite_env_blueprint = tooling_lite_blueprints[0]
+
+            tooling_lite_environments = self.datazone_api.list_environments(  # type: ignore
+                domainIdentifier=domain_identifier,
+                projectIdentifier=project_identifier,
+                environmentBlueprintIdentifier=tooling_lite_env_blueprint.get("id"),
+            ).get("items", [])
+
+            default_environment = find_default_tooling_environment(tooling_lite_environments)
+            if not default_environment:
+                raise ValueError("ToolingLite environment not found")
+
         except ClientError as e:
             if e.response["Error"]["Code"] == "ValidationException":
                 raise ValueError(f"Invalid input parameters: {AWSClientException(e)}")
             else:
                 raise AWSClientException(e)
 
-        default_environment = find_default_tooling_environment(environments)
-        if not default_environment:
-            raise ValueError("Tooling environment not found")
         return default_environment
 
     def get_project_sagemaker_environment(

@@ -1,581 +1,216 @@
-Metadata-Version: 1.1
+Metadata-Version: 2.1
 Name: python-intercom
-Version: 3.1.0
-Summary: Intercom API wrapper
-Home-page: http://github.com/jkeyes/python-intercom
-Author: John Keyes
-Author-email: john@keyes.ie
-License: MIT License
-Description: python-intercom
-        ===============
-        
-        |PyPI Version| |PyPI Downloads| |Travis CI Build| |Coverage Status|
-        
-        Python bindings for the Intercom API (https://api.intercom.io).
-        
-        `API Documentation <https://developers.intercom.com/reference>`__.
-        
-        `Package
-        Documentation <http://readthedocs.org/docs/python-intercom/>`__.
-        
-        Upgrading information
-        ---------------------
-        
-        Version 3 of python-intercom is **not backwards compatible** with
-        previous versions.
-        
-        Version 3 moves away from a global setup approach to the use of an
-        Intercom Client.
-        
-        Installation
-        ------------
-        
-        ::
-        
-            pip install python-intercom
-        
-        Basic Usage
-        -----------
-        
-        Configure your client
-        ~~~~~~~~~~~~~~~~~~~~~
-        
-        .. code:: python
-        
-            from intercom.client import Client
-            intercom = Client(personal_access_token='my_personal_access_token')
-        
-        Note that certain resources will require an extended scope access token : `Setting up Personal Access Tokens <https://developers.intercom.com/docs/personal-access-tokens>`_
-        
-        Resources
-        ~~~~~~~~~
-        
-        Resources this API supports:
-        
-        ::
-        
-            https://api.intercom.io/users
-            https://api.intercom.io/contacts
-            https://api.intercom.io/companies
-            https://api.intercom.io/counts
-            https://api.intercom.io/tags
-            https://api.intercom.io/notes
-            https://api.intercom.io/segments
-            https://api.intercom.io/events
-            https://api.intercom.io/conversations
-            https://api.intercom.io/messages
-            https://api.intercom.io/subscriptions
-            https://api.intercom.io/jobs
-            https://api.intercom.io/bulk
-        
-        Examples
-        ~~~~~~~~
-        
-        Users
-        ^^^^^
-        
-        .. code:: python
-        
-            # Find user by email
-            user = intercom.users.find(email="bob@example.com")
-            # Find user by user_id
-            user = intercom.users.find(user_id="1")
-            # Find user by id
-            user = intercom.users.find(id="1")
-            # Create a user
-            user = intercom.users.create(email="bob@example.com", name="Bob Smith")
-            # Delete a user
-            user = intercom.users.find(id="1")
-            deleted_user = intercom.users.delete(user)
-            # Update custom_attributes for a user
-            user.custom_attributes["average_monthly_spend"] = 1234.56
-            intercom.users.save(user)
-            # Perform incrementing
-            user.increment('karma')
-            intercom.users.save(user)
-            # Iterate over all users
-            for user in intercom.users.all():
-                ...
-        
-            # Bulk operations.
-            # Submit bulk job, to create users, if any of the items in create_items match an existing user that user will be updated
-            intercom.users.submit_bulk_job(create_items=[{'user_id': 25, 'email': 'alice@example.com'}, {'user_id': 25, 'email': 'bob@example.com'}])
-            # Submit bulk job, to delete users
-            intercom.users.submit_bulk_job(delete_items=[{'user_id': 25, 'email': 'alice@example.com'}, {'user_id': 25, 'email': 'bob@example.com'}])
-            # Submit bulk job, to add items to existing job
-            intercom.users.submit_bulk_job(create_items=[{'user_id': 25, 'email': 'alice@example.com'}], delete_items=[{'user_id': 25, 'email': 'bob@example.com'}], 'job_id': 'job_abcd1234')
-        
-        Admins
-        ^^^^^^
-        
-        .. code:: python
-        
-            # Iterate over all admins
-            for admin in intercom.admins.all():
-                ...
-        
-        Companies
-        ^^^^^^^^^
-        
-        .. code:: python
-        
-            # Add a user to one or more companies
-            user = intercom.users.find(email='bob@example.com')
-            user.companies = [
-                {'company_id': 6, 'name': 'Intercom'},
-                {'company_id': 9, 'name': 'Test Company'}
-            ]
-            intercom.users.save(user)
-            # You can also pass custom attributes within a company as you do this
-            user.companies = [
-                {
-                    'id': 6,
-                    'name': 'Intercom',
-                    'custom_attributes': {
-                        'referral_source': 'Google'
-                    }
-                }
-            ]
-            intercom.users.save(user)
-            # Find a company by company_id
-            company = intercom.companies.find(company_id='44')
-            # Find a company by name
-            company = intercom.companies.find(name='Some company')
-            # Find a company by id
-            company = intercom.companies.find(id='41e66f0313708347cb0000d0')
-            # Update a company
-            company.name = 'Updated company name'
-            intercom.companies.save(company)
-            # Iterate over all companies
-            for company in intercom.companies.all():
-                ...
-            # Get a list of users in a company
-            intercom.companies.users(company.id)
-        
-        Tags
-        ^^^^
-        
-        .. code:: python
-        
-            # Tag users
-            tag = intercom.tags.tag_users(name='blue', users=[{'email': 'test1@example.com'}])
-            # Untag users
-            intercom.tags.untag_users(name='blue', users=[{'user_id': '42ea2f1b93891f6a99000427'}])
-            # Iterate over all tags
-            for tag in intercom.tags.all():
-                ...
-            # Tag companies
-            tag = intercom.tags.tag(name='blue', companies=[{'id': '42ea2f1b93891f6a99000427'}])
-        
-        Segments
-        ^^^^^^^^
-        
-        .. code:: python
-        
-            # Find a segment
-            segment = intercom.segments.find(id=segment_id)
-            # Iterate over all segments
-            for segment in intercom.segments.all():
-                ...
-        
-        Notes
-        ^^^^^
-        
-        .. code:: python
-        
-            # Find a note by id
-            note = intercom.notes.find(id=note)
-            # Create a note for a user
-            note = intercom.notes.create(
-                body="<p>Text for the note</p>",
-                email='joe@example.com')
-            # Iterate over all notes for a user via their email address
-            for note in intercom.notes.find_all(email='joe@example.com'):
-                ...
-            # Iterate over all notes for a user via their user_id
-            for note in intercom.notes.find_all(user_id='123'):
-                ...
-        
-        Conversations
-        ^^^^^^^^^^^^^
-        
-        .. code:: python
-        
-            # FINDING CONVERSATIONS FOR AN ADMIN
-            # Iterate over all conversations (open and closed) assigned to an admin
-            for convo in intercom.conversations.find_all(type='admin', id='7'):
-                ...
-            # Iterate over all open conversations assigned to an admin
-            for convo in intercom.conversations.find_all(type='admin', id=7, open=True):
-                ...
-            # Iterate over closed conversations assigned to an admin
-            for convo intercom.conversations.find_all(type='admin', id=7, open=False):
-                ...
-            # Iterate over closed conversations for assigned an admin, before a certain
-            # moment in time
-            for convo in intercom.conversations.find_all(
-                    type='admin', id= 7, open= False, before=1374844930):
-                ...
-        
-            # FINDING CONVERSATIONS FOR A USER
-            # Iterate over all conversations (read + unread, correct) with a user based on
-            # the users email
-            for convo in intercom.onversations.find_all(email='joe@example.com',type='user'):
-                ...
-            # Iterate over through all conversations (read + unread) with a user based on
-            # the users email
-            for convo in intercom.conversations.find_all(
-                    email='joe@example.com', type='user', unread=False):
-                ...
-            # Iterate over all unread conversations with a user based on the users email
-            for convo in intercom.conversations.find_all(
-                    email='joe@example.com', type='user', unread=true):
-                ...
-        
-            # FINDING A SINGLE CONVERSATION
-            conversation = intercom.conversations.find(id='1')
-        
-            # INTERACTING WITH THE PARTS OF A CONVERSATION
-            # Getting the subject of a part (only applies to email-based conversations)
-            conversation.rendered_message.subject
-            # Get the part_type of the first part
-            conversation.conversation_parts[0].part_type
-            # Get the body of the second part
-            conversation.conversation_parts[1].body
-        
-            # REPLYING TO CONVERSATIONS
-            # User (identified by email) replies with a comment
-            intercom.conversations.reply(
-                type='user', email='joe@example.com',
-                message_type='comment', body='foo')
-            # Admin (identified by email) replies with a comment
-            intercom.conversations.reply(
-                type='admin', email='bob@example.com',
-                message_type='comment', body='bar')
-            # User (identified by email) replies with a comment and attachment
-            intercom.conversations.reply(id=conversation.id, type='user', email='joe@example.com', message_type='comment', body='foo', attachment_urls=['http://www.example.com/attachment.jpg'])
-        
-            # Open
-            intercom.conversations.open(id=conversation.id, admin_id='123')
-        
-            # Close
-            intercom.conversations.close(id=conversation.id, admin_id='123')
-        
-            # Assign
-            intercom.conversations.assign(id=conversation.id, admin_id='123', assignee_id='124')
-        
-            # Reply and Open
-            intercom.conversations.reply(id=conversation.id, type='admin', admin_id='123', message_type='open', body='bar')
-        
-            # Reply and Close
-            intercom.conversations.reply(id=conversation.id, type='admin', admin_id='123', message_type='close', body='bar')
-        
-            # ASSIGNING CONVERSATIONS TO ADMINS
-            intercom.conversations.reply(id=conversation.id, type='admin', assignee_id=assignee_admin.id, admin_id=admin.id, message_type='assignment')
-        
-            # MARKING A CONVERSATION AS READ
-            intercom.conversations.mark_read(conversation.id)
-        
-        Full loading of an embedded entity
-        ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
-        
-        .. code:: python
-        
-            # Given a conversation with a partial user, load the full user. This can be
-            # done for any entity
-            intercom.users.load(conversation.user)
-        
-        Sending messages
-        ^^^^^^^^^^^^^^^^
-        
-        .. code:: python
-        
-            # InApp message from admin to user
-            intercom.messages.create(**{
-                "message_type": "inapp",
-                "body": "What's up :)",
-                "from": {
-                    "type": "admin",
-                    "id": "1234"
-                },
-                "to": {
-                    "type": "user",
-                    "id": "5678"
-                }
-            })
-        
-            # Email message from admin to user
-            intercom.messages.create(**{
-                "message_type": "email",
-                "subject": "Hey there",
-                "body": "What's up :)",
-                "template": "plain", # or "personal",
-                "from": {
-                    "type": "admin",
-                    "id": "1234"
-                },
-                "to": {
-                    "type": "user",
-                    "id": "536e564f316c83104c000020"
-                }
-            })
-        
-            # Message from a user
-            intercom.messages.create(**{
-                "from": {
-                    "type": "user",
-                    "id": "536e564f316c83104c000020"
-                },
-                "body": "halp"
-            })
-        
-            # Message from admin to contact
-            intercom.messages.create(**{
-                'body': 'How can I help :)',
-                'from': {
-                    'type': 'admin',
-                    'id': '1234'
-                },
-                'to': {
-                    'type': 'contact',
-                    'id': '536e5643as316c83104c400671'
-                }
-            })
-        
-            # Message from a contact
-            intercom.messages.create(**{
-                'from' => {
-                    'type': 'contact',
-                    'id': '536e5643as316c83104c400671'
-                },
-                'body': 'halp'
-            })
-        
-        Events
-        ^^^^^^
-        
-        .. code:: python
-        
-            intercom.events.create(
-                event_name='invited-friend',
-                created_at=time.mktime(),
-                email=user.email,
-                metadata={
-                    'invitee_email': 'pi@example.org',
-                    'invite_code': 'ADDAFRIEND',
-                    'found_date': 12909364407
-                }
-            )
-        
-            # Retrieve event list for user with id:'123abc'
-            intercom.events.find_all(type='user', "intercom_user_id"="123abc)
-        
-        Metadata Objects support a few simple types that Intercom can present on
-        your behalf
-        
-        .. code:: python
-        
-            intercom.events.create(
-                event_name="placed-order",
-                email=current_user.email,
-                created_at=1403001013
-                metadata={
-                    'order_date': time.mktime(),
-                    'stripe_invoice': 'inv_3434343434',
-                    'order_number': {
-                        'value': '3434-3434',
-                        'url': 'https://example.org/orders/3434-3434'
-                    },
-                    'price': {
-                        'currency': 'usd',
-                        'amount': 2999
-                    }
-                }
-            )
-        
-        The metadata key values in the example are treated as follows-
-        
-        -  order\_date: a Date (key ends with '\_date').
-        -  stripe\_invoice: The identifier of the Stripe invoice (has a
-           'stripe\_invoice' key)
-        -  order\_number: a Rich Link (value contains 'url' and 'value' keys)
-        -  price: An Amount in US Dollars (value contains 'amount' and
-           'currency' keys)
-        
-        Bulk operations.
-        
-        .. code:: python
-        
-            # Submit bulk job, to create events
-            intercom.events.submit_bulk_job(create_items: [
-                {
-                    'event_name': 'ordered-item',
-                    'created_at': 1438944980,
-                    'user_id': '314159',
-                    'metadata': {
-                        'order_date': 1438944980,
-                        'stripe_invoice': 'inv_3434343434'
-                    }
-                },
-                {
-                    'event_name': 'invited-friend',
-                    'created_at': 1438944979,
-                    'user_id': '314159',
-                    'metadata': {
-                        'invitee_email': 'pi@example.org',
-                        'invite_code': 'ADDAFRIEND'
-                    }
-                }
-            ])
-        
-            # Submit bulk job, to add items to existing job
-            intercom.events.submit_bulk_job(create_items=[
-                {
-                    'event_name': 'ordered-item',
-                    'created_at': 1438944980,
-                    'user_id': '314159',
-                    'metadata': {
-                        'order_date': 1438944980,
-                        'stripe_invoice': 'inv_3434343434'
-                    }
-                },
-                {
-                    'event_name': 'invited-friend',
-                    'created_at': 1438944979,
-                    'user_id': "314159",
-                    'metadata': {
-                        'invitee_email': 'pi@example.org',
-                        'invite_code': 'ADDAFRIEND'
-                    }
-                }
-                ], job_id='job_abcd1234')
-        
-        Contacts
-        ^^^^^^^^
-        
-        Contacts represent logged out users of your application.
-        
-        .. code:: python
-        
-            # Create a contact
-            contact = intercom.contacts.create(email="some_contact@example.com")
-        
-            # Update a contact
-            contact.custom_attributes['foo'] = 'bar'
-            intercom.contacts.save(contact)
-        
-            # Find contacts by email
-            contacts = intercom.contacts.find_all(email="some_contact@example.com")
-        
-            # Convert a contact into a user
-            intercom.contacts.convert(contact, user)
-        
-            # Delete a contact
-            intercom.contacts.delete(contact)
-        
-        Counts
-        ^^^^^^
-        
-        .. code:: python
-        
-            # App-wide counts
-            intercom.counts.for_app()
-        
-            # Users in segment counts
-            intercom.counts.for_type(type='user', count='segment')
-        
-        Subscriptions
-        ~~~~~~~~~~~~~
-        
-        Subscribe to events in Intercom to receive webhooks.
-        
-        .. code:: python
-        
-            # create a subscription
-            intercom.subscriptions.create(url='http://example.com', topics=['user.created'])
-        
-            # fetch a subscription
-            intercom.subscriptions.find(id='nsub_123456789')
-        
-            # list subscriptions
-            intercom.subscriptions.all():
-                ...
-        
-        Bulk jobs
-        ^^^^^^^^^
-        
-        .. code:: python
-        
-            # fetch a job
-            intercom.jobs.find(id='job_abcd1234')
-        
-            # fetch a job's error feed
-            intercom.jobs.errors(id='job_abcd1234')
-        
-        Errors
-        ~~~~~~
-        
-        You do not need to deal with the HTTP response from an API call
-        directly. If there is an unsuccessful response then an error that is a
-        subclass of ``intercom.Error`` will be raised. If desired, you can get
-        at the http\_code of an ``Error`` via it's ``http_code`` method.
-        
-        The list of different error subclasses are listed below. As they all
-        inherit off ``IntercomError`` you can choose to except ``IntercomError``
-        or the more specific error subclass:
-        
-        .. code:: python
-        
-            AuthenticationError
-            ServerError
-            ServiceUnavailableError
-            ServiceConnectionError
-            ResourceNotFound
-            BadGatewayError
-            BadRequestError
-            RateLimitExceeded
-            MultipleMatchingUsersError
-            HttpError
-            UnexpectedError
-        
-        Rate Limiting
-        ~~~~~~~~~~~~~
-        
-        Calling your clients ``rate_limit_details`` returns a dict that contains
-        details about your app's current rate limit.
-        
-        .. code:: python
-        
-            intercom.rate_limit_details
-            # {'limit': 180, 'remaining': 179, 'reset_at': datetime.datetime(2014, 10, 07, 14, 58)}
-        
-        Running the Tests
-        -----------------
-        
-        Unit tests:
-        
-        .. code:: bash
-        
-            nosetests tests/unit
-        
-        Integration tests:
-        
-        .. code:: bash
-        
-            INTERCOM_PERSONAL_ACCESS_TOKEN=xxx nosetests tests/integration
-        
-        .. |PyPI Version| image:: https://img.shields.io/pypi/v/python-intercom.svg
-           :target: https://pypi.python.org/pypi/python-intercom
-        .. |PyPI Downloads| image:: https://img.shields.io/pypi/dm/python-intercom.svg
-           :target: https://pypi.python.org/pypi/python-intercom
-        .. |Travis CI Build| image:: https://travis-ci.org/jkeyes/python-intercom.svg
-           :target: https://travis-ci.org/jkeyes/python-intercom
-        .. |Coverage Status| image:: https://coveralls.io/repos/github/jkeyes/python-intercom/badge.svg?branch=master
-           :target: https://coveralls.io/github/jkeyes/python-intercom?branch=master
-        
-Keywords: Intercom crm python
-Platform: UNKNOWN
-Classifier: Programming Language :: Python :: 2
-Classifier: Programming Language :: Python :: 2.7
+Version: 4.0.0
+Summary: 
+Requires-Python: >=3.8,<4.0
+Classifier: Intended Audience :: Developers
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: OS Independent
+Classifier: Operating System :: POSIX
+Classifier: Operating System :: POSIX :: Linux
+Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.4
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Topic :: Software Development :: Libraries :: Python Modules
+Classifier: Typing :: Typed
+Requires-Dist: httpx (>=0.21.2)
+Requires-Dist: pydantic (>=1.9.2)
+Requires-Dist: pydantic-core (>=2.18.2,<3.0.0)
+Requires-Dist: typing_extensions (>=4.0.0)
+Description-Content-Type: text/markdown
+
+# Intercom Python Library
+
+[![fern shield](https://img.shields.io/badge/%F0%9F%8C%BF-Built%20with%20Fern-brightgreen)](https://buildwithfern.com?utm_source=github&utm_medium=github&utm_campaign=readme&utm_source=https%3A%2F%2Fgithub.com%2Fintercom%2Fpython-intercom)
+[![pypi](https://img.shields.io/pypi/v/python-intercom)](https://pypi.python.org/pypi/python-intercom)
+
+The Intercom Python library provides convenient access to the Intercom API from Python.
+
+## Installation
+
+```sh
+pip install python-intercom
+```
+
+## Reference
+
+A full reference for this library is available [here](https://github.com/intercom/python-intercom/blob/HEAD/./reference.md).
+
+## Usage
+
+Instantiate and use the client with the following:
+
+```python
+from intercom import Intercom
+
+client = Intercom(
+    token="YOUR_TOKEN",
+)
+client.articles.create(
+    title="Thanks for everything",
+    description="Description of the Article",
+    body="Body of the Article",
+    author_id=1295,
+    state="published",
+)
+```
+
+## Async Client
+
+The SDK also exports an `async` client so that you can make non-blocking calls to our API.
+
+```python
+import asyncio
+
+from intercom import AsyncIntercom
+
+client = AsyncIntercom(
+    token="YOUR_TOKEN",
+)
+
+
+async def main() -> None:
+    await client.articles.create(
+        title="Thanks for everything",
+        description="Description of the Article",
+        body="Body of the Article",
+        author_id=1295,
+        state="published",
+    )
+
+
+asyncio.run(main())
+```
+
+## Exception Handling
+
+When the API returns a non-success status code (4xx or 5xx response), a subclass of the following error
+will be thrown.
+
+```python
+from intercom.core.api_error import ApiError
+
+try:
+    client.articles.create(...)
+except ApiError as e:
+    print(e.status_code)
+    print(e.body)
+```
+
+## Pagination
+
+Paginated requests will return a `SyncPager` or `AsyncPager`, which can be used as generators for the underlying object.
+
+```python
+from intercom import Intercom
+
+client = Intercom(
+    token="YOUR_TOKEN",
+)
+response = client.articles.list()
+for item in response:
+    yield item
+# alternatively, you can paginate page-by-page
+for page in response.iter_pages():
+    yield page
+```
+
+## Advanced
+
+### Access Raw Response Data
+
+The SDK provides access to raw response data, including headers, through the `.with_raw_response` property.
+The `.with_raw_response` property returns a "raw" client that can be used to access the `.headers` and `.data` attributes.
+
+```python
+from intercom import Intercom
+
+client = Intercom(
+    ...,
+)
+response = client.articles.with_raw_response.create(...)
+print(response.headers)  # access the response headers
+print(response.data)  # access the underlying object
+pager = client.articles.list(...)
+print(pager.response.headers)  # access the response headers for the first page
+for item in pager:
+    print(item)  # access the underlying object(s)
+for page in pager.iter_pages():
+    print(page.response.headers)  # access the response headers for each page
+    for item in page:
+        print(item)  # access the underlying object(s)
+```
+
+### Retries
+
+The SDK is instrumented with automatic retries with exponential backoff. A request will be retried as long
+as the request is deemed retryable and the number of retry attempts has not grown larger than the configured
+retry limit (default: 2).
+
+A request is deemed retryable when any of the following HTTP status codes is returned:
+
+- [408](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/408) (Timeout)
+- [429](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/429) (Too Many Requests)
+- [5XX](https://developer.mozilla.org/en-US/docs/Web/HTTP/Status/500) (Internal Server Errors)
+
+Use the `max_retries` request option to configure this behavior.
+
+```python
+client.articles.create(..., request_options={
+    "max_retries": 1
+})
+```
+
+### Timeouts
+
+The SDK defaults to a 60 second timeout. You can configure this with a timeout option at the client or request level.
+
+```python
+
+from intercom import Intercom
+
+client = Intercom(
+    ...,
+    timeout=20.0,
+)
+
+
+# Override timeout for a specific method
+client.articles.create(..., request_options={
+    "timeout_in_seconds": 1
+})
+```
+
+### Custom Client
+
+You can override the `httpx` client to customize it for your use-case. Some common use-cases include support for proxies
+and transports.
+
+```python
+import httpx
+from intercom import Intercom
+
+client = Intercom(
+    ...,
+    httpx_client=httpx.Client(
+        proxies="http://my.test.proxy.example.com",
+        transport=httpx.HTTPTransport(local_address="0.0.0.0"),
+    ),
+)
+```
+
+## Contributing
+
+While we value open-source contributions to this SDK, this library is generated programmatically.
+Additions made directly to this library would have to be moved over to our generation code,
+otherwise they would be overwritten upon the next generated release. Feel free to open a PR as
+a proof of concept, but know that we will not be able to merge it as-is. We suggest opening
+an issue first to discuss with us!
+
+On the other hand, contributions to the README are always very welcome!
+

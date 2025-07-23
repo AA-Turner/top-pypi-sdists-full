@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-google",
-    "version": "16.6.0",
+    "version": "16.7.0",
     "description": "Prebuilt google Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-google.git",
@@ -169,6 +169,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.bigtable_instance_iam_policy",
         "cdktf_cdktf_provider_google.bigtable_logical_view",
         "cdktf_cdktf_provider_google.bigtable_materialized_view",
+        "cdktf_cdktf_provider_google.bigtable_schema_bundle",
         "cdktf_cdktf_provider_google.bigtable_table",
         "cdktf_cdktf_provider_google.bigtable_table_iam_binding",
         "cdktf_cdktf_provider_google.bigtable_table_iam_member",
@@ -908,6 +909,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.dialogflow_cx_environment",
         "cdktf_cdktf_provider_google.dialogflow_cx_flow",
         "cdktf_cdktf_provider_google.dialogflow_cx_generative_settings",
+        "cdktf_cdktf_provider_google.dialogflow_cx_generator",
         "cdktf_cdktf_provider_google.dialogflow_cx_intent",
         "cdktf_cdktf_provider_google.dialogflow_cx_page",
         "cdktf_cdktf_provider_google.dialogflow_cx_security_settings",
@@ -1170,6 +1172,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.migration_center_group",
         "cdktf_cdktf_provider_google.migration_center_preference_set",
         "cdktf_cdktf_provider_google.ml_engine_model",
+        "cdktf_cdktf_provider_google.model_armor_floorsetting",
         "cdktf_cdktf_provider_google.model_armor_template",
         "cdktf_cdktf_provider_google.monitoring_alert_policy",
         "cdktf_cdktf_provider_google.monitoring_custom_service",
@@ -1442,6 +1445,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_google.vertex_ai_dataset",
         "cdktf_cdktf_provider_google.vertex_ai_deployment_resource_pool",
         "cdktf_cdktf_provider_google.vertex_ai_endpoint",
+        "cdktf_cdktf_provider_google.vertex_ai_endpoint_with_model_garden_deployment",
         "cdktf_cdktf_provider_google.vertex_ai_feature_group",
         "cdktf_cdktf_provider_google.vertex_ai_feature_group_feature",
         "cdktf_cdktf_provider_google.vertex_ai_feature_online_store",
@@ -1470,7 +1474,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_google._jsii": [
-            "provider-google@16.6.0.jsii.tgz"
+            "provider-google@16.7.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_google": [
             "py.typed"

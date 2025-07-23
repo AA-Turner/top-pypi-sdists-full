@@ -4992,10 +4992,23 @@ class Parser(metaclass=_Parser):
         return this
 
     def _parse_between(self, this: t.Optional[exp.Expression]) -> exp.Between:
+        symmetric = None
+        if self._match_text_seq("SYMMETRIC"):
+            symmetric = True
+        elif self._match_text_seq("ASYMMETRIC"):
+            symmetric = False
+
         low = self._parse_bitwise()
         self._match(TokenType.AND)
         high = self._parse_bitwise()
-        return self.expression(exp.Between, this=this, low=low, high=high)
+
+        return self.expression(
+            exp.Between,
+            this=this,
+            low=low,
+            high=high,
+            symmetric=symmetric,
+        )
 
     def _parse_escape(self, this: t.Optional[exp.Expression]) -> t.Optional[exp.Expression]:
         if not self._match(TokenType.ESCAPE):
@@ -6297,8 +6310,13 @@ class Parser(metaclass=_Parser):
         expressions = self._parse_wrapped_csv(
             self._parse_primary_key_part, optional=wrapped_optional
         )
-        options = self._parse_key_constraint_options()
-        return self.expression(exp.PrimaryKey, expressions=expressions, options=options)
+
+        return self.expression(
+            exp.PrimaryKey,
+            expressions=expressions,
+            include=self._parse_index_params(),
+            options=self._parse_key_constraint_options(),
+        )
 
     def _parse_bracket_key_value(self, is_map: bool = False) -> t.Optional[exp.Expression]:
         return self._parse_slice(self._parse_alias(self._parse_assignment(), explicit=True))
@@ -7312,10 +7330,7 @@ class Parser(metaclass=_Parser):
         self._match(TokenType.TABLE)
         return self.expression(exp.Refresh, this=self._parse_string() or self._parse_table())
 
-    def _parse_add_column(self) -> t.Optional[exp.ColumnDef]:
-        if not self._prev.text.upper() == "ADD":
-            return None
-
+    def _parse_column_def_with_exists(self):
         start = self._index
         self._match(TokenType.COLUMN)
 
@@ -7327,6 +7342,16 @@ class Parser(metaclass=_Parser):
             return None
 
         expression.set("exists", exists_column)
+
+        return expression
+
+    def _parse_add_column(self) -> t.Optional[exp.ColumnDef]:
+        if not self._prev.text.upper() == "ADD":
+            return None
+
+        expression = self._parse_column_def_with_exists()
+        if not expression:
+            return None
 
         # https://docs.databricks.com/delta/update-schema.html#explicitly-update-schema-to-add-columns
         if self._match_texts(("FIRST", "AFTER")):
@@ -7374,11 +7399,13 @@ class Parser(metaclass=_Parser):
             not self.dialect.ALTER_TABLE_ADD_REQUIRED_FOR_EACH_COLUMN
             or self._match_text_seq("COLUMNS")
         ):
-            self._match(TokenType.COLUMN)
-
             schema = self._parse_schema()
 
-            return ensure_list(schema) if schema else self._parse_csv(self._parse_field_def)
+            return (
+                ensure_list(schema)
+                if schema
+                else self._parse_csv(self._parse_column_def_with_exists)
+            )
 
         return self._parse_csv(_parse_add_alteration)
 
@@ -8599,3 +8626,24 @@ class Parser(metaclass=_Parser):
                 query = parser(self, query)
 
         return query
+
+    def _parse_declareitem(self) -> t.Optional[exp.DeclareItem]:
+        vars = self._parse_csv(self._parse_id_var)
+        if not vars:
+            return None
+
+        return self.expression(
+            exp.DeclareItem,
+            this=vars,
+            kind=self._parse_types(),
+            default=self._match(TokenType.DEFAULT) and self._parse_bitwise(),
+        )
+
+    def _parse_declare(self) -> exp.Declare | exp.Command:
+        start = self._prev
+        expressions = self._try_parse(lambda: self._parse_csv(self._parse_declareitem))
+
+        if not expressions or self._curr:
+            return self._parse_as_command(start)
+
+        return self.expression(exp.Declare, expressions=expressions)

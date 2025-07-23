@@ -107,14 +107,14 @@ export function model_getter(target, name) {
         };
     }
     else if (name === "on") {
-        return (prop, callback) => {
+        return (prop, callback, force = false) => {
             const props = isArray(prop) ? prop : [prop];
             for (let p of props) {
                 if (p.startsWith("change:")) {
                     p = p.slice("change:".length);
                 }
                 if (p in model.attributes || p.split(".")[0] in model.data.attributes) {
-                    model.watch(target, p, callback);
+                    model.watch(target, p, callback, force);
                     continue;
                 }
                 else if (p === "msg:custom") {
@@ -533,6 +533,7 @@ export class ReactiveESM extends HTMLBox {
     sucrase_transforms = ["typescript"];
     _destroyer = null;
     _esm_watchers = {};
+    _event_callbacks = new Map();
     constructor(attrs) {
         super(attrs);
     }
@@ -549,7 +550,7 @@ export class ReactiveESM extends HTMLBox {
         this.connect(this.properties.esm.change, () => this.recompile());
         this.connect(this.properties.importmap.change, () => this.recompile());
     }
-    watch(view, prop, cb) {
+    watch(view, prop, cb, force = false) {
         if (prop in this._esm_watchers) {
             this._esm_watchers[prop].push([view, cb]);
         }
@@ -571,6 +572,17 @@ export class ReactiveESM extends HTMLBox {
         }
         if (target && target.properties && propPath[propPath.length - 1] in target.properties) {
             resolvedProp = propPath[propPath.length - 1];
+        }
+        // Handle reset of param.Event properties
+        if (!force && target === this.data && resolvedProp && this.events.includes(resolvedProp)) {
+            const orig_cb = cb;
+            cb = () => {
+                if (resolvedProp && this.data[resolvedProp]) {
+                    orig_cb();
+                    this.data.setv({ [resolvedProp]: false });
+                }
+            };
+            this._event_callbacks.set(orig_cb, cb);
         }
         // Attach watcher if property is found
         if (resolvedProp && target) {
@@ -614,6 +626,10 @@ export class ReactiveESM extends HTMLBox {
         }
         if (target && target.properties && propPath[propPath.length - 1] in target.properties) {
             resolvedProp = propPath[propPath.length - 1];
+        }
+        if (this._event_callbacks.has(cb)) {
+            cb = this._event_callbacks.get(cb);
+            this._event_callbacks.delete(cb);
         }
         // Detach watcher if property is found
         if (resolvedProp && target) {
@@ -809,6 +825,7 @@ export default {render}`;
             data: [Any],
             dev: [Bool, false],
             esm: [Str, ""],
+            events: [Array(Str), []],
             importmap: [Any, {}],
         }));
     }

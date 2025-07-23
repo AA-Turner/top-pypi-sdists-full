@@ -14,8 +14,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 setup(
     name="matrice",
 
-
-    version = "1.0.98997",
+    version = "1.0.99014",
 
 
 

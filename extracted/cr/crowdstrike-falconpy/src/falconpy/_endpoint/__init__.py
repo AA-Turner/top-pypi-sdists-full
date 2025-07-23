@@ -72,7 +72,6 @@ from ._cspm_registration import _cspm_registration_endpoints
 from ._custom_ioa import _custom_ioa_endpoints
 from ._custom_storage import _custom_storage_endpoints
 from ._d4c_registration import _d4c_registration_endpoints
-from ._datascanner import _datascanner_endpoints
 from ._delivery_settings import _delivery_settings_endpoints
 from ._deployments import _deployments_endpoints
 from ._detects import _detects_endpoints
@@ -104,6 +103,7 @@ from ._intel import _intel_endpoints
 from ._ioa_exclusions import _ioa_exclusions_endpoints
 from ._ioc import _ioc_endpoints
 from ._iocs import _iocs_endpoints
+from ._it_automation import _it_automation_endpoints
 from ._kubernetes_container_compliance import _kubernetes_container_compliance_endpoints
 from ._kubernetes_protection import _kubernetes_protection_endpoints
 from ._malquery import _malquery_endpoints
@@ -167,7 +167,6 @@ api_endpoints.extend(_cspm_registration_endpoints)
 api_endpoints.extend(_custom_ioa_endpoints)
 api_endpoints.extend(_custom_storage_endpoints)
 api_endpoints.extend(_d4c_registration_endpoints)
-api_endpoints.extend(_datascanner_endpoints)
 api_endpoints.extend(_delivery_settings_endpoints)
 api_endpoints.extend(_detects_endpoints)
 api_endpoints.extend(_device_content_endpoints)
@@ -199,6 +198,7 @@ api_endpoints.extend(_intel_endpoints)
 api_endpoints.extend(_ioa_exclusions_endpoints)
 api_endpoints.extend(_ioc_endpoints)
 api_endpoints.extend(_iocs_endpoints)
+api_endpoints.extend(_it_automation_endpoints)
 api_endpoints.extend(_kubernetes_container_compliance_endpoints)
 api_endpoints.extend(_kubernetes_protection_endpoints)
 api_endpoints.extend(_malquery_endpoints)

@@ -69,6 +69,7 @@ from .usecases.color_detection import ColorDetectionConfig
 from .usecases.fire_detection import FireSmokeUseCase, FireSmokeConfig
 from .usecases.license_plate_detection import LicensePlateConfig
 from .usecases.pothole_segmentation import PotholeConfig
+from .usecases.wound_segmentation import WoundConfig, WoundSegmentationUseCase
 from .usecases.face_emotion import FaceEmotionConfig
 from .usecases.parking_space_detection import ParkingSpaceConfig
 from .usecases.underwater_pollution_detection import UnderwaterPlasticConfig
@@ -76,6 +77,8 @@ from .usecases.pedestrian_detection import PedestrianDetectionConfig
 from .usecases.age_detection import AgeDetectionConfig
 from .usecases.mask_detection import MaskDetectionConfig
 from .usecases.chicken_pose_detection import ChickenPoseDetectionConfig
+from .usecases.field_mapping import FieldMappingConfig, FieldMappingUseCase
+from .usecases.leaf_disease import LeafDiseaseDetectionConfig, LeafDiseaseDetectionUseCase
 
 
 from .usecases.weld_defect_detection import WeldDefectConfig
@@ -105,6 +108,8 @@ from .usecases.shoplifting_detection import ShopliftingDetectionConfig, Shoplift
 from .usecases.defect_detection_products import BottleDefectUseCase, BottleDefectConfig
 from .usecases.assembly_line_detection import AssemblyLineUseCase, AssemblyLineConfig
 from .usecases.car_part_segmentation import CarPartSegmentationUseCase, CarPartSegmentationConfig
+from .usecases.windmill_maintenance import WindmillMaintenanceUseCase, WindmillMaintenanceConfig
+from .usecases.flower_segmentation import FlowerUseCase, FlowerConfig
 
 # Use case implementations
 from .usecases import (
@@ -125,6 +130,7 @@ from .usecases import (
     FaceEmotionUseCase,
     UnderwaterPlasticUseCase,
     PedestrianDetectionUseCase,
+    WoundSegmentationUseCase,
     AgeDetectionUseCase,
     BananaMonitoringUseCase,
     WeldDefectUseCase,
@@ -133,6 +139,7 @@ from .usecases import (
     EmergencyVehicleUseCase,
     SolarPanelUseCase,
     ChickenPoseDetectionUseCase,
+    LeafDiseaseDetectionUseCase,
     TheftDetectionUseCase,
     TrafficSignMonitoringUseCase,
     CropWeedDetectionUseCase,
@@ -145,11 +152,13 @@ from .usecases import (
     ShoppingCartUseCase,
     BottleDefectUseCase,
     AssemblyLineUseCase,
+    FieldMappingUseCase,
     AntiSpoofingDetectionUseCase,
     ShelfInventoryUseCase,
     LaneDetectionUseCase,
-
-    CarPartSegmentationUseCase
+    WindmillMaintenanceUseCase,
+    CarPartSegmentationUseCase,
+    FlowerUseCase,
 )
 
 # Register use cases automatically
@@ -200,6 +209,13 @@ _defect_detection_products = BottleDefectUseCase()
 _assembly_line_detection = AssemblyLineUseCase()
 _car_part_segmentation = CarPartSegmentationUseCase()
 
+_windmill_maintenance = WindmillMaintenanceUseCase()
+
+_field_mapping = FieldMappingUseCase()
+_wound_segmentation = WoundSegmentationUseCase()
+_leaf_disease = LeafDiseaseDetectionUseCase()
+_flower_segmentation = FlowerUseCase()
+
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
 registry.register_use_case(_advanced_customer_service.category, _advanced_customer_service.name, AdvancedCustomerServiceUseCase)
@@ -247,6 +263,13 @@ registry.register_use_case(_shoplifting_detection.category, _shoplifting_detecti
 registry.register_use_case(_defect_detection_products.category, _defect_detection_products.name, BottleDefectUseCase)
 registry.register_use_case(_assembly_line_detection.category, _assembly_line_detection.name, AssemblyLineUseCase)
 registry.register_use_case(_car_part_segmentation.category, _car_part_segmentation.name, CarPartSegmentationUseCase)
+
+registry.register_use_case(_windmill_maintenance.category, _windmill_maintenance.name, WindmillMaintenanceUseCase)
+
+registry.register_use_case(_field_mapping.category, _field_mapping.name, FieldMappingUseCase)
+registry.register_use_case(_wound_segmentation.category, _wound_segmentation.name,WoundSegmentationUseCase)
+registry.register_use_case(_leaf_disease.category, _leaf_disease.name, LeafDiseaseDetectionUseCase)
+registry.register_use_case(_flower_segmentation.category, _flower_segmentation.name, FlowerUseCase)
 
 # Utility functions - organized by category
 from .utils import (  # noqa: E402
@@ -383,6 +406,9 @@ __all__ = [
     'MaskDetectionConfig',
     'ShopliftingDetectionConfig',
     'CarDamageConfig',
+    'LeafDiseaseDetectionConfig',
+    'WoundConfig',
+    'FieldMappingConfig',
     'ParkingSpaceConfig',
     'PotholeConfig',
     'VehicleMonitoringConfig',
@@ -421,6 +447,8 @@ __all__ = [
     'ShelfInventoryConfig',
     'CarPartSegmentationConfig',
     'LaneDetectionConfig',
+    'WindmillMaintenanceConfig',
+    'FlowerConfig',
 
     # Use case classes
     'PeopleCountingUseCase',
@@ -431,12 +459,14 @@ __all__ = [
     'ColorDetectionUseCase',
     'PPEComplianceUseCase',
     'PotholeSegmentationUseCase',
+    'WoundSegmentationUseCase',
     'MaskDetectionUseCase',
     'VehicleMonitoringUseCase',
     'FireSmokeUseCase',
     'CarDamageDetectionUseCase',
     'ParkingSpaceUseCase',
     'FlareAnalysisUseCase',
+    'FieldMappingUseCase',
     'FaceEmotionUseCase',
     'UnderwaterPlasticUseCase',
     'PedestrianDetectionUseCase',
@@ -444,6 +474,7 @@ __all__ = [
     'ShopliftingDetectionUseCase',
     'WeldDefectUseCase',
     'BananaMonitoringUseCase',
+    'LeafDiseaseDetectionUseCase',
     'PriceTagUseCase',
     'DistractedDriverUseCase',
     'EmergencyVehicleUseCase',
@@ -466,6 +497,8 @@ __all__ = [
     'AntiSpoofingDetectionUseCase',
     'CarPartSegmentationUseCase',
     'LaneDetectionUseCase',
+    'WindmillMaintenanceUseCase',
+    'FlowerUseCase'
     
     # Base classes for extension
     'BaseProcessor',

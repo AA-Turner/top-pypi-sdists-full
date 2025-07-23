@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: tokencost
-Version: 0.1.24
+Version: 0.1.25
 Summary: To calculate token and translated USD cost of string and message calls to OpenAI, for example when used by AI agents
 Author-email: Trisha Pan <trishaepan@gmail.com>, Alex Reibman <areibman@gmail.com>, Pratyush Shukla <ps4534@nyu.edu>
 Project-URL: Homepage, https://github.com/AgentOps-AI/tokencost

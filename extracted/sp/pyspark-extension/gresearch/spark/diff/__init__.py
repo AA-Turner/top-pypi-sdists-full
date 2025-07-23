@@ -23,14 +23,33 @@ from pyspark.sql.functions import col, lit, when, concat, coalesce, array, struc
 from pyspark.sql.types import DataType, StructField, ArrayType
 
 from gresearch.spark import _get_jvm, _to_seq, _to_map, backticks, distinct_prefix_for, \
-    handle_configured_case_sensitivity, list_contains_case_sensitivity, list_filter_case_sensitivity, list_diff_case_sensitivity
+    handle_configured_case_sensitivity, list_contains_case_sensitivity, list_filter_case_sensitivity, list_diff_case_sensitivity, \
+    has_connect, _is_dataframe
 from gresearch.spark.diff.comparator import DiffComparator, DiffComparators, DefaultDiffComparator
 
+
 try:
-    from pyspark.sql.connect.dataframe import DataFrame as ConnectDataFrame
-    has_connect = True
+    # There is a chance users use the Python code contained in the jvm package with Spark
+    # without ever pip installing the whl package and thus lacking dependencies like this
+    #from typing_extensions import deprecated
+    raise ImportError()
 except ImportError:
-    has_connect = False
+    from typing import TypeVar
+
+    _T = TypeVar("_T")
+
+    class deprecated:
+        def __init__(self, msg: str) -> None:
+            self.msg = msg
+
+        def __call__(self, func: _T) -> _T:
+            import warnings
+
+            def deprecated_func(*args, **kwargs):
+                warnings.warn(self.msg, DeprecationWarning, stacklevel=2)
+                return func(*args, **kwargs)
+
+            return deprecated_func
 
 
 class DiffMode(Enum):
@@ -96,6 +115,7 @@ class DiffOptions:
         :return: new immutable DiffOptions instance
         :rtype: DiffOptions
         """
+        assert isinstance(diff_column, str), diff_column
         return dataclasses.replace(self, diff_column=diff_column)
 
     def with_left_column_prefix(self, left_column_prefix: str) -> 'DiffOptions':
@@ -108,6 +128,7 @@ class DiffOptions:
         :return: new immutable DiffOptions instance
         :rtype: DiffOptions
         """
+        assert isinstance(left_column_prefix, str), left_column_prefix
         return dataclasses.replace(self, left_column_prefix=left_column_prefix)
 
     def with_right_column_prefix(self, right_column_prefix: str) -> 'DiffOptions':
@@ -120,6 +141,7 @@ class DiffOptions:
         :return: new immutable DiffOptions instance
         :rtype: DiffOptions
         """
+        assert isinstance(right_column_prefix, str), right_column_prefix
         return dataclasses.replace(self, right_column_prefix=right_column_prefix)
 
     def with_insert_diff_value(self, insert_diff_value: str) -> 'DiffOptions':
@@ -132,6 +154,7 @@ class DiffOptions:
         :return: new immutable DiffOptions instance
         :rtype: DiffOptions
         """
+        assert isinstance(insert_diff_value, str), insert_diff_value
         return dataclasses.replace(self, insert_diff_value=insert_diff_value)
 
     def with_change_diff_value(self, change_diff_value: str) -> 'DiffOptions':
@@ -144,6 +167,7 @@ class DiffOptions:
         :return: new immutable DiffOptions instance
         :rtype: DiffOptions
         """
+        assert isinstance(change_diff_value, str), change_diff_value
         return dataclasses.replace(self, change_diff_value=change_diff_value)
 
     def with_delete_diff_value(self, delete_diff_value: str) -> 'DiffOptions':
@@ -156,6 +180,7 @@ class DiffOptions:
         :return: new immutable DiffOptions instance
         :rtype: DiffOptions
         """
+        assert isinstance(delete_diff_value, str), delete_diff_value
         return dataclasses.replace(self, delete_diff_value=delete_diff_value)
 
     def with_nochange_diff_value(self, nochange_diff_value: str) -> 'DiffOptions':
@@ -168,6 +193,7 @@ class DiffOptions:
         :return: new immutable DiffOptions instance
         :rtype: DiffOptions
         """
+        assert isinstance(nochange_diff_value, str), nochange_diff_value
         return dataclasses.replace(self, nochange_diff_value=nochange_diff_value)
 
     def with_change_column(self, change_column: str) -> 'DiffOptions':
@@ -180,6 +206,7 @@ class DiffOptions:
         :return: new immutable DiffOptions instance
         :rtype: DiffOptions
         """
+        assert isinstance(change_column, str), change_column
         return dataclasses.replace(self, change_column=change_column)
 
     def without_change_column(self) -> 'DiffOptions':
@@ -202,6 +229,7 @@ class DiffOptions:
         :return: new immutable DiffOptions instance
         :rtype: DiffOptions
         """
+        assert isinstance(diff_mode, DiffMode), diff_mode
         return dataclasses.replace(self, diff_mode=diff_mode)
 
     def with_sparse_mode(self, sparse_mode: bool) -> 'DiffOptions':
@@ -214,12 +242,18 @@ class DiffOptions:
         :return: new immutable DiffOptions instance
         :rtype: DiffOptions
         """
+        assert isinstance(sparse_mode, bool), sparse_mode
         return dataclasses.replace(self, sparse_mode=sparse_mode)
 
     def with_default_comparator(self, comparator: DiffComparator) -> 'DiffOptions':
+        assert isinstance(comparator, DiffComparator), comparator
         return dataclasses.replace(self, default_comparator=comparator)
 
     def with_data_type_comparator(self, comparator: DiffComparator, *data_type: DataType) -> 'DiffOptions':
+        assert isinstance(comparator, DiffComparator), comparator
+        for dt in data_type:
+            assert isinstance(dt, DataType), dt
+
         existing_data_types = {dt.simpleString() for dt in data_type if dt in self.data_type_comparators.keys()}
         if existing_data_types:
             existing_data_types = sorted(list(existing_data_types))
@@ -231,6 +265,10 @@ class DiffOptions:
         return dataclasses.replace(self, data_type_comparators=data_type_comparators)
 
     def with_column_name_comparator(self, comparator: DiffComparator, *column_name: str) -> 'DiffOptions':
+        assert isinstance(comparator, DiffComparator), comparator
+        for cn in column_name:
+            assert isinstance(cn, str), cn
+
         existing_column_names = {cn for cn in column_name if cn in self.column_name_comparators.keys()}
         if existing_column_names:
             existing_column_names = sorted(list(existing_column_names))
@@ -242,6 +280,7 @@ class DiffOptions:
         return dataclasses.replace(self, column_name_comparators=column_name_comparators)
 
     def comparator_for(self, column: StructField) -> DiffComparator:
+        assert isinstance(column, StructField), column
         cmp = self.column_name_comparators.get(column.name)
         if cmp is None:
             cmp = self.data_type_comparators.get(column.dataType)
@@ -272,7 +311,7 @@ class Differ:
 
         Both DataFrames must contain the same set of column names and data types.
         The order of columns in the two DataFrames is not important as columns are compared based on the
-        name, not the the position.
+        name, not the position.
 
         Optional id columns are used to uniquely identify rows to compare. If values in any non-id
         column are differing between the two DataFrames, then that row is marked as `"C"`hange
@@ -281,7 +320,7 @@ class Differ:
         that do not exist in the right DataFrame are marked as `"D"`elete.
 
         If no id columns are given, all columns are considered id columns. Then, no `"C"`hange rows
-        will appear, as all changes will exists as respective `"D"`elete and `"I"`nsert.
+        will appear, as all changes will exist as respective `"D"`elete and `"I"`nsert.
 
         Values in optional ignore columns are not compared but included in the output DataFrame.
 
@@ -328,14 +367,24 @@ class Differ:
         :type right: DataFrame
         :param id_or_ignore_columns: either id column names or two lists of column names,
                first the id column names, second the ignore column names
-        :type id_or_ignore_columns: str
+        :type *id_or_ignore_columns: str | Iterable[str]
         :return: the diff DataFrame
         :rtype DataFrame
         """
-        if len(id_or_ignore_columns) == 2 and all([isinstance(lst, Iterable) and not isinstance(lst, str) for lst in id_or_ignore_columns]):
+        assert _is_dataframe(left), left
+        assert _is_dataframe(right), right
+        assert isinstance(id_or_ignore_columns, (str, Iterable)), id_or_ignore_columns
+
+        if len(id_or_ignore_columns) == 2 and all(isinstance(lst, Iterable) and not isinstance(lst, str) for lst in id_or_ignore_columns):
             id_columns, ignore_columns = id_or_ignore_columns
-        else:
+            if any(not isinstance(id, str) for id in id_columns):
+                raise ValueError(f"The id_columns must all be strings: {', '.join(type(id).__name__ for id in id_columns)}")
+            if any(not isinstance(ignore, str) for ignore in ignore_columns):
+                raise ValueError(f"The ignore_columns must all be strings: {', '.join(type(ignore).__name__ for ignore in ignore_columns)}")
+        elif all(isinstance(lst, str) for lst in id_or_ignore_columns):
             id_columns, ignore_columns = (id_or_ignore_columns, [])
+        else:
+            raise ValueError(f"The id_or_ignore_columns argument must either all be strings or exactly two iterables of strings: {', '.join(type(e).__name__ for e in id_or_ignore_columns)}")
 
         return self._do_diff(left, right, id_columns, ignore_columns)
 
@@ -368,10 +417,20 @@ class Differ:
         :return: the diff DataFrame
         :rtype DataFrame
         """
+        assert _is_dataframe(left), left
+        assert _is_dataframe(right), right
+        assert isinstance(id_or_ignore_columns, (str, Iterable)), id_or_ignore_columns
+
         if len(id_or_ignore_columns) == 2 and all([isinstance(lst, Iterable) for lst in id_or_ignore_columns]):
             id_columns, ignore_columns = id_or_ignore_columns
-        else:
+            if any(not isinstance(id, str) for id in id_columns):
+                raise ValueError(f"The id_columns must all be strings: {', '.join(type(id).__name__ for id in id_columns)}")
+            if any(not isinstance(ignore, str) for ignore in ignore_columns):
+                raise ValueError(f"The ignore_columns must all be strings: {', '.join(type(ignore).__name__ for ignore in ignore_columns)}")
+        elif all(isinstance(lst, str) for lst in id_or_ignore_columns):
             id_columns, ignore_columns = (id_or_ignore_columns, [])
+        else:
+            raise ValueError(f"The id_or_ignore_columns argument must either all be strings or exactly two iterables of strings: {', '.join(type(e).__name__ for e in id_or_ignore_columns)}")
 
         diff = self._do_diff(left, right, id_columns, ignore_columns)
         left_columns = self._columns_of_side(diff, id_columns, self._options.left_column_prefix)
@@ -623,12 +682,30 @@ def diff(self: DataFrame, other: DataFrame, *id_columns: str) -> DataFrame: ...
 def diff(self: DataFrame, other: DataFrame, id_columns: Iterable[str], ignore_columns: Iterable[str]) -> DataFrame: ...
 
 
-def diff(self: DataFrame, other: DataFrame, *id_or_ignore_columns: Union[str, Iterable[str]]) -> DataFrame:
+@overload
+def diff(self: DataFrame, other: DataFrame, *id_or_ignore_columns: Union[str, Iterable[str]]) -> DataFrame: ...
+
+
+@overload
+def diff(self: DataFrame, other: DataFrame, options: DiffOptions, *id_columns: str) -> DataFrame: ...
+
+
+@overload
+def diff(self: DataFrame, other: DataFrame, options: DiffOptions, id_columns: Iterable[str], ignore_columns: Iterable[str]) -> DataFrame: ...
+
+
+@overload
+def diff(self: DataFrame, other: DataFrame, options: DiffOptions, *id_or_ignore_columns: Union[str, Iterable[str]]) -> DataFrame: ...
+
+
+def diff(self: DataFrame, other: DataFrame, *options_or_id_or_ignore_columns: Union[DiffOptions, str, Iterable[str]]) -> DataFrame:
     """
     Returns a new DataFrame that contains the differences between this and the other DataFrame.
     Both DataFrames must contain the same set of column names and data types.
     The order of columns in the two DataFrames is not important as one column is compared to the
     column with the same name of the other DataFrame, not the column with the same position.
+
+    Optional options allow for customizing diffing behaviour and diff result schema.
 
     Optional id columns are used to uniquely identify rows to compare. If values in any non-id
     column are differing between this and the other DataFrame, then that row is marked as `"C"`hange
@@ -637,7 +714,7 @@ def diff(self: DataFrame, other: DataFrame, *id_or_ignore_columns: Union[str, It
     do not exist in the other DataFrame are marked as `"D"`elete.
 
     If no id columns are given, all columns are considered id columns. Then, no `"C"`hange rows
-    will appear, as all changes will exists as respective `"D"`elete and `"I"`nsert.
+    will appear, as all changes will exist as respective `"D"`elete and `"I"`nsert.
 
     Values in optional ignore columns are not compared but included in the output DataFrame.
 
@@ -680,12 +757,26 @@ def diff(self: DataFrame, other: DataFrame, *id_or_ignore_columns: Union[str, It
 
     :param other: right DataFrame
     :type other: DataFrame
+    :param options: optional diff options
+    :type options: DiffOptions
+    :param id_columns: id columns
+    :type id_columns: str
+    :param ignore_columns: optional ignored columns
+    :type ignore_columns: str
     :param id_or_ignore_columns: either id column names or two lists of column names,
            first the id column names, second the ignore column names
     :type id_or_ignore_columns: str
     :return: the diff DataFrame
     :rtype DataFrame
     """
+    if any(isinstance(i, DiffOptions) for i in options_or_id_or_ignore_columns):
+        options = options_or_id_or_ignore_columns[0]
+        if not isinstance(options, DiffOptions):
+            raise ValueError("Diff options must be given as second argument")
+        id_or_ignore_columns = options_or_id_or_ignore_columns[1:]
+        return Differ(options).diff(self, other, *id_or_ignore_columns)
+
+    id_or_ignore_columns = options_or_id_or_ignore_columns
     return Differ().diff(self, other, *id_or_ignore_columns)
 
 
@@ -697,23 +788,53 @@ def diffwith(self: DataFrame, other: DataFrame, *id_columns: str) -> DataFrame: 
 def diffwith(self: DataFrame, other: DataFrame, id_columns: Iterable[str], ignore_columns: Iterable[str]) -> DataFrame: ...
 
 
-def diffwith(self: DataFrame, other: DataFrame, *id_or_ignore_columns: Union[str, Iterable[str]]) -> DataFrame:
+@overload
+def diffwith(self: DataFrame, other: DataFrame, *id_or_ignore_columns: Union[str, Iterable[str]]) -> DataFrame: ...
+
+
+@overload
+def diffwith(self: DataFrame, other: DataFrame, options: DiffOptions, *id_columns: str) -> DataFrame: ...
+
+
+@overload
+def diffwith(self: DataFrame, other: DataFrame, options: DiffOptions, id_columns: Iterable[str], ignore_columns: Iterable[str]) -> DataFrame: ...
+
+
+@overload
+def diffwith(self: DataFrame, other: DataFrame, options: DiffOptions, *id_or_ignore_columns: Union[str, Iterable[str]]) -> DataFrame: ...
+
+
+def diffwith(self: DataFrame, other: DataFrame, *options_or_id_or_ignore_columns: Union[DiffOptions, str, Iterable[str]]) -> DataFrame:
     """
     Returns a new DataFrame that contains the differences between the two DataFrames
     as tuples of type `(String, Row, Row)`.
 
-    See `diff(left: DataFrame, right: DataFrame, *id_columns: str)`.
+    See `diff(left: DataFrame, right: DataFrame, *options_or_id_or_ignore_columns: str)`.
 
     :param left: left DataFrame
     :type left: DataFrame
     :param right: right DataFrame
     :type right: DataFrame
+    :param options: diff options
+    :type options: DiffOptions
+    :param id_columns: id columns
+    :type id_columns: str
+    :param ignore_columns: optional ignored columns
+    :type ignore_columns: str
     :param id_or_ignore_columns: either id column names or two lists of column names,
            first the id column names, second the ignore column names
     :type id_or_ignore_columns: str
     :return: the diff DataFrame
     :rtype DataFrame
     """
+    if any(isinstance(i, DiffOptions) for i in options_or_id_or_ignore_columns):
+        options = options_or_id_or_ignore_columns[0]
+        if not isinstance(options, DiffOptions):
+            raise ValueError("Diff options must be given as second argument")
+        id_or_ignore_columns = options_or_id_or_ignore_columns[1:]
+        return Differ(options).diffwith(self, other, *id_or_ignore_columns)
+
+    id_or_ignore_columns = options_or_id_or_ignore_columns
     return Differ().diffwith(self, other, *id_or_ignore_columns)
 
 
@@ -725,6 +846,7 @@ def diff_with_options(self: DataFrame, other: DataFrame, options: DiffOptions, *
 def diff_with_options(self: DataFrame, other: DataFrame, options: DiffOptions, id_columns: Iterable[str], ignore_columns: Iterable[str]) -> DataFrame: ...
 
 
+@deprecated("Use diff with identical arguments instead")
 def diff_with_options(self: DataFrame, other: DataFrame, options: DiffOptions, *id_or_ignore_columns: Union[str, Iterable[str]]) -> DataFrame:
     """
     Returns a new DataFrame that contains the differences between this and the other DataFrame.
@@ -754,6 +876,7 @@ def diffwith_with_options(self: DataFrame, other: DataFrame, options: DiffOption
 def diffwith_with_options(self: DataFrame, other: DataFrame, options: DiffOptions, id_columns: Iterable[str], ignore_columns: Iterable[str]) -> DataFrame: ...
 
 
+@deprecated("Use diffwith with identical arguments instead")
 def diffwith_with_options(self: DataFrame, other: DataFrame, options: DiffOptions, *id_or_ignore_columns: Union[str, Iterable[str]]) -> DataFrame:
     """
     Returns a new DataFrame that contains the differences between the two DataFrames
@@ -765,11 +888,11 @@ def diffwith_with_options(self: DataFrame, other: DataFrame, options: DiffOption
 
     :param other: right DataFrame
     :type other: DataFrame
+    :param options: diff options
+    :type options: DiffOptions
     :param id_or_ignore_columns: either id column names or two lists of column names,
            first the id column names, second the ignore column names
     :type id_or_ignore_columns: str
-    :param options: diff options
-    :type options: DiffOptions
     :return: the diff DataFrame
     :rtype DataFrame
     """
@@ -782,6 +905,8 @@ DataFrame.diff_with_options = diff_with_options
 DataFrame.diffwith_with_options = diffwith_with_options
 
 if has_connect:
+    from gresearch.spark import ConnectDataFrame
+
     ConnectDataFrame.diff = diff
     ConnectDataFrame.diffwith = diffwith
     ConnectDataFrame.diff_with_options = diff_with_options

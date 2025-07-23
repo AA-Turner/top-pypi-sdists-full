@@ -592,10 +592,12 @@ class GenericJSONSchemaValidationDeprecation(WarnLevel):
         return "D022"
 
     def message(self) -> str:
+        possible_causes = "This generally means that either we failed to catch this as a more specific deprecation type OR our JSONSchema had a regression (and this deprecation was erroneous)."
+
         if self.key_path == "":
-            description = f"{self.violation} at top level in file `{self.file}`"
+            description = f"{self.violation} at top level in file `{self.file}` is possibly a deprecation. {possible_causes}"
         else:
-            description = f"{self.violation} in file `{self.file}` at path `{self.key_path}`"
+            description = f"{self.violation} in file `{self.file}` at path `{self.key_path}` is possibly a deprecation. {possible_causes}"
 
         return line_wrap_message(deprecation_tag(description, self.__class__.__name__))
 
@@ -720,6 +722,42 @@ class SourceOverrideDeprecation(WarnLevel):
     def message(self) -> str:
         description = f"The source property `overrides` is deprecated but was found on source `{self.source_name}` in file `{self.file}`. Instead, `enabled` should be used to disable the unwanted source."
         return line_wrap_message(deprecation_tag(description))
+
+
+class EnvironmentVariableNamespaceDeprecation(WarnLevel):
+    def code(self) -> str:
+        return "D036"
+
+    def message(self) -> str:
+        description = f"Found custom environment variable `{self.env_var}` in the environment. The prefix `{self.reserved_prefix}` is reserved for dbt engine environment variables. Custom environment variables with the prefix `{self.reserved_prefix}` may cause collisions and runtime errors."
+        return line_wrap_message(deprecation_tag(description))
+
+
+class MissingPlusPrefixDeprecation(WarnLevel):
+    def code(self) -> str:
+        return "D037"
+
+    def message(self) -> str:
+        description = f"Missing '+' prefix on `{self.key}` found at `{self.key_path}` in file `{self.file}`. Hierarchical config values without a '+' prefix are deprecated in dbt_project.yml."
+        return line_wrap_message(deprecation_tag(description, self.__class__.__name__))
+
+
+class ArgumentsPropertyInGenericTestDeprecation(WarnLevel):
+    def code(self) -> str:
+        return "D038"
+
+    def message(self) -> str:
+        description = f"Found `arguments` property in test definition of `{self.test_name}` without usage of `require_generic_test_arguments_property` behavior change flag. The `arguments` property is deprecated for custom usage and will be used to nest keyword arguments in future versions of dbt."
+        return line_wrap_message(deprecation_tag(description, self.__class__.__name__))
+
+
+class MissingArgumentsPropertyInGenericTestDeprecation(WarnLevel):
+    def code(self) -> str:
+        return "D039"
+
+    def message(self) -> str:
+        description = f"Found top-level arguments to test `{self.test_name}`. Arguments to generic tests should be nested under the `arguments` property.`"
+        return line_wrap_message(deprecation_tag(description, self.__class__.__name__))
 
 
 # =======================================================

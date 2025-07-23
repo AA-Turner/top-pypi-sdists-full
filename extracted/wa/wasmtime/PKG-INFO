@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: wasmtime
-Version: 34.0.0
+Version: 35.0.0
 Summary: A WebAssembly runtime powered by Wasmtime
 Author-email: The Wasmtime Project Developers <hello@bytecodealliance.org>
 License-Expression: Apache-2.0 WITH LLVM-exception

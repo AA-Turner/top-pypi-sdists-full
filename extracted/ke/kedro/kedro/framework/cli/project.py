@@ -17,7 +17,6 @@ from kedro.framework.cli.utils import (
     call,
     env_option,
     forward_command,
-    namespace_deprecation_warning,
     split_node_names,
     split_string,
     validate_conf_source,
@@ -54,7 +53,7 @@ command arguments from. If command line arguments are provided, they will
 override the loaded ones."""
 PIPELINE_ARG_HELP = """Name of the registered pipeline to run.
 If not set, the '__default__' pipeline is run."""
-NAMESPACE_ARG_HELP = """Name of the node namespace to run."""
+NAMESPACES_ARG_HELP = """Run only node namespaces with specified names."""
 PARAMS_ARG_HELP = """Specify extra parameters that you want to pass
 to the context initialiser. Items must be separated by comma, keys - by colon or equals sign,
 example: param1=value1,param2=value2. Each parameter is split by the first comma,
@@ -64,9 +63,11 @@ param_group.param1:value1."""
 INPUT_FILE_HELP = """Name of the requirements file to compile."""
 OUTPUT_FILE_HELP = """Name of the file where compiled requirements should be stored."""
 CONF_SOURCE_HELP = """Path of a directory where project configuration is stored."""
+ONLY_MISSING_OUTPUTS_HELP = """Run only nodes with missing outputs.
+If all outputs of a node exist and are persisted, skip the node execution."""
 
 
-@click.group(name="Kedro")
+@click.group(name="kedro")
 def project_group() -> None:  # pragma: no cover
     pass
 
@@ -75,7 +76,18 @@ def project_group() -> None:  # pragma: no cover
 @env_option
 @click.pass_obj  # this will pass the metadata as first argument
 def ipython(metadata: ProjectMetadata, /, env: str, args: Any, **kwargs: Any) -> None:
-    """Open IPython with project specific variables loaded."""
+    """Open IPython with project specific variables loaded.\n
+
+    Makes the following variables available in your IPython or Jupyter session:\n
+
+    - `catalog`: catalog instance that contains all defined datasets; this is a shortcut for `context.catalog`.\n
+    - `context`: Kedro project context that provides access to Kedro's library components.\n
+    - `pipelines`: Pipelines defined in your pipeline registry.\n
+    - `session`: Kedro session that orchestrates a pipeline run.\n
+
+    To reload these variables (e.g. if you updated `catalog.yml`) use the `%reload_kedro` line magic,
+    which can also be used to see the error message if any of the variables above are undefined.
+    """
     _check_module_importable("IPython")
 
     if env:
@@ -86,7 +98,14 @@ def ipython(metadata: ProjectMetadata, /, env: str, args: Any, **kwargs: Any) ->
 @project_group.command()
 @click.pass_obj  # this will pass the metadata as first argument
 def package(metadata: ProjectMetadata) -> None:
-    """Package the project as a Python wheel."""
+    """Package the Kedro project as a Python wheel and export the configuration.\n
+
+    This command builds a `.whl` file for the project and saves it to the `dist/` directory.
+    It also packages the project's configuration (excluding any `local/*.yml` files)
+    into a separate `tar.gz` archive for deployment or sharing.\n
+
+    Both artifacts will appear in the `dist/` folder, unless an older project layout is detected.
+    """
     # Even if the user decides for the older setup.py on purpose,
     # pyproject.toml is needed for Kedro metadata
     if (metadata.project_path / "pyproject.toml").is_file():
@@ -182,12 +201,12 @@ def package(metadata: ProjectMetadata) -> None:
 )
 @click.option("--pipeline", "-p", type=str, default=None, help=PIPELINE_ARG_HELP)
 @click.option(
-    "--namespace",
+    "--namespaces",
     "-ns",
     type=str,
-    default=None,
-    help=NAMESPACE_ARG_HELP,
-    callback=namespace_deprecation_warning,
+    default="",
+    help=NAMESPACES_ARG_HELP,
+    callback=split_node_names,
 )
 @click.option(
     "--config",
@@ -208,6 +227,11 @@ def package(metadata: ProjectMetadata) -> None:
     help=PARAMS_ARG_HELP,
     callback=_split_params,
 )
+@click.option(
+    "--only-missing-outputs",
+    is_flag=True,
+    help=ONLY_MISSING_OUTPUTS_HELP,
+)
 def run(  # noqa: PLR0913
     tags: str,
     env: str,
@@ -223,7 +247,8 @@ def run(  # noqa: PLR0913
     config: str,
     conf_source: str,
     params: dict[str, Any],
-    namespace: str,
+    namespaces: str,
+    only_missing_outputs: bool,
 ) -> dict[str, Any]:
     """Run the pipeline."""
 
@@ -232,7 +257,7 @@ def run(  # noqa: PLR0913
     tuple_node_names = tuple(node_names)
 
     with KedroSession.create(
-        env=env, conf_source=conf_source, extra_params=params
+        env=env, conf_source=conf_source, runtime_params=params
     ) as session:
         return session.run(
             tags=tuple_tags,
@@ -244,5 +269,6 @@ def run(  # noqa: PLR0913
             to_outputs=to_outputs,
             load_versions=load_versions,
             pipeline_name=pipeline,
-            namespace=namespace,
+            namespaces=namespaces,
+            only_missing_outputs=only_missing_outputs,
         )

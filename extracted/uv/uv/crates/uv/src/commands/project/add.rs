@@ -345,7 +345,7 @@ pub(crate) async fn add(
         &requirements,
         &constraints,
         &[],
-        BTreeMap::default(),
+        None,
         &client_builder,
     )
     .await?;
@@ -436,6 +436,7 @@ pub(crate) async fn add(
                 state.clone().into_inner(),
                 settings.resolver.index_strategy,
                 &settings.resolver.config_setting,
+                &settings.resolver.config_settings_package,
                 build_isolation,
                 settings.resolver.link_mode,
                 &settings.resolver.build_options,
@@ -643,7 +644,9 @@ pub(crate) async fn add(
     // Add any indexes that were provided on the command-line, in priority order.
     if !raw {
         let urls = IndexUrls::from_indexes(indexes);
-        for index in urls.defined_indexes() {
+        let mut indexes = urls.defined_indexes().collect::<Vec<_>>();
+        indexes.reverse();
+        for index in indexes {
             toml.add_index(index)?;
         }
     }

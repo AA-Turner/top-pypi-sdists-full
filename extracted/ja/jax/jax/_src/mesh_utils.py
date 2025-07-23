@@ -19,14 +19,11 @@ from __future__ import annotations
 import collections
 from collections.abc import Callable, Generator, MutableMapping, Sequence
 import itertools
-import logging
 import math
 from typing import Any
 
 from jax._src import xla_bridge as xb
 import numpy as np
-
-logger = logging.getLogger(__name__)
 
 _TPU_V2 = 'TPU v2'
 _TPU_V3 = 'TPU v3'
@@ -80,18 +77,12 @@ def _tpu_v2_v3_create_device_mesh(
     **unused_kwargs,
 ) -> np.ndarray:
   if len(devices) == 8:
-    logger.info(
-        'Reordering mesh to physical ring order on single-tray TPU v2/v3.'
-    )
     device_mesh = np.asarray(devices)
     device_mesh = device_mesh[np.array(_TRAY_RING_ORDER)]
     device_mesh = device_mesh.reshape(mesh_shape)
     return device_mesh
   elif mesh_shape[-1] == 8:
     device_mesh = np.asarray(devices).reshape(mesh_shape)
-    logger.info(
-        'Reordering mesh to physical ring order on each TPU v2/v3 tray.'
-    )
     perm = np.array(_TRAY_RING_ORDER)
     device_mesh = device_mesh[..., perm]
     return device_mesh
@@ -173,7 +164,7 @@ def _v5p_create_device_mesh(
       devices,
       key=lambda d: tuple(reversed(getattr(d, "coords", (0, 0, 0)))))
 
-  if bound_x == bound_y == 2 and bound_z == 2:
+  if bound_x == bound_y == bound_z == 2 and len(devices) == 8:
     device_mesh = np.asarray(sequential_devices)
     device_mesh = device_mesh[np.array(_V5P_2x2x2_ORDER)]
     device_mesh = device_mesh.reshape(mesh_shape)

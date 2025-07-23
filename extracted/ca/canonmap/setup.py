@@ -2,30 +2,20 @@ from setuptools import setup, find_packages
 
 setup(
     name="canonmap",
-    version="0.2.53",
+    version="0.3.12",
     packages=find_packages(),
     install_requires=[
         "python-dotenv",
         "pydantic",
-        "google-cloud-storage",
         "pandas",
-        "chardet",
         "numpy",
-        "scikit-learn",
-        "rapidfuzz",
+        "rich",
+        "mysql-connector-python",
         "metaphone",
-        "tqdm",
-        "requests",
-        "codename",
+        "python-Levenshtein",
+        "jellyfish",
     ],
-    extras_require={
-        "embedding": [
-            "sentence-transformers",
-            "transformers",
-            "torch",
-            "tokenizers",
-        ],
-    },
+    extras_require={},
     author="Vince Berry",
     author_email="vince.berry@gmail.com",
     description="CanonMap - A Python library for entity canonicalization and mapping with enhanced configuration and response models",
@@ -42,9 +32,5 @@ setup(
     ],
     python_requires=">=3.8",
     include_package_data=True,
-    entry_points={
-        "console_scripts": [
-            "cm=canonmap.cli:main",
-        ],
-    },
+    entry_points={},
 )

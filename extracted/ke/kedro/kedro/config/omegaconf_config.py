@@ -57,17 +57,17 @@ class OmegaConfigLoader(AbstractConfigLoader):
     and overrides this key and any sub-keys.
 
     You can access the different configurations as follows:
-    ::
+    ``` python
+    import logging.config
+    from kedro.config import OmegaConfigLoader
+    from kedro.framework.project import settings
 
-        >>> import logging.config
-        >>> from kedro.config import OmegaConfigLoader
-        >>> from kedro.framework.project import settings
-        >>>
-        >>> conf_path = str(project_path / settings.CONF_SOURCE)
-        >>> conf_loader = OmegaConfigLoader(conf_source=conf_path, env="local")
-        >>>
-        >>> conf_catalog = conf_loader["catalog"]
-        >>> conf_params = conf_loader["parameters"]
+    conf_path = str(project_path / settings.CONF_SOURCE)
+    conf_loader = OmegaConfigLoader(conf_source=conf_path, env="local")
+
+    conf_catalog = conf_loader["catalog"]
+    conf_params = conf_loader["parameters"]
+    ```
 
     ``OmegaConf`` supports variable interpolation in configuration
     https://omegaconf.readthedocs.io/en/2.2_branch/usage.html#merging-configurations. It is
@@ -80,13 +80,12 @@ class OmegaConfigLoader(AbstractConfigLoader):
     in `settings.py`.
 
     Example:
-    ::
+    ``` python
+    # in settings.py
+    from kedro.config import OmegaConfigLoader
 
-        >>> # in settings.py
-        >>> from kedro.config import OmegaConfigLoader
-        >>>
-        >>> CONFIG_LOADER_CLASS = OmegaConfigLoader
-
+    CONFIG_LOADER_CLASS = OmegaConfigLoader
+    ```
     """
 
     def __init__(  # noqa: PLR0913
@@ -183,18 +182,18 @@ class OmegaConfigLoader(AbstractConfigLoader):
 
         Raises:
             KeyError: If key provided isn't present in the config_patterns of this
-               ``OmegaConfigLoader`` instance.
+                ``OmegaConfigLoader`` instance.
             MissingConfigException: If no configuration files exist matching the patterns
                 mapped to the provided key.
 
         Returns:
             Dict[str, Any]:  A Python dictionary with the combined
-               configuration from all configuration files.
+                configuration from all configuration files.
         """
         # Allow bypassing of loading config from patterns if a key and value have been set
         # explicitly on the ``OmegaConfigLoader`` instance.
 
-        # Re-register runtime params resolver incase it was previously deactivated
+        # Re-register runtime params resolver in case it was previously deactivated
         self._register_runtime_params_resolver()
 
         if key in self:
@@ -553,8 +552,8 @@ class OmegaConfigLoader(AbstractConfigLoader):
         them in-place, clearing the resolver after the operation is complete if
         it was not registered beforehand.
 
-        Arguments:
-            config {Dict[str, Any]} -- The configuration dictionary to resolve.
+        Args:
+            config (DictConfig): The configuration dictionary to resolve.
         """
         if not OmegaConf.has_resolver("oc.env"):
             OmegaConf.register_new_resolver("oc.env", oc.env)

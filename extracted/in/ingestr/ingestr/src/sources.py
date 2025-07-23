@@ -1814,7 +1814,23 @@ class GitHubSource:
                 owner=owner, name=repo, access_token=access_token
             ).with_resources(table)
         elif table == "repo_events":
-            return github_repo_events(owner=owner, name=repo, access_token=access_token)
+            start_date = kwargs.get("interval_start") or pendulum.now().subtract(
+                days=30
+            )
+            end_date = kwargs.get("interval_end") or pendulum.now()
+
+            if isinstance(start_date, str):
+                start_date = pendulum.parse(start_date)
+            if isinstance(end_date, str):
+                end_date = pendulum.parse(end_date)
+
+            return github_repo_events(
+                owner=owner,
+                name=repo,
+                access_token=access_token,
+                start_date=start_date,
+                end_date=end_date,
+            )
         elif table == "stargazers":
             return github_stargazers(owner=owner, name=repo, access_token=access_token)
         else:
@@ -3023,6 +3039,61 @@ class ZoomSource:
             client_id=client_id[0],
             client_secret=client_secret[0],
             account_id=account_id[0],
+            start_date=start_date,
+            end_date=end_date,
+        ).with_resources(table)
+
+
+class InfluxDBSource:
+    def handles_incrementality(self) -> bool:
+        return True
+
+    def dlt_source(self, uri: str, table: str, **kwargs):
+        parsed_uri = urlparse(uri)
+        params = parse_qs(parsed_uri.query)
+        host = parsed_uri.hostname
+        port = parsed_uri.port
+
+        secure = params.get("secure", ["true"])[0].lower() != "false"
+        scheme = "https" if secure else "http"
+        
+        if port:
+            host_url = f"{scheme}://{host}:{port}"
+        else:
+            host_url = f"{scheme}://{host}"
+
+        token = params.get("token")
+        org = params.get("org")
+        bucket = params.get("bucket")
+
+        if not host:
+            raise MissingValueError("host", "InfluxDB")
+        if not token:
+            raise MissingValueError("token", "InfluxDB")
+        if not org:
+            raise MissingValueError("org", "InfluxDB")
+        if not bucket:
+            raise MissingValueError("bucket", "InfluxDB")
+
+        start_date = kwargs.get("interval_start")
+        if start_date is not None:
+            start_date = ensure_pendulum_datetime(start_date)
+        else:
+            start_date = pendulum.datetime(2024, 1, 1).in_tz("UTC")
+
+        end_date = kwargs.get("interval_end")
+        if end_date is not None:
+            end_date = ensure_pendulum_datetime(end_date)
+
+        from ingestr.src.influxdb import influxdb_source
+
+        return influxdb_source(
+            measurement=table,
+            host=host_url,
+            org=org[0],
+            bucket=bucket[0],
+            token=token[0],
+            secure=secure,
             start_date=start_date,
             end_date=end_date,
         ).with_resources(table)

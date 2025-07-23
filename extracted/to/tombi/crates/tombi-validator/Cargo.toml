@@ -8,6 +8,7 @@ license.workspace = true
 readme = "README.md"
 
 [dependencies]
+ahash.workspace = true
 itertools.workspace = true
 regex.workspace = true
 thiserror.workspace = true
