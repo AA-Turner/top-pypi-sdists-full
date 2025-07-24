@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-cli
-Version: 0.3.5
+Version: 0.3.6
 Summary: CLI for interacting with LangGraph API
 Project-URL: Repository, https://www.github.com/langchain-ai/langgraph
 License-Expression: MIT

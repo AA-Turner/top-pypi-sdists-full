@@ -3,7 +3,6 @@ import importlib.resources
 import json
 import re
 import sys
-from inspect import isclass
 from typing import Any
 
 from pydantic import EmailStr
@@ -73,28 +72,27 @@ def merge_resources(target: Resource, updates: BaseModel):
 
 
 def get_by_alias(
-    resource: BaseModel, scim_name: str, allow_none: bool = False
+    r: type[BaseModel], scim_name: str, allow_none: bool = False
 ) -> str | None:
-    """Return the pydantic attribute name for a BaseModel and given SCIM attribute name.
+    """Return the pydantic attribute name for a BaseModel type and given SCIM attribute name.
 
-    :param r: BaseModel
+    :param r: BaseModel type
     :param scim_name: SCIM attribute name
     :param allow_none: Allow returning None if attribute is not found
     :return: pydantic attribute name
     :raises SCIMException: If no attribute is found and allow_none is
         False
     """
-    klass = resource.__class__ if not isclass(resource) else resource
     try:
         return next(
-            key
-            for key, value in klass.model_fields.items()
-            if value.serialization_alias.lower() == scim_name.lower()
+            k
+            for k, v in r.model_fields.items()
+            if v.serialization_alias.lower() == scim_name.lower()
         )
-    except StopIteration as exc:
+    except StopIteration as e:
         if allow_none:
             return None
-        raise SCIMException(Error.make_no_target_error()) from exc
+        raise SCIMException(Error.make_no_target_error()) from e
 
 
 def get_schemas(resource: Resource) -> list[str]:
@@ -151,12 +149,14 @@ def handle_extension(resource: Resource, scim_name: str) -> tuple[BaseModel, str
                 scim_name = scim_name.lstrip(":")
                 if extension_model.lower() not in [s.lower() for s in resource.schemas]:
                     resource.schemas.append(extension_model)
-                ext = get_or_create(resource, get_by_alias(resource, extension_model))
+                ext = get_or_create(
+                    resource, get_by_alias(type(resource), extension_model)
+                )
                 return ext, scim_name
     return resource, scim_name
 
 
-def model_validate_from_dict(field_root_type: BaseModel, value: dict) -> Any:
+def model_validate_from_dict(field_root_type: type[BaseModel], value: dict) -> Any:
     """Workaround for some of the "special" requirements for MS Entra, mixing display and displayName in some cases."""
     if (
         "display" not in value

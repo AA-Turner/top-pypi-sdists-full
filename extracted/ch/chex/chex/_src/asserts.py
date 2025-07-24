@@ -143,7 +143,6 @@ def assert_max_traces(fn: Optional[Union[Callable[..., Any], int]] = None,
     # That is, case of n=0 for no-arguments function won't raise a error.
     has_tracers_in_args = _ai.has_tracers((args, kwargs))
 
-    nonlocal fn_hash
     _ai.TRACE_COUNTER[fn_hash] += int(has_tracers_in_args)
     if not _ai.DISABLE_ASSERTIONS and _ai.TRACE_COUNTER[fn_hash] > n:
       raise AssertionError(
@@ -390,7 +389,7 @@ def assert_size(
     expected_sizes: Union[_ai.TShapeMatcher,
                           Sequence[_ai.TShapeMatcher]]) -> None:
   """Checks that the size of all inputs matches specified ``expected_sizes``.
-  
+
   Valid usages include:
 
   .. code-block:: python
@@ -405,7 +404,7 @@ def assert_size(
     inputs: An array or a sequence of arrays.
     expected_sizes: A sqeuence of expected sizes associated with each input,
       where the expected size is a sequence of integer and `None` dimensions;
-      if all inputs have same size, a single size may be passed as 
+      if all inputs have same size, a single size may be passed as
       ``expected_sizes``.
 
   Raises:
@@ -944,7 +943,7 @@ def assert_axis_dimension_lt(tensor: Array, axis: int, val: int) -> None:
 
   Args:
     tensor: A JAX Array.
-    axis: An integer specifiying with axis to assert.
+    axis: An integer specifiying which axis to assert.
     val: A value ``tensor.shape[axis]`` must be less than.
 
   Raises:
@@ -1044,7 +1043,6 @@ def assert_tree_has_only_ndarrays(tree: ArrayTree) -> None:
   def _assert_fn(path, leaf):
     if leaf is not None:
       if not isinstance(leaf, (np.ndarray, jnp.ndarray)):
-        nonlocal errors
         errors.append((f"Tree leaf '{_ai.format_tree_path(path)}' is not an "
                        f"ndarray (type={type(leaf)})."))
 
@@ -1101,8 +1099,6 @@ def assert_tree_is_on_host(
   def _assert_fn(path, leaf):
     if leaf is not None:
       if not isinstance(leaf, np.ndarray):
-        nonlocal errors
-
         if isinstance(leaf, jax.Array):
           if _check_sharding(leaf):
             # Sharded array.
@@ -1182,8 +1178,6 @@ def assert_tree_is_on_device(tree: ArrayTree,
 
   def _assert_fn(path, leaf):
     if leaf is not None:
-      nonlocal errors
-
       # Check that the leaf is a DeviceArray.
       if isinstance(leaf, jax.Array):
         if _check_sharding(leaf):
@@ -1237,8 +1231,6 @@ def assert_tree_is_sharded(tree: ArrayTree,
 
   def _assert_fn(path, leaf):
     if leaf is not None:
-      nonlocal errors
-
       # Check that the leaf is a ShardedArray.
       if isinstance(leaf, jax.Array):
         if _check_sharding(leaf):
@@ -1286,7 +1278,6 @@ def assert_tree_shape_prefix(tree: ArrayTree,
   errors = []
 
   def _assert_fn(path, leaf):
-    nonlocal errors
     if len(shape_prefix) > len(leaf.shape):
       errors.append(
           (f"Tree leaf '{_ai.format_tree_path(path)}' has a shape "
@@ -1329,7 +1320,6 @@ def assert_tree_shape_suffix(
   errors = []
 
   def _assert_fn(path, leaf):
-    nonlocal errors
     if len(shape_suffix) > len(leaf.shape):
       errors.append(
           (f"Tree leaf '{_ai.format_tree_path(path)}' has a shape "
@@ -1685,6 +1675,20 @@ assert_trees_all_close = _value_assertion(
     name="assert_trees_all_close")
 
 
+def _bfloat16_nulp_diff(x: np.ndarray, y: np.ndarray) -> np.ndarray:
+  """Number of representable bf16 points between each item in x and y."""
+  rx = x.view(np.int16)
+  ry = y.view(np.int16)
+  # The constant for two's complement adjustment, same as for float16.
+  comp = np.int16(-(2**15))
+  # Transform the integer representations of negative numbers, to make the
+  # integer representation monotonic across the full range of floats.
+  rx = np.where(rx < 0, comp - rx, rx)
+  ry = np.where(ry < 0, comp - ry, ry)
+  diff = np.abs(rx.astype(np.int32) - ry.astype(np.int32))
+  return diff.astype(np.float64)
+
+
 def _assert_trees_all_close_ulp_static(
     *trees: ArrayTree,
     maxulp: int = 1,
@@ -1719,8 +1723,7 @@ def _assert_trees_all_close_ulp_static(
   identical, while still allowing reasonable wiggle room for small differences
   due to e.g. different operator orderings.
 
-  Note that this function is not currently supported within JIT contexts,
-  and does not currently support bfloat16 dtypes.
+  Note that this function is not currently supported within JIT contexts.
 
   Args:
     *trees: A sequence of (at least 2) trees with array leaves.
@@ -1731,23 +1734,23 @@ def _assert_trees_all_close_ulp_static(
       specified tolerance.
   """
   def assert_fn(arr_1, arr_2):
-    if (
-        getattr(arr_1, "dtype", None) == jnp.bfloat16
-        or getattr(arr_2, "dtype", None) == jnp.bfloat16
-    ):
-      # jnp_to_np_array currently converts bfloat16 to float32, which will cause
-      # assert_array_max_ulp to give incorrect results -
-      # and assert_array_max_ulp itself does not currently support bfloat16:
-      # https://github.com/jax-ml/ml_dtypes/issues/56
-      raise ValueError(
-          f"{_ai.ERR_PREFIX}ULP assertions are not currently supported for "
-          "bfloat16."
-      )
-    np.testing.assert_array_max_ulp(
-        _ai.jnp_to_np_array(arr_1),
-        _ai.jnp_to_np_array(arr_2),
-        maxulp=maxulp,
-    )
+    # Get the dtype from the original JAX array, not the NumPy-converted one.
+    dtype = getattr(arr_1, "dtype", None)
+
+    # Convert JAX arrays to NumPy arrays for comparison.
+    np_arr_1 = _ai.jnp_to_np_array(arr_1)
+    np_arr_2 = _ai.jnp_to_np_array(arr_2)
+
+    if dtype == jnp.bfloat16:
+      ret = _bfloat16_nulp_diff(np_arr_1, np_arr_2)
+      if not np.all(ret <= maxulp):
+        raise AssertionError(
+            f"Arrays are not almost equal up to {maxulp} ULP for bfloat16 "
+            f"(max difference is {np.max(ret)} ULP)"
+        )
+    else:
+      # For all other supported float types, use NumPy's implementation.
+      np.testing.assert_array_max_ulp(np_arr_1, np_arr_2, maxulp=maxulp)
 
   def cmp_fn(arr_1, arr_2) -> bool:
     try:

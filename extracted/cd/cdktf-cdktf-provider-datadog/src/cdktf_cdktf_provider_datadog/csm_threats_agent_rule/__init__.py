@@ -1,7 +1,7 @@
 r'''
 # `datadog_csm_threats_agent_rule`
 
-Refer to the Terraform Registry for docs: [`datadog_csm_threats_agent_rule`](https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule).
+Refer to the Terraform Registry for docs: [`datadog_csm_threats_agent_rule`](https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class CsmThreatsAgentRule(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-datadog.csmThreatsAgentRule.CsmThreatsAgentRule",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule datadog_csm_threats_agent_rule}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule datadog_csm_threats_agent_rule}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class CsmThreatsAgentRule(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule datadog_csm_threats_agent_rule} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule datadog_csm_threats_agent_rule} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param expression: The SECL expression of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#expression CsmThreatsAgentRule#expression}
-        :param name: The name of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#actions CsmThreatsAgentRule#actions}
-        :param description: A description for the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#description CsmThreatsAgentRule#description}
-        :param enabled: Indicates whether the Agent rule is enabled. Must not be used without policy_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#enabled CsmThreatsAgentRule#enabled}
-        :param policy_id: The ID of the agent policy in which the rule is saved. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#policy_id CsmThreatsAgentRule#policy_id}
-        :param product_tags: The list of product tags associated with the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#product_tags CsmThreatsAgentRule#product_tags}
+        :param expression: The SECL expression of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#expression CsmThreatsAgentRule#expression}
+        :param name: The name of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#actions CsmThreatsAgentRule#actions}
+        :param description: A description for the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#description CsmThreatsAgentRule#description}
+        :param enabled: Indicates whether the Agent rule is enabled. Must not be used without policy_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#enabled CsmThreatsAgentRule#enabled}
+        :param policy_id: The ID of the agent policy in which the rule is saved. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#policy_id CsmThreatsAgentRule#policy_id}
+        :param product_tags: The list of product tags associated with the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#product_tags CsmThreatsAgentRule#product_tags}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class CsmThreatsAgentRule(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the CsmThreatsAgentRule to import.
-        :param import_from_id: The id of the existing CsmThreatsAgentRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing CsmThreatsAgentRule that should be imported. Refer to the {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the CsmThreatsAgentRule to import is found.
         '''
         if __debug__:
@@ -316,8 +316,8 @@ class CsmThreatsAgentRuleActions:
         set: typing.Optional[typing.Union["CsmThreatsAgentRuleActionsSet", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''
-        :param hash: hash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#hash CsmThreatsAgentRule#hash}
-        :param set: set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#set CsmThreatsAgentRule#set}
+        :param hash: hash block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#hash CsmThreatsAgentRule#hash}
+        :param set: set block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#set CsmThreatsAgentRule#set}
         '''
         if isinstance(hash, dict):
             hash = CsmThreatsAgentRuleActionsHash(**hash)
@@ -337,7 +337,7 @@ class CsmThreatsAgentRuleActions:
     def hash(self) -> typing.Optional["CsmThreatsAgentRuleActionsHash"]:
         '''hash block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#hash CsmThreatsAgentRule#hash}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#hash CsmThreatsAgentRule#hash}
         '''
         result = self._values.get("hash")
         return typing.cast(typing.Optional["CsmThreatsAgentRuleActionsHash"], result)
@@ -346,7 +346,7 @@ class CsmThreatsAgentRuleActions:
     def set(self) -> typing.Optional["CsmThreatsAgentRuleActionsSet"]:
         '''set block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#set CsmThreatsAgentRule#set}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#set CsmThreatsAgentRule#set}
         '''
         result = self._values.get("set")
         return typing.cast(typing.Optional["CsmThreatsAgentRuleActionsSet"], result)
@@ -557,13 +557,13 @@ class CsmThreatsAgentRuleActionsOutputReference(
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the set action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
-        :param append: Whether to append to the set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#append CsmThreatsAgentRule#append}
-        :param field: The field to get the value from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#field CsmThreatsAgentRule#field}
-        :param scope: The scope of the set action (process, container, cgroup, or empty). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#scope CsmThreatsAgentRule#scope}
-        :param size: The maximum size of the set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#size CsmThreatsAgentRule#size}
-        :param ttl: The time to live for the set in nanoseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#ttl CsmThreatsAgentRule#ttl}
-        :param value: The value to set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#value CsmThreatsAgentRule#value}
+        :param name: The name of the set action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
+        :param append: Whether to append to the set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#append CsmThreatsAgentRule#append}
+        :param field: The field to get the value from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#field CsmThreatsAgentRule#field}
+        :param scope: The scope of the set action (process, container, cgroup, or empty). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#scope CsmThreatsAgentRule#scope}
+        :param size: The maximum size of the set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#size CsmThreatsAgentRule#size}
+        :param ttl: The time to live for the set in nanoseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#ttl CsmThreatsAgentRule#ttl}
+        :param value: The value to set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#value CsmThreatsAgentRule#value}
         '''
         value_ = CsmThreatsAgentRuleActionsSet(
             name=name,
@@ -649,13 +649,13 @@ class CsmThreatsAgentRuleActionsSet:
         value: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: The name of the set action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
-        :param append: Whether to append to the set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#append CsmThreatsAgentRule#append}
-        :param field: The field to get the value from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#field CsmThreatsAgentRule#field}
-        :param scope: The scope of the set action (process, container, cgroup, or empty). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#scope CsmThreatsAgentRule#scope}
-        :param size: The maximum size of the set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#size CsmThreatsAgentRule#size}
-        :param ttl: The time to live for the set in nanoseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#ttl CsmThreatsAgentRule#ttl}
-        :param value: The value to set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#value CsmThreatsAgentRule#value}
+        :param name: The name of the set action. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
+        :param append: Whether to append to the set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#append CsmThreatsAgentRule#append}
+        :param field: The field to get the value from. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#field CsmThreatsAgentRule#field}
+        :param scope: The scope of the set action (process, container, cgroup, or empty). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#scope CsmThreatsAgentRule#scope}
+        :param size: The maximum size of the set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#size CsmThreatsAgentRule#size}
+        :param ttl: The time to live for the set in nanoseconds. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#ttl CsmThreatsAgentRule#ttl}
+        :param value: The value to set. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#value CsmThreatsAgentRule#value}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77d299fa96976ad086426af365bf7d80e33a6c0000d6cf4c63df9664936989f0)
@@ -686,7 +686,7 @@ class CsmThreatsAgentRuleActionsSet:
     def name(self) -> builtins.str:
         '''The name of the set action.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -698,7 +698,7 @@ class CsmThreatsAgentRuleActionsSet:
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Whether to append to the set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#append CsmThreatsAgentRule#append}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#append CsmThreatsAgentRule#append}
         '''
         result = self._values.get("append")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -707,7 +707,7 @@ class CsmThreatsAgentRuleActionsSet:
     def field(self) -> typing.Optional[builtins.str]:
         '''The field to get the value from.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#field CsmThreatsAgentRule#field}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#field CsmThreatsAgentRule#field}
         '''
         result = self._values.get("field")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -716,7 +716,7 @@ class CsmThreatsAgentRuleActionsSet:
     def scope(self) -> typing.Optional[builtins.str]:
         '''The scope of the set action (process, container, cgroup, or empty).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#scope CsmThreatsAgentRule#scope}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#scope CsmThreatsAgentRule#scope}
         '''
         result = self._values.get("scope")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -725,7 +725,7 @@ class CsmThreatsAgentRuleActionsSet:
     def size(self) -> typing.Optional[jsii.Number]:
         '''The maximum size of the set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#size CsmThreatsAgentRule#size}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#size CsmThreatsAgentRule#size}
         '''
         result = self._values.get("size")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -734,7 +734,7 @@ class CsmThreatsAgentRuleActionsSet:
     def ttl(self) -> typing.Optional[jsii.Number]:
         '''The time to live for the set in nanoseconds.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#ttl CsmThreatsAgentRule#ttl}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#ttl CsmThreatsAgentRule#ttl}
         '''
         result = self._values.get("ttl")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -743,7 +743,7 @@ class CsmThreatsAgentRuleActionsSet:
     def value(self) -> typing.Optional[builtins.str]:
         '''The value to set.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#value CsmThreatsAgentRule#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#value CsmThreatsAgentRule#value}
         '''
         result = self._values.get("value")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -993,13 +993,13 @@ class CsmThreatsAgentRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param expression: The SECL expression of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#expression CsmThreatsAgentRule#expression}
-        :param name: The name of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
-        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#actions CsmThreatsAgentRule#actions}
-        :param description: A description for the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#description CsmThreatsAgentRule#description}
-        :param enabled: Indicates whether the Agent rule is enabled. Must not be used without policy_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#enabled CsmThreatsAgentRule#enabled}
-        :param policy_id: The ID of the agent policy in which the rule is saved. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#policy_id CsmThreatsAgentRule#policy_id}
-        :param product_tags: The list of product tags associated with the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#product_tags CsmThreatsAgentRule#product_tags}
+        :param expression: The SECL expression of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#expression CsmThreatsAgentRule#expression}
+        :param name: The name of the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
+        :param actions: actions block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#actions CsmThreatsAgentRule#actions}
+        :param description: A description for the Agent rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#description CsmThreatsAgentRule#description}
+        :param enabled: Indicates whether the Agent rule is enabled. Must not be used without policy_id. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#enabled CsmThreatsAgentRule#enabled}
+        :param policy_id: The ID of the agent policy in which the rule is saved. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#policy_id CsmThreatsAgentRule#policy_id}
+        :param product_tags: The list of product tags associated with the rule. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#product_tags CsmThreatsAgentRule#product_tags}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1116,7 +1116,7 @@ class CsmThreatsAgentRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def expression(self) -> builtins.str:
         '''The SECL expression of the Agent rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#expression CsmThreatsAgentRule#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#expression CsmThreatsAgentRule#expression}
         '''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
@@ -1126,7 +1126,7 @@ class CsmThreatsAgentRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''The name of the Agent rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#name CsmThreatsAgentRule#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1138,7 +1138,7 @@ class CsmThreatsAgentRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[CsmThreatsAgentRuleActions]]]:
         '''actions block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#actions CsmThreatsAgentRule#actions}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#actions CsmThreatsAgentRule#actions}
         '''
         result = self._values.get("actions")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[CsmThreatsAgentRuleActions]]], result)
@@ -1147,7 +1147,7 @@ class CsmThreatsAgentRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def description(self) -> typing.Optional[builtins.str]:
         '''A description for the Agent rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#description CsmThreatsAgentRule#description}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#description CsmThreatsAgentRule#description}
         '''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1158,7 +1158,7 @@ class CsmThreatsAgentRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''Indicates whether the Agent rule is enabled. Must not be used without policy_id.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#enabled CsmThreatsAgentRule#enabled}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#enabled CsmThreatsAgentRule#enabled}
         '''
         result = self._values.get("enabled")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1167,7 +1167,7 @@ class CsmThreatsAgentRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def policy_id(self) -> typing.Optional[builtins.str]:
         '''The ID of the agent policy in which the rule is saved.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#policy_id CsmThreatsAgentRule#policy_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#policy_id CsmThreatsAgentRule#policy_id}
         '''
         result = self._values.get("policy_id")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1176,7 +1176,7 @@ class CsmThreatsAgentRuleConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def product_tags(self) -> typing.Optional[typing.List[builtins.str]]:
         '''The list of product tags associated with the rule.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.68.0/docs/resources/csm_threats_agent_rule#product_tags CsmThreatsAgentRule#product_tags}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/datadog/datadog/3.69.0/docs/resources/csm_threats_agent_rule#product_tags CsmThreatsAgentRule#product_tags}
         '''
         result = self._values.get("product_tags")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)

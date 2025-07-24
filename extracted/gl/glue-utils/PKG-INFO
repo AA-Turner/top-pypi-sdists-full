@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: glue-utils
-Version: 0.11.2
+Version: 0.12.0
 Summary: Reusable utilities for working with Glue PySpark jobs
 Project-URL: homepage, https://github.com/dashmug/glue-utils
 Project-URL: repository, https://github.com/dashmug/glue-utils/issues
@@ -26,7 +26,7 @@ Description-Content-Type: text/markdown
 # glue-utils
 
 [![PyPI - Version](https://img.shields.io/pypi/v/glue-utils)](https://pypi.org/project/glue-utils/)
-[![PyPI - Downloads](https://img.shields.io/pypi/dw/glue-utils)](https://pypistats.org/packages/glue-utils)
+[![PyPI - Downloads](https://img.shields.io/pypi/dd/glue-utils)](https://pypistats.org/packages/glue-utils)
 [![License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
 [![Continuous Integration](https://github.com/dashmug/glue-utils/actions/workflows/ci.yml/badge.svg)](https://github.com/dashmug/glue-utils/actions/workflows/ci.yml)
@@ -59,7 +59,7 @@ To use `glue-utils` in AWS Glue, it needs to be added as an
 in your Glue job.
 
 You can do this by adding an `--additional-python-modules` job parameter
-with the value, `glue_utils==0.11.2`. For more information about setting
+with the value, `glue_utils==0.12.0`. For more information about setting
 job parameters, see [AWS Glue job parameters](https://docs.aws.amazon.com/glue/latest/dg/aws-glue-programming-etl-glue-arguments.html).
 
 ## Usage when developing jobs locally

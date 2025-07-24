@@ -112,18 +112,18 @@ class MatcherManager:
         normalized_entity_name = _normalize(request.entity_name)
         candidates = set()
         conn = self.connection_manager.conn or self.connection_manager.connect()
-        for field in request.select_fields:
-            phonetic_candidates = _block_by_phonetic(conn, normalized_entity_name, field.table_name, field.field_name)
-            soundex_candidates = _block_by_soundex(conn, normalized_entity_name, field.table_name, field.field_name)
-            initialism_candidates = _block_by_initialism(conn, normalized_entity_name, field.table_name, field.field_name)
-            exact_candidates = _block_by_exact_match(conn, normalized_entity_name, field.table_name, field.field_name)
-            
-            candidates = candidates.union(phonetic_candidates)
-            candidates = candidates.union(soundex_candidates)
-            candidates = candidates.union(initialism_candidates)
-            candidates = candidates.union(exact_candidates)
-            
-            logger.debug(f"TableField {field.field_name}: phonetic={len(phonetic_candidates)}, soundex={len(soundex_candidates)}, initialism={len(initialism_candidates)}, exact={len(exact_candidates)}")
+        # for field in request.select_fields:
+        phonetic_candidates = _block_by_phonetic(conn, normalized_entity_name, request.select_field.table_name, request.select_field.field_name)
+        soundex_candidates = _block_by_soundex(conn, normalized_entity_name, request.select_field.table_name, request.select_field.field_name)
+        initialism_candidates = _block_by_initialism(conn, normalized_entity_name, request.select_field.table_name, request.select_field.field_name)
+        exact_candidates = _block_by_exact_match(conn, normalized_entity_name, request.select_field.table_name, request.select_field.field_name)
+        
+        candidates = candidates.union(phonetic_candidates)
+        candidates = candidates.union(soundex_candidates)
+        candidates = candidates.union(initialism_candidates)
+        candidates = candidates.union(exact_candidates)
+        
+        logger.debug(f"TableField {request.select_field.field_name}: phonetic={len(phonetic_candidates)}, soundex={len(soundex_candidates)}, initialism={len(initialism_candidates)}, exact={len(exact_candidates)}")
         
         logger.debug(f"Total candidates found: {len(candidates)}")
         
@@ -166,10 +166,9 @@ class MatcherManager:
                 
                 return additional_candidates
             
-            for field in request.select_fields:
-                additional = _get_more_candidates(conn, normalized_entity_name, field.table_name, field.field_name, min_candidates - len(candidates))
-                candidates = candidates.union(additional)
-                logger.debug(f"Added {len(additional)} additional candidates from broader search")
+            additional = _get_more_candidates(conn, normalized_entity_name, request.select_field.table_name, request.select_field.field_name, min_candidates - len(candidates))
+            candidates = candidates.union(additional)
+            logger.debug(f"Added {len(additional)} additional candidates from broader search")
         
         logger.debug(f"Final total candidates: {len(candidates)}")
 
@@ -237,5 +236,13 @@ class MatcherManager:
         ranked.sort(key=lambda x: x[1], reverse=True)
         
         # Return top_n results
-        return EntityMappingResponse(results=[SingleMappedEntity(raw_entity=name, canonical_entity=name, score=score) for name, score in ranked[:request.top_n]])
+        return EntityMappingResponse(results=[
+            SingleMappedEntity(
+                raw_entity=request.entity_name, 
+                canonical_entity=candidate_name, 
+                canonical_table_name=request.select_field.table_name, 
+                canonical_field_name=request.select_field.field_name, 
+                score=score) 
+            for candidate_name, score in ranked[:request.top_n]
+        ])
     

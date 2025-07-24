@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: schema-salad
-Version: 8.9.20250408123006
+Version: 8.9.20250723145140
 Summary: Schema Annotations for Linked Avro Data (SALAD)
 Home-page: https://schema-salad.readthedocs.io/
 Download-URL: https://github.com/common-workflow-language/schema_salad/releases
@@ -19,7 +19,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Typing :: Typed
-Requires-Python: >=3.9,<3.14
+Requires-Python: >=3.9,<3.15
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
 Requires-Dist: requests>=1.0

@@ -3469,6 +3469,9 @@ class BatchInferenceJob(betterproto.Message):
     toleration: str = betterproto.string_field(24)
     """The taint key to tolerate for the batch inference job."""
 
+    deployment_extra_args: List[str] = betterproto.string_field(25)
+    """The extra args for deployment"""
+
 
 @dataclass(eq=False, repr=False)
 class InferenceParameters(betterproto.Message):
@@ -10770,7 +10773,7 @@ class DeleteSnapshotRequest(betterproto.Message):
 
 @dataclass(eq=False, repr=False)
 class SupervisedFineTuningJob(betterproto.Message):
-    """Next ID: 36"""
+    """Next ID: 37"""
 
     name: str = betterproto.string_field(1)
     """
@@ -10911,6 +10914,9 @@ class SupervisedFineTuningJob(betterproto.Message):
 
     extra_args: List[str] = betterproto.string_field(35)
     """A list of extra arguments that should be passed to the trainer job."""
+
+    metrics_file_signed_url: str = betterproto.string_field(36)
+    """The signed URL for the metrics file"""
 
 
 @dataclass(eq=False, repr=False)

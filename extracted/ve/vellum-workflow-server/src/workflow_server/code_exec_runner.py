@@ -2,6 +2,7 @@ from datetime import datetime
 import json
 import logging
 import os
+from threading import Event as ThreadingEvent
 from uuid import uuid4
 from typing import Optional
 
@@ -47,7 +48,12 @@ def run_code_exec_stream() -> None:
         print(f"{_EVENT_LINE}{initiated_event}")  # noqa: T201
 
         try:
-            stream_iterator, span_id = stream_workflow(context, disable_redirect=True)
+            stream_iterator, span_id = stream_workflow(
+                context,
+                disable_redirect=True,
+                # Timeouts are handled at the code exec level right now so just passing in an unused threading event
+                timeout_signal=ThreadingEvent(),
+            )
             for line in stream_iterator:
                 print(f"{_EVENT_LINE}{json.dumps(line)}")  # noqa: T201
         except WorkflowInitializationException as e:

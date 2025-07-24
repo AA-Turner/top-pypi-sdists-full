@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import logging
 import typing as t
+import uuid
 
 from globus_sdk import exc, utils
-from globus_sdk._types import ScopeCollectionType, UUIDLike
+from globus_sdk._types import ScopeCollectionType
 from globus_sdk.authorizers import BasicAuthorizer
 from globus_sdk.response import GlobusHTTPResponse
 
@@ -44,7 +45,7 @@ class ConfidentialAppAuthClient(AuthLoginClient):
 
     def __init__(
         self,
-        client_id: UUIDLike,
+        client_id: uuid.UUID | str,
         client_secret: str,
         environment: str | None = None,
         base_url: str | None = None,
@@ -64,7 +65,7 @@ class ConfidentialAppAuthClient(AuthLoginClient):
         self,
         *,
         usernames: t.Iterable[str] | str | None = None,
-        ids: t.Iterable[UUIDLike] | UUIDLike | None = None,
+        ids: t.Iterable[uuid.UUID | str] | uuid.UUID | str | None = None,
         provision: bool = False,
         query_params: dict[str, t.Any] | None = None,
     ) -> GetIdentitiesResponse:
@@ -344,8 +345,8 @@ class ConfidentialAppAuthClient(AuthLoginClient):
         redirect_uris: t.Iterable[str] | utils.MissingType = utils.MISSING,
         terms_and_conditions: str | utils.MissingType = utils.MISSING,
         privacy_policy: str | utils.MissingType = utils.MISSING,
-        required_idp: UUIDLike | utils.MissingType = utils.MISSING,
-        preselect_idp: UUIDLike | utils.MissingType = utils.MISSING,
+        required_idp: uuid.UUID | str | utils.MissingType = utils.MISSING,
+        preselect_idp: uuid.UUID | str | utils.MissingType = utils.MISSING,
         additional_fields: dict[str, t.Any] | utils.MissingType = utils.MISSING,
     ) -> GlobusHTTPResponse:
         """

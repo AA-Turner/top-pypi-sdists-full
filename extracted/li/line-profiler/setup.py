@@ -44,7 +44,8 @@ def parse_version(fpath):
 
 def static_parse(varname, fpath):
     """
-    Statically parse the a constant variable from a python file
+    Statically parse the a constant variable from a python file.
+    Raise an error if the variable is not a constant.
     """
     import ast
 
@@ -55,10 +56,13 @@ def static_parse(varname, fpath):
     pt = ast.parse(sourcecode)
 
     class StaticVisitor(ast.NodeVisitor):
-        def visit_Assign(self, node):
+        def visit_Assign(self, node: ast.Assign):
             for target in node.targets:
                 if getattr(target, "id", None) == varname:
-                    self.static_value = node.value.s
+                    value: ast.expr = node.value
+                    if not isinstance(value, ast.Constant):
+                        raise ValueError("variable {!r} is not a constant".format(varname))
+                    self.static_value = value.value
 
     visitor = StaticVisitor()
     visitor.visit(pt)
@@ -224,7 +228,9 @@ if __name__ == '__main__':
             return cythonize(
                 Extension(
                     name="line_profiler._line_profiler",
-                    sources=["line_profiler/_line_profiler.pyx", "line_profiler/timers.c", "line_profiler/unset_trace.c"],
+                    sources=["line_profiler/_line_profiler.pyx",
+                             "line_profiler/timers.c",
+                             "line_profiler/c_trace_callbacks.c"],
                     language="c++",
                     define_macros=[("CYTHON_TRACE", (1 if os.getenv("DEV") == "true" else 0))],
                 ),
@@ -280,7 +286,10 @@ if __name__ == '__main__':
     setupkw["py_modules"] = ['kernprof', 'line_profiler']
     setupkw["python_requires"] = ">=3.8"
     setupkw['license_files'] = ['LICENSE.txt', 'LICENSE_Python.txt']
-    setupkw["package_data"] = {"line_profiler": ["py.typed", "*.pyi"]}
+    setupkw["package_data"] = {"line_profiler": ["py.typed", "*.pyi", "*.toml"]}
+    # `include_package_data` is needed to put `rc/line_profiler.toml` in
+    # the wheel
+    setupkw["include_package_data"] = True
     setupkw['keywords'] = ['timing', 'timer', 'profiling', 'profiler', 'line_profiler']
     setupkw["classifiers"] = [
         'Development Status :: 5 - Production/Stable',

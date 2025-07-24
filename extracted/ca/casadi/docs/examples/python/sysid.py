@@ -31,7 +31,7 @@ from casadi import *
 # This form is well-suited for the Gauss-Newton Hessian approximation.
 
 ############ SETTINGS #####################
-N = 10000  # Number of samples
+N = 2000  # Number of samples
 fs = 610.1 # Sampling frequency [hz]
 
 param_truth = DM([5.625e-6,2.3e-4,1,4.69])
@@ -43,10 +43,10 @@ y  = MX.sym('y')
 dy = MX.sym('dy')
 u  = MX.sym('u')
 
-states = vertcat(y,dy);
-controls = u;
+states = vertcat(y,dy)
+controls = u
 
-M = MX.sym("x")
+M = MX.sym("M")
 c = MX.sym("c")
 k = MX.sym("k")
 k_NL = MX.sym("k_NL")
@@ -71,9 +71,9 @@ k4 = ode(states+dt*k3,controls,params)
 states_final = states+dt/6.0*(k1+2*k2+2*k3+k4)
 
 # Create a function that simulates one step propagation in a sample
-one_step = Function('one_step',[states, controls, params],[states_final]);
+one_step = Function('one_step',[states, controls, params],[states_final])
 
-X = states;
+X = states
 
 for i in range(N_steps_per_sample):
   X = one_step(X, controls, params)
@@ -103,6 +103,7 @@ if Importer.has_plugin('clang'):
   compiler = 'clang'
 elif Importer.has_plugin('shell'):
   with_jit = True
+  print("WARNING: on Windows, JIT may require a special environment cfr https://github.com/casadi/casadi/wiki/FAQ:-how-to-perform-jit-for-function-evaluations-of-my-optimization-problem%3F")
   compiler = 'shell'
 else:
   print("WARNING; running without jit. This may result in very slow evaluation times")
@@ -125,7 +126,7 @@ def gauss_newton(e,nlp,V):
 # that they are in the order of ~0.1..100
 X_symbolic = all_samples(x0, u_data, repmat(params*scale,1,N))
 
-e = y_data-X_symbolic[0,:].T;
+e = y_data-X_symbolic[0,:].T
 nlp = {'x':params, 'f':0.5*dot(e,e)}
 
 solver = gauss_newton(e,nlp, params)
@@ -134,7 +135,7 @@ sol = solver(x0=param_guess)
 
 print(sol["x"]*scale)
 
-assert(norm_inf(sol["x"]*scale-param_truth)<1e-8)
+assert norm_inf(sol["x"]*scale-param_truth)<1e-8
 
 ############ Identifying the simulated system: multiple shooting strategy ##########
 
@@ -145,15 +146,15 @@ Xn = one_sample.map(N, 'openmp')(X, u_data.T, repmat(params*scale,1,N))
 
 gaps = Xn[:,:-1]-X[:,1:]
 
-e = y_data-Xn[0,:].T;
+e = y_data-Xn[0,:].T
 
 V = veccat(params, X)
 
-nlp = {'x':V, 'f':0.5*dot(e,e),'g': vec(gaps)}
+nlp = {'x':V, 'f':0.5*dot(e,e), 'g':vec(gaps)}
 
 # Multipleshooting allows for careful initialization
-yd = np.diff(y_data,axis=0)*fs
-X_guess = horzcat(y_data , vertcat(yd,yd[-1])).T;
+yd = numpy.diff(y_data,axis=0)*fs
+X_guess = horzcat(y_data , vertcat(yd,yd[-1])).T
 
 x0 = veccat(param_guess,X_guess)
 
@@ -163,4 +164,4 @@ sol = solver(x0=x0,lbg=0,ubg=0)
 
 print(sol["x"][:4]*scale)
 
-assert(norm_inf(sol["x"][:4]*scale-param_truth)<1e-8)
+assert norm_inf(sol["x"][:4]*scale-param_truth)<1e-8

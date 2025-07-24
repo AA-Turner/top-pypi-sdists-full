@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import typing as t
+import uuid
 
 from globus_sdk import response
-from globus_sdk._types import UUIDLike
 
 from .client import GroupsClient
 from .data import (
@@ -32,7 +32,7 @@ class GroupsManager:
         name: str,
         description: str,
         *,
-        parent_id: UUIDLike | None = None,
+        parent_id: uuid.UUID | str | None = None,
     ) -> response.GlobusHTTPResponse:
         """
         Create a group with the given name.  If a parent ID is included, the
@@ -51,7 +51,7 @@ class GroupsManager:
 
     def set_group_policies(
         self,
-        group_id: UUIDLike,
+        group_id: uuid.UUID | str,
         *,
         is_high_assurance: bool,
         group_visibility: _GROUP_VISIBILITY_T,
@@ -84,7 +84,7 @@ class GroupsManager:
         return self.client.set_group_policies(group_id, data=data)
 
     def accept_invite(
-        self, group_id: UUIDLike, identity_id: UUIDLike
+        self, group_id: uuid.UUID | str, identity_id: uuid.UUID | str
     ) -> response.GlobusHTTPResponse:
         """
         Accept invite for an identity.  The identity must belong to
@@ -98,8 +98,8 @@ class GroupsManager:
 
     def add_member(
         self,
-        group_id: UUIDLike,
-        identity_id: UUIDLike,
+        group_id: uuid.UUID | str,
+        identity_id: uuid.UUID | str,
         *,
         role: _GROUP_ROLE_T = "member",
     ) -> response.GlobusHTTPResponse:
@@ -114,7 +114,7 @@ class GroupsManager:
         return self.client.batch_membership_action(group_id, actions)
 
     def approve_pending(
-        self, group_id: UUIDLike, identity_id: UUIDLike
+        self, group_id: uuid.UUID | str, identity_id: uuid.UUID | str
     ) -> response.GlobusHTTPResponse:
         """
         Approve an identity with a pending join request.
@@ -126,7 +126,7 @@ class GroupsManager:
         return self.client.batch_membership_action(group_id, actions)
 
     def decline_invite(
-        self, group_id: UUIDLike, identity_id: UUIDLike
+        self, group_id: uuid.UUID | str, identity_id: uuid.UUID | str
     ) -> response.GlobusHTTPResponse:
         """
         Decline an invitation for a given identity.
@@ -139,8 +139,8 @@ class GroupsManager:
 
     def invite_member(
         self,
-        group_id: UUIDLike,
-        identity_id: UUIDLike,
+        group_id: uuid.UUID | str,
+        identity_id: uuid.UUID | str,
         *,
         role: _GROUP_ROLE_T = "member",
     ) -> response.GlobusHTTPResponse:
@@ -155,7 +155,7 @@ class GroupsManager:
         return self.client.batch_membership_action(group_id, actions)
 
     def join(
-        self, group_id: UUIDLike, identity_id: UUIDLike
+        self, group_id: uuid.UUID | str, identity_id: uuid.UUID | str
     ) -> response.GlobusHTTPResponse:
         """
         Join a group with the given identity.  The identity must be in the
@@ -168,7 +168,7 @@ class GroupsManager:
         return self.client.batch_membership_action(group_id, actions)
 
     def leave(
-        self, group_id: UUIDLike, identity_id: UUIDLike
+        self, group_id: uuid.UUID | str, identity_id: uuid.UUID | str
     ) -> response.GlobusHTTPResponse:
         """
         Leave a group that one of the identities in the authenticated user's
@@ -181,7 +181,7 @@ class GroupsManager:
         return self.client.batch_membership_action(group_id, actions)
 
     def reject_join_request(
-        self, group_id: UUIDLike, identity_id: UUIDLike
+        self, group_id: uuid.UUID | str, identity_id: uuid.UUID | str
     ) -> response.GlobusHTTPResponse:
         """
         Reject a member that has requested to join the group.
@@ -193,7 +193,7 @@ class GroupsManager:
         return self.client.batch_membership_action(group_id, actions)
 
     def remove_member(
-        self, group_id: UUIDLike, identity_id: UUIDLike
+        self, group_id: uuid.UUID | str, identity_id: uuid.UUID | str
     ) -> response.GlobusHTTPResponse:
         """
         Remove a member from a group.  This must be done as an admin or manager
@@ -206,7 +206,7 @@ class GroupsManager:
         return self.client.batch_membership_action(group_id, actions)
 
     def request_join(
-        self, group_id: UUIDLike, identity_id: UUIDLike
+        self, group_id: uuid.UUID | str, identity_id: uuid.UUID | str
     ) -> response.GlobusHTTPResponse:
         """
         Request to join a group.

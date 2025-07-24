@@ -3,9 +3,9 @@ from __future__ import annotations
 import datetime
 import logging
 import typing as t
+import uuid
 
 from globus_sdk import exc, utils
-from globus_sdk._types import UUIDLike
 
 if t.TYPE_CHECKING:
     import globus_sdk
@@ -164,11 +164,11 @@ class TransferData(utils.PayloadWrapper):
     def __init__(
         self,
         transfer_client: globus_sdk.TransferClient | None = None,
-        source_endpoint: UUIDLike | None = None,
-        destination_endpoint: UUIDLike | None = None,
+        source_endpoint: uuid.UUID | str | None = None,
+        destination_endpoint: uuid.UUID | str | None = None,
         *,
         label: str | None = None,
-        submission_id: UUIDLike | None = None,
+        submission_id: uuid.UUID | str | None = None,
         sync_level: (
             int | None | t.Literal["exists", "size", "mtime", "checksum"]
         ) = None,

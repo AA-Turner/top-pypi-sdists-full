@@ -402,6 +402,62 @@ class LangChainVectorStoreAdapter(Generic[T], BaseVectorStore):
 
         return window_documents
 
+    def _get_window_documents_db2(
+        self, doc_id: str, seq_nums_window: list[int]
+    ) -> list[Document]:
+        """
+        Receives a document ID and a list of chunks' sequence_numbers,
+        and searches the vector store according to the metadata.
+
+        :param doc_id: ID of document
+        :type doc_id: str
+
+        :param seq_nums_window: list of sequence numbers
+        :type seq_nums_window: list[int]
+
+        :return: list of documents from that document with these sequence_numbers
+        :rtype: list[Document]
+        """
+        table_name = self._langchain_vector_store.table_name  # type: ignore[attr-defined]
+
+        placeholders = ",".join("?" for _ in seq_nums_window)
+
+        sql = f"""
+            WITH extracted AS (
+              SELECT
+                JSON_VALUE(metadata, '$.sequence_number' RETURNING INTEGER) AS seq_num,
+                JSON_VALUE(metadata, '$.document_id') AS doc_id,
+                text AS page_content
+              FROM {table_name}
+            )
+            SELECT
+              seq_num,
+              doc_id,
+              page_content
+            FROM extracted
+            WHERE doc_id = ?
+              AND seq_num IN ({placeholders})
+            ORDER BY seq_num;
+        """
+
+        params = [doc_id] + seq_nums_window
+
+        cursor = self._langchain_vector_store.client.cursor()  # type: ignore[attr-defined]
+        cursor.execute(sql, tuple(params))
+        rows = cursor.fetchall()
+
+        window_documents = [
+            Document(
+                page_content=row[2],
+                metadata={
+                    "sequence_number": row[0],
+                    "document_id": row[1],
+                },
+            )
+            for row in rows
+        ]
+        return window_documents
+
     def delete(self, ids: list[str], **kwargs: Any) -> None:
         """Delete by vector ID or other criteria. Sor more details see LangChain documentation
         https://python.langchain.com/api_reference/core/vectorstores/langchain_core.vectorstores.base.VectorStore.html#langchain_core.vectorstores.base.VectorStore
@@ -563,9 +619,17 @@ class LangChainVectorStoreAdapter(Generic[T], BaseVectorStore):
                 window_documents = self._get_window_documents_elasticsearch(
                     doc_id, seq_nums_window
                 )
+            case "DB2VS":
+                try:
+                    from langchain_db2 import DB2VS
+                except ImportError:
+                    raise MissingExtension("langchain_db2")
+                window_documents = self._get_window_documents_db2(
+                    doc_id, seq_nums_window
+                )
             case _:
                 raise TypeError(
-                    f"Currently we only support Milvus, Chroma and Elasticsearch. "
+                    f"Currently we only support Milvus, Chroma, Elasticsearch and DB2VS. "
                     f"Received {type(self._langchain_vector_store)}."
                 )
 

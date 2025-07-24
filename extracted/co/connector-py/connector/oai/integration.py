@@ -618,11 +618,11 @@ class Integration:
         else:
             try:
                 self.settings_model.model_validate(request.settings)
-            except ValidationError:
+            except ValidationError as e:
                 return ErrorResponse(
                     is_error=True,
                     error=Error(
-                        message="Invalid settings passed on request",
+                        message=f"Invalid settings passed on request - {repr(e.errors())}",
                         error_code=ErrorCode.BAD_REQUEST,
                         app_id=self.app_id,
                     ),

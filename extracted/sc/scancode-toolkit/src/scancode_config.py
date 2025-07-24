@@ -134,20 +134,20 @@ if not __version__:
 # See https://scancode-toolkit.readthedocs.io/en/latest/misc/versioning.html for
 # more information on versioning
 if not __version__:
-    __version__ = '32.4.0'
+    __version__ = '32.4.1'
 
 #######################
 # used to warn user when the version is out of date
 # this is (year, month, day)
-__release_date__ = datetime.datetime(2025, 6, 26)
+__release_date__ = datetime.datetime(2025, 7, 23)
 
 # See https://scancode-toolkit.readthedocs.io/en/latest/misc/versioning.html
 # for more information on the data format version
 __output_format_version__ = '4.1.0'
 
 # see https://github.com/spdx/tools-python/issues/820
-# this is actually `3.26.0`
-spdx_license_list_version = '3.26'
+# this is actually `3.27.0`
+spdx_license_list_version = '3.27'
 
 ################################################################################
 # USAGE MODE-, INSTALLATION- and IMPORT- and RUN-SPECIFIC DIRECTORIES

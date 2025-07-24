@@ -2325,11 +2325,16 @@ class Models(WMLResource):
                 "Saving model with artifact_url: '{}' failed.".format(filename), e
             )
 
-    def delete(self, model_id: str | None = None, **kwargs: Any) -> dict[str, Any]:
+    def delete(
+        self, model_id: str | None = None, force: bool = False, **kwargs: Any
+    ) -> dict[str, Any]:
         """Delete a model from the repository.
 
         :param model_id: ID of the stored model
         :type model_id: str
+
+        :param force: if True, the delete operation will proceed even when the model deployment exists, defaults to False
+        :type force: bool, optional
 
         **Example:**
 
@@ -2340,36 +2345,23 @@ class Models(WMLResource):
         model_id = _get_id_from_deprecated_uid(kwargs, model_id, "model")
         Models._validate_type(model_id, "model_id", str, False)
 
+        if not force and self._if_deployment_exist_for_asset(model_id):
+            raise WMLClientError(
+                "Cannot delete model that has existing deployments. Please delete all associated deployments and try again"
+            )
+
         model_endpoint = self._client._href_definitions.get_published_model_href(
             model_id
         )
 
-        self._logger.debug(
-            "Deletion artifact model endpoint: {}".format(model_endpoint)
+        self._logger.debug("Deletion artifact model endpoint: %s" % model_endpoint)
+        response = requests.delete(
+            model_endpoint,
+            params=self._client._params(),
+            headers=self._client._get_headers(),
         )
-        if not self._client.ICP_PLATFORM_SPACES:
-            if self._if_deployment_exist_for_asset(model_id):
-                raise WMLClientError(
-                    "Cannot delete model that has existing deployments. Please delete all associated deployments and try again"
-                )
 
-            response_delete = requests.delete(
-                model_endpoint,
-                params=self._client._params(),
-                headers=self._client._get_headers(),
-            )
-        else:
-            # check if the model as a corresponding deployment
-            if self._if_deployment_exist_for_asset(model_id):
-                raise WMLClientError(
-                    "Cannot delete model that has existing deployments. Please delete all associated deployments and try again"
-                )
-            response_delete = requests.delete(
-                model_endpoint,
-                params=self._client._params(),
-                headers=self._client._get_headers(),
-            )
-        return self._handle_response(204, "model deletion", response_delete, False)
+        return self._handle_response(204, "model deletion", response, False)
 
     @overload
     def get_details(

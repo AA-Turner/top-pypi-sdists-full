@@ -121,6 +121,7 @@ from pyroute2.netlink.core import (
 )
 from pyroute2.netlink.exceptions import ChaoticException, NetlinkError
 from pyroute2.netlink.marshal import Marshal
+from pyroute2.netlink.rt_files import NlProtosFile
 from pyroute2.requests.main import RequestFilter
 
 log = logging.getLogger(__name__)
@@ -211,6 +212,8 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
     Netlink socket
     '''
 
+    marshal_class = Marshal
+
     def __init__(
         self,
         family=NETLINK_GENERIC,
@@ -235,6 +238,10 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         use_event_loop=None,
         telemetry=None,
     ):
+
+        if isinstance(family, str):
+            family = NlProtosFile().get_rt_id(family)
+
         # 8<-----------------------------------------
         self.spec = NetlinkSocketSpec(
             NetlinkConfig(
@@ -270,7 +277,7 @@ class AsyncNetlinkSocket(AsyncCoreSocket):
         super().__init__(
             libc=libc, use_socket=use_socket, use_event_loop=use_event_loop
         )
-        self.marshal = Marshal()
+        self.marshal = self.marshal_class()
         self.request_proxy = None
         self.batch = None
 
@@ -637,26 +644,34 @@ class NetlinkRequest:
         raise exc
 
     async def response(self):
-        async for msg in self.sock.get(
+        coro = self.sock.get(
             msg_seq=self.msg_seq,
             terminate=self.terminate,
             callback=self.callback,
-        ):
-            if self.dump_filter is not None and not self.match_one_message(
-                self.dump_filter, msg
-            ):
-                continue
-            for cr in self.sock.callbacks:
-                try:
-                    if cr[0](msg):
-                        cr[1](msg, *cr[2])
-                except Exception:
-                    log.warning("Callback fail: %{cr}")
-            yield msg
-        self.cleanup()
+        )
+        try:
+            async for msg in coro:
+                if (
+                    self.dump_filter is not None
+                    and not self.match_one_message(self.dump_filter, msg)
+                ):
+                    continue
+                for cr in self.sock.callbacks:
+                    try:
+                        if cr[0](msg):
+                            cr[1](msg, *cr[2])
+                    except Exception:
+                        log.warning("Callback fail: %{cr}")
+                yield msg
+        finally:
+            await coro.aclose()
+            self.cleanup()
 
 
 class NetlinkSocket(SyncAPI):
+
+    async_class = AsyncNetlinkSocket
+
     def __init__(
         self,
         family=NETLINK_GENERIC,
@@ -668,7 +683,7 @@ class NetlinkSocket(SyncAPI):
         rcvsize=16384,
         all_ns=False,
         async_qsize=None,
-        nlm_generator=None,
+        nlm_generator=True,
         target='localhost',
         ext_ack=False,
         strict_check=False,
@@ -681,7 +696,7 @@ class NetlinkSocket(SyncAPI):
         use_event_loop=None,
         telemetry=None,
     ):
-        self.asyncore = AsyncNetlinkSocket(
+        self.asyncore = self.async_class(
             family=family,
             port=port,
             pid=pid,
@@ -704,6 +719,10 @@ class NetlinkSocket(SyncAPI):
         )
         self.asyncore.local.keep_event_loop = True
         self.asyncore.status['event_loop'] = 'new'
+        self.asyncore.status['nlm_generator'] = nlm_generator
+        # FIXME: temporary override from a class attribute
+        if hasattr(self, 'class_gen_sync'):
+            self.asyncore.status['nlm_generator'] = self.class_gen_sync
         self.asyncore.event_loop.run_until_complete(
             self.asyncore.setup_endpoint()
         )
@@ -714,9 +733,7 @@ class NetlinkSocket(SyncAPI):
         with self.lock:
             self.asyncore._check_tid(tag='bind', level=logging.WARN)
             self.asyncore.local.keep_event_loop = True
-            self._run_with_cleanup(
-                self.asyncore.bind, 'nl-bind', *argv, **kwarg
-            )
+            self._run_with_cleanup(self.asyncore.bind, *argv, **kwarg)
             self.asyncore._register_loop_ref()
 
     def put(
@@ -732,14 +749,7 @@ class NetlinkSocket(SyncAPI):
             msg_class = self.marshal.msg_map[msg_type]
             msg = msg_class()
         return self._run_with_cleanup(
-            self.asyncore.put,
-            'nl-put',
-            msg,
-            msg_type,
-            msg_flags,
-            addr,
-            msg_seq,
-            msg_pid,
+            self.asyncore.put, msg, msg_type, msg_flags, addr, msg_seq, msg_pid
         )
 
     def nlm_request_batch(self, msgs, noraise=False):
@@ -748,7 +758,7 @@ class NetlinkSocket(SyncAPI):
                 x async for x in self.asyncore.nlm_request_batch(msgs, noraise)
             ]
 
-        return self._run_with_cleanup(collect_data, 'nl-req-batch')
+        return self._run_with_cleanup(collect_data)
 
     def nlm_request(
         self,
@@ -759,19 +769,20 @@ class NetlinkSocket(SyncAPI):
         callback=None,
         parser=None,
     ):
-
-        async def collect_data():
-            return [
-                x
-                async for x in await self.asyncore.nlm_request(
-                    msg, msg_type, msg_flags, terminate, callback, parser
-                )
-            ]
-
-        return self._run_with_cleanup(collect_data, 'nl-req')
+        ret = self._generate_with_cleanup(
+            self.asyncore.nlm_request,
+            msg,
+            msg_type,
+            msg_flags,
+            terminate,
+            callback,
+            parser,
+        )
+        if self.status['nlm_generator']:
+            return ret
+        return tuple(ret)
 
     def get(self, msg_seq=0, terminate=None, callback=None, noraise=False):
-        '''Sync wrapper for async_get().'''
 
         async def collect_data():
             return [
@@ -781,7 +792,7 @@ class NetlinkSocket(SyncAPI):
                 )
             ]
 
-        return self._run_with_cleanup(collect_data, 'nl-get')
+        return self._run_with_cleanup(collect_data)
 
 
 class ChaoticNetlinkSocket(NetlinkSocket):

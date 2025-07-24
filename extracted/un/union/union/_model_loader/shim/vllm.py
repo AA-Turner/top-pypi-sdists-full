@@ -2,7 +2,6 @@ import logging
 from typing import Generator
 
 import torch
-import vllm.model_executor.model_loader.loader
 import vllm.scripts
 from vllm.config import ModelConfig, VllmConfig
 
@@ -15,7 +14,12 @@ from ..loader import SafeTensorsStreamer, prefetch, prefix_exists
 
 logger = logging.getLogger(__name__)
 
-_OrigDefaultModelLoader = vllm.model_executor.model_loader.loader.DefaultModelLoader
+try:
+    import vllm.model_executor.model_loader.loader as model_loader
+except ModuleNotFoundError:
+    import vllm.model_executor.model_loader.default_loader as model_loader
+
+_OrigDefaultModelLoader = model_loader.DefaultModelLoader
 
 
 class UnionModelLoader(_OrigDefaultModelLoader):
@@ -36,10 +40,19 @@ class UnionModelLoader(_OrigDefaultModelLoader):
     def _load_sharded_model(self, vllm_config: VllmConfig) -> torch.nn.Module:
         # Forked from: https://github.com/vllm-project/vllm/blob/99d01a5e3d5278284bad359ac8b87ee7a551afda/vllm/model_executor/model_loader/loader.py#L613
         from vllm.distributed import get_tensor_model_parallel_rank
-        from vllm.model_executor.model_loader.loader import (
-            ShardedStateLoader,
-            _initialize_model,
-        )
+
+        try:
+            from vllm.model_executor.model_loader.loader import (
+                ShardedStateLoader,
+            )
+            from vllm.model_executor.model_loader.loader import (
+                _initialize_model as get_model,
+            )
+        except ModuleNotFoundError:
+            # account for breaking change in vllm 0.9.0
+            from vllm.model_executor.model_loader import get_model
+            from vllm.model_executor.model_loader.sharded_state_loader import ShardedStateLoader
+
         from vllm.model_executor.model_loader.utils import set_default_torch_dtype
 
         # Sanity checks
@@ -49,7 +62,7 @@ class UnionModelLoader(_OrigDefaultModelLoader):
             raise ValueError(f"Invalid rank {rank} for tensor parallel size {tensor_parallel_size}")
         with set_default_torch_dtype(vllm_config.model_config.dtype):
             with torch.device(vllm_config.device_config.device):
-                model = _initialize_model(vllm_config=vllm_config)
+                model = get_model(vllm_config=vllm_config)
                 for _, module in model.named_modules():
                     quant_method = getattr(module, "quant_method", None)
                     if quant_method is not None:

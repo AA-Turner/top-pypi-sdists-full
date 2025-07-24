@@ -3621,6 +3621,7 @@ class StartJobRunRequestTypeDef(TypedDict):
     WorkerType: NotRequired[WorkerTypeType]
     NumberOfWorkers: NotRequired[int]
     ExecutionClass: NotRequired[ExecutionClassType]
+    ExecutionRoleSessionPolicy: NotRequired[str]
 
 class AggregateOutputTypeDef(TypedDict):
     Name: str
@@ -5396,6 +5397,7 @@ class JobRunTypeDef(TypedDict):
     MaintenanceWindow: NotRequired[str]
     ProfileName: NotRequired[str]
     StateDetail: NotRequired[str]
+    ExecutionRoleSessionPolicy: NotRequired[str]
 
 class JoinOutputTypeDef(TypedDict):
     Name: str

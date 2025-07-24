@@ -23,13 +23,13 @@ from scim2_models.annotations import Mutability
 from scim2_models.annotations import Required
 from scim2_models.annotations import Returned
 from scim2_models.context import Context
-from scim2_models.utils import normalize_attribute_name
-from scim2_models.utils import to_camel
+from scim2_models.utils import UNION_TYPES
+from scim2_models.utils import _find_field_name
+from scim2_models.utils import _normalize_attribute_name
+from scim2_models.utils import _to_camel
 
-from .utils import UNION_TYPES
 
-
-def contains_attribute_or_subattributes(
+def _contains_attribute_or_subattributes(
     attribute_urns: list[str], attribute_urn: str
 ) -> bool:
     return attribute_urn in attribute_urns or any(
@@ -43,8 +43,8 @@ class BaseModel(PydanticBaseModel):
 
     model_config = ConfigDict(
         alias_generator=AliasGenerator(
-            validation_alias=normalize_attribute_name,
-            serialization_alias=to_camel,
+            validation_alias=_normalize_attribute_name,
+            serialization_alias=_to_camel,
         ),
         validate_assignment=True,
         populate_by_name=True,
@@ -54,7 +54,35 @@ class BaseModel(PydanticBaseModel):
 
     @classmethod
     def get_field_annotation(cls, field_name: str, annotation_type: type) -> Any:
-        """Return the annotation of type 'annotation_type' of the field 'field_name'."""
+        """Return the annotation of type 'annotation_type' of the field 'field_name'.
+
+        This method extracts SCIM-specific annotations from a field's metadata,
+        such as :class:`~scim2_models.Mutability`, :class:`~scim2_models.Required`,
+        or :class:`~scim2_models.Returned` annotations.
+
+        :return: The annotation instance if found, otherwise the annotation type's default value
+
+        >>> from scim2_models.resources.user import User
+        >>> from scim2_models.annotations import Mutability, Required
+
+        Get the mutability annotation of the 'id' field:
+
+        >>> mutability = User.get_field_annotation("id", Mutability)
+        >>> mutability
+        <Mutability.read_only: 'readOnly'>
+
+        Get the required annotation of the 'user_name' field:
+
+        >>> required = User.get_field_annotation("user_name", Required)
+        >>> required
+        <Required.true: True>
+
+        If no annotation is found, returns the default value:
+
+        >>> missing = User.get_field_annotation("display_name", Required)
+        >>> missing
+        <Required.false: False>
+        """
         field_metadata = cls.model_fields[field_name].metadata
 
         default_value = getattr(annotation_type, "_default", None)
@@ -71,8 +99,34 @@ class BaseModel(PydanticBaseModel):
     def get_field_root_type(cls, attribute_name: str) -> Optional[type]:
         """Extract the root type from a model field.
 
-        For example, return 'GroupMember' for
-        'Optional[List[GroupMember]]'
+        This method unwraps complex type annotations to find the underlying
+        type, removing Optional and List wrappers to get to the actual type
+        of the field's content.
+
+        :return: The root type of the field, or None if not found
+
+        >>> from scim2_models.resources.user import User
+        >>> from scim2_models.resources.group import Group
+
+        Simple type:
+
+        >>> User.get_field_root_type("user_name")
+        <class 'str'>
+
+        ``Optional`` type unwraps to the underlying type:
+
+        >>> User.get_field_root_type("display_name")
+        <class 'str'>
+
+        ``List`` type unwraps to the element type:
+
+        >>> User.get_field_root_type("emails")  # doctest: +ELLIPSIS
+        <class 'scim2_models.resources.user.Email'>
+
+        ``Optional[List[T]]`` unwraps to ``T``:
+
+        >>> Group.get_field_root_type("members")  # doctest: +ELLIPSIS
+        <class 'scim2_models.resources.group.GroupMember'>
         """
         attribute_type = cls.model_fields[attribute_name].annotation
 
@@ -89,7 +143,20 @@ class BaseModel(PydanticBaseModel):
 
     @classmethod
     def get_field_multiplicity(cls, attribute_name: str) -> bool:
-        """Indicate whether a field holds multiple values."""
+        """Indicate whether a field holds multiple values.
+
+        This method determines if a field is defined as a list type,
+        which indicates it can contain multiple values. It handles
+        Optional wrappers correctly.
+
+        :return: True if the field holds multiple values (is a list), False otherwise
+
+        >>> from scim2_models.resources.user import User
+        >>> User.get_field_multiplicity("user_name")
+        False
+        >>> User.get_field_multiplicity("emails")
+        True
+        """
         attribute_type = cls.model_fields[attribute_name].annotation
 
         # extract 'x' from 'Optional[x]'
@@ -104,7 +171,7 @@ class BaseModel(PydanticBaseModel):
     def check_request_attributes_mutability(
         cls, value: Any, info: ValidationInfo
     ) -> Any:
-        """Check and fix that the field mutability is expected according to the requests validation context, as defined in :rfc:`RFC7643 §7 <7653#section-7>`."""
+        """Check and fix that the field mutability is expected according to the requests validation context, as defined in :rfc:`RFC7643 §7 <7643#section-7>`."""
         if (
             not info.context
             or not info.field_name
@@ -147,20 +214,49 @@ class BaseModel(PydanticBaseModel):
     ) -> Self:
         """Normalize payload attribute names.
 
-        :rfc:`RFC7643 §2.1 <7653#section-2.1>` indicate that attribute
+        :rfc:`RFC7643 §2.1 <7643#section-2.1>` indicate that attribute
         names should be case-insensitive. Any attribute name is
         transformed in lowercase so any case is handled the same way.
         """
 
-        def normalize_value(value: Any) -> Any:
-            if isinstance(value, dict):
-                return {
-                    normalize_attribute_name(k): normalize_value(v)
-                    for k, v in value.items()
-                }
-            return value
+        def normalize_dict_keys(
+            input_dict: dict, model_class: type["BaseModel"]
+        ) -> dict:
+            """Normalize dictionary keys, preserving case for Any fields."""
+            result = {}
 
-        normalized_value = normalize_value(value)
+            for key, val in input_dict.items():
+                field_name = _find_field_name(model_class, key)
+                field_type = (
+                    model_class.get_field_root_type(field_name) if field_name else None
+                )
+
+                # Don't normalize keys for attributes typed with Any
+                # This way, agnostic dicts such as PatchOp.operations.value
+                # are preserved
+                if field_name and field_type == Any:
+                    result[key] = normalize_value(val)
+                else:
+                    result[_normalize_attribute_name(key)] = normalize_value(
+                        val, field_type
+                    )
+
+            return result
+
+        def normalize_value(
+            val: Any, model_class: Optional[type["BaseModel"]] = None
+        ) -> Any:
+            """Normalize input value based on model class."""
+            if not isinstance(val, dict):
+                return val
+
+            # If no model_class, preserve original keys
+            if not model_class:
+                return {k: normalize_value(v) for k, v in val.items()}
+
+            return normalize_dict_keys(val, model_class)
+
+        normalized_value = normalize_value(value, cls)
         obj = handler(normalized_value)
         assert isinstance(obj, cls)
         return obj
@@ -170,7 +266,7 @@ class BaseModel(PydanticBaseModel):
     def check_response_attributes_returnability(
         cls, value: Any, handler: ValidatorFunctionWrapHandler, info: ValidationInfo
     ) -> Self:
-        """Check that the fields returnability is expected according to the responses validation context, as defined in :rfc:`RFC7643 §7 <7653#section-7>`."""
+        """Check that the fields returnability is expected according to the responses validation context, as defined in :rfc:`RFC7643 §7 <7643#section-7>`."""
         obj = handler(value)
         assert isinstance(obj, cls)
 
@@ -244,7 +340,7 @@ class BaseModel(PydanticBaseModel):
         cls, value: Any, handler: ValidatorFunctionWrapHandler, info: ValidationInfo
     ) -> Self:
         """Check if 'immutable' attributes have been mutated in replacement requests."""
-        from scim2_models.rfc7643.resource import Resource
+        from scim2_models.resources.resource import Resource
 
         obj = handler(value)
         assert isinstance(obj, cls)
@@ -256,11 +352,11 @@ class BaseModel(PydanticBaseModel):
             and issubclass(cls, Resource)
             and original is not None
         ):
-            cls.check_mutability_issues(original, obj)
+            cls._check_mutability_issues(original, obj)
         return obj
 
     @classmethod
-    def check_mutability_issues(
+    def _check_mutability_issues(
         cls, original: "BaseModel", replacement: "BaseModel"
     ) -> None:
         """Compare two instances, and check for differences of values on the fields marked as immutable."""
@@ -287,18 +383,18 @@ class BaseModel(PydanticBaseModel):
                 original_val = getattr(original, field_name)
                 replacement_value = getattr(replacement, field_name)
                 if original_val is not None and replacement_value is not None:
-                    cls.check_mutability_issues(original_val, replacement_value)
+                    cls._check_mutability_issues(original_val, replacement_value)
 
-    def set_complex_attribute_urns(self) -> None:
-        """Navigate through attributes and sub-attributes of type ComplexAttribute, and mark them with a 'attribute_urn' attribute.
+    def _set_complex_attribute_urns(self) -> None:
+        """Navigate through attributes and sub-attributes of type ComplexAttribute, and mark them with a '_attribute_urn' attribute.
 
-        'attribute_urn' will later be used by 'get_attribute_urn'.
+        '_attribute_urn' will later be used by 'get_attribute_urn'.
         """
         from .attributes import ComplexAttribute
         from .attributes import is_complex_attribute
 
         if isinstance(self, ComplexAttribute):
-            main_schema = self.attribute_urn
+            main_schema = self._attribute_urn
             separator = "."
         else:
             main_schema = self.__class__.model_fields["schemas"].default[0]
@@ -314,9 +410,9 @@ class BaseModel(PydanticBaseModel):
             if attr_value := getattr(self, field_name):
                 if isinstance(attr_value, list):
                     for item in attr_value:
-                        item.attribute_urn = schema
+                        item._attribute_urn = schema
                 else:
-                    attr_value.attribute_urn = schema
+                    attr_value._attribute_urn = schema
 
     @field_serializer("*", mode="wrap")
     def scim_serializer(
@@ -330,14 +426,14 @@ class BaseModel(PydanticBaseModel):
         scim_ctx = info.context.get("scim") if info.context else None
 
         if scim_ctx and Context.is_request(scim_ctx):
-            value = self.scim_request_serializer(value, info)
+            value = self._scim_request_serializer(value, info)
 
         if scim_ctx and Context.is_response(scim_ctx):
-            value = self.scim_response_serializer(value, info)
+            value = self._scim_response_serializer(value, info)
 
         return value
 
-    def scim_request_serializer(self, value: Any, info: FieldSerializationInfo) -> Any:
+    def _scim_request_serializer(self, value: Any, info: FieldSerializationInfo) -> Any:
         """Serialize the fields according to mutability indications passed in the serialization context."""
         mutability = self.get_field_annotation(info.field_name, Mutability)
         scim_ctx = info.context.get("scim") if info.context else None
@@ -361,7 +457,9 @@ class BaseModel(PydanticBaseModel):
 
         return value
 
-    def scim_response_serializer(self, value: Any, info: FieldSerializationInfo) -> Any:
+    def _scim_response_serializer(
+        self, value: Any, info: FieldSerializationInfo
+    ) -> Any:
         """Serialize the fields according to returnability indications passed in the serialization context."""
         returnability = self.get_field_annotation(info.field_name, Returned)
         attribute_urn = self.get_attribute_urn(info.field_name)
@@ -370,9 +468,9 @@ class BaseModel(PydanticBaseModel):
             info.context.get("scim_excluded_attributes", []) if info.context else []
         )
 
-        attribute_urn = normalize_attribute_name(attribute_urn)
-        included_urns = [normalize_attribute_name(urn) for urn in included_urns]
-        excluded_urns = [normalize_attribute_name(urn) for urn in excluded_urns]
+        attribute_urn = _normalize_attribute_name(attribute_urn)
+        included_urns = [_normalize_attribute_name(urn) for urn in included_urns]
+        excluded_urns = [_normalize_attribute_name(urn) for urn in excluded_urns]
 
         if returnability == Returned.never:
             return None
@@ -380,7 +478,7 @@ class BaseModel(PydanticBaseModel):
         if returnability == Returned.default and (
             (
                 included_urns
-                and not contains_attribute_or_subattributes(
+                and not _contains_attribute_or_subattributes(
                     included_urns, attribute_urn
                 )
             )
@@ -398,7 +496,7 @@ class BaseModel(PydanticBaseModel):
         self, handler: SerializerFunctionWrapHandler, info: SerializationInfo
     ) -> dict[str, Any]:
         """Remove `None` values inserted by the :meth:`~scim2_models.base.BaseModel.scim_serializer`."""
-        self.set_complex_attribute_urns()
+        self._set_complex_attribute_urns()
         result = handler(self)
         return {key: value for key, value in result.items() if value is not None}
 
@@ -433,7 +531,7 @@ class BaseModel(PydanticBaseModel):
 
         See :rfc:`RFC7644 §3.10 <7644#section-3.10>`.
         """
-        from scim2_models.rfc7643.resource import Extension
+        from scim2_models.resources.resource import Extension
 
         main_schema = self.__class__.model_fields["schemas"].default[0]
         field = self.__class__.model_fields[field_name]

@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import abc
 import typing as t
+import uuid
 
 from globus_sdk import utils
-from globus_sdk._types import UUIDLike
 
 from ._common import (
     DatatypeCallback,
@@ -153,7 +153,7 @@ class CollectionDocument(utils.PayloadWrapper, abc.ABC):
         department: str | None = None,
         description: str | None = None,
         display_name: str | None = None,
-        identity_id: UUIDLike | None = None,
+        identity_id: uuid.UUID | str | None = None,
         info_link: str | None = None,
         organization: str | None = None,
         restrict_transfers_to_high_assurance: (
@@ -276,7 +276,7 @@ class MappedCollectionDocument(CollectionDocument):
         department: str | None = None,
         description: str | None = None,
         display_name: str | None = None,
-        identity_id: UUIDLike | None = None,
+        identity_id: uuid.UUID | str | None = None,
         info_link: str | None = None,
         organization: str | None = None,
         restrict_transfers_to_high_assurance: (
@@ -298,8 +298,8 @@ class MappedCollectionDocument(CollectionDocument):
         # > specific args start <
         # strs
         domain_name: str | None = None,
-        guest_auth_policy_id: UUIDLike | None = None,
-        storage_gateway_id: UUIDLike | None = None,
+        guest_auth_policy_id: uuid.UUID | str | None = None,
+        storage_gateway_id: uuid.UUID | str | None = None,
         # str lists
         sharing_users_allow: t.Iterable[str] | None = None,
         sharing_users_deny: t.Iterable[str] | None = None,
@@ -420,7 +420,7 @@ class GuestCollectionDocument(CollectionDocument):
         department: str | None = None,
         description: str | None = None,
         display_name: str | None = None,
-        identity_id: UUIDLike | None = None,
+        identity_id: uuid.UUID | str | None = None,
         info_link: str | None = None,
         organization: str | None = None,
         restrict_transfers_to_high_assurance: (
@@ -442,8 +442,8 @@ class GuestCollectionDocument(CollectionDocument):
         associated_flow_policy: dict[str, t.Any] | None = None,
         # > common args end <
         # > specific args start <
-        mapped_collection_id: UUIDLike | None = None,
-        user_credential_id: UUIDLike | None = None,
+        mapped_collection_id: uuid.UUID | str | None = None,
+        user_credential_id: uuid.UUID | str | None = None,
         skip_auto_delete: bool | None = None,
         activity_notification_policy: dict[str, list[str]] | None = None,
         # > specific args end <

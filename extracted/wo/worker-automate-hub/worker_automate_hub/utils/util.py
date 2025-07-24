@@ -4528,22 +4528,24 @@ async def cadastro_pre_venda_header(
 
                 if localizacao:
                     centro = pyautogui.center(localizacao)
+                    await worker_sleep(1)
                     pyautogui.click(centro)
 
             except ImageNotFoundException:
                 console.print(
                     "Imagem não encontrada (exceção capturada). Tentando clicar no OK."
                 )
-
-        else:
+        
+        elif "21 dias" in cod_pagamento.lower():
             try:
                 # Verifica mensagem sem lote pra integrar
-                imagem_alvo = "assets\\entrada_notas\\a_vista.png"
-
+                imagem_alvo = "assets\\entrada_notas\\21_dias.png"
+                # imagem_alvo = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\worker_automate_hub\assets\entrada_notas\21_dias.png"    
                 localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
 
                 if localizacao:
                     centro = pyautogui.center(localizacao)
+                    await worker_sleep(1)
                     pyautogui.click(centro)
 
             except ImageNotFoundException:

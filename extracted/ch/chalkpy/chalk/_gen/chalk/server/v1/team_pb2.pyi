@@ -153,15 +153,21 @@ class CreateProjectResponse(_message.Message):
     def __init__(self, project: _Optional[_Union[Project, _Mapping]] = ...) -> None: ...
 
 class CreateEnvironmentRequest(_message.Message):
-    __slots__ = ("project_id", "name", "is_default")
+    __slots__ = ("project_id", "name", "is_default", "source_bundle_bucket")
     PROJECT_ID_FIELD_NUMBER: _ClassVar[int]
     NAME_FIELD_NUMBER: _ClassVar[int]
     IS_DEFAULT_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_BUNDLE_BUCKET_FIELD_NUMBER: _ClassVar[int]
     project_id: str
     name: str
     is_default: bool
+    source_bundle_bucket: str
     def __init__(
-        self, project_id: _Optional[str] = ..., name: _Optional[str] = ..., is_default: bool = ...
+        self,
+        project_id: _Optional[str] = ...,
+        name: _Optional[str] = ...,
+        is_default: bool = ...,
+        source_bundle_bucket: _Optional[str] = ...,
     ) -> None: ...
 
 class CreateEnvironmentResponse(_message.Message):

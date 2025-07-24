@@ -1,26 +1,23 @@
 Metadata-Version: 2.1
 Name: alibabacloud-tea-openapi
-Version: 0.3.16
-Summary: Alibaba Cloud openapi SDK Library for Python
-Home-page: https://github.com/aliyun/darabonba-openapi
-Author: Alibaba Cloud SDK
+Version: 0.4.0
+Home-page: https://github.com/
+Author: Alibaba
 Author-email: sdk-team@alibabacloud.com
 License: Apache License 2.0
-Keywords: alibabacloud,tea,openapi
+Keywords: tea,python,tests
 Platform: any
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development
-Requires-Python: >=3.7
+Requires-Python: >=3.6
 Description-Content-Type: text/markdown
 
 English | [简体中文](README-CN.md)

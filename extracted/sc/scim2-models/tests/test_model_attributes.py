@@ -2,20 +2,19 @@ import uuid
 from typing import Annotated
 from typing import Optional
 
-import pytest
-
 from scim2_models.annotations import Required
 from scim2_models.annotations import Returned
 from scim2_models.attributes import ComplexAttribute
 from scim2_models.base import BaseModel
 from scim2_models.context import Context
-from scim2_models.rfc7643.enterprise_user import EnterpriseUser
-from scim2_models.rfc7643.resource import Extension
-from scim2_models.rfc7643.resource import Meta
-from scim2_models.rfc7643.resource import Resource
-from scim2_models.rfc7643.user import User
-from scim2_models.rfc7644.error import Error
-from scim2_models.scim_object import validate_attribute_urn
+from scim2_models.messages.error import Error
+from scim2_models.messages.patch_op import PatchOp
+from scim2_models.resources.enterprise_user import EnterpriseUser
+from scim2_models.resources.resource import Extension
+from scim2_models.resources.resource import Meta
+from scim2_models.resources.resource import Resource
+from scim2_models.resources.user import User
+from scim2_models.urn import _validate_attribute_urn
 
 
 class Sub(ComplexAttribute):
@@ -69,78 +68,47 @@ class MyExtension(Extension):
 
 def test_validate_attribute_urn():
     """Test the method that validates and normalizes attribute URNs."""
-    assert validate_attribute_urn("bar", Foo) == "urn:example:2.0:Foo:bar"
+    assert _validate_attribute_urn("bar", Foo) == "urn:example:2.0:Foo:bar"
     assert (
-        validate_attribute_urn("urn:example:2.0:Foo:bar", Foo)
-        == "urn:example:2.0:Foo:bar"
-    )
-    assert (
-        validate_attribute_urn("urn:example:2.0:Foo:bar", User, resource_types=[Foo])
+        _validate_attribute_urn("urn:example:2.0:Foo:bar", Foo)
         == "urn:example:2.0:Foo:bar"
     )
 
-    assert validate_attribute_urn("sub", Foo) == "urn:example:2.0:Foo:sub"
+    assert _validate_attribute_urn("sub", Foo) == "urn:example:2.0:Foo:sub"
     assert (
-        validate_attribute_urn("urn:example:2.0:Foo:sub", Foo)
-        == "urn:example:2.0:Foo:sub"
-    )
-    assert (
-        validate_attribute_urn("urn:example:2.0:Foo:sub", User, resource_types=[Foo])
+        _validate_attribute_urn("urn:example:2.0:Foo:sub", Foo)
         == "urn:example:2.0:Foo:sub"
     )
 
-    assert validate_attribute_urn("sub.always", Foo) == "urn:example:2.0:Foo:sub.always"
     assert (
-        validate_attribute_urn("urn:example:2.0:Foo:sub.always", Foo)
-        == "urn:example:2.0:Foo:sub.always"
+        _validate_attribute_urn("sub.always", Foo) == "urn:example:2.0:Foo:sub.always"
     )
     assert (
-        validate_attribute_urn(
-            "urn:example:2.0:Foo:sub.always", User, resource_types=[Foo]
-        )
+        _validate_attribute_urn("urn:example:2.0:Foo:sub.always", Foo)
         == "urn:example:2.0:Foo:sub.always"
     )
 
-    assert validate_attribute_urn("snakeCase", Foo) == "urn:example:2.0:Foo:snakeCase"
+    assert _validate_attribute_urn("snakeCase", Foo) == "urn:example:2.0:Foo:snakeCase"
     assert (
-        validate_attribute_urn("urn:example:2.0:Foo:snakeCase", Foo)
+        _validate_attribute_urn("urn:example:2.0:Foo:snakeCase", Foo)
         == "urn:example:2.0:Foo:snakeCase"
     )
 
     assert (
-        validate_attribute_urn("urn:example:2.0:MyExtension:baz", Foo[MyExtension])
+        _validate_attribute_urn("urn:example:2.0:MyExtension:baz", Foo[MyExtension])
         == "urn:example:2.0:MyExtension:baz"
     )
+
+    assert _validate_attribute_urn("urn:InvalidResource:bar", Foo) is None
+
+    assert _validate_attribute_urn("urn:example:2.0:Foo:invalid", Foo) is None
+
+    assert _validate_attribute_urn("bar.invalid", Foo) is None
+
     assert (
-        validate_attribute_urn(
-            "urn:example:2.0:MyExtension:baz", resource_types=[Foo[MyExtension]]
-        )
-        == "urn:example:2.0:MyExtension:baz"
+        _validate_attribute_urn("urn:example:2.0:MyExtension:invalid", Foo[MyExtension])
+        is None
     )
-
-    with pytest.raises(ValueError, match="No default schema and relative URN"):
-        validate_attribute_urn("bar", resource_types=[Foo])
-
-    with pytest.raises(
-        ValueError, match="No resource matching schema 'urn:InvalidResource'"
-    ):
-        validate_attribute_urn("urn:InvalidResource:bar", Foo)
-
-    with pytest.raises(
-        ValueError, match="No resource matching schema 'urn:example:2.0:Foo'"
-    ):
-        validate_attribute_urn("urn:example:2.0:Foo:bar")
-
-    with pytest.raises(
-        ValueError, match="Model 'Foo' has no attribute named 'invalid'"
-    ):
-        validate_attribute_urn("urn:example:2.0:Foo:invalid", Foo)
-
-    with pytest.raises(
-        ValueError,
-        match="Attribute 'bar' is not a complex attribute, and cannot have a 'invalid' sub-attribute",
-    ):
-        validate_attribute_urn("bar.invalid", Foo)
 
 
 def test_payload_attribute_case_sensitivity():
@@ -338,3 +306,47 @@ def test_scim_object_model_dump_coverage():
     # Test model_dump_json coverage
     json_result = error.model_dump_json(scim_ctx=None)
     assert isinstance(json_result, str)
+
+
+def test_patch_op_preserves_case_in_value_fields():
+    """Test that PatchOp preserves original case in operation values."""
+    # Test data from the GitHub issue
+    patch_data = {
+        "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+        "Operations": [
+            {
+                "op": "replace",
+                "value": {
+                    "streetAddress": "911 Universal City Plaza",
+                },
+            }
+        ],
+    }
+
+    patch_op = PatchOp[User].model_validate(patch_data)
+    result = patch_op.model_dump()
+
+    value = result["Operations"][0]["value"]
+    assert value["streetAddress"] == "911 Universal City Plaza"
+
+
+def test_patch_op_preserves_case_in_sub_value_fields():
+    """Test that nested objects within Any fields are still normalized according to their schema."""
+    patch_data = {
+        "schemas": ["urn:ietf:params:scim:api:messages:2.0:PatchOp"],
+        "Operations": [
+            {
+                "op": "replace",
+                "value": {
+                    "name": {"givenName": "John"},
+                },
+            }
+        ],
+    }
+
+    patch_op = PatchOp[User].model_validate(patch_data)
+    result = patch_op.model_dump()
+
+    value = result["Operations"][0]["value"]
+
+    assert value["name"]["givenName"] == "John"

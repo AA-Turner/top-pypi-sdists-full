@@ -94,6 +94,10 @@ def clf_transform(spfilt, X, labels, n_matrices, n_channels, n_times):
     else:
         Xtr = sf.fit(X, labels).transform(X)
 
+        Xtr1 = sf.fit_transform(X, labels)
+
+        assert_array_equal(Xtr, Xtr1)
+
     if spfilt is AJDC:
         assert Xtr.shape == (n_matrices, n_channels, n_times)
     elif spfilt is BilinearFilter:
@@ -136,12 +140,12 @@ def clf_fit_independence(spfilt, X, labels, n_channels):
 
 
 @pytest.mark.parametrize("n_channels", [3, 4, 5])
-@pytest.mark.parametrize("baseline_cov", [True, False])
-def test_xdawn_baselinecov(n_channels, baseline_cov, rndstate, get_labels):
+@pytest.mark.parametrize("use_baseline_cov", [True, False])
+def test_xdawn_baselinecov(n_channels, use_baseline_cov, rndstate, get_labels):
     n_classes, n_matrices, n_times = 2, 6, 100
     x = rndstate.randn(n_matrices, n_channels, n_times)
     labels = get_labels(n_matrices, n_classes)
-    if baseline_cov:
+    if use_baseline_cov:
         baseline_cov = np.identity(n_channels)
     else:
         baseline_cov = None

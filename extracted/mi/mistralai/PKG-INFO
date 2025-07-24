@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: mistralai
-Version: 1.9.2
+Version: 1.9.3
 Summary: Python Client SDK for the Mistral AI API.
 Author: Mistral
 Requires-Python: >=3.9
@@ -460,6 +460,14 @@ The documentation for the GCP SDK is available [here](https://github.com/mistral
 
 * [complete](https://github.com/mistralai/client-python/blob/master/docs/sdks/agents/README.md#complete) - Agents Completion
 * [stream](https://github.com/mistralai/client-python/blob/master/docs/sdks/agents/README.md#stream) - Stream Agents completion
+
+### [audio](https://github.com/mistralai/client-python/blob/master/docs/sdks/audio/README.md)
+
+
+#### [audio.transcriptions](https://github.com/mistralai/client-python/blob/master/docs/sdks/transcriptions/README.md)
+
+* [complete](https://github.com/mistralai/client-python/blob/master/docs/sdks/transcriptions/README.md#complete) - Create Transcription
+* [stream](https://github.com/mistralai/client-python/blob/master/docs/sdks/transcriptions/README.md#stream) - Create streaming transcription (SSE)
 
 ### [batch](https://github.com/mistralai/client-python/blob/master/docs/sdks/batch/README.md)
 

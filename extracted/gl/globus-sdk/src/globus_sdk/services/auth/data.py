@@ -1,5 +1,8 @@
+from __future__ import annotations
+
+import uuid
+
 from globus_sdk import utils
-from globus_sdk._types import UUIDLike
 
 
 class DependentScopeSpec(utils.PayloadWrapper):
@@ -18,7 +21,7 @@ class DependentScopeSpec(utils.PayloadWrapper):
 
     def __init__(
         self,
-        scope: UUIDLike,
+        scope: uuid.UUID | str,
         optional: bool,
         requires_refresh_token: bool,
     ) -> None:

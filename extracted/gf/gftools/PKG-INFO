@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: gftools
-Version: 0.9.86
+Version: 0.9.87
 Summary: Google Fonts Tools is a set of command-line tools for testing font projects
 Author: Felipe Sanches, Lasse Fister, Eli Heuer, Roderick Sheeter
 Author-email: Marc Foley <m.foley.88@gmail.com>, Dave Crossland <dave@lab6.com>, Simon Cozens <simon@simon-cozens.org>
@@ -54,6 +54,7 @@ Requires-Dist: networkx
 Requires-Dist: ruamel.yaml
 Requires-Dist: ffmpeg-python
 Requires-Dist: ufomerge>=1.8.1
+Requires-Dist: tomli; python_version < "3.11"
 Provides-Extra: qa
 Requires-Dist: fontbakery[googlefonts]; extra == "qa"
 Requires-Dist: diffenator2>=0.2.0; extra == "qa"

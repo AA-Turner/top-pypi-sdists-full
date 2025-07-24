@@ -203,6 +203,7 @@ class ClusterKwargs(TypedDict, total=False):
     host_setup_script: str | None
     region: str | None
     arm: bool | None
+    batch_job_container: str | None
     pause_on_exit: bool | None
 
 

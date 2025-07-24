@@ -761,6 +761,8 @@ class RemoteAutoPipelines(BaseAutoPipelines):
             # Selected pipeline stored under: "absolute_local_path_to_model/model.pickle"
 
         """
+        if astype == PipelineTypes.ONNX:
+            self._engine._onnx_model = True
         try:
             if pipeline_name is None:
                 pipeline_model, check_lale = self._engine.get_best_pipeline(
@@ -784,6 +786,9 @@ class RemoteAutoPipelines(BaseAutoPipelines):
                 reason=f"Pipeline with such a name probably does not exist. "
                 f"Please make sure you specify correct pipeline name. Error: {e}",
             )
+        finally:
+            if astype == PipelineTypes.ONNX:
+                self._engine._onnx_model = None
 
         if astype == PipelineTypes.SKLEARN:
             return pipeline_model
@@ -794,6 +799,10 @@ class RemoteAutoPipelines(BaseAutoPipelines):
             from lale.helpers import import_from_sklearn_pipeline
 
             return import_from_sklearn_pipeline(pipeline_model)
+
+        elif astype == PipelineTypes.ONNX:
+            return pipeline_model
+
         else:
             raise ValueError(
                 "Incorrect value of 'astype'. "

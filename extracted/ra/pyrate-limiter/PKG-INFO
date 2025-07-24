@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pyrate-limiter
-Version: 3.8.0
+Version: 3.8.1
 Summary: Python Rate-Limiter using Leaky-Bucket Algorithm
 Home-page: https://github.com/vutran1710/PyrateLimiter
 License: MIT

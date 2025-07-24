@@ -51,7 +51,7 @@ async def click_importar_xml():
         raise Exception(f"Erro ao conectar a janela: {e}")
 
 
-async def importar_xml_conhecimento():
+async def importar_xml_conhecimento(cfop: str):
 
     try:
         await worker_sleep(5)
@@ -64,7 +64,11 @@ async def importar_xml_conhecimento():
         aquisicao_servico = main_window.child_window(
             class_name="TDBIComboBox", found_index=1
         )
-        aquisicao_servico.select("1353 - AQUISICAO DE SERVICO DE TRANSPORTE D/E")
+
+        if str(cfop).startswith("5"):
+            aquisicao_servico.select("1353 - AQUISICAO DE SERVICO DE TRANSPORTE D/E")
+        else:
+            aquisicao_servico.select("2353 - AQUISICAO DE SERVICO DE TRANSPORTE F/E")
 
         await worker_sleep(2)
 
@@ -429,7 +433,7 @@ async def importar_cte_xml(task: RpaProcessoEntradaDTO) -> RpaRetornoProcessoDTO
         await save_xml_to_downloads(cte["chaveCte"])
         await worker_sleep(5)
         await click_importar_xml()
-        await importar_xml_conhecimento()
+        await importar_xml_conhecimento(cte["cfop"])
         await selecionar_xml(cte)
         await janela_conhecimento_frete(cte)
         await worker_sleep(8)

@@ -55,7 +55,6 @@ def _asynch_download(load_doc):
                     qs_output[i].put(
                         "End"
                     )  # send signal that no more data will be sent via this queue
-                    qs_output[i].close()
                 except Exception as e:
                     if "cryptography>=3.1 is required for AES algorithm" in str(e):
                         e = "Encrypted files are not supported. Please decrypt your file and try again."
@@ -304,11 +303,19 @@ class TextLoader:
         return "\n\n".join(cls._extract_content_from_py_structure(result))
 
     @classmethod
+    def _df_to_key_value_str(cls, df: "DataFrame") -> str:
+        return "\n".join([json.dumps(row)[1:-1] for row in df.to_dict("records")])
+
+    @classmethod
     def _csv_to_string(cls, binary_data: bytes) -> str:
-        return cls._txt_to_string(binary_data)
+        import pandas as pd
+
+        return cls._df_to_key_value_str(
+            pd.read_csv(io.BytesIO(binary_data), index_col=[0])
+        )
 
     @classmethod
     def _xlsx_to_string(cls, binary_data: bytes) -> str:
         import pandas as pd
 
-        return pd.read_excel(binary_data).to_string()
+        return cls._df_to_key_value_str(pd.read_excel(binary_data))

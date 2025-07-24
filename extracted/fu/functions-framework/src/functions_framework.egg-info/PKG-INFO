@@ -1,7 +1,9 @@
 Metadata-Version: 2.4
 Name: functions-framework
-Version: 3.8.3
+Version: 3.9.0
 Summary: An open source FaaS (Function as a service) framework for writing portable Python functions -- brought to you by the Google Cloud Functions team.
+Home-page: https://github.com/googlecloudplatform/functions-framework-python
+Author: Google LLC
 Author-email: Google LLC <googleapis-packages@google.com>
 Maintainer-email: Google LLC <googleapis-packages@google.com>
 License: Apache-2.0
@@ -15,16 +17,23 @@ Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
-Requires-Python: <4,>=3.5
+Requires-Python: >=3.5, <4
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: flask<4.0,>=2.0
 Requires-Dist: click<9.0,>=7.0
 Requires-Dist: watchdog>=1.0.0
 Requires-Dist: gunicorn>=22.0.0; platform_system != "Windows"
-Requires-Dist: cloudevents<2.0.0,>=1.2.0
+Requires-Dist: cloudevents<=1.11.0,>=1.2.0
 Requires-Dist: Werkzeug<4.0.0,>=0.14
+Requires-Dist: httpx>=0.24.1
+Requires-Dist: starlette<1.0.0,>=0.37.0; python_version >= "3.8"
+Requires-Dist: uvicorn<1.0.0,>=0.18.0; python_version >= "3.8"
+Requires-Dist: uvicorn-worker<1.0.0,>=0.2.0; python_version >= "3.8"
+Dynamic: author
+Dynamic: home-page
 Dynamic: license-file
+Dynamic: requires-python
 
 # Functions Framework for Python
 

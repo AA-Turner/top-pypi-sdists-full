@@ -87,7 +87,7 @@ class CMA:
         ), f"Abs of all elements of mean vector must be less than {_MEAN_MAX}"
 
         n_dim = len(mean)
-        assert n_dim > 1, "The dimension of mean must be larger than 1"
+        assert n_dim > 0, "The dimension of mean must be positive"
 
         if population_size is None:
             population_size = 4 + math.floor(3 * math.log(n_dim))  # (eq. 48)
@@ -477,7 +477,7 @@ class CMA:
         logeigsum = sum([np.log(e) for e in eigs])
         self._sigma = np.exp(logeigsum / 2.0 / self._n_dim)
         self._sigma = min(self._sigma, _SIGMA_MAX)
-        self._C = Sigma / (self._sigma**2)
+        self._C = (Sigma / (self._sigma**2)).astype(np.float64)
 
         # step-size correction
         self._sigma *= before_eta_mean / self._eta_mean

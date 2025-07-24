@@ -23,6 +23,9 @@ __all__ = [
     "try_import_tqdm",
     "try_import_xlrd",
     "try_import_openpyxl",
+    "try_import_onnxruntime",
+    "try_import_onnxruntime_extensions",
+    "download_onnx_model",
     "try_import_graphviz",
     "prepare_cos_client",
     "create_model_download_link",
@@ -234,6 +237,7 @@ def fetch_pipelines(
         "timeseries"
         in run_params["entity"]["status"].get("metrics", [None])[0]["context"]
     )
+    onnx_model = kwargs.get("_onnx_model")
 
     if api_client.ICP_PLATFORM_SPACES:
         model_paths = []
@@ -252,23 +256,30 @@ def fetch_pipelines(
             # note: populate available pipeline names
             if pipeline["context"]["phase"] == model_phase:
 
+                model_type = "onnx_model" if onnx_model else "model"
                 # note: fetch and create model paths from file system
                 model_path = (
                     pipeline["context"]["intermediate_model"]
                     .get("location", {})
-                    .get("model", None)
+                    .get(model_type, None)
                 )
                 if (
-                    model_path is None
+                    onnx_model is None and model_path is None
                 ):  # model_path is missing for incremental learning pipelines that were not finished yet or failed
                     raise FitNotCompleted(run_params["metadata"]["id"])
                 # --- end note
 
                 if pipeline_name is None:
+                    if onnx_model and model_path is None:
+                        continue  # cannot proceed without a specified path to ONNX model
+
                     model_paths.append(model_path)
                     pipelines_names.append(
                         f"Pipeline_{pipeline['context']['intermediate_model']['name'].split('P')[-1]}"
                     )
+
+                    if onnx_model:
+                        continue  # skip request download and node validation for ONNX models
 
                     # note: check dependencies for estimators and other packages
                     request_json = download_request_json(
@@ -286,10 +297,16 @@ def fetch_pipelines(
                     pipeline_name
                     == f"Pipeline_{pipeline['context']['intermediate_model']['name'].split('P')[-1]}"
                 ):
+                    if onnx_model and model_path is None:
+                        error_msg = f"{pipeline_name} does not contain ONNX model file."
+                        raise WMLClientError(error_msg=error_msg)
                     model_paths.append(model_path)
                     pipelines_names = [
                         f"Pipeline_{pipeline['context']['intermediate_model']['name'].split('P')[-1]}"
                     ]
+
+                    if onnx_model:
+                        continue  # skip request download and node validation for ONNX models
 
                     # note: check dependencies for estimators and other packages
                     request_json = download_request_json(
@@ -304,8 +321,35 @@ def fetch_pipelines(
 
                     break
         # --- end note
+        if onnx_model and load_pipelines:
+            for model_path, pipeline_name in zip(model_paths, pipelines_names):
+                if (
+                    "timeseries"
+                    in run_params["entity"]["status"]["metrics"][0]["context"]
+                ):
+                    from autoai_ts_libs import version
+                else:
+                    from autoai_libs import version
+                ort = try_import_onnxruntime()
+                extensions = try_import_onnxruntime_extensions()
 
-        if load_pipelines:
+                file_binary = load_file_from_file_system(
+                    api_client=api_client, file_path=model_path
+                )
+                try:
+                    so = ort.SessionOptions()
+                    so.register_custom_ops_library(extensions.get_library_path())
+                    pipelines[pipeline_name] = ort.InferenceSession(
+                        io.BytesIO(file_binary),
+                        providers=["CPUExecutionProvider"],
+                        sess_options=so,
+                    )
+                except Exception as e:
+                    raise WMLClientError(
+                        f"Unable to load ONNX model from file. Error: {e}"
+                    )
+
+        elif load_pipelines:
             # Disable printing to suppress warning from ai4ml
             with redirect_stdout(open(os.devnull, "w")):
                 for model_path, pipeline_name in zip(model_paths, pipelines_names):
@@ -315,7 +359,20 @@ def fetch_pipelines(
                         )
                     )
 
-        if store:
+        if onnx_model and store:
+            for name, pipeline in pipelines.items():
+                file_binary = load_file_from_file_system(
+                    api_client=api_client, file_path=model_path
+                )
+                local_model_path = os.path.join(path, pipeline_name)
+                with open(local_model_path + ".onnx", "wb") as f:
+                    f.write(file_binary)
+
+                # note: display download link to the model
+                create_model_download_link(local_model_path)
+                # --- end note
+
+        elif store:
             for name, pipeline in pipelines.items():
                 local_model_path = os.path.join(path, name)
                 joblib.dump(pipeline, local_model_path)
@@ -337,7 +394,13 @@ def fetch_pipelines(
         filenames = []
         keys = []
 
-        pipeline_suffix = "gz" if is_ts_metrics else "pickle"
+        if onnx_model:
+            pipeline_suffix = "onnx"
+        elif is_ts_metrics:
+            pipeline_suffix = "gz"
+        else:
+            pipeline_suffix = "pickle"
+
         for pipeline in run_params["entity"]["status"].get("metrics", []):
             model_number = pipeline["context"]["intermediate_model"]["name"].split("P")[
                 -1
@@ -349,11 +412,13 @@ def fetch_pipelines(
             )
 
             if pipeline["context"]["phase"] == model_phase:
-                model_path = (
-                    f"{pipeline['context']['intermediate_model']['location']['model']}"
+                model_path = pipeline["context"]["intermediate_model"]["location"].get(
+                    "onnx_model" if onnx_model else "model", None
                 )
 
                 if pipeline_name is None:
+                    if onnx_model and model_path is None:
+                        continue  # cannot proceed without a specified path to ONNX model
                     filenames.append(
                         f"{path}/Pipeline_{pipeline['context']['intermediate_model']['name'].split('P')[-1]}.{pipeline_suffix}"
                     )
@@ -362,6 +427,8 @@ def fetch_pipelines(
                         f"Pipeline_{pipeline['context']['intermediate_model']['name'].split('P')[-1]}"
                     )
 
+                    if onnx_model:
+                        continue  # skip request download and node validation for ONNX models
                     # note: check dependencies for estimators and other packages
                     request_json = download_request_json(
                         run_params,
@@ -377,6 +444,9 @@ def fetch_pipelines(
                     pipeline_name
                     == f"Pipeline_{pipeline['context']['intermediate_model']['name'].split('P')[-1]}"
                 ):
+                    if onnx_model and model_path is None:
+                        error_msg = f"{pipeline_name} does not contain ONNX model file."
+                        raise WMLClientError(error_msg=error_msg)
                     filenames = [
                         f"{path}/Pipeline_{pipeline['context']['intermediate_model']['name'].split('P')[-1]}.{pipeline_suffix}"
                     ]
@@ -384,6 +454,9 @@ def fetch_pipelines(
                     pipelines_names = [
                         f"Pipeline_{pipeline['context']['intermediate_model']['name'].split('P')[-1]}"
                     ]
+
+                    if onnx_model:
+                        break  # skip request download and node validation for ONNX models
 
                     # note: check dependencies for estimators and other packages
                     request_json = download_request_json(
@@ -407,7 +480,47 @@ def fetch_pipelines(
 
                 # Disable printing to suppress warning from ai4ml
                 with redirect_stdout(open(os.devnull, "w")):
-                    if is_ts_metrics:
+                    if onnx_model:
+                        if (
+                            "timeseries"
+                            in run_params["entity"]["status"]["metrics"][0]["context"]
+                        ):
+                            from autoai_ts_libs import version
+                        else:
+                            from autoai_libs import version
+                        ort = try_import_onnxruntime()
+                        extensions = try_import_onnxruntime_extensions()
+
+                        try:
+                            so = ort.SessionOptions()
+                            so.register_custom_ops_library(
+                                extensions.get_library_path()
+                            )
+                            pipelines[name] = ort.InferenceSession(
+                                filename,
+                                providers=["CPUExecutionProvider"],
+                                sess_options=so,
+                            )
+                        except Exception as e:
+                            if store:
+                                info = f"Saved file: {filename}"
+                            else:
+                                if os.path.exists(filename):
+                                    os.remove(filename)
+                                info = (
+                                    "File deleted. "
+                                    "To keep a local copy, use `get_pipeline(persist=True, ...)`."
+                                )
+
+                            error_message = (
+                                f"Unable to load the ONNX model.\n{info}\n"
+                                f"Please ensure the required packages are installed: "
+                                f"`onnxruntime` and `onnxruntime_extensions`.\n"
+                                f"Error: {e}"
+                            )
+
+                            raise WMLClientError(error_message)
+                    elif is_ts_metrics:
                         with gzip.open(filename, "rb") as f:
                             pipeline_content = f.read()
                             pipelines[name] = joblib.load(io.BytesIO(pipeline_content))
@@ -1613,6 +1726,42 @@ def try_import_openpyxl():
                 value_name=e,
                 reason="openpyxl failed to install. Please install it manually.",
             )
+
+
+def try_import_onnxruntime():
+    """Check if onnxruntime package is installed in local environment, if not return None and print the warning."""
+
+    try:
+        import onnxruntime
+
+        return onnxruntime
+
+    except ImportError:
+        onnxruntime_not_installed_warning = (
+            "`onnxruntime` package is not installed. "
+            "These is a needed dependency for loading ONNX models. Please install it manually."
+        )
+        warn(onnxruntime_not_installed_warning, category=ImportWarning)
+
+    return None
+
+
+def try_import_onnxruntime_extensions():
+    """Check if onnxruntime package is installed in local environment, if not return None and print the warning."""
+
+    try:
+        import onnxruntime_extensions
+
+        return onnxruntime_extensions
+
+    except ImportError:
+        onnxruntime_extensions_not_installed_warning = (
+            "``onnxruntime_extensions` package is not installed. "
+            "These is a needed dependency for loading ONNX models. Please install it manually."
+        )
+        warn(onnxruntime_extensions_not_installed_warning, category=ImportWarning)
+
+    return None
 
 
 def try_load_tar_gz(
@@ -3044,8 +3193,8 @@ def translate_batched_estimator_string_to_enum(estimator):
 
 
 def convert_dataframe_to_fields_values_payload(
-    df: "DataFrame", return_values_only=False
-) -> dict[str, Any]:
+    df: "DataFrame", return_values_only: bool = False, onnx_mode: bool = False
+) -> dict[str, Any] | list:
     if isinstance(df, pd.DataFrame):
 
         data = df.where(pd.notnull(df), None)
@@ -3060,6 +3209,12 @@ def convert_dataframe_to_fields_values_payload(
         except TypeError:
             pass
         # --- end note
+
+        if onnx_mode:
+            return [
+                {"id": col, "values": [[v] for v in df[col].tolist()]}
+                for col in df.columns
+            ]
 
         values = values.tolist()
         # --- end note
@@ -3114,3 +3269,106 @@ def run_id_required(func: Callable) -> Callable:
         return func(*args, **kwargs)
 
     return wrapper
+
+
+def download_onnx_model(
+    model: str, run_params: dict, client: APIClient
+) -> tuple[str, dict]:
+    """Store ONNX model as archive & update model metadata"""
+
+    onnx_model_name = "model.onnx"
+    onnx_request_json = "onnx-request.json"
+
+    model_number = int(model.split("_")[-1])
+    if model_number < len(run_params["entity"]["status"]["metrics"]):
+        model_info = run_params["entity"]["status"]["metrics"][model_number]
+    else:
+        max_number = len(run_params["entity"]["status"]["metrics"]) - 1
+        raise WMLClientError(f"{model} is out of range (max: Pipeline_{max_number})")
+
+    intermediate_model = model_info["context"]["intermediate_model"]
+    if intermediate_model["location"].get("onnx_model") is None:
+        raise WMLClientError(f"ONNX model with provided `{model}` does not exist.")
+
+    model_path = f"{intermediate_model['location'].get('onnx_model')}"
+    onnx_request = _get_onnx_request_path(run_params, model_number, intermediate_model)
+
+    if client.ICP_PLATFORM_SPACES:
+        # note: downloading model and onnx-request from file system on CP4D
+        schema_json = (
+            load_file_from_file_system(api_client=client, file_path=onnx_request)
+            .read()
+            .decode()
+        )
+        model_onnx = (
+            load_file_from_file_system(api_client=client, file_path=model_path)
+            .read()
+            .decode()
+        )
+        with open(onnx_model_name, "w") as f:
+            f.write(model_onnx)
+        # --- end note
+
+    else:
+        from ibm_watsonx_ai.helpers import DataConnection
+
+        results_reference = DataConnection.from_dict(
+            run_params["entity"]["results_reference"]
+        )
+        results_reference.set_client(client)
+
+        results_reference.location.path = model_path
+        results_reference.download(filename=onnx_model_name)
+
+        results_reference.location.path = onnx_request
+        results_reference.download(filename=onnx_request_json)
+
+        with open(onnx_request_json, "r") as f:
+            schema_json = f.read()
+
+        remove_file(filename=onnx_request_json)
+
+    schema_json = schema_json.replace("fieldType", "type")
+    model_props = json.loads(schema_json)
+
+    if entry := model_props.get(client.repository.ModelMetaNames.PIPELINE_ID):
+        model_props[client.repository.ModelMetaNames.PIPELINE_ID] = entry.get("id")
+
+    if sw_spec := model_props.get(client.repository.ModelMetaNames.SOFTWARE_SPEC_ID):
+        if isinstance(sw_spec, dict):
+            model_props[client.repository.ModelMetaNames.SOFTWARE_SPEC_ID] = (
+                client.software_specifications.get_id_by_name(sw_spec.get("name"))
+            )
+    model_props.pop("content_location")  # causes error during deployment
+
+    artifact_name = f"onnx_{model}.zip"
+
+    with ZipFile(artifact_name, "w") as zip_obj:
+        zip_obj.write(onnx_model_name, arcname=onnx_model_name)
+
+    remove_file(filename=onnx_model_name)
+
+    return artifact_name, model_props
+
+
+def _get_onnx_request_path(run_params, model_number, intermediate_model):
+    run_id = run_params["metadata"]["id"]
+
+    is_ml_metrics = "ml_metrics" in run_params["entity"]["status"].get("metrics")[-1]
+    is_ts_metrics = "ts_metrics" in run_params["entity"]["status"].get("metrics")[-1]
+    is_tsad_metrics = (
+        "tsad_metrics" in run_params["entity"]["status"].get("metrics")[-1]
+    )
+    if is_ml_metrics:
+        model_output = chose_model_output(
+            model_number=model_number, run_params=run_params
+        )
+    elif is_ts_metrics or is_tsad_metrics:
+        model_output = "after_final_pipelines_generation"
+
+    schema_path = f"{intermediate_model['schema_location']}"
+    return (
+        f"{schema_path.rsplit('/data/', 1)[0]}"
+        + f"/assets/{run_id}_P{model_number}_{model_output}"
+        + "/resources/wml_model/onnx-request.json"
+    )

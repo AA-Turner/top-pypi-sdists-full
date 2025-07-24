@@ -397,11 +397,14 @@ class AIServices(WMLResource):
                 e,
             )
 
-    def delete(self, ai_service_id: str) -> Literal["SUCCESS"]:
+    def delete(self, ai_service_id: str, force: bool = False) -> Literal["SUCCESS"]:
         """Delete a stored AI service asset.
 
         :param ai_service_id: stored AI service ID
         :type ai_service_id: str
+
+        :param force: if True, the delete operation will proceed even when the AI service deployment exists, defaults to False
+        :type force: bool, optional
 
         :return: status "SUCCESS" if deletion is successful
         :rtype: Literal["SUCCESS"]
@@ -412,11 +415,10 @@ class AIServices(WMLResource):
 
             client._ai_services.delete(ai_service_id)
         """
-
         self._client._check_if_either_is_set()
         AIServices._validate_type(ai_service_id, "ai_service_id", str, True)
 
-        if self._if_deployment_exist_for_asset(ai_service_id):
+        if not force and self._if_deployment_exist_for_asset(ai_service_id):
             raise WMLClientError(
                 "Cannot delete AI service that has existing deployments. Please delete all associated deployments and try again"
             )
@@ -424,16 +426,17 @@ class AIServices(WMLResource):
         ai_service_endpoint = self._client._href_definitions.get_ai_service_href(
             ai_service_id
         )
+
         self._logger.debug(
-            "Deletion artifact AI service endpoint: {}".format(ai_service_endpoint)
+            "Deletion artifact AI service endpoint: %s" % ai_service_endpoint
         )
-        response_delete = requests.delete(
+        response = requests.delete(
             ai_service_endpoint,
             params=self._client._params(),
             headers=self._client._get_headers(),
         )
 
-        return self._handle_response(204, "AI service deletion", response_delete, False)
+        return self._handle_response(204, "AI service deletion", response, False)
 
     def get_details(
         self,

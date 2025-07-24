@@ -47,6 +47,33 @@ class MockBadRequest:
         raise requests.exceptions.HTTPError
 
 
+class MockServerErrorRequest:
+    status_code = 500
+    text = json.dumps(_SAMPLE_RESPONSE)
+
+    @staticmethod
+    def raise_for_status():
+        raise requests.exceptions.HTTPError("500 Server Error")
+
+
+class MockBadGatewayRequest:
+    status_code = 502
+    text = json.dumps(_SAMPLE_RESPONSE)
+
+    @staticmethod
+    def raise_for_status():
+        raise requests.exceptions.HTTPError("502 Bad Gateway")
+
+
+class MockGatewayTimeoutRequest:
+    status_code = 504
+    text = json.dumps(_SAMPLE_RESPONSE)
+
+    @staticmethod
+    def raise_for_status():
+        raise requests.exceptions.HTTPError("504 Gateway Timeout")
+
+
 class MockGqlErrors(MockGoodRequest):
     text = json.dumps({**_SAMPLE_RESPONSE, **_SAMPLE_ERRORS})
 
@@ -86,6 +113,54 @@ class GqlUtilTest(TestCase):
     @patch.object(GqlWrapper, "_post", return_value=MockGqlErrors)
     def test_request_with_gql_errors(self, request_mock):
         self._test_error_flow(request_mock)
+
+    @patch("requests.post")
+    def test_request_with_500_error_retries(self, post_mock):
+        post_mock.side_effect = [
+            MockServerErrorRequest(),
+            MockServerErrorRequest(),
+            MockServerErrorRequest(),
+        ]
+        with self.assertRaises(click.exceptions.Abort):
+            self._service.make_request(
+                query=_SAMPLE_QUERY,
+                service=_SAMPLE_SERVICE,
+                variables=_SAMPLE_VARIABLES,
+            )
+        # Verify it was called 3 times (initial + 2 retries)
+        self.assertEqual(post_mock.call_count, 3)
+
+    @patch("requests.post")
+    def test_request_with_502_error_retries(self, post_mock):
+        post_mock.side_effect = [
+            MockBadGatewayRequest(),
+            MockBadGatewayRequest(),
+            MockBadGatewayRequest(),
+        ]
+        with self.assertRaises(click.exceptions.Abort):
+            self._service.make_request(
+                query=_SAMPLE_QUERY,
+                service=_SAMPLE_SERVICE,
+                variables=_SAMPLE_VARIABLES,
+            )
+        # Verify it was called 3 times (initial + 2 retries)
+        self.assertEqual(post_mock.call_count, 3)
+
+    @patch("requests.post")
+    def test_request_with_504_error_retries(self, post_mock):
+        post_mock.side_effect = [
+            MockGatewayTimeoutRequest(),
+            MockGatewayTimeoutRequest(),
+            MockGatewayTimeoutRequest(),
+        ]
+        with self.assertRaises(click.exceptions.Abort):
+            self._service.make_request(
+                query=_SAMPLE_QUERY,
+                service=_SAMPLE_SERVICE,
+                variables=_SAMPLE_VARIABLES,
+            )
+        # Verify it was called 3 times (initial + 2 retries)
+        self.assertEqual(post_mock.call_count, 3)
 
     @patch.object(GqlWrapper, "_post", return_value=MockGoodRequest)
     def test_make_request_with_user_id(self, request_mock):

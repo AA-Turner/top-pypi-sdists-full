@@ -685,7 +685,7 @@ class GenSharedObject(_object):
         https://github.com/casadi/casadi/blob/main/casadi/core/generic_shared.hpp#L124
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/generic_shared_impl.hpp#L137-L139
+        https://github.com/casadi/casadi/blob/main/casadi/core/generic_shared_impl.hpp#L141-L143
 
 
 
@@ -1194,6 +1194,69 @@ def normalized_setup(*args):
 
     """
     return _casadi.normalized_setup(*args)
+class StreamStateGuard(_object):
+    """
+      [INTERNAL] C++ includes: casadi_misc.hpp
+
+    ::
+
+
+
+
+
+    """
+
+    __swig_setmethods__ = {}
+    __setattr__ = lambda self, name, value: _swig_setattr(self, StreamStateGuard, name, value)
+    __swig_getmethods__ = {}
+    __getattr__ = lambda self, name: _swig_getattr(self, StreamStateGuard, name)
+    __repr__ = _swig_repr
+    __swig_destroy__ = _casadi.delete_StreamStateGuard
+
+    def __init__(self, *args):
+        """
+
+
+        ::
+
+          StreamStateGuard(std::ostream & os)
+          StreamStateGuard(StreamStateGuard other)
+
+
+        .......
+
+        ::
+
+          StreamStateGuard(StreamStateGuard other)
+
+
+
+        .............
+
+
+        .......
+
+        ::
+
+          StreamStateGuard(std::ostream & os)
+
+
+
+        [INTERNAL] 
+
+        .............
+
+
+
+        """
+        this = _casadi.new_StreamStateGuard(*args)
+        try:
+            self.this.append(this)
+        except __builtin__.Exception:
+            self.this = this
+StreamStateGuard_swigregister = _casadi.StreamStateGuard_swigregister
+StreamStateGuard_swigregister(StreamStateGuard)
+
 
 def normalized_out(*args):
     """
@@ -9602,7 +9665,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L906
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L696-L700
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L691-L695
 
 
 
@@ -9665,7 +9728,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L916
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L609-L633
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L609-L628
 
 
 
@@ -9688,7 +9751,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L919
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L636-L638
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L631-L633
 
 
 
@@ -9711,7 +9774,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L922
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L686-L688
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L681-L683
 
 
 
@@ -9734,7 +9797,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L925
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L691-L693
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L686-L688
 
 
 
@@ -9802,7 +9865,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19g
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L970
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L974
 
 
 
@@ -9822,7 +9885,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19g
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L970
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L974
 
 
 
@@ -9845,7 +9908,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19f
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L962
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L966
 
 
 
@@ -9872,7 +9935,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19h
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L977
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L981
 
 
 
@@ -9898,7 +9961,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19i
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L985
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L989
 
 
 
@@ -9920,7 +9983,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19j
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1012
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1016
 
 
 
@@ -9975,7 +10038,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1043
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1047
 
 
 
@@ -9993,7 +10056,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1042
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1046
 
 
 
@@ -10014,7 +10077,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1043
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1047
 
 
 
@@ -10035,7 +10098,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1041
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1045
 
 
 
@@ -10063,7 +10126,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1052
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1056
 
 
 
@@ -10081,7 +10144,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1051
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1055
 
 
 
@@ -10102,7 +10165,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1052
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1056
 
 
 
@@ -10123,7 +10186,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1050
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1054
 
 
 
@@ -10292,7 +10355,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19v
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1138
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1142
 
 
 
@@ -10386,7 +10449,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19w
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1170
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1174
 
 
 
@@ -10410,7 +10473,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19x
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1175
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1179
 
 
 
@@ -10434,7 +10497,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19y
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1180
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1184
 
 
 
@@ -10458,7 +10521,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19z
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1185
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1189
 
 
 
@@ -10484,7 +10547,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1a0
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1192
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1196
 
 
 
@@ -10536,7 +10599,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1a1
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1203
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1207
 
 
 
@@ -10558,7 +10621,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1a4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1220
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1224
 
 
 
@@ -10580,7 +10643,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1a3
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1213
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1217
 
 
 
@@ -10734,7 +10797,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1279
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1283
 
 
 
@@ -10752,7 +10815,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1275
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1279
 
 
 
@@ -10773,7 +10836,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1279
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1283
 
 
 
@@ -10794,7 +10857,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1278
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1282
 
 
 
@@ -10835,7 +10898,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ac
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1297
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1301
 
 
 
@@ -10872,7 +10935,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ah
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1327
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1331
 
 
 
@@ -10890,7 +10953,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ah
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1327
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1331
 
 
 
@@ -10911,7 +10974,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ae
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1312
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1316
 
 
 
@@ -10968,7 +11031,7 @@ class DM(MatrixCommon, GenericExpressionCommon, GenDM, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1347
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1351
 
 
 
@@ -11412,7 +11475,7 @@ def DM_inf(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1043
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1047
 
 
 
@@ -11430,7 +11493,7 @@ def DM_inf(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1042
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1046
 
 
 
@@ -11451,7 +11514,7 @@ def DM_inf(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1043
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1047
 
 
 
@@ -11472,7 +11535,7 @@ def DM_inf(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1041
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1045
 
 
 
@@ -11498,7 +11561,7 @@ def DM_nan(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1052
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1056
 
 
 
@@ -11516,7 +11579,7 @@ def DM_nan(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1051
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1055
 
 
 
@@ -11537,7 +11600,7 @@ def DM_nan(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1052
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1056
 
 
 
@@ -11558,7 +11621,7 @@ def DM_nan(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1050
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1054
 
 
 
@@ -11649,7 +11712,7 @@ def DM_rand(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1279
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1283
 
 
 
@@ -11667,7 +11730,7 @@ def DM_rand(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1275
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1279
 
 
 
@@ -11688,7 +11751,7 @@ def DM_rand(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1279
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1283
 
 
 
@@ -11709,7 +11772,7 @@ def DM_rand(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1278
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1282
 
 
 
@@ -12206,7 +12269,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L906
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L696-L700
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L691-L695
 
 
 
@@ -12269,7 +12332,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L916
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L609-L633
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L609-L628
 
 
 
@@ -12292,7 +12355,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L919
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L636-L638
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L631-L633
 
 
 
@@ -12315,7 +12378,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L922
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L686-L688
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L681-L683
 
 
 
@@ -12338,7 +12401,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L925
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L691-L693
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_impl.hpp#L686-L688
 
 
 
@@ -12406,7 +12469,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19g
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L970
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L974
 
 
 
@@ -12426,7 +12489,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19g
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L970
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L974
 
 
 
@@ -12449,7 +12512,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19f
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L962
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L966
 
 
 
@@ -12476,7 +12539,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19h
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L977
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L981
 
 
 
@@ -12502,7 +12565,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19i
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L985
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L989
 
 
 
@@ -12524,7 +12587,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19j
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1012
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1016
 
 
 
@@ -12579,7 +12642,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1043
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1047
 
 
 
@@ -12597,7 +12660,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1042
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1046
 
 
 
@@ -12618,7 +12681,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1043
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1047
 
 
 
@@ -12639,7 +12702,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1041
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1045
 
 
 
@@ -12667,7 +12730,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1052
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1056
 
 
 
@@ -12685,7 +12748,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1051
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1055
 
 
 
@@ -12706,7 +12769,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1052
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1056
 
 
 
@@ -12727,7 +12790,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1050
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1054
 
 
 
@@ -12896,7 +12959,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19v
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1138
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1142
 
 
 
@@ -12990,7 +13053,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19w
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1170
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1174
 
 
 
@@ -13014,7 +13077,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19x
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1175
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1179
 
 
 
@@ -13038,7 +13101,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19y
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1180
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1184
 
 
 
@@ -13062,7 +13125,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_19z
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1185
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1189
 
 
 
@@ -13088,7 +13151,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1a0
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1192
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1196
 
 
 
@@ -13140,7 +13203,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1a1
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1203
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1207
 
 
 
@@ -13162,7 +13225,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1a4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1220
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1224
 
 
 
@@ -13184,7 +13247,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1a3
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1213
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1217
 
 
 
@@ -13338,7 +13401,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1279
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1283
 
 
 
@@ -13356,7 +13419,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1275
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1279
 
 
 
@@ -13377,7 +13440,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1279
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1283
 
 
 
@@ -13398,7 +13461,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1278
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1282
 
 
 
@@ -13439,7 +13502,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ac
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1297
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1301
 
 
 
@@ -13476,7 +13539,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ah
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1327
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1331
 
 
 
@@ -13494,7 +13557,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ah
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1327
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1331
 
 
 
@@ -13515,7 +13578,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ae
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1312
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1316
 
 
 
@@ -13572,7 +13635,7 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1347
+        https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1351
 
 
 
@@ -13595,6 +13658,27 @@ class SX(MatrixCommon, GenericExpressionCommon, GenSX, PrintableCommon):
         return _casadi.SX_from_file(*args)
 
     from_file = staticmethod(from_file)
+
+    def __setstate__(self, state):
+      ctx = _current_unpickle_context()
+      if not ctx:
+        raise Exception("Cannot unpickle SX objects without a casadi context. " +
+          "Use something like:\n"+
+          "with ca.global_unpickle_context(): \n"+
+          "  f_ref = pickle.load(open(filename,'rb'))")
+      ctx.decode(state)
+      self.__init__(ctx.unpack())
+
+    def __getstate__(self):
+      ctx = _current_pickle_context()
+      if not ctx:
+        raise Exception("Cannot pickle SX objects without a casadi context. " +
+          "Use something like:\n"+
+          "with ca.global_pickle_context(): \n"+
+          "  pickle.dump(f,open(filename,'wb'))")
+      ctx.pack(self)
+      return ctx.encode()
+
 
     @property
     def shape(self):
@@ -13931,7 +14015,7 @@ def SX_inf(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1043
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1047
 
 
 
@@ -13949,7 +14033,7 @@ def SX_inf(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1042
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1046
 
 
 
@@ -13970,7 +14054,7 @@ def SX_inf(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1043
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1047
 
 
 
@@ -13991,7 +14075,7 @@ def SX_inf(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19k
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1041
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1045
 
 
 
@@ -14017,7 +14101,7 @@ def SX_nan(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1052
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1056
 
 
 
@@ -14035,7 +14119,7 @@ def SX_nan(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1051
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1055
 
 
 
@@ -14056,7 +14140,7 @@ def SX_nan(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1052
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1056
 
 
 
@@ -14077,7 +14161,7 @@ def SX_nan(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_19l
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1050
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1054
 
 
 
@@ -14168,7 +14252,7 @@ def SX_rand(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1279
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1283
 
 
 
@@ -14186,7 +14270,7 @@ def SX_rand(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1275
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1279
 
 
 
@@ -14207,7 +14291,7 @@ def SX_rand(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1279
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1283
 
 
 
@@ -14228,7 +14312,7 @@ def SX_rand(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_1ab
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1278
+    https://github.com/casadi/casadi/blob/main/casadi/core/matrix_decl.hpp#L1282
 
 
 
@@ -16742,6 +16826,27 @@ class MX(GenericExpressionCommon, PrintableCommon, GenMX, SharedObject):
         return _casadi.MX_eval_mx(self, *args)
 
 
+    def __setstate__(self, state):
+      ctx = _current_unpickle_context()
+      if not ctx:
+        raise Exception("Cannot unpickle MX objects without a casadi context. " +
+          "Use something like:\n"+
+          "with ca.global_unpickle_context(): \n"+
+          "  f_ref = pickle.load(open(filename,'rb'))")
+      ctx.decode(state)
+      self.__init__(ctx.unpack())
+
+    def __getstate__(self):
+      ctx = _current_pickle_context()
+      if not ctx:
+        raise Exception("Cannot pickle MX objects without a casadi context. " +
+          "Use something like:\n"+
+          "with ca.global_pickle_context(): \n"+
+          "  pickle.dump(f,open(filename,'wb'))")
+      ctx.pack(self)
+      return ctx.encode()
+
+
     @property
     def shape(self):
         return (self.size1(),self.size2())
@@ -17725,6 +17830,12 @@ class Function(SharedObject, PrintableCommon):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | dump_out         | OT_BOOL         | Dump numerical   | casadi::Function |
     |                  |                 | values of        | Internal         |
@@ -17732,6 +17843,12 @@ class Function(SharedObject, PrintableCommon):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | enable_fd        | OT_BOOL         | Enable           | casadi::Function |
     |                  |                 | derivative       | Internal         |
@@ -17955,6 +18072,15 @@ class Function(SharedObject, PrintableCommon):
     |                  |                 | construction     |                  |
     |                  |                 | expansion.       |                  |
     |                  |                 | Default: empty   |                  |
+    +------------------+-----------------+------------------+------------------+
+    | print_canonical  | OT_BOOL         | When printing    | casadi::Function |
+    |                  |                 | numerical        | Internal         |
+    |                  |                 | matrices, use a  |                  |
+    |                  |                 | format that is   |                  |
+    |                  |                 | exact and        |                  |
+    |                  |                 | reproducible in  |                  |
+    |                  |                 | generated C      |                  |
+    |                  |                 | code.            |                  |
     +------------------+-----------------+------------------+------------------+
     | print_in         | OT_BOOL         | Print numerical  | casadi::Function |
     |                  |                 | values of inputs | Internal         |
@@ -19473,7 +19599,7 @@ class Function(SharedObject, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L355
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1480-L1482
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1489-L1491
 
 
 
@@ -19498,7 +19624,7 @@ class Function(SharedObject, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L360
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1484-L1486
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1493-L1495
 
 
 
@@ -19523,7 +19649,7 @@ class Function(SharedObject, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L365
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1488-L1490
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1497-L1499
 
 
 
@@ -19548,7 +19674,7 @@ class Function(SharedObject, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L370
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1492-L1494
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1501-L1503
 
 
 
@@ -19573,7 +19699,7 @@ class Function(SharedObject, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L375
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1496-L1498
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1505-L1507
 
 
 
@@ -19908,7 +20034,7 @@ class Function(SharedObject, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L416
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1908-L1914
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1917-L1923
 
 
 
@@ -19933,7 +20059,7 @@ class Function(SharedObject, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L421
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1916-L1918
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1925-L1927
 
 
 
@@ -19958,7 +20084,7 @@ class Function(SharedObject, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L426
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1920-L1922
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1929-L1931
 
 
 
@@ -19992,7 +20118,7 @@ class Function(SharedObject, PrintableCommon):
         https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L434
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1826-L1833
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1835-L1842
 
 
 
@@ -20132,6 +20258,31 @@ class Function(SharedObject, PrintableCommon):
         return _casadi.Function_change_option(self, *args)
 
 
+    def reset_dump_count(self, *args):
+        """
+          [INTERNAL] 
+
+        ::
+
+          reset_dump_count(self)
+
+        Reset the counter used to name dump files.
+
+        Extra doc: https://github.com/casadi/casadi/wiki/L_2dy
+
+        Doc source: 
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L469
+
+        Implementation: 
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1184-L1190
+
+
+
+
+        """
+        return _casadi.Function_reset_dump_count(self, *args)
+
+
     def uses_output(self, *args):
         """
           [INTERNAL] 
@@ -20145,7 +20296,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1w3
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L469
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L474
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L883-L885
@@ -20169,7 +20320,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1w4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L475
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L480
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L888-L894
@@ -20193,7 +20344,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1w5
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L480
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L485
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L896-L904
@@ -20219,10 +20370,10 @@ class Function(SharedObject, PrintableCommon):
         block
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L494
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L499
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L494-L497
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L499-L502
 
 
 
@@ -20238,10 +20389,10 @@ class Function(SharedObject, PrintableCommon):
         block
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L486
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L491
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L486-L489
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L491-L494
 
 
 
@@ -20260,7 +20411,7 @@ class Function(SharedObject, PrintableCommon):
         block
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L484
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L489
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L907-L913
@@ -20282,10 +20433,10 @@ class Function(SharedObject, PrintableCommon):
         block
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L490
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L495
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L490-L493
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L495-L498
 
 
 
@@ -20304,10 +20455,10 @@ class Function(SharedObject, PrintableCommon):
         block
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L494
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L499
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L494-L497
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L499-L502
 
 
 
@@ -20352,7 +20503,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1w6
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L517
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L522
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L916-L922
@@ -20382,10 +20533,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1w7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L533
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L538
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1471-L1478
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1480-L1487
 
 
 
@@ -20403,10 +20554,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1w7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L529
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L534
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1453-L1460
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1462-L1469
 
 
 
@@ -20427,7 +20578,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1w7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L523
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L528
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L357-L364
@@ -20451,7 +20602,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1w7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L525
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L530
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L366-L373
@@ -20475,10 +20626,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1w7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L531
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L536
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1462-L1469
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1471-L1478
 
 
 
@@ -20499,10 +20650,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1w7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L533
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L538
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1471-L1478
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1480-L1487
 
 
 
@@ -20523,7 +20674,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1w7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L527
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L532
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L375-L382
@@ -20557,7 +20708,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wh
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L651
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L656
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L756-L763
@@ -20641,7 +20792,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wi
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L706
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L711
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L516-L518
@@ -20717,7 +20868,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wi
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L706
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L711
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L516-L518
@@ -20796,7 +20947,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wi
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L695
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L700
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L519-L521
@@ -20875,7 +21026,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wi
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L696
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L701
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L522-L550
@@ -20954,7 +21105,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wi
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L702
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L707
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L627-L635
@@ -21033,7 +21184,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wi
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L698
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L703
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L597-L625
@@ -21116,7 +21267,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wi
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L707
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L712
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L509-L515
@@ -21149,7 +21300,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wk
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L754
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L759
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L637-L643
@@ -21174,7 +21325,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wk
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L754
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L759
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L637-L643
@@ -21202,7 +21353,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wk
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L750
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L755
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L668-L675
@@ -21230,7 +21381,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wk
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L746
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L751
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L645-L666
@@ -21301,7 +21452,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wj
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L735
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L740
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L709-L744
@@ -21331,7 +21482,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wl
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L763
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L768
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L747-L754
@@ -21420,7 +21571,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wq
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L809
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L814
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1135-L1141
@@ -21465,7 +21616,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wr
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L829
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L834
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1143-L1149
@@ -21492,7 +21643,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wt
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L839
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L844
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L951-L959
@@ -21513,7 +21664,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ws
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L834
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L839
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L940-L949
@@ -21538,7 +21689,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wt
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L839
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L844
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L951-L959
@@ -21567,10 +21718,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wv
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L849
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L854
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1188-L1190
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1197-L1199
 
 
 
@@ -21588,10 +21739,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wv
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L849
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L854
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1188-L1190
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1197-L1199
 
 
 
@@ -21612,10 +21763,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wu
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L844
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L849
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1192-L1196
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1201-L1205
 
 
 
@@ -21640,10 +21791,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ww
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L854
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L859
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1198-L1200
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1207-L1209
 
 
 
@@ -21674,10 +21825,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wx
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L864
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L869
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1232-L1242
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1241-L1251
 
 
 
@@ -21703,10 +21854,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wx
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L864
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L869
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1232-L1242
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1241-L1251
 
 
 
@@ -21735,10 +21886,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wx
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L863
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L868
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1202-L1215
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1211-L1224
 
 
 
@@ -21772,10 +21923,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wy
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L875
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L880
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1244-L1254
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1253-L1263
 
 
 
@@ -21801,10 +21952,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wy
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L875
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L880
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1244-L1254
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1253-L1263
 
 
 
@@ -21833,10 +21984,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wy
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L874
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L879
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1217-L1230
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1226-L1239
 
 
 
@@ -21861,10 +22012,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x2
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L902
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L907
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1274-L1278
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1283-L1287
 
 
 
@@ -21889,10 +22040,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_240
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L909
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L914
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1269-L1272
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1278-L1281
 
 
 
@@ -21917,10 +22068,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wz
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L911
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L916
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1301-L1305
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1310-L1314
 
 
 
@@ -21940,10 +22091,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wz
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L911
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L916
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1301-L1305
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1310-L1314
 
 
 
@@ -21966,10 +22117,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1wz
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L884
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L889
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1261-L1266
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1270-L1275
 
 
 
@@ -21993,7 +22144,7 @@ class Function(SharedObject, PrintableCommon):
         call.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L941
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L946
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L928-L938
@@ -22022,10 +22173,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L953
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L958
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1568-L1574
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1577-L1583
 
 
 
@@ -22045,10 +22196,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L953
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L958
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1568-L1574
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1577-L1583
 
 
 
@@ -22071,10 +22222,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L949
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L954
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1552-L1558
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1561-L1567
 
 
 
@@ -22097,10 +22248,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L950
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L955
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L950-L952
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L955-L957
 
 
 
@@ -22129,10 +22280,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L958
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L963
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1592-L1594
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1601-L1603
 
 
 
@@ -22152,10 +22303,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L958
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L963
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1592-L1594
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1601-L1603
 
 
 
@@ -22178,10 +22329,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L954
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L959
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1584-L1586
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1593-L1595
 
 
 
@@ -22204,10 +22355,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L955
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L960
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L955-L957
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L960-L962
 
 
 
@@ -22236,10 +22387,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L971
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L976
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1576-L1582
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1585-L1591
 
 
 
@@ -22259,10 +22410,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L971
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L976
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1576-L1582
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1585-L1591
 
 
 
@@ -22285,10 +22436,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L967
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L972
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1560-L1566
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1569-L1575
 
 
 
@@ -22311,10 +22462,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L968
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L973
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L968-L970
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L973-L975
 
 
 
@@ -22343,10 +22494,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L976
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L981
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1596-L1598
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1605-L1607
 
 
 
@@ -22366,10 +22517,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L976
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L981
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1596-L1598
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1605-L1607
 
 
 
@@ -22392,10 +22543,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L972
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L977
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1588-L1590
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1597-L1599
 
 
 
@@ -22418,10 +22569,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x5
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L973
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L978
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L973-L975
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L978-L980
 
 
 
@@ -22446,10 +22597,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x6
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L983
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L988
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1600-L1602
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1609-L1611
 
 
 
@@ -22471,10 +22622,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x6
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L984
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L989
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1604-L1606
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1613-L1615
 
 
 
@@ -22496,10 +22647,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x6
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L985
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L990
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1608-L1610
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1617-L1619
 
 
 
@@ -22521,10 +22672,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x6
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L986
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L991
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1612-L1614
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1621-L1623
 
 
 
@@ -22555,10 +22706,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1005
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1010
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1652-L1654
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1661-L1663
 
 
 
@@ -22580,10 +22731,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L997
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1002
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1620-L1622
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1629-L1631
 
 
 
@@ -22608,10 +22759,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L996
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1001
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1616-L1618
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1625-L1627
 
 
 
@@ -22636,10 +22787,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1000
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1005
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1632-L1634
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1641-L1643
 
 
 
@@ -22664,10 +22815,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1001
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1006
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1636-L1638
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1645-L1647
 
 
 
@@ -22692,10 +22843,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1005
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1010
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1652-L1654
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1661-L1663
 
 
 
@@ -22720,10 +22871,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1004
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1009
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1648-L1650
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1657-L1659
 
 
 
@@ -22757,10 +22908,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1007
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1012
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1660-L1662
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1669-L1671
 
 
 
@@ -22782,10 +22933,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L999
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1004
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1628-L1630
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1637-L1639
 
 
 
@@ -22810,10 +22961,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L998
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1003
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1624-L1626
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1633-L1635
 
 
 
@@ -22838,10 +22989,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1002
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1007
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1640-L1642
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1649-L1651
 
 
 
@@ -22866,10 +23017,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1003
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1008
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1644-L1646
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1653-L1655
 
 
 
@@ -22894,10 +23045,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1007
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1012
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1660-L1662
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1669-L1671
 
 
 
@@ -22922,10 +23073,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1006
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1011
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1656-L1658
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1665-L1667
 
 
 
@@ -22950,10 +23101,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x8
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1013
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1018
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1697-L1699
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1706-L1708
 
 
 
@@ -22975,10 +23126,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1x9
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1018
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1023
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1184-L1186
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1193-L1195
 
 
 
@@ -23000,10 +23151,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xa
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1023
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1028
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1673-L1679
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1682-L1688
 
 
 
@@ -23025,10 +23176,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xb
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1028
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1033
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1681-L1687
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1690-L1696
 
 
 
@@ -23050,10 +23201,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xc
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1033
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1038
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1701-L1707
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1710-L1716
 
 
 
@@ -23075,10 +23226,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xd
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1039
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1044
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1765-L1771
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1774-L1780
 
 
 
@@ -23100,10 +23251,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xe
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1044
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1049
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1709-L1715
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1718-L1724
 
 
 
@@ -23125,10 +23276,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xf
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1049
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1054
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1733-L1739
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1742-L1748
 
 
 
@@ -23152,10 +23303,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xg
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1056
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1061
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1741-L1747
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1750-L1756
 
 
 
@@ -23178,10 +23329,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xh
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1061
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1066
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1749-L1755
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1758-L1764
 
 
 
@@ -23205,10 +23356,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xi
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1068
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1073
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1757-L1763
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1766-L1772
 
 
 
@@ -23230,10 +23381,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xj
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1073
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1078
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1717-L1723
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1726-L1732
 
 
 
@@ -23259,10 +23410,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xk
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1081
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1086
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1725-L1731
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1734-L1740
 
 
 
@@ -23284,10 +23435,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xl
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1087
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1092
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1689-L1691
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1698-L1700
 
 
 
@@ -23309,10 +23460,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xl
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1088
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1093
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1693-L1695
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1702-L1704
 
 
 
@@ -23334,7 +23485,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xm
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1094
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1099
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1083-L1083
@@ -23359,7 +23510,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xn
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1099
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1104
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1085-L1085
@@ -23384,7 +23535,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xo
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1104
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1109
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1087-L1087
@@ -23409,7 +23560,7 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xp
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1109
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1114
 
         Implementation: 
         https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1089-L1089
@@ -23434,10 +23585,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xv
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1152
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1157
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1307-L1314
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1316-L1323
 
 
 
@@ -23462,10 +23613,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1xw
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1159
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1164
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1664-L1666
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1673-L1675
 
 
 
@@ -23547,10 +23698,10 @@ class Function(SharedObject, PrintableCommon):
         Assert that an input dimension is equal so some given value.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1204
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1209
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1785-L1791
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1794-L1800
 
 
 
@@ -23570,10 +23721,10 @@ class Function(SharedObject, PrintableCommon):
         Assert that an output dimension is equal so some given value.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1207
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1212
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1793-L1798
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1802-L1807
 
 
 
@@ -23594,10 +23745,10 @@ class Function(SharedObject, PrintableCommon):
         sparsity.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1210
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1215
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1800-L1809
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1809-L1818
 
 
 
@@ -23617,10 +23768,10 @@ class Function(SharedObject, PrintableCommon):
         Checkout a memory object.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1214
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1219
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1773-L1775
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1782-L1784
 
 
 
@@ -23640,10 +23791,10 @@ class Function(SharedObject, PrintableCommon):
         Release a memory object.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1217
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1222
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1777-L1779
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1786-L1788
 
 
 
@@ -23665,10 +23816,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_26i
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1230
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1235
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1835-L1842
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1844-L1851
 
 
 
@@ -23691,10 +23842,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1y4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1240
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1245
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1853-L1859
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1862-L1868
 
 
 
@@ -23712,10 +23863,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1y4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1240
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1245
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1853-L1859
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1862-L1868
 
 
 
@@ -23736,10 +23887,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1y3
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1235
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1240
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1844-L1851
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1853-L1860
 
 
 
@@ -23764,10 +23915,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1y5
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1245
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1250
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1861-L1868
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1870-L1877
 
 
 
@@ -23795,10 +23946,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1y6
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1252
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1257
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1870-L1886
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1879-L1895
 
 
 
@@ -23829,10 +23980,10 @@ class Function(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1y7
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1260
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1265
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1888-L1905
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1897-L1914
 
 
 
@@ -23852,10 +24003,10 @@ class Function(SharedObject, PrintableCommon):
         Obtain information about function
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1263
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1268
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1934-L1936
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1943-L1945
 
 
 
@@ -24442,10 +24593,10 @@ class FunctionBuffer(_object):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1yb
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1341
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1346
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1982-L1987
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1991-L1996
 
 
 
@@ -24471,10 +24622,10 @@ class FunctionBuffer(_object):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1yc
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1350
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1355
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1988-L1993
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1997-L2002
 
 
 
@@ -24494,10 +24645,10 @@ class FunctionBuffer(_object):
         Get last return value.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1352
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1357
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L2001-L2003
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L2010-L2012
 
 
 
@@ -24583,10 +24734,10 @@ class FunctionBuffer(_object):
         Extra doc: https://github.com/casadi/casadi/wiki/L_1ya
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1327
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.hpp#L1332
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1946-L1954
+        https://github.com/casadi/casadi/blob/main/casadi/core/function.cpp#L1955-L1963
 
 
 
@@ -24948,6 +25099,12 @@ def integrator(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | dump_out         | OT_BOOL         | Dump numerical   | casadi::Function |
     |                  |                 | values of        | Internal         |
@@ -24955,6 +25112,12 @@ def integrator(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | enable_fd        | OT_BOOL         | Enable           | casadi::Function |
     |                  |                 | derivative       | Internal         |
@@ -25243,6 +25406,15 @@ def integrator(*args):
     |                  |                 | creation of      |                  |
     |                  |                 | derivatives.     |                  |
     |                  |                 | Default: False   |                  |
+    +------------------+-----------------+------------------+------------------+
+    | print_canonical  | OT_BOOL         | When printing    | casadi::Function |
+    |                  |                 | numerical        | Internal         |
+    |                  |                 | matrices, use a  |                  |
+    |                  |                 | format that is   |                  |
+    |                  |                 | exact and        |                  |
+    |                  |                 | reproducible in  |                  |
+    |                  |                 | generated C      |                  |
+    |                  |                 | code.            |                  |
     +------------------+-----------------+------------------+------------------+
     | print_in         | OT_BOOL         | Print numerical  | casadi::Function |
     |                  |                 | values of inputs | Internal         |
@@ -26438,6 +26610,12 @@ def conic(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | dump_out         | OT_BOOL         | Dump numerical   | casadi::Function |
     |                  |                 | values of        | Internal         |
@@ -26445,6 +26623,12 @@ def conic(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | enable_fd        | OT_BOOL         | Enable           | casadi::Function |
     |                  |                 | derivative       | Internal         |
@@ -26687,6 +26871,15 @@ def conic(*args):
     |                  |                 | construction     |                  |
     |                  |                 | expansion.       |                  |
     |                  |                 | Default: empty   |                  |
+    +------------------+-----------------+------------------+------------------+
+    | print_canonical  | OT_BOOL         | When printing    | casadi::Function |
+    |                  |                 | numerical        | Internal         |
+    |                  |                 | matrices, use a  |                  |
+    |                  |                 | format that is   |                  |
+    |                  |                 | exact and        |                  |
+    |                  |                 | reproducible in  |                  |
+    |                  |                 | generated C      |                  |
+    |                  |                 | code.            |                  |
     +------------------+-----------------+------------------+------------------+
     | print_in         | OT_BOOL         | Print numerical  | casadi::Function |
     |                  |                 | values of inputs | Internal         |
@@ -28298,6 +28491,12 @@ def nlpsol(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | dump_out         | OT_BOOL         | Dump numerical   | casadi::Function |
     |                  |                 | values of        | Internal         |
@@ -28305,6 +28504,12 @@ def nlpsol(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | enable_fd        | OT_BOOL         | Enable           | casadi::Function |
     |                  |                 | derivative       | Internal         |
@@ -28614,6 +28819,15 @@ def nlpsol(*args):
     |                  |                 | creation of      |                  |
     |                  |                 | derivatives.     |                  |
     |                  |                 | Default: False   |                  |
+    +------------------+-----------------+------------------+------------------+
+    | print_canonical  | OT_BOOL         | When printing    | casadi::Function |
+    |                  |                 | numerical        | Internal         |
+    |                  |                 | matrices, use a  |                  |
+    |                  |                 | format that is   |                  |
+    |                  |                 | exact and        |                  |
+    |                  |                 | reproducible in  |                  |
+    |                  |                 | generated C      |                  |
+    |                  |                 | code.            |                  |
     +------------------+-----------------+------------------+------------------+
     | print_in         | OT_BOOL         | Print numerical  | casadi::Function |
     |                  |                 | values of inputs | Internal         |
@@ -29003,7 +29217,9 @@ def nlpsol(*args):
     will differ.
 
     For a good tutorial on BONMIN, see 
-    http://drops.dagstuhl.de/volltexte/2009/2089/pdf/09061.WaechterAndreas.Paper.2089.pdf
+    https://drops.dagstuhl.de/storage/16dagstuhl-seminar-proceedings/dsp-
+
+    vol09061/DagSemProc.09061.16/DagSemProc.09061.16.pdf
 
     A good resource about the algorithms in BONMIN is: Wachter and L. T. 
 
@@ -29224,7 +29440,9 @@ def nlpsol(*args):
     will differ.
 
     For a good tutorial on IPOPT, see 
-    http://drops.dagstuhl.de/volltexte/2009/2089/pdf/09061.WaechterAndreas.Paper.2089.pdf
+    https://drops.dagstuhl.de/storage/16dagstuhl-seminar-proceedings/dsp-
+
+    vol09061/DagSemProc.09061.16/DagSemProc.09061.16.pdf
 
     A good resource about the algorithms in IPOPT is: Wachter and L. T. 
 
@@ -30648,6 +30866,12 @@ def rootfinder(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | dump_out         | OT_BOOL         | Dump numerical   | casadi::Function |
     |                  |                 | values of        | Internal         |
@@ -30655,6 +30879,12 @@ def rootfinder(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | enable_fd        | OT_BOOL         | Enable           | casadi::Function |
     |                  |                 | derivative       | Internal         |
@@ -30930,6 +31160,15 @@ def rootfinder(*args):
     |                  |                 | creation of      |                  |
     |                  |                 | derivatives.     |                  |
     |                  |                 | Default: False   |                  |
+    +------------------+-----------------+------------------+------------------+
+    | print_canonical  | OT_BOOL         | When printing    | casadi::Function |
+    |                  |                 | numerical        | Internal         |
+    |                  |                 | matrices, use a  |                  |
+    |                  |                 | format that is   |                  |
+    |                  |                 | exact and        |                  |
+    |                  |                 | reproducible in  |                  |
+    |                  |                 | generated C      |                  |
+    |                  |                 | code.            |                  |
     +------------------+-----------------+------------------+------------------+
     | print_in         | OT_BOOL         | Print numerical  | casadi::Function |
     |                  |                 | values of inputs | Internal         |
@@ -32463,6 +32702,12 @@ def dplesol(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | dump_out         | OT_BOOL         | Dump numerical   | casadi::Function |
     |                  |                 | values of        | Internal         |
@@ -32470,6 +32715,12 @@ def dplesol(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | enable_fd        | OT_BOOL         | Enable           | casadi::Function |
     |                  |                 | derivative       | Internal         |
@@ -32711,6 +32962,15 @@ def dplesol(*args):
     |                  |                 | construction     |                  |
     |                  |                 | expansion.       |                  |
     |                  |                 | Default: empty   |                  |
+    +------------------+-----------------+------------------+------------------+
+    | print_canonical  | OT_BOOL         | When printing    | casadi::Function |
+    |                  |                 | numerical        | Internal         |
+    |                  |                 | matrices, use a  |                  |
+    |                  |                 | format that is   |                  |
+    |                  |                 | exact and        |                  |
+    |                  |                 | reproducible in  |                  |
+    |                  |                 | generated C      |                  |
+    |                  |                 | code.            |                  |
     +------------------+-----------------+------------------+------------------+
     | print_in         | OT_BOOL         | Print numerical  | casadi::Function |
     |                  |                 | values of inputs | Internal         |
@@ -33245,6 +33505,12 @@ def expmsol(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | dump_out         | OT_BOOL         | Dump numerical   | casadi::Function |
     |                  |                 | values of        | Internal         |
@@ -33252,6 +33518,12 @@ def expmsol(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | enable_fd        | OT_BOOL         | Enable           | casadi::Function |
     |                  |                 | derivative       | Internal         |
@@ -33475,6 +33747,15 @@ def expmsol(*args):
     |                  |                 | construction     |                  |
     |                  |                 | expansion.       |                  |
     |                  |                 | Default: empty   |                  |
+    +------------------+-----------------+------------------+------------------+
+    | print_canonical  | OT_BOOL         | When printing    | casadi::Function |
+    |                  |                 | numerical        | Internal         |
+    |                  |                 | matrices, use a  |                  |
+    |                  |                 | format that is   |                  |
+    |                  |                 | exact and        |                  |
+    |                  |                 | reproducible in  |                  |
+    |                  |                 | generated C      |                  |
+    |                  |                 | code.            |                  |
     +------------------+-----------------+------------------+------------------+
     | print_in         | OT_BOOL         | Print numerical  | casadi::Function |
     |                  |                 | values of inputs | Internal         |
@@ -33910,6 +34191,12 @@ def interpolant(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | dump_out         | OT_BOOL         | Dump numerical   | casadi::Function |
     |                  |                 | values of        | Internal         |
@@ -33917,6 +34204,12 @@ def interpolant(*args):
     |                  |                 | (readable with   |                  |
     |                  |                 | DM.from_file )   |                  |
     |                  |                 | [default: false] |                  |
+    |                  |                 | A counter is     |                  |
+    |                  |                 | used to generate |                  |
+    |                  |                 | unique names.    |                  |
+    |                  |                 | The counter may  |                  |
+    |                  |                 | be reset using r |                  |
+    |                  |                 | eset_dump_count. |                  |
     +------------------+-----------------+------------------+------------------+
     | enable_fd        | OT_BOOL         | Enable           | casadi::Function |
     |                  |                 | derivative       | Internal         |
@@ -34174,6 +34467,15 @@ def interpolant(*args):
     |                  |                 | construction     |                  |
     |                  |                 | expansion.       |                  |
     |                  |                 | Default: empty   |                  |
+    +------------------+-----------------+------------------+------------------+
+    | print_canonical  | OT_BOOL         | When printing    | casadi::Function |
+    |                  |                 | numerical        | Internal         |
+    |                  |                 | matrices, use a  |                  |
+    |                  |                 | format that is   |                  |
+    |                  |                 | exact and        |                  |
+    |                  |                 | reproducible in  |                  |
+    |                  |                 | generated C      |                  |
+    |                  |                 | code.            |                  |
     +------------------+-----------------+------------------+------------------+
     | print_in         | OT_BOOL         | Print numerical  | casadi::Function |
     |                  |                 | values of inputs | Internal         |
@@ -34645,7 +34947,7 @@ class CodeGenerator(_object):
         https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.hpp#L69
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.cpp#L1100-L1120
+        https://github.com/casadi/casadi/blob/main/casadi/core/code_generator.cpp#L1122-L1142
 
 
 
@@ -35471,10 +35773,10 @@ def sum(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_1ll
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L916
+    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L930
 
     Implementation: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L916-L920
+    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L930-L934
 
 
 
@@ -36943,10 +37245,10 @@ def linspace(*args):
 
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L843
+    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L857
 
     Implementation: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L843-L854
+    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L857-L868
 
 
 
@@ -38352,10 +38654,10 @@ def diff(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_1ln
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L945
+    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L959
 
     Implementation: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L945-L952
+    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L959-L966
 
 
 
@@ -38377,10 +38679,10 @@ def cumsum(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_1lm
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L923
+    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L937
 
     Implementation: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L923-L931
+    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L937-L945
 
 
 
@@ -38656,10 +38958,10 @@ def reverse(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_1la
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L589
+    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L603
 
     Implementation: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L589-L593
+    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L603-L607
 
 
 
@@ -39594,10 +39896,10 @@ def find(*args):
     Extra doc: https://github.com/casadi/casadi/wiki/L_1le
 
     Doc source: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L618
+    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L632
 
     Implementation: 
-    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L618-L624
+    https://github.com/casadi/casadi/blob/main/casadi/core/casadi_misc.hpp#L632-L638
 
 
 
@@ -40900,6 +41202,31 @@ class Callback(Function):
         return _casadi.Callback_uses_output(self, *args)
 
 
+    def get_factory(self, *args):
+        """
+          [INTERNAL] 
+
+        ::
+
+          get_factory(self, str name, [str] s_in, [str] s_out, dict:[str] aux, dict opts) -> Function
+
+        Customize calls to the function factory.
+
+        Extra doc: https://github.com/casadi/casadi/wiki/L_2de
+
+        Doc source: 
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L174
+
+        Implementation: 
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.cpp#L92-L98
+
+
+
+
+        """
+        return _casadi.Callback_get_factory(self, *args)
+
+
     def has_jacobian(self, *args):
         """
           [INTERNAL] 
@@ -40915,10 +41242,10 @@ class Callback(Function):
         Extra doc: https://github.com/casadi/casadi/wiki/L_oh
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L175
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L184
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.cpp#L92-L94
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.cpp#L100-L102
 
 
 
@@ -40942,10 +41269,10 @@ class Callback(Function):
         Extra doc: https://github.com/casadi/casadi/wiki/L_oh
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L176
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L185
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.cpp#L97-L102
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.cpp#L105-L110
 
 
 
@@ -40970,10 +41297,10 @@ class Callback(Function):
         Extra doc: https://github.com/casadi/casadi/wiki/L_oi
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L190
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L199
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.cpp#L112-L114
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.cpp#L120-L122
 
 
 
@@ -40998,10 +41325,10 @@ class Callback(Function):
         Extra doc: https://github.com/casadi/casadi/wiki/L_oi
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L191
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L200
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.cpp#L105-L110
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.cpp#L113-L118
 
 
 
@@ -41026,10 +41353,10 @@ class Callback(Function):
         Extra doc: https://github.com/casadi/casadi/wiki/L_oj
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L205
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L214
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.cpp#L124-L126
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.cpp#L132-L134
 
 
 
@@ -41054,10 +41381,10 @@ class Callback(Function):
         Extra doc: https://github.com/casadi/casadi/wiki/L_oj
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L206
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L215
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.cpp#L117-L122
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.cpp#L125-L130
 
 
 
@@ -41081,10 +41408,10 @@ class Callback(Function):
         Extra doc: https://github.com/casadi/casadi/wiki/L_ok
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L218
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L227
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L218-L218
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L227-L227
 
 
 
@@ -41108,10 +41435,10 @@ class Callback(Function):
         Extra doc: https://github.com/casadi/casadi/wiki/L_ok
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L219
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L228
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L219-L220
+        https://github.com/casadi/casadi/blob/main/casadi/core/callback.hpp#L228-L229
 
 
 
@@ -43722,6 +44049,81 @@ class DaeBuilder(SharedObject, PrintableCommon):
         return _casadi.DaeBuilder_ydef(self, *args)
 
 
+    def set_y(self, *args):
+        """
+          [INTERNAL] 
+
+        ::
+
+          set_y(self, [str] name)
+
+        Set all output variables.
+
+        Extra doc: https://github.com/casadi/casadi/wiki/L_2db
+
+        Doc source: 
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L146
+
+        Implementation: 
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L126-L160
+
+
+
+
+        """
+        return _casadi.DaeBuilder_set_y(self, *args)
+
+
+    def rate(self, *args):
+        """
+          [INTERNAL] 
+
+        ::
+
+          rate(self) -> [str]
+
+        Get all rate variables.
+
+        Extra doc: https://github.com/casadi/casadi/wiki/L_2dc
+
+        Doc source: 
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L151
+
+        Implementation: 
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L162-L169
+
+
+
+
+        """
+        return _casadi.DaeBuilder_rate(self, *args)
+
+
+    def set_rate(self, *args):
+        """
+          [INTERNAL] 
+
+        ::
+
+          set_rate(self, [str] name)
+
+        Set rate variables.
+
+        Extra doc: https://github.com/casadi/casadi/wiki/L_2dd
+
+        Doc source: 
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L156
+
+        Implementation: 
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L171-L178
+
+
+
+
+        """
+        return _casadi.DaeBuilder_set_rate(self, *args)
+
+
     def u(self, *args):
         """
           [INTERNAL] 
@@ -43735,10 +44137,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_5n
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L146
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L161
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L146-L146
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L161-L161
 
 
 
@@ -43760,10 +44162,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_5o
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L151
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L166
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L151-L151
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L166-L166
 
 
 
@@ -43785,10 +44187,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_5p
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L156
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L171
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L156-L156
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L171-L171
 
 
 
@@ -43810,10 +44212,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_5q
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L161
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L176
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L126-L133
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L180-L187
 
 
 
@@ -43835,10 +44237,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_5r
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L166
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L181
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L166-L166
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L181-L181
 
 
 
@@ -43862,10 +44264,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_5s
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L173
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L188
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L135-L142
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L189-L196
 
 
 
@@ -43887,10 +44289,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_5t
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L178
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L193
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L178-L178
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L193-L193
 
 
 
@@ -43914,10 +44316,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_5u
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L185
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L200
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L144-L151
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L198-L205
 
 
 
@@ -43939,10 +44341,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_2b1
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L190
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L205
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L153-L155
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L207-L209
 
 
 
@@ -43964,10 +44366,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_2b2
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L195
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L210
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L157-L159
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L211-L213
 
 
 
@@ -43989,10 +44391,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_61
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L200
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L215
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L161-L168
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L215-L222
 
 
 
@@ -44014,10 +44416,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_62
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L205
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L220
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L170-L177
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L224-L231
 
 
 
@@ -44039,10 +44441,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_63
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L210
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L225
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L179-L186
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L233-L240
 
 
 
@@ -44064,16 +44466,41 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_64
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L218
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L233
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L188-L195
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L242-L249
 
 
 
 
         """
         return _casadi.DaeBuilder_has_t(self, *args)
+
+
+    def has_rate(self, *args):
+        """
+          [INTERNAL] 
+
+        ::
+
+          has_rate(self) -> bool
+
+        Is there a rate output?
+
+        Extra doc: https://github.com/casadi/casadi/wiki/L_2dg
+
+        Doc source: 
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L238
+
+        Implementation: 
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L251-L258
+
+
+
+
+        """
+        return _casadi.DaeBuilder_has_rate(self, *args)
 
 
     def nx(self, *args):
@@ -44089,10 +44516,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_65
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L223
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L243
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L197-L199
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L260-L262
 
 
 
@@ -44114,10 +44541,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_66
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L228
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L248
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L201-L203
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L264-L266
 
 
 
@@ -44139,10 +44566,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_67
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L233
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L253
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L205-L207
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L268-L270
 
 
 
@@ -44164,10 +44591,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_2cb
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L238
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L258
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L209-L211
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L272-L274
 
 
 
@@ -44189,10 +44616,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_68
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L243
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L263
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L213-L215
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L276-L278
 
 
 
@@ -44214,10 +44641,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_69
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L248
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L268
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L217-L219
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L280-L282
 
 
 
@@ -44239,10 +44666,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_6a
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L253
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L273
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L221-L223
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L284-L286
 
 
 
@@ -44264,10 +44691,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_6b
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L258
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L278
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L225-L227
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L288-L290
 
 
 
@@ -44289,10 +44716,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_6c
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L263
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L283
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L229-L231
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L292-L294
 
 
 
@@ -44314,10 +44741,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_6d
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L268
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L288
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L233-L235
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L296-L298
 
 
 
@@ -44340,10 +44767,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add a new model variable, symbolic expression already available.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L292
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L312
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L596-L609
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L659-L672
 
 
 
@@ -44359,10 +44786,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add a new model variable, symbolic expression already available.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L292
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L312
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L596-L609
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L659-L672
 
 
 
@@ -44381,10 +44808,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add a new model variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L277
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L297
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L567-L576
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L630-L639
 
 
 
@@ -44403,10 +44830,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add a new model variable, default variability and causality.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L288
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L308
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L587-L594
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L650-L657
 
 
 
@@ -44425,10 +44852,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add a new model variable, default variability.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L283
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L303
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L578-L585
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L641-L648
 
 
 
@@ -44450,10 +44877,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L300
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L320
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L300-L300
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L320-L320
 
 
 
@@ -44472,10 +44899,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L303
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L323
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L612-L614
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L675-L677
 
 
 
@@ -44494,10 +44921,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L306
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L326
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L616-L619
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L679-L682
 
 
 
@@ -44516,10 +44943,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L309
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L329
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L621-L624
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L684-L687
 
 
 
@@ -44538,10 +44965,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L312
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L332
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L626-L629
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L689-L692
 
 
 
@@ -44560,10 +44987,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L315
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L335
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L631-L634
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L694-L697
 
 
 
@@ -44582,10 +45009,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L318
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L338
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L636-L639
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L699-L702
 
 
 
@@ -44604,10 +45031,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L321
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L341
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L641-L645
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L704-L708
 
 
 
@@ -44626,10 +45053,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L324
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L344
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L647-L651
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L710-L714
 
 
 
@@ -44648,10 +45075,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L327
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L347
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L653-L657
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L716-L720
 
 
 
@@ -44670,10 +45097,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L330
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L350
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L659-L663
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L722-L726
 
 
 
@@ -44692,10 +45119,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L333
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L353
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L665-L671
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L728-L734
 
 
 
@@ -44715,10 +45142,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add a simple equation.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L338
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L358
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L675-L681
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L738-L744
 
 
 
@@ -44738,10 +45165,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add when equations.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L341
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L361
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L683-L689
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L746-L752
 
 
 
@@ -44761,10 +45188,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Assignment inside a when-equation or if-else equation.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L344
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L364
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L691-L698
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L754-L761
 
 
 
@@ -44784,10 +45211,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Reinitialize a state inside when-equations.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L347
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L367
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L700-L707
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L763-L770
 
 
 
@@ -44807,10 +45234,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Specify the initial equation for a variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L350
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L370
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L709-L715
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L772-L778
 
 
 
@@ -44829,10 +45256,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L354
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L374
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L354-L356
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L374-L376
 
 
 
@@ -44851,10 +45278,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L359
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L379
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L359-L362
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L379-L382
 
 
 
@@ -44873,10 +45300,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L365
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L385
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L365-L367
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L385-L387
 
 
 
@@ -44895,10 +45322,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L370
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L390
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L370-L370
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L390-L390
 
 
 
@@ -44917,10 +45344,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L373
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L393
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L373-L373
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L393-L393
 
 
 
@@ -44940,10 +45367,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Check if dimensions match.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L378
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L398
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L717-L723
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L780-L786
 
 
 
@@ -44963,10 +45390,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Reorder variables in a category.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L382
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L402
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L552-L565
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L615-L628
 
 
 
@@ -44987,10 +45414,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         variable category
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L386
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L406
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L527-L534
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L590-L597
 
 
 
@@ -45011,10 +45438,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         reorder
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L389
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L409
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L536-L548
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L599-L611
 
 
 
@@ -45187,10 +45614,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L407
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L427
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L479-L485
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L542-L548
 
 
 
@@ -45209,10 +45636,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L410
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L430
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L487-L493
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L550-L556
 
 
 
@@ -45231,10 +45658,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L413
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L433
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L495-L501
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L558-L564
 
 
 
@@ -45253,10 +45680,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L416
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L436
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L503-L509
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L566-L572
 
 
 
@@ -45275,10 +45702,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L419
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L439
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L511-L517
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L574-L580
 
 
 
@@ -45297,10 +45724,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L422
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L442
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L519-L525
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L582-L588
 
 
 
@@ -45320,10 +45747,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Eliminate all dependent parameters.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L433
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L453
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L820-L826
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L883-L889
 
 
 
@@ -45343,10 +45770,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Sort dependent parameters.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L436
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L456
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L828-L834
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L891-L897
 
 
 
@@ -45366,10 +45793,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Lift problem formulation by extracting shared subexpressions.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L439
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L459
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L836-L842
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L899-L905
 
 
 
@@ -45389,10 +45816,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Prune unused controls.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L442
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L462
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L263-L269
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L326-L332
 
 
 
@@ -45414,10 +45841,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         convention.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L445
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L465
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L271-L277
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L334-L340
 
 
 
@@ -45439,10 +45866,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add an external function.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L462
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L482
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1090-L1093
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1153-L1156
 
 
 
@@ -45458,10 +45885,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add an already existing function.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L459
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L479
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1071-L1078
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1134-L1141
 
 
 
@@ -45480,10 +45907,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add a function from loaded expressions.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L454
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L474
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1080-L1088
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1143-L1151
 
 
 
@@ -45502,10 +45929,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add an external function.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L462
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L482
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1090-L1093
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1153-L1156
 
 
 
@@ -45528,10 +45955,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Does a particular function already exist?
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L466
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L486
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1095-L1102
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1158-L1165
 
 
 
@@ -45552,10 +45979,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get all functions.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L472
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L492
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1134-L1136
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1197-L1199
 
 
 
@@ -45571,10 +45998,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get function by name.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L469
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L489
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1104-L1111
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1167-L1174
 
 
 
@@ -45593,10 +46020,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get all functions.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L472
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L492
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1134-L1136
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1197-L1199
 
 
 
@@ -45619,10 +46046,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Collect embedded functions from the expression graph.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L475
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L495
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1113-L1132
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1176-L1195
 
 
 
@@ -45642,10 +46069,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Import existing problem from FMI/XML
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L482
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L502
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L482-L482
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L502-L502
 
 
 
@@ -45665,10 +46092,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Does the FMU provide support for analytic derivatives.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L485
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L505
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L245-L253
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L308-L316
 
 
 
@@ -45689,10 +46116,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         naming)
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L488
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L508
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L488-L488
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L508-L508
 
 
 
@@ -45712,10 +46139,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Import problem description from FMI or XML.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L491
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L511
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L237-L243
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L300-L306
 
 
 
@@ -45735,10 +46162,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Export instance into an FMU.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L494
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L514
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L255-L261
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L318-L324
 
 
 
@@ -45758,10 +46185,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add a named linear combination of output expressions.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L497
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L517
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1031-L1038
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1094-L1101
 
 
 
@@ -45788,10 +46215,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_2c1
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L529
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L549
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L529-L529
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L549-L549
 
 
 
@@ -45824,10 +46251,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_6e
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L512
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L532
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1051-L1060
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1114-L1123
 
 
 
@@ -45846,10 +46273,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Construct a function object, legacy syntax.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L500
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L520
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1040-L1049
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1103-L1112
 
 
 
@@ -45872,10 +46299,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_2c1
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L529
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L549
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L529-L529
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L549-L549
 
 
 
@@ -45905,10 +46332,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_2c0
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L524
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L544
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1062-L1069
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1125-L1132
 
 
 
@@ -45931,10 +46358,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Construct a function for evaluating dependent parameters.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L532
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L552
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1147-L1156
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1210-L1219
 
 
 
@@ -45956,10 +46383,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Construct an event transition function, default naming.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L543
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L563
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L543-L543
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L563-L563
 
 
 
@@ -45975,10 +46402,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Construct an event transition function, default naming.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L543
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L563
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L543-L543
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L563-L563
 
 
 
@@ -45997,10 +46424,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Construct a function describing transition at any events.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L540
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L560
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1167-L1174
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1230-L1237
 
 
 
@@ -46019,10 +46446,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Construct a function describing transition at a specific events.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L537
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L557
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1158-L1165
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1221-L1228
 
 
 
@@ -46045,10 +46472,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get variable expression by name
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L547
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L567
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L725-L732
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L788-L795
 
 
 
@@ -46082,10 +46509,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Does a variable have a binding equation?
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L567
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L587
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L801-L808
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L864-L871
 
 
 
@@ -46105,10 +46532,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the binding equation for a variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L570
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L590
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L810-L818
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L873-L881
 
 
 
@@ -46128,10 +46555,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get/set value reference
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L574
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L594
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L844-L846
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L907-L909
 
 
 
@@ -46151,10 +46578,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get/set value reference
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L575
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L595
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L848-L850
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L911-L913
 
 
 
@@ -46174,10 +46601,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get/set description
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L580
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L600
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L852-L854
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L915-L917
 
 
 
@@ -46197,10 +46624,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get/set description
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L581
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L601
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L856-L858
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L919-L921
 
 
 
@@ -46220,10 +46647,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get/set the type
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L586
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L606
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L860-L869
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L923-L932
 
 
 
@@ -46243,10 +46670,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get/set the type
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L587
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L607
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L871-L878
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L934-L941
 
 
 
@@ -46266,10 +46693,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the causality.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L591
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L611
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L880-L887
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L943-L950
 
 
 
@@ -46306,10 +46733,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_2c2
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L606
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L626
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L889-L895
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L952-L958
 
 
 
@@ -46329,10 +46756,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the variability.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L609
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L629
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L897-L904
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L960-L967
 
 
 
@@ -46371,10 +46798,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L621
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L641
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L906-L912
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L969-L975
 
 
 
@@ -46394,10 +46821,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the variable category.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L624
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L644
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L914-L921
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L977-L984
 
 
 
@@ -46431,10 +46858,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_2c4
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L636
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L656
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L923-L929
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L986-L992
 
 
 
@@ -46454,10 +46881,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get/set the initial property
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L640
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L660
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L931-L933
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L994-L996
 
 
 
@@ -46477,10 +46904,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get/set the initial property
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L641
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L661
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L935-L937
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L998-L1000
 
 
 
@@ -46500,10 +46927,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get/set the unit
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L646
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L666
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L939-L941
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1002-L1004
 
 
 
@@ -46523,10 +46950,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get/set the unit
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L647
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L667
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L943-L945
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1006-L1008
 
 
 
@@ -46546,10 +46973,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get/set the display unit
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L652
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L672
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L947-L949
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1010-L1012
 
 
 
@@ -46569,10 +46996,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get/set the display unit
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L653
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L673
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L951-L953
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1014-L1016
 
 
 
@@ -46592,10 +47019,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the number of elements of a variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L657
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L677
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L955-L957
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1018-L1020
 
 
 
@@ -46615,10 +47042,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the dimensions of a variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L660
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L680
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L959-L961
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1022-L1024
 
 
 
@@ -46638,10 +47065,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the start time.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L663
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L683
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L963-L970
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1026-L1033
 
 
 
@@ -46661,10 +47088,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the start time.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L666
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L686
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L972-L978
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1035-L1041
 
 
 
@@ -46684,10 +47111,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the stop time.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L669
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L689
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L980-L987
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1043-L1050
 
 
 
@@ -46707,10 +47134,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the stop time.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L672
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L692
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L989-L995
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1052-L1058
 
 
 
@@ -46730,10 +47157,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the tolerance.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L675
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L695
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L997-L1004
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1060-L1067
 
 
 
@@ -46753,10 +47180,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the tolerance.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L678
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L698
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1006-L1012
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1069-L1075
 
 
 
@@ -46776,10 +47203,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the step size.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L681
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L701
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1014-L1021
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1077-L1084
 
 
 
@@ -46799,10 +47226,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the step size.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L684
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L704
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1023-L1029
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1086-L1092
 
 
 
@@ -46825,10 +47252,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the time derivative of model variables, single variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L690
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L710
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L734-L747
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L797-L810
 
 
 
@@ -46844,10 +47271,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the time derivative of model variables.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L552
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L572
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L779-L788
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L842-L851
 
 
 
@@ -46866,10 +47293,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the time derivative of model variables, single variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L690
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L710
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L734-L747
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L797-L810
 
 
 
@@ -46888,10 +47315,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Differentiate an expression with respect to time
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L557
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L577
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1197-L1204
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1260-L1267
 
 
 
@@ -46910,10 +47337,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Differentiate an expression with respect to time
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L556
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L576
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1188-L1195
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1251-L1258
 
 
 
@@ -46938,10 +47365,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the pre-variables of model variables.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L693
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L713
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L749-L762
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L812-L825
 
 
 
@@ -46957,10 +47384,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the pre-expression given variable expression.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L564
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L584
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L764-L777
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L827-L840
 
 
 
@@ -46979,10 +47406,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the pre-variables of model variables.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L561
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L581
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L790-L799
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L853-L862
 
 
 
@@ -47001,10 +47428,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the pre-variables of model variables.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L693
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L713
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L749-L762
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L812-L825
 
 
 
@@ -47042,10 +47469,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get an attribute.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L743
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L763
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1215-L1223
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1278-L1286
 
 
 
@@ -47061,10 +47488,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get an attribute, single variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L696
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L716
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1206-L1213
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1269-L1276
 
 
 
@@ -47083,10 +47510,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get an attribute.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L743
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L763
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1215-L1223
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1278-L1286
 
 
 
@@ -47110,10 +47537,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set an attribute.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L746
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L766
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1233-L1240
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1296-L1303
 
 
 
@@ -47129,10 +47556,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set an attribute, single variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L699
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L719
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1225-L1231
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1288-L1294
 
 
 
@@ -47151,10 +47578,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set an attribute.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L746
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L766
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1233-L1240
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1296-L1303
 
 
 
@@ -47178,10 +47605,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the lower bound.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L750
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L770
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1251-L1258
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1314-L1321
 
 
 
@@ -47197,10 +47624,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the lower bound, single variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L702
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L722
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1242-L1249
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1305-L1312
 
 
 
@@ -47219,10 +47646,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the lower bound.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L750
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L770
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1251-L1258
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1314-L1321
 
 
 
@@ -47246,10 +47673,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the lower bound.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L753
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L773
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1268-L1274
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1331-L1337
 
 
 
@@ -47265,10 +47692,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the lower bound, single variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L705
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L725
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1260-L1266
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1323-L1329
 
 
 
@@ -47287,10 +47714,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the lower bound.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L753
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L773
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1268-L1274
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1331-L1337
 
 
 
@@ -47314,10 +47741,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the upper bound.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L756
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L776
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1285-L1292
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1348-L1355
 
 
 
@@ -47333,10 +47760,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the upper bound, single variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L708
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L728
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1276-L1283
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1339-L1346
 
 
 
@@ -47355,10 +47782,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the upper bound.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L756
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L776
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1285-L1292
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1348-L1355
 
 
 
@@ -47382,10 +47809,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the upper bound.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L759
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L779
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1302-L1308
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1365-L1371
 
 
 
@@ -47401,10 +47828,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the upper bound, single variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L711
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L731
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1294-L1300
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1357-L1363
 
 
 
@@ -47423,10 +47850,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the upper bound.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L759
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L779
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1302-L1308
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1365-L1371
 
 
 
@@ -47450,10 +47877,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the nominal value.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L762
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L782
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1319-L1326
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1382-L1389
 
 
 
@@ -47469,10 +47896,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the nominal value, single variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L714
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L734
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1310-L1317
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1373-L1380
 
 
 
@@ -47491,10 +47918,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the nominal value.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L762
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L782
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1319-L1326
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1382-L1389
 
 
 
@@ -47518,10 +47945,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the nominal value.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L765
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L785
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1336-L1342
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1399-L1405
 
 
 
@@ -47537,10 +47964,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the nominal value, single variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L717
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L737
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1328-L1334
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1391-L1397
 
 
 
@@ -47559,10 +47986,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the nominal value.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L765
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L785
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1336-L1342
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1399-L1405
 
 
 
@@ -47586,10 +48013,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the start attribute.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L768
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L788
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1353-L1360
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1416-L1423
 
 
 
@@ -47605,10 +48032,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the start attribute.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L768
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L788
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1353-L1360
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1416-L1423
 
 
 
@@ -47627,10 +48054,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the start attribute, single variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L720
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L740
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1344-L1351
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1407-L1414
 
 
 
@@ -47655,10 +48082,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the start attribute.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L771
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L791
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1378-L1384
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1441-L1447
 
 
 
@@ -47674,10 +48101,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the start attribute.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L771
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L791
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1378-L1384
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1441-L1447
 
 
 
@@ -47696,10 +48123,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the start attribute, vector argument.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L726
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L746
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1370-L1376
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1433-L1439
 
 
 
@@ -47718,10 +48145,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the start attribute, single variable.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L723
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L743
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1362-L1368
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1425-L1431
 
 
 
@@ -47747,10 +48174,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the current value (string)
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L777
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L797
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1418-L1425
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1481-L1488
 
 
 
@@ -47766,10 +48193,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the current value (string)
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L777
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L797
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1418-L1425
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1481-L1488
 
 
 
@@ -47802,10 +48229,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Set the current value.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L774
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L794
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1410-L1416
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1473-L1479
 
 
 
@@ -47829,10 +48256,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Evaluate the values for a set of variables at the initial time.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L780
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L800
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1431-L1446
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1494-L1511
 
 
 
@@ -47848,10 +48275,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Evaluate the values for a set of variables at the initial time.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L780
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L800
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1431-L1446
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1494-L1511
 
 
 
@@ -47872,10 +48299,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
          value.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L738
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L758
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1427-L1429
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1490-L1492
 
 
 
@@ -47898,10 +48325,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Check if a particular variable exists.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L783
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L803
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L279-L286
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L342-L349
 
 
 
@@ -47922,10 +48349,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get a list of all variables of a particular category.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L789
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L809
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L297-L304
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L360-L367
 
 
 
@@ -47941,10 +48368,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get a list of all variables.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L786
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L806
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L288-L295
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L351-L358
 
 
 
@@ -47963,10 +48390,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get a list of all variables of a particular category.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L789
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L809
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L297-L304
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L360-L367
 
 
 
@@ -47991,10 +48418,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add a new variable from symbolic expressions.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L799
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L819
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L412-L415
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L475-L478
 
 
 
@@ -48010,10 +48437,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Add a new variable from symbolic expressions.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L799
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L819
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L412-L415
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L475-L478
 
 
 
@@ -48031,10 +48458,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         [DEPRECATED] Use add
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L793
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L813
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L402-L404
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L465-L467
 
 
 
@@ -48052,10 +48479,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         [DEPRECATED] Use add
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L796
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L816
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L406-L410
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L469-L473
 
 
 
@@ -48079,10 +48506,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L808
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L828
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L427-L431
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L490-L494
 
 
 
@@ -48097,10 +48524,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         [DEPRECATED] Use add
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L808
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L828
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L427-L431
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L490-L494
 
 
 
@@ -48118,10 +48545,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         [DEPRECATED] Use add
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L802
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L822
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L417-L419
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L480-L482
 
 
 
@@ -48139,10 +48566,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         [DEPRECATED] Use add
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L805
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L825
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L421-L425
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L484-L488
 
 
 
@@ -48164,10 +48591,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
 
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L811
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L831
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L811-L811
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L831-L831
 
 
 
@@ -48187,10 +48614,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get a list of all variables.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L814
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L834
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L814-L814
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L834-L834
 
 
 
@@ -48210,10 +48637,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Get the (cached) oracle, SX or  MX.
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L818
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L838
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1138-L1145
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1201-L1208
 
 
 
@@ -48235,10 +48662,10 @@ class DaeBuilder(SharedObject, PrintableCommon):
         Extra doc: https://github.com/casadi/casadi/wiki/L_6g
 
         Doc source: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L823
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.hpp#L843
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1448-L1456
+        https://github.com/casadi/casadi/blob/main/casadi/core/dae_builder.cpp#L1513-L1521
 
 
 
@@ -49987,7 +50414,7 @@ class StringDeserializer(DeserializerBase):
         https://github.com/casadi/casadi/blob/main/casadi/core/serializer.hpp#L241
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/serializer.cpp#L116-L119
+        https://github.com/casadi/casadi/blob/main/casadi/core/serializer.cpp#L117-L120
 
 
 
@@ -50016,7 +50443,7 @@ class StringDeserializer(DeserializerBase):
         https://github.com/casadi/casadi/blob/main/casadi/core/serializer.hpp#L248
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/serializer.cpp#L93-L98
+        https://github.com/casadi/casadi/blob/main/casadi/core/serializer.cpp#L93-L99
 
 
 
@@ -50068,7 +50495,7 @@ class FileDeserializer(DeserializerBase):
         https://github.com/casadi/casadi/blob/main/casadi/core/serializer.hpp#L258
 
         Implementation: 
-        https://github.com/casadi/casadi/blob/main/casadi/core/serializer.cpp#L108-L114
+        https://github.com/casadi/casadi/blob/main/casadi/core/serializer.cpp#L109-L115
 
 
 
@@ -50082,6 +50509,39 @@ class FileDeserializer(DeserializerBase):
     __swig_destroy__ = _casadi.delete_FileDeserializer
 FileDeserializer_swigregister = _casadi.FileDeserializer_swigregister
 FileDeserializer_swigregister(FileDeserializer)
+
+
+
+try:
+  import threading
+  _thread_local = threading.local()
+except:
+  threading_available = True
+  _thread_local = globals()
+
+def _current_pickle_context():
+  return getattr(_thread_local, "casadi_pickle_ctx", None)
+
+def _current_unpickle_context():
+  return getattr(_thread_local, "casadi_unpickle_ctx", None)
+
+class global_pickle_context:
+    def __enter__(self):
+        self.ctx = StringSerializer()
+        _thread_local.casadi_pickle_ctx = self.ctx
+        return self.ctx
+
+    def __exit__(self, *args):
+        _thread_local.casadi_pickle_ctx = None
+
+class global_unpickle_context:
+    def __enter__(self):
+        self.ctx = StringDeserializer("")
+        _thread_local.casadi_unpickle_ctx = self.ctx
+        return self.ctx
+
+    def __exit__(self, *args):
+        _thread_local.casadi_unpickle_ctx = None  
 
 class Opti(PrintableCommon, SharedObject):
     """

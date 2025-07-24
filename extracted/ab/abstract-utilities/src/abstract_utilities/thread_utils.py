@@ -30,7 +30,7 @@ Version: 0.1.2
 """
 import threading
 import queue
-from abstract_utilities import create_new_name,get_last_comp_list
+from .compare_utils import create_new_name,get_last_comp_list
 class ThreadedEvent:
     def __init__(self, target_function,termination_result=None,function_args={},daemon=True):
         self._event = threading.Event()

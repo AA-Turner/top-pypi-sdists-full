@@ -1,10 +1,10 @@
 from __future__ import annotations
 
 import typing as t
+import uuid
 
 if t.TYPE_CHECKING:
     from globus_sdk import AuthLoginClient, IDTokenDecoder
-    from globus_sdk._types import UUIDLike
     from globus_sdk.login_flows import LoginFlowManager
     from globus_sdk.tokenstorage import TokenStorage, TokenValidationError
 
@@ -26,7 +26,7 @@ class TokenStorageProvider(t.Protocol):
         *,
         app_name: str,
         config: GlobusAppConfig,
-        client_id: UUIDLike,
+        client_id: uuid.UUID | str,
         namespace: str,
     ) -> TokenStorage:
         """

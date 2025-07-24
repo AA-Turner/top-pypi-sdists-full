@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "scim2-server"
-version = "0.1.5"
+version = "0.1.6"
 description = "Lightweight SCIM2 server prototype"
 authors = [
     {name="Yaal Coop", email="contact@yaal.coop"},
@@ -30,7 +30,7 @@ classifiers = [
 requires-python = ">= 3.10"
 dependencies = [
     "scim2-filter-parser>=0.7.0",
-    "scim2-models>=0.2.4",
+    "scim2-models>=0.4.1",
     "werkzeug>=3.0.3",
 ]
 

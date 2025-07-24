@@ -2930,6 +2930,7 @@ class TextExtractionsV2ParametersMetaNames(MetaNamesBase):
     OUTPUT_DPI = "output_dpi"
     KVP_MODE = "kvp_mode"
     OUTPUT_TOKENS_AND_BBOX = "output_tokens_and_bbox"
+    SEMANTIC_CONFIG = "semantic_config"
 
     _meta_props_definitions = [
         MetaProp("MODE", MODE, str, False, "high_quality"),
@@ -2948,6 +2949,36 @@ class TextExtractionsV2ParametersMetaNames(MetaNamesBase):
         MetaProp("OUTPUT_DPI", OUTPUT_DPI, int, False, 72),
         MetaProp("KVP_MODE", KVP_MODE, str, False, "invoice"),
         MetaProp("OUTPUT_TOKENS_AND_BBOX", OUTPUT_TOKENS_AND_BBOX, bool, False, True),
+        MetaProp(
+            "SEMANTIC_CONFIG",
+            SEMANTIC_CONFIG,
+            dict,
+            False,
+            {
+                "target_image_width": 500,
+                "enable_text_hints": True,
+                "enable_generic_kvp": True,
+                "schemas": [
+                    {
+                        "document_type": "Property lease agreement",
+                        "document_description": "Legally binding contract between a property owner (lessor) and a tenant (lessee), outlining the terms and conditions for the tenant's use of the property in exchange for rent payments.",
+                        "target_image_width": 800,
+                        "enable_text_hints": True,
+                        "enable_generic_kvp": False,
+                        "fields": {
+                            "first_name": {
+                                "default": "",
+                                "example": "Jacob",
+                            },
+                            "last_name": {
+                                "default": "",
+                                "example": "Smith",
+                            },
+                        },
+                    }
+                ],
+            },
+        ),
     ]
 
     __doc__ = MetaNamesBase(_meta_props_definitions)._generate_doc(

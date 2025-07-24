@@ -46,6 +46,7 @@ from montecarlodata.integrations.onboarding.etl.informatica import InformaticaOn
 from montecarlodata.integrations.onboarding.fields import (
     AZURE_DEDICATED_SQL_POOL_TYPE,
     AZURE_SQL_DATABASE_TYPE,
+    CLICKHOUSE_DATABASE_TYPE,
     CONNECTION_TO_WAREHOUSE_TYPE_MAP,
     DATABRICKS_DELTA_CONNECTION_TYPE,
     DATABRICKS_METASTORE_CONNECTION_TYPE,
@@ -2290,6 +2291,31 @@ def add_salesforce_data_cloud(ctx, name, **kwargs):
     ).onboard_transactional_db(
         warehouseName=name,
         dbType=SALESFORCE_DATA_CLOUD_DATABASE_TYPE,
+        **kwargs,
+    )
+
+
+@integrations.command(help=f"Setup a Clickhouse integration. {LIGHTWEIGHT_VERBIAGE}.")
+@click.pass_obj
+@add_common_options(
+    warehouse_create_option(required=True)
+    + port_create_option(default_port=8123)
+    + DATABASE_OPTIONS
+    + ONBOARDING_CONFIGURATION_OPTIONS
+)
+@click_config_file.configuration_option(settings.OPTION_FILE_FLAG)
+def add_clickhouse(ctx, database, name, **kwargs):
+    """
+    Onboard a Clickhouse connection
+    """
+    TransactionalOnboardingService(
+        config=ctx["config"],
+        mc_client=create_mc_client(ctx),
+        command_name="integrations add_clickhouse",
+    ).onboard_transactional_db(
+        warehouseName=name,
+        dbName=database,
+        dbType=CLICKHOUSE_DATABASE_TYPE,
         **kwargs,
     )
 

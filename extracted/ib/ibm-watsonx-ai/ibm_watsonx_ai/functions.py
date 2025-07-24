@@ -372,12 +372,15 @@ class Functions(WMLResource):
             )
 
     def delete(
-        self, function_id: str | None = None, **kwargs: Any
+        self, function_id: str | None = None, force: bool = False, **kwargs: Any
     ) -> Literal["SUCCESS"]:
         """Delete a stored function.
 
         :param function_id: stored function ID
         :type function_id: str
+
+        :param force: if True, the delete operation will proceed even when the function deployment exists, defaults to False
+        :type force: bool, optional
 
         :return: status "SUCCESS" if deletion is successful
         :rtype: Literal["SUCCESS"]
@@ -389,11 +392,12 @@ class Functions(WMLResource):
             client._functions.delete(function_id)
         """
         function_id = _get_id_from_deprecated_uid(kwargs, function_id, "function")
-
-        ##For CP4D, check if either spce or project ID is set
-        self._client._check_if_either_is_set()
         Functions._validate_type(function_id, "function_id", str, True)
-        if self._if_deployment_exist_for_asset(function_id):
+
+        # For CP4D, check if either space or project ID is set
+        self._client._check_if_either_is_set()
+
+        if not force and self._if_deployment_exist_for_asset(function_id):
             raise WMLClientError(
                 "Cannot delete function that has existing deployments. Please delete all associated deployments and try again"
             )
@@ -401,26 +405,17 @@ class Functions(WMLResource):
         function_endpoint = self._client._href_definitions.get_function_href(
             function_id
         )
+
         self._logger.debug(
-            "Deletion artifact function endpoint: {}".format(function_endpoint)
+            "Deletion artifact function endpoint: %s" % function_endpoint
         )
-        if not self._client.ICP_PLATFORM_SPACES:
-            response_delete = requests.delete(
-                function_endpoint,
-                params=self._client._params(),
-                headers=self._client._get_headers(),
-            )
-        else:
-            if Functions._if_deployment_exist_for_asset(self, function_id):
-                raise WMLClientError(
-                    "Cannot delete function that has existing deployments. Please delete all associated deployments and try again"
-                )
-            response_delete = requests.delete(
-                function_endpoint,
-                params=self._client._params(),
-                headers=self._client._get_headers(),
-            )
-        return self._handle_response(204, "function deletion", response_delete, False)
+        response = requests.delete(
+            function_endpoint,
+            params=self._client._params(),
+            headers=self._client._get_headers(),
+        )
+
+        return self._handle_response(204, "function deletion", response, False)
 
     def get_details(
         self,

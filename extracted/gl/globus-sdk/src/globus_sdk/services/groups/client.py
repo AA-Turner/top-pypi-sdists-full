@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import typing as t
+import uuid
 
 from globus_sdk import client, response, utils
-from globus_sdk._types import UUIDLike
 from globus_sdk.scopes import GroupsScopes, Scope
 
 from .data import BatchMembershipActions, GroupPolicies
@@ -59,7 +59,7 @@ class GroupsClient(client.BaseClient):
 
     def get_group(
         self,
-        group_id: UUIDLike,
+        group_id: uuid.UUID | str,
         *,
         include: None | str | t.Iterable[str] = None,
         query_params: dict[str, t.Any] | None = None,
@@ -90,7 +90,7 @@ class GroupsClient(client.BaseClient):
         return self.get(f"/groups/{group_id}", query_params=query_params)
 
     def get_group_by_subscription_id(
-        self, subscription_id: UUIDLike
+        self, subscription_id: uuid.UUID | str
     ) -> response.GlobusHTTPResponse:
         """
         Using a subscription ID, find the group which provides that subscription.
@@ -124,7 +124,7 @@ class GroupsClient(client.BaseClient):
 
     def delete_group(
         self,
-        group_id: UUIDLike,
+        group_id: uuid.UUID | str,
         *,
         query_params: dict[str, t.Any] | None = None,
     ) -> response.GlobusHTTPResponse:
@@ -172,7 +172,7 @@ class GroupsClient(client.BaseClient):
 
     def update_group(
         self,
-        group_id: UUIDLike,
+        group_id: uuid.UUID | str,
         data: dict[str, t.Any],
         *,
         query_params: dict[str, t.Any] | None = None,
@@ -198,7 +198,7 @@ class GroupsClient(client.BaseClient):
 
     def get_group_policies(
         self,
-        group_id: UUIDLike,
+        group_id: uuid.UUID | str,
         *,
         query_params: dict[str, t.Any] | None = None,
     ) -> response.GlobusHTTPResponse:
@@ -222,7 +222,7 @@ class GroupsClient(client.BaseClient):
 
     def set_group_policies(
         self,
-        group_id: UUIDLike,
+        group_id: uuid.UUID | str,
         data: dict[str, t.Any] | GroupPolicies,
         *,
         query_params: dict[str, t.Any] | None = None,
@@ -303,7 +303,7 @@ class GroupsClient(client.BaseClient):
 
     def get_membership_fields(
         self,
-        group_id: UUIDLike,
+        group_id: uuid.UUID | str,
         *,
         query_params: dict[str, t.Any] | None = None,
     ) -> response.GlobusHTTPResponse:
@@ -329,7 +329,7 @@ class GroupsClient(client.BaseClient):
 
     def set_membership_fields(
         self,
-        group_id: UUIDLike,
+        group_id: uuid.UUID | str,
         data: dict[t.Any, str],
         *,
         query_params: dict[str, t.Any] | None = None,
@@ -359,7 +359,7 @@ class GroupsClient(client.BaseClient):
 
     def batch_membership_action(
         self,
-        group_id: UUIDLike,
+        group_id: uuid.UUID | str,
         actions: dict[str, t.Any] | BatchMembershipActions,
         *,
         query_params: dict[str, t.Any] | None = None,

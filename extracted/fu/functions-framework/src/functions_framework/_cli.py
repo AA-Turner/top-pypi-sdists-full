@@ -16,7 +16,7 @@ import os
 
 import click
 
-from functions_framework import create_app
+from functions_framework import _function_registry, create_app
 from functions_framework._http import create_server
 
 
@@ -32,6 +32,17 @@ from functions_framework._http import create_server
 @click.option("--host", envvar="HOST", type=click.STRING, default="0.0.0.0")
 @click.option("--port", envvar="PORT", type=click.INT, default=8080)
 @click.option("--debug", envvar="DEBUG", is_flag=True)
-def _cli(target, source, signature_type, host, port, debug):
-    app = create_app(target, source, signature_type)
+@click.option(
+    "--asgi",
+    envvar="FUNCTION_USE_ASGI",
+    is_flag=True,
+    help="Use ASGI server for function execution",
+)
+def _cli(target, source, signature_type, host, port, debug, asgi):
+    if asgi:
+        from functions_framework.aio import create_asgi_app
+
+        app = create_asgi_app(target, source, signature_type)
+    else:
+        app = create_app(target, source, signature_type)
     create_server(app, debug).run(host, port)

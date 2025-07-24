@@ -198,7 +198,7 @@ class BaseDataConnection(ABC):
             elif tuning_type == "fine_tuning":
                 json_url = (
                     self._api_client._href_definitions.get_wsd_model_attachment_href()
-                    + path
+                    + f"wx_fine_tune/{path.split('/wx_fine_tune/')[-1]}"
                 )
             else:
                 json_url = (
@@ -795,7 +795,7 @@ class BaseDataConnection(ABC):
         try:
             url = (
                 self._api_client._href_definitions.get_wsd_model_attachment_href()
-                + f"/{self.location.path.split('/assets/')[-1]}"
+                + f"/{self.location.path.split('/assets/', maxsplit=1)[-1]}"
             )
             # note: stream the whole CSV file
             csv_response = requests.get(
@@ -843,7 +843,7 @@ class BaseDataConnection(ABC):
         try:
             url = (
                 self._api_client._href_definitions.get_wsd_model_attachment_href()
-                + f"/{location_path.split('/assets/')[-1]}"
+                + f"/{location_path.split('/assets/', maxsplit=1)[-1]}"
             )
             # note: stream the whole CSV file
             csv_response = requests.get(
@@ -1317,7 +1317,9 @@ class BaseDataConnection(ABC):
                     folder_name = os.path.basename(os.path.dirname(location))
                     asset_path = folder_name + "/" + remote_name
                 else:
-                    asset_path = location.split("/assets/")[-1] + "/" + remote_name
+                    asset_path = (
+                        location.split("/assets/", maxsplit=1)[-1] + "/" + remote_name
+                    )
             else:
                 asset_path = "/" + remote_name
         elif is_filename_location:

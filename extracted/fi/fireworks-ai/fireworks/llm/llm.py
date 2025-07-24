@@ -104,6 +104,7 @@ class LLM:
         direct_route_api_key: Optional[str] = None,
         base_url: str = f"{FIREWORKS_API_BASE_URL}/inference/v1",
         max_retries: int = DEFAULT_MAX_RETRIES,
+        request_timeout: int = 600,
         scale_up_window: timedelta = timedelta(seconds=1),
         scale_down_window: timedelta = timedelta(minutes=1),
         scale_to_zero_window: timedelta = timedelta(minutes=5),
@@ -177,6 +178,7 @@ class LLM:
             raise ValueError('deployment_type is required - must be one of "serverless", "on-demand", or "auto"')
         self._direct_route_api_key = direct_route_api_key
         self._client = FireworksClient(
+            request_timeout=request_timeout,
             api_key=direct_route_api_key if self.direct_route_api_key else api_key,
             base_url=base_url,
             max_connections=max_connections,
@@ -1315,6 +1317,7 @@ class LLM:
         return result
 
     @property
+    @sync_cache
     def deployment_url(self) -> Optional[str]:
         """
         Returns the URL to the deployment.
@@ -1350,6 +1353,13 @@ class LLM:
     @property
     def addons_enabled(self) -> bool:
         return False if self._enable_addons is None else self._enable_addons
+
+    @property
+    def reinforcement_step(self):
+        """Perform a reinforcement learning step."""
+        from fireworks.llm.llm_reinforcement_step import LLMReinforcementStep
+
+        return LLMReinforcementStep(self).reinforcement_step
 
     def __str__(self):
         return self.__repr__()

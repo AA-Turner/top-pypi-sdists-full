@@ -8,7 +8,7 @@ from flytekit.core.pod_template import PodTemplate
 
 from union.app import App, Input
 
-DEFAULT_VLLM_IMAGE = "ghcr.io/unionai-oss/serving-vllm:latest"
+DEFAULT_VLLM_IMAGE = "ghcr.io/unionai/serving-vllm:py3.12-latest"
 OPTIMIZED_VLLM_IMAGE = "managed.cr.union.ai/vllm:stable"
 
 

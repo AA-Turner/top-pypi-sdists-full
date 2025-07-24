@@ -27,10 +27,9 @@ from __future__ import annotations
 
 import textwrap
 import typing as t
+import uuid
 from dataclasses import dataclass
 from datetime import datetime
-
-from globus_sdk._types import UUIDLike
 
 from ..representation import Scope
 from ._errors import ConsentParseError, ConsentTreeConstructionError
@@ -49,11 +48,11 @@ class Consent:
             operations (consents) defined in the "dependency_path".
     """
 
-    client: UUIDLike
-    scope: UUIDLike
+    client: uuid.UUID | str
+    scope: uuid.UUID | str
     scope_name: str
     id: int
-    effective_identity: UUIDLike
+    effective_identity: uuid.UUID | str
     # A list representing the path of consent dependencies leading from a "root consent"
     #   to this. The last element of this list will always be this consent's ID.
     # Downstream dependency relationships may exist but will not be defined here.

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: pydevccu
-Version: 0.1.13
+Version: 0.1.14
 Summary: Virtual HomeMatic CCU XML-RPC backend.
 Home-page: https://github.com/sukramj/pydevccu
 Author-email: Daniel Perna <danielperna84@gmail.com>, SukramJ <sukramj@icloud.com>

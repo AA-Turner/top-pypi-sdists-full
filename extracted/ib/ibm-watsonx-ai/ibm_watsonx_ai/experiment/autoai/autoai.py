@@ -988,6 +988,8 @@ class AutoAI(BaseExperiment):
 
         **Examples**
 
+        - RAG Optimizer configuration with defaults
+
         .. code-block:: python
 
             from ibm_watsonx_ai.experiment import AutoAI
@@ -995,11 +997,35 @@ class AutoAI(BaseExperiment):
 
             optimizer = experiment.rag_optimizer(
                 name="RAG - AutoAI",
-                description="Sample description",
-                max_number_of_rag_patterns=5,
-                optimization_metrics=["answer_correctness"]
+                description="Sample description"
             )
 
+
+        - RAG Optimizer configuration with example values of parameters
+
+        .. code-block:: python
+
+            from ibm_watsonx_ai.experiment import AutoAI
+
+            experiment = AutoAI(...)
+
+            optimizer = experiment.rag_optimizer(
+                name="RAG - AutoAI",
+                description="Sample description",
+                max_number_of_rag_patterns=5,
+                chunking=[
+                    {"method": "recursive", "chunk_size": 1024, "chunk_overlap": 64},
+                    {"method": "semantic", "chunk_size": 1024},
+                ],
+                embedding_models=["ibm/slate-125m-english-rtrvr-v2"],
+                foundation_models=["meta-llama/llama-3-3-70b-instruct"],
+                retrieval=[
+                    {"method": "window", "number_of_chunks": 3, "window_size": 2},
+                    {"method": "simple", "number_of_chunks": 5},
+                ],
+                generation={"language": {"auto-detect": True}},
+                optimization_metrics=["answer_correctness"],
+            )
         """
         from .engines import RAGEngine
 

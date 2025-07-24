@@ -15,7 +15,7 @@ from typing import ClassVar as _ClassVar, Iterable as _Iterable, Mapping as _Map
 DESCRIPTOR: _descriptor.FileDescriptor
 
 class BatchInferenceJob(_message.Message):
-    __slots__ = ("name", "display_name", "create_time", "expire_time", "created_by", "state", "status", "model", "input_dataset_id", "output_dataset_id", "append_to_messages", "inference_parameters", "update_time", "ending_assistant_messages", "region", "max_replica_count", "accelerator_type", "accelerator_count", "precision", "reinforcement_fine_tuning_epoch_id", "skip_dataset_validation", "job_progress", "priority", "toleration")
+    __slots__ = ("name", "display_name", "create_time", "expire_time", "created_by", "state", "status", "model", "input_dataset_id", "output_dataset_id", "append_to_messages", "inference_parameters", "update_time", "ending_assistant_messages", "region", "max_replica_count", "accelerator_type", "accelerator_count", "precision", "reinforcement_fine_tuning_epoch_id", "skip_dataset_validation", "job_progress", "priority", "toleration", "deployment_extra_args")
     NAME_FIELD_NUMBER: _ClassVar[int]
     DISPLAY_NAME_FIELD_NUMBER: _ClassVar[int]
     CREATE_TIME_FIELD_NUMBER: _ClassVar[int]
@@ -40,6 +40,7 @@ class BatchInferenceJob(_message.Message):
     JOB_PROGRESS_FIELD_NUMBER: _ClassVar[int]
     PRIORITY_FIELD_NUMBER: _ClassVar[int]
     TOLERATION_FIELD_NUMBER: _ClassVar[int]
+    DEPLOYMENT_EXTRA_ARGS_FIELD_NUMBER: _ClassVar[int]
     name: str
     display_name: str
     create_time: _timestamp_pb2.Timestamp
@@ -64,7 +65,8 @@ class BatchInferenceJob(_message.Message):
     job_progress: _job_progress_pb2.JobProgress
     priority: int
     toleration: str
-    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., expire_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., model: _Optional[str] = ..., input_dataset_id: _Optional[str] = ..., output_dataset_id: _Optional[str] = ..., append_to_messages: _Optional[_Union[AppendToMessages, _Mapping]] = ..., inference_parameters: _Optional[_Union[InferenceParameters, _Mapping]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., ending_assistant_messages: _Optional[str] = ..., region: _Optional[_Union[_deployment_pb2.Region, str]] = ..., max_replica_count: _Optional[int] = ..., accelerator_type: _Optional[_Union[_deployment_pb2.AcceleratorType, str]] = ..., accelerator_count: _Optional[int] = ..., precision: _Optional[_Union[_deployment_pb2.Deployment.Precision, str]] = ..., reinforcement_fine_tuning_epoch_id: _Optional[str] = ..., skip_dataset_validation: bool = ..., job_progress: _Optional[_Union[_job_progress_pb2.JobProgress, _Mapping]] = ..., priority: _Optional[int] = ..., toleration: _Optional[str] = ...) -> None: ...
+    deployment_extra_args: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, name: _Optional[str] = ..., display_name: _Optional[str] = ..., create_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., expire_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., created_by: _Optional[str] = ..., state: _Optional[_Union[_status_pb2.JobState, str]] = ..., status: _Optional[_Union[_status_pb2.Status, _Mapping]] = ..., model: _Optional[str] = ..., input_dataset_id: _Optional[str] = ..., output_dataset_id: _Optional[str] = ..., append_to_messages: _Optional[_Union[AppendToMessages, _Mapping]] = ..., inference_parameters: _Optional[_Union[InferenceParameters, _Mapping]] = ..., update_time: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ..., ending_assistant_messages: _Optional[str] = ..., region: _Optional[_Union[_deployment_pb2.Region, str]] = ..., max_replica_count: _Optional[int] = ..., accelerator_type: _Optional[_Union[_deployment_pb2.AcceleratorType, str]] = ..., accelerator_count: _Optional[int] = ..., precision: _Optional[_Union[_deployment_pb2.Deployment.Precision, str]] = ..., reinforcement_fine_tuning_epoch_id: _Optional[str] = ..., skip_dataset_validation: bool = ..., job_progress: _Optional[_Union[_job_progress_pb2.JobProgress, _Mapping]] = ..., priority: _Optional[int] = ..., toleration: _Optional[str] = ..., deployment_extra_args: _Optional[_Iterable[str]] = ...) -> None: ...
 
 class InferenceParameters(_message.Message):
     __slots__ = ("max_tokens", "temperature", "top_p", "n", "extra_body", "top_k")

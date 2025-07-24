@@ -7,10 +7,9 @@ import shutil
 import sys
 import tarfile
 import textwrap
-import time
 import traceback
 import typing
-from collections.abc import Generator, Iterable, Sequence
+from collections.abc import Iterable, Sequence
 from pathlib import Path
 from tempfile import mkdtemp
 from typing import Any, Literal, TextIO
@@ -22,11 +21,12 @@ from cibuildwheel.architecture import Architecture, allowed_architectures_check
 from cibuildwheel.ci import CIProvider, detect_ci_provider, fix_ansi_codes_for_github_actions
 from cibuildwheel.logger import log
 from cibuildwheel.options import CommandLineArguments, Options, compute_options
-from cibuildwheel.platforms import ALL_PLATFORM_MODULES, get_build_identifiers
+from cibuildwheel.platforms import ALL_PLATFORM_MODULES, get_build_identifiers, native_platform
 from cibuildwheel.selector import BuildSelector, EnableGroup, selector_matches
 from cibuildwheel.typing import PLATFORMS, PlatformName
 from cibuildwheel.util.file import CIBW_CACHE_PATH
 from cibuildwheel.util.helpers import strtobool
+from cibuildwheel.util.resources import read_all_configs
 
 
 @dataclasses.dataclass
@@ -94,14 +94,14 @@ def main_inner(global_options: GlobalOptions) -> None:
 
     parser.add_argument(
         "--platform",
-        choices=["auto", "linux", "macos", "windows", "pyodide", "ios"],
+        choices=["auto", "linux", "macos", "windows", "pyodide", "android", "ios"],
         default=None,
         help="""
             Platform to build for. Use this option to override the auto-detected
             platform. Specifying "macos" or "windows" only works on that
             operating system. "linux" works on any desktop OS, as long as
-            Docker/Podman is installed. "pyodide" only works on linux and macOS.
-            "ios" only work on macOS. Default: auto.
+            Docker/Podman is installed. "pyodide" and "android" only work on
+            Linux and macOS. "ios" only works on macOS. Default: auto.
         """,
     )
 
@@ -133,6 +133,8 @@ def main_inner(global_options: GlobalOptions) -> None:
     parser.add_argument(
         "--only",
         default=None,
+        choices=[v["identifier"] for vv in read_all_configs().values() for v in vv],
+        metavar="IDENTIFIER",
         help="""
             Force a single wheel build when given an identifier. Overrides
             CIBW_BUILD/CIBW_SKIP. --platform and --arch cannot be specified
@@ -242,26 +244,12 @@ def _compute_platform_only(only: str) -> PlatformName:
         return "windows"
     if "pyodide_" in only:
         return "pyodide"
+    if "android_" in only:
+        return "android"
     if "ios_" in only:
         return "ios"
     msg = f"Invalid --only='{only}', must be a build selector with a known platform"
     raise errors.ConfigurationError(msg)
-
-
-def _compute_platform_auto() -> PlatformName:
-    if sys.platform.startswith("linux"):
-        return "linux"
-    elif sys.platform == "darwin":
-        return "macos"
-    elif sys.platform == "win32":
-        return "windows"
-    else:
-        msg = (
-            'Unable to detect platform from "sys.platform". cibuildwheel doesn\'t '
-            "support building wheels for this platform. You might be able to build for a different "
-            "platform using the --platform argument. Check --help output for more information."
-        )
-        raise errors.ConfigurationError(msg)
 
 
 def _compute_platform(args: CommandLineArguments) -> PlatformName:
@@ -283,43 +271,7 @@ def _compute_platform(args: CommandLineArguments) -> PlatformName:
     elif platform_option_value != "auto":
         return typing.cast(PlatformName, platform_option_value)
 
-    return _compute_platform_auto()
-
-
-@contextlib.contextmanager
-def print_new_wheels(msg: str, output_dir: Path) -> Generator[None, None, None]:
-    """
-    Prints the new items in a directory upon exiting. The message to display
-    can include {n} for number of wheels, {s} for total number of seconds,
-    and/or {m} for total number of minutes. Does not print anything if this
-    exits via exception.
-    """
-
-    start_time = time.time()
-    existing_contents = set(output_dir.iterdir())
-    yield
-    final_contents = set(output_dir.iterdir())
-
-    new_contents = [
-        FileReport(wheel.name, f"{(wheel.stat().st_size + 1023) // 1024:,d}")
-        for wheel in final_contents - existing_contents
-    ]
-
-    if not new_contents:
-        return
-
-    max_name_len = max(len(f.name) for f in new_contents)
-    max_size_len = max(len(f.size) for f in new_contents)
-    n = len(new_contents)
-    s = time.time() - start_time
-    m = s / 60
-    print(
-        msg.format(n=n, s=s, m=m),
-        *sorted(
-            f"  {f.name:<{max_name_len}s}   {f.size:>{max_size_len}s} kB" for f in new_contents
-        ),
-        sep="\n",
-    )
+    return native_platform()
 
 
 def build_in_directory(args: CommandLineArguments) -> None:
@@ -382,7 +334,7 @@ def build_in_directory(args: CommandLineArguments) -> None:
 
     tmp_path = Path(mkdtemp(prefix="cibw-run-")).resolve(strict=True)
     try:
-        with print_new_wheels("\n{n} wheels produced in {m:.0f} minutes:", output_dir):
+        with log.print_summary(options=options):
             platform_module.build(options, tmp_path)
     finally:
         # avoid https://github.com/python/cpython/issues/86962 by performing

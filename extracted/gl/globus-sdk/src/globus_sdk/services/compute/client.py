@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 import typing as t
+import uuid
 
 from globus_sdk import MISSING, GlobusHTTPResponse, MissingType, client, utils
-from globus_sdk._types import UUIDLike
 from globus_sdk.scopes import ComputeScopes, Scope
 
 from .errors import ComputeAPIError
@@ -71,7 +71,7 @@ class ComputeClientV2(client.BaseClient):
         """
         return self.post("/v2/endpoints", data=data)
 
-    def get_endpoint(self, endpoint_id: UUIDLike) -> GlobusHTTPResponse:
+    def get_endpoint(self, endpoint_id: uuid.UUID | str) -> GlobusHTTPResponse:
         """Get information about a registered endpoint.
 
         :param endpoint_id: The ID of the Globus Compute endpoint.
@@ -86,7 +86,7 @@ class ComputeClientV2(client.BaseClient):
         """  # noqa: E501
         return self.get(f"/v2/endpoints/{endpoint_id}")
 
-    def get_endpoint_status(self, endpoint_id: UUIDLike) -> GlobusHTTPResponse:
+    def get_endpoint_status(self, endpoint_id: uuid.UUID | str) -> GlobusHTTPResponse:
         """Get the status of a registered endpoint.
 
         :param endpoint_id: The ID of the Globus Compute endpoint.
@@ -117,7 +117,7 @@ class ComputeClientV2(client.BaseClient):
         query_params = {"role": role}
         return self.get("/v2/endpoints", query_params=query_params)
 
-    def delete_endpoint(self, endpoint_id: UUIDLike) -> GlobusHTTPResponse:
+    def delete_endpoint(self, endpoint_id: uuid.UUID | str) -> GlobusHTTPResponse:
         """Delete a registered endpoint.
 
         :param endpoint_id: The ID of the Globus Compute endpoint.
@@ -132,7 +132,7 @@ class ComputeClientV2(client.BaseClient):
         """  # noqa: E501
         return self.delete(f"/v2/endpoints/{endpoint_id}")
 
-    def lock_endpoint(self, endpoint_id: UUIDLike) -> GlobusHTTPResponse:
+    def lock_endpoint(self, endpoint_id: uuid.UUID | str) -> GlobusHTTPResponse:
         """Temporarily block registration requests for the endpoint.
 
         :param endpoint_id: The ID of the Globus Compute endpoint.
@@ -165,7 +165,7 @@ class ComputeClientV2(client.BaseClient):
         """  # noqa: E501
         return self.post("/v2/functions", data=function_data)
 
-    def get_function(self, function_id: UUIDLike) -> GlobusHTTPResponse:
+    def get_function(self, function_id: uuid.UUID | str) -> GlobusHTTPResponse:
         """Get information about a registered function.
 
         :param function_id: The ID of the function.
@@ -180,7 +180,7 @@ class ComputeClientV2(client.BaseClient):
         """  # noqa: E501
         return self.get(f"/v2/functions/{function_id}")
 
-    def delete_function(self, function_id: UUIDLike) -> GlobusHTTPResponse:
+    def delete_function(self, function_id: uuid.UUID | str) -> GlobusHTTPResponse:
         """Delete a registered function.
 
         :param function_id: The ID of the function.
@@ -195,7 +195,7 @@ class ComputeClientV2(client.BaseClient):
         """  # noqa: E501
         return self.delete(f"/v2/functions/{function_id}")
 
-    def get_task(self, task_id: UUIDLike) -> GlobusHTTPResponse:
+    def get_task(self, task_id: uuid.UUID | str) -> GlobusHTTPResponse:
         """Get information about a task.
 
         :param task_id: The ID of the task.
@@ -211,7 +211,7 @@ class ComputeClientV2(client.BaseClient):
         return self.get(f"/v2/tasks/{task_id}")
 
     def get_task_batch(
-        self, task_ids: UUIDLike | t.Iterable[UUIDLike]
+        self, task_ids: uuid.UUID | str | t.Iterable[uuid.UUID | str]
     ) -> GlobusHTTPResponse:
         """Get information about a batch of tasks.
 
@@ -228,7 +228,7 @@ class ComputeClientV2(client.BaseClient):
         task_ids = list(utils.safe_strseq_iter(task_ids))
         return self.post("/v2/batch_status", data={"task_ids": task_ids})
 
-    def get_task_group(self, task_group_id: UUIDLike) -> GlobusHTTPResponse:
+    def get_task_group(self, task_group_id: uuid.UUID | str) -> GlobusHTTPResponse:
         """Get a list of task IDs associated with a task group.
 
         :param task_group_id: The ID of the task group.
@@ -287,7 +287,7 @@ class ComputeClientV3(client.BaseClient):
         return self.post("/v3/endpoints", data=data)
 
     def update_endpoint(
-        self, endpoint_id: UUIDLike, data: dict[str, t.Any]
+        self, endpoint_id: uuid.UUID | str, data: dict[str, t.Any]
     ) -> GlobusHTTPResponse:
         """Update an endpoint.
 
@@ -304,7 +304,7 @@ class ComputeClientV3(client.BaseClient):
         """  # noqa: E501
         return self.put(f"/v3/endpoints/{endpoint_id}", data=data)
 
-    def lock_endpoint(self, endpoint_id: UUIDLike) -> GlobusHTTPResponse:
+    def lock_endpoint(self, endpoint_id: uuid.UUID | str) -> GlobusHTTPResponse:
         """Temporarily block registration requests for the endpoint.
 
         :param endpoint_id: The ID of the Globus Compute endpoint.
@@ -319,7 +319,9 @@ class ComputeClientV3(client.BaseClient):
         """  # noqa: E501
         return self.post(f"/v3/endpoints/{endpoint_id}/lock")
 
-    def get_endpoint_allowlist(self, endpoint_id: UUIDLike) -> GlobusHTTPResponse:
+    def get_endpoint_allowlist(
+        self, endpoint_id: uuid.UUID | str
+    ) -> GlobusHTTPResponse:
         """Get a list of IDs for functions allowed to run on an endpoint.
 
         :param endpoint_id: The ID of the Globus Compute endpoint.
@@ -350,7 +352,7 @@ class ComputeClientV3(client.BaseClient):
         return self.post("/v3/functions", data=data)
 
     def submit(
-        self, endpoint_id: UUIDLike, data: dict[str, t.Any]
+        self, endpoint_id: uuid.UUID | str, data: dict[str, t.Any]
     ) -> GlobusHTTPResponse:
         """Submit a batch of tasks to a Globus Compute endpoint.
 
@@ -366,12 +368,3 @@ class ComputeClientV3(client.BaseClient):
                     :ref: Endpoints/operation/submit_batch_v3_endpoints__endpoint_uuid__submit_post
         """  # noqa: E501
         return self.post(f"/v3/endpoints/{endpoint_id}/submit", data=data)
-
-
-class ComputeClient(ComputeClientV2):
-    r"""
-    Canonical client for the Globus Compute API, with support exclusively for
-    API version 2.
-
-    .. sdk-sphinx-copy-params:: BaseClient
-    """

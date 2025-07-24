@@ -5,5 +5,7 @@ from ._cmawm import CMAwM  # NOQA
 from ._xnes import XNES  # NOQA
 from ._dxnesic import DXNESIC  # NOQA
 from ._catcma import CatCMA  # NOQA
+from ._mapcma import MAPCMA  # NOQA
+from ._catcmawm import CatCMAwM  # NOQA
 
-__version__ = "0.11.1"
+__version__ = "0.12.0"

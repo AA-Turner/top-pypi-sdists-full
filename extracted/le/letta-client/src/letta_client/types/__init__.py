@@ -97,11 +97,14 @@ from .file_file import FileFile
 from .file_metadata import FileMetadata
 from .file_processing_status import FileProcessingStatus
 from .file_stats import FileStats
+from .folder import Folder
 from .function_call import FunctionCall
 from .function_definition_input import FunctionDefinitionInput
 from .function_definition_output import FunctionDefinitionOutput
 from .function_output import FunctionOutput
 from .function_tool import FunctionTool
+from .generate_tool_input import GenerateToolInput
+from .generate_tool_output import GenerateToolOutput
 from .group import Group
 from .health import Health
 from .hidden_reasoning_message import HiddenReasoningMessage
@@ -360,11 +363,14 @@ __all__ = [
     "FileMetadata",
     "FileProcessingStatus",
     "FileStats",
+    "Folder",
     "FunctionCall",
     "FunctionDefinitionInput",
     "FunctionDefinitionOutput",
     "FunctionOutput",
     "FunctionTool",
+    "GenerateToolInput",
+    "GenerateToolOutput",
     "Group",
     "Health",
     "HiddenReasoningMessage",

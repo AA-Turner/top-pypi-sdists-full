@@ -1,8 +1,7 @@
 from __future__ import annotations
 
 import typing as t
-
-from globus_sdk._types import UUIDLike
+import uuid
 
 from ..builder import ScopeBuilder, ScopeBuilderScopes
 
@@ -105,7 +104,7 @@ class SpecificFlowScopeBuilder(ScopeBuilder):
 
     _CLASS_STUB = _SpecificFlowScopesClassStub()
 
-    def __init__(self, flow_id: UUIDLike) -> None:
+    def __init__(self, flow_id: uuid.UUID | str) -> None:
         self._flow_id = flow_id
         str_flow_id = str(flow_id)
         super().__init__(

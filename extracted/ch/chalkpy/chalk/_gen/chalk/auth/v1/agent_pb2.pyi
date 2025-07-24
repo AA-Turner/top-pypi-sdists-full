@@ -1,6 +1,7 @@
 from chalk._gen.chalk.auth.v1 import featurepermission_pb2 as _featurepermission_pb2
 from chalk._gen.chalk.auth.v1 import permissions_pb2 as _permissions_pb2
 from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
 from google.protobuf import descriptor as _descriptor
 from google.protobuf import message as _message
 from typing import (
@@ -12,6 +13,22 @@ from typing import (
 )
 
 DESCRIPTOR: _descriptor.FileDescriptor
+
+class AgentKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    AGENT_KIND_UNSPECIFIED: _ClassVar[AgentKind]
+    AGENT_KIND_USER: _ClassVar[AgentKind]
+    AGENT_KIND_SERVICE_TOKEN: _ClassVar[AgentKind]
+    AGENT_KIND_ENGINE: _ClassVar[AgentKind]
+    AGENT_KIND_TENANT: _ClassVar[AgentKind]
+    AGENT_KIND_METADATA_SERVICE: _ClassVar[AgentKind]
+
+AGENT_KIND_UNSPECIFIED: AgentKind
+AGENT_KIND_USER: AgentKind
+AGENT_KIND_SERVICE_TOKEN: AgentKind
+AGENT_KIND_ENGINE: AgentKind
+AGENT_KIND_TENANT: AgentKind
+AGENT_KIND_METADATA_SERVICE: AgentKind
 
 class EnvironmentPermissions(_message.Message):
     __slots__ = ("permissions", "feature_permissions", "customer_claims")

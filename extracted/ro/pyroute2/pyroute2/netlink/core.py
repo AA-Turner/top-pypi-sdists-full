@@ -10,6 +10,7 @@ import threading
 import time
 import warnings
 from contextlib import contextmanager
+from dataclasses import asdict
 from typing import Optional, Union
 from urllib import parse
 
@@ -81,8 +82,10 @@ class Telemetry:
 class NoClose(socket.socket):
     def __init__(self, sock: socket.socket):
         self.magic = 0
-        fd = os.dup(sock.fileno())
-        sock.close()
+        fd = sock.fileno()
+        if fd is not None:
+            fd = os.dup(fd)
+            sock.close()
         super().__init__(fileno=fd)
 
     def close(self):
@@ -179,6 +182,24 @@ class CoreDatagramProtocol(CoreProtocol):
     def datagram_received(self, data, addr):
         log.debug('SOCK_DGRAM enqueue %s bytes' % len(data))
         self.enqueue(data, addr)
+
+
+class RequestWrapper:
+    def __init__(self, event_loop, func):
+        self.event_loop = event_loop
+        request = self.event_loop.run_until_complete(func)
+        self.response = request.__aiter__()
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        try:
+            return self.event_loop.run_until_complete(
+                self.response.__anext__()
+            )
+        except StopAsyncIteration:
+            raise StopIteration
 
 
 class AsyncCoreSocket:
@@ -461,12 +482,16 @@ class AsyncCoreSocket:
 
         This method can not work if `use_socket` or `event_loop`
         was used in the object constructor.'''
-        if self.status['use_socket'] or self.status['event_loop']:
+        if self.status['use_socket'] or self.status['event_loop'] != 'none':
             raise RuntimeError('can not clone socket')
         new_spec = {}
-        for key, value in self.spec.items():
+        for key, value in asdict(self.spec.config).items():
             if key in self.__init__.__code__.co_varnames:
                 new_spec[key] = value
+        # post fix
+        new_spec['use_socket'] = self.use_socket
+        new_spec['use_event_loop'] = self.use_event_loop
+        new_spec['libc'] = self.libc
         return type(self)(**new_spec)
 
     def setsockopt(self, level, optname, value):
@@ -745,12 +770,37 @@ class SyncAPI:
         if hasattr(self.asyncore.local, 'event_loop'):
             del self.asyncore.local.event_loop
 
-    def _run_with_cleanup(self, func, cmd: str, *argv, **kwarg):
-        if len(argv) > 0 and isinstance(argv[0], str):
-            cmd = f'{cmd}-{argv[0]}'
+    def _generate_with_cleanup(self, func, *argv, **kwarg):
+        if hasattr(func, '__name__'):
+            telemetry_tag = func.__name__
+        elif hasattr(func, '__func__') and hasattr(func.__func__, '__name__'):
+            telemetry_tag = func.__func__.__name__
+        else:
+            telemetry_tag = '<none>'
         try:
             self._setup_transport()
-            with self.asyncore.telemetry.update(cmd):
+            with self.asyncore.telemetry.update(telemetry_tag):
+                for item in RequestWrapper(
+                    event_loop=self.asyncore.event_loop,
+                    func=func(*argv, **kwarg),
+                ):
+                    yield item
+        finally:
+            self._cleanup_transport()
+
+    def _run_sync_cleanup(self, func, *argv, **kwarg):
+        return tuple(self._generate_with_cleanup(func, *argv, **kwarg))
+
+    def _run_with_cleanup(self, func, *argv, **kwarg):
+        if hasattr(func, '__name__'):
+            telemetry_tag = func.__name__
+        elif hasattr(func, '__func__') and hasattr(func.__func__, '__name__'):
+            telemetry_tag = func.__func__.__name__
+        else:
+            telemetry_tag = '<none>'
+        try:
+            self._setup_transport()
+            with self.asyncore.telemetry.update(telemetry_tag):
                 return self.asyncore.event_loop.run_until_complete(
                     func(*argv, **kwarg)
                 )

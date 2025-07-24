@@ -50,6 +50,9 @@ ABBREVIATIONS = [
 class HybridSemanticChunker(BaseChunker[Document]):
     """Chunker which uses similarity between inner segments of text to find optimal breakpoints.
 
+    .. note::
+        Added in 1.3.25
+
     :param embeddings: embeddings to be used to generate dense vectors
     :type embeddings: Embeddings
 

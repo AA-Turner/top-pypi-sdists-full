@@ -8,6 +8,7 @@ from montecarlodata.config import Config
 from montecarlodata.errors import manage_errors, prompt_connection
 from montecarlodata.integrations.onboarding.base import BaseOnboardingService
 from montecarlodata.integrations.onboarding.fields import (
+    CLICKHOUSE_DATABASE_TYPE,
     DREMIO_DATABASE_TYPE,
     MYSQL_DB_TYPE,
     ORACLE_DB_TYPE,
@@ -44,6 +45,7 @@ class TransactionalOnboardingService(CollectorValidationService, BaseOnboardingS
             MYSQL_DB_TYPE,
             SALESFORCE_CRM_DATABASE_TYPE,
             SALESFORCE_DATA_CLOUD_DATABASE_TYPE,
+            CLICKHOUSE_DATABASE_TYPE,
         ]
         if kwargs.get("dbType") in promoted_subtypes:
             kwargs["connection_type"] = kwargs.get("dbType")

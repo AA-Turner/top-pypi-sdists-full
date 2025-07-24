@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: openjij
-Version: 0.10.15
+Version: 0.10.16
 Summary: Framework for the Ising model and QUBO.
 Home-page: https://www.openjij.org
 Author: Jij Inc.
@@ -28,7 +28,6 @@ Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: numpy<2.4.0,>=1.17.3
 Requires-Dist: dimod<0.13.0
-Requires-Dist: scipy<1.12.0,>=1.7.3
 Requires-Dist: requests<2.32.0,>=2.28.0
 Requires-Dist: jij-cimod<1.8.0,>=1.6.0
 Requires-Dist: typing-extensions>=4.2.0

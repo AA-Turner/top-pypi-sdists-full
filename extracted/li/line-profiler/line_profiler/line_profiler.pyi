@@ -1,44 +1,53 @@
-from typing import List
-from typing import Tuple
 import io
-from ._line_profiler import LineProfiler as CLineProfiler
+import pathlib
+from functools import cached_property, partial, partialmethod
+from types import FunctionType, MethodType, ModuleType
+from typing import (overload,
+                    Callable, List, Literal, Mapping, Tuple,
+                    TypeVar, Union)
 from _typeshed import Incomplete
+from ._line_profiler import LineProfiler as CLineProfiler
+from .profiler_mixin import ByCountProfilerMixin, CLevelCallable
+from .scoping_policy import ScopingPolicy, ScopingPolicyDict
+
+
+CallableLike = TypeVar('CallableLike',
+                       FunctionType, partial, property, cached_property,
+                       MethodType, staticmethod, classmethod, partialmethod,
+                       type)
+
+
+def get_column_widths(
+    config: Union[bool, str, pathlib.PurePath, None] = False) -> Mapping[
+        Literal['line', 'hits', 'time', 'perhit', 'percent'], int]:
+    ...
 
 
 def load_ipython_extension(ip) -> None:
     ...
 
 
-def is_coroutine(f):
-    ...
-
-
-CO_GENERATOR: int
-
-
-def is_generator(f):
-    ...
-
-
-def is_classmethod(f):
-    ...
-
-
-class LineProfiler(CLineProfiler):
-
-    def __call__(self, func):
+class LineProfiler(CLineProfiler, ByCountProfilerMixin):
+    @overload
+    def __call__(self,  # type: ignore[overload-overlap]
+                 func: CLevelCallable) -> CLevelCallable:
         ...
 
-    def wrap_classmethod(self, func):
+    @overload
+    def __call__(self,  # type: ignore[overload-overlap]
+                 func: CallableLike) -> CallableLike:
         ...
 
-    def wrap_coroutine(self, func):
+    # Fallback: just wrap the `.__call__()` of a generic callable
+
+    @overload
+    def __call__(self, func: Callable) -> FunctionType:
         ...
 
-    def wrap_generator(self, func):
-        ...
-
-    def wrap_function(self, func):
+    def add_callable(
+            self, func,
+            guard: Callable[[FunctionType], bool] | None = None,
+            name: str | None = None) -> Literal[0, 1]:
         ...
 
     def dump_stats(self, filename) -> None:
@@ -51,23 +60,28 @@ class LineProfiler(CLineProfiler):
                     details: bool = ...,
                     summarize: bool = ...,
                     sort: bool = ...,
-                    rich: bool = ...) -> None:
+                    rich: bool = ...,
+                    *,
+                    config: Union[str, pathlib.PurePath,
+                                  bool, None] = None) -> None:
         ...
 
-    def run(self, cmd):
+    def add_module(
+            self, mod: ModuleType, *,
+            scoping_policy: (
+                ScopingPolicy | str | ScopingPolicyDict | None) = None,
+            wrap: bool = False) -> int:
         ...
 
-    def runctx(self, cmd, globals, locals):
+    def add_class(
+            self, cls: type, *,
+            scoping_policy: (
+                ScopingPolicy | str | ScopingPolicyDict | None) = None,
+            wrap: bool = False) -> int:
         ...
 
-    def runcall(self, func, *args, **kw):
-        ...
 
-    def add_module(self, mod):
-        ...
-
-
-def is_ipython_kernel_cell(filename):
+def is_generated_code(filename):
     ...
 
 
@@ -79,7 +93,9 @@ def show_func(filename: str,
               output_unit: float | None = None,
               stream: io.TextIOBase | None = None,
               stripzeros: bool = False,
-              rich: bool = False) -> None:
+              rich: bool = False,
+              *,
+              config: Union[str, pathlib.PurePath, bool, None] = None) -> None:
     ...
 
 
@@ -91,7 +107,9 @@ def show_text(stats,
               details: bool = ...,
               summarize: bool = ...,
               sort: bool = ...,
-              rich: bool = ...):
+              rich: bool = ...,
+              *,
+              config: Union[str, pathlib.PurePath, bool, None] = None) -> None:
     ...
 
 

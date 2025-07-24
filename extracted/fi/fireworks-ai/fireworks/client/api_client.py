@@ -131,7 +131,12 @@ class FireworksClient:
 
             # Try to get error message from response.json() (for httpx)
             try:
-                return json.dumps(response.json())
+                if isinstance(response, httpx.Response):
+                    return json.dumps(response.json())
+                else:
+                    # since we can't call "await" on response.json() for aiohttp, return response_text if non-empty
+                    if response_text:
+                        return response_text
             except (json.JSONDecodeError, AttributeError):
                 pass
 

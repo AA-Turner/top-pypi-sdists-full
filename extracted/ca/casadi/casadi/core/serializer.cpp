@@ -41,8 +41,7 @@ namespace casadi {
 
     FileSerializer::FileSerializer(const std::string& fname, const Dict& opts) :
         SerializerBase(
-          std::unique_ptr<std::ostream>(
-            Filesystem::ofstream_ptr(fname, std::ios_base::binary | std::ios::out)),
+            Filesystem::ofstream_ptr(fname, std::ios_base::binary | std::ios::out),
           opts) {
     }
 
@@ -95,6 +94,7 @@ namespace casadi {
         "StringDeserializer::decode does not apply: current string not fully consumed yet.");
       static_cast<std::stringstream*>(dstream_.get())->str(string);
       dstream_->clear(); // reset error flags
+      deserializer_->setup();
     }
 
     SerializerBase::~SerializerBase() { }
@@ -106,8 +106,7 @@ namespace casadi {
     }
 
     FileDeserializer::FileDeserializer(const std::string& fname) :
-        DeserializerBase(std::unique_ptr<std::istream>(
-          new std::ifstream(fname, std::ios_base::binary | std::ios::in))) {
+        DeserializerBase(Filesystem::ifstream_ptr(fname, std::ios_base::binary | std::ios::in)) {
       if ((dstream_->rdstate() & std::ifstream::failbit) != 0) {
         casadi_error("Could not open file '" + fname + "' for reading.");
       }

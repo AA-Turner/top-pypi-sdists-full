@@ -667,11 +667,16 @@ class Shiny(WMLResource):
                 "Unable to update attachment because of server error. Try again later"
             )
 
-    def delete(self, shiny_id: str | None = None, **kwargs: Any) -> str | dict:
+    def delete(
+        self, shiny_id: str | None = None, force: bool = False, **kwargs: Any
+    ) -> str | dict:
         """Delete a stored shiny asset.
 
         :param shiny_id: unique ID of the shiny asset
         :type shiny_id: str
+
+        :param force: if True, the delete operation will proceed even when the shiny asset deployment exists, defaults to False
+        :type force: bool, optional
 
         :return: status ("SUCCESS" or "FAILED") if deleted synchronously or dictionary with response
         :rtype: str | dict
@@ -688,7 +693,7 @@ class Shiny(WMLResource):
         )
         Shiny._validate_type(shiny_id, "shiny_id", str, True)
 
-        if self._if_deployment_exist_for_asset(shiny_id):
+        if not force and self._if_deployment_exist_for_asset(shiny_id):
             raise WMLClientError(
                 "Cannot delete shiny asset that has existing deployments. Please delete all associated deployments and try again"
             )

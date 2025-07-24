@@ -4,7 +4,8 @@ import logging
 import pickle
 import os
 import json
-from typing import List, Optional
+import re
+from typing import List, Optional, Dict, Any, Union
 from collections import defaultdict
 
 import mysql.connector
@@ -172,13 +173,10 @@ class DatabaseManager:
                     continue
             filtered_columns.append((table, col, typ))
 
-        if not fields_to_include and not fields_to_exclude:
-            filtered_columns = columns
-
         with get_cursor(conn) as cursor:
             for table, col, typ in filtered_columns:
                 cursor.execute(
-                    f"SELECT `{col}` FROM `{table}` WHERE `{col}` IS NOT NULL ORDER BY RAND() LIMIT %s",
+                    f"SELECT DISTINCT `{col}` FROM `{table}` WHERE `{col}` IS NOT NULL ORDER BY RAND() LIMIT %s",
                     (num_examples,)
                 )
                 samples = [row[0] for row in cursor.fetchall()]
@@ -244,4 +242,73 @@ class DatabaseManager:
             f"(show_fields={show_fields}, show_system_data={show_system_data})"
         )
         return schema
+    
+    def execute_query(
+        self, 
+        sql_query: str, 
+        limit: Optional[int] = 100
+    ) -> Dict[str, Any]:
+        """
+        Executes a given SQL query and returns the result.
+        If a limit is provided, it will be applied intelligently. If the original query
+        has a stricter (smaller) limit, it will be respected.
+        
+        Args:
+            sql_query: The SQL query to execute
+            limit: Optional limit to apply to the query
+            
+        Returns:
+            Dictionary containing the result data, error (if any), and final SQL
+        """
+        conn = self.connection_manager.connect()
+        params = []
+
+        if limit is not None:
+            # Use regex to find if a LIMIT clause already exists (case-insensitive)
+            limit_pattern = re.compile(r'LIMIT\s+(\d+)\s*;?\s*$', re.IGNORECASE)
+            match = limit_pattern.search(sql_query)
+
+            if match:
+                existing_limit = int(match.group(1))
+                if limit < existing_limit:
+                    # New limit is stricter, so replace the old one
+                    sql_query = limit_pattern.sub('LIMIT %s', sql_query)
+                    params.append(limit)
+                    logger.info(f"Replacing existing LIMIT {existing_limit} with new, stricter LIMIT {limit}")
+                else:
+                    # Existing limit is stricter or equal, so we respect it and do nothing
+                    logger.info(f"Respecting existing LIMIT {existing_limit} as it is stricter than requested LIMIT {limit}")
+            else:
+                # No LIMIT clause found, so append the new one
+                sql_query = sql_query.rstrip().rstrip(";")
+                sql_query += " LIMIT %s"
+                params.append(limit)
+                logger.info(f"Appending new LIMIT {limit} to query")
+
+        try:
+            with get_cursor(conn, dictionary=True) as cursor:
+                cursor.execute(sql_query, tuple(params))
+                result = cursor.fetchall()
+
+            # For display purposes, create the final SQL with parameter values interpolated.
+            # The actual execution above was done safely with parameterization.
+            final_sql = sql_query
+            if params:
+                # Use a safer approach to handle % characters in LIKE clauses
+                try:
+                    # Replace %s placeholders with actual values for display
+                    temp_sql = sql_query
+                    for param in params:
+                        temp_sql = temp_sql.replace('%s', str(param), 1)
+                    final_sql = temp_sql
+                except Exception as e:
+                    # Fallback to original SQL if formatting fails
+                    final_sql = sql_query
+                    logger.warning(f"Could not format SQL for display: {e}")
+                
+            return {"data": result, "error": None, "final_sql": final_sql}
+
+        except mysql.connector.Error as e:
+            logger.error(f"Error executing query: {e}")
+            return {"data": None, "error": str(e), "final_sql": sql_query}
     

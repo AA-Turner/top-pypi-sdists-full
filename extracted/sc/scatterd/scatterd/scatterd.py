@@ -25,9 +25,9 @@ def scatterd(x,
              s=150,
              c=[0, 0.1, 0.4],
              labels=None,
-             marker='o',
+             marker='labels',
              alpha=0.8,
-             edgecolor='#000000',
+             edgecolor='#808080',
              gradient='opaque',
              opaque_type='per_class',
              density=True,
@@ -67,16 +67,15 @@ def scatterd(x,
             * [0,3,0,1,2,1,..] : It is also possible to provide a list of labels. The markers will be assigned accordingly.
     alpha : float, default: 0.8
         The alpha blending value, between 0 (transparent) and 1 (opaque).
-    edgecolors : (default: 'face')
+    edgecolor : (default: 'face')
         The edge color of the marker. Possible values:
-            * 'face': The edge color will always be the same as the face color.
-            * 'none': No patch boundary will be drawn.
-            * '#FFFFFF' : A color or sequence of colors.
+            * '#808080' : A color or sequence of colors.
+            * None: No patch boundary will be drawn.
     gradient : String, (default: 'opaque')
         Hex color to make a lineair gradient using the density.
-            * None: Do not use gradient.
-            * opaque: Towards the edges the points become more opaque and thus not visible.
             * '#FFFFFF': Towards the edges it smooths into this color
+            * opaque: Towards the edges the points become more opaque and thus not visible.
+            * None: Do not use gradient.
     opaque_type : String, optional
             * 'per_class': Transprancy is determined on the density within the class label (y)
             * 'all': Transprancy is determined on all available data points
@@ -195,6 +194,7 @@ def scatterd(x,
     if s is None: s=0
     if c is None: s, c = 0, [0, 0, 0]
     if isinstance(s, (int, float)) and s==0: fontsize=0
+    if marker is not None and isinstance(marker, str) and marker =='labels' and labels is not None: marker = labels
     zorder = None if density_on_top else 10
 
     # Defaults
@@ -268,24 +268,25 @@ def _set_figure_properties(X, labels, fontcolor, fontsize, xlabel, ylabel, title
     if grid is True: grid='#dddddd'
     None if zorder is None else zorder + 1
     font = {'family': 'DejaVu Sans', 'weight': fontweight, 'size': np.maximum(fontsize, 1)}
-    matplotlib.rc('font', **font)
-    for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
-        item.set_fontsize(20)
+    with matplotlib.rc_context():
+        matplotlib.rc('font', **font)
+        for item in ([ax.title, ax.xaxis.label, ax.yaxis.label] + ax.get_xticklabels() + ax.get_yticklabels()):
+            item.set_fontsize(20)
 
-    # Plot labels
-    if (labels is not None) and (fontcolor is not None):
-        for uilabel in fontcolor.keys():
-            # Compute median for better center compared to mean
-            XYmean = np.mean(X[labels==uilabel, :], axis=0)
-            if X.shape[1]==2:
-                ax.text(XYmean[0], XYmean[1], str(uilabel), color=fontcolor.get(uilabel), fontdict={'weight': fontweight, 'size': fontsize}, zorder=zorder)
-            else:
-                ax.text(XYmean[0], XYmean[1], XYmean[2], str(uilabel), color=fontcolor.get(uilabel), fontdict={'weight': fontweight, 'size': fontsize})
+        # Plot labels
+        if (labels is not None) and (fontcolor is not None):
+            for uilabel in fontcolor.keys():
+                # Compute median for better center compared to mean
+                XYmean = np.mean(X[labels==uilabel, :], axis=0)
+                if X.shape[1]==2:
+                    ax.text(XYmean[0], XYmean[1], str(uilabel), color=fontcolor.get(uilabel), fontdict={'weight': fontweight, 'size': fontsize}, zorder=zorder)
+                else:
+                    ax.text(XYmean[0], XYmean[1], XYmean[2], str(uilabel), color=fontcolor.get(uilabel), fontdict={'weight': fontweight, 'size': fontsize})
 
-    # Labels on axis
-    if (xlabel is not None) and (xlabel!=''): ax.set_xlabel(xlabel)
-    if (ylabel is not None) and (ylabel!=''): ax.set_ylabel(ylabel)
-    if (title is not None) and (title!=''): ax.set_title(title)
+        # Labels on axis
+        if (xlabel is not None) and (xlabel!=''): ax.set_xlabel(xlabel)
+        if (ylabel is not None) and (ylabel!=''): ax.set_ylabel(ylabel)
+        if (title is not None) and (title!=''): ax.set_title(title)
 
     # set background to none
     ax.set_facecolor('none')
@@ -565,7 +566,7 @@ def kdeplot_3d_slices(X, grid_points=40, z_slices=6, scatter=True,
 
 
 
-# %%
+# %% Verbosity functions
 def convert_verbose_to_new(verbose):
     """Convert old verbosity to the new."""
     # In case the new verbosity is used, convert to the old one.
@@ -585,13 +586,9 @@ def convert_verbose_to_new(verbose):
     else:
         return verbose
 
-
-# %%
 def get_logger():
     return logger.getEffectiveLevel()
 
-
-# %%
 def set_logger(verbose: [str, int] = 'info'):
     """Set the logger for verbosity messages.
 
@@ -639,14 +636,10 @@ def set_logger(verbose: [str, int] = 'info'):
     logger.setLevel(verbose)
     logger.debug('Set verbose to %s' %(verbose))
 
-
-# %%
 def disable_tqdm():
     """Set the logger for verbosity messages."""
     return (True if (logger.getEffectiveLevel()>=30) else False)
 
-
-# %%
 def check_logger(verbose: [str, int] = 'info'):
     """Check the logger."""
     set_logger(verbose)
@@ -654,20 +647,3 @@ def check_logger(verbose: [str, int] = 'info'):
     logger.info('INFO')
     logger.warning('WARNING')
     logger.critical('CRITICAL')
-
-# %% Density
-# def coord2density(X, kernel='gaussian', metric='euclidean', ax=None, visible=False):
-#     from sklearn.neighbors import KernelDensity
-
-#     kde = KernelDensity(kernel=kernel, metric=metric, bandwidth=0.2).fit(X)
-#     dens = kde.score_samples(X)
-
-#     # import mpl_scatter_density # adds projection='scatter_density'
-#     # pip install mpl-scatter-density
-#     # density = plt.scatter_density(x, y, cmap=white_viridis)
-
-#     if visible:
-#         if ax is None: plt.figure(figsize=(8,8))
-#         ax.scatter(X[:,0], X[:,1], c=dens)
-
-#     return dens

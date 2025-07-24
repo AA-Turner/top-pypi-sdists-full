@@ -88,10 +88,15 @@ def _stream_workflow_wrapper(
     executor_context: WorkflowExecutorContext,
     queue: Queue,
     cancel_signal: Optional[ThreadingEvent],
+    timeout_signal: ThreadingEvent,
 ) -> None:
     span_id_emitted = False
     try:
-        stream_iterator, span_id = stream_workflow(executor_context=executor_context, cancel_signal=cancel_signal)
+        stream_iterator, span_id = stream_workflow(
+            executor_context=executor_context,
+            cancel_signal=cancel_signal,
+            timeout_signal=timeout_signal,
+        )
 
         queue.put(f"{SPAN_ID_EVENT}:{span_id}")
         span_id_emitted = True
@@ -119,6 +124,7 @@ def stream_workflow_process_timeout(
     executor_context: WorkflowExecutorContext,
     queue: Queue,
     cancel_signal: Optional[ThreadingEvent],
+    timeout_signal: ThreadingEvent,
 ) -> Process:
     workflow_process = Process(
         target=_stream_workflow_wrapper,
@@ -126,6 +132,7 @@ def stream_workflow_process_timeout(
             executor_context,
             queue,
             cancel_signal,
+            timeout_signal,
         ),
     )
     workflow_process.start()
@@ -150,6 +157,7 @@ def stream_workflow_process_timeout(
 
 def stream_workflow(
     executor_context: WorkflowExecutorContext,
+    timeout_signal: ThreadingEvent,
     disable_redirect: bool = True,
     cancel_signal: Optional[ThreadingEvent] = None,
 ) -> tuple[Iterator[dict], UUID]:
@@ -226,6 +234,7 @@ def stream_workflow(
             executor_context=executor_context,
             stream_generator=call_workflow,
             disable_redirect=disable_redirect,
+            timeout_signal=timeout_signal,
         ),
         stream.span_id,
     )
@@ -265,12 +274,14 @@ def stream_node(
         executor_context=executor_context,
         stream_generator=call_node,
         disable_redirect=disable_redirect,
+        timeout_signal=ThreadingEvent(),
     )
 
 
 def _call_stream(
     executor_context: BaseExecutorContext,
     stream_generator: Callable[[], Generator[dict[str, Any], Any, None]],
+    timeout_signal: ThreadingEvent,
     disable_redirect: bool = True,
 ) -> Iterator[dict]:
     log_redirect: Optional[StringIO] = None
@@ -291,6 +302,7 @@ def _call_stream(
                 log=log_redirect.getvalue() if log_redirect else "",
                 stderr="",
                 container_overhead_latency=executor_context.container_overhead_latency,
+                timed_out=timeout_signal.is_set(),
             ),
             parent=None,
         )

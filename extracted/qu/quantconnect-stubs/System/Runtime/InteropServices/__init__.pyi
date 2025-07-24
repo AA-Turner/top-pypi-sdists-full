@@ -723,6 +723,11 @@ class Marshal(System.Object):
         ...
 
     @staticmethod
+    @overload
+    def get_exception_for_hr(error_code: int, iid: System.Guid, p_unk: System.IntPtr) -> System.Exception:
+        ...
+
+    @staticmethod
     def get_exception_pointers() -> System.IntPtr:
         ...
 
@@ -1113,6 +1118,11 @@ class Marshal(System.Object):
     @staticmethod
     @overload
     def throw_exception_for_hr(error_code: int, error_info: System.IntPtr) -> None:
+        ...
+
+    @staticmethod
+    @overload
+    def throw_exception_for_hr(error_code: int, iid: System.Guid, p_unk: System.IntPtr) -> None:
         ...
 
     @staticmethod

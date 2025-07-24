@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: descope
-Version: 1.7.6
+Version: 1.7.7
 Summary: Descope Python SDK
 License: MIT
 Author: Descope
@@ -1148,7 +1148,7 @@ Embedded links can be created to directly receive a verifiable token without sen
 This token can then be verified using the magic link 'verify' function, either directly or through a flow.
 
 ```python
-token = descope_client.mgmt.user.generate_embedded_link("desmond@descope.com", {"key1":"value1"})
+token = descope_client.mgmt.user.generate_embedded_link("desmond@descope.com", {"key1":"value1"}, 120)
 ```
 
 ### Audit

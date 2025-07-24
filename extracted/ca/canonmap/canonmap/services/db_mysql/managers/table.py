@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Union, Optional, List, Dict, Any
 
 from canonmap.services.db_mysql.adapters.connection import ConnectionManager
-from canonmap.services.db_mysql.schemas import TableField, FieldTransform
+from canonmap.services.db_mysql.schemas import TableField, FieldTransformType
 from canonmap.services.db_mysql.adapters.cursor import get_cursor
 
 from canonmap.services.db_mysql.schemas import CreateDDLResponse # type: ignore
@@ -232,7 +232,7 @@ class TableManager:
                     conn.commit()
                     cols.add(new_field)
 
-                if f.field_transform == FieldTransform.SOUNDEX:
+                if f.field_transform == FieldTransformType.SOUNDEX:
                     sql_jobs.append((f, new_field))
                 else:
                     py_jobs.append((f, new_field))
@@ -275,7 +275,7 @@ class TableManager:
                         row_map = dict(zip(colnames, row))
                         for f, new_field in py_jobs:
                             src_val = row_map[f.field_name]
-                            if f.field_transform == FieldTransform.INITIALISM:
+                            if f.field_transform == FieldTransformType.INITIALISM:
                                 transformed = to_initialism(src_val)
                             else:
                                 transformed = to_phonetic(src_val)

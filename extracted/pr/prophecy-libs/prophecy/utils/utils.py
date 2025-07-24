@@ -1463,7 +1463,7 @@ class MetricsCollector:
         # Define a function to convert object to a dictionary
         def should_include(key, value):
             # remove any unwanted objects from the config:
-            to_ignore = ["spark", "prophecy_spark", "jvm", "secret_manager"]
+            to_ignore = ["spark", "prophecy_spark", "jvm", "secret_manager", "prophecy_project_config"]
             return key not in to_ignore and not isinstance(value, SparkSession)
 
         def to_dict_trampoline(obj):

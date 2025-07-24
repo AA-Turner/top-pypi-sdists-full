@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import typing as t
+import uuid
 
 from globus_sdk import utils
-from globus_sdk._types import UUIDLike
 
 
 class UserCredentialDocument(utils.PayloadWrapper):
@@ -27,11 +27,11 @@ class UserCredentialDocument(utils.PayloadWrapper):
     def __init__(
         self,
         DATA_TYPE: str = "user_credential#1.0.0",
-        identity_id: UUIDLike | None = None,
-        connector_id: UUIDLike | None = None,
+        identity_id: uuid.UUID | str | None = None,
+        connector_id: uuid.UUID | str | None = None,
         username: str | None = None,
         display_name: str | None = None,
-        storage_gateway_id: UUIDLike | None = None,
+        storage_gateway_id: uuid.UUID | str | None = None,
         policies: dict[str, t.Any] | None = None,
         additional_fields: dict[str, t.Any] | None = None,
     ) -> None:

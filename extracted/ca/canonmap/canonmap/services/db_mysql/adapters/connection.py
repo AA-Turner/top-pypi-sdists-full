@@ -21,17 +21,27 @@ class ConnectionManager:
             return self.conn
 
         config = {
-            "host": self.config.host,
             "user": self.config.user,
             "password": self.config.password,
-            "port": self.config.port,
         }
+
+        # Use Unix socket if provided (for Cloud SQL)
+        if self.config.unix_socket:
+            config["unix_socket"] = self.config.unix_socket
+            logger.info(f"Using Unix socket connection: {self.config.unix_socket}")
+        else:
+            # Use TCP connection
+            config.update({
+                "host": self.config.host,
+                "port": self.config.port,
+            })
+            logger.info(f"Using TCP connection to {self.config.host}:{self.config.port}")
 
         try:
             self.conn = mysql.connector.connect(**config, allow_local_infile=True)
             if self.config.database:
                 self.conn.database = self.config.database
-            logger.info(f"Connected to MySQL server at {self.config.host}:{self.config.port}")
+            logger.info(f"Connected to MySQL server successfully")
             return self.conn
 
         except Error as e:
@@ -47,12 +57,19 @@ class ConnectionManager:
     def connection_info(self) -> dict:
         status = "Connected" if (self.conn and self.conn.is_connected()) else "Disconnected"
         info = {
-            "host": self.config.host,
-            "port": self.config.port,
             "user": self.config.user,
             "database": self.config.database,
             "status": status,
         }
+        
+        if self.config.unix_socket:
+            info["unix_socket"] = self.config.unix_socket
+        else:
+            info.update({
+                "host": self.config.host,
+                "port": self.config.port,
+            })
+            
         # log a prettified multi-line summary
         for k, v in info.items():
             logger.info(f"  {k}: {v}")

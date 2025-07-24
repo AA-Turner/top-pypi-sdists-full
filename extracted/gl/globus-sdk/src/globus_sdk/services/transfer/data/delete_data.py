@@ -3,9 +3,9 @@ from __future__ import annotations
 import datetime
 import logging
 import typing as t
+import uuid
 
 from globus_sdk import exc, utils
-from globus_sdk._types import UUIDLike
 
 if t.TYPE_CHECKING:
     import globus_sdk
@@ -87,10 +87,10 @@ class DeleteData(utils.PayloadWrapper):
     def __init__(
         self,
         transfer_client: globus_sdk.TransferClient | None = None,
-        endpoint: UUIDLike | None = None,
+        endpoint: uuid.UUID | str | None = None,
         *,
         label: str | None = None,
-        submission_id: UUIDLike | None = None,
+        submission_id: uuid.UUID | str | None = None,
         recursive: bool = False,
         ignore_missing: bool = False,
         interpret_globs: bool = False,

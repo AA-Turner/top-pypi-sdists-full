@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+import uuid
+
 from globus_sdk import AuthLoginClient, ConfidentialAppAuthClient, GlobusSDKUsageError
-from globus_sdk._types import ScopeCollectionType, UUIDLike
+from globus_sdk._types import ScopeCollectionType
 from globus_sdk.gare import GlobusAuthorizationParameters
 
 from .app import GlobusApp
@@ -55,7 +57,7 @@ class ClientApp(GlobusApp):
         app_name: str = "Unnamed Globus App",
         *,
         login_client: ConfidentialAppAuthClient | None = None,
-        client_id: UUIDLike | None = None,
+        client_id: uuid.UUID | str | None = None,
         client_secret: str | None = None,
         scope_requirements: dict[str, ScopeCollectionType] | None = None,
         config: GlobusAppConfig = DEFAULT_CONFIG,
@@ -81,7 +83,7 @@ class ClientApp(GlobusApp):
         self,
         app_name: str,
         config: GlobusAppConfig,
-        client_id: UUIDLike,
+        client_id: uuid.UUID | str,
         client_secret: str | None,
     ) -> AuthLoginClient:
         if not client_secret:

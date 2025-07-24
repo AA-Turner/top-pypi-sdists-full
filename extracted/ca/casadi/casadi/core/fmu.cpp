@@ -90,6 +90,14 @@ const FmuInternal* Fmu::operator->() const {
   return static_cast<const FmuInternal*>(SharedObject::operator->());
 }
 
+FmuMemory* Fmu::alloc_mem(const FmuFunction& f) const {
+  return (*this)->alloc_mem(f);
+}
+
+void Fmu::free_mem(void *mem) const {
+  return (*this)->free_mem(mem);
+}
+
 FmuInternal* Fmu::get() const {
   return static_cast<FmuInternal*>(SharedObject::get());
 }
@@ -451,6 +459,8 @@ void FmuInternal::init(const DaeBuilderInternal* dae) {
   provides_directional_derivatives_ = dae->provides_directional_derivatives_;
   provides_adjoint_derivatives_ = dae->provides_adjoint_derivatives_;
   can_be_instantiated_only_once_per_process_ = dae->can_be_instantiated_only_once_per_process_;
+  nx_ = dae->size(Category::X);
+  do_evaluation_dance_ = dae->generation_tool_.rfind("Simulink", 0) == 0;
 
   // Mark input indices
   size_t numel = 0;
@@ -567,6 +577,11 @@ int FmuInternal::get_adjoint_derivative(void* instance, const unsigned int* vr_o
 }
 
 void FmuInternal::finalize() {
+  warning_fired_discrete_states_need_update_ = false;
+  warning_fired_terminate_simulation_ = false;
+  warning_fired_nominals_of_continuous_states_changed_ = false;
+  warning_fired_values_of_continuous_states_changed_ = false;
+  warning_fired_next_event_time_defined_ = false;
   // Load DLL
   std::string instance_name_no_dot = instance_name_;
   std::replace(instance_name_no_dot.begin(), instance_name_no_dot.end(), '.', '_');
@@ -578,11 +593,16 @@ void FmuInternal::finalize() {
   load_functions();
 
   // Path to resource directory
+  std::string url = "";
   if (Filesystem::is_enabled()) {
-    resource_loc_ = "file://" + Filesystem::absolute(resource_.path()) + "/resources";
+    url = "file://" + Filesystem::absolute(resource_.path()) + "/resources";
   } else {
-    resource_loc_ = "file://" + resource_.path();
+    url = "file://" + resource_.path() + "/resources";
   }
+  // Forward slashes
+  std::replace(url.begin(), url.end(), '\\', '/');
+
+  resource_loc_ = url;
 
   // Create a temporary instance
   void* c = instantiate();
@@ -595,8 +615,10 @@ void FmuInternal::finalize() {
     casadi_error("FmuInternal::enter_initialization_mode failed");
   }
   // Get input values
-  if (get_real(c, get_ptr(vr_in_), vr_in_.size(), get_ptr(value_in_), value_in_.size())) {
-    casadi_error("FmuInternal::get_in failed");
+  if (!value_in_.empty()) {
+    if (get_real(c, get_ptr(vr_in_), vr_in_.size(), get_ptr(value_in_), value_in_.size())) {
+      casadi_error("FmuInternal::get_in failed");
+    }
   }
   // Get auxilliary variables
   if (get_aux(c)) {
@@ -989,8 +1011,9 @@ int FmuInternal::eval_fd(FmuMemory* m, bool independent_seeds) const {
           }
           ss << "]" << std::endl;
           // Append to file
-          std::ofstream valfile;
-          valfile.open(m->self.validate_ad_file_, std::ios_base::app);
+          auto valfile_ptr = Filesystem::ofstream_ptr(m->self.validate_ad_file_,
+            std::ios_base::app);
+          std::ostream& valfile = *valfile_ptr;
           valfile << ss.str();
         }
       }
@@ -1082,16 +1105,36 @@ int FmuInternal::discrete_states_iter(void* instance) const {
       return 1;
     }
     // Not implemented
-    if (eventmem.discrete_states_need_update)
-      casadi_warning("Discrete state update not implemented");
-    if (eventmem.terminate_simulation)
-      casadi_warning("Terminate solution not implemented");
-    if (eventmem.nominals_of_continuous_states_changed)
-      casadi_warning("Update of nominals of states not implemented");
-    if (eventmem.values_of_continuous_states_changed)
-      casadi_warning("Update of values of continuous states not implemented");
-    if (eventmem.next_event_time_defined)
-      casadi_warning("Ignoring next time defined: " + std::to_string(eventmem.next_event_time));
+    if (eventmem.discrete_states_need_update) {
+      if (!warning_fired_discrete_states_need_update_) {
+        warning_fired_discrete_states_need_update_ = true;
+        casadi_warning("Discrete state update not implemented");
+      }
+    }
+    if (eventmem.terminate_simulation) {
+      if (!warning_fired_terminate_simulation_) {
+        warning_fired_terminate_simulation_ = true;
+        casadi_warning("Terminate simulation not implemented");
+      }
+    }
+    if (eventmem.nominals_of_continuous_states_changed) {
+      if (!warning_fired_nominals_of_continuous_states_changed_) {
+        warning_fired_nominals_of_continuous_states_changed_ = true;
+        casadi_warning("Nominals of continuous states not implemented");
+      }
+    }
+    if (eventmem.values_of_continuous_states_changed) {
+      if (!warning_fired_values_of_continuous_states_changed_) {
+        warning_fired_values_of_continuous_states_changed_ = true;
+        casadi_warning("Values of continuous states not implemented");
+      }
+    }
+    if (eventmem.next_event_time_defined) {
+      if (!warning_fired_next_event_time_defined_) {
+        warning_fired_next_event_time_defined_ = true;
+        casadi_warning("Next event time not implemented");
+      }
+    }
     // Successful return
     if (!eventmem.discrete_states_need_update) {
       return 0;
@@ -1335,7 +1378,7 @@ void FmuInternal::serialize_type(SerializingStream& s) const {
 }
 
 void FmuInternal::serialize_body(SerializingStream& s) const {
-  s.version("FmuInternal", 3);
+  s.version("FmuInternal", 4);
   s.pack("FmuInternal::name", name_);
   s.pack("FmuInternal::scheme_in", scheme_in_);
   s.pack("FmuInternal::scheme_out", scheme_out_);
@@ -1345,6 +1388,7 @@ void FmuInternal::serialize_body(SerializingStream& s) const {
   s.pack("FmuInternal::iind_map", iind_map_);
   s.pack("FmuInternal::oind", oind_);
   s.pack("FmuInternal::oind_map", oind_map_);
+  s.pack("FmuInternal::has_independent", has_independent_);
   s.pack("FmuInternal::nominal_in", nominal_in_);
   s.pack("FmuInternal::nominal_out", nominal_out_);
   s.pack("FmuInternal::min_in", min_in_);
@@ -1372,10 +1416,12 @@ void FmuInternal::serialize_body(SerializingStream& s) const {
   s.pack("FmuInternal::provides_adjoint_derivatives", provides_adjoint_derivatives_);
   s.pack("FmuInternal::can_be_instantiated_only_once_per_process",
     can_be_instantiated_only_once_per_process_);
+  s.pack("FmuInternal::nx", nx_);
+  s.pack("FmuInternal::do_evaluation_dance", do_evaluation_dance_);
 }
 
 FmuInternal::FmuInternal(DeserializingStream& s) {
-  s.version("FmuInternal", 3);
+  s.version("FmuInternal", 4);
   s.unpack("FmuInternal::name", name_);
   s.unpack("FmuInternal::scheme_in", scheme_in_);
   s.unpack("FmuInternal::scheme_out", scheme_out_);
@@ -1385,6 +1431,7 @@ FmuInternal::FmuInternal(DeserializingStream& s) {
   s.unpack("FmuInternal::iind_map", iind_map_);
   s.unpack("FmuInternal::oind", oind_);
   s.unpack("FmuInternal::oind_map", oind_map_);
+  s.unpack("FmuInternal::has_independent", has_independent_);
   s.unpack("FmuInternal::nominal_in", nominal_in_);
   s.unpack("FmuInternal::nominal_out", nominal_out_);
   s.unpack("FmuInternal::min_in", min_in_);
@@ -1412,6 +1459,8 @@ FmuInternal::FmuInternal(DeserializingStream& s) {
   s.unpack("FmuInternal::provides_adjoint_derivatives", provides_adjoint_derivatives_);
   s.unpack("FmuInternal::can_be_instantiated_only_once_per_process",
     can_be_instantiated_only_once_per_process_);
+  s.unpack("FmuInternal::nx", nx_);
+  s.unpack("FmuInternal::do_evaluation_dance", do_evaluation_dance_);
 }
 
 FmuInternal* FmuInternal::deserialize(DeserializingStream& s) {
@@ -1425,7 +1474,7 @@ FmuInternal* FmuInternal::deserialize(DeserializingStream& s) {
 #endif // WITH_FMI2
   } else if (class_name=="Fmu3") {
 #ifdef WITH_FMI3
-    casadi_error("Not implemented");
+return Fmu3::deserialize(s);
 #else
     casadi_error("CasADi was not compiled with WITH_FMI2=ON.");
 #endif // WITH_FMI3

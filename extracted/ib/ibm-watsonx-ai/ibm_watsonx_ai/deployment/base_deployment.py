@@ -24,6 +24,7 @@ from ..utils.autoai.utils import (
     prepare_auto_ai_model_to_publish_notebook_normal_scenario,
     check_if_ts_pipeline_is_winner,
     convert_dataframe_to_fields_values_payload,
+    download_onnx_model,
 )
 from ..utils.deployment.errors import (
     WrongDeploymnetType,
@@ -186,6 +187,7 @@ class BaseDeployment(ABC):
 
         self.name: str | None = None
         self.id: str | None = None
+        self._is_onnx: bool = False
         if deployment_type == "online":
             self.scoring_url: str | None = None
 
@@ -234,6 +236,11 @@ class BaseDeployment(ABC):
 
             if status_code == 409:
                 raise ServingNameNotAvailable(response["errors"][0])
+
+        if (astype := kwargs.get("astype", "hybrid")) == "onnx":
+            if not isinstance(kwargs["model"], str):
+                raise ValueError("In case of ONNX, AutoAI model must be a string.")
+            self._is_onnx = True
 
         # note: This section is only for deployments with specified experiment_id
         if kwargs["experiment_run_id"] is not None:
@@ -314,19 +321,25 @@ class BaseDeployment(ABC):
 
                 data_connection = cast(DataConnection, data_connection)
 
-                (
-                    artifact_name,
-                    model_props,
-                ) = prepare_auto_ai_model_to_publish_normal_scenario(
-                    pipeline_model=model,
-                    run_params=run_params,
-                    run_id=kwargs["experiment_run_id"],
-                    api_client=self._source_workspace.api_client,
-                    space_id=self._target_workspace.space_id,
-                    result_reference=data_connection,
-                    auto_pipelines_parameters=auto_pipelines_parameters,
-                )
-
+                if astype == "onnx":
+                    artifact_name, model_props = download_onnx_model(
+                        model=model,
+                        run_params=run_params,
+                        client=self._source_workspace.api_client,
+                    )
+                else:
+                    (
+                        artifact_name,
+                        model_props,
+                    ) = prepare_auto_ai_model_to_publish_normal_scenario(
+                        pipeline_model=model,
+                        run_params=run_params,
+                        run_id=kwargs["experiment_run_id"],
+                        api_client=self._source_workspace.api_client,
+                        space_id=self._target_workspace.space_id,
+                        result_reference=data_connection,
+                        auto_pipelines_parameters=auto_pipelines_parameters,
+                    )
             deployment_details = self._deploy(
                 pipeline_model=artifact_name,
                 deployment_name=kwargs["deployment_name"],
@@ -396,18 +409,24 @@ class BaseDeployment(ABC):
                 run_params = self._source_workspace.api_client.training.get_details(
                     training_id=run_id, _internal=True
                 )
-
-                (
-                    artifact_name,
-                    model_props,
-                ) = prepare_auto_ai_model_to_publish_normal_scenario(
-                    pipeline_model=model,
-                    run_params=run_params,
-                    run_id=run_id,
-                    api_client=self._source_workspace.api_client,
-                    space_id=self._target_workspace.space_id,
-                    auto_pipelines_parameters=optimizer.get_params(),
-                )
+                if astype == "onnx":
+                    artifact_name, model_props = download_onnx_model(
+                        model=model,
+                        run_params=run_params,
+                        client=self._source_workspace.api_client,
+                    )
+                else:
+                    (
+                        artifact_name,
+                        model_props,
+                    ) = prepare_auto_ai_model_to_publish_normal_scenario(
+                        pipeline_model=model,
+                        run_params=run_params,
+                        run_id=run_id,
+                        api_client=self._source_workspace.api_client,
+                        space_id=self._target_workspace.space_id,
+                        auto_pipelines_parameters=optimizer.get_params(),
+                    )
 
                 deployment_details = self._deploy(
                     pipeline_model=artifact_name,
@@ -450,8 +469,10 @@ class BaseDeployment(ABC):
         """
         self._target_workspace = cast(WorkSpace, self._target_workspace)
         if isinstance(kwargs["payload"], DataFrame):
-            payload = convert_dataframe_to_fields_values_payload(kwargs["payload"])
-            input_data = [payload]
+            payload = convert_dataframe_to_fields_values_payload(
+                kwargs["payload"], onnx_mode=self._is_onnx
+            )
+            input_data = [payload] if not isinstance(payload, list) else payload
 
         elif isinstance(kwargs["payload"], dict):
             observations_df = kwargs["payload"].get("observations", DataFrame())
@@ -525,6 +546,7 @@ class BaseDeployment(ABC):
             self.name = None
             self.scoring_url = None
             self.id = None
+            self._is_onnx = False
 
         else:
             deployment_details = (

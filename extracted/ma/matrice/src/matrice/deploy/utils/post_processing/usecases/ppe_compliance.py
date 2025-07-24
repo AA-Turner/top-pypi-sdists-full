@@ -40,6 +40,52 @@ class PPEComplianceConfig(BaseConfig):
     })
 
 class PPEComplianceUseCase(BaseProcessor):
+    def _merge_or_register_track(self, raw_id: Any, bbox: Any) -> Any:
+        """Return a stable canonical ID for a raw tracker ID, merging fragmented tracks when IoU and temporal constraints indicate they represent the same physical object."""
+        if not hasattr(self, '_track_aliases'):
+            self._track_aliases = {}
+            self._canonical_tracks = {}
+            self._canonical_id_counter = 0
+        if raw_id is None or bbox is None:
+            return raw_id
+        now = time.time()
+        # Fast path – raw_id already mapped
+        if raw_id in self._track_aliases:
+            canonical_id = self._track_aliases[raw_id]
+            track_info = self._canonical_tracks.get(canonical_id)
+            if track_info is not None:
+                track_info["last_bbox"] = bbox
+                track_info["last_update"] = now
+                track_info["raw_ids"].add(raw_id)
+            return canonical_id
+        # Attempt to merge with an existing canonical track (IoU + time window)
+        best_iou = 0.0
+        best_canonical = None
+        for cid, info in self._canonical_tracks.items():
+            last_bbox = info.get("last_bbox")
+            last_update = info.get("last_update", 0)
+            if last_bbox is not None and now - last_update < 2.0:
+                iou = self._iou(bbox, last_bbox)
+                if iou > 0.7 and iou > best_iou:
+                    best_iou = iou
+                    best_canonical = cid
+        if best_canonical is not None:
+            self._track_aliases[raw_id] = best_canonical
+            info = self._canonical_tracks[best_canonical]
+            info["last_bbox"] = bbox
+            info["last_update"] = now
+            info["raw_ids"].add(raw_id)
+            return best_canonical
+        # New canonical track
+        canonical_id = f"ppe_{self._canonical_id_counter}"
+        self._canonical_id_counter += 1
+        self._track_aliases[raw_id] = canonical_id
+        self._canonical_tracks[canonical_id] = {
+            "last_bbox": bbox,
+            "last_update": now,
+            "raw_ids": {raw_id},
+        }
+        return canonical_id
     def _get_track_ids_info(self, detections: list) -> Dict[str, Any]:
         """
         Get detailed information about track IDs for PPE violations (per frame).
@@ -105,18 +151,25 @@ class PPEComplianceUseCase(BaseProcessor):
             filtered.append(detections[best_idx])
             used[best_idx] = True
         return filtered
+
     def _update_violation_tracking_state(self, detections: list):
         """
         Track unique violation track_ids per category for total count after tracking.
+        Uses canonical ID merging to avoid duplicate counting when the tracker loses and reassigns IDs.
         """
-        self._violation_total_track_ids = getattr(self, '_violation_total_track_ids', {cat: set() for cat in self.violation_categories})
+        if not hasattr(self, '_violation_total_track_ids'):
+            self._violation_total_track_ids = {cat: set() for cat in self.violation_categories}
         self._violation_current_frame_track_ids = {cat: set() for cat in self.violation_categories}
         for det in detections:
             cat = det.get('category')
-            track_id = det.get('track_id')
-            if cat in self.violation_categories and track_id is not None:
-                self._violation_total_track_ids[cat].add(track_id)
-                self._violation_current_frame_track_ids[cat].add(track_id)
+            raw_track_id = det.get('track_id')
+            if cat not in self.violation_categories or raw_track_id is None:
+                continue
+            bbox = det.get("bounding_box", det.get("bbox"))
+            canonical_id = self._merge_or_register_track(raw_track_id, bbox)
+            det["track_id"] = canonical_id  # propagate canonical ID
+            self._violation_total_track_ids.setdefault(cat, set()).add(canonical_id)
+            self._violation_current_frame_track_ids[cat].add(canonical_id)
 
     def get_total_violation_counts(self):
         """
@@ -348,6 +401,10 @@ class PPEComplianceUseCase(BaseProcessor):
         self._total_frame_counter = 0
         self._global_frame_offset = 0
         self._tracking_start_time = None
+        # Also reset canonical track merging state
+        self._track_aliases = {}
+        self._canonical_tracks = {}
+        self._canonical_id_counter = 0
         self.logger.info("PPE violation tracking state reset")
     
     def reset_all_tracking(self) -> None:

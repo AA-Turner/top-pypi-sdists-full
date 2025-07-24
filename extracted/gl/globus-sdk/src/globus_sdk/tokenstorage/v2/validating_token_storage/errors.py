@@ -1,9 +1,9 @@
 from __future__ import annotations
 
+import uuid
 from datetime import datetime
 
 from globus_sdk import GlobusError, Scope
-from globus_sdk._types import UUIDLike
 
 
 class TokenValidationError(GlobusError):
@@ -24,7 +24,9 @@ class MissingIdentityError(IdentityValidationError, LookupError):
 class IdentityMismatchError(IdentityValidationError, ValueError):
     """The identity in a token response did not match the expected identity."""
 
-    def __init__(self, message: str, stored_id: UUIDLike, new_id: UUIDLike) -> None:
+    def __init__(
+        self, message: str, stored_id: uuid.UUID | str, new_id: uuid.UUID | str
+    ) -> None:
         super().__init__(message)
         self.stored_id = stored_id
         self.new_id = new_id

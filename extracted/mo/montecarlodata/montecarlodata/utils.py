@@ -122,9 +122,13 @@ class GqlWrapper(Wrapper):
 
         return json.loads(response.text)
 
-    @retry(tries=3, delay=0.2, backoff=2, max_delay=1)
+    @retry(tries=3, delay=1, backoff=2, max_delay=2)
     def _post(self, headers: Dict, payload: Dict) -> requests.Response:
-        return requests.post(self._endpoint, json=payload, headers=headers)
+        response = requests.post(self._endpoint, json=payload, headers=headers)
+        # Retry on 500, 502, 504 status codes by raising an exception
+        if response.status_code in (500, 502, 504):
+            response.raise_for_status()
+        return response
 
 
 class AwsClientWrapper(Wrapper):

@@ -424,9 +424,11 @@ class ConfigManager:
             'assembly_line_detection': None,
             'anti_spoofing_detection' : None,
             'shelf_inventory' : None,
+            'parking_det': None,
             'wound_segmentation': None,
             'leaf_disease_detection': None,
             'field_mapping': None,
+            'leaf_det': None,
             'car_part_segmentation': None,
             'lane_detection' : None,
             'windmill_maintenance': None,
@@ -480,6 +482,22 @@ class ConfigManager:
         try:
             from ..usecases.banana_defect_detection import BananaMonitoringConfig
             return BananaMonitoringConfig
+        except ImportError:
+            return None
+
+    def leaf_det_config_class(self):
+        """Get Banana monitoring class to avoid circular imports."""
+        try:
+            from ..usecases.leaf import LeafConfig
+            return LeafConfig
+        except ImportError:
+            return None
+
+    def parking_det_config_class(self):
+        """Get Banana monitoring class to avoid circular imports."""
+        try:
+            from ..usecases.parking import ParkingConfig
+            return ParkingConfig
         except ImportError:
             return None
         
@@ -897,6 +915,21 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+        elif usecase == "leaf_det":
+            # Import here to avoid circular import
+            from ..usecases.leaf import LeafConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = LeafConfig(
+                category=category or "agriculture",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
 
         elif usecase == "leaf_disease_detection":
             # Import here to avoid circular import
@@ -985,6 +1018,22 @@ class ConfigManager:
                 alert_config = AlertConfig(**alert_config)
 
             config = WoundConfig(
+                category=category or "energy",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+
+        elif usecase == "parking_det":
+            # Import here to avoid circular import
+            from ..usecases.parking import ParkingConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = ParkingConfig(
                 category=category or "energy",
                 usecase=usecase,
                 alert_config=alert_config,
@@ -1666,6 +1715,18 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.mask_detection import MaskDetectionConfig
             default_config = MaskDetectionConfig()
+            return default_config.to_dict()
+
+        elif usecase == "leaf_det":
+            # Import here to avoid circular import
+            from ..usecases.leaf import LeafConfig
+            default_config = LeafConfig()
+            return default_config.to_dict()
+
+        elif usecase == "parking_det":
+            # Import here to avoid circular import
+            from ..usecases.parking import ParkingConfig
+            default_config = ParkingConfig()
             return default_config.to_dict()
 
         elif usecase == "fire_smoke_detection":

@@ -3,10 +3,10 @@ import os
 import polars as pl
 import polars.testing as pl_testing
 from dagster import asset, materialize
-from dagster_polars import PolarsParquetIOManager
 from hypothesis import given, settings
 from polars.testing.parametric import dataframes
 
+from dagster_polars import PolarsParquetIOManager
 from dagster_polars_tests.utils import get_saved_path
 
 
@@ -23,7 +23,7 @@ def test_polars_parquet_io_manager_read_write(
 
     @asset(io_manager_def=session_polars_parquet_io_manager)
     def downstream(upstream: pl.LazyFrame) -> pl.DataFrame:
-        return upstream.collect(streaming=True)  # type: ignore
+        return upstream.collect(engine="streaming")  # type: ignore
 
     result = materialize(
         [upstream, downstream],

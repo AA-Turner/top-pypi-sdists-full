@@ -4,8 +4,6 @@ import sys
 import typing as t
 import uuid
 
-from globus_sdk._types import UUIDLike
-
 # some error types use guards, so import from the specific module to avoid circularity
 from globus_sdk.exc.base import ValidationError
 
@@ -94,7 +92,7 @@ class validators:
         )
 
     @staticmethod
-    def uuidlike(name: str, s: t.Any) -> UUIDLike:
+    def uuidlike(name: str, s: t.Any) -> uuid.UUID | str:
         """
         Raise an error if the input is not a UUID
 
@@ -108,7 +106,7 @@ class validators:
 
         .. code-block:: python
 
-            def frob_it(collection_id: UUIDLike) -> Frob:
+            def frob_it(collection_id: uuid.UUID | str) -> Frob:
                 validators.uuidlike(collection_id, name="collection_id")
                 return Frob(collection_id)
 

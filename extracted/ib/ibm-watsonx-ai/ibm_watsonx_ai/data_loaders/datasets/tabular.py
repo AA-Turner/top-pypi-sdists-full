@@ -7,6 +7,7 @@ from __future__ import annotations
 
 __all__ = ["TabularIterableDataset"]
 
+from functools import cached_property
 import os
 import logging
 from typing import TYPE_CHECKING, Iterator, Any, cast
@@ -287,29 +288,52 @@ class TabularIterableDataset(IterableDataset):
                 return conn
 
             self._get_conn = get_flight_conn
+        elif (
+            dict_connection.get("type") == "fs"
+            and "location" in dict_connection
+            and "path" in dict_connection["location"]
+        ):
 
-        else:
-
-            if (
-                dict_connection.get("type") == "fs"
-                and "location" in dict_connection
-                and "path" in dict_connection["location"]
-            ):
-
-                def get_local_conn() -> LocalBatchReader:
-                    return LocalBatchReader(
-                        file_path=dict_connection["location"]["path"],
-                        batch_size=sample_size_limit,
-                    )
-
-                self._get_conn = get_local_conn
-
-            else:
-                raise NotImplementedError(
-                    "For local data read please use 'fs' (file system) connection type. "
-                    + "For remote data read enrich DataConnection with authorization data using "
-                    + "`connection.set_client(api_client)` function or providing 'experiment_metadata'."
+            def get_local_conn() -> LocalBatchReader:
+                return LocalBatchReader(
+                    file_path=dict_connection["location"]["path"],
+                    batch_size=sample_size_limit,
                 )
+
+            self._get_conn = get_local_conn
+        else:
+            raise NotImplementedError(
+                "For local data read please use 'fs' (file system) connection type. "
+                "For remote data read enrich DataConnection with authorization data using "
+                "`connection.set_client(api_client)` function or providing 'experiment_metadata'."
+            )
+
+    @cached_property
+    def connection(self) -> "FlightConnection | LocalBatchReader":
+        """
+        Get data connection.
+
+        :returns: connection used in data operations
+        :rtype: FlightConnection | LocalBatchReader
+
+        **Example:**
+
+        .. code-block:: python
+
+            dataset = TabularIterableDataset(...)
+            conn = dataset.connection
+
+            # Your code here...
+
+            conn.close() # FlightConnection instances must be closed after use
+        """
+        from ibm_watsonx_ai.helpers.connections.flight_service import FlightConnection
+
+        conn = self._get_conn()
+        if isinstance(conn, FlightConnection):
+            conn._set_flight_client()
+
+        return conn
 
     @property
     def _wml_client(self) -> APIClient:

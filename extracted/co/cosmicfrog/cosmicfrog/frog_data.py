@@ -30,7 +30,7 @@ from .frog_anura import AnuraSchema
 from .frog_custom_tables_and_columns import CustomTablesAndColumns
 from .frog_run_scenario import RunScenario, RunScenarioResponse, RESOURCE_SIZES, ENGINES, ModelRunOption
 from .decorators import check_connection_type
-
+from urllib.parse import quote
 # pylint: disable=logging-fstring-interpolation
 
 # TODO:
@@ -133,7 +133,7 @@ class FrogModel:
             raise ValueError("Model name has to be provided when app key is set")
 
         if model_name and not (connection_string or engine):
-            self.oc = OptilogicClient(appkey=self._app_key)
+            self.oc = OptilogicClient(appkey=self._app_key, logger=self.log)
             success, connection_string = self.oc.get_connection_string(model_name)
 
             if not success:
@@ -1902,9 +1902,9 @@ class FrogModel:
 
         if target_user is None:
             return {"status": "error", "message": "Target user is required. Username or email address of the user who will be assigned ownership of the storage device"}
-
         try:
-            url = f'{ATLAS_API_BASE_URL}/storage/{self.model_name}/share/access?targetUser={target_user}'
+            encoded_target_user = quote(target_user)
+            url = f'{ATLAS_API_BASE_URL}/storage/{self.model_name}/share/access?targetUser={encoded_target_user}'
             headers = {'X-App-Key': self._app_key}
             response = requests.request('POST', url, headers=headers, timeout=60)
             res = response.json()
@@ -1934,9 +1934,9 @@ class FrogModel:
     
         if target_user is None:
             return {"status": "error", "message": "Target user is required. Username or email address of the user who will be removed from ownership of the storage device"}
-
         try:
-            url = f'{ATLAS_API_BASE_URL}/storage/{self.model_name}/share/access?targetUser={target_user}'
+            encoded_target_user = quote(target_user)
+            url = f'{ATLAS_API_BASE_URL}/storage/{self.model_name}/share/access?targetUser={encoded_target_user}'
             headers = {'X-App-Key': self._app_key}
             response = requests.request('DELETE', url, headers=headers, timeout=60)
             res = response.json()

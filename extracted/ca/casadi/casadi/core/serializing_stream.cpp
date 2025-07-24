@@ -45,10 +45,16 @@ namespace casadi {
     static casadi_int serialization_check = 123456789012345;
 
     DeserializingStream::DeserializingStream(std::istream& in_s) : in(in_s), debug_(false) {
-
       casadi_assert(in_s.good(), "Invalid input stream. If you specified an input file, "
         "make sure it exists relative to the current directory.");
 
+      if (in_s.peek() != std::char_traits<char>::eof()) {
+        setup();
+      }
+    }
+
+    void DeserializingStream::setup() {
+      if (set_up_) return;
       // Sanity check
       casadi_int check;
       unpack(check);
@@ -67,7 +73,7 @@ namespace casadi {
       bool debug;
       unpack(debug);
       debug_ = debug;
-
+      set_up_ = true;
     }
 
     SerializingStream::SerializingStream(std::ostream& out_s) :
@@ -156,7 +162,7 @@ namespace casadi {
       for (int j=0;j<4;++j) pack(c[j]);
     }
 
-#if SIZE_MAX != UINT_MAX || defined(__EMSCRIPTEN__)
+#if SIZE_MAX != UINT_MAX || defined(__EMSCRIPTEN__) || defined(__POWERPC__)
     void DeserializingStream::unpack(unsigned int& e) {
       assert_decoration('u');
       uint32_t n;
@@ -318,13 +324,13 @@ namespace casadi {
       s.seekg(0, std::ios::beg);
       pack(len);
       char buffer[1024];
-      for (size_t i=0;i<len;++i) {
+      while (true) {
         s.read(buffer, 1024);
         size_t c = s.gcount();
         for (size_t j=0;j<c;++j) {
           pack(buffer[j]);
         }
-        if (s.rdstate() & std::ifstream::eofbit) break;
+        if (s.eof()) break;
       }
     }
 

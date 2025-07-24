@@ -1,10 +1,11 @@
 Metadata-Version: 2.4
 Name: semgrep
-Version: 1.128.1
+Version: 1.130.0
 Summary: Lightweight static analysis for many languages. Find bug variants with patterns that look like source code.
 Home-page: https://github.com/returntocorp/semgrep
 Author: Semgrep Inc.
 Author-email: support@semgrep.com
+License: LGPL-2.1-or-later
 Classifier: Environment :: Console
 Classifier: License :: OSI Approved :: GNU Lesser General Public License v2 (LGPLv2)
 Classifier: Operating System :: MacOS
@@ -45,6 +46,7 @@ Dynamic: classifier
 Dynamic: description
 Dynamic: description-content-type
 Dynamic: home-page
+Dynamic: license
 Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: requires-python

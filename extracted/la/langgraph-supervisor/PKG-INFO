@@ -1,13 +1,12 @@
 Metadata-Version: 2.4
 Name: langgraph-supervisor
-Version: 0.0.27
+Version: 0.0.28
 Summary: An implementation of a supervisor multi-agent architecture using LangGraph
 Author-Email: Vadym Barda <19161700+vbarda@users.noreply.github.com >
 License-Expression: MIT
 License-File: LICENSE
 Requires-Python: >=3.10
-Requires-Dist: langgraph>=0.3.5
-Requires-Dist: langgraph-prebuilt>=0.1.7
+Requires-Dist: langgraph>=0.4.6
 Requires-Dist: langchain-core>=0.3.40
 Description-Content-Type: text/markdown
 
@@ -242,6 +241,7 @@ from langchain_core.tools import tool, BaseTool, InjectedToolCallId
 from langchain_core.messages import ToolMessage
 from langgraph.types import Command
 from langgraph.prebuilt import InjectedState
+from langgraph_supervisor.handoff import METADATA_KEY_HANDOFF_DESTINATION
 
 def create_custom_handoff_tool(*, agent_name: str, name: str | None, description: str | None) -> BaseTool:
 
@@ -274,6 +274,7 @@ def create_custom_handoff_tool(*, agent_name: str, name: str | None, description
             },
         )
 
+    handoff_to_agent.metadata = {METADATA_KEY_HANDOFF_DESTINATION: agent_name}
     return handoff_to_agent
 ```
 

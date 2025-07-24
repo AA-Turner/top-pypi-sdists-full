@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: google-adk
-Version: 1.7.0
+Version: 1.8.0
 Summary: Agent Development Kit
 Author-email: Google LLC <googleapis-packages@google.com>
 Requires-Python: >=3.9
@@ -81,6 +81,7 @@ Requires-Dist: pytest-asyncio>=0.25.0 ; extra == "test"
 Requires-Dist: pytest-mock>=3.14.0 ; extra == "test"
 Requires-Dist: pytest-xdist>=3.6.1 ; extra == "test"
 Requires-Dist: pytest>=8.3.4 ; extra == "test"
+Requires-Dist: python-multipart>=0.0.9 ; extra == "test"
 Project-URL: changelog, https://github.com/google/adk-python/blob/main/CHANGELOG.md
 Project-URL: documentation, https://google.github.io/adk-docs/
 Project-URL: homepage, https://google.github.io/adk-docs/

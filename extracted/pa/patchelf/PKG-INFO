@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: patchelf
-Version: 0.17.2.2
+Version: 0.17.2.4
 Summary: A small utility to modify the dynamic linker and RPATH of ELF executables.
 Keywords: auditwheel,elf,manylinux,musllinux,patchelf
 Author-Email: Matthieu Darbois <mayeut@users.noreply.github.com>
@@ -79,6 +79,9 @@ The following platforms are supported with binary wheels:
   |               | | musllinux_1_1+         |
   +---------------+--------------------------+
   | Linux s390x   | | manylinux2014+         |
+  |               | | musllinux_1_1+         |
+  +---------------+--------------------------+
+  | Linux riscv64 | | manylinux_2_31+        |
   |               | | musllinux_1_1+         |
   +---------------+--------------------------+
 

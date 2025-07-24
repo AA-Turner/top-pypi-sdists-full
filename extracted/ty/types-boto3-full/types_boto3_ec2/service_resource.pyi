@@ -628,7 +628,12 @@ class ServiceResourceInstancesCollection(ResourceCollection):
         """
 
     def stop(
-        self, *, Hibernate: bool = ..., DryRun: bool = ..., Force: bool = ...
+        self,
+        *,
+        Hibernate: bool = ...,
+        SkipOsShutdown: bool = ...,
+        DryRun: bool = ...,
+        Force: bool = ...,
     ) -> List[StopInstancesResultTypeDef]:
         """
         Batch method.
@@ -637,7 +642,9 @@ class ServiceResourceInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#serviceresourceinstancescollection)
         """
 
-    def terminate(self, *, DryRun: bool = ...) -> List[TerminateInstancesResultTypeDef]:
+    def terminate(
+        self, *, SkipOsShutdown: bool = ..., DryRun: bool = ...
+    ) -> List[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1712,7 +1719,12 @@ class PlacementGroupInstancesCollection(ResourceCollection):
         """
 
     def stop(
-        self, *, Hibernate: bool = ..., DryRun: bool = ..., Force: bool = ...
+        self,
+        *,
+        Hibernate: bool = ...,
+        SkipOsShutdown: bool = ...,
+        DryRun: bool = ...,
+        Force: bool = ...,
     ) -> List[StopInstancesResultTypeDef]:
         """
         Batch method.
@@ -1721,7 +1733,9 @@ class PlacementGroupInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#placementgroupinstances)
         """
 
-    def terminate(self, *, DryRun: bool = ...) -> List[TerminateInstancesResultTypeDef]:
+    def terminate(
+        self, *, SkipOsShutdown: bool = ..., DryRun: bool = ...
+    ) -> List[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -1836,7 +1850,12 @@ class SubnetInstancesCollection(ResourceCollection):
         """
 
     def stop(
-        self, *, Hibernate: bool = ..., DryRun: bool = ..., Force: bool = ...
+        self,
+        *,
+        Hibernate: bool = ...,
+        SkipOsShutdown: bool = ...,
+        DryRun: bool = ...,
+        Force: bool = ...,
     ) -> List[StopInstancesResultTypeDef]:
         """
         Batch method.
@@ -1845,7 +1864,9 @@ class SubnetInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#subnetinstances)
         """
 
-    def terminate(self, *, DryRun: bool = ...) -> List[TerminateInstancesResultTypeDef]:
+    def terminate(
+        self, *, SkipOsShutdown: bool = ..., DryRun: bool = ...
+    ) -> List[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 
@@ -2154,7 +2175,12 @@ class VpcInstancesCollection(ResourceCollection):
         """
 
     def stop(
-        self, *, Hibernate: bool = ..., DryRun: bool = ..., Force: bool = ...
+        self,
+        *,
+        Hibernate: bool = ...,
+        SkipOsShutdown: bool = ...,
+        DryRun: bool = ...,
+        Force: bool = ...,
     ) -> List[StopInstancesResultTypeDef]:
         """
         Batch method.
@@ -2163,7 +2189,9 @@ class VpcInstancesCollection(ResourceCollection):
         [Show types-boto3-full documentation](https://youtype.github.io/types_boto3_docs/types_boto3_ec2/service_resource/#vpcinstances)
         """
 
-    def terminate(self, *, DryRun: bool = ...) -> List[TerminateInstancesResultTypeDef]:
+    def terminate(
+        self, *, SkipOsShutdown: bool = ..., DryRun: bool = ...
+    ) -> List[TerminateInstancesResultTypeDef]:
         """
         Batch method.
 

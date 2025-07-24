@@ -95,6 +95,7 @@ class WebService(BaseDeployment):
         training_target: DataFrame | ndarray | None = None,
         experiment_run_id: str | None = None,
         hardware_spec: dict | None = None,
+        astype: str = "hybrid",
     ) -> None:
         """Create a deployment from a model.
 
@@ -122,6 +123,8 @@ class WebService(BaseDeployment):
         :param hardware_spec: hardware specification for the deployment
         :type hardware_spec: dict, optional
 
+        :param astype: type of stored model [hybrid, onnx]
+        :type astype: str, optional
         **Example:**
 
         .. code-block:: python
@@ -151,6 +154,7 @@ class WebService(BaseDeployment):
             experiment_run_id=experiment_run_id,
             deployment_type="online",
             hardware_spec=hardware_spec,
+            astype=astype,
         )
 
     @BaseDeployment._project_to_space_to_project

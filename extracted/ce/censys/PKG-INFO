@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: censys
-Version: 2.2.17
+Version: 2.2.18
 Summary: An easy-to-use and lightweight API wrapper for Censys APIs (censys.io).
 License: Apache-2.0
 Keywords: censys,api,search,attack surface management
@@ -56,6 +56,14 @@ Description-Content-Type: text/markdown
 [![GitHub Discussions](https://img.shields.io/badge/GitHub-Discussions-brightgreen?logo=github)](https://github.com/censys/censys-python/discussions)
 [![PRs Welcome](https://img.shields.io/badge/PRs-welcome-organge.svg?logo=git&logoColor=organge)](http://makeapullrequest.com)
 [![License](https://img.shields.io/github/license/censys/censys-python?logo=apache)](https://github.com/censys/censys-python/blob/main/LICENSE)
+
+> [!WARNING]
+> **DEPRECATION NOTICE**: The Censys Search v1 and v2 APIs will be deprecated soon. Please migrate to the new **Censys Platform API**.
+> 
+> - 📖 **New API Documentation**: [https://docs.censys.com/reference/get-started#/](https://docs.censys.com/reference/get-started#/)
+> - 📦 **New Python SDK**: Install with `pip install censys-platform` - [https://pypi.org/project/censys-platform/](https://pypi.org/project/censys-platform/)
+> 
+> The **Censys ASM APIs in this library are NOT deprecated** and will continue to be supported.
 
 An easy-to-use and lightweight API wrapper for Censys APIs ([censys.io](https://censys.io/)). Python 3.8+ is currently supported. This library has been tested on Python 3.8 and 3.x (Currently version 3.10).
 

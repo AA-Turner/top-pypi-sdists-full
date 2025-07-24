@@ -29,6 +29,32 @@
 
 namespace casadi {
 
+// Memory object
+struct Fmu2Memory : public FmuMemory {
+  Fmu2::Value aux_value;
+  // Constructor
+  explicit Fmu2Memory(const FmuFunction& self) : FmuMemory(self) {}
+};
+
+int Fmu2::init_mem(FmuMemory* mem) const {
+  if (FmuInternal::init_mem(mem)) return 1;
+  auto m = static_cast<Fmu2Memory*>(mem);
+  /// Allocate numerical values for initial auxilliary variables
+  m->aux_value.v_real.resize(vn_aux_real_.size());
+  m->aux_value.v_integer.resize(vn_aux_integer_.size());
+  m->aux_value.v_boolean.resize(vn_aux_boolean_.size());
+  m->aux_value.v_string.resize(vn_aux_string_.size());
+  return 0;
+}
+
+FmuMemory* Fmu2::alloc_mem(const FmuFunction& f) const {
+  return new Fmu2Memory(f);
+}
+
+void Fmu2::free_mem(void *mem) const {
+  delete static_cast<Fmu2Memory*>(mem);
+}
+
 Fmu2::~Fmu2() {
 }
 
@@ -135,12 +161,17 @@ void Fmu2::init(const DaeBuilderInternal* dae) {
         casadi_warning("Ignoring " + v.name + ", type: " + to_string(v.type));
     }
   }
+}
 
+void Fmu2::finalize() {
   /// Allocate numerical values for initial auxilliary variables
   aux_value_.v_real.resize(vn_aux_real_.size());
   aux_value_.v_integer.resize(vn_aux_integer_.size());
   aux_value_.v_boolean.resize(vn_aux_boolean_.size());
   aux_value_.v_string.resize(vn_aux_string_.size());
+
+  // Recursive call
+  FmuInternal::finalize();
 }
 
 void Fmu2::load_functions() {
@@ -154,6 +185,8 @@ void Fmu2::load_functions() {
     "fmi2ExitInitializationMode");
   enter_continuous_time_mode_ = load_function<fmi2EnterContinuousTimeModeTYPE>(
     "fmi2EnterContinuousTimeMode");
+  get_derivatives_ = load_function<fmi2GetDerivativesTYPE>("fmi2GetDerivatives");
+  set_time_ = load_function<fmi2SetTimeTYPE>("fmi2SetTime");
   get_real_ = load_function<fmi2GetRealTYPE>("fmi2GetReal");
   set_real_ = load_function<fmi2SetRealTYPE>("fmi2SetReal");
   get_integer_ = load_function<fmi2GetIntegerTYPE>("fmi2GetInteger");
@@ -275,6 +308,16 @@ int Fmu2::enter_continuous_time_mode(void* instance) const {
   return 0;
 }
 
+int Fmu2::get_derivatives(void* instance, double* derivatives, size_t nx) const {
+  auto c = static_cast<fmi2Component>(instance);
+  fmi2Status status = get_derivatives_(c, derivatives, nx);
+  if (status != fmi2OK) {
+    casadi_warning("fmi2GetDerivatives failed");
+    return 1;
+  }
+  return 0;
+}
+
 int Fmu2::update_discrete_states(void* instance, EventMemory* eventmem) const {
   auto c = static_cast<fmi2Component>(instance);
   // Return arguments in FMI types
@@ -300,6 +343,19 @@ int Fmu2::update_discrete_states(void* instance, EventMemory* eventmem) const {
 int Fmu2::set_real(void* instance, const unsigned int* vr, size_t n_vr,
     const double* values, size_t n_values) const {
   casadi_assert(n_vr == n_values, "Vector-valued variables not supported in FMI 2");
+
+  // Set time variable, if any
+  if (has_independent_ && n_vr > 0 && *vr == vr_in_[0]) {
+    // Update FMU time
+    fmi2Status status = set_time_(instance, *values);
+    if (status != fmi2OK) return 1;
+    // Skip when setting remaining variables
+    vr++;
+    n_vr--;
+    values++;
+    n_values--;
+  }
+
   fmi2Status status = set_real_(instance, vr, n_vr, values);
   return status != fmi2OK;
 }
@@ -307,6 +363,17 @@ int Fmu2::set_real(void* instance, const unsigned int* vr, size_t n_vr,
 int Fmu2::get_real(void* instance, const unsigned int* vr, size_t n_vr,
     double* values, size_t n_values) const {
   casadi_assert(n_vr == n_values, "Vector-valued variables not supported in FMI 2");
+  if (do_evaluation_dance_) {
+    // Dummy call to trigger rtOneStep
+    fmi2Status status = get_real_(instance, nullptr, 0, nullptr);
+    if (status != fmi2OK) return 1;
+    // Scratch space to write derivative to (not used)
+    static thread_local std::vector<double> derivate_dump;
+    if (derivate_dump.size() < nx_) derivate_dump.resize(nx_);
+    // Dummy call to trigger computation of derivatives, possibly read later via get_real
+    status = get_derivatives_(instance, get_ptr(derivate_dump), nx_);
+    if (status != fmi2OK) return 1;
+  }
   fmi2Status status = get_real_(instance, vr, n_vr, values);
   return status != fmi2OK;
 }
@@ -362,12 +429,12 @@ int Fmu2::set_values(void* instance) const {
   return 0;
 }
 
-int Fmu2::get_aux(void* instance) {
+int Fmu2::get_aux_impl(void* instance, Value& aux_value) const {
   auto c = static_cast<fmi2Component>(instance);
   // Get real auxilliary variables
   if (!vr_aux_real_.empty()) {
     fmi2Status status = get_real_(c, get_ptr(vr_aux_real_), vr_aux_real_.size(),
-      get_ptr(aux_value_.v_real));
+      get_ptr(aux_value.v_real));
     if (status != fmi2OK) {
       casadi_warning("fmi2GetReal failed");
       return 1;
@@ -376,7 +443,7 @@ int Fmu2::get_aux(void* instance) {
   // Get integer/enum auxilliary variables
   if (!vr_aux_integer_.empty()) {
     fmi2Status status = get_integer_(c, get_ptr(vr_aux_integer_), vr_aux_integer_.size(),
-      get_ptr(aux_value_.v_integer));
+      get_ptr(aux_value.v_integer));
     if (status != fmi2OK) {
       casadi_warning("fmi2GetInteger failed");
       return 1;
@@ -385,7 +452,7 @@ int Fmu2::get_aux(void* instance) {
   // Get boolean auxilliary variables
   if (!vr_aux_boolean_.empty()) {
     fmi2Status status = get_boolean_(c, get_ptr(vr_aux_boolean_), vr_aux_boolean_.size(),
-      get_ptr(aux_value_.v_boolean));
+      get_ptr(aux_value.v_boolean));
     if (status != fmi2OK) {
       casadi_warning("fmi2GetBoolean failed");
       return 1;
@@ -394,7 +461,7 @@ int Fmu2::get_aux(void* instance) {
   // Get string auxilliary variables
   for (size_t k = 0; k < vr_aux_string_.size(); ++k) {
     fmi2ValueReference vr = vr_aux_string_[k];
-    fmi2String value = aux_value_.v_string.at(k).c_str();
+    fmi2String value = aux_value.v_string.at(k).c_str();
     fmi2Status status = set_string_(c, &vr, 1, &value);
     if (status != fmi2OK) {
       casadi_error("fmi2GetString failed for value reference " + str(vr));
@@ -404,12 +471,14 @@ int Fmu2::get_aux(void* instance) {
   return 0;
 }
 
+int Fmu2::get_aux(void* instance) {
+  return get_aux_impl(instance, aux_value_);
+}
+
 void Fmu2::get_stats(FmuMemory* m, Dict* stats,
     const std::vector<std::string>& name_in, const InputStruct* in) const {
-  // To do: Use auxillary variables from last evaluation
-  (void)m;  // unused
-  // Auxilliary values to be copied
-  const Value& v = aux_value_;
+  Value& v = static_cast<Fmu2Memory*>(m)->aux_value;
+  get_aux_impl(m->instance, v);
   // Collect auxilliary variables
   Dict aux;
   // Real
@@ -458,6 +527,7 @@ Fmu2::Fmu2(const std::string& name,
   enter_initialization_mode_ = 0;
   exit_initialization_mode_ = 0;
   enter_continuous_time_mode_ = 0;
+  set_time_ = 0;
   set_real_ = 0;
   set_boolean_ = 0;
   get_real_ = 0;

@@ -29,6 +29,7 @@ pub fn consume(parser: &mut TokenParser, tok: u32) {
     assert!(n == 0);
 }
 
+#[allow(dead_code)]
 pub fn lark_ok(lark: &str) {
     if let Err(e) = make_parser(lark, false) {
         panic!("unexpected error: {e}, grm:\n{lark}")
@@ -114,6 +115,7 @@ pub fn lark_str_test(lark: &str, should_accept: bool, input: &str, quiet: bool) 
     }
 }
 
+#[allow(dead_code)]
 pub fn lark_str_test_many_ext(quiet: bool, lark: &str, passing: &[&str], failing: &[&str]) {
     for s in passing {
         lark_str_test(lark, true, s, quiet);
@@ -123,22 +125,28 @@ pub fn lark_str_test_many_ext(quiet: bool, lark: &str, passing: &[&str], failing
     }
 }
 
-pub fn json_test_many(schema: &Value, passing: &[Value], failing: &[Value]) {
+pub fn json_schema_check(schema: &Value, json_obj: &Value, expect_valid: bool) {
     let lark = format!(r#"start: %json {}"#, serde_json::to_string(schema).unwrap());
+    let s = serde_json::to_string(json_obj).unwrap();
+    lark_str_test(&lark, expect_valid, &s, false);
+}
+
+#[allow(dead_code)]
+pub fn json_test_many(schema: &Value, passing: &[Value], failing: &[Value]) {
     for s in passing {
-        let s = serde_json::to_string(s).unwrap();
-        lark_str_test(&lark, true, &s, false);
+        json_schema_check(schema, s, true);
     }
     for s in failing {
-        let s = serde_json::to_string(s).unwrap();
-        lark_str_test(&lark, false, &s, false);
+        json_schema_check(schema, s, false);
     }
 }
 
+#[allow(dead_code)]
 pub fn lark_str_test_many(lark: &str, passing: &[&str], failing: &[&str]) {
     lark_str_test_many_ext(false, lark, passing, failing);
 }
 
+#[allow(dead_code)]
 pub fn lark_str_test_many_quiet(lark: &str, passing: &[&str], failing: &[&str]) {
     lark_str_test_many_ext(true, lark, passing, failing);
 }

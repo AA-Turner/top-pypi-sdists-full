@@ -49,6 +49,9 @@ jobs:
           - arch: "armv7l"
             docker_arch: "arm/v7"
             test_image: python:3.7-slim-stretch
+          - arch: "riscv64"
+            docker_arch: "riscv64"
+            test_image: quay.io/pypa/manylinux_2_39_riscv64
           - arch: "universal2"
             docker_arch: "na"
             test_image: "na"
@@ -64,11 +67,11 @@ jobs:
         if: runner.os == 'Linux'
 
       - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3.10.0
+        uses: docker/setup-buildx-action@v3.11.1
         if: runner.os == 'Linux'
 
       - name: Build patchelf_build_${{ matrix.arch }} image
-        uses: docker/build-push-action@v6.15.0
+        uses: docker/build-push-action@v6.18.0
         if: runner.os == 'Linux'
         with:
           context: .
@@ -84,7 +87,7 @@ jobs:
         run: brew install autoconf automake
 
       - name: Build wheels
-        uses: pypa/cibuildwheel@v2.23.0
+        uses: pypa/cibuildwheel@v3.0.1
         env:
           CIBW_ARCHS: "${{ matrix.arch }}"
 

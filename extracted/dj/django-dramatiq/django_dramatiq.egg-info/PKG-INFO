@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: django_dramatiq
-Version: 0.13.0
+Version: 0.14.0
 Summary: A Django app for Dramatiq.
 Classifier: Environment :: Web Environment
 Classifier: Operating System :: OS Independent
@@ -28,6 +28,7 @@ Requires-Dist: pytest-django; extra == "dev"
 Requires-Dist: twine; extra == "dev"
 Dynamic: classifier
 Dynamic: description
+Dynamic: license-file
 Dynamic: provides-extra
 Dynamic: requires-dist
 Dynamic: requires-python

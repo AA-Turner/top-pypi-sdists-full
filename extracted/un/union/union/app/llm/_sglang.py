@@ -9,7 +9,7 @@ from union import ImageSpec
 from union.app import App, Input
 
 FLASH_INFER_INDEX_URL = "https://flashinfer.ai/whl/cu124/torch2.5"
-DEFAULT_SGLANG_IMAGE = "ghcr.io/unionai-oss/serving-sglang:latest"
+DEFAULT_SGLANG_IMAGE = "ghcr.io/unionai/serving-sglang:py3.12-latest"
 OPTIMIZED_SGLANG_IMAGE = "managed.cr.union.ai/sglang:stable"
 
 

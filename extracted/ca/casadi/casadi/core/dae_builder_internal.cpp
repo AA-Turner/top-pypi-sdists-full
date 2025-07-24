@@ -601,8 +601,7 @@ DaeBuilderInternal::DaeBuilderInternal(const std::string& name, const std::strin
 
 void DaeBuilderInternal::load_fmi_description(const std::string& filename) {
   // Check if file exists
-  std::ifstream test(filename);
-  if (!test.good()) {
+  if (!Filesystem::exists(filename)) {
     if (Filesystem::is_enabled()) {
       casadi_error("Could not open file '" + filename + "'.");
     } else {
@@ -768,6 +767,16 @@ std::string DaeBuilderInternal::generate_model_description(const std::string& gu
   me.name = "ModelExchange";
   me.set_attribute("modelIdentifier", model_name);  // sanitize name?
   r.children.push_back(me);
+
+  // Default experiment
+  XmlNode def_exp;
+  def_exp.name = "DefaultExperiment";
+  if (!std::isnan(start_time_)) def_exp.set_attribute("startTime", start_time_);
+  if (!std::isnan(stop_time_)) def_exp.set_attribute("stopTime", stop_time_);
+  if (!std::isnan(tolerance_)) def_exp.set_attribute("tolerance", tolerance_);
+  if (!std::isnan(step_size_)) def_exp.set_attribute("stepSize", step_size_);
+  if (!def_exp.attributes.empty()) r.children.push_back(def_exp);
+
   // Model variables
   r.children.push_back(generate_model_variables());
   // Model structure
@@ -906,6 +915,7 @@ std::vector<std::string> DaeBuilderInternal::export_fmu(const Dict& opts) const 
   std::string guid = generate_guid();
   // Generate model function
   std::string dae_filename = name_;
+  casadi_assert(size(Category::Q) == 0, "Not implemented");
   Function dae = shared_from_this<DaeBuilder>().create(dae_filename,
     {"t", "x", "p", "u"}, {"ode", "y", "zero"});
   // Event transition function, if needed
@@ -976,8 +986,10 @@ std::string DaeBuilderInternal::generate_wrapper(const std::string& guid,
     const CodeGenerator& gen) const {
   // Create file
   std::string wrapper_filename = name_ + "_wrap.c";
-  std::ofstream f;
-  CodeGenerator::file_open(f, wrapper_filename, false);
+
+  auto f_ptr = Filesystem::ofstream_ptr(wrapper_filename);
+  std::ostream& f = *f_ptr;
+  CodeGenerator::stream_open(f, false);
 
   // Add includes
   f << "#include <fmi3Functions.h>\n"
@@ -1045,7 +1057,7 @@ std::string DaeBuilderInternal::generate_wrapper(const std::string& guid,
   f << CodeGenerator::fmu_helpers(name_);
 
   // Finalize file
-  CodeGenerator::file_close(f, false);
+  CodeGenerator::stream_close(f, false);
   return wrapper_filename;
 }
 
@@ -1798,6 +1810,7 @@ std::string to_string(OutputCategory v) {
   case OutputCategory::DDEF: return "ddef";
   case OutputCategory::WDEF: return "wdef";
   case OutputCategory::Y: return "y";
+  case OutputCategory::RATE: return "rate";
   default: break;
   }
   return "";
@@ -1840,10 +1853,13 @@ std::vector<MX> DaeBuilderInternal::output(OutputCategory ind) const {
       return var(event_indicators_);
     case OutputCategory::ALG:
       return var(residuals_);
+    case OutputCategory::RATE:
+      return var(rate_);
     default: break;
   }
   // Otherwise: Defined by corresponding input category
   Category cat = input_category(ind);
+
   // Return object
   std::vector<MX> ret;
   ret.reserve(size(cat));
@@ -2576,6 +2592,7 @@ Function DaeBuilderInternal::fmu_fun(const std::string& name,
     }
     has_in = true;
   }
+
   // Scheme outputs
   std::vector<std::string> scheme_out;
   bool has_out = false;
@@ -2617,9 +2634,12 @@ Function DaeBuilderInternal::fmu_fun(const std::string& name,
     scheme["p"] = indices(Category::P);
     scheme["ode"] = indices(Category::X);
     for (size_t& i : scheme["ode"]) i = variable(i).der;
+    scheme["quad"] = indices(Category::Q);
+    for (size_t& i : scheme["quad"]) i = variable(i).der;
     scheme["alg"] = indices(Category::Z);
     casadi_assert(size(Category::Z) == 0, "Not implemented)");
     scheme["y"] = outputs_;
+    scheme["rate"] = rate_;
   }
   // Auxilliary variables, if any
   std::vector<std::string> aux;
@@ -3300,10 +3320,31 @@ void DaeBuilderInternal::import_model_variables(const XmlNode& modvars) {
   // Mapping from derivative variables to corresponding state variables, FMUX only
   std::vector<std::pair<std::string, std::string>> fmi1_der;
 
-  // Add variables
+  // Force any independent variable to appear first
+  std::vector<const XmlNode*> modvars_children;
+
   for (casadi_int i = 0; i < modvars.size(); ++i) {
     // Get a reference to the variable
     const XmlNode& vnode = modvars[i];
+    std::string causality_str = vnode.attribute<std::string>("causality", "local");
+    if (causality_str=="independent") {
+      modvars_children.push_back(&vnode);
+    }
+  }
+
+  for (casadi_int i = 0; i < modvars.size(); ++i) {
+    // Get a reference to the variable
+    const XmlNode& vnode = modvars[i];
+    std::string causality_str = vnode.attribute<std::string>("causality", "local");
+    if (causality_str!="independent") {
+      modvars_children.push_back(&vnode);
+    }
+  }
+
+  // Add variables
+  for (const XmlNode* & vnode_ptr : modvars_children) {
+    // Get a reference to the variable
+    const XmlNode& vnode = *vnode_ptr;
 
     // Name of variable
     std::string name = vnode.attribute<std::string>("name");
@@ -3439,9 +3480,9 @@ void DaeBuilderInternal::import_model_variables(const XmlNode& modvars) {
       categorize(var.index, Category::NUMEL);
     }
 
-    // Assume all variables in the right-hand-sides for now
+    // Unless detect_quad has been set, assume all variables in the right-hand-sides
     // Prevents changing X to Q
-    var.in_rhs = true;
+    var.in_rhs = !detect_quad_ && fmi_major_ >= 2;
     var.value_reference = static_cast<unsigned int>(vnode.attribute<casadi_int>("valueReference"));
     vrmap_[var.value_reference] = var.index;
     var.der_of = derivative;
@@ -3544,6 +3585,7 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
         v.dependenciesKind = read_dependencies_kind(e, v.dependencies.size());
         // Mark interdependencies
         for (casadi_int d : v.dependencies) variable(d).dependency = true;
+        for (casadi_int d : v.dependencies) variable(d).in_rhs = true;
       } else if (e.name == "ContinuousStateDerivative") {
         // Get index
         derivatives_.push_back(vrmap_.at(e.attribute<size_t>("valueReference")));
@@ -3560,6 +3602,7 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
         v.dependenciesKind = read_dependencies_kind(e, v.dependencies.size());
         // Mark interdependencies
         for (casadi_int d : v.dependencies) variable(d).dependency = true;
+        for (casadi_int d : v.dependencies) variable(d).in_rhs = true;
       } else if (e.name == "ClockedState") {
         // Clocked state
         casadi_message("ClockedState not implemented, ignoring");
@@ -3642,6 +3685,7 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
 
         // Mark interdependencies
         for (casadi_int d : v.dependencies) variable(d).dependency = true;
+        for (casadi_int d : v.dependencies) variable(d).in_rhs = true;
       }
     }
     // Outputs
@@ -3666,6 +3710,7 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
 
         // Mark interdependencies
         for (casadi_int d : v.dependencies) variable(d).dependency = true;
+        for (casadi_int d : v.dependencies) variable(d).in_rhs = true;
       }
     }
     // What if dependencies is missing from InitialUnknowns?
@@ -3700,6 +3745,14 @@ void DaeBuilderInternal::import_model_structure(const XmlNode& n) {
         // Get dependencies
         for (casadi_int d : dependencies) variable(d).dependency = true;
       }
+    }
+  }
+
+  // Reclassify some states as quadratures
+  if (detect_quad_ && fmi_major_ >= 2) {
+    for (size_t i : derivatives_) {
+      size_t x = variable(i).parent;
+      if (!variable(x).in_rhs) categorize(x, Category::Q);
     }
   }
 }

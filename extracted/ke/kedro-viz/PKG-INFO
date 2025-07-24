@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: kedro-viz
-Version: 11.1.0
+Version: 12.0.0
 Summary: Kedro-Viz helps visualise Kedro data and analytics pipelines
 Project-URL: Homepage, https://kedro.org
 Project-URL: Source, https://github.com/kedro-org/kedro-viz
@@ -16,7 +16,7 @@ Requires-Dist: fastapi<0.200.0,>=0.100.0
 Requires-Dist: fsspec>=2021.4
 Requires-Dist: ipython<9.0,>=7.0.0
 Requires-Dist: kedro-telemetry>=0.6.0
-Requires-Dist: kedro>=0.18.0
+Requires-Dist: kedro>=1.0.0
 Requires-Dist: networkx>=2.5
 Requires-Dist: orjson<4.0,>=3.9
 Requires-Dist: packaging>=23.0
@@ -25,8 +25,6 @@ Requires-Dist: pathspec>=0.12.1
 Requires-Dist: plotly>=4.0
 Requires-Dist: pydantic>=2.0.0
 Requires-Dist: secure>=0.3.0
-Requires-Dist: sqlalchemy<3,>=1.4
-Requires-Dist: strawberry-graphql<1.0,>=0.192.0
 Requires-Dist: uvicorn[standard]<1.0,>=0.30.0
 Requires-Dist: watchfiles>=0.24.0
 Provides-Extra: aws
@@ -52,8 +50,7 @@ Description-Content-Type: text/markdown
 <br />
 <p align="center">
 
-![Kedro-Viz Pipeline Visualisation](https://raw.githubusercontent.com/kedro-org/kedro-viz/main/.github/img/banner.png)
-
+![Kedro-Viz Pipeline Visualisation](https://raw.githubusercontent.com/kedro-org/kedro-viz/main//banner.gif)
 </p>
 
 <p align="center">

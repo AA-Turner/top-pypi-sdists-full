@@ -57,129 +57,212 @@ Date: 05/31/2023
 Version: 0.1.2
 """
 import os
+from pathlib import Path
 from typing import Union
 from .path_utils import get_all_item_paths,get_files
 from .list_utils import make_list
-MIME_TYPES_JS = media_types = {
-        'image': {
-            '.jpg': 'image/jpeg',
-            '.jpeg': 'image/jpeg',
-            '.png': 'image/png',
-            '.gif': 'image/gif',
-            '.bmp': 'image/bmp',
-            '.tiff': 'image/tiff',
-            '.webp': 'image/webp',
-            '.svg': 'image/svg+xml'
-        },
-        'video': {
-            '.mp4': 'video/mp4',
-            '.avi': 'video/x-msvideo',
-            '.mov': 'video/quicktime',
-            '.wmv': 'video/x-ms-wmv',
-            '.flv': 'video/x-flv',
-            '.mkv': 'video/x-matroska',
-            '.webm': 'video/webm'
-        },
-        'audio': {
-            '.mp3': 'audio/mpeg',
-            '.wav': 'audio/wav',
-            '.ogg': 'audio/ogg',
-            '.flac': 'audio/flac',
-            '.aac': 'audio/x-aac',
-            '.m4a': 'audio/mp4'
-        },
-        'document': {
-            '.pdf': 'application/pdf',
-            '.doc': 'application/msword',
-            '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
-            '.txt': 'text/plain',
-            '.rtf': 'application/rtf'
-        },
-        'presentation': {
-            '.ppt': 'application/vnd.ms-powerpoint',
-            '.pptx': 'application/vnd.openxmlformats-officedocument.presentationml.presentation'
-        },
-        'spreadsheet': {
-            '.xls': 'application/vnd.ms-excel',
-            '.xlsx': 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
-            '.csv': 'text/csv'
-        }
+# A big, but by no means exhaustive, map of extensions to mime‐types by category:
+MIME_TYPES = {
+    'image': {
+        '.jpg':   'image/jpeg',
+        '.jpeg':  'image/jpeg',
+        '.png':   'image/png',
+        '.gif':   'image/gif',
+        '.bmp':   'image/bmp',
+        '.tiff':  'image/tiff',
+        '.webp':  'image/webp',
+        '.svg':   'image/svg+xml',
+        '.ico':   'image/vnd.microsoft.icon',
+        '.heic':  'image/heic',
+        '.psd':   'image/vnd.adobe.photoshop',
+        '.raw':   'image/x-raw',
+    },
+    'video': {
+        '.mp4':   'video/mp4',
+        '.webm':  'video/webm',
+        '.ogg':   'video/ogg',
+        '.mov':   'video/quicktime',
+        '.avi':   'video/x-msvideo',
+        '.mkv':   'video/x-matroska',
+        '.flv':   'video/x-flv',
+        '.wmv':   'video/x-ms-wmv',
+        '.3gp':   'video/3gpp',
+        '.ts':    'video/mp2t',
+    },
+    'audio': {
+        '.mp3':   'audio/mpeg',
+        '.wav':   'audio/wav',
+        '.flac':  'audio/flac',
+        '.aac':   'audio/aac',
+        '.ogg':   'audio/ogg',
+        '.m4a':   'audio/mp4',
+        '.opus':  'audio/opus',
+    },
+    'document': {
+        '.pdf':   'application/pdf',
+        '.doc':   'application/msword',
+        '.docx':  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.odt':   'application/vnd.oasis.opendocument.text',
+        '.txt':   'text/plain',
+        '.rtf':   'application/rtf',
+        '.md':    'text/markdown',
+        '.markdown': 'text/markdown',
+        '.tex':   'application/x-tex',
+        '.log':   'text/plain',
+        '.json':  'application/json',
+        '.xml':   'application/xml',
+        '.yaml':  'application/x-yaml',
+        '.yml':   'application/x-yaml',
+        '.ini':   'text/plain',
+        '.cfg':   'text/plain',
+        '.toml':  'application/toml',
+        '.csv':   'text/csv',
+        '.tsv':   'text/tab-separated-values'
+    },
+    'presentation': {
+        '.ppt':   'application/vnd.ms-powerpoint',
+        '.pptx':  'application/vnd.openxmlformats-officedocument.presentationml.presentation',
+        '.odp':   'application/vnd.oasis.opendocument.presentation',
+    },
+    'spreadsheet': {
+        '.xls':   'application/vnd.ms-excel',
+        '.xlsx':  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
+        '.ods':   'application/vnd.oasis.opendocument.spreadsheet',
+        '.csv':   'text/csv',
+        '.tsv':   'text/tab-separated-values'
+    },
+    'code': {
+        '.py':    'text/x-python',
+        '.java':  'text/x-java-source',
+        '.c':     'text/x-c',
+        '.cpp':   'text/x-c++',
+        '.h':     'text/x-c',
+        '.hpp':   'text/x-c++',
+        '.js':    'application/javascript',
+        '.cjs':   'application/javascript',
+        '.mjs':   'application/javascript',
+        '.jsx':   'application/javascript',
+        '.ts':    'application/typescript',
+        '.tsx':   'application/typescript',
+        '.rb':    'text/x-ruby',
+        '.php':   'application/x-php',
+        '.go':    'text/x-go',
+        '.rs':    'text/rust',
+        '.swift': 'text/x-swift',
+        '.kt':    'text/x-kotlin',
+        '.sh':    'application/x-shellscript',
+        '.bash':  'application/x-shellscript',
+        '.ps1':   'application/x-powershell',
+        '.sql':   'application/sql',
+        '.yml':   'application/x-yaml',
+        '.coffee':'text/coffeescript',
+        '.lua':   'text/x-lua',
+    },
+    'archive': {
+        '.zip':   'application/zip',
+        '.tar':   'application/x-tar',
+        '.gz':    'application/gzip',
+        '.tgz':   'application/gzip',
+        '.bz2':   'application/x-bzip2',
+        '.xz':    'application/x-xz',
+        '.rar':   'application/vnd.rar',
+        '.7z':    'application/x-7z-compressed',
+        '.iso':   'application/x-iso9660-image',
+        '.dmg':   'application/x-apple-diskimage',
+        '.jar':   'application/java-archive',
+        '.war':   'application/java-archive',
+        '.whl':   'application/python-wheel',
+        '.egg':   'application/python-egg',
+    },
+    'font': {
+        '.ttf':   'font/ttf',
+        '.otf':   'font/otf',
+        '.woff':  'font/woff',
+        '.woff2': 'font/woff2',
+        '.eot':   'application/vnd.ms-fontobject'
+    },
+    'executable': {
+        '.exe':   'application/vnd.microsoft.portable-executable',
+        '.dll':   'application/vnd.microsoft.portable-executable',
+        '.bin':   'application/octet-stream',
+        '.deb':   'application/vnd.debian.binary-package',
+        '.rpm':   'application/x-rpm'
     }
-MEDIA_TYPES = {
-            'image': {'.svg', '.bmp', '.tiff', '.jpg', '.png', '.webp', '.gif', '.jpeg'},
-            'video': {'.mp4', '.webm', '.avi', '.wmv', '.flv', '.mov', '.mkv'},
-            'audio': {'.flac', '.ogg', '.wav', '.m4a', '.aac', '.mp3'},
-            'document': {'.rtf', '.txt', '.doc', '.pdf', '.docx'},
-            'presentation': {'.pptx', '.ppt'},
-            'spreadsheet': {'.xls', '.xlsx', '.csv'}
-        }
-def get_all_key_values(keys=None,dict_obj=None):
-    keys = keys or []
-    dict_obj = dict_obj or {}
-    new_dict_obj = {}
-    for key in keys:
-        values = dict_obj.get(key)
-        if values:
-            new_dict_obj[key]=values
-    return new_dict_obj
-def get_all_key_values(keys=None,dict_obj=None):
-    keys = keys or []
-    dict_obj = dict_obj or {}
-    new_dict_obj = {}
-    for key in keys:
-        values = dict_obj.get(key)
-        if values:
-            new_dict_obj[key]=values
-    return new_dict_obj
+}
 
-def get_media_types(types=None):
-    types = make_list(types or [])
-    media_types = MEDIA_TYPES
-    if types:
-        media_types = get_all_key_values(keys=types,dict_obj=MEDIA_TYPES)
-    return media_types
-def get_media_exts(types=None):
-    all_exts = []
-    types = make_list(types or [])
-    for typ in types:
-        exts = MEDIA_TYPES.get(str(typ)) or []
-        if exts:
-            all_exts+=list(exts)
-    return all_exts
-def confirm_type(file_path=None,media_types=None,ext=None):
-    media_types = media_types or get_media_types('video')
-    ext = ext or os.path.splitext(file_path)[-1]
-    for typ,exts in media_types.items():
+# And just the sets, if you only need to test ext‐membership:
+MEDIA_TYPES = {
+    category: set(mapping.keys())
+    for category, mapping in MIME_TYPES.items()
+}
+
+
+def get_media_map(categories=None):
+    """
+    Return a sub‐dict of MEDIA_TYPES for the given categories.
+    If categories is None or empty, return the whole MEDIA_TYPES.
+    """
+    if not categories:
+        return MEDIA_TYPES
+    cats = {str(c) for c in categories}
+    return {c: MEDIA_TYPES[c] for c in cats if c in MEDIA_TYPES}
+
+
+def get_media_exts(categories=None):
+    """
+    Return a flat, sorted list of all extensions for the given categories.
+    """
+    media_map = get_media_map(categories)
+    return sorted({ext for exts in media_map.values() for ext in exts})
+
+
+def confirm_type(path_or_ext, categories=None,**kwargs):
+    """
+    Given a file‐path or extension, return its media category (e.g. "image"), or None.
+    """
+    categories = categories or kwargs.get('media_types')
+    ext = Path(path_or_ext).suffix.lower()
+    media_map = get_media_map(categories)
+    for category, exts in media_map.items():
         if ext in exts:
-             return typ
-def is_media_type(file_path,media_types=None,ext=None):
-    media_types = make_list(media_types or [])
-    ext = ext or os.path.splitext(file_path)[-1]
-    media_types_js = get_media_types()
-    for media_type in media_types:
-        exts = media_types_js.get(media_type)
-        if exts and ext in exts:
-            return True
-    return False
-def get_mime_type(file_path):
-    ext = os.path.splitext(file_path)[-1]
-    media = confirm_type(file_path=file_path,ext=ext)
-    mime_type = MIME_TYPES_JS.get(media,{}).get(ext) or 'application/octet-stream'
-    return mime_type
-def get_all_types(types=None,directory=None):
-    if not directory or not os.path.isdir(directory):
+            return category
+    return None
+
+
+def is_media_type(path_or_ext, categories=None,**kwargs):
+    """
+    True if the given file‐path or extension belongs to one of the categories.
+    """
+    categories = categories or kwargs.get('media_types')
+    return confirm_type(path_or_ext, categories) is not None
+
+
+def get_mime_type(path_or_ext):
+    """
+    Look up the MIME type by extension in MIME_TYPES; fall back to octet‐stream.
+    """
+    ext = Path(path_or_ext).suffix.lower()
+    for mapping in MIME_TYPES.values():
+        if ext in mapping:
+            return mapping[ext]
+    return 'application/octet-stream'
+
+
+def get_all_file_types(categories=None, directory=None,**kwargs):
+    """
+    Recursively glob for files under `directory` whose extension belongs to `categories`.
+    Returns a list of full paths.
+    """
+    categories = categories or kwargs.get('media_types')
+    base = Path(directory)
+    if not base.is_dir():
         return []
-    item_paths = get_all_item_paths(directory)
-    media_types = get_media_types(types=types)
-    item_paths = [item_path for item_path in item_paths if confirm_type(item_path,media_types=media_types)]
-    return item_paths
-def get_all_file_types(types=None,directory=None):
-    if not directory or not os.path.isdir(directory):
-        return []
-    item_paths = get_files(directory)
-    media_types = get_media_types(types=types)
-    item_paths = [item_path for item_path in item_paths if confirm_type(item_path,media_types=media_types)]
-    return item_paths
+    wanted = get_media_map(categories)
+    return [
+        str(p)
+        for p in base.rglob('*')
+        if p.is_file() and Path(p).suffix.lower() in {e for exts in wanted.values() for e in exts}
+    ]
 
 def is_iterable(obj:any):
     try:

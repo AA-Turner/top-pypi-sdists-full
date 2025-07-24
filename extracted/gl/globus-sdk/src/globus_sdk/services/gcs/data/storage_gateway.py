@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import abc
 import typing as t
+import uuid
 
 from globus_sdk import utils
-from globus_sdk._types import UUIDLike
 
 from ._common import DatatypeCallback, ensure_datatype
 
@@ -58,7 +58,7 @@ class StorageGatewayDocument(utils.PayloadWrapper):
         self,
         DATA_TYPE: str | None = None,
         display_name: str | None = None,
-        connector_id: UUIDLike | None = None,
+        connector_id: uuid.UUID | str | None = None,
         root: str | None = None,
         identity_mappings: None | t.Iterable[dict[str, t.Any]] = None,
         policies: StorageGatewayPolicies | dict[str, t.Any] | None = None,

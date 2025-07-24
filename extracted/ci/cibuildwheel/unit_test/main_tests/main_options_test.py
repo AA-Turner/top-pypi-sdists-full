@@ -7,7 +7,7 @@ import pytest
 
 from cibuildwheel.__main__ import main
 from cibuildwheel.environment import ParsedEnvironment
-from cibuildwheel.frontend import _split_config_settings
+from cibuildwheel.frontend import _split_config_settings, parse_config_settings
 from cibuildwheel.options import BuildOptions, _get_pinned_container_images
 from cibuildwheel.selector import BuildSelector, EnableGroup
 from cibuildwheel.util import resources
@@ -111,8 +111,9 @@ def test_empty_selector(monkeypatch):
         ("x86_64", "manylinux_2_28", "quay.io/pypa/manylinux_2_28_x86_64:*"),
         ("x86_64", "manylinux_2_34", "quay.io/pypa/manylinux_2_34_x86_64:*"),
         ("x86_64", "custom_image", "custom_image"),
-        ("i686", None, "quay.io/pypa/manylinux2014_i686:*"),
+        ("i686", None, "quay.io/pypa/manylinux_2_28_i686:*"),
         ("i686", "manylinux2014", "quay.io/pypa/manylinux2014_i686:*"),
+        ("i686", "manylinux_2_28", "quay.io/pypa/manylinux_2_28_i686:*"),
         ("i686", "custom_image", "custom_image"),
         ("pypy_x86_64", None, "quay.io/pypa/manylinux_2_28_x86_64:*"),
         ("pypy_x86_64", "manylinux2014", "quay.io/pypa/manylinux2014_x86_64:*"),
@@ -288,7 +289,9 @@ def test_build_verbosity(
 
 @pytest.mark.parametrize("platform_specific", [False, True])
 def test_config_settings(platform_specific, platform, intercepted_build_args, monkeypatch):
-    config_settings = 'setting=value setting=value2 other="something else"'
+    config_settings = (
+        'setting=value setting=value2 triplet=1 triplet=2 triplet=3 other="something else"'
+    )
     if platform_specific:
         monkeypatch.setenv("CIBW_CONFIG_SETTINGS_" + platform.upper(), config_settings)
         monkeypatch.setenv("CIBW_CONFIG_SETTINGS", "a=b")
@@ -303,8 +306,16 @@ def test_config_settings(platform_specific, platform, intercepted_build_args, mo
     assert _split_config_settings(config_settings) == [
         "-Csetting=value",
         "-Csetting=value2",
+        "-Ctriplet=1",
+        "-Ctriplet=2",
+        "-Ctriplet=3",
         "-Cother=something else",
     ]
+    assert parse_config_settings(config_settings) == {
+        "setting": ["value", "value2"],
+        "triplet": ["1", "2", "3"],
+        "other": "something else",
+    }
 
 
 @pytest.mark.parametrize(
@@ -493,7 +504,8 @@ def test_defaults(platform, intercepted_build_args):
     if isinstance(repair_wheel_default, list):
         repair_wheel_default = " && ".join(repair_wheel_default)
     assert build_options.repair_command == repair_wheel_default
-    assert build_options.build_frontend is None
+    assert build_options.build_frontend.name == "build"
+    assert build_options.build_frontend.args == ()
 
     if platform == "linux":
         assert build_options.manylinux_images

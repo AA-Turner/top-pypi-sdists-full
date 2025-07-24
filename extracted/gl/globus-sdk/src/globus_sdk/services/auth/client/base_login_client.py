@@ -2,11 +2,11 @@ from __future__ import annotations
 
 import logging
 import typing as t
+import uuid
 
 from cryptography.hazmat.primitives.asymmetric.rsa import RSAPublicKey
 
 from globus_sdk import _guards, client, exc, utils
-from globus_sdk._types import UUIDLike
 from globus_sdk.authorizers import GlobusAuthorizer, NullAuthorizer
 from globus_sdk.response import GlobusHTTPResponse
 from globus_sdk.scopes import AuthScopes, Scope
@@ -45,7 +45,7 @@ class AuthLoginClient(client.BaseClient):
 
     def __init__(
         self,
-        client_id: UUIDLike | None = None,
+        client_id: uuid.UUID | str | None = None,
         environment: str | None = None,
         base_url: str | None = None,
         authorizer: GlobusAuthorizer | None = None,
@@ -141,9 +141,13 @@ class AuthLoginClient(client.BaseClient):
     def oauth2_get_authorize_url(
         self,
         *,
-        session_required_identities: UUIDLike | t.Iterable[UUIDLike] | None = None,
+        session_required_identities: (
+            uuid.UUID | str | t.Iterable[uuid.UUID | str] | None
+        ) = None,
         session_required_single_domain: str | t.Iterable[str] | None = None,
-        session_required_policies: UUIDLike | t.Iterable[UUIDLike] | None = None,
+        session_required_policies: (
+            uuid.UUID | str | t.Iterable[uuid.UUID | str] | None
+        ) = None,
         session_required_mfa: bool | None = None,
         session_message: str | None = None,
         prompt: t.Literal["login"] | None = None,

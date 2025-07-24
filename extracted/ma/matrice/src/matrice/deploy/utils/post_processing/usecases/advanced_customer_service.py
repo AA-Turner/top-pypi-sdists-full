@@ -142,20 +142,16 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             human_text_lines.append(f"\t- Total Customers: {total_journeys}")
             # Only show completed and left in total since
             completed_count = journey_analytics.get("journey_states", {}).get("completed", 0)
-            left_count = journey_analytics.get("journey_states", {}).get("left", 0)
             human_text_lines.append(f"\t\t- Completed: {completed_count}")
-            human_text_lines.append(f"\t\t- Left: {left_count}")
             human_text_lines.append(f"\t- Total Staff: {total_staff}")
             avg_staff_count = staff_analytics.get("avg_staff_count", 0.0)
             human_text_lines.append(f"\t- Average Staff Count: {avg_staff_count:.2f}")
             human_text_lines.append(f"\t- Average Wait Time: {avg_wait_time:.1f}s")
             human_text_lines.append(f"\t- Average Service Time: {avg_service_time:.1f}s")
-            human_text_lines.append(f"\t- Average Journey Time: {avg_journey_time:.1f}s")
-            # Only show three business metrics in total since
+            # Only show business metrics: Service Efficiency and Staff Productivity in total since
             human_text_lines.append(f"\t- Business Metrics:")
             human_text_lines.append(f"\t\t- Service Efficiency: {service_efficiency*100:.1f}%")
             human_text_lines.append(f"\t\t- Staff Productivity: {staff_productivity:.2f} services/staff")
-            human_text_lines.append(f"\t\t- Overall Performance: {overall_performance:.2f} / 1.0")
 
             human_text = "\n".join(human_text_lines)
 

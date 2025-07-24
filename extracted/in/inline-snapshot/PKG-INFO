@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: inline-snapshot
-Version: 0.24.0
+Version: 0.25.0
 Summary: golden master/snapshot/approval testing library which puts the values right into your source code
 Project-URL: Changelog, https://15r10nk.github.io/inline-snapshot/latest/changelog/
 Project-URL: Discussions, https://github.com/15r10nk/inline-snapshots/discussions
@@ -32,6 +32,7 @@ Requires-Dist: executing>=2.2.0
 Requires-Dist: pytest>=8.3.4
 Requires-Dist: rich>=13.7.1
 Requires-Dist: tomli>=2.0.0; python_version < '3.11'
+Requires-Dist: uuid7>=0.1.0
 Provides-Extra: black
 Requires-Dist: black>=23.3.0; extra == 'black'
 Provides-Extra: dirty-equals
@@ -161,7 +162,7 @@ def test_something():
         )
 
     assert outsource("large string\n" * 1000) == snapshot(
-        external("8bf10bdf2c30*.txt")
+        external("hash:8bf10bdf2c30*.txt")
     )
 
     assert "generates\nmultiline\nstrings" == snapshot(

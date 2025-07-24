@@ -33,8 +33,30 @@ def get_logger(console_only: bool = False) -> Logger:
     logger = logging.getLogger(current_pid)
     app_logger[current_pid] = logger
 
-    # Add log to Azure Monitor (OL internal only)
+    
     if not console_only:
+        # Add a file log if needed
+        optilogic_log = os.getenv("OPTILOGIC_LOG_FILE")
+
+        if optilogic_log:
+            # Ensure the directory exists
+            log_dir = os.path.dirname(optilogic_log)
+            if log_dir:
+                os.makedirs(log_dir, exist_ok=True)
+
+            # Set up file handler
+            file_handler = logging.FileHandler(optilogic_log)
+            file_handler.setLevel(log_level)  # You can adjust this as needed
+
+            formatter = logging.Formatter(
+                '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+            )
+            file_handler.setFormatter(formatter)
+
+            logger.addHandler(file_handler)
+            logger.info("File logging is configured")
+
+        # Add log to Azure Monitor (OL internal only)
         insights_connection = os.getenv("APPLICATIONINSIGHTS_CONNECTION_STRING")
 
         if insights_connection:

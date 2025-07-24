@@ -1,17 +1,15 @@
 [project]
 name = "functions-framework"
-version = "3.8.3"
+version = "3.9.0"
 description = "An open source FaaS (Function as a service) framework for writing portable Python functions -- brought to you by the Google Cloud Functions team."
 readme = "README.md"
-requires-python = ">=3.5, <4"
+requires-python = ">=3.7, <4"
 # Once we drop support for Python 3.7 and 3.8, this can become
 # license = "Apache-2.0"
-license = {text = "Apache-2.0"}
-authors = [
-  { name = "Google LLC", email = "googleapis-packages@google.com" }
-]
+license = { text = "Apache-2.0" }
+authors = [{ name = "Google LLC", email = "googleapis-packages@google.com" }]
 maintainers = [
-  { name = "Google LLC", email = "googleapis-packages@google.com" }
+  { name = "Google LLC", email = "googleapis-packages@google.com" },
 ]
 keywords = ["functions-framework"]
 classifiers = [
@@ -29,8 +27,12 @@ dependencies = [
   "click>=7.0,<9.0",
   "watchdog>=1.0.0",
   "gunicorn>=22.0.0; platform_system!='Windows'",
-  "cloudevents>=1.2.0,<2.0.0",
+  "cloudevents>=1.2.0,<=1.11.0",                  # Must support python 3.7
   "Werkzeug>=0.14,<4.0.0",
+  "httpx>=0.24.1",
+  "starlette>=0.37.0,<1.0.0; python_version>='3.8'",
+  "uvicorn>=0.18.0,<1.0.0; python_version>='3.8'",
+  "uvicorn-worker>=0.2.0,<1.0.0; python_version>='3.8'",
 ]
 
 [project.urls]
@@ -55,3 +57,13 @@ functions_framework = ["py.typed"]
 
 [tool.setuptools.package-dir]
 "" = "src"
+
+[dependency-groups]
+dev = [
+    "black>=23.3.0",
+    "build>=1.1.1",
+    "isort>=5.11.5",
+    "pretend>=1.0.9",
+    "pytest>=7.4.4",
+    "pytest-asyncio>=0.21.2",
+]

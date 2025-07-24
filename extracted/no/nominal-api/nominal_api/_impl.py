@@ -79570,17 +79570,23 @@ class scout_workbookcommon_api_AssetSettings(ConjureBeanType):
     @builtins.classmethod
     def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
-            'offset': ConjureFieldDefinition('offset', OptionalTypeWrapper[scout_rids_api_UserDuration])
+            'offset': ConjureFieldDefinition('offset', OptionalTypeWrapper[scout_rids_api_UserDuration]),
+            'data_scope_offsets': ConjureFieldDefinition('dataScopeOffsets', OptionalTypeWrapper[Dict[scout_api_DataSourceRefName, scout_rids_api_UserDuration]])
         }
 
-    __slots__: List[str] = ['_offset']
+    __slots__: List[str] = ['_offset', '_data_scope_offsets']
 
-    def __init__(self, offset: Optional["scout_rids_api_UserDuration"] = None) -> None:
+    def __init__(self, data_scope_offsets: Optional[Dict[str, "scout_rids_api_UserDuration"]] = None, offset: Optional["scout_rids_api_UserDuration"] = None) -> None:
         self._offset = offset
+        self._data_scope_offsets = data_scope_offsets
 
     @builtins.property
     def offset(self) -> Optional["scout_rids_api_UserDuration"]:
         return self._offset
+
+    @builtins.property
+    def data_scope_offsets(self) -> Optional[Dict[str, "scout_rids_api_UserDuration"]]:
+        return self._data_scope_offsets
 
 
 scout_workbookcommon_api_AssetSettings.__name__ = "AssetSettings"

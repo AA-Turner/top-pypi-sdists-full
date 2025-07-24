@@ -5,21 +5,51 @@ import numpy as np
 from .test import is_pos_def
 
 
-def _matrix_operator(C, operator):
-    """Matrix function."""
-    if not isinstance(C, np.ndarray) or C.ndim < 2:
+def ctranspose(X):
+    """Conjugate transpose operator.
+
+    Conjugate transpose operator for complex-valued array,
+    giving transpose operator for real-valued array.
+
+    Parameters
+    ----------
+    X : ndarray, shape (..., n, m)
+        Matrices, at least 2D ndarray.
+
+    Returns
+    -------
+    X_new : ndarray, shape (..., m, n)
+        Conjugate transpose of X.
+
+    Notes
+    -----
+    .. versionadded:: 0.9
+
+    References
+    ----------
+    .. [1] https://en.wikipedia.org/wiki/Conjugate_transpose
+    """
+    return np.swapaxes(X.conj(), -2, -1)
+
+
+###############################################################################
+
+
+def _matrix_operator(X, operator):
+    """Matrix function for SPD/HPD matrices."""
+    if not isinstance(X, np.ndarray) or X.ndim < 2:
         raise ValueError("Input must be at least a 2D ndarray")
-    if C.dtype.char in np.typecodes['AllFloat'] and (
-            np.isinf(C).any() or np.isnan(C).any()):
+    if X.dtype.char in np.typecodes['AllFloat'] and (
+            np.isinf(X).any() or np.isnan(X).any()):
         raise ValueError(
-            "Matrices must be positive definite. Add "
-            "regularization to avoid this error.")
-    eigvals, eigvecs = np.linalg.eigh(C)
+            "Matrices must be positive definite. "
+            "You should add regularization to avoid this error."
+        )
+
+    eigvals, eigvecs = np.linalg.eigh(X)
     eigvals = operator(eigvals)
-    if C.ndim >= 3:
-        eigvals = np.expand_dims(eigvals, -2)
-    D = (eigvecs * eigvals) @ np.swapaxes(eigvecs.conj(), -2, -1)
-    return D
+    X_new = eigvecs @ (np.expand_dims(eigvals, -1) * ctranspose(eigvecs))
+    return X_new
 
 
 def expm(C):
@@ -164,7 +194,7 @@ def _nearest_sym_pos_def(S, reg=1e-6):
     ----------
     S : ndarray, shape (n, n)
         Square matrix.
-    reg : float
+    reg : float, default=1e-6
         Regularization parameter.
 
     Returns
@@ -172,18 +202,21 @@ def _nearest_sym_pos_def(S, reg=1e-6):
     P : ndarray, shape (n, n)
         Nearest SPD matrix.
     """
+    def regularize(X, reg):
+        ei, ev = np.linalg.eigh(X)
+        if np.min(ei) / np.max(ei) < reg:
+            X = ev @ np.diag(ei + reg) @ ev.T
+        return X
+
     A = (S + S.T) / 2
     _, s, V = np.linalg.svd(A)
-    H = V.T @ np.diag(s) @ V
+    H = V.T @ (s[:, np.newaxis] * V)
     B = (A + H) / 2
     P = (B + B.T) / 2
 
     if is_pos_def(P):
         # Regularize if already PD
-        ei, ev = np.linalg.eigh(P)
-        if np.min(ei) / np.max(ei) < reg:
-            P = ev @ np.diag(ei + reg) @ ev.T
-        return P
+        return regularize(P, reg)
 
     spacing = np.spacing(np.linalg.norm(A))
     I = np.eye(S.shape[0])  # noqa
@@ -194,28 +227,25 @@ def _nearest_sym_pos_def(S, reg=1e-6):
         k += 1
 
     # Regularize
-    ei, ev = np.linalg.eigh(P)
-    if np.min(ei) / np.max(ei) < reg:
-        P = ev @ np.diag(ei + reg) @ ev.T
-    return P
+    return regularize(P, reg)
 
 
 def nearest_sym_pos_def(X, reg=1e-6):
     """Find the nearest SPD matrices.
 
-    A NumPy port of John D'Errico's `nearestSPD` MATLAB code [1]_,
+    A NumPy port of John D'Errico's ``nearestSPD`` MATLAB code [1]_,
     which credits [2]_.
 
     Parameters
     ----------
-    X : ndarray, shape (..., n, n)
-        Square matrices, at least 2D ndarray.
-    reg : float
+    X : ndarray, shape (n_matrices, n, n)
+        Square matrices.
+    reg : float, default=1e-6
         Regularization parameter.
 
     Returns
     -------
-    P : ndarray, shape (..., n, n)
+    P : ndarray, shape (n_matrices, n, n)
         Nearest SPD matrices.
 
     Notes

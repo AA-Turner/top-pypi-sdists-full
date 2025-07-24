@@ -32,7 +32,7 @@ class WarehouseObjectConfig(BaseConfig):
     smoothing_confidence_range_factor: float = 0.5
 
     #confidence thresholds
-    confidence_threshold: float = 0.6
+    confidence_threshold: float = 0.3
 
     usecase_categories: List[str] = field(
         default_factory=lambda: ['pallet']

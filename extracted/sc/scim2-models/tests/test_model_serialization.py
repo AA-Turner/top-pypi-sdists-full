@@ -8,7 +8,7 @@ from scim2_models.annotations import Required
 from scim2_models.annotations import Returned
 from scim2_models.attributes import ComplexAttribute
 from scim2_models.context import Context
-from scim2_models.rfc7643.resource import Resource
+from scim2_models.resources.resource import Resource
 
 
 class SubRetModel(ComplexAttribute):
@@ -188,6 +188,85 @@ def test_dump_default_response(ret_resource):
             "defaultReturned": "x",
             "requestReturned": "x",
         },
+    }
+
+
+def test_invalid_attributes():
+    """Test that invalid attributes are ignored per RFC 7644 recommendation."""
+    resource = SupRetResource(id="id", always_returned="x", default_returned="x")
+
+    # Invalid attributes should be ignored, not raise errors
+    result = resource.model_dump(
+        scim_ctx=Context.RESOURCE_QUERY_RESPONSE, attributes={"invalidAttribute"}
+    )
+    # Should return default response (alwaysReturned attributes)
+    assert result == {
+        "schemas": ["org:example:SupRetResource"],
+        "id": "id",
+        "alwaysReturned": "x",
+        "defaultReturned": "x",
+    }
+
+    result = resource.model_dump(
+        scim_ctx=Context.RESOURCE_QUERY_RESPONSE,
+        attributes={"org:example:SupRetResource:invalidAttribute"},
+    )
+    assert result == {
+        "schemas": ["org:example:SupRetResource"],
+        "id": "id",
+        "alwaysReturned": "x",
+        "defaultReturned": "x",
+    }
+
+    result = resource.model_dump(
+        scim_ctx=Context.RESOURCE_QUERY_RESPONSE,
+        attributes={"urn:invalid:schema:invalidAttribute"},
+    )
+    assert result == {
+        "schemas": ["org:example:SupRetResource"],
+        "id": "id",
+        "alwaysReturned": "x",
+        "defaultReturned": "x",
+    }
+
+
+def test_invalid_excluded_attributes():
+    """Test that invalid excluded_attributes are ignored per RFC 7644 recommendation."""
+    resource = SupRetResource(id="id", always_returned="x", default_returned="x")
+
+    # Invalid excluded_attributes should be ignored, not raise errors
+    result = resource.model_dump(
+        scim_ctx=Context.RESOURCE_QUERY_RESPONSE,
+        excluded_attributes={"invalidAttribute"},
+    )
+    # Should return default response (nothing excluded)
+    assert result == {
+        "schemas": ["org:example:SupRetResource"],
+        "id": "id",
+        "alwaysReturned": "x",
+        "defaultReturned": "x",
+    }
+
+    result = resource.model_dump(
+        scim_ctx=Context.RESOURCE_QUERY_RESPONSE,
+        excluded_attributes={"org:example:SupRetResource:invalidAttribute"},
+    )
+    assert result == {
+        "schemas": ["org:example:SupRetResource"],
+        "id": "id",
+        "alwaysReturned": "x",
+        "defaultReturned": "x",
+    }
+
+    result = resource.model_dump(
+        scim_ctx=Context.RESOURCE_QUERY_RESPONSE,
+        excluded_attributes={"urn:invalid:schema:invalidAttribute"},
+    )
+    assert result == {
+        "schemas": ["org:example:SupRetResource"],
+        "id": "id",
+        "alwaysReturned": "x",
+        "defaultReturned": "x",
     }
 
 

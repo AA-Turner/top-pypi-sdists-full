@@ -11,7 +11,7 @@ from fireworks.evaluation_job.evaluation_job import EvaluationJob
 from fireworks.evaluator.evaluator import Evaluator
 import httpx
 import atexit
-from typing import Literal, Optional, Union, BinaryIO, Callable, overload
+from typing import List, Literal, Optional, Union, BinaryIO, Callable, overload
 from fireworks.control_plane.generated.protos.gateway import (
     CreateDatasetRequest,
     ListDatasetsRequest,
@@ -110,6 +110,15 @@ class Dataset:
 
     @classmethod
     def from_list(cls, data: list):
+        """
+        Create a dataset from a list of dictionaries.
+
+        Args:
+            data: List of dictionaries to be converted to a JSONL string where each dictionary is a line in the jsonl file.
+
+        Returns:
+            Dataset: A new Dataset object.
+        """
         return cls(data=data, _internal=True)
 
     @classmethod
@@ -127,8 +136,14 @@ class Dataset:
         Get this dataset from Fireworks by hash
         - If filename of dataset changes, it still matches the hash
         """
-        request = SyncListDatasetsRequest(page_size=1000)
-        datasets = self._gateway.list_datasets_sync(request)
+        request = SyncListDatasetsRequest()
+        datasets: List[SyncDataset] = []
+        datasets_response = self._gateway.list_datasets_sync(request)
+        datasets.extend(datasets_response.datasets)
+        while datasets_response.next_page_token:
+            request.page_token = datasets_response.next_page_token
+            datasets_response = self._gateway.list_datasets_sync(request)
+            datasets.extend(datasets_response.datasets)
         for dataset in datasets:
             if dataset.name.endswith(self.id):
                 logger.debug(f"Found dataset with matching hash: {dataset.name}")

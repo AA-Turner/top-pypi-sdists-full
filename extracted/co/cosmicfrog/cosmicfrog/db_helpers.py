@@ -66,6 +66,7 @@ def create_engine_with_retry(
             if attempt < max_retries - 1:
                 time.sleep(retry_delay)
             else:
+                logger.error("Connecting to model failed. Check firewall rules: https://optilogic.app/#/storage-dashboard?tab=Firewall")
                 raise Exception(
                     "Connecting to model failed. Check firewall rules: https://optilogic.app/#/storage-dashboard?tab=Firewall"
                 )

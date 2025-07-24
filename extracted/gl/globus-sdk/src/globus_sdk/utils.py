@@ -10,8 +10,6 @@ import typing as t
 import uuid
 from base64 import b64encode
 
-from globus_sdk._types import UUIDLike
-
 T = t.TypeVar("T")
 R = t.TypeVar("R")
 
@@ -131,7 +129,7 @@ def safe_strseq_iter(
             yield str(x)
 
 
-def commajoin(val: UUIDLike | t.Iterable[UUIDLike]) -> str:
+def commajoin(val: uuid.UUID | str | t.Iterable[uuid.UUID | str]) -> str:
     # note that this explicit handling of Iterable allows for string-like objects to be
     # passed to this function and be stringified by the `str()` call
     if isinstance(val, collections.abc.Iterable):

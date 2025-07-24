@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import typing as t
+import uuid
 
 from globus_sdk import (
     AuthClient,
@@ -10,7 +11,7 @@ from globus_sdk import (
     NativeAppAuthClient,
     Scope,
 )
-from globus_sdk._types import ScopeCollectionType, UUIDLike
+from globus_sdk._types import ScopeCollectionType
 from globus_sdk.gare import GlobusAuthorizationParameters
 from globus_sdk.login_flows import CommandLineLoginFlowManager, LoginFlowManager
 from globus_sdk.tokenstorage import (
@@ -78,7 +79,7 @@ class UserApp(GlobusApp):
         app_name: str = "Unnamed Globus App",
         *,
         login_client: AuthLoginClient | None = None,
-        client_id: UUIDLike | None = None,
+        client_id: uuid.UUID | str | None = None,
         client_secret: str | None = None,
         scope_requirements: t.Mapping[str, ScopeCollectionType] | None = None,
         config: GlobusAppConfig = DEFAULT_CONFIG,
@@ -127,7 +128,7 @@ class UserApp(GlobusApp):
         self,
         app_name: str,
         config: GlobusAppConfig,
-        client_id: UUIDLike,
+        client_id: uuid.UUID | str,
         client_secret: str | None,
     ) -> AuthLoginClient:
         if client_secret:

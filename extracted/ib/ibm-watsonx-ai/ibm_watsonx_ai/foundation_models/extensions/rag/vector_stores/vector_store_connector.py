@@ -3,11 +3,12 @@
 #  https://opensource.org/licenses/BSD-3-Clause
 #  -----------------------------------------------------------------------------------------
 
+from __future__ import annotations
 import copy
 from enum import Enum
 
 import logging
-from typing import Any
+from typing import Any, Optional
 
 from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.base_vector_store import (
     BaseVectorStore,
@@ -32,6 +33,7 @@ class VectorStoreDataSourceType(str, Enum):
     CHROMA = "chroma"
     MILVUS = "milvus"
     MILVUS_WXD = "milvuswxd"  # IBM watsonx.data Milvus
+    DB2 = "db2"
     UNDEFINED = "undefined"
 
     def __str__(self) -> str:
@@ -90,6 +92,8 @@ class VectorStoreConnector:
                 return VectorStoreDataSourceType.CHROMA
             case "Milvus":
                 return VectorStoreDataSourceType.MILVUS
+            case "DB2VS":
+                return VectorStoreDataSourceType.DB2
             case _:
                 return VectorStoreDataSourceType.UNDEFINED
 
@@ -112,6 +116,8 @@ class VectorStoreConnector:
                 VectorStoreDataSourceType.MILVUS | VectorStoreDataSourceType.MILVUS_WXD
             ):
                 return self.get_milvus()
+            case VectorStoreDataSourceType.DB2:
+                return self.get_db2()
             case _:
                 raise TypeError("Data source type not supported.")
 
@@ -422,4 +428,87 @@ class VectorStoreConnector:
             parsed_params["es_params"]["ca_certs"] = save_ssl_certificate_as_file(
                 ssl_certificate_content
             )
+        return parsed_params
+
+    def get_db2(self) -> LangChainVectorStoreAdapter:
+        """Creates a DV2 vector store.
+
+        :raises ImportError: langchain-db2 required
+        :return: vector store adapter for LangChain's DB2
+        :rtype: LangChainVectorStoreAdapter
+        """
+        try:
+            from langchain_db2 import DB2VS
+            from langchain_db2.db2vs import DistanceStrategy
+            from ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores.adapters.db2_adapter import (
+                DB2VectorStore,
+            )
+        except ImportError:
+            raise MissingExtension("langchain_db2")
+
+        parsed_params = self._get_db2_connection_params()
+        parsed_params.pop("datasource_type", None)
+
+        # Connection 'index_name' is 'table_name' in DB2
+        if index_name := parsed_params.pop("index_name", None):
+            parsed_params["table_name"] = index_name
+        elif not parsed_params.get("table_name"):
+            raise ValueError("Provide 'index_name' or 'table_name'.")
+
+        # Parse distance_metric
+        # Match with DB2 DistanceStrategy.
+        distance_metric: Optional[DistanceStrategy] = None
+
+        match parsed_params.pop("distance_metric", None):
+            case "euclidean":
+                distance_metric = DistanceStrategy.EUCLIDEAN_DISTANCE
+            case "max_inner_product":
+                distance_metric = DistanceStrategy.MAX_INNER_PRODUCT
+            case "dot":
+                distance_metric = DistanceStrategy.DOT_PRODUCT
+            case "jaccard":
+                distance_metric = DistanceStrategy.JACCARD
+            case "cosine":
+                distance_metric = DistanceStrategy.COSINE
+            case _:
+                pass
+
+        distance_strategy = parsed_params.get("distance_strategy", None)
+
+        if distance_strategy or distance_metric:
+            parsed_params["distance_strategy"] = distance_strategy or distance_metric
+
+        # Set embedding_function
+        if "embedding_function" not in parsed_params:
+            parsed_params["embedding_function"] = parsed_params.pop("embeddings", None)
+        elif "embeddings" in parsed_params:
+            raise ValueError(
+                "Either `embeddings` or `embedding_function` must be specified, but not both."
+            )
+
+        return DB2VectorStore(vector_store=DB2VS(**parsed_params))
+
+    def _get_db2_connection_params(self) -> dict:
+        parsed_params = self.properties
+
+        # Prepare connection_args (if not present)
+        if "connection_args" not in parsed_params:
+            parsed_params["connection_args"] = {}
+
+        # Connection 'ssl' is 'security' in DB2
+        if "ssl" in parsed_params:
+            parsed_params["security"] = parsed_params.pop("ssl")
+
+        # Move each param that was in parsed_params to connection_args if we expect it here
+        for param in [
+            "database",
+            "host",
+            "port",
+            "username",
+            "password",
+            "security",
+        ]:
+            if param in parsed_params.keys():
+                parsed_params["connection_args"][param] = parsed_params.pop(param)
+
         return parsed_params

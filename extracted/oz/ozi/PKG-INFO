@@ -1,7 +1,7 @@
 Metadata-Version: 2.3
 Requires-Python: >=3.9, <3.14
 Name: OZI
-Version: 2.1.10
+Version: 2.1.11
 Author: Eden Ross Duff MSc
 Author-email: help@oziproject.dev
 Classifier: Development Status :: 4 - Beta
@@ -27,7 +27,7 @@ License: Apache-2.0 WITH LLVM-exception
 Summary: Package Python projects with Meson.
 Requires-External: git
 Requires-Dist: pathvalidate>=3.2.1,<3.4.0
-Requires-Dist: ozi-core==1.21.16
+Requires-Dist: ozi-core==1.21.17
 Requires-Dist: setuptools_scm[toml]
 Requires-Dist: tomli>=2.0.0;python_version<"3.11"
 Provides-Extra: ci

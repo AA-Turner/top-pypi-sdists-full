@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: texthooks
-Version: 0.7.0
+Version: 0.7.1
 Summary: pre-commit fixers and linters for handling text files
 Keywords: 
 Author-email: Stephen Rosen <sirosen0@gmail.com>
@@ -17,11 +17,7 @@ Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 License-File: LICENSE
 Requires-Dist: identify>=2.0,<3.0
-Requires-Dist: pytest<9 ; extra == "dev"
-Requires-Dist: pytest-cov<7 ; extra == "dev"
-Requires-Dist: pytest-xdist<4 ; extra == "dev"
 Project-URL: source, https://github.com/sirosen/texthooks
-Provides-Extra: dev
 
 # texthooks
 
@@ -37,7 +33,7 @@ To use with `pre-commit`, include this repo and the desired hooks in
 
 ```yaml
 - repo: https://github.com/sirosen/texthooks
-  rev: 0.7.0
+  rev: 0.7.1
   hooks:
     - id: alphabetize-codeowners
     - id: fix-smartquotes
@@ -124,7 +120,7 @@ as follows:
 
 ```yaml
 - repo: https://github.com/sirosen/texthooks
-  rev: 0.7.0
+  rev: 0.7.1
   hooks:
     - id: fix-smartquotes
       # replace default single quote chars with this set:
@@ -153,7 +149,7 @@ You could override the space codepoints as follows:
 
 ```yaml
 - repo: https://github.com/sirosen/texthooks
-  rev: 0.7.0
+  rev: 0.7.1
   hooks:
     - id: fix-spaces
       args: ["--separator-codepoints", "2009"]
@@ -190,7 +186,7 @@ You could could override the double-hyphen codepoints as follows:
 
 ```yaml
 - repo: https://github.com/sirosen/texthooks
-  rev: 0.7.0
+  rev: 0.7.1
   hooks:
     - id: fix-spaces
       args: ["--double-hyphen-codepoints", "2014", "--single-hyphen-codepoints", ""]
@@ -228,7 +224,7 @@ following sample config:
 
 ```yaml
 - repo: https://github.com/sirosen/texthooks
-  rev: 0.7.0
+  rev: 0.7.1
   hooks:
     - id: macro-expand
       args:
@@ -242,6 +238,11 @@ following sample config:
 ### Unreleased
 
 <!-- bumpversion-changelog -->
+
+### 0.7.1
+
+- The output format when `--show-changes` is passed to hooks has changed
+  slightly, and `--show-changes` is more robust to very different lines
 
 ### 0.7.0
 

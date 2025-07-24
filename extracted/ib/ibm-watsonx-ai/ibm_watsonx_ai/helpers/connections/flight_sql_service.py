@@ -20,13 +20,14 @@ from .utils.flight_utils import (
     HeaderMiddlewareFactory,
     _flight_retry,
 )
+from .flight_service import BaseFlightConnection
 
 from pyarrow import flight
 
 logger = logging.getLogger(__name__)
 
 
-class FlightSQLClient:
+class FlightSQLClient(BaseFlightConnection):
     """FlightSQLClient object unify the work for data reading from different types of data sources,
     including databases. It uses a Flight Service and `pyarrow` library to connect and transfer the data.
 
@@ -68,9 +69,11 @@ class FlightSQLClient:
         max_retry_time: int = 200,
     ) -> None:
 
+        super().__init__(api_client=api_client, _logger=logger)
+
         # callback is used in the backend to send status messages
         self.callback = (
-            callback if callback is not None else SimplyCallback(logger=logger)
+            callback if callback is not None else SimplyCallback(logger=self._logger)
         )
         self._max_retry_time = max_retry_time
 
@@ -94,8 +97,6 @@ class FlightSQLClient:
         self.extra_interaction_properties = extra_interaction_properties
 
         # Set flight location and port
-        self.flight_location = None
-        self.flight_port = None
         self._set_default_flight_location()
 
         self._base_command = {}
@@ -106,9 +107,6 @@ class FlightSQLClient:
             self._base_command["project_id"] = project_id
 
         self._base_command["asset_id"] = self.connection_id
-
-        # Need in external retry
-        self._logger = logger
 
     @property
     def _flight_client(self) -> flight.FlightClient:
@@ -121,59 +119,6 @@ class FlightSQLClient:
             ],
             **self.additional_connection_args,
         )
-
-    def _set_default_flight_location(self) -> None:
-        """Try to set default flight location and port from WS."""
-        if (
-            not os.environ.get("FLIGHT_SERVICE_LOCATION")
-            and self._api_client
-            and self._api_client.CLOUD_PLATFORM_SPACES
-        ):
-            try:
-                flight_location = self._api_client.PLATFORM_URLS_MAP[
-                    self._api_client.credentials.url
-                ].replace("https://", "")
-            except KeyError as e:
-                if (
-                    self._api_client.credentials.url
-                    in self._api_client.PLATFORM_URLS_MAP.values()
-                ):
-                    flight_location = self._api_client.credentials.url.replace(
-                        "https://", ""
-                    )
-                else:
-                    raise e
-            flight_port = 443
-        else:
-            host = os.environ.get(
-                "ASSET_API_SERVICE_HOST", os.environ.get("CATALOG_API_SERVICE_HOST")
-            )
-
-            if host is None or "api." not in host:
-                default_service_url = os.environ.get(
-                    "RUNTIME_FLIGHT_SERVICE_URL", "grpc+tls://wdp-connect-flight:443"
-                )
-                default_service_url = default_service_url.split("//")[-1]
-                flight_location = os.environ.get("FLIGHT_SERVICE_LOCATION")
-                flight_port = os.environ.get("FLIGHT_SERVICE_PORT")
-
-                if flight_location is None or flight_location == "":
-                    flight_location = default_service_url.split(":")[0]
-                elif flight_location.startswith("https://"):
-                    flight_location = flight_location.replace("https://", "")
-
-                if flight_port is None or flight_port == "":
-                    flight_port = default_service_url.split(":")[-1]
-
-            else:
-                flight_location = host
-                flight_port = "443"
-
-        self.flight_location = flight_location
-        self.flight_port = flight_port
-
-        logger.debug(f"Flight location: {self.flight_location}")
-        logger.debug(f"Flight port: {self.flight_port}")
 
     def _get_source_command(
         self, select_statement: str | None = None, **kwargs: Any

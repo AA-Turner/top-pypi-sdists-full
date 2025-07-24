@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: crewai-tools
-Version: 0.55.0
+Version: 0.58.0
 Summary: Set of tools for the crewAI framework
 Project-URL: Homepage, https://crewai.com
 Project-URL: Repository, https://github.com/crewAIInc/crewAI-tools
@@ -10,7 +10,7 @@ License-File: LICENSE
 Requires-Python: <3.14,>=3.10
 Requires-Dist: chromadb==0.5.23
 Requires-Dist: click>=8.1.8
-Requires-Dist: crewai>=0.140.0
+Requires-Dist: crewai>=0.148.0
 Requires-Dist: docker>=7.1.0
 Requires-Dist: embedchain>=0.1.114
 Requires-Dist: lancedb>=0.5.4
@@ -19,11 +19,17 @@ Requires-Dist: pydantic>=2.6.1
 Requires-Dist: pyright>=1.1.350
 Requires-Dist: pytube>=15.0.0
 Requires-Dist: requests>=2.31.0
+Requires-Dist: stagehand>=0.4.1
 Requires-Dist: tiktoken>=0.8.0
 Provides-Extra: apify
 Requires-Dist: langchain-apify<1.0.0,>=0.1.2; extra == 'apify'
 Provides-Extra: beautifulsoup4
 Requires-Dist: beautifulsoup4>=4.12.3; extra == 'beautifulsoup4'
+Provides-Extra: bedrock
+Requires-Dist: beautifulsoup4>=4.13.4; extra == 'bedrock'
+Requires-Dist: bedrock-agentcore>=0.1.0; extra == 'bedrock'
+Requires-Dist: nest-asyncio>=1.6.0; extra == 'bedrock'
+Requires-Dist: playwright>=1.52.0; extra == 'bedrock'
 Provides-Extra: browserbase
 Requires-Dist: browserbase>=1.0.5; extra == 'browserbase'
 Provides-Extra: composio-core
@@ -73,7 +79,7 @@ Requires-Dist: spider-client>=0.1.25; extra == 'spider-client'
 Provides-Extra: sqlalchemy
 Requires-Dist: sqlalchemy>=2.0.35; extra == 'sqlalchemy'
 Provides-Extra: stagehand
-Requires-Dist: stagehand-py>=0.3.6; extra == 'stagehand'
+Requires-Dist: stagehand>=0.4.1; extra == 'stagehand'
 Provides-Extra: tavily-python
 Requires-Dist: tavily-python>=0.5.4; extra == 'tavily-python'
 Provides-Extra: weaviate-client

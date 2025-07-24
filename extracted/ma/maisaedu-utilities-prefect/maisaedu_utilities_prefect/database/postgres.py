@@ -111,6 +111,7 @@ def copy(
 def select(conn, str, params=None):
     cur = conn.cursor()
     try:
+        detect_sql_injection_in_select_statement(str)
         cur.execute(str, params)
         row = cur.fetchall()
         cur.close()
@@ -123,6 +124,9 @@ def select(conn, str, params=None):
 def execute(conn, str, default_commit=True, params=None):
     cur = conn.cursor()
     try:
+        #if ";" in str:
+        #    raise ValueError("Semicolon detected in SQL statement, which is not allowed.")
+        
         cur.execute(str, params)
         if default_commit:
             conn.commit()
@@ -171,3 +175,31 @@ def detect_sql_injection(input_string):
         
 
     return input_string
+
+def detect_sql_injection_in_select_statement(select_statement):
+    if not select_statement or not isinstance(select_statement, str):
+        return select_statement
+
+    normalized = select_statement.lower().strip()
+
+    if not normalized.startswith("select") and not normalized.startswith("with"):
+        raise ValueError("Select statement must start with 'SELECT' or 'WITH'")
+
+    blacklist_patterns = [
+        r"(--|#)",              
+        r"(;)",                 
+        r"(drop\s+table)",      
+        r"(delete\s+from)",     
+        r"(insert\s+into)",     
+        r"(update\s+\w+\s+set)",
+        r"(or\s+1=1)",          
+        r"(['\"])--",           
+        r"exec\s",              
+        r"xp_cmdshell",         
+    ]
+
+    for pattern in blacklist_patterns:
+        if re.search(pattern, normalized):
+            raise ValueError("SQL Injection detected")
+
+    return select_statement

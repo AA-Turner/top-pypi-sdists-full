@@ -40,6 +40,7 @@ from .usecases import (
     BananaMonitoringUseCase,
     FieldMappingUseCase,
     MaskDetectionUseCase,
+    LeafUseCase,
     CarDamageDetectionUseCase,
     LeafDiseaseDetectionUseCase,
     FireSmokeUseCase,
@@ -47,6 +48,7 @@ from .usecases import (
     FlareAnalysisUseCase,
     WoundSegmentationUseCase,
     ParkingSpaceUseCase,
+    ParkingUseCase,
     FaceEmotionUseCase,
     UnderwaterPlasticUseCase,
     PedestrianDetectionUseCase,
@@ -193,6 +195,8 @@ class PostProcessor:
         registry.register_use_case("medical", "wound_segmentation", WoundSegmentationUseCase)
         registry.register_use_case("agriculture", "leaf_disease_detection", LeafDiseaseDetectionUseCase)
         registry.register_use_case("agriculture", "flower_segmentation", FlowerUseCase)
+        registry.register_use_case("general", "parking_det", ParkingUseCase)
+        registry.register_use_case("agriculture", "leaf_det", LeafUseCase)
         
 
         logger.debug("Registered use cases with registry")
@@ -333,6 +337,10 @@ class PostProcessor:
             elif isinstance(use_case, LeafDiseaseDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, FlowerUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, ParkingUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, LeafUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
 
             else:

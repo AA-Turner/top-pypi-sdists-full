@@ -7,9 +7,9 @@ import pathlib
 import re
 import sys
 import typing as t
+import uuid
 
 import globus_sdk
-from globus_sdk._types import UUIDLike
 
 from .token_data import TokenStorageData
 
@@ -168,7 +168,7 @@ class FileTokenStorage(TokenStorage, metaclass=abc.ABCMeta):
     @classmethod
     def for_globus_app(
         cls,
-        client_id: UUIDLike,
+        client_id: uuid.UUID | str,
         app_name: str,
         config: GlobusAppConfig,
         namespace: str,
@@ -219,7 +219,7 @@ class FileTokenStorage(TokenStorage, metaclass=abc.ABCMeta):
 
 
 def _default_globus_app_filepath(
-    client_id: UUIDLike, app_name: str, environment: str
+    client_id: uuid.UUID | str, app_name: str, environment: str
 ) -> str:
     r"""
     Construct a default TokenStorage filepath for a GlobusApp.

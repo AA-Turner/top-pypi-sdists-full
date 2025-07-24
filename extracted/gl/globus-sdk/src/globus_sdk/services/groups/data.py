@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import enum
 import typing as t
+import uuid
 
 from globus_sdk import utils
-from globus_sdk._types import UUIDLike
 
 T = t.TypeVar("T")
 
@@ -105,7 +105,7 @@ class BatchMembershipActions(utils.PayloadWrapper):
     """
 
     def accept_invites(
-        self, identity_ids: t.Iterable[UUIDLike]
+        self, identity_ids: t.Iterable[uuid.UUID | str]
     ) -> BatchMembershipActions:
         """
         Accept invites for identities.  The identities must belong to
@@ -121,7 +121,7 @@ class BatchMembershipActions(utils.PayloadWrapper):
 
     def add_members(
         self,
-        identity_ids: t.Iterable[UUIDLike],
+        identity_ids: t.Iterable[uuid.UUID | str],
         *,
         role: _GROUP_ROLE_T = "member",
     ) -> BatchMembershipActions:
@@ -138,7 +138,7 @@ class BatchMembershipActions(utils.PayloadWrapper):
         return self
 
     def approve_pending(
-        self, identity_ids: t.Iterable[UUIDLike]
+        self, identity_ids: t.Iterable[uuid.UUID | str]
     ) -> BatchMembershipActions:
         """
         Approve a list of identities with pending join requests.
@@ -152,7 +152,7 @@ class BatchMembershipActions(utils.PayloadWrapper):
         return self
 
     def decline_invites(
-        self, identity_ids: t.Iterable[UUIDLike]
+        self, identity_ids: t.Iterable[uuid.UUID | str]
     ) -> BatchMembershipActions:
         """
         Decline an invitation for a given set of identities.
@@ -167,7 +167,7 @@ class BatchMembershipActions(utils.PayloadWrapper):
 
     def invite_members(
         self,
-        identity_ids: t.Iterable[UUIDLike],
+        identity_ids: t.Iterable[uuid.UUID | str],
         *,
         role: _GROUP_ROLE_T = "member",
     ) -> BatchMembershipActions:
@@ -183,7 +183,7 @@ class BatchMembershipActions(utils.PayloadWrapper):
         )
         return self
 
-    def join(self, identity_ids: t.Iterable[UUIDLike]) -> BatchMembershipActions:
+    def join(self, identity_ids: t.Iterable[uuid.UUID | str]) -> BatchMembershipActions:
         """
         Join a group with the given identities.  The identities must be in the
         authenticated users identity set.
@@ -196,7 +196,9 @@ class BatchMembershipActions(utils.PayloadWrapper):
         )
         return self
 
-    def leave(self, identity_ids: t.Iterable[UUIDLike]) -> BatchMembershipActions:
+    def leave(
+        self, identity_ids: t.Iterable[uuid.UUID | str]
+    ) -> BatchMembershipActions:
         """
         Leave a group that one of the identities in the authenticated user's
         identity set is a member of.
@@ -210,7 +212,7 @@ class BatchMembershipActions(utils.PayloadWrapper):
         return self
 
     def reject_join_requests(
-        self, identity_ids: t.Iterable[UUIDLike]
+        self, identity_ids: t.Iterable[uuid.UUID | str]
     ) -> BatchMembershipActions:
         """
         Reject identities which have requested to join the group.
@@ -224,7 +226,7 @@ class BatchMembershipActions(utils.PayloadWrapper):
         return self
 
     def remove_members(
-        self, identity_ids: t.Iterable[UUIDLike]
+        self, identity_ids: t.Iterable[uuid.UUID | str]
     ) -> BatchMembershipActions:
         """
         Remove members from a group.  This must be done as an admin or manager
@@ -239,7 +241,7 @@ class BatchMembershipActions(utils.PayloadWrapper):
         return self
 
     def request_join(
-        self, identity_ids: t.Iterable[UUIDLike]
+        self, identity_ids: t.Iterable[uuid.UUID | str]
     ) -> BatchMembershipActions:
         """
         Request to join a group.

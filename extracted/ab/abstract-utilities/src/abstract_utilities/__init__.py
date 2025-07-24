@@ -104,8 +104,6 @@ from .type_utils import (make_bool,
                          makeInt,
                          str_lower,
                          confirm_type,
-                         get_all_types,
-                         get_media_types,
                          get_all_file_types,
                          is_media_type,
                          get_bool_response,
@@ -122,6 +120,7 @@ from .type_utils import (make_bool,
                          is_any_instance,
                          break_string
                          )
+get_media_types = get_all_types = get_all_file_types
 from .math_utils import (convert_to_percentage,
                          exponential,
                          get_percentage,
@@ -145,6 +144,6 @@ from .parse_utils import (num_tokens_from_string,
 from .log_utils import get_caller_info,get_logFile,print_or_log,get_json_call_response,initialize_call_log
 from .error_utils import try_func
 from .class_utils import alias,get_class_inputs
-
+from .robust_reader import *
 
 

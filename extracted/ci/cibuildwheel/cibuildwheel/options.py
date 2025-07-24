@@ -109,7 +109,7 @@ class BuildOptions:
     test_groups: list[str]
     test_environment: ParsedEnvironment
     build_verbosity: int
-    build_frontend: BuildFrontendConfig | None
+    build_frontend: BuildFrontendConfig
     config_settings: str
     container_engine: OCIContainerEngineConfig
     pyodide_version: str | None
@@ -343,40 +343,46 @@ def _apply_inherit_rule(
         msg = f"Don't know how to merge {before!r} and {after!r} with {rule}"
         raise OptionsReaderError(msg)
 
-    if rule == InheritRule.APPEND:
-        return option_format.merge_values(before, after)
-    if rule == InheritRule.PREPEND:
-        return option_format.merge_values(after, before)
-
-    assert_never(rule)
+    match rule:
+        case InheritRule.APPEND:
+            return option_format.merge_values(before, after)
+        case InheritRule.PREPEND:
+            return option_format.merge_values(after, before)
+        case _:
+            assert_never(rule)
 
 
 def _stringify_setting(
     setting: SettingValue,
     option_format: OptionFormat | None,
 ) -> str:
-    if isinstance(setting, Mapping):
-        try:
-            if option_format is None:
-                raise OptionFormat.NotSupported
-            return option_format.format_table(setting)
-        except OptionFormat.NotSupported:
-            msg = f"Error converting {setting!r} to a string: this setting doesn't accept a table"
-            raise OptionsReaderError(msg) from None
-
-    if not isinstance(setting, str) and isinstance(setting, Sequence):
-        try:
-            if option_format is None:
-                raise OptionFormat.NotSupported
-            return option_format.format_list(setting)
-        except OptionFormat.NotSupported:
-            msg = f"Error converting {setting!r} to a string: this setting doesn't accept a list"
-            raise OptionsReaderError(msg) from None
-
-    if isinstance(setting, bool | int):
-        return str(setting)
-
-    return setting
+    match setting:
+        case {}:
+            assert isinstance(setting, Mapping)  # MyPy 1.15 doesn't narrow this for us
+            try:
+                if option_format is None:
+                    raise OptionFormat.NotSupported
+                return option_format.format_table(setting)
+            except OptionFormat.NotSupported:
+                msg = (
+                    f"Error converting {setting!r} to a string: this setting doesn't accept a table"
+                )
+                raise OptionsReaderError(msg) from None
+        case bool() | int():
+            return str(setting)
+        case [*_]:
+            try:
+                if option_format is None:
+                    raise OptionFormat.NotSupported
+                return option_format.format_list(setting)
+            except OptionFormat.NotSupported:
+                msg = (
+                    f"Error converting {setting!r} to a string: this setting doesn't accept a list"
+                )
+                raise OptionsReaderError(msg) from None
+        case _:
+            assert isinstance(setting, str)  # MyPy 1.15 doesn't narrow this for us
+            return setting
 
 
 class OptionsReader:
@@ -766,9 +772,8 @@ class Options:
                 env_plat=False,
                 option_format=ShlexTableFormat(sep="; ", pair_sep=":", allow_merge=False),
             )
-            build_frontend: BuildFrontendConfig | None
             if not build_frontend_str or build_frontend_str == "default":
-                build_frontend = None
+                build_frontend = BuildFrontendConfig("build")
             else:
                 try:
                     build_frontend = BuildFrontendConfig.from_config_string(build_frontend_str)
@@ -901,14 +906,18 @@ class Options:
             defaults=True,
         )
 
-    def summary(self, identifiers: Iterable[str]) -> str:
+    def summary(self, identifiers: Iterable[str], skip_unset: bool = False) -> str:
         lines = []
         global_option_names = sorted(f.name for f in dataclasses.fields(self.globals))
 
         for option_name in global_option_names:
             option_value = getattr(self.globals, option_name)
             default_value = getattr(self.defaults.globals, option_name)
-            lines.append(self.option_summary(option_name, option_value, default_value))
+            line = self.option_summary(
+                option_name, option_value, default_value, skip_unset=skip_unset
+            )
+            if line is not None:
+                lines.append(line)
 
         build_options = self.build_options(identifier=None)
         build_options_defaults = self.defaults.build_options(identifier=None)
@@ -928,9 +937,15 @@ class Options:
                 i: getattr(build_options_for_identifier[i], option_name) for i in identifiers
             }
 
-            lines.append(
-                self.option_summary(option_name, option_value, default_value, overrides=overrides)
+            line = self.option_summary(
+                option_name,
+                option_value,
+                default_value,
+                overrides=overrides,
+                skip_unset=skip_unset,
             )
+            if line is not None:
+                lines.append(line)
 
         return "\n".join(lines)
 
@@ -940,7 +955,8 @@ class Options:
         option_value: Any,
         default_value: Any,
         overrides: Mapping[str, Any] | None = None,
-    ) -> str:
+        skip_unset: bool = False,
+    ) -> str | None:
         """
         Return a summary of the option value, including any overrides, with
         ANSI 'dim' color if it's the default.
@@ -954,6 +970,10 @@ class Options:
         overrides_value_strs = {k: v for k, v in overrides_value_strs.items() if v != value_str}
 
         has_been_set = (value_str != default_value_str) or overrides_value_strs
+
+        if skip_unset and not has_been_set:
+            return None
+
         c = log.colors
 
         result = c.gray if not has_been_set else ""

@@ -6,15 +6,15 @@ import pytest
 
 from scim2_models.annotations import Required
 from scim2_models.context import Context
-from scim2_models.rfc7643.enterprise_user import EnterpriseUser
-from scim2_models.rfc7643.group import Group
-from scim2_models.rfc7643.resource import Resource
-from scim2_models.rfc7643.resource_type import ResourceType
-from scim2_models.rfc7643.schema import Attribute
-from scim2_models.rfc7643.schema import Schema
-from scim2_models.rfc7643.schema import make_python_model
-from scim2_models.rfc7643.service_provider_config import ServiceProviderConfig
-from scim2_models.rfc7643.user import User
+from scim2_models.resources.enterprise_user import EnterpriseUser
+from scim2_models.resources.group import Group
+from scim2_models.resources.resource import Resource
+from scim2_models.resources.resource_type import ResourceType
+from scim2_models.resources.schema import Attribute
+from scim2_models.resources.schema import Schema
+from scim2_models.resources.schema import _make_python_model
+from scim2_models.resources.service_provider_config import ServiceProviderConfig
+from scim2_models.resources.user import User
 
 
 def canonic_schema(schema):
@@ -190,11 +190,11 @@ def test_make_python_model_validates_name():
     schema.name = None
 
     with pytest.raises(ValueError, match="Schema or Attribute 'name' must be defined"):
-        make_python_model(schema, Resource)
+        _make_python_model(schema, Resource)
 
     # Test with Attribute object without name
     attribute = Attribute(type=Attribute.Type.string)
     attribute.name = None
 
     with pytest.raises(ValueError, match="Schema or Attribute 'name' must be defined"):
-        make_python_model(attribute, Resource)
+        _make_python_model(attribute, Resource)

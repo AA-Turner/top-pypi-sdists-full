@@ -12,7 +12,9 @@ from sklearn.decomposition import PCA
 from sklearn.metrics import accuracy_score, r2_score
 from sklearn.pipeline import Pipeline
 
-from ._rotate import _get_rotation_manifold, _get_rotation_tangentspace
+from ..optimization.grassmann import (
+    _get_rotation_manifold, _get_rotation_tangentspace
+)
 from ._tools import decode_domains
 from ..classification import MDM
 from ..preprocessing import Whitening
@@ -140,7 +142,7 @@ class TLCenter(TransformerMixin, BaseEstimator):
     -----
     .. versionadded:: 0.4
     .. versionchanged:: 0.8
-        Added support for tangent space centering.
+        Add support for tangent space centering.
 
     References
     ----------
@@ -339,7 +341,7 @@ class TLScale(TransformerMixin, BaseEstimator):
     -----
     .. versionadded:: 0.4
     .. versionchanged:: 0.8
-        Added support for tangent space scaling.
+        Add support for tangent space scaling.
 
     References
     ----------
@@ -571,7 +573,7 @@ class TLRotate(TransformerMixin, BaseEstimator):
     metric : {"euclid", "riemann"}, default="euclid"
         For inputs in manifold, distance to minimize between class means.
     n_jobs : int, default=1
-        For inputs in manifold, the number of jobs to use for the computation.
+        For inputs in manifold, number of jobs to use for the computation.
         This works by computing the rotation matrix for each source domain in
         parallel. If -1 all CPUs are used.
     expl_var : float, default=0.999
@@ -581,7 +583,7 @@ class TLRotate(TransformerMixin, BaseEstimator):
         Else, number of components.
     n_components : int | "max", default=1
         For inputs in tangent space,
-        parameter `n_components` used in `sklearn.decomposition.PCA`.
+        parameter ``n_components`` used in ``sklearn.decomposition.PCA``.
         If int, number of components to keep in PCA.
         If "max", all components are kept.
     n_clusters : int, default=3

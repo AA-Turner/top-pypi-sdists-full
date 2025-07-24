@@ -1,13 +1,21 @@
 # AUTO GENERATED FILE - DO NOT EDIT
 
 import typing  # noqa: F401
-import numbers # noqa: F401
 from typing_extensions import TypedDict, NotRequired, Literal # noqa: F401
 from dash.development.base_component import Component, _explicitize_args
-try:
-    from dash.development.base_component import ComponentType # noqa: F401
-except ImportError:
-    ComponentType = typing.TypeVar("ComponentType", bound=Component)
+
+ComponentType = typing.Union[
+    str,
+    int,
+    float,
+    Component,
+    None,
+    typing.Sequence[typing.Union[str, int, float, Component, None]],
+]
+
+NumberType = typing.Union[
+    typing.SupportsFloat, typing.SupportsInt, typing.SupportsComplex
+]
 
 
 class AgGrid(Component):
@@ -226,6 +234,9 @@ Keyword arguments:
 
 - dashGridOptions (dict; optional):
     Other ag-grid options.
+
+- dashRenderType (string; optional):
+    dashRenderType to determine why grid is rendering.
 
 - defaultColDef (dict; optional):
     A default column definition.
@@ -523,7 +534,7 @@ Keyword arguments:
             "add": NotRequired[typing.Sequence],
             "update": NotRequired[typing.Sequence],
             "remove": NotRequired[typing.Sequence],
-            "addIndex": NotRequired[typing.Union[int, float, numbers.Number]]
+            "addIndex": NotRequired[NumberType]
         }
     )
 
@@ -551,8 +562,8 @@ Keyword arguments:
         "ColumnSizeOptionsColumnLimits",
             {
             "key": NotRequired[str],
-            "minWidth": NotRequired[typing.Union[int, float, numbers.Number]],
-            "maxWidth": NotRequired[typing.Union[int, float, numbers.Number]]
+            "minWidth": NotRequired[NumberType],
+            "maxWidth": NotRequired[NumberType]
         }
     )
 
@@ -560,8 +571,8 @@ Keyword arguments:
         "ColumnSizeOptions",
             {
             "columnLimits": NotRequired[typing.Sequence["ColumnSizeOptionsColumnLimits"]],
-            "defaultMinWidth": NotRequired[typing.Union[int, float, numbers.Number]],
-            "defaultMaxWidth": NotRequired[typing.Union[int, float, numbers.Number]],
+            "defaultMinWidth": NotRequired[NumberType],
+            "defaultMaxWidth": NotRequired[NumberType],
             "keys": NotRequired[typing.Sequence[str]],
             "skipHeader": NotRequired[bool]
         }
@@ -586,8 +597,8 @@ Keyword arguments:
     GetRowsRequest = TypedDict(
         "GetRowsRequest",
             {
-            "startRow": NotRequired[typing.Union[int, float, numbers.Number]],
-            "endRow": NotRequired[typing.Union[int, float, numbers.Number]],
+            "startRow": NotRequired[NumberType],
+            "endRow": NotRequired[NumberType],
             "sortModel": NotRequired[typing.Sequence[dict]],
             "filterModel": NotRequired[dict],
             "context": NotRequired[typing.Any],
@@ -600,10 +611,10 @@ Keyword arguments:
         "PaginationInfo",
             {
             "isLastPageFound": NotRequired[bool],
-            "pageSize": NotRequired[typing.Union[int, float, numbers.Number]],
-            "currentPage": NotRequired[typing.Union[int, float, numbers.Number]],
-            "totalPages": NotRequired[typing.Union[int, float, numbers.Number]],
-            "rowCount": NotRequired[typing.Union[int, float, numbers.Number]]
+            "pageSize": NotRequired[NumberType],
+            "currentPage": NotRequired[NumberType],
+            "totalPages": NotRequired[NumberType],
+            "rowCount": NotRequired[NumberType]
         }
     )
 
@@ -620,7 +631,7 @@ Keyword arguments:
             {
             "value": NotRequired[typing.Any],
             "colId": NotRequired[str],
-            "rowIndex": NotRequired[typing.Union[int, float, numbers.Number]],
+            "rowIndex": NotRequired[NumberType],
             "rowId": NotRequired[typing.Any],
             "timestamp": NotRequired[typing.Any]
         }
@@ -630,7 +641,7 @@ Keyword arguments:
         "GetRowsResponse",
             {
             "rowData": NotRequired[typing.Sequence[dict]],
-            "rowCount": NotRequired[typing.Union[int, float, numbers.Number]],
+            "rowCount": NotRequired[NumberType],
             "storeInfo": NotRequired[typing.Any]
         }
     )
@@ -638,7 +649,7 @@ Keyword arguments:
     ScrollTo = TypedDict(
         "ScrollTo",
             {
-            "rowIndex": NotRequired[typing.Union[int, float, numbers.Number]],
+            "rowIndex": NotRequired[NumberType],
             "rowId": NotRequired[str],
             "data": NotRequired[dict],
             "rowPosition": NotRequired[Literal["top", "bottom", "middle"]],
@@ -669,7 +680,7 @@ Keyword arguments:
             {
             "value": NotRequired[typing.Any],
             "colId": NotRequired[typing.Any],
-            "rowIndex": NotRequired[typing.Union[int, float, numbers.Number]],
+            "rowIndex": NotRequired[NumberType],
             "rowId": NotRequired[typing.Any],
             "timestamp": NotRequired[typing.Any]
         }
@@ -680,7 +691,7 @@ Keyword arguments:
             {
             "value": NotRequired[typing.Any],
             "colId": NotRequired[typing.Any],
-            "rowIndex": NotRequired[typing.Union[int, float, numbers.Number]],
+            "rowIndex": NotRequired[NumberType],
             "rowId": NotRequired[typing.Any],
             "timestamp": NotRequired[typing.Any]
         }
@@ -696,7 +707,7 @@ Keyword arguments:
     CellValueChanged = TypedDict(
         "CellValueChanged",
             {
-            "rowIndex": NotRequired[typing.Union[int, float, numbers.Number]],
+            "rowIndex": NotRequired[NumberType],
             "rowId": NotRequired[typing.Any],
             "data": NotRequired[dict],
             "oldValue": NotRequired[typing.Any],
@@ -706,13 +717,13 @@ Keyword arguments:
         }
     )
 
-    @_explicitize_args
+
     def __init__(
         self,
         id: typing.Optional[typing.Union[str, dict]] = None,
         style: typing.Optional[typing.Any] = None,
         className: typing.Optional[str] = None,
-        persistence: typing.Optional[typing.Union[bool, str, typing.Union[int, float, numbers.Number]]] = None,
+        persistence: typing.Optional[typing.Union[bool, str, NumberType]] = None,
         persisted_props: typing.Optional[typing.Sequence[str]] = None,
         persistence_type: typing.Optional[Literal["local", "session", "memory"]] = None,
         dangerously_allow_code: typing.Optional[bool] = None,
@@ -731,7 +742,7 @@ Keyword arguments:
         getRowStyle: typing.Optional["GetRowStyle"] = None,
         getRowsRequest: typing.Optional["GetRowsRequest"] = None,
         paginationInfo: typing.Optional["PaginationInfo"] = None,
-        paginationGoTo: typing.Optional[typing.Union[Literal["first", "last", "next", "previous", None], typing.Union[int, float, numbers.Number]]] = None,
+        paginationGoTo: typing.Optional[typing.Union[Literal["first", "last", "next", "previous", None], NumberType]] = None,
         filterModel: typing.Optional[dict] = None,
         getDetailRequest: typing.Optional["GetDetailRequest"] = None,
         getDetailResponse: typing.Optional[typing.Sequence[dict]] = None,
@@ -758,11 +769,12 @@ Keyword arguments:
         selectedRows: typing.Optional[typing.Union[typing.Sequence[dict], "SelectedRows"]] = None,
         cellValueChanged: typing.Optional[typing.Sequence["CellValueChanged"]] = None,
         dashGridOptions: typing.Optional[dict] = None,
+        dashRenderType: typing.Optional[str] = None,
         **kwargs
     ):
-        self._prop_names = ['id', 'cellClicked', 'cellDoubleClicked', 'cellRendererData', 'cellValueChanged', 'className', 'columnDefs', 'columnSize', 'columnSizeOptions', 'columnState', 'csvExportParams', 'dangerously_allow_code', 'dashGridOptions', 'defaultColDef', 'deleteSelectedRows', 'deselectAll', 'detailCellRendererParams', 'enableEnterpriseModules', 'eventData', 'eventListeners', 'exportDataAsCsv', 'filterModel', 'getDetailRequest', 'getDetailResponse', 'getRowId', 'getRowStyle', 'getRowsRequest', 'getRowsResponse', 'licenseKey', 'masterDetail', 'paginationGoTo', 'paginationInfo', 'persisted_props', 'persistence', 'persistence_type', 'resetColumnState', 'rowClass', 'rowClassRules', 'rowData', 'rowModelType', 'rowStyle', 'rowTransaction', 'scrollTo', 'selectAll', 'selectedRows', 'style', 'suppressDragLeaveHidesColumns', 'updateColumnState', 'virtualRowData']
+        self._prop_names = ['id', 'cellClicked', 'cellDoubleClicked', 'cellRendererData', 'cellValueChanged', 'className', 'columnDefs', 'columnSize', 'columnSizeOptions', 'columnState', 'csvExportParams', 'dangerously_allow_code', 'dashGridOptions', 'dashRenderType', 'defaultColDef', 'deleteSelectedRows', 'deselectAll', 'detailCellRendererParams', 'enableEnterpriseModules', 'eventData', 'eventListeners', 'exportDataAsCsv', 'filterModel', 'getDetailRequest', 'getDetailResponse', 'getRowId', 'getRowStyle', 'getRowsRequest', 'getRowsResponse', 'licenseKey', 'masterDetail', 'paginationGoTo', 'paginationInfo', 'persisted_props', 'persistence', 'persistence_type', 'resetColumnState', 'rowClass', 'rowClassRules', 'rowData', 'rowModelType', 'rowStyle', 'rowTransaction', 'scrollTo', 'selectAll', 'selectedRows', 'style', 'suppressDragLeaveHidesColumns', 'updateColumnState', 'virtualRowData']
         self._valid_wildcard_attributes =            []
-        self.available_properties = ['id', 'cellClicked', 'cellDoubleClicked', 'cellRendererData', 'cellValueChanged', 'className', 'columnDefs', 'columnSize', 'columnSizeOptions', 'columnState', 'csvExportParams', 'dangerously_allow_code', 'dashGridOptions', 'defaultColDef', 'deleteSelectedRows', 'deselectAll', 'detailCellRendererParams', 'enableEnterpriseModules', 'eventData', 'eventListeners', 'exportDataAsCsv', 'filterModel', 'getDetailRequest', 'getDetailResponse', 'getRowId', 'getRowStyle', 'getRowsRequest', 'getRowsResponse', 'licenseKey', 'masterDetail', 'paginationGoTo', 'paginationInfo', 'persisted_props', 'persistence', 'persistence_type', 'resetColumnState', 'rowClass', 'rowClassRules', 'rowData', 'rowModelType', 'rowStyle', 'rowTransaction', 'scrollTo', 'selectAll', 'selectedRows', 'style', 'suppressDragLeaveHidesColumns', 'updateColumnState', 'virtualRowData']
+        self.available_properties = ['id', 'cellClicked', 'cellDoubleClicked', 'cellRendererData', 'cellValueChanged', 'className', 'columnDefs', 'columnSize', 'columnSizeOptions', 'columnState', 'csvExportParams', 'dangerously_allow_code', 'dashGridOptions', 'dashRenderType', 'defaultColDef', 'deleteSelectedRows', 'deselectAll', 'detailCellRendererParams', 'enableEnterpriseModules', 'eventData', 'eventListeners', 'exportDataAsCsv', 'filterModel', 'getDetailRequest', 'getDetailResponse', 'getRowId', 'getRowStyle', 'getRowsRequest', 'getRowsResponse', 'licenseKey', 'masterDetail', 'paginationGoTo', 'paginationInfo', 'persisted_props', 'persistence', 'persistence_type', 'resetColumnState', 'rowClass', 'rowClassRules', 'rowData', 'rowModelType', 'rowStyle', 'rowTransaction', 'scrollTo', 'selectAll', 'selectedRows', 'style', 'suppressDragLeaveHidesColumns', 'updateColumnState', 'virtualRowData']
         self.available_wildcard_properties =            []
         _explicit_args = kwargs.pop('_explicit_args')
         _locals = locals()
@@ -770,3 +782,5 @@ Keyword arguments:
         args = {k: _locals[k] for k in _explicit_args}
 
         super(AgGrid, self).__init__(**args)
+
+setattr(AgGrid, "__init__", _explicitize_args(AgGrid.__init__))

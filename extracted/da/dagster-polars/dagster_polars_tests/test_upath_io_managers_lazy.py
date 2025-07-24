@@ -19,13 +19,13 @@ from dagster import (
     asset,
     materialize,
 )
+
 from dagster_polars import (
     BasePolarsUPathIOManager,
     LazyFramePartitions,
     PolarsDeltaIOManager,
     PolarsParquetIOManager,
 )
-
 from dagster_polars_tests.utils import get_saved_path
 
 
@@ -110,7 +110,7 @@ def test_polars_upath_io_manager_nested_dtypes(
 
     @asset(io_manager_def=manager)
     def downstream(upstream: pl.LazyFrame) -> pl.DataFrame:
-        return upstream.collect(streaming=True)  # type: ignore
+        return upstream.collect()
 
     result = materialize(
         [upstream, downstream],

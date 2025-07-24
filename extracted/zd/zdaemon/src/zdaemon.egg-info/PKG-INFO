@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: zdaemon
-Version: 5.2
+Version: 5.2.1
 Summary: Daemon process control library and tools for Unix-based systems
 Home-page: https://github.com/zopefoundation/zdaemon
 Author: Zope Foundation and Contributors
@@ -23,7 +23,6 @@ Classifier: Topic :: Utilities
 Requires-Python: >=3.9
 License-File: LICENSE.txt
 Requires-Dist: ZConfig
-Requires-Dist: setuptools
 Provides-Extra: test
 Requires-Dist: manuel; extra == "test"
 Requires-Dist: zc.customdoctests; extra == "test"
@@ -569,6 +568,12 @@ handy for debugging.
 ==========
 Change log
 ==========
+
+5.2.1 (2025-07-23)
+==================
+
+- Replace ``pkg_resources`` with ``importlib.metadata`` to access package
+  metadata.
 
 5.2 (2025-05-19)
 ================

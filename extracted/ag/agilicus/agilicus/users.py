@@ -1285,6 +1285,7 @@ def format_support_request_acknowledgement_as_text(ctx, info):
         spec_column("supporting_user_id"),
         spec_column("support_request_id"),
         spec_column("org_id"),
+        status_column("supporting_user_email"),
     ]
     return format_table(ctx, info, columns)
 

@@ -58,6 +58,8 @@ from .field_mapping import FieldMappingConfig, FieldMappingUseCase
 from .wound_segmentation import WoundConfig, WoundSegmentationUseCase
 from .leaf_disease import LeafDiseaseDetectionConfig, LeafDiseaseDetectionUseCase
 from .flower_segmentation import FlowerUseCase, FlowerConfig
+from .parking import ParkingConfig, ParkingUseCase
+from .leaf import LeafConfig, LeafUseCase
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -73,10 +75,12 @@ __all__ = [
     'LeafDiseaseDetectionUseCase',
     'VehicleMonitoringUseCase',
     'ShopliftingDetectionUseCase',
+    'ParkingUseCase',
     'ParkingSpaceUseCase',
     'FireSmokeUseCase',
     'MaskDetectionUseCase',
     'FlareAnalysisUseCase',
+    'LeafUseCase',
     'PotholeSegmentationUseCase',
     'CarDamageDetectionUseCase',
     'FaceEmotionUseCase',
@@ -123,7 +127,9 @@ __all__ = [
     'CarDamageConfig',
     'VehicleMonitoringConfig',
     'ShopliftingDetectionConfig',
+    'ParkingConfig',
     'FireSmokeConfig',
+    'LeafConfig',
     'FlareAnalysisConfig',
     'FaceEmotionConfig',
     'UnderwaterPlasticConfig',

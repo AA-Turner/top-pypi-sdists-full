@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import asyncio
+import errno
 import io
 import logging
 import os
@@ -9,9 +10,8 @@ import warnings
 from functools import partial
 from socket import AF_INET, AF_INET6, AF_UNSPEC
 
-from pyroute2 import netns
-from pyroute2.common import AF_MPLS, basestring
-from pyroute2.config import AF_BRIDGE
+from pyroute2 import config, netns
+from pyroute2.common import AF_MPLS, basestring, get_time
 from pyroute2.netlink import NLM_F_ACK, NLM_F_DUMP, NLM_F_REQUEST, NLMSG_ERROR
 from pyroute2.netlink.exceptions import (
     NetlinkDumpInterrupted,
@@ -120,11 +120,11 @@ def get_default_request_filters(mode, command):
     return filters[mode]
 
 
-def get_dump_filter(mode, command, query):
+def get_dump_filter(mode, command, query, parameters=None):
     if 'dump_filter' in query:
         return query.pop('dump_filter'), query
     if command not in ('dump', 'show'):
-        return RequestProcessor(), query
+        return RequestProcessor(parameters=parameters), query
     new_query = {}
     if 'family' in query:
         new_query['family'] = query.pop('family')
@@ -134,7 +134,9 @@ def get_dump_filter(mode, command, query):
         query = query['match']
     if callable(query):
         return query, {}
-    dump_filter = RequestProcessor(context=query, prime=query)
+    dump_filter = RequestProcessor(
+        context=query, prime=query, parameters=parameters
+    )
     for rf in query.pop(
         'dump_filter', get_default_request_filters(mode, command)
     ):
@@ -353,7 +355,73 @@ class RTNL_API:
 
         return ret()
 
-    async def poll(self, method, command, timeout=10, interval=0.2, **spec):
+    async def ensure(
+        self, method, present=True, timeout=10, interval=0.2, **spec
+    ):
+        '''Ensure object's state.
+
+        The issue with RTNL calls is that they are not synchronous:
+        even if the kernel returns success for a call, the changes
+        may become visible after some short time. Because of that
+        adding dependant object immediately one after another may fail.
+        Say, adding a route directly after the required interface
+        address.
+
+        Since pyroute2 RTNL API is more or less one to one mapping
+        of the kernel RTNL, it has the same problem.
+
+        This method aims to mitigate this issue.
+
+        * if `present == True`, try to add/set an object by the spec.
+        * if `present == False`, try to remove
+        * and finally wait up to `timeout` for the changes to be applied.
+
+        Example:
+
+        .. testcode::
+
+            interface = ipr.ensure(ipr.link,
+                present=True,
+                ifname='test0',
+                kind='dummy',
+                state='up',
+            )
+            ipr.ensure(ipr.addr,
+                present=True,
+                index=interface,
+                address='192.168.0.2/24',
+            )
+        '''
+        state = [x async for x in await method('dump', **spec)]
+        if present:
+            if state:
+                return state
+            try:
+                await method('add', **spec)
+            except NetlinkError as e:
+                if e.code != errno.EEXIST:
+                    raise
+                await method('set', **spec)
+        else:
+            if not state:
+                return state
+            try:
+                await method('del', **spec)
+            except NetlinkError as e:
+                if e.code not in (
+                    errno.ENODEV,
+                    errno.ENOENT,
+                    errno.ENONET,
+                    errno.EADDRNOTAVAIL,
+                ):
+                    raise
+        return await self.poll(
+            method, 'dump', present, timeout, interval, **spec
+        )
+
+    async def poll(
+        self, method, command, present=True, timeout=10, interval=0.2, **spec
+    ):
         '''Wait for a method to succeed.
 
         Run `method` with a positional argument `command` and keyword
@@ -388,14 +456,14 @@ class RTNL_API:
             except TimeoutError:
                 pass
         '''
-        ctime = time.time()
+        ctime = get_time()
         ret = tuple()
-        while ctime + timeout > time.time():
+        while ctime + timeout > get_time():
             try:
                 ret = await method(command, **spec)
                 if not isinstance(ret, list):
                     ret = [x async for x in ret]
-                if ret:
+                if (ret and present) or (not ret and not present):
                     return ret
                 await asyncio.sleep(interval)
             except NetlinkDumpInterrupted:
@@ -603,7 +671,7 @@ class RTNL_API:
         # maybe place it as mapping into ifinfomsg.py?
         #
         return await self.link(
-            'dump', family=AF_BRIDGE, ext_mask=2, match=kwarg
+            'dump', family=config.AF_BRIDGE, ext_mask=2, match=kwarg
         )
 
     async def get_links(self, *argv, **kwarg):
@@ -1299,7 +1367,7 @@ class RTNL_API:
             'add': (RTM_SETLINK, 'req'),
             'del': (RTM_DELLINK, 'req'),
         }
-        kwarg['family'] = AF_BRIDGE
+        kwarg['family'] = config.AF_BRIDGE
         kwarg['command_map'] = command_map
         kwarg['dump_filter'] = None
         kwarg['request_filter'] = get_arguments_processor(
@@ -1384,7 +1452,7 @@ class RTNL_API:
             ip.fdb('dump', vlan=200)
 
         '''
-        kwarg['family'] = AF_BRIDGE
+        kwarg['family'] = config.AF_BRIDGE
         # nud -> state
         if 'nud' in kwarg:
             kwarg['state'] = kwarg.pop('nud')
@@ -2368,24 +2436,15 @@ class RTNL_API:
             'dump': (RTM_GETROUTE, 'dump'),
         }
         msg = rtmsg()
-        # table is mandatory without strict_check; by default == 254
-        # if table is not defined in kwarg, save it there
-        # also for nla_attr. Do not set it in strict_check, use
-        # NLA instead
-        #
-        # begin
-        #   FIXME: move this block to the request processor
-        if not self.status['strict_check']:
-            table = kwarg.get('table', 254)
-            msg['table'] = table if table <= 255 else 252
-        # end
-        dump_filter, kwarg = get_dump_filter('route', command, kwarg)
-        arguments = get_arguments_processor(
-            'route',
-            command,
-            kwarg,
-            {'strict_check': self.status['strict_check']},
+        parameters = {'strict_check': self.status['strict_check']}
+        dump_filter, kwarg = get_dump_filter(
+            'route', command, kwarg, parameters
         )
+
+        arguments = get_arguments_processor(
+            'route', command, kwarg, parameters
+        )
+
         request = NetlinkRequest(
             self, msg, command, command_map, dump_filter, arguments
         )
@@ -2662,10 +2721,18 @@ class IPRoute(NetlinkSocket):
         ret.asyncore = iproute
         return ret
 
+    def ensure(self, method, present=True, timeout=10, interval=0.2, **spec):
+        # method points to the sync API, and is a partial() wrapper
+        # extract async method from the wrapper's arguments
+        method = method.args[0]
+        return self._run_with_cleanup(
+            self.asyncore.ensure, method, present, timeout, interval, **spec
+        )
+
     def poll(self, method, command, timeout=10, interval=0.2, **spec):
-        ctime = time.time()
+        ctime = get_time()
         ret = tuple()
-        while ctime + timeout > time.time():
+        while ctime + timeout > get_time():
             try:
                 ret = [x for x in method(command, **spec)]
                 if ret:
@@ -2675,75 +2742,61 @@ class IPRoute(NetlinkSocket):
                 pass
         raise TimeoutError()
 
+    def _run_force_sync(self, func, *argv, **kwarg):
+        return tuple(self._generate_with_cleanup(func, *argv, **kwarg))
+
+    def _run_generic_rtnl(self, func, *argv, **kwarg):
+        if len(argv) and argv[0] in ('dump', 'show'):
+            if not config.nlm_generator:
+                return tuple(self._generate_with_cleanup(func, *argv, **kwarg))
+            return self._generate_with_cleanup(func, *argv, **kwarg)
+        return self._run_with_cleanup(func, *argv, **kwarg)
+
     def __getattr__(self, name):
-        async_generic_methods = [
-            'addr',
-            'link',
-            'neigh',
-            'route',
-            'rule',
-            'tc',
-            'fdb',
-            'brport',
-            'probe',
-            'stats',
-            'link_lookup',
-            'vlan_filter',
-            'flush_addr',
-            'flush_rules',
-            'flush_routes',
-            'get_netnsid',
-            'route_dump',
-            'route_dumps',
-            'route_load',
-            'route_loads',
-        ]
-        async_dump_methods = [
-            'dump',
-            'get_qdiscs',
-            'get_filters',
-            'get_classes',
-            'get_links',
-            'get_addr',
-            'get_neighbours',
-            'get_routes',
-            'get_rules',
-            'get_netns_info',
-            'get_vlans',
-            'get_default_routes',
-            'get_ntables',
-        ]
+        generic_methods = set(
+            (
+                'addr',
+                'link',
+                'neigh',
+                'route',
+                'rule',
+                'tc',
+                'fdb',
+                'brport',
+                'probe',
+                'stats',
+                'link_lookup',
+                'vlan_filter',
+                'flush_addr',
+                'flush_rules',
+                'flush_routes',
+                'get_netnsid',
+                'route_dump',
+                'route_dumps',
+                'route_load',
+                'route_loads',
+            )
+        )
+        sync_methods = set(
+            (
+                'list_link_kind',
+                'unregister_link_kind',
+                'register_link_kind',
+                'get_pid',
+                'close_file',
+                'open_file',
+                'filter_messages',
+                'set_netnsid',
+            )
+        )
+
         symbol = getattr(self.asyncore, name)
-
-        def synchronize_generic(*argv, **kwarg):
-            async def collect_dump():
-                return [i async for i in await symbol(*argv, **kwarg)]
-
-            async def collect_op():
-                return await symbol(*argv, **kwarg)
-
-            if (
-                len(argv) > 0
-                and isinstance(argv[0], str)
-                and (argv[0].startswith('dump') or argv[0].startswith('show'))
-            ):
-                task = collect_dump
-            else:
-                task = collect_op
-            return task()
-
-        def synchronize_dump(*argv, **kwarg):
-            async def collect_dump():
-                return [i async for i in await symbol(*argv, **kwarg)]
-
-            return collect_dump()
-
-        # create an event loop
-        cmd = f'iproute-{name}'
-        if name in async_generic_methods:
-            return partial(self._run_with_cleanup, synchronize_generic, cmd)
-        elif name in async_dump_methods:
-            return partial(self._run_with_cleanup, synchronize_dump, cmd)
+        if name in set(RTNL_API.__dict__.keys()) - sync_methods:
+            if name in generic_methods:
+                return partial(self._run_generic_rtnl, symbol)
+            if not config.nlm_generator:
+                return partial(self._run_force_sync, symbol)
+            return partial(self._generate_with_cleanup, symbol)
         return symbol
 
 

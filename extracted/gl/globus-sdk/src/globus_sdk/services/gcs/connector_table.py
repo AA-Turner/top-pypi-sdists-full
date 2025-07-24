@@ -3,8 +3,7 @@ from __future__ import annotations
 import dataclasses
 import re
 import typing as t
-
-from globus_sdk._types import UUIDLike
+import uuid
 
 _NORMALIZATION_PATTERN = re.compile(r"[_\- ]+")
 
@@ -96,7 +95,7 @@ class ConnectorTable:
             yield item
 
     @classmethod
-    def lookup(cls, name_or_id: UUIDLike) -> GlobusConnectServerConnector | None:
+    def lookup(cls, name_or_id: uuid.UUID | str) -> GlobusConnectServerConnector | None:
         """
         Convert a name or ID into a connector object.
         Returns None if the name or ID is not recognized.
@@ -121,7 +120,7 @@ class ConnectorTable:
         cls,
         *,
         connector_name: str,
-        connector_id: UUIDLike,
+        connector_id: uuid.UUID | str,
         attribute_name: str | None = None,
     ) -> type[ConnectorTable]:
         """

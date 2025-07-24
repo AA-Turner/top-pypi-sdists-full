@@ -33,6 +33,7 @@ public:
     virtual std::string get_name_in(casadi_int i);
     virtual std::string get_name_out(casadi_int i);
     virtual bool uses_output() const;
+    virtual casadi::Function get_factory(std::string const &name, std::vector< std::string,std::allocator< std::string > > const &s_in, std::vector< std::string,std::allocator< std::string > > const &s_out, casadi::Function::AuxOut const &aux, casadi::Dict const &opts) const;
     virtual bool has_jacobian() const;
     virtual casadi::Function get_jacobian(std::string const &name, std::vector< std::string,std::allocator< std::string > > const &inames, std::vector< std::string,std::allocator< std::string > > const &onames, casadi::Dict const &opts) const;
     virtual bool has_forward(casadi_int nfwd) const;
@@ -71,7 +72,7 @@ private:
       return method;
     }
 private:
-    mutable swig::SwigVar_PyObject vtable[20];
+    mutable swig::SwigVar_PyObject vtable[21];
 #endif
 
 };

@@ -45,12 +45,12 @@ from .services.auth import (
 )
 from .services.compute import (
     ComputeAPIError,
-    ComputeClient,
     ComputeClientV2,
     ComputeClientV3,
     ComputeFunctionDocument,
     ComputeFunctionMetadata,
 )
+from .services.compute.deprecated_client import ComputeClient
 from .services.flows import (
     FlowsAPIError,
     FlowsClient,

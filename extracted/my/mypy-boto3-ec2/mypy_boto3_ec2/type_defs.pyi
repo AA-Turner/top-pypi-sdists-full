@@ -7370,12 +7370,14 @@ class StartVpcEndpointServicePrivateDnsVerificationRequestTypeDef(TypedDict):
 
 class StopInstancesRequestInstanceStopTypeDef(TypedDict):
     Hibernate: NotRequired[bool]
+    SkipOsShutdown: NotRequired[bool]
     DryRun: NotRequired[bool]
     Force: NotRequired[bool]
 
 class StopInstancesRequestTypeDef(TypedDict):
     InstanceIds: Sequence[str]
     Hibernate: NotRequired[bool]
+    SkipOsShutdown: NotRequired[bool]
     DryRun: NotRequired[bool]
     Force: NotRequired[bool]
 
@@ -7405,10 +7407,12 @@ class TerminateClientVpnConnectionsRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
 
 class TerminateInstancesRequestInstanceTerminateTypeDef(TypedDict):
+    SkipOsShutdown: NotRequired[bool]
     DryRun: NotRequired[bool]
 
 class TerminateInstancesRequestTypeDef(TypedDict):
     InstanceIds: Sequence[str]
+    SkipOsShutdown: NotRequired[bool]
     DryRun: NotRequired[bool]
 
 class TrafficMirrorPortRangeTypeDef(TypedDict):

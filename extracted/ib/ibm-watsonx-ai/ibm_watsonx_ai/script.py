@@ -842,11 +842,16 @@ class Script(WMLResource):
                 "Unable to update attachment because of server error. Try again later"
             )
 
-    def delete(self, asset_id: str | None = None, **kwargs: Any) -> dict | str:
+    def delete(
+        self, asset_id: str | None = None, force: bool = False, **kwargs: Any
+    ) -> dict | str:
         """Delete a stored script asset.
 
         :param asset_id: ID of the script asset
         :type asset_id: str
+
+        :param force: if True, the delete operation will proceed even when the script deployment exists, defaults to False
+        :type force: bool, optional
 
         :return: status ("SUCCESS" or "FAILED") if deleted synchronously or dictionary with response
         :rtype: str | dict
@@ -861,9 +866,9 @@ class Script(WMLResource):
         asset_id = _get_id_from_deprecated_uid(
             kwargs, asset_id, "asset", can_be_none=False
         )
-
         Script._validate_type(asset_id, "asset_id", str, True)
-        if self._if_deployment_exist_for_asset(asset_id):
+
+        if not force and self._if_deployment_exist_for_asset(asset_id):
             raise WMLClientError(
                 "Cannot delete script that has existing deployments. Please delete all associated deployments and try again"
             )

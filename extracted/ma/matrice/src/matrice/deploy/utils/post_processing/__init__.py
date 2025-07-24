@@ -79,6 +79,7 @@ from .usecases.mask_detection import MaskDetectionConfig
 from .usecases.chicken_pose_detection import ChickenPoseDetectionConfig
 from .usecases.field_mapping import FieldMappingConfig, FieldMappingUseCase
 from .usecases.leaf_disease import LeafDiseaseDetectionConfig, LeafDiseaseDetectionUseCase
+from .usecases.parking import ParkingConfig
 
 
 from .usecases.weld_defect_detection import WeldDefectConfig
@@ -110,6 +111,7 @@ from .usecases.assembly_line_detection import AssemblyLineUseCase, AssemblyLineC
 from .usecases.car_part_segmentation import CarPartSegmentationUseCase, CarPartSegmentationConfig
 from .usecases.windmill_maintenance import WindmillMaintenanceUseCase, WindmillMaintenanceConfig
 from .usecases.flower_segmentation import FlowerUseCase, FlowerConfig
+from .usecases.leaf import LeafConfig, LeafUseCase
 
 # Use case implementations
 from .usecases import (
@@ -127,9 +129,11 @@ from .usecases import (
     ParkingSpaceUseCase,
     FlareAnalysisUseCase,
     PotholeSegmentationUseCase,
+    ParkingUseCase,
     FaceEmotionUseCase,
     UnderwaterPlasticUseCase,
     PedestrianDetectionUseCase,
+    LeafUseCase,
     WoundSegmentationUseCase,
     AgeDetectionUseCase,
     BananaMonitoringUseCase,
@@ -202,7 +206,7 @@ _fashion_detection = FashionDetectionUseCase()
 _warehouse_object_segmentation = WarehouseObjectUseCase()
 _shopping_cart_analysis = ShoppingCartUseCase()
 _anti_spoofing_detection = AntiSpoofingDetectionUseCase()
-
+_parking_det = ParkingUseCase()
 
 _shoplifting_detection = ShopliftingDetectionUseCase()
 _defect_detection_products = BottleDefectUseCase()
@@ -215,6 +219,7 @@ _field_mapping = FieldMappingUseCase()
 _wound_segmentation = WoundSegmentationUseCase()
 _leaf_disease = LeafDiseaseDetectionUseCase()
 _flower_segmentation = FlowerUseCase()
+_leaf_det = LeafUseCase()
 
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
@@ -270,6 +275,8 @@ registry.register_use_case(_field_mapping.category, _field_mapping.name, FieldMa
 registry.register_use_case(_wound_segmentation.category, _wound_segmentation.name,WoundSegmentationUseCase)
 registry.register_use_case(_leaf_disease.category, _leaf_disease.name, LeafDiseaseDetectionUseCase)
 registry.register_use_case(_flower_segmentation.category, _flower_segmentation.name, FlowerUseCase)
+registry.register_use_case(_parking_det.category, _parking_det.name, ParkingUseCase)
+registry.register_use_case(_leaf_det.category, _leaf_det.name, LeafUseCase)
 
 # Utility functions - organized by category
 from .utils import (  # noqa: E402
@@ -405,10 +412,12 @@ __all__ = [
     'LicensePlateConfig',
     'MaskDetectionConfig',
     'ShopliftingDetectionConfig',
+    'LeafConfig',
     'CarDamageConfig',
     'LeafDiseaseDetectionConfig',
     'WoundConfig',
     'FieldMappingConfig',
+    'ParkingConfig',
     'ParkingSpaceConfig',
     'PotholeConfig',
     'VehicleMonitoringConfig',
@@ -464,6 +473,8 @@ __all__ = [
     'VehicleMonitoringUseCase',
     'FireSmokeUseCase',
     'CarDamageDetectionUseCase',
+    'LeafUseCase',
+    'ParkingUseCase',
     'ParkingSpaceUseCase',
     'FlareAnalysisUseCase',
     'FieldMappingUseCase',

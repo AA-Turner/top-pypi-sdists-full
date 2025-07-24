@@ -1,22 +1,21 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.2
 Name: ZEO
-Version: 6.0.0
+Version: 6.1
 Summary: ZEO - Single-server client-server database server for ZODB
 Home-page: https://github.com/zopefoundation/ZEO
 Author: Zope Foundation and Contributors
 Author-email: zodb@googlegroups.com
-License: ZPL 2.1
+License: ZPL-2.1
 Keywords: database,zodb
 Platform: any
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Zope Public License
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.7
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Database
@@ -24,7 +23,7 @@ Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: Unix
 Classifier: Framework :: ZODB
-Requires-Python: >=3.7
+Requires-Python: >=3.9
 License-File: LICENSE.txt
 License-File: COPYING
 Requires-Dist: ZODB>=5.1.1
@@ -51,6 +50,18 @@ Provides-Extra: docs
 Requires-Dist: Sphinx; extra == "docs"
 Requires-Dist: repoze.sphinx.autointerface; extra == "docs"
 Requires-Dist: sphinx_rtd_theme; extra == "docs"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 ============================================================
 ZEO - Single-server client-server database server for ZODB
@@ -76,6 +87,18 @@ The documentation is available on `readthedocs <http://zeo.readthedocs.io/en/lat
 
 Changelog
 =========
+
+6.1 (2025-07-23)
+----------------
+
+- Add support for Python 3.13.
+
+- Drop support for Python 3.7, 3.8.
+
+- Drop ``ZEO.monitor.zeo_version`` as it is unused across all zopefoundation
+  packages.
+
+- No longer use deprecated ``pkg_resources``.
 
 6.0.0 (2023-11-23)
 ------------------

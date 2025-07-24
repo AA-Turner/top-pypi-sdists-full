@@ -75,6 +75,7 @@ class ServiceEngine(BaseEngine):
         self._stored_pipeline_details = None
         self._current_run_id = None
         self._20_class_limit_removal_test = False
+        self._onnx_model = None
 
     def _get_node_id(self):
         result = "automl"
@@ -1692,6 +1693,7 @@ class ServiceEngine(BaseEngine):
                 store=persist,
                 api_client=self._api_client,
                 auto_pipelines_parameters=self._auto_pipelines_parameters,
+                _onnx_model=self._onnx_model,
             )
 
         except LibraryNotCompatible as e:

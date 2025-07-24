@@ -32,7 +32,7 @@ class Xdawn(TransformerMixin, BaseEstimator):
     estimator : string, default="scm"
         Covariance matrix estimator, see
         :func:`pyriemann.utils.covariance.covariances`.
-    baseline_cov : None | array, shape(n_channels, n_channels), default=None
+    baseline_cov : None | ndarray, shape(n_channels, n_channels), default=None
         Covariance matrix to which the average signals are compared. If None,
         the baseline covariance is computed across all trials and time samples.
 
@@ -151,7 +151,7 @@ class Xdawn(TransformerMixin, BaseEstimator):
         """
         return self.filters_ @ X
 
-    def fit_transform(self, X, y=None, sample_weight=None):
+    def fit_transform(self, X, y=None):
         """Fit and transform in a single function.
 
         Parameters
@@ -167,7 +167,7 @@ class Xdawn(TransformerMixin, BaseEstimator):
                 n_filters), n_times)
             Set of spatially filtered trials.
         """
-        return self.fit(X, y, sample_weight=sample_weight).transform(X)
+        return self.fit(X, y).transform(X)
 
 
 class BilinearFilter(TransformerMixin, BaseEstimator):
@@ -241,7 +241,7 @@ class BilinearFilter(TransformerMixin, BaseEstimator):
         X_new : ndarray, shape (n_trials, n_filters) or \
                 ndarray, shape (n_trials, n_filters, n_filters)
             Set of spatially filtered log-variance or covariance, depending on
-            the `log` input parameter.
+            the ``log`` input parameter.
         """
         if not isinstance(X, (np.ndarray, list)):
             raise TypeError("X must be an array.")
@@ -274,7 +274,7 @@ class BilinearFilter(TransformerMixin, BaseEstimator):
         X_new : ndarray, shape (n_trials, n_filters) or \
                 ndarray, shape (n_trials, n_filters, n_filters)
             Set of spatially filtered log-variance or covariance, depending on
-            the `log` input parameter.
+            the ``log`` input parameter.
         """
         return self.fit(X, y).transform(X)
 
@@ -686,9 +686,9 @@ class AJDC(TransformerMixin, BaseEstimator):
         )
         # estimation of cospectra on subjects and conditions
         cosp = []
-        for s in range(len(X)):
-            cosp_ = cospest.transform(X[s])
-            if s == 0:
+        for i, x in enumerate(X):
+            cosp_ = cospest.transform(x)
+            if i == 0:
                 n_conditions = cosp_.shape[0]
                 self.n_channels_ = cosp_.shape[1]
                 self.freqs_ = cospest.freqs_

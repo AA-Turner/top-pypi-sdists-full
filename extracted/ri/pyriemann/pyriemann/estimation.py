@@ -133,9 +133,9 @@ class ERPCovariances(TransformerMixin, BaseEstimator):
     Attributes
     ----------
     P_ : ndarray, shape (n_components, n_times)
-        If fit, prototyped responses for each class, where `n_components` is
-        equal to `n_classes x n_channels` if `svd` is None,
-        and to `n_classes x min(svd, n_channels)` otherwise.
+        If fit, prototyped responses for each class, where n_components is
+        equal to n_classes x n_channels if ``svd`` is None,
+        and to n_classes x min(``svd``, n_channels) otherwise.
 
     See Also
     --------
@@ -217,8 +217,8 @@ class ERPCovariances(TransformerMixin, BaseEstimator):
         -------
         X_new : ndarray, shape (n_matrices, n_components, n_components)
             Covariance matrices for ERP, where the size of matrices
-            `n_components` is equal to `(1 + n_classes) x n_channels` if `svd`
-            is None, and to `n_channels + n_classes x min(svd, n_channels)`
+            n_components is equal to (1 + n_classes) x n_channels if ``svd``
+            is None, and to n_channels + n_classes x min(``svd``, n_channels)
             otherwise.
         """
         covmats = covariances_EP(
@@ -243,8 +243,8 @@ class ERPCovariances(TransformerMixin, BaseEstimator):
         -------
         X_new : ndarray, shape (n_matrices, n_components, n_components)
             Covariance matrices for ERP, where the size of matrices
-            `n_components` is equal to `(1 + n_classes) x n_channels` if `svd`
-            is None, and to `n_channels + n_classes x min(svd, n_channels)`
+            n_components is equal to (1 + n_classes) x n_channels if ``svd``
+            is None, and to n_channels + n_classes x min(``svd``, n_channels)
             otherwise.
         """
         return self.fit(X, y).transform(X)
@@ -254,10 +254,9 @@ class XdawnCovariances(TransformerMixin, BaseEstimator):
     """Estimate special form covariance matrices for ERP combined with Xdawn.
 
     Estimation of special form covariance matrix dedicated to ERP processing
-    combined with `Xdawn` spatial filtering.
+    combined with Xdawn spatial filtering [1]_.
     This is similar to :class:`pyriemann.estimation.ERPCovariances` but data
     are spatially filtered with :class:`pyriemann.spatialfilters.Xdawn`.
-    A complete description of the method is available in [1]_.
 
     The advantage of this estimation is to reduce dimensionality of the
     covariance matrices supervisely.
@@ -272,7 +271,7 @@ class XdawnCovariances(TransformerMixin, BaseEstimator):
         prototypes allowing for a better generalization across subject and
         session at the expense of dimensionality increase. In that case, the
         estimation is similar to :class:`pyriemann.estimation.ERPCovariances`
-        with `svd=nfilter` but with more compact prototype reduction.
+        with ``svd=nfilter`` but with more compact prototype reduction.
     classes : list of int | None, default=None
         list of classes to take into account for prototype estimation.
         If None, all classes will be accounted.
@@ -280,12 +279,13 @@ class XdawnCovariances(TransformerMixin, BaseEstimator):
         Covariance matrix estimator, see
         :func:`pyriemann.utils.covariance.covariances`.
     xdawn_estimator : string, default="scm"
-        Covariance matrix estimator for `Xdawn` spatial filtering.
+        Covariance matrix estimator for :class:`pyriemann.spatialfilters.Xdawn`
+        spatial filtering.
         Should be regularized using "lwf" or "oas", see
         :func:`pyriemann.utils.covariance.covariances`.
-    baseline_cov : array, shape (n_channels, n_channels) | None, default=None
-        Baseline covariance for `Xdawn` spatial filtering,
-        see :class:`pyriemann.spatialfilters.Xdawn`.
+    baseline_cov : ndarray, shape (n_channels, n_channels) | None, default=None
+        Baseline covariance for :class:`pyriemann.spatialfilters.Xdawn`
+        spatial filtering.
     **kwds : dict
         Any further parameters are passed directly to the covariance estimator.
 
@@ -366,9 +366,9 @@ class XdawnCovariances(TransformerMixin, BaseEstimator):
         -------
         X_new : ndarray, shape (n_matrices, n_components, n_components)
             Covariance matrices filtered by Xdawn, where n_components is equal
-            to `2 x n_classes x min(n_channels, nfilter)` if `applyfilters` is
-            True, and to `n_channels + n_classes x min(n_channels, nfilter)`
-            otherwise.
+            to 2 x n_classes x min(n_channels, ``nfilter``)
+            if ``applyfilters`` is True, and
+            to n_channels + n_classes x min(n_channels, ``nfilter``) otherwise.
         """
         if self.applyfilters:
             X = self.Xd_.transform(X)
@@ -395,9 +395,9 @@ class XdawnCovariances(TransformerMixin, BaseEstimator):
         -------
         X_new : ndarray, shape (n_matrices, n_components, n_components)
             Covariance matrices filtered by Xdawn, where n_components is equal
-            to `2 x n_classes x min(n_channels, nfilter)` if `applyfilters` is
-            True, and to `n_channels + n_classes x min(n_channels, nfilter)`
-            otherwise.
+            to 2 x n_classes x min(n_channels, ``nfilter``)
+            if ``applyfilters`` is True, and
+            to n_channels + n_classes x min(n_channels, ``nfilter``) otherwise.
         """
         return self.fit(X, y).transform(X)
 
@@ -578,16 +578,16 @@ class CrossSpectra(TransformerMixin, BaseEstimator):
         """
         X_new = []
 
-        for i in range(len(X)):
-            S, freqs = cross_spectrum(
-                X[i],
+        for x in X:
+            x_new, freqs = cross_spectrum(
+                x,
                 window=self.window,
                 overlap=self.overlap,
                 fmin=self.fmin,
                 fmax=self.fmax,
                 fs=self.fs,
             )
-            X_new.append(S)
+            X_new.append(x_new)
         self.freqs_ = freqs
 
         return np.array(X_new)
@@ -761,11 +761,11 @@ class Coherences(CoSpectra):
             Squared coherence matrices for each input and for each frequency
             bin.
         """
-        out = []
+        X_new = []
 
-        for i in range(len(X)):
-            S, freqs = coherence(
-                X[i],
+        for x in X:
+            x_new, freqs = coherence(
+                x,
                 window=self.window,
                 overlap=self.overlap,
                 fmin=self.fmin,
@@ -773,10 +773,10 @@ class Coherences(CoSpectra):
                 fs=self.fs,
                 coh=self.coh,
             )
-            out.append(S)
+            X_new.append(x_new)
         self.freqs_ = freqs
 
-        return np.array(out)
+        return np.array(X_new)
 
 
 class TimeDelayCovariances(TransformerMixin, BaseEstimator):
@@ -789,7 +789,7 @@ class TimeDelayCovariances(TransformerMixin, BaseEstimator):
     Parameters
     ----------
     delays : int | list of int, default=4
-        The delays to apply for the Hankel matrices. If `int`, it use a range
+        The delays to apply for the Hankel matrices. If int, it use a range
         of delays up to the given value. A list of int can be given.
     estimator : string, default="scm"
         Covariance matrix estimator, see
@@ -800,8 +800,8 @@ class TimeDelayCovariances(TransformerMixin, BaseEstimator):
     Attributes
     ----------
     Xtd_ : ndarray, shape (n_matrices, n_channels x n_delays, n_times)
-        Time delay multi-channel time-series, where `n_delays` is equal to:
-        `delays` when it is a int, and `1 + len(delays)` when it is a list.
+        Time delay multi-channel time-series, where n_delays is equal to:
+        ``delays`` when it is a int, and 1 + len(``delays``) when it is a list.
 
     See Also
     --------
@@ -855,8 +855,9 @@ class TimeDelayCovariances(TransformerMixin, BaseEstimator):
         -------
         X_new : ndarray, shape (n_matrices, n_channels x n_delays, \
                 n_channels x n_delays)
-            Time delay covariance matrices, where `n_delays` is equal to:
-            `delays` when it is a int, and `1 + len(delays)` when it is a list.
+            Time delay covariance matrices, where n_delays is equal to:
+            ``delays`` when it is a int, and 1 + len(``delays``) when it is a
+            list.
         """
 
         if isinstance(self.delays, int):
@@ -888,8 +889,9 @@ class TimeDelayCovariances(TransformerMixin, BaseEstimator):
         -------
         X_new : ndarray, shape (n_matrices, n_channels x n_delays, \
                 n_channels x n_delays)
-            Time delay covariance matrices, where `n_delays` is equal to:
-            `delays` when it is a int, and `1 + len(delays)` when it is a list.
+            Time delay covariance matrices, where n_delays is equal to:
+            ``delays`` when it is a int, and 1 + len(``delays``) when it is a
+            list.
         """
         return self.fit(X, y).transform(X)
 
@@ -921,11 +923,11 @@ class Kernels(TransformerMixin, BaseEstimator):
 
     Parameters
     ----------
-    metric : string, default='linear'
-        The metric to use when computing kernel function between channels [2]_:
+    metric : string, default="linear"
+        Metric to use when computing kernel function between channels [2]_:
         "linear", "poly", "polynomial", "rbf", "laplacian", "cosine".
     n_jobs : int, default=None
-        The number of jobs to use for the computation [2]_. This works by
+        Number of jobs to use for the computation [2]_. This works by
         breaking down the pairwise matrix into n_jobs even slices and computing
         them in parallel.
     **kwds : dict
@@ -1029,7 +1031,7 @@ class Shrinkage(TransformerMixin, BaseEstimator):
     """Regularization of SPD/HPD matrices by shrinkage.
 
     This transformer applies a shrinkage regularization to SPD/HPD matrices.
-    It directly uses the `shrunk_covariance` function from scikit-learn [1]_.
+    It directly uses the ``shrunk_covariance`` function from scikit-learn [1]_.
 
     Parameters
     ----------

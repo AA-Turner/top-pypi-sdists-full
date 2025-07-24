@@ -1273,6 +1273,9 @@ class DataConnection(BaseDataConnection):
                             not in str(download_data_error)
                         )
                     ):
+                        if kwargs.get("skip_fallback"):
+                            raise download_data_error
+
                         warn(str(download_data_error), category=Warning)
 
                         try:
@@ -1319,6 +1322,9 @@ class DataConnection(BaseDataConnection):
                         and os.environ.get("RUNTIME_ENV_ACCESS_TOKEN_FILE") is None
                     ):
                         raise CannotReadSavedRemoteDataBeforeFit()
+
+                    if kwargs.get("skip_fallback"):
+                        raise e
 
                     data = self._download_data_from_flight_service(
                         data_location=self,
@@ -1409,6 +1415,9 @@ class DataConnection(BaseDataConnection):
                         and os.environ.get("RUNTIME_ENV_ACCESS_TOKEN_FILE") is None
                     ):
                         raise CannotReadSavedRemoteDataBeforeFit()
+
+                    if kwargs.get("skip_fallback"):
+                        raise e
 
                     data = self._download_data_from_flight_service(
                         data_location=self,
@@ -2323,7 +2332,7 @@ class FSLocation(BaseLocation):
             # note: try to get file size from remote server
             url = (
                 workspace.api_client._href_definitions.get_wsd_model_attachment_href()
-                + f"/{self.path.split('/assets/')[-1]}"
+                + f"/{self.path.split('/assets/', maxsplit=1)[-1]}"
             )
             path_info_response = requests.head(
                 url,

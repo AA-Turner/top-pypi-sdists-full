@@ -2,9 +2,9 @@ from __future__ import annotations
 
 import logging
 import typing as t
+import uuid
 
 from globus_sdk import client, paging, response, utils
-from globus_sdk._types import UUIDLike
 from globus_sdk.exc.warnings import warn_deprecated
 from globus_sdk.scopes import Scope, SearchScopes
 
@@ -81,7 +81,7 @@ class SearchClient(client.BaseClient):
             "/v1/index", data={"display_name": display_name, "description": description}
         )
 
-    def delete_index(self, index_id: UUIDLike) -> response.GlobusHTTPResponse:
+    def delete_index(self, index_id: uuid.UUID | str) -> response.GlobusHTTPResponse:
         """
         Mark an index for deletion.
 
@@ -120,7 +120,7 @@ class SearchClient(client.BaseClient):
         log.debug(f"SearchClient.delete_index({index_id!r}, ...)")
         return self.delete(f"/v1/index/{index_id}")
 
-    def reopen_index(self, index_id: UUIDLike) -> response.GlobusHTTPResponse:
+    def reopen_index(self, index_id: uuid.UUID | str) -> response.GlobusHTTPResponse:
         """
         Reopen an index that has been marked for deletion, cancelling the deletion.
 
@@ -151,7 +151,7 @@ class SearchClient(client.BaseClient):
 
     def get_index(
         self,
-        index_id: UUIDLike,
+        index_id: uuid.UUID | str,
         *,
         query_params: dict[str, t.Any] | None = None,
     ) -> response.GlobusHTTPResponse:
@@ -231,7 +231,7 @@ class SearchClient(client.BaseClient):
     )
     def search(
         self,
-        index_id: UUIDLike,
+        index_id: uuid.UUID | str,
         q: str,
         *,
         offset: int = 0,
@@ -301,7 +301,7 @@ class SearchClient(client.BaseClient):
     )
     def post_search(
         self,
-        index_id: UUIDLike,
+        index_id: uuid.UUID | str,
         data: dict[str, t.Any] | SearchQuery,
         *,
         offset: int | None = None,
@@ -371,7 +371,7 @@ class SearchClient(client.BaseClient):
     @paging.has_paginator(paging.MarkerPaginator, items_key="gmeta")
     def scroll(
         self,
-        index_id: UUIDLike,
+        index_id: uuid.UUID | str,
         data: dict[str, t.Any] | SearchScrollQuery,
         *,
         marker: str | None = None,
@@ -423,7 +423,7 @@ class SearchClient(client.BaseClient):
     #
 
     def ingest(
-        self, index_id: UUIDLike, data: dict[str, t.Any]
+        self, index_id: uuid.UUID | str, data: dict[str, t.Any]
     ) -> response.GlobusHTTPResponse:
         """
         Write data to a Search index as an asynchronous task.
@@ -490,7 +490,7 @@ class SearchClient(client.BaseClient):
     #
 
     def delete_by_query(
-        self, index_id: UUIDLike, data: dict[str, t.Any]
+        self, index_id: uuid.UUID | str, data: dict[str, t.Any]
     ) -> response.GlobusHTTPResponse:
         """
         Delete data in a Search index as an asynchronous task, deleting all documents
@@ -534,7 +534,7 @@ class SearchClient(client.BaseClient):
 
     def batch_delete_by_subject(
         self,
-        index_id: UUIDLike,
+        index_id: uuid.UUID | str,
         subjects: t.Iterable[str],
         additional_params: dict[str, t.Any] | None = None,
     ) -> response.GlobusHTTPResponse:
@@ -590,7 +590,7 @@ class SearchClient(client.BaseClient):
 
     def get_subject(
         self,
-        index_id: UUIDLike,
+        index_id: uuid.UUID | str,
         subject: str,
         *,
         query_params: dict[str, t.Any] | None = None,
@@ -629,7 +629,7 @@ class SearchClient(client.BaseClient):
 
     def delete_subject(
         self,
-        index_id: UUIDLike,
+        index_id: uuid.UUID | str,
         subject: str,
         *,
         query_params: dict[str, t.Any] | None = None,
@@ -677,7 +677,7 @@ class SearchClient(client.BaseClient):
 
     def get_entry(
         self,
-        index_id: UUIDLike,
+        index_id: uuid.UUID | str,
         subject: str,
         *,
         entry_id: str | None = None,
@@ -734,7 +734,7 @@ class SearchClient(client.BaseClient):
         return self.get(f"/v1/index/{index_id}/entry", query_params=query_params)
 
     def create_entry(
-        self, index_id: UUIDLike, data: dict[str, t.Any]
+        self, index_id: uuid.UUID | str, data: dict[str, t.Any]
     ) -> response.GlobusHTTPResponse:
         """
         This API method is in effect an alias of ingest and is deprecated.
@@ -798,7 +798,7 @@ class SearchClient(client.BaseClient):
         return self.post(f"/v1/index/{index_id}/entry", data=data)
 
     def update_entry(
-        self, index_id: UUIDLike, data: dict[str, t.Any]
+        self, index_id: uuid.UUID | str, data: dict[str, t.Any]
     ) -> response.GlobusHTTPResponse:
         """
         This API method is in effect an alias of ingest and is deprecated.
@@ -846,7 +846,7 @@ class SearchClient(client.BaseClient):
 
     def delete_entry(
         self,
-        index_id: UUIDLike,
+        index_id: uuid.UUID | str,
         subject: str,
         *,
         entry_id: str | None = None,
@@ -907,7 +907,7 @@ class SearchClient(client.BaseClient):
 
     def get_task(
         self,
-        task_id: UUIDLike,
+        task_id: uuid.UUID | str,
         *,
         query_params: dict[str, t.Any] | None = None,
     ) -> response.GlobusHTTPResponse:
@@ -940,7 +940,7 @@ class SearchClient(client.BaseClient):
 
     def get_task_list(
         self,
-        index_id: UUIDLike,
+        index_id: uuid.UUID | str,
         *,
         query_params: dict[str, t.Any] | None = None,
     ) -> response.GlobusHTTPResponse:
@@ -978,7 +978,7 @@ class SearchClient(client.BaseClient):
 
     def create_role(
         self,
-        index_id: UUIDLike,
+        index_id: uuid.UUID | str,
         data: dict[str, t.Any],
         *,
         query_params: dict[str, t.Any] | None = None,
@@ -1022,7 +1022,7 @@ class SearchClient(client.BaseClient):
 
     def get_role_list(
         self,
-        index_id: UUIDLike,
+        index_id: uuid.UUID | str,
         *,
         query_params: dict[str, t.Any] | None = None,
     ) -> response.GlobusHTTPResponse:
@@ -1047,7 +1047,7 @@ class SearchClient(client.BaseClient):
 
     def delete_role(
         self,
-        index_id: UUIDLike,
+        index_id: uuid.UUID | str,
         role_id: str,
         *,
         query_params: dict[str, t.Any] | None = None,

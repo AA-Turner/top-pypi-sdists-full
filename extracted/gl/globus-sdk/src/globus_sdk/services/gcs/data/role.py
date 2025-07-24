@@ -1,9 +1,9 @@
 from __future__ import annotations
 
 import typing as t
+import uuid
 
 from globus_sdk import utils
-from globus_sdk._types import UUIDLike
 
 
 class GCSRoleDocument(utils.PayloadWrapper):
@@ -24,7 +24,7 @@ class GCSRoleDocument(utils.PayloadWrapper):
     def __init__(
         self,
         DATA_TYPE: str = "role#1.0.0",
-        collection: UUIDLike | None = None,
+        collection: uuid.UUID | str | None = None,
         principal: str | None = None,
         role: str | None = None,
         additional_fields: dict[str, t.Any] | None = None,

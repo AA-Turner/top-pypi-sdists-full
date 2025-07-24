@@ -25,8 +25,8 @@ class TangentSpace(TransformerMixin, BaseEstimator):
 
     Tangent space projection is a local approximation of the manifold. It takes
     one parameter, the reference matrix, that is usually estimated using the
-    geometric mean of the SPD matrices set you project. If the function
-    `fit` is not called, the identity matrix will be used as reference matrix.
+    geometric mean of the SPD matrices set you project. If the function ``fit``
+    is not called, the identity matrix will be used as reference matrix.
     This can lead to serious degradation of performances.
     The approximation will be bigger if the matrices in the set are scattered
     in the manifold, and lower if they are grouped in a small region of the
@@ -187,7 +187,7 @@ class TangentSpace(TransformerMixin, BaseEstimator):
         )
         return tangent_space(X, self.reference_, metric=self.metric_map)
 
-    def inverse_transform(self, X, y=None):
+    def inverse_transform(self, X):
         """Inverse transform.
 
         Project back a set of tangent space vector in the manifold.
@@ -196,8 +196,6 @@ class TangentSpace(TransformerMixin, BaseEstimator):
         ----------
         X : ndarray, shape (n_matrices, n_ts)
             Set of tangent space projections of the matrices.
-        y : None
-            Not used, here for compatibility with sklearn API.
 
         Returns
         -------

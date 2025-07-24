@@ -37,10 +37,11 @@ from .utils import CONTEXT_SETTINGS
 # This directory is used by shell scripts that wrap the user's command
 # Note that this directory is also referenced in code that runs in our
 # cloud_env image, so if it's changed here, that code should also be updated.
-COMMAND_DIR = "/scratch/run"
-FILE_TEMP_DIR = "/scratch/run-temp-files"
+COMMAND_DIR = "/scratch/batch"
+FILE_TEMP_DIR = "/scratch/batch/run-temp-files"
 
-DEFAULT_DASK_CONTAINER = "tmp-dask-1"
+DASK_CONTAINER_NAME = "tmp-dask-1"
+USER_CONTAINER_NAME = "tmp-user-1"
 
 
 class KeepaliveSession:
@@ -84,7 +85,7 @@ def write_via_ssh(connection, content, path, mode=None):
         connection.sftp().chmod(path, mode)
 
 
-def write_files_into_container(connection, files: Dict[str, str]):
+def write_files_into_container(connection, container_name: str, files: Dict[str, str]):
     make_remote_dir(connection, FILE_TEMP_DIR)
     temp_paths = {path: f"{FILE_TEMP_DIR}/{short_random_string()}-{path.split('/')[-1]}" for path in files.keys()}
     # write files to temporary (staging) directory inside /scratch, so they're accessible inside container
@@ -99,7 +100,9 @@ def write_files_into_container(connection, files: Dict[str, str]):
         move_commands.append(f"mkdir -p {path_dir} && mv {temp_path} {path}")
     for command in move_commands:
         # use `bash -c ...` so that `~` in path expands to user home inside container
-        connection.run(command_with_docker_exec(f"bash -c '{command}'"), hide=True, in_stream=False)
+        connection.run(
+            command_with_docker_exec(f"bash -c '{command}'", container_name=container_name), hide=True, in_stream=False
+        )
 
 
 def upload_file(connection, f, specified_root=None) -> str:
@@ -150,6 +153,7 @@ def run_via_ssh(
     skip_entrypoint: bool,
     interactive: bool,
     detach: bool,
+    container_name: str,
     env_unset: Sequence[str] | None = None,
     workdir: str = "/scratch",
     as_root: bool = False,
@@ -223,7 +227,7 @@ def run_via_ssh(
     if skip_entrypoint:
         entrypoint = ""
     else:
-        entrypoint = get_entrypoint(connection, container_name=DEFAULT_DASK_CONTAINER)
+        entrypoint = get_entrypoint(connection, container_name=container_name)
         if "cloud-env" in entrypoint:
             # hack for cloud-env containers (e.g., package sync) currently required to avoid re-downloading senv
             # once container is suitably changed, we should just be able to use entrypoint like any other container
@@ -242,10 +246,11 @@ def run_via_ssh(
         as_root=as_root,
         workdir=workdir,
         entrypoint=entrypoint,
+        container_name=container_name,
     )
 
     if in_container_files:
-        write_files_into_container(connection, files=in_container_files)
+        write_files_into_container(connection, container_name=container_name, files=in_container_files)
 
     try:
         with (
@@ -289,7 +294,7 @@ def wrap_command_for_logs_and_stdout(
 def command_with_docker_exec(
     command: str,
     *,
-    container_name: str = DEFAULT_DASK_CONTAINER,
+    container_name: str,
     interactive: bool = False,
     detach: bool = False,
     env: dict | None = None,
@@ -692,7 +697,8 @@ def start_run(
                     "workspace": workspace,
                     "n_workers": 0,
                     "software": software,
-                    "container": container,
+                    "container": "daskdev/dask:latest" if container and not software else None,
+                    "batch_job_container": container,
                     "scheduler_options": {"idle_timeout": "520 weeks"},  # rely on shutdown_on_close and/or keepalive
                     "scheduler_vm_types": list(vm_type) if vm_type else None,
                     "worker_vm_types": list(vm_type) if vm_type else None,
@@ -774,6 +780,7 @@ def start_run(
                         workdir=SYNC_TARGET if sync else "/scratch",
                         as_root=root,
                         console=widget.live.console,
+                        container_name=USER_CONTAINER_NAME if container else DASK_CONTAINER_NAME,
                     )
 
             if sync:

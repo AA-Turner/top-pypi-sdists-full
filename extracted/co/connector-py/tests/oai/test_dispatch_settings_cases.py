@@ -114,7 +114,7 @@ def case_invalid_settings_are_error() -> Case:
         is_error=True,
         error=Error(
             error_code=ErrorCode.BAD_REQUEST,
-            message="Invalid settings passed on request",
+            message="Invalid settings passed on request - [{'type': 'missing', 'loc': ('host',), 'msg': 'Field required', 'input': {'something': 'incorrect'}, 'url': 'https://errors.pydantic.dev/2.9/v/missing'}]",
             raised_by=None,
             raised_in=None,
             status_code=None,

@@ -36,7 +36,7 @@ def read(*rnames):
 
 setup(
     name="zdaemon",
-    version='5.2',
+    version='5.2.1',
     url="https://github.com/zopefoundation/zdaemon",
     license="ZPL 2.1",
     description="Daemon process control library and tools for Unix-based systems",  # noqa: E501 line too long
@@ -75,7 +75,6 @@ setup(
     python_requires='>=3.9',
     install_requires=[
         "ZConfig",
-        "setuptools"
     ],
     extras_require=dict(test=tests_require),
 )

@@ -347,12 +347,15 @@ class Repository(WMLResource):
             )
 
     def delete(
-        self, artifact_id: str | None = None, **kwargs: Any
+        self, artifact_id: str | None = None, force: bool = False, **kwargs: Any
     ) -> Literal["SUCCESS"]:
         """Delete a model, experiment, pipeline, function, or AI service from the repository.
 
         :param artifact_id: unique ID of the stored model, experiment, function, pipeline, or AI service
         :type artifact_id: str
+
+        :param force: if True, the delete operation will proceed even when the artifact deployment exists, defaults to False
+        :type force: bool, optional
 
         :return: status "SUCCESS" if deletion is successful
         :rtype: Literal["SUCCESS"]
@@ -365,14 +368,15 @@ class Repository(WMLResource):
 
         """
         artifact_id = _get_id_from_deprecated_uid(kwargs, artifact_id, "artifact")
-
         Repository._validate_type(artifact_id, "artifact_id", str, True)
-        if self._if_deployment_exist_for_asset(artifact_id):
+
+        if not force and self._if_deployment_exist_for_asset(artifact_id):
             raise WMLClientError(
                 "Cannot delete artifact that has existing deployments. Please delete all associated deployments and try again"
             )
+
         params = self._client._params()
-        params.update({"purge_on_delete": "true"})
+        params["purge_on_delete"] = "true"
 
         response = requests.delete(
             self._client._href_definitions.get_asset_href(artifact_id),
@@ -380,21 +384,16 @@ class Repository(WMLResource):
             headers=self._client._get_headers(),
         )
 
-        if response.status_code == 200 or response.status_code == 204:
-            if response.status_code == 200:
-                response = self._handle_response(200, "delete assets", response)
-                return response
-            else:
-                response = self._handle_response(204, "delete assets", response)
-                return response
-        else:
-            if response.status_code == 404:
-                raise WMLClientError(
-                    "Artifact with artifact_id: '{}' does not exist.".format(
-                        artifact_id
-                    )
+        match response.status_code:
+            case 200 | 204 as success_status_code:
+                return self._handle_response(
+                    success_status_code, "delete assets", response
                 )
-            else:
+            case 404:
+                raise WMLClientError(
+                    f"Artifact with artifact_id: '{artifact_id}' does not exist."
+                )
+            case _:
                 raise WMLClientError(
                     "Deletion error for the given id : ", response.text
                 )

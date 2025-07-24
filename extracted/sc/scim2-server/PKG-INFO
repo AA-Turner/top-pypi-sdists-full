@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: scim2-server
-Version: 0.1.5
+Version: 0.1.6
 Summary: Lightweight SCIM2 server prototype
 Project-URL: repository, https://github.com/python-scim/scim2-server
 Project-URL: funding, https://github.com/sponsors/python-scim
@@ -221,7 +221,7 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Requires-Python: >=3.10
 Requires-Dist: scim2-filter-parser>=0.7.0
-Requires-Dist: scim2-models>=0.2.4
+Requires-Dist: scim2-models>=0.4.1
 Requires-Dist: werkzeug>=3.0.3
 Description-Content-Type: text/markdown
 

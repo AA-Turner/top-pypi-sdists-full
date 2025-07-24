@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "cibuildwheel"
-version = "3.0.1"
+version = "3.1.0"
 description = "Build Python wheels on CI with minimal configuration."
 readme = "README.md"
 license = "BSD-2-Clause"
@@ -39,11 +39,15 @@ classifiers = [
 dependencies = [
     "bashlex!=0.13",
     "bracex",
+    "build>=1.0.0",
     "certifi",
     "dependency-groups>=1.2",
     "filelock",
+    "humanize",
     "packaging>=20.9",
-    "platformdirs"
+    "platformdirs",
+    "pyelftools>=0.29",
+    "wheel>=0.33.6",
 ]
 
 [project.optional-dependencies]
@@ -144,6 +148,7 @@ py-version = "3.11"
 jobs = "0"
 fail-on = ["E", "F"]
 fail-under = "9.8"
+max-positional-arguments = "7"
 reports.output-format = "colorized"
 messages_control.enable = [
   "useless-suppression",

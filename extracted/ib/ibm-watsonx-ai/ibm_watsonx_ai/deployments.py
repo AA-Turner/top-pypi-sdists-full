@@ -976,7 +976,7 @@ class Deployments(WMLResource):
                             if "guid" in m["metadata"]
                             else m["metadata"]["id"]
                         ),
-                        m["entity"]["name"],
+                        m["metadata"].get("name", ""),
                         m["entity"]["status"]["state"],
                         m["metadata"]["created_at"],
                         m["entity"].get("deployed_asset_type", "unknown"),

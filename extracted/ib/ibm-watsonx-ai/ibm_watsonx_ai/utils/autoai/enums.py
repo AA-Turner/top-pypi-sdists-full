@@ -346,6 +346,7 @@ class PipelineTypes:
 
     LALE = "lale"
     SKLEARN = "sklearn"
+    ONNX = "onnx"
 
 
 class Directions:

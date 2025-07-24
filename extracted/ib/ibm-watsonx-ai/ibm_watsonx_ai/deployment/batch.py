@@ -108,6 +108,7 @@ class Batch(BaseDeployment):
         training_target: DataFrame | ndarray | None = None,
         experiment_run_id: str | None = None,
         hardware_spec: str | None = None,
+        astype: str = "hybrid",
     ) -> None:
         """Create a deployment from a model.
 
@@ -131,6 +132,9 @@ class Batch(BaseDeployment):
 
         :param hardware_spec: hardware specification name of the deployment
         :type hardware_spec: str, optional
+
+        :param astype: type of stored model [hybrid, onnx]
+        :type astype: str, optional
 
         **Example:**
 
@@ -159,6 +163,7 @@ class Batch(BaseDeployment):
             experiment_run_id=experiment_run_id,
             deployment_type="batch",
             hardware_spec=hardware_spec,
+            astype=astype,
         )
 
     @BaseDeployment._project_to_space_to_project
@@ -323,11 +328,19 @@ class Batch(BaseDeployment):
                 )
         # note: support for DataFrame payload
         elif isinstance(payload, DataFrame):
-            scoring_payload = {
-                self._target_workspace.api_client.deployments.ScoringMetaNames.INPUT_DATA: [
-                    {"values": payload}
-                ]
-            }
+            if self._is_onnx:
+                input_data = convert_dataframe_to_fields_values_payload(
+                    payload, onnx_mode=True
+                )
+                scoring_payload = {
+                    self._target_workspace.api_client.deployments.ScoringMetaNames.INPUT_DATA: input_data
+                }
+            else:
+                scoring_payload = {
+                    self._target_workspace.api_client.deployments.ScoringMetaNames.INPUT_DATA: [
+                        {"values": payload}
+                    ]
+                }
         # note: support for DataConnections and dictionaries payload
         elif isinstance(payload, list):
             if isinstance(payload[0], DataConnection):
@@ -403,6 +416,8 @@ class Batch(BaseDeployment):
             hw_spec = details.get("entity", {}).get("hybrid_pipeline_hardware_specs")
 
         scoring_payload["hybrid_pipeline_hardware_specs"] = hw_spec
+        if self._is_onnx:
+            scoring_payload["hardware_spec"] = hw_spec[0]["hardware_spec"]
 
         self.id = cast(str, self.id)
         job_details = self._target_workspace.api_client.deployments.create_job(
@@ -599,6 +614,15 @@ class Batch(BaseDeployment):
         scoring_params = self.get_job_params(scoring_job_id)["entity"]["scoring"]
         if scoring_params["status"]["state"] == "completed":
             if "predictions" in scoring_params:
+                if self._is_onnx:
+                    predictions = scoring_params["predictions"]
+                    data = {row["id"]: row["values"] for row in predictions}
+                    if isinstance(data["output_probability"][0], dict):
+                        data["output_probability"] = [
+                            list(op.values()) for op in data["output_probability"]
+                        ]
+
+                    return DataFrame(data)
                 data = DataFrame(
                     scoring_params["predictions"][0]["values"],
                     columns=scoring_params["predictions"][0]["fields"],

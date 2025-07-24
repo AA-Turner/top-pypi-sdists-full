@@ -38,7 +38,7 @@ class UnderwaterPlasticConfig(BaseConfig):
     smoothing_confidence_range_factor: float = 0.5
     
     # waste confidence thresholds
-    confidence_threshold: float = 0.6
+    confidence_threshold: float = 0.3
 
     
     waste_categories: List[str] = field(

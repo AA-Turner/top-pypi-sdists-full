@@ -9784,6 +9784,23 @@ class UpdateUserStateInput(sgqlc.types.Input):
     client_mutation_id = sgqlc.types.Field(String, graphql_name="clientMutationId")
 
 
+class UsageAlertConfigInput(sgqlc.types.Input):
+    """input variables for daily usage alert"""
+
+    __schema__ = schema
+    __field_names__ = ("threshold", "emails", "disabled")
+    threshold = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="threshold")
+    """Usage threshold that triggers the alert"""
+
+    emails = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(String)), graphql_name="emails"
+    )
+    """List of recipients"""
+
+    disabled = sgqlc.types.Field(Boolean, graphql_name="disabled")
+    """Disable the alert (optional)"""
+
+
 class UserSettingInput(sgqlc.types.Input):
     __schema__ = schema
     __field_names__ = ("key", "value", "description")
@@ -10761,6 +10778,7 @@ class Account(sgqlc.types.Type):
         "monitor_limits",
         "statement_option",
         "statement_emails",
+        "usage_alert_config",
     )
     id = sgqlc.types.Field(sgqlc.types.non_null(ID), graphql_name="id")
 
@@ -11305,6 +11323,10 @@ class Account(sgqlc.types.Type):
         sgqlc.types.list_of(String), graphql_name="statementEmails"
     )
     """List of email addresses to receive statements"""
+
+    usage_alert_config = sgqlc.types.Field(
+        "UsageAlertConfigOutput", graphql_name="usageAlertConfig"
+    )
 
 
 class AccountAuditLog(sgqlc.types.Type):
@@ -15867,19 +15889,6 @@ class CustomRuleConnection(sgqlc.types.relay.Connection):
     """Contains the nodes in this connection."""
 
 
-class CustomRuleDatapoint(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("value", "measurement_timestamp", "thresholds")
-    value = sgqlc.types.Field(Float, graphql_name="value")
-    """Value of the datapoint"""
-
-    measurement_timestamp = sgqlc.types.Field(DateTime, graphql_name="measurementTimestamp")
-    """Measurement timestamp of the datapoint"""
-
-    thresholds = sgqlc.types.Field(sgqlc.types.list_of("Threshold"), graphql_name="thresholds")
-    """Thresholds for the datapoint"""
-
-
 class CustomRuleEdge(sgqlc.types.Type):
     """A Relay edge containing a `CustomRule` and its cursor."""
 
@@ -18234,16 +18243,6 @@ class DerivedTablesLineageResult(sgqlc.types.Type):
     """Cursor for getting the next page of results"""
 
 
-class DimensionLabel(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("timestamp", "label", "value")
-    timestamp = sgqlc.types.Field(DateTime, graphql_name="timestamp")
-
-    label = sgqlc.types.Field(String, graphql_name="label")
-
-    value = sgqlc.types.Field(Float, graphql_name="value")
-
-
 class DimensionTracking(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("value", "mn_cnt", "mx_cnt", "mn_fld", "mn_fq", "mx_fq", "reason")
@@ -20441,30 +20440,6 @@ class GetAlationTableFlags(sgqlc.types.Type):
 
     flag_reason = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="flagReason")
     """A reason or a description of the flag"""
-
-
-class GetCustomFreshnessDatapointsResponse(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("metric", "datapoints")
-    metric = sgqlc.types.Field(String, graphql_name="metric")
-    """Name of the metric. For instance, last_updated_on"""
-
-    datapoints = sgqlc.types.Field(
-        sgqlc.types.list_of(CustomRuleDatapoint), graphql_name="datapoints"
-    )
-    """The datapoints"""
-
-
-class GetCustomVolumeDatapointsResponse(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("metric", "datapoints")
-    metric = sgqlc.types.Field(String, graphql_name="metric")
-    """Name of the metric. For instance, total_row_count"""
-
-    datapoints = sgqlc.types.Field(
-        sgqlc.types.list_of(CustomRuleDatapoint), graphql_name="datapoints"
-    )
-    """The datapoints"""
 
 
 class GetTableauAssetWarningByIdResponse(sgqlc.types.Type):
@@ -24124,6 +24099,7 @@ class Mutation(sgqlc.types.Type):
         "delete_integration",
         "update_workspace_identifier",
         "update_statement_option",
+        "update_daily_usage_alert_config",
         "test_snowflake_credentials_v2",
         "test_redshift_credentials_v2",
         "test_bq_credentials_v2",
@@ -38610,6 +38586,27 @@ class Mutation(sgqlc.types.Type):
     * `option` (`StatementOption!`)None
     """
 
+    update_daily_usage_alert_config = sgqlc.types.Field(
+        "UpdateDailyUsageAlertConfig",
+        graphql_name="updateDailyUsageAlertConfig",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "usage_alert_config",
+                    sgqlc.types.Arg(
+                        UsageAlertConfigInput, graphql_name="usageAlertConfig", default=None
+                    ),
+                ),
+            )
+        ),
+    )
+    """(experimental) Update the account's daily usage alerts config
+
+    Arguments:
+
+    * `usage_alert_config` (`UsageAlertConfigInput`)None
+    """
+
     test_snowflake_credentials_v2 = sgqlc.types.Field(
         "TestSnowflakeCredentialsV2",
         graphql_name="testSnowflakeCredentialsV2",
@@ -41797,7 +41794,6 @@ class Query(sgqlc.types.Type):
         "get_notification_audiences_for_table",
         "get_all_user_defined_monitors_v2",
         "get_all_user_defined_monitors",
-        "get_custom_metrics",
         "get_custom_rule",
         "get_custom_rules",
         "get_generated_rules",
@@ -41905,13 +41901,9 @@ class Query(sgqlc.types.Type):
         "get_field_metric_definitions",
         "get_comparison_monitor_field_metric_definitions",
         "get_non_table_metrics",
-        "get_aggregated_metrics",
-        "get_latest_table_access_timestamp_metrics",
-        "get_top_category_labels",
         "get_top_segmented_where_condition_labels",
         "get_segmented_where_condition_labels",
         "get_segmented_where_condition_label_count",
-        "get_first_seen_dimensions_by_labels",
         "get_comparison_monitor_segment_labels",
         "get_comparison_monitor_segment_label_count",
         "get_downstream_bi",
@@ -41965,8 +41957,6 @@ class Query(sgqlc.types.Type):
         "get_should_show_onboarding",
         "get_warehouse",
         "get_collection_properties",
-        "get_custom_volume_datapoints",
-        "get_custom_freshness_datapoints",
         "get_table",
         "get_tables",
         "get_tables_health",
@@ -49127,32 +49117,6 @@ class Query(sgqlc.types.Type):
     * `last` (`Int`)None
     """
 
-    get_custom_metrics = sgqlc.types.Field(
-        Metrics,
-        graphql_name="getCustomMetrics",
-        args=sgqlc.types.ArgDict(
-            (
-                ("rule_uuid", sgqlc.types.Arg(UUID, graphql_name="ruleUuid", default=None)),
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=5000)),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. Retrieve custom metrics based on a
-    custom rule
-
-    Arguments:
-
-    * `rule_uuid` (`UUID`): A custom rule UUID
-    * `start_time` (`DateTime`): Beginning of time range to retrieve
-      metrics for
-    * `end_time` (`DateTime`): End of time range to retrieve metrics
-      for
-    * `first` (`Int`): Limit of number of metrics retrieved (default:
-      `5000`)
-    """
-
     get_custom_rule = sgqlc.types.Field(
         "CustomRule",
         graphql_name="getCustomRule",
@@ -52825,132 +52789,6 @@ class Query(sgqlc.types.Type):
       list of key/value dimension pairs
     """
 
-    get_aggregated_metrics = sgqlc.types.Field(
-        Metrics,
-        graphql_name="getAggregatedMetrics",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "dw_id",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
-                ),
-                (
-                    "full_table_id_list",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(sgqlc.types.list_of(String)),
-                        graphql_name="fullTableIdList",
-                        default=None,
-                    ),
-                ),
-                (
-                    "metric",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="metric", default=None
-                    ),
-                ),
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                (
-                    "date_aggregation_bucket_size",
-                    sgqlc.types.Arg(
-                        String, graphql_name="dateAggregationBucketSize", default="day"
-                    ),
-                ),
-            )
-        ),
-    )
-    """Retrieves field-level metric values in a given time range AND in a
-    given measurement time range
-
-    Arguments:
-
-    * `dw_id` (`UUID!`): Warehouse the table is contained in. Required
-      when using a fullTableId
-    * `full_table_id_list` (`[String]!`): Full table ID
-    * `metric` (`String!`): Type of metric
-    * `start_time` (`DateTime`): Filter for data newer than this
-    * `end_time` (`DateTime`): Filter for data older than this
-    * `date_aggregation_bucket_size` (`String`)None (default: `"day"`)
-    """
-
-    get_latest_table_access_timestamp_metrics = sgqlc.types.Field(
-        Metrics,
-        graphql_name="getLatestTableAccessTimestampMetrics",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "dw_id",
-                    sgqlc.types.Arg(sgqlc.types.non_null(UUID), graphql_name="dwId", default=None),
-                ),
-                (
-                    "full_table_id_list",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(sgqlc.types.list_of(String)),
-                        graphql_name="fullTableIdList",
-                        default=None,
-                    ),
-                ),
-                (
-                    "metric",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(String), graphql_name="metric", default=None
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. Retrieves field-level metric values in
-    a given time range AND in a given measurement time range
-
-    Arguments:
-
-    * `dw_id` (`UUID!`): Warehouse the table is contained in. Required
-      when using a fullTableId
-    * `full_table_id_list` (`[String]!`): Full table ID
-    * `metric` (`String!`): Type of metric
-    """
-
-    get_top_category_labels = sgqlc.types.Field(
-        sgqlc.types.list_of(CategoryLabelRank),
-        graphql_name="getTopCategoryLabels",
-        args=sgqlc.types.ArgDict(
-            (
-                ("dw_id", sgqlc.types.Arg(UUID, graphql_name="dwId", default=None)),
-                (
-                    "full_table_id",
-                    sgqlc.types.Arg(String, graphql_name="fullTableId", default=None),
-                ),
-                ("mcon", sgqlc.types.Arg(String, graphql_name="mcon", default=None)),
-                (
-                    "monitor_ids",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(String), graphql_name="monitorIds", default=None
-                    ),
-                ),
-                ("field", sgqlc.types.Arg(String, graphql_name="field", default=None)),
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("limit", sgqlc.types.Arg(Int, graphql_name="limit", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. Get the top distribution labels. For
-    use in getFirstSeenDimensionsByLabels
-
-    Arguments:
-
-    * `dw_id` (`UUID`): Warehouse the table is contained in. Required
-      when using a fullTableId
-    * `full_table_id` (`String`): Deprecated - use mcon. Ignored if
-      mcon is present
-    * `mcon` (`String`): Mcon for table to get details for
-    * `monitor_ids` (`[String]`): Filter results by monitor ID
-    * `field` (`String`): Field (column) to get labels for
-    * `start_time` (`DateTime`): Filter for data newer than this
-    * `limit` (`Int`): Limit results retrieved
-    * `end_time` (`DateTime`): Filter for data older than this
-    """
-
     get_top_segmented_where_condition_labels = sgqlc.types.Field(
         sgqlc.types.list_of(CategoryLabelRank),
         graphql_name="getTopSegmentedWhereConditionLabels",
@@ -53086,56 +52924,6 @@ class Query(sgqlc.types.Type):
       this date
     * `include_terms` (`[String!]`): Filter to segments where all
       terms are present in segment fields
-    """
-
-    get_first_seen_dimensions_by_labels = sgqlc.types.Field(
-        sgqlc.types.list_of(DimensionLabel),
-        graphql_name="getFirstSeenDimensionsByLabels",
-        args=sgqlc.types.ArgDict(
-            (
-                ("dw_id", sgqlc.types.Arg(UUID, graphql_name="dwId", default=None)),
-                (
-                    "full_table_id",
-                    sgqlc.types.Arg(String, graphql_name="fullTableId", default=None),
-                ),
-                ("mcon", sgqlc.types.Arg(String, graphql_name="mcon", default=None)),
-                ("field", sgqlc.types.Arg(String, graphql_name="field", default=None)),
-                (
-                    "labels",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(String), graphql_name="labels", default=None
-                    ),
-                ),
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                (
-                    "dimensions_filter",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(MetricDimensionFilter),
-                        graphql_name="dimensionsFilter",
-                        default=None,
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. Get the first measurements of the
-    provided labels across a time range
-
-    Arguments:
-
-    * `dw_id` (`UUID`): Warehouse the table is contained in. Required
-      when using a fullTableId
-    * `full_table_id` (`String`): Deprecated - use mcon. Ignored if
-      mcon is present
-    * `mcon` (`String`): Mcon for table to get details for
-    * `field` (`String`): Field (column) to get measurements for
-    * `labels` (`[String]`): Labels to get measurements for. Can be
-      retrieved using getFirstSeenDimensionsByLabels
-    * `start_time` (`DateTime`): Filter for data newer than this
-    * `end_time` (`DateTime`): Filter for data older than this
-    * `dimensions_filter` (`[MetricDimensionFilter]`): Filter by a
-      list of key/value dimension pairs
     """
 
     get_comparison_monitor_segment_labels = sgqlc.types.Field(
@@ -54718,78 +54506,6 @@ class Query(sgqlc.types.Type):
     Arguments:
 
     * `region` (`String!`): AWS region
-    """
-
-    get_custom_volume_datapoints = sgqlc.types.Field(
-        GetCustomVolumeDatapointsResponse,
-        graphql_name="getCustomVolumeDatapoints",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "custom_rule_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="customRuleUuid", default=None
-                    ),
-                ),
-                (
-                    "start_time",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
-                    ),
-                ),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                (
-                    "eliminate_gaps",
-                    sgqlc.types.Arg(Boolean, graphql_name="eliminateGaps", default=None),
-                ),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. List of data points for a custom volume
-    rule
-
-    Arguments:
-
-    * `custom_rule_uuid` (`UUID!`): The UUID of the custom rule
-    * `start_time` (`DateTime!`)None
-    * `end_time` (`DateTime`)None
-    * `eliminate_gaps` (`Boolean`)None
-    """
-
-    get_custom_freshness_datapoints = sgqlc.types.Field(
-        GetCustomFreshnessDatapointsResponse,
-        graphql_name="getCustomFreshnessDatapoints",
-        args=sgqlc.types.ArgDict(
-            (
-                (
-                    "custom_rule_uuid",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(UUID), graphql_name="customRuleUuid", default=None
-                    ),
-                ),
-                (
-                    "start_time",
-                    sgqlc.types.Arg(
-                        sgqlc.types.non_null(DateTime), graphql_name="startTime", default=None
-                    ),
-                ),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                (
-                    "eliminate_gaps",
-                    sgqlc.types.Arg(Boolean, graphql_name="eliminateGaps", default=None),
-                ),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. List of data points for a custom
-    freshness rule
-
-    Arguments:
-
-    * `custom_rule_uuid` (`UUID!`): The UUID of the custom rule
-    * `start_time` (`DateTime!`)None
-    * `end_time` (`DateTime`)None
-    * `eliminate_gaps` (`Boolean`)None
     """
 
     get_table = sgqlc.types.Field(
@@ -63101,6 +62817,13 @@ class UpdateCustomRuleInvestigationQuery(sgqlc.types.Type):
     """The updated rule"""
 
 
+class UpdateDailyUsageAlertConfig(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("success",)
+    success = sgqlc.types.Field(Boolean, graphql_name="success")
+    """Whether the mutation succeeded."""
+
+
 class UpdateDataProductSharing(sgqlc.types.Type):
     """Create or update sharing definition on a data product"""
 
@@ -63537,6 +63260,21 @@ class UploadWarehouseCredentialsMutation(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("key",)
     key = sgqlc.types.Field(String, graphql_name="key")
+
+
+class UsageAlertConfigOutput(sgqlc.types.Type):
+    __schema__ = schema
+    __field_names__ = ("threshold", "emails", "disabled")
+    threshold = sgqlc.types.Field(sgqlc.types.non_null(Int), graphql_name="threshold")
+    """Usage threshold that triggers the alert"""
+
+    emails = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(String)), graphql_name="emails"
+    )
+    """List of recipients"""
+
+    disabled = sgqlc.types.Field(Boolean, graphql_name="disabled")
+    """Disable the alert (optional)"""
 
 
 class UserAuthorizationOutput(sgqlc.types.Type):

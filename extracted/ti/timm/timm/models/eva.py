@@ -46,6 +46,7 @@ Modifications by / Copyright 2023 Ross Wightman, original copyrights below
 # EVA models Copyright (c) 2022 BAAI-Vision
 # EVA02 models Copyright (c) 2023 BAAI-Vision
 import math
+import os
 from functools import partial
 from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
@@ -54,11 +55,27 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from timm.data import IMAGENET_DEFAULT_MEAN, IMAGENET_DEFAULT_STD, OPENAI_CLIP_MEAN, OPENAI_CLIP_STD
-from timm.layers import PatchEmbed, Mlp, GluMlp, SwiGLU, LayerNorm, DropPath, PatchDropout, RotaryEmbeddingCat, \
-    RotaryEmbeddingMixed, apply_rot_embed_cat, apply_keep_indices_nlc, trunc_normal_, \
-    resample_patch_embed, resample_abs_pos_embed, global_pool_nlc, to_2tuple, use_fused_attn, AttentionRope, \
-    AttentionPoolLatent
-
+from timm.layers import (
+    PatchEmbed,
+    Mlp,
+    GluMlp,
+    SwiGLU,
+    LayerNorm,
+    DropPath,
+    PatchDropoutWithIndices,
+    RotaryEmbeddingCat,
+    RotaryEmbeddingMixed,
+    apply_rot_embed_cat,
+    apply_keep_indices_nlc,
+    trunc_normal_,
+    resample_patch_embed,
+    resample_abs_pos_embed,
+    global_pool_nlc,
+    to_2tuple,
+    use_fused_attn,
+    AttentionRope,
+    AttentionPoolLatent,
+)
 from ._builder import build_model_with_cfg
 from ._features import feature_take_indices
 from ._manipulate import checkpoint
@@ -226,6 +243,7 @@ class EvaBlock(nn.Module):
             act_layer: Callable = nn.GELU,
             norm_layer: Callable = LayerNorm,
             attn_head_dim: Optional[int] = None,
+            **kwargs,
     ):
         """ Initialize the EVA transformer block.
 
@@ -298,7 +316,12 @@ class EvaBlock(nn.Module):
         self.gamma_2 = nn.Parameter(init_values * torch.ones(dim)) if init_values is not None else None
         self.drop_path2 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
-    def forward(self, x, rope: Optional[torch.Tensor] = None, attn_mask: Optional[torch.Tensor] = None):
+    def forward(
+            self,
+            x: torch.Tensor,
+            rope: Optional[torch.Tensor] = None,
+            attn_mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         if self.gamma_1 is None:
             x = x + self.drop_path1(self.attn(self.norm1(x), rope=rope, attn_mask=attn_mask))
             x = x + self.drop_path2(self.mlp(self.norm2(x)))
@@ -399,7 +422,12 @@ class EvaBlockPostNorm(nn.Module):
         self.norm2 = norm_layer(dim)
         self.drop_path2 = DropPath(drop_path) if drop_path > 0. else nn.Identity()
 
-    def forward(self, x, rope: Optional[torch.Tensor] = None, attn_mask: Optional[torch.Tensor] = None):
+    def forward(
+            self,
+            x: torch.Tensor,
+            rope: Optional[torch.Tensor] = None,
+            attn_mask: Optional[torch.Tensor] = None,
+    ) -> torch.Tensor:
         x = x + self.drop_path1(self.norm1(self.attn(x, rope=rope, attn_mask=attn_mask)))
         x = x + self.drop_path2(self.norm2(self.mlp(x)))
         return x
@@ -549,11 +577,7 @@ class Eva(nn.Module):
         self.pos_embed = nn.Parameter(torch.zeros(1, num_pos_tokens, embed_dim)) if use_abs_pos_emb else None
         self.pos_drop = nn.Dropout(p=pos_drop_rate)
         if patch_drop_rate > 0:
-            self.patch_drop = PatchDropout(
-                patch_drop_rate,
-                num_prefix_tokens=self.num_prefix_tokens,
-                return_indices=True,
-            )
+            self.patch_drop = PatchDropoutWithIndices(patch_drop_rate, num_prefix_tokens=self.num_prefix_tokens)
         else:
             self.patch_drop = None
 
@@ -614,12 +638,10 @@ class Eva(nn.Module):
         self.norm =  norm_layer(embed_dim) if activate_post_norm else nn.Identity()
 
         if global_pool == 'map':
-            attn_pool_num_heads = attn_pool_num_heads or num_heads
-            attn_pool_mlp_ratio = attn_pool_mlp_ratio or mlp_ratio
             self.attn_pool = AttentionPoolLatent(
                 self.embed_dim,
-                num_heads=attn_pool_num_heads,
-                mlp_ratio=attn_pool_mlp_ratio,
+                num_heads=attn_pool_num_heads or num_heads,
+                mlp_ratio=attn_pool_mlp_ratio or mlp_ratio,
                 norm_layer=norm_layer,
                 act_layer=nn.GELU,
             )
@@ -701,6 +723,35 @@ class Eva(nn.Module):
             self.global_pool = global_pool
         self.head = nn.Linear(self.embed_dim, num_classes) if num_classes > 0 else nn.Identity()
 
+    def set_input_size(
+            self,
+            img_size: Optional[Tuple[int, int]] = None,
+            patch_size: Optional[Tuple[int, int]] = None,
+    ) -> None:
+        """Update the input image resolution and patch size.
+
+        Args:
+            img_size: New input resolution, if None current resolution is used.
+            patch_size: New patch size, if None existing patch size is used.
+        """
+        prev_grid_size = self.patch_embed.grid_size
+        self.patch_embed.set_input_size(img_size=img_size, patch_size=patch_size)
+
+        if self.pos_embed is not None:
+            num_prefix_tokens = 0 if self.no_embed_class else self.num_prefix_tokens
+            num_new_tokens = self.patch_embed.num_patches + num_prefix_tokens
+            if num_new_tokens != self.pos_embed.shape[1]:
+                self.pos_embed = nn.Parameter(resample_abs_pos_embed(
+                    self.pos_embed,
+                    new_size=self.patch_embed.grid_size,
+                    old_size=prev_grid_size,
+                    num_prefix_tokens=num_prefix_tokens,
+                    verbose=True,
+                ))
+
+        if self.rope is not None:
+            self.rope.update_feat_shape(self.patch_embed.grid_size)
+
     def _pos_embed(self, x) -> Tuple[torch.Tensor, Optional[torch.Tensor]]:
         if self.dynamic_img_size:
             B, H, W, C = x.shape
@@ -741,11 +792,19 @@ class Eva(nn.Module):
 
         x = self.pos_drop(x)
 
-        # obtain shared rotary position embedding and apply patch dropout
+        # apply patch dropout to patches and rotary position embedding
         if self.patch_drop is not None:
             x, keep_indices = self.patch_drop(x)
             if rot_pos_embed is not None and keep_indices is not None:
                 rot_pos_embed = apply_keep_indices_nlc(x, rot_pos_embed, keep_indices)
+                # After applying keep indices to rope embeds, batch dim is added
+                if getattr(self, 'rope_mixed', False):
+                    # B, D, nH, N, dim -> D, B, nH, N, dim. For consistent iteration over depth at index 0.
+                    rot_pos_embed = rot_pos_embed.transpose(0, 1)
+                else:
+                    # B, N, dim -> B, 1, N, dim.  Need head dim singleton for correct dim alignment in axial mode.
+                    rot_pos_embed = rot_pos_embed.unsqueeze(1)
+
         return x, rot_pos_embed
 
     def forward_intermediates(
@@ -782,6 +841,7 @@ class Eva(nn.Module):
             blocks = self.blocks
         else:
             blocks = self.blocks[:max_index + 1]
+
         # Handle depth-dependent embeddings for mixed mode
         if getattr(self, 'rope_mixed', False) and rot_pos_embed is not None:
             for i, blk in enumerate(blocks):
@@ -859,9 +919,9 @@ class Eva(nn.Module):
         x, rot_pos_embed = self._pos_embed(x)
         x = self.norm_pre(x)
 
-        # Handle depth-dependent embeddings for mixed mode
         if getattr(self, 'rope_mixed', False) and rot_pos_embed is not None:
-            # rot_pos_embed has shape (depth, H*W, dim) for mixed mode
+            # Handle depth-dependent embeddings for mixed mode
+            # pos embed has shape (depth, num_heads, H*W, dim) or (depth, batch_size, num_heads, H*W, dim)
             for i, blk in enumerate(self.blocks):
                 if self.grad_checkpointing and not torch.jit.is_scripting():
                     x = checkpoint(blk, x, rope=rot_pos_embed[i])
@@ -1084,6 +1144,16 @@ def _create_eva(variant: str, pretrained: bool = False, **kwargs) -> Eva:
     Returns:
         Instantiated Eva model.
     """
+    # Check if we should use NaFlexVit implementation
+    use_naflex = kwargs.pop('use_naflex', None)
+    _USE_NAFLEX_DEFAULT = os.environ.get('TIMM_USE_NAFLEX', '0') == '1'
+    if use_naflex is None:
+        use_naflex = _USE_NAFLEX_DEFAULT
+    if use_naflex:
+        # Import here to avoid circular imports
+        from .naflexvit import _create_naflexvit_from_eva
+        return _create_naflexvit_from_eva(variant, pretrained, **kwargs)
+
     out_indices = kwargs.pop('out_indices', 3)
     model = build_model_with_cfg(
         Eva, variant, pretrained,
@@ -1323,6 +1393,20 @@ default_cfgs = generate_default_cfgs({
     ),
 
     # Perception Encoder weights
+    'vit_pe_core_tiny_patch16_384.fb': _pe_cfg(
+        hf_hub_id='timm/',
+        #hf_hub_id='facebook/PE-Core-T16-384',
+        #hf_hub_filename='PE-Core-T16-384.pt',
+        input_size=(3, 384, 384),
+        num_classes=512,  # output proj dim
+    ),
+    'vit_pe_core_small_patch16_384.fb': _pe_cfg(
+        hf_hub_id='timm/',
+        #hf_hub_id='facebook/PE-Core-S16-384',
+        #hf_hub_filename='PE-Core-S16-384.pt',
+        input_size=(3, 384, 384),
+        num_classes=512,  # output proj dim
+    ),
     'vit_pe_core_base_patch16_224.fb': _pe_cfg(
         hf_hub_id='timm/',
         #hf_hub_id='facebook/PE-Core-B16-224',
@@ -1344,6 +1428,7 @@ default_cfgs = generate_default_cfgs({
         input_size=(3, 448, 448),
         num_classes=1280,  # output proj dim
     ),
+
     'vit_pe_lang_large_patch14_448.fb': _pe_cfg(
         hf_hub_id='timm/',
         #hf_hub_id='facebook/PE-Lang-L14-448',
@@ -1351,10 +1436,53 @@ default_cfgs = generate_default_cfgs({
         input_size=(3, 448, 448),
         num_classes=0,
     ),
+    'vit_pe_lang_large_patch14_448.fb_tiling': _pe_cfg(
+        hf_hub_id='timm/',
+        #hf_hub_id='facebook/PE-Lang-L14-448-Tiling',
+        #hf_hub_filename='PE-Lang-L14-448-Tiling.pt',
+        input_size=(3, 448, 448),
+        num_classes=0,
+    ),
     'vit_pe_lang_gigantic_patch14_448.fb': _pe_cfg(
         hf_hub_id='timm/',
         #hf_hub_id='facebook/PE-Lang-G14-448',
         #hf_hub_filename='PE-Lang-G14-448.pt',
+        input_size=(3, 448, 448),
+        num_classes=0,
+    ),
+    'vit_pe_lang_gigantic_patch14_448.fb_tiling': _pe_cfg(
+        hf_hub_id='timm/',
+        #hf_hub_id='facebook/PE-Lang-G14-448-Tiling',
+        #hf_hub_filename='PE-Lang-G14-448-Tiling.pt',
+        input_size=(3, 448, 448),
+        num_classes=0,
+    ),
+
+    'vit_pe_spatial_tiny_patch16_512.fb': _pe_cfg(
+        hf_hub_id='timm/',
+        #hf_hub_id='facebook/PE-Spatial-T16-512',
+        #hf_hub_filename='PE-Spatial-T16-512.pt',
+        input_size=(3, 512, 512),
+        num_classes=0,
+    ),
+    'vit_pe_spatial_small_patch16_512.fb': _pe_cfg(
+        hf_hub_id='timm/',
+        #hf_hub_id='facebook/PE-Spatial-S16-512',
+        #hf_hub_filename='PE-Spatial-S16-512.pt',
+        input_size=(3, 512, 512),
+        num_classes=0,
+    ),
+    'vit_pe_spatial_base_patch16_512.fb': _pe_cfg(
+        hf_hub_id='timm/',
+        #hf_hub_id='facebook/PE-Spatial-B16-512',
+        #hf_hub_filename='PE-Spatial-B16-512.pt',
+        input_size=(3, 512, 512),
+        num_classes=0,
+    ),
+    'vit_pe_spatial_large_patch14_448.fb': _pe_cfg(
+        hf_hub_id='timm/',
+        #hf_hub_id='facebook/PE-Spatial-L14-448',
+        #hf_hub_filename='PE-Spatial-L14-448.pt',
         input_size=(3, 448, 448),
         num_classes=0,
     ),
@@ -1800,6 +1928,55 @@ def vit_base_patch16_rope_reg1_gap_256(pretrained: bool = False, **kwargs) -> Ev
 
 
 @register_model
+def vit_pe_core_tiny_patch16_384(pretrained: bool = False, **kwargs) -> Eva:
+    """Perception Encoder (PE) ViT from Meta (https://arxiv.org/abs/2504.13181)"""
+    model_args = dict(
+        patch_size=16,
+        embed_dim=192,
+        depth=12,
+        num_heads=3,
+        mlp_ratio=4.0,
+        global_pool='map',
+        attn_type='rope',
+        use_pre_transformer_norm=True,
+        use_rot_pos_emb=True,
+        ref_feat_shape=(24, 24),
+        rope_grid_offset=1.,
+        rope_grid_indexing='xy',
+        attn_pool_num_heads=8,
+        attn_pool_mlp_ratio=4.,
+        norm_layer=partial(LayerNorm, eps=1e-5),
+        #dynamic_img_size=True
+    )
+    return _create_eva('vit_pe_core_tiny_patch16_384', pretrained=pretrained, **dict(model_args, **kwargs))
+
+
+
+@register_model
+def vit_pe_core_small_patch16_384(pretrained: bool = False, **kwargs) -> Eva:
+    """Perception Encoder (PE) ViT from Meta (https://arxiv.org/abs/2504.13181)"""
+    model_args = dict(
+        patch_size=16,
+        embed_dim=384,
+        depth=12,
+        num_heads=6,
+        mlp_ratio=4.0,
+        global_pool='map',
+        attn_type='rope',
+        use_pre_transformer_norm=True,
+        use_rot_pos_emb=True,
+        ref_feat_shape=(24, 24),
+        rope_grid_offset=1.,
+        rope_grid_indexing='xy',
+        attn_pool_num_heads=8,
+        attn_pool_mlp_ratio=4.,
+        norm_layer=partial(LayerNorm, eps=1e-5),
+        #dynamic_img_size=True
+    )
+    return _create_eva('vit_pe_core_small_patch16_384', pretrained=pretrained, **dict(model_args, **kwargs))
+
+
+@register_model
 def vit_pe_core_base_patch16_224(pretrained: bool = False, **kwargs) -> Eva:
     """Perception Encoder (PE) ViT from Meta (https://arxiv.org/abs/2504.13181)"""
     model_args = dict(
@@ -1918,6 +2095,98 @@ def vit_pe_lang_gigantic_patch14_448(pretrained: bool = False, **kwargs) -> Eva:
         #dynamic_img_size=True,
     )
     return _create_eva('vit_pe_lang_gigantic_patch14_448', pretrained=pretrained, **dict(model_args, **kwargs))
+
+
+@register_model
+def vit_pe_spatial_tiny_patch16_512(pretrained: bool = False, **kwargs) -> Eva:
+    """Perception Encoder (PE) ViT from Meta (https://arxiv.org/abs/2504.13181)"""
+    model_args = dict(
+        patch_size=16,
+        embed_dim=192,
+        depth=12,
+        num_heads=3,
+        mlp_ratio=4.0,
+        attn_type='rope',
+        use_pre_transformer_norm=True,
+        use_post_transformer_norm=False,
+        use_fc_norm=False,  # explicitly disable
+        use_rot_pos_emb=True,
+        ref_feat_shape=(32, 32),
+        rope_grid_offset=1.,
+        rope_grid_indexing='xy',
+        norm_layer=partial(LayerNorm, eps=1e-5),
+        #dynamic_img_size=True
+    )
+    return _create_eva('vit_pe_spatial_tiny_patch16_512', pretrained=pretrained, **dict(model_args, **kwargs))
+
+
+@register_model
+def vit_pe_spatial_small_patch16_512(pretrained: bool = False, **kwargs) -> Eva:
+    """Perception Encoder (PE) ViT from Meta (https://arxiv.org/abs/2504.13181)"""
+    model_args = dict(
+        patch_size=16,
+        embed_dim=384,
+        depth=12,
+        num_heads=6,
+        mlp_ratio=4.0,
+        attn_type='rope',
+        use_pre_transformer_norm=True,
+        use_post_transformer_norm=False,
+        use_fc_norm=False,  # explicitly disable
+        use_rot_pos_emb=True,
+        ref_feat_shape=(32, 32),
+        rope_grid_offset=1.,
+        rope_grid_indexing='xy',
+        norm_layer=partial(LayerNorm, eps=1e-5),
+        #dynamic_img_size=True
+    )
+    return _create_eva('vit_pe_spatial_small_patch16_512', pretrained=pretrained, **dict(model_args, **kwargs))
+
+
+@register_model
+def vit_pe_spatial_base_patch16_512(pretrained: bool = False, **kwargs) -> Eva:
+    """Perception Encoder (PE) ViT from Meta (https://arxiv.org/abs/2504.13181)"""
+    model_args = dict(
+        patch_size=16,
+        embed_dim=768,
+        depth=12,
+        num_heads=12,
+        mlp_ratio=4.0,
+        attn_type='rope',
+        use_pre_transformer_norm=True,
+        use_post_transformer_norm=False,
+        use_fc_norm=False,  # explicitly disable
+        use_rot_pos_emb=True,
+        ref_feat_shape=(32, 32),
+        rope_grid_offset=1.,
+        rope_grid_indexing='xy',
+        norm_layer=partial(LayerNorm, eps=1e-5),
+        #dynamic_img_size=True
+    )
+    return _create_eva('vit_pe_spatial_base_patch16_512', pretrained=pretrained, **dict(model_args, **kwargs))
+
+
+@register_model
+def vit_pe_spatial_large_patch14_448(pretrained: bool = False, **kwargs) -> Eva:
+    """Perception Encoder (PE) ViT from Meta (https://arxiv.org/abs/2504.13181)"""
+    model_args = dict(
+        patch_size=14,
+        embed_dim=1024,
+        depth=24,
+        num_heads=16,
+        mlp_ratio=4.0,
+        attn_type='rope',
+        use_pre_transformer_norm=True,
+        use_post_transformer_norm=False,
+        use_fc_norm=False,  # explicitly disable
+        use_rot_pos_emb=True,
+        ref_feat_shape=(32, 32),
+        rope_grid_offset=1.,
+        rope_grid_indexing='xy',
+        norm_layer=partial(LayerNorm, eps=1e-5),
+        #dynamic_img_size=True,
+    )
+    return _create_eva('vit_pe_spatial_large_patch14_448', pretrained=pretrained, **dict(model_args, **kwargs))
 
 
 @register_model

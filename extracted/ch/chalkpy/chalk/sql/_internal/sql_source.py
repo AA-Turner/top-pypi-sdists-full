@@ -356,9 +356,7 @@ class BaseSQLSource(BaseSQLSourceProtocol):
                 log_dialect = self.get_sqlalchemy_dialect(paramstyle="pyformat")
             except Exception as e:
                 _logger.warning(f"Could not determine sqlalchemy dialect of source of type {self.kind}", exc_info=e)
-            _logger.info(
-                f"Executing SQL query: {finalized_query.query.compile(compile_kwargs={'literal_binds': True}, dialect=log_dialect)}"
-            )
+            _logger.info(f"Executing SQL query: {finalized_query.query.compile(dialect=log_dialect)}")
 
         if attempt_efficient_execution:
             try:

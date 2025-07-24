@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import uuid
+
 from globus_sdk import utils
-from globus_sdk._types import UUIDLike
 from globus_sdk.exc import warn_deprecated
 from globus_sdk.utils import MISSING, MissingType
 
@@ -53,7 +54,7 @@ class ComputeFunctionDocument(utils.PayloadWrapper):
         function_code: str,
         description: str | MissingType = MISSING,
         metadata: ComputeFunctionMetadata | MissingType = MISSING,
-        group: UUIDLike | MissingType = MISSING,
+        group: uuid.UUID | str | MissingType = MISSING,
         public: bool = False,
     ) -> None:
         warn_deprecated("ComputeFunctionDocument is deprecated.")

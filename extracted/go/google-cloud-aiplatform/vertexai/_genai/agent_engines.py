@@ -18,12 +18,11 @@
 import json
 import logging
 import time
-from typing import Any, Callable, Iterator, Optional, Sequence, Union
+from typing import Any, Iterator, Optional, Sequence, Tuple, Union
 from urllib.parse import urlencode
 
 from google.genai import _api_module
 from google.genai import _common
-from google.genai import types as genai_types
 from google.genai._common import get_value_by_path as getv
 from google.genai._common import set_value_by_path as setv
 from google.genai.pagers import Pager
@@ -2045,10 +2044,13 @@ class AgentEngines(_api_module.BaseModule):
             api_async_client=AsyncAgentEngines(api_client_=self._api_client),
             api_resource=operation.response,
         )
-        logger.info("Agent Engine created. To use it in another session:")
-        logger.info(
-            f"agent_engine=client.agent_engines.get('{agent.api_resource.name}')"
-        )
+        if agent.api_resource:
+            logger.info("Agent Engine created. To use it in another session:")
+            logger.info(
+                f"agent_engine=client.agent_engines.get('{agent.api_resource.name}')"
+            )
+        else:
+            logger.warning("The operation returned an empty response.")
         if agent_engine is not None:
             # If the user did not provide an agent_engine (e.g. lightweight
             # provisioning), it will not have any API methods registered.
@@ -2067,13 +2069,11 @@ class AgentEngines(_api_module.BaseModule):
         gcs_dir_name: Optional[str] = None,
         extra_packages: Optional[Sequence[str]] = None,
         env_vars: Optional[dict[str, Union[str, Any]]] = None,
-        context_spec: Optional[dict[str, Any]] = None,
-    ):
+        context_spec: Optional[types.ReasoningEngineContextSpecDict] = None,
+    ) -> types.UpdateAgentEngineConfigDict:
         import sys
-        from vertexai.agent_engines import _agent_engines
-        from vertexai.agent_engines import _utils
 
-        config = {}
+        config: types.UpdateAgentEngineConfigDict = {}
         update_masks = []
         if mode not in ["create", "update"]:
             raise ValueError(f"Unsupported mode: {mode}")
@@ -2091,32 +2091,43 @@ class AgentEngines(_api_module.BaseModule):
         if context_spec is not None:
             config["context_spec"] = context_spec
         if agent_engine is not None:
+            project = self._api_client.project
+            if project is None:
+                raise ValueError("project must be set using `vertexai.Client`.")
+            location = self._api_client.location
+            if location is None:
+                raise ValueError("location must be set using `vertexai.Client`.")
             sys_version = f"{sys.version_info.major}.{sys.version_info.minor}"
-            gcs_dir_name = gcs_dir_name or _agent_engines._DEFAULT_GCS_DIR_NAME
-            agent_engine = _agent_engines._validate_agent_engine_or_raise(
-                agent_engine=agent_engine, logger=logger
+            gcs_dir_name = gcs_dir_name or _agent_engines_utils._DEFAULT_GCS_DIR_NAME
+            agent_engine = _agent_engines_utils._validate_agent_engine_or_raise(
+                agent_engine=agent_engine,
             )
-            _agent_engines._validate_staging_bucket_or_raise(staging_bucket)
-            requirements = _agent_engines._validate_requirements_or_raise(
+            staging_bucket = (
+                staging_bucket
+            ) = _agent_engines_utils._validate_staging_bucket_or_raise(
+                staging_bucket=staging_bucket,
+            )
+            requirements = _agent_engines_utils._validate_requirements_or_raise(
                 agent_engine=agent_engine,
                 requirements=requirements,
-                logger=logger,
             )
-            extra_packages = _agent_engines._validate_extra_packages_or_raise(
-                extra_packages
+            extra_packages = _agent_engines_utils._validate_extra_packages_or_raise(
+                extra_packages=extra_packages,
+            )
+            extra_packages = _agent_engines_utils._validate_extra_packages_or_raise(
+                extra_packages=extra_packages,
             )
             # Prepares the Agent Engine for creation/update in Vertex AI. This
             # involves packaging and uploading the artifacts for agent_engine,
             # requirements and extra_packages to `staging_bucket/gcs_dir_name`.
-            _agent_engines._prepare(
+            _agent_engines_utils._prepare(
                 agent_engine=agent_engine,
                 requirements=requirements,
-                project=self._api_client.project,
-                location=self._api_client.location,
+                project=project,
+                location=location,
                 staging_bucket=staging_bucket,
                 gcs_dir_name=gcs_dir_name,
                 extra_packages=extra_packages,
-                logger=logger,
             )
             # Update the package spec.
             update_masks.append("spec.package_spec.pickle_object_gcs_uri")
@@ -2125,7 +2136,7 @@ class AgentEngines(_api_module.BaseModule):
                 "pickle_object_gcs_uri": "{}/{}/{}".format(
                     staging_bucket,
                     gcs_dir_name,
-                    _agent_engines._BLOB_FILENAME,
+                    _agent_engines_utils._BLOB_FILENAME,
                 ),
             }
             if extra_packages:
@@ -2133,16 +2144,18 @@ class AgentEngines(_api_module.BaseModule):
                 package_spec["dependency_files_gcs_uri"] = "{}/{}/{}".format(
                     staging_bucket,
                     gcs_dir_name,
-                    _agent_engines._EXTRA_PACKAGES_FILE,
+                    _agent_engines_utils._EXTRA_PACKAGES_FILE,
                 )
             if requirements:
                 update_masks.append("spec.package_spec.requirements_gcs_uri")
                 package_spec["requirements_gcs_uri"] = "{}/{}/{}".format(
                     staging_bucket,
                     gcs_dir_name,
-                    _agent_engines._REQUIREMENTS_FILE,
+                    _agent_engines_utils._REQUIREMENTS_FILE,
                 )
-            agent_engine_spec = {"package_spec": package_spec}
+            agent_engine_spec: types.ReasoningEngineSpecDict = {
+                "package_spec": package_spec,
+            }
             if env_vars is not None:
                 (
                     deployment_spec,
@@ -2150,18 +2163,20 @@ class AgentEngines(_api_module.BaseModule):
                 ) = self._generate_deployment_spec_or_raise(env_vars=env_vars)
                 update_masks.extend(deployment_update_masks)
                 agent_engine_spec["deployment_spec"] = deployment_spec
-            class_methods = _agent_engines._generate_class_methods_spec_or_raise(
+            class_methods = _agent_engines_utils._generate_class_methods_spec_or_raise(
                 agent_engine=agent_engine,
-                operations=_agent_engines._get_registered_operations(agent_engine),
-                logger=logger,
+                operations=_agent_engines_utils._get_registered_operations(
+                    agent_engine
+                ),
             )
             agent_engine_spec["class_methods"] = [
-                _utils.to_dict(class_method) for class_method in class_methods
+                _agent_engines_utils._to_dict(class_method)
+                for class_method in class_methods
             ]
             update_masks.append("spec.class_methods")
-            agent_engine_spec["agent_framework"] = _agent_engines._get_agent_framework(
-                agent_engine
-            )
+            agent_engine_spec[
+                "agent_framework"
+            ] = _agent_engines_utils._get_agent_framework(agent_engine)
             update_masks.append("spec.agent_framework")
             config["spec"] = agent_engine_spec
         if update_masks and mode == "update":
@@ -2172,7 +2187,7 @@ class AgentEngines(_api_module.BaseModule):
         self,
         *,
         env_vars: Optional[dict[str, Union[str, Any]]] = None,
-    ):
+    ) -> Tuple[dict[str, Any], Sequence[str]]:
         deployment_spec: dict[str, Any] = {}
         update_masks = []
         if env_vars:
@@ -2217,7 +2232,7 @@ class AgentEngines(_api_module.BaseModule):
         *,
         operation_name: str,
         poll_interval_seconds: int = 10,
-        get_operation_fn: Optional[Callable[[str], Any]] = None,
+        get_operation_fn: Optional[_agent_engines_utils.GetOperationFunction] = None,
     ) -> Any:
         """Waits for the operation for creating an agent engine to complete.
 
@@ -2244,10 +2259,8 @@ class AgentEngines(_api_module.BaseModule):
 
     def _register_api_methods(self, *, agent: types.AgentEngine) -> types.AgentEngine:
         """Registers the API methods for the agent engine."""
-        from vertexai.agent_engines import _agent_engines
-
         try:
-            _agent_engines._register_api_methods_or_raise(
+            _agent_engines_utils._register_api_methods_or_raise(
                 agent,
                 wrap_operation_fn={
                     "": _agent_engines_utils._wrap_query_operation,
@@ -2258,7 +2271,7 @@ class AgentEngines(_api_module.BaseModule):
             )
         except Exception as e:
             logger.warning(
-                _agent_engines._FAILED_TO_REGISTER_API_METHODS_WARNING_TEMPLATE,
+                _agent_engines_utils._FAILED_TO_REGISTER_API_METHODS_WARNING_TEMPLATE,
                 e,
             )
         return agent
@@ -2375,10 +2388,11 @@ class AgentEngines(_api_module.BaseModule):
             api_async_client=AsyncAgentEngines(api_client_=self._api_client),
             api_resource=operation.response,
         )
-        logger.info("Agent Engine updated. To use it in another session:")
-        logger.info(
-            f"agent_engine=client.agent_engines.get('{agent.api_resource.name}')"
-        )
+        if agent.api_resource:
+            logger.info("Agent Engine updated. To use it in another session:")
+            logger.info(
+                f"agent_engine=client.agent_engines.get('{agent.api_resource.name}')"
+            )
         return self._register_api_methods(agent=agent)
 
     def _stream_query(
@@ -2403,7 +2417,7 @@ class AgentEngines(_api_module.BaseModule):
             path = f"{path}?{urlencode(query_params)}"
         # TODO: remove the hack that pops config.
         request_dict.pop("config", None)
-        http_options: Optional[genai_types.HttpOptions] = None
+        http_options = None
         if (
             parameter_model.config is not None
             and parameter_model.config.http_options is not None

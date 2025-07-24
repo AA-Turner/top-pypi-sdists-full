@@ -1704,46 +1704,47 @@ namespace Swig {
 #define SWIGTYPE_p_casadi__Slice swig_types[46]
 #define SWIGTYPE_p_casadi__Sparsity swig_types[47]
 #define SWIGTYPE_p_casadi__SparsityInterfaceCommon swig_types[48]
-#define SWIGTYPE_p_casadi__StringDeserializer swig_types[49]
-#define SWIGTYPE_p_casadi__StringSerializer swig_types[50]
-#define SWIGTYPE_p_casadi__WeakRef swig_types[51]
-#define SWIGTYPE_p_casadi__XmlFile swig_types[52]
-#define SWIGTYPE_p_char swig_types[53]
-#define SWIGTYPE_p_const_reference swig_types[54]
-#define SWIGTYPE_p_difference_type swig_types[55]
-#define SWIGTYPE_p_double swig_types[56]
-#define SWIGTYPE_p_first_type swig_types[57]
-#define SWIGTYPE_p_internal_base_type swig_types[58]
-#define SWIGTYPE_p_key_type swig_types[59]
-#define SWIGTYPE_p_long_long swig_types[60]
-#define SWIGTYPE_p_mapped_type swig_types[61]
-#define SWIGTYPE_p_p_double swig_types[62]
-#define SWIGTYPE_p_reference swig_types[63]
-#define SWIGTYPE_p_second_type swig_types[64]
-#define SWIGTYPE_p_size_type swig_types[65]
-#define SWIGTYPE_p_std__initializer_listT_casadi__MX_t swig_types[66]
-#define SWIGTYPE_p_std__initializer_listT_casadi__MatrixT_casadi__SXElem_t_t swig_types[67]
-#define SWIGTYPE_p_std__istream swig_types[68]
-#define SWIGTYPE_p_std__mapT_std__string_casadi__GenericType_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_casadi__GenericType_t_t_t swig_types[69]
-#define SWIGTYPE_p_std__mapT_std__string_casadi__MX_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_casadi__MX_t_t_t swig_types[70]
-#define SWIGTYPE_p_std__mapT_std__string_casadi__MatrixT_casadi__SXElem_t_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_casadi__MatrixT_casadi__SXElem_t_t_t_t swig_types[71]
-#define SWIGTYPE_p_std__mapT_std__string_casadi__MatrixT_double_t_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_casadi__MatrixT_double_t_t_t_t swig_types[72]
-#define SWIGTYPE_p_std__mapT_std__string_casadi__Sparsity_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_casadi__Sparsity_t_t_t swig_types[73]
-#define SWIGTYPE_p_std__ostream swig_types[74]
-#define SWIGTYPE_p_std__pairT_casadi__Slice_casadi__Slice_t swig_types[75]
-#define SWIGTYPE_p_std__string swig_types[76]
-#define SWIGTYPE_p_std__vectorT_casadi__Linsol_std__allocatorT_casadi__Linsol_t_t swig_types[77]
-#define SWIGTYPE_p_std__vectorT_casadi__MX_std__allocatorT_casadi__MX_t_t swig_types[78]
-#define SWIGTYPE_p_std__vectorT_casadi__MatrixT_casadi__SXElem_t_std__allocatorT_casadi__MatrixT_casadi__SXElem_t_t_t swig_types[79]
-#define SWIGTYPE_p_std__vectorT_casadi__MatrixT_double_t_std__allocatorT_casadi__MatrixT_double_t_t_t swig_types[80]
-#define SWIGTYPE_p_std__vectorT_std__pairT_double_std__string_t_std__allocatorT_std__pairT_double_std__string_t_t_t swig_types[81]
-#define SWIGTYPE_p_std__vectorT_std__vectorT_casadi__MX_std__allocatorT_casadi__MX_t_t_std__allocatorT_std__vectorT_casadi__MX_std__allocatorT_casadi__MX_t_t_t_t swig_types[82]
-#define SWIGTYPE_p_std__vectorT_std__vectorT_casadi__MatrixT_casadi__SXElem_t_std__allocatorT_casadi__MatrixT_casadi__SXElem_t_t_t_std__allocatorT_std__vectorT_casadi__MatrixT_casadi__SXElem_t_std__allocatorT_casadi__MatrixT_casadi__SXElem_t_t_t_t_t swig_types[83]
-#define SWIGTYPE_p_std__vectorT_std__vectorT_casadi__MatrixT_double_t_std__allocatorT_casadi__MatrixT_double_t_t_t_std__allocatorT_std__vectorT_casadi__MatrixT_double_t_std__allocatorT_casadi__MatrixT_double_t_t_t_t_t swig_types[84]
-#define SWIGTYPE_p_swig__MatlabSwigIterator swig_types[85]
-#define SWIGTYPE_p_value_type swig_types[86]
-static swig_type_info *swig_types[88];
-static swig_module_info swig_module = {swig_types, 87, 0, 0, 0, 0};
+#define SWIGTYPE_p_casadi__StreamStateGuard swig_types[49]
+#define SWIGTYPE_p_casadi__StringDeserializer swig_types[50]
+#define SWIGTYPE_p_casadi__StringSerializer swig_types[51]
+#define SWIGTYPE_p_casadi__WeakRef swig_types[52]
+#define SWIGTYPE_p_casadi__XmlFile swig_types[53]
+#define SWIGTYPE_p_char swig_types[54]
+#define SWIGTYPE_p_const_reference swig_types[55]
+#define SWIGTYPE_p_difference_type swig_types[56]
+#define SWIGTYPE_p_double swig_types[57]
+#define SWIGTYPE_p_first_type swig_types[58]
+#define SWIGTYPE_p_internal_base_type swig_types[59]
+#define SWIGTYPE_p_key_type swig_types[60]
+#define SWIGTYPE_p_long_long swig_types[61]
+#define SWIGTYPE_p_mapped_type swig_types[62]
+#define SWIGTYPE_p_p_double swig_types[63]
+#define SWIGTYPE_p_reference swig_types[64]
+#define SWIGTYPE_p_second_type swig_types[65]
+#define SWIGTYPE_p_size_type swig_types[66]
+#define SWIGTYPE_p_std__initializer_listT_casadi__MX_t swig_types[67]
+#define SWIGTYPE_p_std__initializer_listT_casadi__MatrixT_casadi__SXElem_t_t swig_types[68]
+#define SWIGTYPE_p_std__istream swig_types[69]
+#define SWIGTYPE_p_std__mapT_std__string_casadi__GenericType_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_casadi__GenericType_t_t_t swig_types[70]
+#define SWIGTYPE_p_std__mapT_std__string_casadi__MX_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_casadi__MX_t_t_t swig_types[71]
+#define SWIGTYPE_p_std__mapT_std__string_casadi__MatrixT_casadi__SXElem_t_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_casadi__MatrixT_casadi__SXElem_t_t_t_t swig_types[72]
+#define SWIGTYPE_p_std__mapT_std__string_casadi__MatrixT_double_t_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_casadi__MatrixT_double_t_t_t_t swig_types[73]
+#define SWIGTYPE_p_std__mapT_std__string_casadi__Sparsity_std__lessT_std__string_t_std__allocatorT_std__pairT_std__string_const_casadi__Sparsity_t_t_t swig_types[74]
+#define SWIGTYPE_p_std__ostream swig_types[75]
+#define SWIGTYPE_p_std__pairT_casadi__Slice_casadi__Slice_t swig_types[76]
+#define SWIGTYPE_p_std__string swig_types[77]
+#define SWIGTYPE_p_std__vectorT_casadi__Linsol_std__allocatorT_casadi__Linsol_t_t swig_types[78]
+#define SWIGTYPE_p_std__vectorT_casadi__MX_std__allocatorT_casadi__MX_t_t swig_types[79]
+#define SWIGTYPE_p_std__vectorT_casadi__MatrixT_casadi__SXElem_t_std__allocatorT_casadi__MatrixT_casadi__SXElem_t_t_t swig_types[80]
+#define SWIGTYPE_p_std__vectorT_casadi__MatrixT_double_t_std__allocatorT_casadi__MatrixT_double_t_t_t swig_types[81]
+#define SWIGTYPE_p_std__vectorT_std__pairT_double_std__string_t_std__allocatorT_std__pairT_double_std__string_t_t_t swig_types[82]
+#define SWIGTYPE_p_std__vectorT_std__vectorT_casadi__MX_std__allocatorT_casadi__MX_t_t_std__allocatorT_std__vectorT_casadi__MX_std__allocatorT_casadi__MX_t_t_t_t swig_types[83]
+#define SWIGTYPE_p_std__vectorT_std__vectorT_casadi__MatrixT_casadi__SXElem_t_std__allocatorT_casadi__MatrixT_casadi__SXElem_t_t_t_std__allocatorT_std__vectorT_casadi__MatrixT_casadi__SXElem_t_std__allocatorT_casadi__MatrixT_casadi__SXElem_t_t_t_t_t swig_types[84]
+#define SWIGTYPE_p_std__vectorT_std__vectorT_casadi__MatrixT_double_t_std__allocatorT_casadi__MatrixT_double_t_t_t_std__allocatorT_std__vectorT_casadi__MatrixT_double_t_std__allocatorT_casadi__MatrixT_double_t_t_t_t_t swig_types[85]
+#define SWIGTYPE_p_swig__MatlabSwigIterator swig_types[86]
+#define SWIGTYPE_p_value_type swig_types[87]
+static swig_type_info *swig_types[89];
+static swig_module_info swig_module = {swig_types, 88, 0, 0, 0, 0};
 #define SWIG_TypeQuery(name) SWIG_TypeQueryModule(&swig_module, &swig_module, name)
 #define SWIG_MangledTypeQuery(name) SWIG_MangledTypeQueryModule(&swig_module, &swig_module, name)
 
@@ -6468,9 +6469,9 @@ SWIGINTERN casadi_int casadi_MX_numel__SWIG_4(casadi::MX const *self,casadi::MX 
     }
 
   namespace casadi {
-    /*@SWIG:/local/swig/matlab/../casadi.i,3140,SPARSITY_INTERFACE_ALL@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3148,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/matlab/../casadi.i,3014,SPARSITY_INTERFACE_FUN_BASE@*/
+    /*@SWIG:/local/swig/matlab/../casadi.i,3186,SPARSITY_INTERFACE_ALL@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3194,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/matlab/../casadi.i,3060,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
 
@@ -6616,8 +6617,8 @@ SWIGINTERN casadi_int casadi_MX_numel__SWIG_4(casadi::MX const *self,casadi::MX 
 
 
   /*@SWIG@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3148,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/matlab/../casadi.i,3014,SPARSITY_INTERFACE_FUN_BASE@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3194,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/matlab/../casadi.i,3060,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
 
@@ -6763,8 +6764,8 @@ SWIGINTERN casadi_int casadi_MX_numel__SWIG_4(casadi::MX const *self,casadi::MX 
 
 
   /*@SWIG@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3148,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/matlab/../casadi.i,3014,SPARSITY_INTERFACE_FUN_BASE@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3194,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/matlab/../casadi.i,3060,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
 
@@ -6910,8 +6911,8 @@ SWIGINTERN casadi_int casadi_MX_numel__SWIG_4(casadi::MX const *self,casadi::MX 
 
 
   /*@SWIG@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3148,SPARSITY_INTERFACE_FUN@*/
-    /*@SWIG:/local/swig/matlab/../casadi.i,3014,SPARSITY_INTERFACE_FUN_BASE@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3194,SPARSITY_INTERFACE_FUN@*/
+    /*@SWIG:/local/swig/matlab/../casadi.i,3060,SPARSITY_INTERFACE_FUN_BASE@*/
 
 
 
@@ -7058,8 +7059,8 @@ SWIGINTERN casadi_int casadi_MX_numel__SWIG_4(casadi::MX const *self,casadi::MX 
 
   /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/matlab/../casadi.i,3616,GENERIC_EXPRESSION_ALL@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3561,GENERIC_EXPRESSION_FUN@*/
+    /*@SWIG:/local/swig/matlab/../casadi.i,3662,GENERIC_EXPRESSION_ALL@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3607,GENERIC_EXPRESSION_FUN@*/
 
 
 
@@ -7113,7 +7114,7 @@ SWIGINTERN casadi_int casadi_MX_numel__SWIG_4(casadi::MX const *self,casadi::MX 
 
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3561,GENERIC_EXPRESSION_FUN@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3607,GENERIC_EXPRESSION_FUN@*/
 
 
 
@@ -7167,7 +7168,7 @@ SWIGINTERN casadi_int casadi_MX_numel__SWIG_4(casadi::MX const *self,casadi::MX 
 
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3561,GENERIC_EXPRESSION_FUN@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3607,GENERIC_EXPRESSION_FUN@*/
 
 
 
@@ -7221,7 +7222,7 @@ SWIGINTERN casadi_int casadi_MX_numel__SWIG_4(casadi::MX const *self,casadi::MX 
 
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3561,GENERIC_EXPRESSION_FUN@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3607,GENERIC_EXPRESSION_FUN@*/
 
 
 
@@ -7276,8 +7277,8 @@ SWIGINTERN casadi_int casadi_MX_numel__SWIG_4(casadi::MX const *self,casadi::MX 
 
 /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/matlab/../casadi.i,3555,GENERIC_MATRIX_ALL@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3188,GENERIC_MATRIX_FUN@*/
+    /*@SWIG:/local/swig/matlab/../casadi.i,3601,GENERIC_MATRIX_ALL@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3234,GENERIC_MATRIX_FUN@*/
 
 
 
@@ -7643,7 +7644,7 @@ inline MX casadi_blockcat(const std::vector< std::vector< MX > > &v) {
 }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3188,GENERIC_MATRIX_FUN@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3234,GENERIC_MATRIX_FUN@*/
 
 
 
@@ -8009,7 +8010,7 @@ inline Matrix<double> casadi_blockcat(const std::vector< std::vector< Matrix<dou
 }
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3188,GENERIC_MATRIX_FUN@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3234,GENERIC_MATRIX_FUN@*/
 
 
 
@@ -8376,8 +8377,8 @@ inline Matrix<SXElem> casadi_blockcat(const std::vector< std::vector< Matrix<SXE
 
 /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/matlab/../casadi.i,3749,MATRIX_ALL@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3623,MATRIX_FUN@*/
+    /*@SWIG:/local/swig/matlab/../casadi.i,3795,MATRIX_ALL@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3669,MATRIX_FUN@*/
 
 
 
@@ -8502,7 +8503,7 @@ inline Matrix<SXElem> casadi_blockcat(const std::vector< std::vector< Matrix<SXE
 
 
 /*@SWIG@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3623,MATRIX_FUN@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3669,MATRIX_FUN@*/
 
 
 
@@ -8628,8 +8629,8 @@ inline Matrix<SXElem> casadi_blockcat(const std::vector< std::vector< Matrix<SXE
 
 /*@SWIG@*/
 /*@SWIG@*/
-    /*@SWIG:/local/swig/matlab/../casadi.i,3831,MX_ALL@*/
-/*@SWIG:/local/swig/matlab/../casadi.i,3754,MX_FUN@*/
+    /*@SWIG:/local/swig/matlab/../casadi.i,3877,MX_ALL@*/
+/*@SWIG:/local/swig/matlab/../casadi.i,3800,MX_FUN@*/
 
 
 
@@ -9015,6 +9016,39 @@ bool SwigDirector_Callback::uses_output() const {
     Swig::DirectorTypeMismatchException::raise(SWIG_ErrorType(SWIG_ArgError(SWIG_TypeError)), "in output value of type '""bool""'");
   }
   return (bool) c_result;
+}
+
+
+casadi::Function SwigDirector_Callback::get_factory(std::string const &name, std::vector< std::string,std::allocator< std::string > > const &s_in, std::vector< std::string,std::allocator< std::string > > const &s_out, casadi::Function::AuxOut const &aux, casadi::Dict const &opts) const {
+  casadi::Function c_result;
+  SwigVar_mxArray obj0;
+  if(!(obj0 = casadi::from_ptr(&name))) Swig::DirectorTypeMismatchException::raise(SWIG_ErrorType(SWIG_ArgError(SWIG_TypeError)), "in output value of type '""For director inputs, failed to convert input to " "char" ".""'");
+  SwigVar_mxArray obj1;
+  if(!(obj1 = casadi::from_ptr(&s_in))) Swig::DirectorTypeMismatchException::raise(SWIG_ErrorType(SWIG_ArgError(SWIG_TypeError)), "in output value of type '""For director inputs, failed to convert input to " "{" "char" "}" ".""'");
+  SwigVar_mxArray obj2;
+  if(!(obj2 = casadi::from_ptr(&s_out))) Swig::DirectorTypeMismatchException::raise(SWIG_ErrorType(SWIG_ArgError(SWIG_TypeError)), "in output value of type '""For director inputs, failed to convert input to " "{" "char" "}" ".""'");
+  SwigVar_mxArray obj3;
+  if(!(obj3 = casadi::from_ptr(&aux))) Swig::DirectorTypeMismatchException::raise(SWIG_ErrorType(SWIG_ArgError(SWIG_TypeError)), "in output value of type '""For director inputs, failed to convert input to " "struct" ":" "{" "char" "}" ".""'");
+  SwigVar_mxArray obj4;
+  if(!(obj4 = casadi::from_ptr(&opts))) Swig::DirectorTypeMismatchException::raise(SWIG_ErrorType(SWIG_ArgError(SWIG_TypeError)), "in output value of type '""For director inputs, failed to convert input to " "struct" ".""'");
+  if (!swig_get_self()) {
+    Swig::DirectorException::raise("'self' uninitialized, maybe you forgot to call Callback.__init__.");
+  }
+  mxArray* dispatch_in[6] = {
+    swig_get_self(),(mxArray *)obj0,(mxArray *)obj1,(mxArray *)obj2,(mxArray *)obj3,(mxArray *)obj4
+  };
+  mxArray* dispatch_out[1];
+  mxArray* error = SWIG_Matlab_CallInterpEx(1, dispatch_out, 6, dispatch_in, "get_factory");
+  mxArray* result = dispatch_out[0];
+  if (error != 0) {
+    mexCallMATLAB(0, (mxArray **)NULL,1, &error, "throw");  if (error) {
+      Swig::DirectorMethodException::raise("Error detected when calling 'Callback.get_factory'");
+    }
+  }
+  if (!casadi::to_val(result, &c_result)) {
+    Swig::DirectorTypeMismatchException::raise(SWIG_ErrorType(SWIG_ArgError(SWIG_TypeError)), "in output value of type '""casadi::Function""'");
+  }
+  return (casadi::Function) c_result;
 }
 
 
@@ -11641,6 +11675,162 @@ int _wrap_normalized_setup(int resc, mxArray *resv[], int argc, mxArray *argv[])
     "  Possible prototypes are:\n"
     "    NORMALIZED_SETUP()\n"
     "    NORMALIZED_SETUP(std::istream &)\n"
+    
+    "  You have: %s", type_name);
+  return 1;
+}
+
+
+int _wrap_new_StreamStateGuard__SWIG_0(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  std::ostream *arg1 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  casadi::StreamStateGuard *result = 0 ;
+  
+  if (!SWIG_check_num_args("new_StreamStateGuard",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1, SWIGTYPE_p_std__ostream,  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "new_StreamStateGuard" "', argument " "1"" of type '" "std::ostream &""'"); 
+  }
+  if (!argp1) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "new_StreamStateGuard" "', argument " "1"" of type '" "std::ostream &""'"); 
+  }
+  arg1 = reinterpret_cast< std::ostream * >(argp1);
+  {
+    try {
+      result = (casadi::StreamStateGuard *)new casadi::StreamStateGuard(*arg1);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_casadi__StreamStateGuard, 1 |  0 );
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'new_StreamStateGuard'."
+      "  Prototype:\n"
+      "    STREAMSTATEGUARD(std::ostream &)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_delete_StreamStateGuard(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::StreamStateGuard *arg1 = (casadi::StreamStateGuard *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  
+  int is_owned;
+  if (!SWIG_check_num_args("delete_StreamStateGuard",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  is_owned = SWIG_Matlab_isOwned(argv[0]);
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__StreamStateGuard, SWIG_POINTER_DISOWN |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "delete_StreamStateGuard" "', argument " "1"" of type '" "casadi::StreamStateGuard *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::StreamStateGuard * >(argp1);
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  if (is_owned) {
+    {
+      try {
+        delete arg1;
+      } catch(const std::exception& e) {
+        SWIG_exception(SWIG_RuntimeError, e.what());
+      }
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'delete_StreamStateGuard'."
+      "  Prototype:\n"
+      "    STREAMSTATEGUARD(self)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_new_StreamStateGuard__SWIG_1(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::StreamStateGuard *arg1 = 0 ;
+  void *argp1 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  casadi::StreamStateGuard *result = 0 ;
+  
+  if (!SWIG_check_num_args("new_StreamStateGuard",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1, SWIGTYPE_p_casadi__StreamStateGuard,  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "new_StreamStateGuard" "', argument " "1"" of type '" "casadi::StreamStateGuard const &""'"); 
+  }
+  if (!argp1) {
+    SWIG_exception_fail(SWIG_ValueError, "invalid null reference " "in method '" "new_StreamStateGuard" "', argument " "1"" of type '" "casadi::StreamStateGuard const &""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::StreamStateGuard * >(argp1);
+  {
+    result = (casadi::StreamStateGuard *)new casadi::StreamStateGuard((casadi::StreamStateGuard const &)*arg1);
+  }
+  _out = SWIG_NewPointerObj(SWIG_as_voidptr(result), SWIGTYPE_p_casadi__StreamStateGuard, 1 |  0 );
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'new_StreamStateGuard'."
+      "  Prototype:\n"
+      "    STREAMSTATEGUARD(StreamStateGuard)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_new_StreamStateGuard(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  if (argc == 1) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_std__ostream, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      return _wrap_new_StreamStateGuard__SWIG_0(resc,resv,argc,argv);
+    }
+  }
+  if (argc == 1) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_casadi__StreamStateGuard, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      return _wrap_new_StreamStateGuard__SWIG_1(resc,resv,argc,argv);
+    }
+  }
+  
+  const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+  SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'new_StreamStateGuard'."
+    "  Possible prototypes are:\n"
+    "    STREAMSTATEGUARD(std::ostream &)\n"
+    "    STREAMSTATEGUARD(StreamStateGuard)\n"
     
     "  You have: %s", type_name);
   return 1;
@@ -88689,6 +88879,49 @@ fail:
 }
 
 
+int _wrap_Function_reset_dump_count(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::Function *arg1 = (casadi::Function *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("Function_reset_dump_count",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__Function, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Function_reset_dump_count" "', argument " "1"" of type '" "casadi::Function *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::Function * >(argp1);
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->reset_dump_count();
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'Function_reset_dump_count'."
+      "  Prototype:\n"
+      "    RESET_DUMP_COUNT(self)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
 int _wrap_Function_uses_output(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
   casadi::Function *arg1 = (casadi::Function *) 0 ;
   void *argp1 = 0 ;
@@ -88729,6 +88962,462 @@ fail:
       
       "  You have: %s", type_name);
   }
+  return 1;
+}
+
+
+int _wrap_Function_jacobian_old(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::Function *arg1 = (casadi::Function *) 0 ;
+  casadi_int arg2 ;
+  casadi_int arg3 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  casadi::Function result;
+  
+  if (!SWIG_check_num_args("Function_jacobian_old",argc,3,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__Function, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Function_jacobian_old" "', argument " "1"" of type '" "casadi::Function const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::Function * >(argp1);
+  if (!casadi::to_val(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "int" "'.");
+  if (!casadi::to_val(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "int" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = ((casadi::Function const *)arg1)->jacobian_old(arg2,arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "Function" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'Function_jacobian_old'."
+      "  Prototype:\n"
+      "    JACOBIAN_OLD(self,int,int)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_Function_hessian_old(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::Function *arg1 = (casadi::Function *) 0 ;
+  casadi_int arg2 ;
+  casadi_int arg3 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  casadi::Function result;
+  
+  if (!SWIG_check_num_args("Function_hessian_old",argc,3,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__Function, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Function_hessian_old" "', argument " "1"" of type '" "casadi::Function const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::Function * >(argp1);
+  if (!casadi::to_val(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "int" "'.");
+  if (!casadi::to_val(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "int" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = ((casadi::Function const *)arg1)->hessian_old(arg2,arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "Function" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'Function_hessian_old'."
+      "  Prototype:\n"
+      "    HESSIAN_OLD(self,int,int)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_Function_sparsity_jac__SWIG_0(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::Function *arg1 = (casadi::Function *) 0 ;
+  casadi_int arg2 ;
+  casadi_int arg3 ;
+  bool arg4 = (bool) false ;
+  bool arg5 = (bool) false ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  casadi::Sparsity result;
+  
+  if (!SWIG_check_num_args("Function_sparsity_jac",argc,5,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__Function, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Function_sparsity_jac" "', argument " "1"" of type '" "casadi::Function const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::Function * >(argp1);
+  if (!casadi::to_val(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "int" "'.");
+  if (!casadi::to_val(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "int" "'.");
+  if (3<argc) {
+    if (!casadi::to_val(argv[3], &arg4)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 4 to type '" "bool" "'.");
+  }
+  if (4<argc) {
+    if (!casadi::to_val(argv[4], &arg5)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 5 to type '" "bool" "'.");
+  }
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = ((casadi::Function const *)arg1)->sparsity_jac(arg2,arg3,arg4,arg5);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "Sparsity" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'Function_sparsity_jac'."
+      "  Prototype:\n"
+      "    SPARSITY_JAC(self,int,int,bool,bool)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_Function_sparsity_jac__SWIG_1(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::Function *arg1 = (casadi::Function *) 0 ;
+  std::string *arg2 = 0 ;
+  casadi_int arg3 = (casadi_int) 0 ;
+  bool arg4 = (bool) false ;
+  bool arg5 = (bool) false ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  casadi::Sparsity result;
+  
+  if (!SWIG_check_num_args("Function_sparsity_jac",argc,5,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__Function, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Function_sparsity_jac" "', argument " "1"" of type '" "casadi::Function const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::Function * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  if (2<argc) {
+    if (!casadi::to_val(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "int" "'.");
+  }
+  if (3<argc) {
+    if (!casadi::to_val(argv[3], &arg4)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 4 to type '" "bool" "'.");
+  }
+  if (4<argc) {
+    if (!casadi::to_val(argv[4], &arg5)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 5 to type '" "bool" "'.");
+  }
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = ((casadi::Function const *)arg1)->sparsity_jac((std::string const &)*arg2,arg3,arg4,arg5);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "Sparsity" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'Function_sparsity_jac'."
+      "  Prototype:\n"
+      "    SPARSITY_JAC(self,char,int,bool,bool)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_Function_sparsity_jac__SWIG_2(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::Function *arg1 = (casadi::Function *) 0 ;
+  casadi_int arg2 ;
+  std::string *arg3 = 0 ;
+  bool arg4 = (bool) false ;
+  bool arg5 = (bool) false ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m3 ;
+  mxArray * _out;
+  casadi::Sparsity result;
+  
+  if (!SWIG_check_num_args("Function_sparsity_jac",argc,5,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__Function, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Function_sparsity_jac" "', argument " "1"" of type '" "casadi::Function const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::Function * >(argp1);
+  if (!casadi::to_val(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "int" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "char" "'.");
+  if (3<argc) {
+    if (!casadi::to_val(argv[3], &arg4)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 4 to type '" "bool" "'.");
+  }
+  if (4<argc) {
+    if (!casadi::to_val(argv[4], &arg5)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 5 to type '" "bool" "'.");
+  }
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = ((casadi::Function const *)arg1)->sparsity_jac(arg2,(std::string const &)*arg3,arg4,arg5);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "Sparsity" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'Function_sparsity_jac'."
+      "  Prototype:\n"
+      "    SPARSITY_JAC(self,int,char,bool,bool)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_Function_sparsity_jac__SWIG_3(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::Function *arg1 = (casadi::Function *) 0 ;
+  std::string *arg2 = 0 ;
+  std::string *arg3 = 0 ;
+  bool arg4 = (bool) false ;
+  bool arg5 = (bool) false ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  std::string m3 ;
+  mxArray * _out;
+  casadi::Sparsity result;
+  
+  if (!SWIG_check_num_args("Function_sparsity_jac",argc,5,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__Function, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Function_sparsity_jac" "', argument " "1"" of type '" "casadi::Function const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::Function * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "char" "'.");
+  if (3<argc) {
+    if (!casadi::to_val(argv[3], &arg4)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 4 to type '" "bool" "'.");
+  }
+  if (4<argc) {
+    if (!casadi::to_val(argv[4], &arg5)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 5 to type '" "bool" "'.");
+  }
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = ((casadi::Function const *)arg1)->sparsity_jac((std::string const &)*arg2,(std::string const &)*arg3,arg4,arg5);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "Sparsity" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'Function_sparsity_jac'."
+      "  Prototype:\n"
+      "    SPARSITY_JAC(self,char,char,bool,bool)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_Function_sparsity_jac(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  if ((argc >= 2) && (argc <= 5)) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_casadi__Function, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      _v = casadi::to_ptr(argv[1], static_cast< std::string **>(0));
+      if (_v) {
+        if (argc <= 2) {
+          return _wrap_Function_sparsity_jac__SWIG_1(resc,resv,argc,argv);
+        }
+        _v = casadi::to_ptr(argv[2], static_cast< casadi_int **>(0));
+        if (_v) {
+          if (argc <= 3) {
+            return _wrap_Function_sparsity_jac__SWIG_1(resc,resv,argc,argv);
+          }
+          _v = casadi::to_ptr(argv[3], static_cast< bool **>(0));
+          if (_v) {
+            if (argc <= 4) {
+              return _wrap_Function_sparsity_jac__SWIG_1(resc,resv,argc,argv);
+            }
+            _v = casadi::to_ptr(argv[4], static_cast< bool **>(0));
+            if (_v) {
+              return _wrap_Function_sparsity_jac__SWIG_1(resc,resv,argc,argv);
+            }
+          }
+        }
+      }
+    }
+  }
+  if ((argc >= 3) && (argc <= 5)) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_casadi__Function, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      _v = casadi::to_ptr(argv[1], static_cast< casadi_int **>(0));
+      if (_v) {
+        _v = casadi::to_ptr(argv[2], static_cast< casadi_int **>(0));
+        if (_v) {
+          if (argc <= 3) {
+            return _wrap_Function_sparsity_jac__SWIG_0(resc,resv,argc,argv);
+          }
+          _v = casadi::to_ptr(argv[3], static_cast< bool **>(0));
+          if (_v) {
+            if (argc <= 4) {
+              return _wrap_Function_sparsity_jac__SWIG_0(resc,resv,argc,argv);
+            }
+            _v = casadi::to_ptr(argv[4], static_cast< bool **>(0));
+            if (_v) {
+              return _wrap_Function_sparsity_jac__SWIG_0(resc,resv,argc,argv);
+            }
+          }
+        }
+      }
+    }
+  }
+  if ((argc >= 3) && (argc <= 5)) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_casadi__Function, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      _v = casadi::to_ptr(argv[1], static_cast< casadi_int **>(0));
+      if (_v) {
+        _v = casadi::to_ptr(argv[2], static_cast< std::string **>(0));
+        if (_v) {
+          if (argc <= 3) {
+            return _wrap_Function_sparsity_jac__SWIG_2(resc,resv,argc,argv);
+          }
+          _v = casadi::to_ptr(argv[3], static_cast< bool **>(0));
+          if (_v) {
+            if (argc <= 4) {
+              return _wrap_Function_sparsity_jac__SWIG_2(resc,resv,argc,argv);
+            }
+            _v = casadi::to_ptr(argv[4], static_cast< bool **>(0));
+            if (_v) {
+              return _wrap_Function_sparsity_jac__SWIG_2(resc,resv,argc,argv);
+            }
+          }
+        }
+      }
+    }
+  }
+  if ((argc >= 3) && (argc <= 5)) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_casadi__Function, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      _v = casadi::to_ptr(argv[1], static_cast< std::string **>(0));
+      if (_v) {
+        _v = casadi::to_ptr(argv[2], static_cast< std::string **>(0));
+        if (_v) {
+          if (argc <= 3) {
+            return _wrap_Function_sparsity_jac__SWIG_3(resc,resv,argc,argv);
+          }
+          _v = casadi::to_ptr(argv[3], static_cast< bool **>(0));
+          if (_v) {
+            if (argc <= 4) {
+              return _wrap_Function_sparsity_jac__SWIG_3(resc,resv,argc,argv);
+            }
+            _v = casadi::to_ptr(argv[4], static_cast< bool **>(0));
+            if (_v) {
+              return _wrap_Function_sparsity_jac__SWIG_3(resc,resv,argc,argv);
+            }
+          }
+        }
+      }
+    }
+  }
+  
+  const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+  SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'Function_sparsity_jac'."
+    "  Possible prototypes are:\n"
+    "    SPARSITY_JAC(self,char,int,bool,bool)\n"
+    "    SPARSITY_JAC(self,int,int,bool,bool)\n"
+    "    SPARSITY_JAC(self,int,char,bool,bool)\n"
+    "    SPARSITY_JAC(self,char,char,bool,bool)\n"
+    
+    "  You have: %s", type_name);
   return 1;
 }
 
@@ -106774,6 +107463,82 @@ fail:
 }
 
 
+int _wrap_Callback_get_factory(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::Callback *arg1 = (casadi::Callback *) 0 ;
+  std::string *arg2 = 0 ;
+  std::vector< std::string,std::allocator< std::string > > *arg3 = 0 ;
+  std::vector< std::string,std::allocator< std::string > > *arg4 = 0 ;
+  casadi::Function::AuxOut *arg5 = 0 ;
+  casadi::Dict *arg6 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  std::vector< std::string > m3 ;
+  std::vector< std::string > m4 ;
+  std::map< std::string,std::vector< std::string > > m5 ;
+  std::map< std::string,casadi::GenericType > m6 ;
+  Swig::Director *director = 0;
+  bool upcall = false;
+  mxArray * _out;
+  casadi::Function result;
+  
+  if (!SWIG_check_num_args("Callback_get_factory",argc,6,6,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__Callback, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "Callback_get_factory" "', argument " "1"" of type '" "casadi::Callback const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::Callback * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "{" "char" "}" "'.");
+  arg4 = &m4;
+  if (!casadi::to_ptr(argv[3], &arg4)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 4 to type '" "{" "char" "}" "'.");
+  arg5 = &m5;
+  if (!casadi::to_ptr(argv[4], &arg5)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 5 to type '" "struct" ":" "{" "char" "}" "'.");
+  arg6 = &m6;
+  if (!casadi::to_ptr(argv[5], &arg6)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 6 to type '" "struct" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  director = SWIG_DIRECTOR_CAST(arg1);
+  upcall = director;
+  try {
+    {
+      try {
+        if (upcall) {
+          result = ((casadi::Callback const *)arg1)->casadi::Callback::get_factory((std::string const &)*arg2,(std::vector< std::string,std::allocator< std::string > > const &)*arg3,(std::vector< std::string,std::allocator< std::string > > const &)*arg4,(casadi::Function::AuxOut const &)*arg5,(casadi::Dict const &)*arg6);
+        } else {
+          result = ((casadi::Callback const *)arg1)->get_factory((std::string const &)*arg2,(std::vector< std::string,std::allocator< std::string > > const &)*arg3,(std::vector< std::string,std::allocator< std::string > > const &)*arg4,(casadi::Function::AuxOut const &)*arg5,(casadi::Dict const &)*arg6);
+        }
+      } catch(const std::exception& e) {
+        SWIG_exception(SWIG_RuntimeError, e.what());
+      }
+    }
+  } catch (Swig::DirectorException&) {
+    SWIG_fail;
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "Function" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'Callback_get_factory'."
+      "  Prototype:\n"
+      "    GET_FACTORY(self,char,{char},{char},struct:{char},struct)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
 int _wrap_Callback_has_jacobian(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
   casadi::Callback *arg1 = (casadi::Callback *) 0 ;
   void *argp1 = 0 ;
@@ -110593,6 +111358,144 @@ fail:
 }
 
 
+int _wrap_DaeBuilder_set_y(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::vector< std::string,std::allocator< std::string > > *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::vector< std::string > m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_set_y",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_set_y" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "{" "char" "}" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->set_y((std::vector< std::string,std::allocator< std::string > > const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_set_y'."
+      "  Prototype:\n"
+      "    SET_Y(self,{char})\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_rate(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  std::vector< std::string,std::allocator< std::string > > result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_rate",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_rate" "', argument " "1"" of type '" "casadi::DaeBuilder const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = ((casadi::DaeBuilder const *)arg1)->rate();
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "{" "char" "}" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_rate'."
+      "  Prototype:\n"
+      "    RATE(self)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_set_rate(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::vector< std::string,std::allocator< std::string > > *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::vector< std::string > m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_set_rate",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_set_rate" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "{" "char" "}" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->set_rate((std::vector< std::string,std::allocator< std::string > > const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_set_rate'."
+      "  Prototype:\n"
+      "    SET_RATE(self,{char})\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
 int _wrap_DaeBuilder_u(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
   casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
   void *argp1 = 0 ;
@@ -111202,6 +112105,50 @@ fail:
     SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_has_t'."
       "  Prototype:\n"
       "    HAS_T(self)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_has_rate(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  bool result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_has_rate",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_has_rate" "', argument " "1"" of type '" "casadi::DaeBuilder const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (bool)((casadi::DaeBuilder const *)arg1)->has_rate();
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "bool" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_has_rate'."
+      "  Prototype:\n"
+      "    HAS_RATE(self)\n"
       
       "  You have: %s", type_name);
   }
@@ -111997,6 +112944,615 @@ int _wrap_DaeBuilder_add(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
 }
 
 
+int _wrap_DaeBuilder_t(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  casadi::MX *result = 0 ;
+  
+  if (!SWIG_check_num_args("DaeBuilder_t",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_t" "', argument " "1"" of type '" "casadi::DaeBuilder const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (casadi::MX *) &((casadi::DaeBuilder const *)arg1)->t();
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ptr(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_t'."
+      "  Prototype:\n"
+      "    T(self)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_t(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string const &arg2_defvalue = "t" ;
+  std::string *arg2 = (std::string *) &arg2_defvalue ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  casadi::MX result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_t",argc,2,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_t" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  if (1<argc) {
+    arg2 = &m2;
+    if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  }
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_t((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_t'."
+      "  Prototype:\n"
+      "    ADD_T(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_p(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string const &arg2_defvalue = std::string() ;
+  std::string *arg2 = (std::string *) &arg2_defvalue ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  casadi::MX result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_p",argc,2,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_p" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  if (1<argc) {
+    arg2 = &m2;
+    if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  }
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_p((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_p'."
+      "  Prototype:\n"
+      "    ADD_P(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_u(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string const &arg2_defvalue = std::string() ;
+  std::string *arg2 = (std::string *) &arg2_defvalue ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  casadi::MX result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_u",argc,2,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_u" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  if (1<argc) {
+    arg2 = &m2;
+    if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  }
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_u((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_u'."
+      "  Prototype:\n"
+      "    ADD_U(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_x(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string const &arg2_defvalue = std::string() ;
+  std::string *arg2 = (std::string *) &arg2_defvalue ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  casadi::MX result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_x",argc,2,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_x" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  if (1<argc) {
+    arg2 = &m2;
+    if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  }
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_x((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_x'."
+      "  Prototype:\n"
+      "    ADD_X(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_z(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string const &arg2_defvalue = std::string() ;
+  std::string *arg2 = (std::string *) &arg2_defvalue ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  casadi::MX result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_z",argc,2,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_z" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  if (1<argc) {
+    arg2 = &m2;
+    if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  }
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_z((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_z'."
+      "  Prototype:\n"
+      "    ADD_Z(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_q(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string const &arg2_defvalue = std::string() ;
+  std::string *arg2 = (std::string *) &arg2_defvalue ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  casadi::MX result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_q",argc,2,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_q" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  if (1<argc) {
+    arg2 = &m2;
+    if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  }
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_q((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_q'."
+      "  Prototype:\n"
+      "    ADD_Q(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_c(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  casadi::MX *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  casadi::MX m3 ;
+  mxArray * _out;
+  casadi::MX result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_c",argc,3,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_c" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "MX" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_c((std::string const &)*arg2,(casadi::MX const &)*arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_c'."
+      "  Prototype:\n"
+      "    ADD_C(self,char,MX)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_d(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  casadi::MX *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  casadi::MX m3 ;
+  mxArray * _out;
+  casadi::MX result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_d",argc,3,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_d" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "MX" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_d((std::string const &)*arg2,(casadi::MX const &)*arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_d'."
+      "  Prototype:\n"
+      "    ADD_D(self,char,MX)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_w(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  casadi::MX *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  casadi::MX m3 ;
+  mxArray * _out;
+  casadi::MX result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_w",argc,3,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_w" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "MX" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_w((std::string const &)*arg2,(casadi::MX const &)*arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_w'."
+      "  Prototype:\n"
+      "    ADD_W(self,char,MX)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_y(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  casadi::MX *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  casadi::MX m3 ;
+  mxArray * _out;
+  casadi::MX result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_y",argc,3,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_y" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "MX" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_y((std::string const &)*arg2,(casadi::MX const &)*arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_y'."
+      "  Prototype:\n"
+      "    ADD_Y(self,char,MX)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_set_beq(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  casadi::MX *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  casadi::MX m3 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_set_beq",argc,3,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_set_beq" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "MX" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->set_beq((std::string const &)*arg2,(casadi::MX const &)*arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_set_beq'."
+      "  Prototype:\n"
+      "    SET_BEQ(self,char,MX)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
 int _wrap_DaeBuilder_eq(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
   casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
   casadi::MX *arg2 = 0 ;
@@ -112268,6 +113824,247 @@ fail:
 }
 
 
+int _wrap_DaeBuilder_set_ode(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  casadi::MX *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  casadi::MX m3 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_set_ode",argc,3,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_set_ode" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "MX" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->set_ode((std::string const &)*arg2,(casadi::MX const &)*arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_set_ode'."
+      "  Prototype:\n"
+      "    SET_ODE(self,char,MX)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_set_alg(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  casadi::MX *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  casadi::MX m3 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_set_alg",argc,3,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_set_alg" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "MX" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->set_alg((std::string const &)*arg2,(casadi::MX const &)*arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_set_alg'."
+      "  Prototype:\n"
+      "    SET_ALG(self,char,MX)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_init(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  casadi::MX *arg2 = 0 ;
+  casadi::MX *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  casadi::MX m2 ;
+  casadi::MX m3 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_init",argc,3,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_init" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "MX" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "MX" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->add_init((casadi::MX const &)*arg2,(casadi::MX const &)*arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_init'."
+      "  Prototype:\n"
+      "    ADD_INIT(self,MX,MX)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_ne(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  casadi_int result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_ne",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_ne" "', argument " "1"" of type '" "casadi::DaeBuilder const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (casadi_int)((casadi::DaeBuilder const *)arg1)->ne();
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "int" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_ne'."
+      "  Prototype:\n"
+      "    NE(self)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_e(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  std::vector< std::string,std::allocator< std::string > > result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_e",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_e" "', argument " "1"" of type '" "casadi::DaeBuilder const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = ((casadi::DaeBuilder const *)arg1)->e();
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "{" "char" "}" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_e'."
+      "  Prototype:\n"
+      "    E(self)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
 int _wrap_DaeBuilder_sanity_check(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
   casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
   void *argp1 = 0 ;
@@ -112355,6 +114152,883 @@ fail:
     SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_reorder'."
       "  Prototype:\n"
       "    REORDER(self,char,{char})\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_clear_all(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_clear_all",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_clear_all" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->clear_all((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_clear_all'."
+      "  Prototype:\n"
+      "    CLEAR_ALL(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_set_all(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  std::vector< std::string,std::allocator< std::string > > *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  std::vector< std::string > m3 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_set_all",argc,3,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_set_all" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "{" "char" "}" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->set_all((std::string const &)*arg2,(std::vector< std::string,std::allocator< std::string > > const &)*arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_set_all'."
+      "  Prototype:\n"
+      "    SET_ALL(self,char,{char})\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_register_t(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_register_t",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_register_t" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->register_t((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_register_t'."
+      "  Prototype:\n"
+      "    REGISTER_T(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_register_p(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_register_p",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_register_p" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->register_p((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_register_p'."
+      "  Prototype:\n"
+      "    REGISTER_P(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_register_u(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_register_u",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_register_u" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->register_u((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_register_u'."
+      "  Prototype:\n"
+      "    REGISTER_U(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_register_x(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_register_x",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_register_x" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->register_x((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_register_x'."
+      "  Prototype:\n"
+      "    REGISTER_X(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_register_z(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_register_z",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_register_z" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->register_z((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_register_z'."
+      "  Prototype:\n"
+      "    REGISTER_Z(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_register_q(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_register_q",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_register_q" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->register_q((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_register_q'."
+      "  Prototype:\n"
+      "    REGISTER_Q(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_register_c(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_register_c",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_register_c" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->register_c((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_register_c'."
+      "  Prototype:\n"
+      "    REGISTER_C(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_register_d(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_register_d",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_register_d" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->register_d((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_register_d'."
+      "  Prototype:\n"
+      "    REGISTER_D(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_register_w(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_register_w",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_register_w" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->register_w((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_register_w'."
+      "  Prototype:\n"
+      "    REGISTER_W(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_register_y(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_register_y",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_register_y" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->register_y((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_register_y'."
+      "  Prototype:\n"
+      "    REGISTER_Y(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_register_e(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_register_e",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_register_e" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->register_e((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_register_e'."
+      "  Prototype:\n"
+      "    REGISTER_E(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_eliminate_d(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_eliminate_d",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_eliminate_d" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->eliminate_d();
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_eliminate_d'."
+      "  Prototype:\n"
+      "    ELIMINATE_D(self)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_eliminate_w(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_eliminate_w",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_eliminate_w" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->eliminate_w();
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_eliminate_w'."
+      "  Prototype:\n"
+      "    ELIMINATE_W(self)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_eliminate_quad(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_eliminate_quad",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_eliminate_quad" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->eliminate_quad();
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_eliminate_quad'."
+      "  Prototype:\n"
+      "    ELIMINATE_QUAD(self)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_sort_d(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_sort_d",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_sort_d" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->sort_d();
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_sort_d'."
+      "  Prototype:\n"
+      "    SORT_D(self)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_sort_w(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_sort_w",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_sort_w" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->sort_w();
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_sort_w'."
+      "  Prototype:\n"
+      "    SORT_W(self)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_sort_z(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::vector< std::string,std::allocator< std::string > > *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::vector< std::string > m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_sort_z",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_sort_z" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "{" "char" "}" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->sort_z((std::vector< std::string,std::allocator< std::string > > const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_sort_z'."
+      "  Prototype:\n"
+      "    SORT_Z(self,{char})\n"
       
       "  You have: %s", type_name);
   }
@@ -116651,6 +119325,519 @@ int _wrap_DaeBuilder_all(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
     "    ALL(self,char)\n"
     
     "  You have: %s", type_name);
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_variable__SWIG_0(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  casadi_int arg3 = (casadi_int) 1 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  casadi::MX result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_variable",argc,3,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_variable" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  if (2<argc) {
+    if (!casadi::to_val(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "int" "'.");
+  }
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_variable((std::string const &)*arg2,arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_variable'."
+      "  Prototype:\n"
+      "    ADD_VARIABLE(self,char,int)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_variable__SWIG_1(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  casadi::Sparsity *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  casadi::Sparsity m3 ;
+  mxArray * _out;
+  casadi::MX result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_variable",argc,3,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_variable" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "Sparsity" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_variable((std::string const &)*arg2,(casadi::Sparsity const &)*arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "MX" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_variable'."
+      "  Prototype:\n"
+      "    ADD_VARIABLE(self,char,Sparsity)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_variable__SWIG_2(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  casadi::MX *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  casadi::MX m2 ;
+  mxArray * _out;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_variable",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_variable" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "MX" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      (arg1)->add_variable((casadi::MX const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = (mxArray*)0;
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_variable'."
+      "  Prototype:\n"
+      "    ADD_VARIABLE(self,MX)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_variable(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  if (argc == 2) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_casadi__DaeBuilder, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      _v = casadi::to_ptr(argv[1], static_cast< casadi::MX **>(0));
+      if (_v) {
+        return _wrap_DaeBuilder_add_variable__SWIG_2(resc,resv,argc,argv);
+      }
+    }
+  }
+  if ((argc >= 2) && (argc <= 3)) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_casadi__DaeBuilder, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      _v = casadi::to_ptr(argv[1], static_cast< std::string **>(0));
+      if (_v) {
+        if (argc <= 2) {
+          return _wrap_DaeBuilder_add_variable__SWIG_0(resc,resv,argc,argv);
+        }
+        _v = casadi::to_ptr(argv[2], static_cast< casadi_int **>(0));
+        if (_v) {
+          return _wrap_DaeBuilder_add_variable__SWIG_0(resc,resv,argc,argv);
+        }
+      }
+    }
+  }
+  if (argc == 3) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_casadi__DaeBuilder, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      _v = casadi::to_ptr(argv[1], static_cast< std::string **>(0));
+      if (_v) {
+        _v = casadi::to_ptr(argv[2], static_cast< casadi::Sparsity **>(0));
+        if (_v) {
+          return _wrap_DaeBuilder_add_variable__SWIG_1(resc,resv,argc,argv);
+        }
+      }
+    }
+  }
+  
+  const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+  SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_variable'."
+    "  Possible prototypes are:\n"
+    "    ADD_VARIABLE(self,MX)\n"
+    "    ADD_VARIABLE(self,char,int)\n"
+    "    ADD_VARIABLE(self,char,Sparsity)\n"
+    
+    "  You have: %s", type_name);
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_variable_new__SWIG_0(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  casadi_int arg3 = (casadi_int) 1 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  size_t result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_variable_new",argc,3,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_variable_new" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  if (2<argc) {
+    if (!casadi::to_val(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "int" "'.");
+  }
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_variable_new((std::string const &)*arg2,arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = SWIG_From_size_t(static_cast< size_t >(result));
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_variable_new'."
+      "  Prototype:\n"
+      "    ADD_VARIABLE_NEW(self,char,int)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_variable_new__SWIG_1(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  casadi::Sparsity *arg3 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  casadi::Sparsity m3 ;
+  mxArray * _out;
+  size_t result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_variable_new",argc,3,3,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_variable_new" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  arg3 = &m3;
+  if (!casadi::to_ptr(argv[2], &arg3)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 3 to type '" "Sparsity" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_variable_new((std::string const &)*arg2,(casadi::Sparsity const &)*arg3);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = SWIG_From_size_t(static_cast< size_t >(result));
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_variable_new'."
+      "  Prototype:\n"
+      "    ADD_VARIABLE_NEW(self,char,Sparsity)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_variable_new__SWIG_2(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  casadi::MX *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  casadi::MX m2 ;
+  mxArray * _out;
+  size_t result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_add_variable_new",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_add_variable_new" "', argument " "1"" of type '" "casadi::DaeBuilder *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "MX" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (arg1)->add_variable_new((casadi::MX const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  _out = SWIG_From_size_t(static_cast< size_t >(result));
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_variable_new'."
+      "  Prototype:\n"
+      "    ADD_VARIABLE_NEW(self,MX)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_add_variable_new(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  if (argc == 2) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_casadi__DaeBuilder, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      _v = casadi::to_ptr(argv[1], static_cast< casadi::MX **>(0));
+      if (_v) {
+        return _wrap_DaeBuilder_add_variable_new__SWIG_2(resc,resv,argc,argv);
+      }
+    }
+  }
+  if ((argc >= 2) && (argc <= 3)) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_casadi__DaeBuilder, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      _v = casadi::to_ptr(argv[1], static_cast< std::string **>(0));
+      if (_v) {
+        if (argc <= 2) {
+          return _wrap_DaeBuilder_add_variable_new__SWIG_0(resc,resv,argc,argv);
+        }
+        _v = casadi::to_ptr(argv[2], static_cast< casadi_int **>(0));
+        if (_v) {
+          return _wrap_DaeBuilder_add_variable_new__SWIG_0(resc,resv,argc,argv);
+        }
+      }
+    }
+  }
+  if (argc == 3) {
+    int _v;
+    void *vptr = 0;
+    int res = SWIG_ConvertPtr(argv[0], &vptr, SWIGTYPE_p_casadi__DaeBuilder, 0);
+    _v = SWIG_CheckState(res);
+    if (_v) {
+      _v = casadi::to_ptr(argv[1], static_cast< std::string **>(0));
+      if (_v) {
+        _v = casadi::to_ptr(argv[2], static_cast< casadi::Sparsity **>(0));
+        if (_v) {
+          return _wrap_DaeBuilder_add_variable_new__SWIG_1(resc,resv,argc,argv);
+        }
+      }
+    }
+  }
+  
+  const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+  SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_add_variable_new'."
+    "  Possible prototypes are:\n"
+    "    ADD_VARIABLE_NEW(self,MX)\n"
+    "    ADD_VARIABLE_NEW(self,char,int)\n"
+    "    ADD_VARIABLE_NEW(self,char,Sparsity)\n"
+    
+    "  You have: %s", type_name);
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_has_variable(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  std::string *arg2 = 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  std::string m2 ;
+  mxArray * _out;
+  bool result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_has_variable",argc,2,2,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_has_variable" "', argument " "1"" of type '" "casadi::DaeBuilder const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  arg2 = &m2;
+  if (!casadi::to_ptr(argv[1], &arg2)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 2 to type '" "char" "'.");
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = (bool)((casadi::DaeBuilder const *)arg1)->has_variable((std::string const &)*arg2);
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "bool" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_has_variable'."
+      "  Prototype:\n"
+      "    HAS_VARIABLE(self,char)\n"
+      
+      "  You have: %s", type_name);
+  }
+  return 1;
+}
+
+
+int _wrap_DaeBuilder_all_variables(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
+  casadi::DaeBuilder *arg1 = (casadi::DaeBuilder *) 0 ;
+  void *argp1 = 0 ;
+  int res1 = 0 ;
+  mxArray * _out;
+  std::vector< std::string,std::allocator< std::string > > result;
+  
+  if (!SWIG_check_num_args("DaeBuilder_all_variables",argc,1,1,0)) {
+    SWIG_fail;
+  }
+  res1 = SWIG_ConvertPtr(argv[0], &argp1,SWIGTYPE_p_casadi__DaeBuilder, 0 |  0 );
+  if (!SWIG_IsOK(res1)) {
+    SWIG_exception_fail(SWIG_ArgError(res1), "in method '" "DaeBuilder_all_variables" "', argument " "1"" of type '" "casadi::DaeBuilder const *""'"); 
+  }
+  arg1 = reinterpret_cast< casadi::DaeBuilder * >(argp1);
+  
+  if (!arg1) {
+    SWIG_Error(SWIG_RuntimeError, "Invalid 'self' object");
+    SWIG_fail;
+  }
+  
+  {
+    try {
+      result = ((casadi::DaeBuilder const *)arg1)->all_variables();
+    } catch(const std::exception& e) {
+      SWIG_exception(SWIG_RuntimeError, e.what());
+    }
+  }
+  if(!(_out = casadi::from_ref(result))) SWIG_exception_fail(SWIG_TypeError,"Failed to convert output to type '" "{" "char" "}" "'.");
+  if (_out) --resc, *resv++ = _out;
+  return 0;
+fail:
+  if (SWIG_lasterror_code == SWIG_TypeError) {
+    const char* type_name = SWIG_Matlab_ArgsTypeDesc(argc, argv);
+    SWIG_Error_Format(SWIG_RuntimeError, "No matching function for overload function 'DaeBuilder_all_variables'."
+      "  Prototype:\n"
+      "    ALL_VARIABLES(self)\n"
+      
+      "  You have: %s", type_name);
+  }
   return 1;
 }
 
@@ -121825,16 +125012,19 @@ fail:
 
 
 int _wrap_new_StringDeserializer(int resc, mxArray *resv[], int argc, mxArray *argv[]) {
-  std::string *arg1 = 0 ;
+  std::string const &arg1_defvalue = "" ;
+  std::string *arg1 = (std::string *) &arg1_defvalue ;
   std::string m1 ;
   mxArray * _out;
   casadi::StringDeserializer *result = 0 ;
   
-  if (!SWIG_check_num_args("new_StringDeserializer",argc,1,1,0)) {
+  if (!SWIG_check_num_args("new_StringDeserializer",argc,1,0,0)) {
     SWIG_fail;
   }
-  arg1 = &m1;
-  if (!casadi::to_ptr(argv[0], &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "char" "'.");
+  if (0<argc) {
+    arg1 = &m1;
+    if (!casadi::to_ptr(argv[0], &arg1)) SWIG_exception_fail(SWIG_TypeError,"Failed to convert input 1 to type '" "char" "'.");
+  }
   {
     try {
       result = (casadi::StringDeserializer *)new casadi::StringDeserializer((std::string const &)*arg1);
@@ -130891,6 +134081,7 @@ static swig_type_info _swigt__p_casadi__SharedObjectInternal = {"_p_casadi__Shar
 static swig_type_info _swigt__p_casadi__Slice = {"_p_casadi__Slice", "casadi::Slice *", 0, 0, (void*)"casadi.Slice", 0};
 static swig_type_info _swigt__p_casadi__Sparsity = {"_p_casadi__Sparsity", "casadi::Sparsity *", 0, 0, (void*)"casadi.Sparsity", 0};
 static swig_type_info _swigt__p_casadi__SparsityInterfaceCommon = {"_p_casadi__SparsityInterfaceCommon", "casadi::SparsityInterfaceCommon *", 0, 0, (void*)"casadi.SparsityInterfaceCommon", 0};
+static swig_type_info _swigt__p_casadi__StreamStateGuard = {"_p_casadi__StreamStateGuard", "casadi::StreamStateGuard *", 0, 0, (void*)"casadi.StreamStateGuard", 0};
 static swig_type_info _swigt__p_casadi__StringDeserializer = {"_p_casadi__StringDeserializer", "casadi::StringDeserializer *", 0, 0, (void*)"casadi.StringDeserializer", 0};
 static swig_type_info _swigt__p_casadi__StringSerializer = {"_p_casadi__StringSerializer", "casadi::StringSerializer *", 0, 0, (void*)"casadi.StringSerializer", 0};
 static swig_type_info _swigt__p_casadi__WeakRef = {"_p_casadi__WeakRef", "casadi::WeakRef *", 0, 0, (void*)"casadi.WeakRef", 0};
@@ -130980,6 +134171,7 @@ static swig_type_info *swig_type_initial[] = {
   &_swigt__p_casadi__Slice,
   &_swigt__p_casadi__Sparsity,
   &_swigt__p_casadi__SparsityInterfaceCommon,
+  &_swigt__p_casadi__StreamStateGuard,
   &_swigt__p_casadi__StringDeserializer,
   &_swigt__p_casadi__StringSerializer,
   &_swigt__p_casadi__WeakRef,
@@ -131069,6 +134261,7 @@ static swig_cast_info _swigc__p_casadi__SharedObjectInternal[] = {  {&_swigt__p_
 static swig_cast_info _swigc__p_casadi__Slice[] = {  {&_swigt__p_casadi__Slice, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_casadi__Sparsity[] = {  {&_swigt__p_casadi__Sparsity, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_casadi__SparsityInterfaceCommon[] = {  {&_swigt__p_casadi__GenericMatrixT_casadi__MatrixT_casadi__SXElem_t_t, _p_casadi__GenericMatrixT_casadi__MatrixT_casadi__SXElem_t_tTo_p_casadi__SparsityInterfaceCommon, 0, 0},  {&_swigt__p_casadi__GenericMatrixT_casadi__MX_t, _p_casadi__GenericMatrixT_casadi__MX_tTo_p_casadi__SparsityInterfaceCommon, 0, 0},  {&_swigt__p_casadi__GenericMatrixT_casadi__MatrixT_double_t_t, _p_casadi__GenericMatrixT_casadi__MatrixT_double_t_tTo_p_casadi__SparsityInterfaceCommon, 0, 0},  {&_swigt__p_casadi__MatrixT_double_t, _p_casadi__MatrixT_double_tTo_p_casadi__SparsityInterfaceCommon, 0, 0},  {&_swigt__p_casadi__SparsityInterfaceCommon, 0, 0, 0},  {&_swigt__p_casadi__MX, _p_casadi__MXTo_p_casadi__SparsityInterfaceCommon, 0, 0},  {&_swigt__p_casadi__MatrixT_casadi__SXElem_t, _p_casadi__MatrixT_casadi__SXElem_tTo_p_casadi__SparsityInterfaceCommon, 0, 0},  {&_swigt__p_casadi__Sparsity, _p_casadi__SparsityTo_p_casadi__SparsityInterfaceCommon, 0, 0},{0, 0, 0, 0}};
+static swig_cast_info _swigc__p_casadi__StreamStateGuard[] = {  {&_swigt__p_casadi__StreamStateGuard, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_casadi__StringDeserializer[] = {  {&_swigt__p_casadi__StringDeserializer, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_casadi__StringSerializer[] = {  {&_swigt__p_casadi__StringSerializer, 0, 0, 0},{0, 0, 0, 0}};
 static swig_cast_info _swigc__p_casadi__WeakRef[] = {  {&_swigt__p_casadi__WeakRef, 0, 0, 0},{0, 0, 0, 0}};
@@ -131158,6 +134351,7 @@ static swig_cast_info *swig_cast_initial[] = {
   _swigc__p_casadi__Slice,
   _swigc__p_casadi__Sparsity,
   _swigc__p_casadi__SparsityInterfaceCommon,
+  _swigc__p_casadi__StreamStateGuard,
   _swigc__p_casadi__StringDeserializer,
   _swigc__p_casadi__StringSerializer,
   _swigc__p_casadi__WeakRef,
@@ -131914,1337 +135108,1388 @@ SWIGINTERN const char* SwigFunctionName(int fcn_id) {
   case 43: return "_wrap_lookupvector";
   case 44: return "_wrap_temporary_file";
   case 45: return "_wrap_normalized_setup";
-  case 46: return "_wrap_normalized_out";
-  case 47: return "_wrap_normalized_in";
-  case 48: return "GenericType_serialize";
-  case 49: return "GenericType_deserialize";
-  case 50: return "new_GenericType";
-  case 51: return "delete_GenericType";
-  case 52: return "SparsityInterfaceCommon_horzcat";
-  case 53: return "SparsityInterfaceCommon_vertcat";
-  case 54: return "SparsityInterfaceCommon_horzsplit";
-  case 55: return "SparsityInterfaceCommon_horzsplit_n";
-  case 56: return "SparsityInterfaceCommon_offset";
-  case 57: return "SparsityInterfaceCommon_vertsplit";
-  case 58: return "SparsityInterfaceCommon_vertsplit_n";
-  case 59: return "SparsityInterfaceCommon_blockcat";
-  case 60: return "SparsityInterfaceCommon_blocksplit";
-  case 61: return "SparsityInterfaceCommon_diagcat";
-  case 62: return "SparsityInterfaceCommon_diagsplit";
-  case 63: return "SparsityInterfaceCommon_veccat";
-  case 64: return "SparsityInterfaceCommon_mtimes";
-  case 65: return "SparsityInterfaceCommon_mac";
-  case 66: return "SparsityInterfaceCommon_transpose";
-  case 67: return "SparsityInterfaceCommon_vec";
-  case 68: return "SparsityInterfaceCommon_reshape";
-  case 69: return "SparsityInterfaceCommon_sparsity_cast";
-  case 70: return "SparsityInterfaceCommon_sprank";
-  case 71: return "SparsityInterfaceCommon_norm_0_mul";
-  case 72: return "SparsityInterfaceCommon_triu";
-  case 73: return "SparsityInterfaceCommon_tril";
-  case 74: return "SparsityInterfaceCommon_kron";
-  case 75: return "SparsityInterfaceCommon_repmat";
-  case 76: return "SparsityInterfaceCommon_sum2";
-  case 77: return "SparsityInterfaceCommon_sum1";
-  case 78: return "SparsityInterfaceCommon_length";
-  case 79: return "SparsityInterfaceCommon_sum";
-  case 80: return "new_SparsityInterfaceCommon";
-  case 81: return "delete_SparsityInterfaceCommon";
-  case 82: return "Sparsity_scalar";
-  case 83: return "Sparsity_dense";
-  case 84: return "Sparsity_unit";
-  case 85: return "Sparsity_upper";
-  case 86: return "Sparsity_lower";
-  case 87: return "Sparsity_diag";
-  case 88: return "Sparsity_band";
-  case 89: return "Sparsity_banded";
-  case 90: return "Sparsity_rowcol";
-  case 91: return "Sparsity_triplet";
-  case 92: return "Sparsity_nonzeros";
-  case 93: return "Sparsity_compressed";
-  case 94: return "Sparsity_permutation";
-  case 95: return "Sparsity_permutation_vector";
-  case 96: return "Sparsity_get_diag";
-  case 97: return "Sparsity_compress";
-  case 98: return "Sparsity_is_equal";
-  case 99: return "Sparsity_eq";
-  case 100: return "Sparsity_ne";
-  case 101: return "Sparsity_is_stacked";
-  case 102: return "Sparsity_size1";
-  case 103: return "Sparsity_rows";
-  case 104: return "Sparsity_size2";
-  case 105: return "Sparsity_columns";
-  case 106: return "Sparsity_numel";
-  case 107: return "Sparsity_density";
-  case 108: return "Sparsity_is_empty";
-  case 109: return "Sparsity_nnz";
-  case 110: return "Sparsity_nnz_upper";
-  case 111: return "Sparsity_nnz_lower";
-  case 112: return "Sparsity_nnz_diag";
-  case 113: return "Sparsity_bw_upper";
-  case 114: return "Sparsity_bw_lower";
-  case 115: return "Sparsity_size";
-  case 116: return "Sparsity_info";
-  case 117: return "Sparsity_to_file";
-  case 118: return "Sparsity_from_file";
-  case 119: return "Sparsity_serialize";
-  case 120: return "Sparsity_deserialize";
-  case 121: return "Sparsity_colind";
-  case 122: return "Sparsity_row";
-  case 123: return "Sparsity_get_col";
-  case 124: return "Sparsity_resize";
-  case 125: return "Sparsity_add_nz";
-  case 126: return "Sparsity_has_nz";
-  case 127: return "Sparsity_get_nz";
-  case 128: return "Sparsity_get_lower";
-  case 129: return "Sparsity_get_upper";
-  case 130: return "Sparsity_get_ccs";
-  case 131: return "Sparsity_get_crs";
-  case 132: return "Sparsity_get_triplet";
-  case 133: return "Sparsity_sub";
-  case 134: return "Sparsity_T";
-  case 135: return "Sparsity_transpose";
-  case 136: return "Sparsity_is_transpose";
-  case 137: return "Sparsity_is_reshape";
-  case 138: return "Sparsity_combine";
-  case 139: return "Sparsity_unite";
-  case 140: return "Sparsity_plus";
-  case 141: return "Sparsity_intersect";
-  case 142: return "Sparsity_mtimes";
-  case 143: return "Sparsity_is_subset";
-  case 144: return "Sparsity_sparsity_cast_mod";
-  case 145: return "Sparsity_pattern_inverse";
-  case 146: return "Sparsity_enlarge";
-  case 147: return "Sparsity_enlargeRows";
-  case 148: return "Sparsity_enlargeColumns";
-  case 149: return "Sparsity_makeDense";
-  case 150: return "Sparsity_erase";
-  case 151: return "Sparsity_append";
-  case 152: return "Sparsity_appendColumns";
-  case 153: return "Sparsity_is_scalar";
-  case 154: return "Sparsity_is_dense";
-  case 155: return "Sparsity_is_row";
-  case 156: return "Sparsity_is_column";
-  case 157: return "Sparsity_is_vector";
-  case 158: return "Sparsity_is_diag";
-  case 159: return "Sparsity_is_square";
-  case 160: return "Sparsity_is_symmetric";
-  case 161: return "Sparsity_is_triu";
-  case 162: return "Sparsity_is_tril";
-  case 163: return "Sparsity_is_singular";
-  case 164: return "Sparsity_is_permutation";
-  case 165: return "Sparsity_is_selection";
-  case 166: return "Sparsity_is_orthonormal";
-  case 167: return "Sparsity_is_orthonormal_rows";
-  case 168: return "Sparsity_is_orthonormal_columns";
-  case 169: return "Sparsity_rowsSequential";
-  case 170: return "Sparsity_removeDuplicates";
-  case 171: return "Sparsity_etree";
-  case 172: return "Sparsity_ldl";
-  case 173: return "Sparsity_qr_sparse";
-  case 174: return "Sparsity_dfs";
-  case 175: return "Sparsity_scc";
-  case 176: return "Sparsity_btf";
-  case 177: return "Sparsity_amd";
-  case 178: return "Sparsity_find";
-  case 179: return "Sparsity_uni_coloring";
-  case 180: return "Sparsity_star_coloring";
-  case 181: return "Sparsity_star_coloring2";
-  case 182: return "Sparsity_largest_first";
-  case 183: return "Sparsity_pmult";
-  case 184: return "Sparsity_dim";
-  case 185: return "Sparsity_postfix_dim";
-  case 186: return "Sparsity_repr_el";
-  case 187: return "Sparsity_spy";
-  case 188: return "Sparsity_spy_matlab";
-  case 189: return "Sparsity_export_code";
-  case 190: return "Sparsity_type_name";
-  case 191: return "Sparsity_hash";
-  case 192: return "Sparsity_test_cast";
-  case 193: return "Sparsity_kkt";
-  case 194: return "new_Sparsity";
-  case 195: return "delete_Sparsity";
-  case 196: return "_wrap_hash_sparsity";
-  case 197: return "Slice_start_get";
-  case 198: return "Slice_stop_get";
-  case 199: return "Slice_step_get";
-  case 200: return "Slice_all";
-  case 201: return "Slice_size";
-  case 202: return "Slice_is_empty";
-  case 203: return "Slice_is_scalar";
-  case 204: return "Slice_scalar";
-  case 205: return "Slice_eq";
-  case 206: return "Slice_ne";
-  case 207: return "Slice_apply";
-  case 208: return "Slice_minus";
-  case 209: return "Slice_mtimes";
-  case 210: return "Slice_type_name";
-  case 211: return "Slice_disp";
-  case 212: return "Slice_str";
-  case 213: return "Slice_info";
-  case 214: return "Slice_serialize";
-  case 215: return "Slice_deserialize";
-  case 216: return "new_Slice";
-  case 217: return "delete_Slice";
-  case 218: return "_wrap_to_slice";
-  case 219: return "_wrap_to_slice2";
-  case 220: return "_wrap_is_slice";
-  case 221: return "_wrap_is_slice2";
-  case 222: return "GenericMatrixCommon_mpower";
-  case 223: return "GenericMatrixCommon_mrdivide";
-  case 224: return "GenericMatrixCommon_mldivide";
-  case 225: return "GenericMatrixCommon_symvar";
-  case 226: return "GenericMatrixCommon_bilin";
-  case 227: return "GenericMatrixCommon_rank1";
-  case 228: return "GenericMatrixCommon_sumsqr";
-  case 229: return "GenericMatrixCommon_linspace";
-  case 230: return "GenericMatrixCommon_logsumexp";
-  case 231: return "GenericMatrixCommon_interp1d";
-  case 232: return "GenericMatrixCommon_soc";
-  case 233: return "GenericMatrixCommon_cross";
-  case 234: return "GenericMatrixCommon_skew";
-  case 235: return "GenericMatrixCommon_inv_skew";
-  case 236: return "GenericMatrixCommon_det";
-  case 237: return "GenericMatrixCommon_inv_minor";
-  case 238: return "GenericMatrixCommon_inv";
-  case 239: return "GenericMatrixCommon_trace";
-  case 240: return "GenericMatrixCommon_tril2symm";
-  case 241: return "GenericMatrixCommon_triu2symm";
-  case 242: return "GenericMatrixCommon_norm_fro";
-  case 243: return "GenericMatrixCommon_norm_2";
-  case 244: return "GenericMatrixCommon_norm_1";
-  case 245: return "GenericMatrixCommon_norm_inf";
-  case 246: return "GenericMatrixCommon_dot";
-  case 247: return "GenericMatrixCommon_nullspace";
-  case 248: return "GenericMatrixCommon_polyval";
-  case 249: return "GenericMatrixCommon_diag";
-  case 250: return "GenericMatrixCommon_unite";
-  case 251: return "GenericMatrixCommon_densify";
-  case 252: return "GenericMatrixCommon_project";
-  case 253: return "GenericMatrixCommon_if_else";
-  case 254: return "GenericMatrixCommon_conditional";
-  case 255: return "GenericMatrixCommon_depends_on";
-  case 256: return "GenericMatrixCommon_contains";
-  case 257: return "GenericMatrixCommon_contains_all";
-  case 258: return "GenericMatrixCommon_contains_any";
-  case 259: return "GenericMatrixCommon_solve";
-  case 260: return "GenericMatrixCommon_pinv";
-  case 261: return "GenericMatrixCommon_expm_const";
-  case 262: return "GenericMatrixCommon_expm";
-  case 263: return "GenericMatrixCommon_jacobian";
-  case 264: return "GenericMatrixCommon_jtimes";
-  case 265: return "GenericMatrixCommon_linearize";
-  case 266: return "GenericMatrixCommon_which_depends";
-  case 267: return "GenericMatrixCommon_jacobian_sparsity";
-  case 268: return "GenericMatrixCommon_is_linear";
-  case 269: return "GenericMatrixCommon_is_quadratic";
-  case 270: return "GenericMatrixCommon_gradient";
-  case 271: return "GenericMatrixCommon_tangent";
-  case 272: return "GenericMatrixCommon_hessian";
-  case 273: return "GenericMatrixCommon_quadratic_coeff";
-  case 274: return "GenericMatrixCommon_linear_coeff";
-  case 275: return "GenericMatrixCommon_n_nodes";
-  case 276: return "GenericMatrixCommon_print_operator";
-  case 277: return "GenericMatrixCommon_repsum";
-  case 278: return "GenericMatrixCommon_diff";
-  case 279: return "GenericMatrixCommon_cumsum";
-  case 280: return "GenericMatrixCommon_einstein";
-  case 281: return "GenericMatrixCommon_mmin";
-  case 282: return "GenericMatrixCommon_mmax";
-  case 283: return "GenericMatrixCommon_evalf";
-  case 284: return "GenericMatrixCommon_separate_linear";
-  case 285: return "new_GenericMatrixCommon";
-  case 286: return "delete_GenericMatrixCommon";
-  case 287: return "_wrap_index_interp1d";
-  case 288: return "GenDM_nnz";
-  case 289: return "GenDM_nnz_lower";
-  case 290: return "GenDM_nnz_upper";
-  case 291: return "GenDM_nnz_diag";
-  case 292: return "GenDM_numel";
-  case 293: return "GenDM_size1";
-  case 294: return "GenDM_rows";
-  case 295: return "GenDM_size2";
-  case 296: return "GenDM_columns";
-  case 297: return "GenDM_dim";
-  case 298: return "GenDM_size";
-  case 299: return "GenDM_is_empty";
-  case 300: return "GenDM_is_dense";
-  case 301: return "GenDM_is_scalar";
-  case 302: return "GenDM_is_square";
-  case 303: return "GenDM_is_vector";
-  case 304: return "GenDM_is_row";
-  case 305: return "GenDM_is_column";
-  case 306: return "GenDM_is_triu";
-  case 307: return "GenDM_is_tril";
-  case 308: return "GenDM_row";
-  case 309: return "GenDM_colind";
-  case 310: return "GenDM_sparsity";
-  case 311: return "GenDM_sym";
-  case 312: return "GenDM_zeros";
-  case 313: return "GenDM_ones";
-  case 314: return "new_GenDM";
-  case 315: return "delete_GenDM";
-  case 316: return "GenSX_nnz";
-  case 317: return "GenSX_nnz_lower";
-  case 318: return "GenSX_nnz_upper";
-  case 319: return "GenSX_nnz_diag";
-  case 320: return "GenSX_numel";
-  case 321: return "GenSX_size1";
-  case 322: return "GenSX_rows";
-  case 323: return "GenSX_size2";
-  case 324: return "GenSX_columns";
-  case 325: return "GenSX_dim";
-  case 326: return "GenSX_size";
-  case 327: return "GenSX_is_empty";
-  case 328: return "GenSX_is_dense";
-  case 329: return "GenSX_is_scalar";
-  case 330: return "GenSX_is_square";
-  case 331: return "GenSX_is_vector";
-  case 332: return "GenSX_is_row";
-  case 333: return "GenSX_is_column";
-  case 334: return "GenSX_is_triu";
-  case 335: return "GenSX_is_tril";
-  case 336: return "GenSX_row";
-  case 337: return "GenSX_colind";
-  case 338: return "GenSX_sparsity";
-  case 339: return "GenSX_sym";
-  case 340: return "GenSX_zeros";
-  case 341: return "GenSX_ones";
-  case 342: return "new_GenSX";
-  case 343: return "delete_GenSX";
-  case 344: return "GenMX_nnz";
-  case 345: return "GenMX_nnz_lower";
-  case 346: return "GenMX_nnz_upper";
-  case 347: return "GenMX_nnz_diag";
-  case 348: return "GenMX_numel";
-  case 349: return "GenMX_size1";
-  case 350: return "GenMX_rows";
-  case 351: return "GenMX_size2";
-  case 352: return "GenMX_columns";
-  case 353: return "GenMX_dim";
-  case 354: return "GenMX_size";
-  case 355: return "GenMX_is_empty";
-  case 356: return "GenMX_is_dense";
-  case 357: return "GenMX_is_scalar";
-  case 358: return "GenMX_is_square";
-  case 359: return "GenMX_is_vector";
-  case 360: return "GenMX_is_row";
-  case 361: return "GenMX_is_column";
-  case 362: return "GenMX_is_triu";
-  case 363: return "GenMX_is_tril";
-  case 364: return "GenMX_row";
-  case 365: return "GenMX_colind";
-  case 366: return "GenMX_sparsity";
-  case 367: return "GenMX_sym";
-  case 368: return "GenMX_zeros";
-  case 369: return "GenMX_ones";
-  case 370: return "new_GenMX";
-  case 371: return "delete_GenMX";
-  case 372: return "GenericExpressionCommon_plus";
-  case 373: return "GenericExpressionCommon_minus";
-  case 374: return "GenericExpressionCommon_times";
-  case 375: return "GenericExpressionCommon_rdivide";
-  case 376: return "GenericExpressionCommon_ldivide";
-  case 377: return "GenericExpressionCommon_lt";
-  case 378: return "GenericExpressionCommon_le";
-  case 379: return "GenericExpressionCommon_gt";
-  case 380: return "GenericExpressionCommon_ge";
-  case 381: return "GenericExpressionCommon_eq";
-  case 382: return "GenericExpressionCommon_ne";
-  case 383: return "GenericExpressionCommon_and";
-  case 384: return "GenericExpressionCommon_or";
-  case 385: return "GenericExpressionCommon_not";
-  case 386: return "GenericExpressionCommon_abs";
-  case 387: return "GenericExpressionCommon_sqrt";
-  case 388: return "GenericExpressionCommon_sin";
-  case 389: return "GenericExpressionCommon_cos";
-  case 390: return "GenericExpressionCommon_tan";
-  case 391: return "GenericExpressionCommon_atan";
-  case 392: return "GenericExpressionCommon_asin";
-  case 393: return "GenericExpressionCommon_acos";
-  case 394: return "GenericExpressionCommon_tanh";
-  case 395: return "GenericExpressionCommon_sinh";
-  case 396: return "GenericExpressionCommon_cosh";
-  case 397: return "GenericExpressionCommon_atanh";
-  case 398: return "GenericExpressionCommon_asinh";
-  case 399: return "GenericExpressionCommon_acosh";
-  case 400: return "GenericExpressionCommon_exp";
-  case 401: return "GenericExpressionCommon_log";
-  case 402: return "GenericExpressionCommon_log10";
-  case 403: return "GenericExpressionCommon_log1p";
-  case 404: return "GenericExpressionCommon_expm1";
-  case 405: return "GenericExpressionCommon_floor";
-  case 406: return "GenericExpressionCommon_ceil";
-  case 407: return "GenericExpressionCommon_erf";
-  case 408: return "GenericExpressionCommon_erfinv";
-  case 409: return "GenericExpressionCommon_sign";
-  case 410: return "GenericExpressionCommon_power";
-  case 411: return "GenericExpressionCommon_rem";
-  case 412: return "GenericExpressionCommon_fmod";
-  case 413: return "GenericExpressionCommon_remainder";
-  case 414: return "GenericExpressionCommon_atan2";
-  case 415: return "GenericExpressionCommon_fmin";
-  case 416: return "GenericExpressionCommon_fmax";
-  case 417: return "GenericExpressionCommon_hypot";
-  case 418: return "GenericExpressionCommon_simplify";
-  case 419: return "GenericExpressionCommon_is_equal";
-  case 420: return "GenericExpressionCommon_copysign";
-  case 421: return "GenericExpressionCommon_constpow";
-  case 422: return "new_GenericExpressionCommon";
-  case 423: return "delete_GenericExpressionCommon";
-  case 424: return "MatrixCommon_all";
-  case 425: return "MatrixCommon_any";
-  case 426: return "MatrixCommon_adj";
-  case 427: return "MatrixCommon_minor";
-  case 428: return "MatrixCommon_cofactor";
-  case 429: return "MatrixCommon_qr";
-  case 430: return "MatrixCommon_qr_sparse";
-  case 431: return "MatrixCommon_qr_solve";
-  case 432: return "MatrixCommon_ldl";
-  case 433: return "MatrixCommon_ldl_solve";
-  case 434: return "MatrixCommon_chol";
-  case 435: return "MatrixCommon_norm_inf_mul";
-  case 436: return "MatrixCommon_sparsify";
-  case 437: return "MatrixCommon_expand";
-  case 438: return "MatrixCommon_pw_const";
-  case 439: return "MatrixCommon_pw_lin";
-  case 440: return "MatrixCommon_heaviside";
-  case 441: return "MatrixCommon_rectangle";
-  case 442: return "MatrixCommon_triangle";
-  case 443: return "MatrixCommon_ramp";
-  case 444: return "MatrixCommon_gauss_quadrature";
-  case 445: return "MatrixCommon_taylor";
-  case 446: return "MatrixCommon_mtaylor";
-  case 447: return "MatrixCommon_poly_coeff";
-  case 448: return "MatrixCommon_poly_roots";
-  case 449: return "MatrixCommon_eig_symbolic";
-  case 450: return "new_MatrixCommon";
-  case 451: return "delete_MatrixCommon";
-  case 452: return "DM_has_nz";
-  case 453: return "DM_nonzero";
-  case 454: return "DM_get";
-  case 455: return "DM_set";
-  case 456: return "DM_get_nz";
-  case 457: return "DM_set_nz";
-  case 458: return "DM_uplus";
-  case 459: return "DM_uminus";
-  case 460: return "DM_binary";
-  case 461: return "DM_unary";
-  case 462: return "DM_scalar_matrix";
-  case 463: return "DM_matrix_scalar";
-  case 464: return "DM_matrix_matrix";
-  case 465: return "DM_call";
-  case 466: return "DM_printme";
-  case 467: return "DM_T";
-  case 468: return "DM_set_max_depth";
-  case 469: return "DM_get_max_depth";
-  case 470: return "DM_get_input";
-  case 471: return "DM_get_free";
-  case 472: return "DM_type_name";
-  case 473: return "DM_print_split";
-  case 474: return "DM_disp";
-  case 475: return "DM_str";
-  case 476: return "DM_print_scalar";
-  case 477: return "DM_print_vector";
-  case 478: return "DM_print_dense";
-  case 479: return "DM_print_sparse";
-  case 480: return "DM_clear";
-  case 481: return "DM_resize";
-  case 482: return "DM_reserve";
-  case 483: return "DM_erase";
-  case 484: return "DM_remove";
-  case 485: return "DM_enlarge";
-  case 486: return "DM_sparsity";
-  case 487: return "DM_get_output";
-  case 488: return "DM_triplet";
-  case 489: return "DM_inf";
-  case 490: return "DM_nan";
-  case 491: return "DM_eye";
-  case 492: return "DM_element_hash";
-  case 493: return "DM_is_regular";
-  case 494: return "DM_is_smooth";
-  case 495: return "DM_is_leaf";
-  case 496: return "DM_is_commutative";
-  case 497: return "DM_is_symbolic";
-  case 498: return "DM_is_valid_input";
-  case 499: return "DM_has_duplicates";
-  case 500: return "DM_reset_input";
-  case 501: return "DM_is_constant";
-  case 502: return "DM_is_call";
-  case 503: return "DM_is_output";
-  case 504: return "DM_has_output";
-  case 505: return "DM_which_output";
-  case 506: return "DM_which_function";
-  case 507: return "DM_is_integer";
-  case 508: return "DM_is_zero";
-  case 509: return "DM_is_one";
-  case 510: return "DM_is_minus_one";
-  case 511: return "DM_is_eye";
-  case 512: return "DM_op";
-  case 513: return "DM_is_op";
-  case 514: return "DM_has_zeros";
-  case 515: return "DM_nonzeros";
-  case 516: return "DM_elements";
-  case 517: return "DM_to_double";
-  case 518: return "DM_to_int";
-  case 519: return "DM_name";
-  case 520: return "DM_dep";
-  case 521: return "DM_n_dep";
-  case 522: return "DM_set_precision";
-  case 523: return "DM_set_width";
-  case 524: return "DM_set_scientific";
-  case 525: return "DM_rng";
-  case 526: return "DM_rand";
-  case 527: return "DM_export_code";
-  case 528: return "DM_info";
-  case 529: return "DM_serialize";
-  case 530: return "DM_deserialize";
-  case 531: return "DM_to_file";
-  case 532: return "DM_from_file";
-  case 533: return "new_DM";
-  case 534: return "DM_assign";
-  case 535: return "DM_paren";
-  case 536: return "DM_paren_asgn";
-  case 537: return "DM_brace";
-  case 538: return "DM_setbrace";
-  case 539: return "DM_end";
-  case 540: return "DM_numel";
-  case 541: return "DM_ctranspose";
-  case 542: return "DM_full";
-  case 543: return "DM_sparse";
-  case 544: return "delete_DM";
-  case 545: return "new_SXElem";
-  case 546: return "delete_SXElem";
-  case 547: return "SX_has_nz";
-  case 548: return "SX_nonzero";
-  case 549: return "SX_get";
-  case 550: return "SX_set";
-  case 551: return "SX_get_nz";
-  case 552: return "SX_set_nz";
-  case 553: return "SX_uplus";
-  case 554: return "SX_uminus";
-  case 555: return "SX_binary";
-  case 556: return "SX_unary";
-  case 557: return "SX_scalar_matrix";
-  case 558: return "SX_matrix_scalar";
-  case 559: return "SX_matrix_matrix";
-  case 560: return "SX_call";
-  case 561: return "SX_printme";
-  case 562: return "SX_T";
-  case 563: return "SX_set_max_depth";
-  case 564: return "SX_get_max_depth";
-  case 565: return "SX_get_input";
-  case 566: return "SX_get_free";
-  case 567: return "SX_type_name";
-  case 568: return "SX_print_split";
-  case 569: return "SX_disp";
-  case 570: return "SX_str";
-  case 571: return "SX_print_scalar";
-  case 572: return "SX_print_vector";
-  case 573: return "SX_print_dense";
-  case 574: return "SX_print_sparse";
-  case 575: return "SX_clear";
-  case 576: return "SX_resize";
-  case 577: return "SX_reserve";
-  case 578: return "SX_erase";
-  case 579: return "SX_remove";
-  case 580: return "SX_enlarge";
-  case 581: return "SX_sparsity";
-  case 582: return "SX_get_output";
-  case 583: return "SX_triplet";
-  case 584: return "SX_inf";
-  case 585: return "SX_nan";
-  case 586: return "SX_eye";
-  case 587: return "SX_element_hash";
-  case 588: return "SX_is_regular";
-  case 589: return "SX_is_smooth";
-  case 590: return "SX_is_leaf";
-  case 591: return "SX_is_commutative";
-  case 592: return "SX_is_symbolic";
-  case 593: return "SX_is_valid_input";
-  case 594: return "SX_has_duplicates";
-  case 595: return "SX_reset_input";
-  case 596: return "SX_is_constant";
-  case 597: return "SX_is_call";
-  case 598: return "SX_is_output";
-  case 599: return "SX_has_output";
-  case 600: return "SX_which_output";
-  case 601: return "SX_which_function";
-  case 602: return "SX_is_integer";
-  case 603: return "SX_is_zero";
-  case 604: return "SX_is_one";
-  case 605: return "SX_is_minus_one";
-  case 606: return "SX_is_eye";
-  case 607: return "SX_op";
-  case 608: return "SX_is_op";
-  case 609: return "SX_has_zeros";
-  case 610: return "SX_nonzeros";
-  case 611: return "SX_elements";
-  case 612: return "SX_to_double";
-  case 613: return "SX_to_int";
-  case 614: return "SX_name";
-  case 615: return "SX_dep";
-  case 616: return "SX_n_dep";
-  case 617: return "SX_set_precision";
-  case 618: return "SX_set_width";
-  case 619: return "SX_set_scientific";
-  case 620: return "SX_rng";
-  case 621: return "SX_rand";
-  case 622: return "SX_export_code";
-  case 623: return "SX_info";
-  case 624: return "SX_serialize";
-  case 625: return "SX_deserialize";
-  case 626: return "SX_to_file";
-  case 627: return "SX_from_file";
-  case 628: return "SX_paren";
-  case 629: return "SX_paren_asgn";
-  case 630: return "SX_brace";
-  case 631: return "SX_setbrace";
-  case 632: return "SX_end";
-  case 633: return "SX_numel";
-  case 634: return "SX_ctranspose";
-  case 635: return "new_SX";
-  case 636: return "delete_SX";
-  case 637: return "MX_type_name";
-  case 638: return "delete_MX";
-  case 639: return "MX_nonzero";
-  case 640: return "MX_sparsity";
-  case 641: return "MX_nonzeros";
-  case 642: return "MX_erase";
-  case 643: return "MX_enlarge";
-  case 644: return "MX_uminus";
-  case 645: return "MX_dep";
-  case 646: return "MX_n_out";
-  case 647: return "MX_get_output";
-  case 648: return "MX_n_dep";
-  case 649: return "MX_name";
-  case 650: return "MX_to_double";
-  case 651: return "MX_to_DM";
-  case 652: return "MX_is_symbolic";
-  case 653: return "MX_is_constant";
-  case 654: return "MX_is_call";
-  case 655: return "MX_which_function";
-  case 656: return "MX_is_output";
-  case 657: return "MX_has_output";
-  case 658: return "MX_which_output";
-  case 659: return "MX_is_op";
-  case 660: return "MX_is_multiplication";
-  case 661: return "MX_is_commutative";
-  case 662: return "MX_is_norm";
-  case 663: return "MX_is_valid_input";
-  case 664: return "MX_n_primitives";
-  case 665: return "MX_primitives";
-  case 666: return "MX_split_primitives";
-  case 667: return "MX_join_primitives";
-  case 668: return "MX_has_duplicates";
-  case 669: return "MX_reset_input";
-  case 670: return "MX_is_eye";
-  case 671: return "MX_is_zero";
-  case 672: return "MX_is_one";
-  case 673: return "MX_is_minus_one";
-  case 674: return "MX_is_transpose";
-  case 675: return "MX_is_regular";
-  case 676: return "MX_is_binary";
-  case 677: return "MX_is_unary";
-  case 678: return "MX_op";
-  case 679: return "MX_info";
-  case 680: return "MX_serialize";
-  case 681: return "MX_deserialize";
-  case 682: return "MX_get_temp";
-  case 683: return "MX_set_temp";
-  case 684: return "MX_binary";
-  case 685: return "MX_unary";
-  case 686: return "MX_inf";
-  case 687: return "MX_nan";
-  case 688: return "MX_eye";
-  case 689: return "MX_get";
-  case 690: return "MX_set";
-  case 691: return "MX_get_nz";
-  case 692: return "MX_set_nz";
-  case 693: return "MX_einstein";
-  case 694: return "MX_bspline_dual";
-  case 695: return "MX_interpn_linear";
-  case 696: return "MX_printme";
-  case 697: return "MX_attachAssert";
-  case 698: return "MX_monitor";
-  case 699: return "MX_T";
-  case 700: return "MX_mapping";
-  case 701: return "MX_set_max_depth";
-  case 702: return "MX_get_max_depth";
-  case 703: return "MX_test_cast";
-  case 704: return "MX_get_input";
-  case 705: return "MX_get_free";
-  case 706: return "MX_eval_mx";
-  case 707: return "MX_paren_asgn";
-  case 708: return "MX_setbrace";
-  case 709: return "MX_end";
-  case 710: return "MX_ctranspose";
-  case 711: return "MX_find";
-  case 712: return "MX_low";
-  case 713: return "MX_inv_node";
-  case 714: return "MX_brace";
-  case 715: return "MX_brace_asgn";
-  case 716: return "MX_paren";
-  case 717: return "MX_numel";
-  case 718: return "new_MX";
-  case 719: return "Function_type_name";
-  case 720: return "Function_jit";
-  case 721: return "delete_Function";
-  case 722: return "Function_expand";
-  case 723: return "Function_n_in";
-  case 724: return "Function_n_out";
-  case 725: return "Function_size1_in";
-  case 726: return "Function_size2_in";
-  case 727: return "Function_size_in";
-  case 728: return "Function_size1_out";
-  case 729: return "Function_size2_out";
-  case 730: return "Function_size_out";
-  case 731: return "Function_nnz_in";
-  case 732: return "Function_nnz_out";
-  case 733: return "Function_numel_in";
-  case 734: return "Function_numel_out";
-  case 735: return "Function_name_in";
-  case 736: return "Function_name_out";
-  case 737: return "Function_index_in";
-  case 738: return "Function_index_out";
-  case 739: return "Function_has_in";
-  case 740: return "Function_has_out";
-  case 741: return "Function_default_in";
-  case 742: return "Function_max_in";
-  case 743: return "Function_min_in";
-  case 744: return "Function_nominal_in";
-  case 745: return "Function_nominal_out";
-  case 746: return "Function_sparsity_in";
-  case 747: return "Function_sparsity_out";
-  case 748: return "Function_is_diff_in";
-  case 749: return "Function_is_diff_out";
-  case 750: return "Function_factory";
-  case 751: return "Function_oracle";
-  case 752: return "Function_wrap";
-  case 753: return "Function_wrap_as_needed";
-  case 754: return "Function_which_depends";
-  case 755: return "Function_print_dimensions";
-  case 756: return "Function_print_options";
-  case 757: return "Function_print_option";
-  case 758: return "Function_has_option";
-  case 759: return "Function_change_option";
-  case 760: return "Function_uses_output";
-  case 761: return "Function_jacobian";
-  case 762: return "Function_call";
-  case 763: return "Function_mapsum";
-  case 764: return "Function_mapaccum";
-  case 765: return "Function_fold";
-  case 766: return "Function_map";
-  case 767: return "Function_slice";
-  case 768: return "Function_conditional";
-  case 769: return "Function_bspline";
-  case 770: return "Function_if_else";
-  case 771: return "Function_forward";
-  case 772: return "Function_reverse";
-  case 773: return "Function_jac_sparsity";
-  case 774: return "Function_generate";
-  case 775: return "Function_generate_dependencies";
-  case 776: return "Function_generate_in";
-  case 777: return "Function_generate_out";
-  case 778: return "Function_serialize";
-  case 779: return "Function_save";
-  case 780: return "Function_export_code";
-  case 781: return "Function_stats";
-  case 782: return "Function_sx_in";
-  case 783: return "Function_mx_in";
-  case 784: return "Function_sx_out";
-  case 785: return "Function_mx_out";
-  case 786: return "Function_nz_from_in";
-  case 787: return "Function_nz_from_out";
-  case 788: return "Function_nz_to_in";
-  case 789: return "Function_nz_to_out";
-  case 790: return "Function_convert_in";
-  case 791: return "Function_convert_out";
-  case 792: return "Function_has_free";
-  case 793: return "Function_get_free";
-  case 794: return "Function_free_sx";
-  case 795: return "Function_free_mx";
-  case 796: return "Function_generate_lifted";
-  case 797: return "Function_n_nodes";
-  case 798: return "Function_n_instructions";
-  case 799: return "Function_instruction_id";
-  case 800: return "Function_instruction_input";
-  case 801: return "Function_instruction_constant";
-  case 802: return "Function_instruction_output";
-  case 803: return "Function_instruction_MX";
-  case 804: return "Function_instructions_sx";
-  case 805: return "Function_has_spfwd";
-  case 806: return "Function_has_sprev";
-  case 807: return "Function_sz_arg";
-  case 808: return "Function_sz_res";
-  case 809: return "Function_sz_iw";
-  case 810: return "Function_sz_w";
-  case 811: return "Function_name";
-  case 812: return "Function_is_a";
-  case 813: return "Function_check_name";
-  case 814: return "Function_fix_name";
-  case 815: return "Function_load";
-  case 816: return "Function_deserialize";
-  case 817: return "Function_assert_size_in";
-  case 818: return "Function_assert_size_out";
-  case 819: return "Function_assert_sparsity_out";
-  case 820: return "Function_checkout";
-  case 821: return "Function_release";
-  case 822: return "Function_cache";
-  case 823: return "Function_get_function";
-  case 824: return "Function_has_function";
-  case 825: return "Function_find_functions";
-  case 826: return "Function_find_function";
-  case 827: return "Function_info";
-  case 828: return "new_Function";
-  case 829: return "_wrap_external";
-  case 830: return "_wrap_integrator";
-  case 831: return "_wrap_has_integrator";
-  case 832: return "_wrap_load_integrator";
-  case 833: return "_wrap_doc_integrator";
-  case 834: return "_wrap_integrator_in";
-  case 835: return "_wrap_integrator_out";
-  case 836: return "_wrap_integrator_n_in";
-  case 837: return "_wrap_integrator_n_out";
-  case 838: return "_wrap_dyn_in";
-  case 839: return "_wrap_dyn_out";
-  case 840: return "_wrap_dyn_n_in";
-  case 841: return "_wrap_dyn_n_out";
-  case 842: return "_wrap_event_in";
-  case 843: return "_wrap_event_out";
-  case 844: return "_wrap_conic";
-  case 845: return "_wrap_qpsol";
-  case 846: return "_wrap_conic_in";
-  case 847: return "_wrap_conic_out";
-  case 848: return "_wrap_conic_n_in";
-  case 849: return "_wrap_conic_n_out";
-  case 850: return "_wrap_conic_options";
-  case 851: return "_wrap_conic_option_type";
-  case 852: return "_wrap_conic_option_info";
-  case 853: return "_wrap_has_conic";
-  case 854: return "_wrap_load_conic";
-  case 855: return "_wrap_doc_conic";
-  case 856: return "_wrap_conic_debug";
-  case 857: return "_wrap_nlpsol";
-  case 858: return "_wrap_nlpsol_in";
-  case 859: return "_wrap_nlpsol_out";
-  case 860: return "_wrap_nlpsol_n_in";
-  case 861: return "_wrap_nlpsol_n_out";
-  case 862: return "_wrap_nlpsol_default_in";
-  case 863: return "_wrap_nlpsol_options";
-  case 864: return "_wrap_nlpsol_option_type";
-  case 865: return "_wrap_nlpsol_option_info";
-  case 866: return "_wrap_has_nlpsol";
-  case 867: return "_wrap_load_nlpsol";
-  case 868: return "_wrap_doc_nlpsol";
-  case 869: return "_wrap_rootfinder";
-  case 870: return "_wrap_rootfinder_in";
-  case 871: return "_wrap_rootfinder_out";
-  case 872: return "_wrap_rootfinder_n_in";
-  case 873: return "_wrap_rootfinder_n_out";
-  case 874: return "_wrap_rootfinder_options";
-  case 875: return "_wrap_rootfinder_option_type";
-  case 876: return "_wrap_rootfinder_option_info";
-  case 877: return "_wrap_has_rootfinder";
-  case 878: return "_wrap_load_rootfinder";
-  case 879: return "_wrap_doc_rootfinder";
-  case 880: return "Linsol_type_name";
-  case 881: return "Linsol_has_plugin";
-  case 882: return "Linsol_load_plugin";
-  case 883: return "Linsol_doc";
-  case 884: return "Linsol_plugin_name";
-  case 885: return "Linsol_sparsity";
-  case 886: return "Linsol_sfact";
-  case 887: return "Linsol_nfact";
-  case 888: return "Linsol_solve";
-  case 889: return "Linsol_neig";
-  case 890: return "Linsol_rank";
-  case 891: return "Linsol_stats";
-  case 892: return "new_Linsol";
-  case 893: return "delete_Linsol";
-  case 894: return "_wrap_has_linsol";
-  case 895: return "_wrap_load_linsol";
-  case 896: return "_wrap_doc_linsol";
-  case 897: return "_wrap_dplesol";
-  case 898: return "_wrap_dple_in";
-  case 899: return "_wrap_dple_out";
-  case 900: return "_wrap_dple_n_in";
-  case 901: return "_wrap_dple_n_out";
-  case 902: return "_wrap_has_dple";
-  case 903: return "_wrap_load_dple";
-  case 904: return "_wrap_doc_dple";
-  case 905: return "_wrap_expmsol";
-  case 906: return "_wrap_expm_n_in";
-  case 907: return "_wrap_expm_n_out";
-  case 908: return "_wrap_has_expm";
-  case 909: return "_wrap_load_expm";
-  case 910: return "_wrap_doc_expm";
-  case 911: return "_wrap_interpolant";
-  case 912: return "_wrap_has_interpolant";
-  case 913: return "_wrap_load_interpolant";
-  case 914: return "_wrap_doc_interpolant";
-  case 915: return "_wrap_blazing_spline";
-  case 916: return "new_CodeGenerator";
-  case 917: return "CodeGenerator_add";
-  case 918: return "CodeGenerator_dump";
-  case 919: return "CodeGenerator_generate";
-  case 920: return "CodeGenerator_add_include";
-  case 921: return "delete_CodeGenerator";
-  case 922: return "_wrap_cse";
-  case 923: return "_wrap_extract_parametric";
-  case 924: return "_wrap_forward";
-  case 925: return "_wrap_reverse";
-  case 926: return "_wrap_substitute";
-  case 927: return "_wrap_substitute_inplace";
-  case 928: return "_wrap_extract";
-  case 929: return "_wrap_shared";
-  case 930: return "_wrap_blockcat";
-  case 931: return "_wrap_matrix_expand";
-  case 932: return "_wrap_graph_substitute";
-  case 933: return "_wrap_bspline";
-  case 934: return "_wrap_convexify";
-  case 935: return "_wrap_stop_diff";
-  case 936: return "_wrap_difference";
-  case 937: return "_wrap_no_hess";
-  case 938: return "_wrap_no_grad";
-  case 939: return "Importer_type_name";
-  case 940: return "Importer_test_cast";
-  case 941: return "Importer_has_plugin";
-  case 942: return "Importer_load_plugin";
-  case 943: return "Importer_doc";
-  case 944: return "Importer_plugin_name";
-  case 945: return "Importer_has_function";
-  case 946: return "Importer_has_meta";
-  case 947: return "Importer_get_meta";
-  case 948: return "Importer_inlined";
-  case 949: return "Importer_body";
-  case 950: return "Importer_library";
-  case 951: return "Importer_serialize";
-  case 952: return "Importer_deserialize";
-  case 953: return "new_Importer";
-  case 954: return "delete_Importer";
-  case 955: return "Callback_type_name";
-  case 956: return "new_Callback";
-  case 957: return "delete_Callback";
-  case 958: return "Callback_construct";
-  case 959: return "Callback_init";
-  case 960: return "Callback_finalize";
-  case 961: return "Callback_eval";
-  case 962: return "Callback_eval_buffer";
-  case 963: return "Callback_has_eval_buffer";
-  case 964: return "Callback_get_n_in";
-  case 965: return "Callback_get_n_out";
-  case 966: return "Callback_get_sparsity_in";
-  case 967: return "Callback_get_sparsity_out";
-  case 968: return "Callback_get_name_in";
-  case 969: return "Callback_get_name_out";
-  case 970: return "Callback_uses_output";
-  case 971: return "Callback_has_jacobian";
-  case 972: return "Callback_get_jacobian";
-  case 973: return "Callback_has_forward";
-  case 974: return "Callback_get_forward";
-  case 975: return "Callback_has_reverse";
-  case 976: return "Callback_get_reverse";
-  case 977: return "Callback_has_jac_sparsity";
-  case 978: return "Callback_get_jac_sparsity";
-  case 979: return "GlobalOptions_setSimplificationOnTheFly";
-  case 980: return "GlobalOptions_getSimplificationOnTheFly";
-  case 981: return "GlobalOptions_setHierarchicalSparsity";
-  case 982: return "GlobalOptions_getHierarchicalSparsity";
-  case 983: return "GlobalOptions_setCasadiPath";
-  case 984: return "GlobalOptions_getCasadiPath";
-  case 985: return "GlobalOptions_setCasadiIncludePath";
-  case 986: return "GlobalOptions_getCasadiIncludePath";
-  case 987: return "GlobalOptions_setMaxNumDir";
-  case 988: return "GlobalOptions_getMaxNumDir";
-  case 989: return "GlobalOptions_setCopyElisionMinSize";
-  case 990: return "GlobalOptions_getCopyElisionMinSize";
-  case 991: return "new_GlobalOptions";
-  case 992: return "delete_GlobalOptions";
-  case 993: return "CasadiMeta_version";
-  case 994: return "CasadiMeta_git_revision";
-  case 995: return "CasadiMeta_git_describe";
-  case 996: return "CasadiMeta_feature_list";
-  case 997: return "CasadiMeta_build_type";
-  case 998: return "CasadiMeta_compiler_id";
-  case 999: return "CasadiMeta_compiler";
-  case 1000: return "CasadiMeta_compiler_flags";
-  case 1001: return "CasadiMeta_modules";
-  case 1002: return "CasadiMeta_plugins";
-  case 1003: return "CasadiMeta_install_prefix";
-  case 1004: return "CasadiMeta_shared_library_prefix";
-  case 1005: return "CasadiMeta_shared_library_suffix";
-  case 1006: return "CasadiMeta_object_file_suffix";
-  case 1007: return "new_CasadiMeta";
-  case 1008: return "delete_CasadiMeta";
-  case 1009: return "_wrap_collocation_points";
-  case 1010: return "_wrap_collocation_interpolators";
-  case 1011: return "_wrap_collocation_coeff";
-  case 1012: return "_wrap_simpleRK";
-  case 1013: return "_wrap_simpleIRK";
-  case 1014: return "_wrap_simpleIntegrator";
-  case 1015: return "_wrap_dae_reduce_index";
-  case 1016: return "_wrap_dae_map_semi_expl";
-  case 1017: return "_wrap_dae_init_gen";
-  case 1018: return "_wrap_detect_simple_bounds";
-  case 1019: return "_wrap_external_transform";
-  case 1020: return "NlpBuilder_x_get";
-  case 1021: return "NlpBuilder_f_get";
-  case 1022: return "NlpBuilder_g_get";
-  case 1023: return "NlpBuilder_x_lb_get";
-  case 1024: return "NlpBuilder_x_ub_get";
-  case 1025: return "NlpBuilder_g_lb_get";
-  case 1026: return "NlpBuilder_g_ub_get";
-  case 1027: return "NlpBuilder_x_init_get";
-  case 1028: return "NlpBuilder_lambda_init_get";
-  case 1029: return "NlpBuilder_discrete_get";
-  case 1030: return "NlpBuilder_import_nl";
-  case 1031: return "NlpBuilder_type_name";
-  case 1032: return "NlpBuilder_disp";
-  case 1033: return "NlpBuilder_str";
-  case 1034: return "new_NlpBuilder";
-  case 1035: return "delete_NlpBuilder";
-  case 1036: return "DaeBuilder_type_name";
-  case 1037: return "DaeBuilder_name";
-  case 1038: return "DaeBuilder_time";
-  case 1039: return "DaeBuilder_t_new";
-  case 1040: return "DaeBuilder_x";
-  case 1041: return "DaeBuilder_y";
-  case 1042: return "DaeBuilder_ode";
-  case 1043: return "DaeBuilder_z";
-  case 1044: return "DaeBuilder_alg";
-  case 1045: return "DaeBuilder_q";
-  case 1046: return "DaeBuilder_quad";
-  case 1047: return "DaeBuilder_zero";
-  case 1048: return "DaeBuilder_ydef";
-  case 1049: return "DaeBuilder_u";
-  case 1050: return "DaeBuilder_p";
-  case 1051: return "DaeBuilder_c";
-  case 1052: return "DaeBuilder_cdef";
-  case 1053: return "DaeBuilder_d";
-  case 1054: return "DaeBuilder_ddef";
-  case 1055: return "DaeBuilder_w";
-  case 1056: return "DaeBuilder_wdef";
-  case 1057: return "DaeBuilder_init_lhs";
-  case 1058: return "DaeBuilder_init_rhs";
-  case 1059: return "DaeBuilder_outputs";
-  case 1060: return "DaeBuilder_derivatives";
-  case 1061: return "DaeBuilder_initial_unknowns";
-  case 1062: return "DaeBuilder_has_t";
-  case 1063: return "DaeBuilder_nx";
-  case 1064: return "DaeBuilder_nz";
-  case 1065: return "DaeBuilder_nq";
-  case 1066: return "DaeBuilder_nzero";
-  case 1067: return "DaeBuilder_ny";
-  case 1068: return "DaeBuilder_nu";
-  case 1069: return "DaeBuilder_np";
-  case 1070: return "DaeBuilder_nc";
-  case 1071: return "DaeBuilder_nd";
-  case 1072: return "DaeBuilder_nw";
-  case 1073: return "DaeBuilder_add";
-  case 1074: return "DaeBuilder_eq";
-  case 1075: return "DaeBuilder_when";
-  case 1076: return "DaeBuilder_assign";
-  case 1077: return "DaeBuilder_reinit";
-  case 1078: return "DaeBuilder_set_init";
-  case 1079: return "DaeBuilder_sanity_check";
-  case 1080: return "DaeBuilder_reorder";
-  case 1081: return "DaeBuilder_eliminate";
-  case 1082: return "DaeBuilder_sort";
-  case 1083: return "DaeBuilder_lift";
-  case 1084: return "DaeBuilder_prune";
-  case 1085: return "DaeBuilder_tear";
-  case 1086: return "DaeBuilder_add_fun";
-  case 1087: return "DaeBuilder_has_fun";
-  case 1088: return "DaeBuilder_fun";
-  case 1089: return "DaeBuilder_gather_fun";
-  case 1090: return "DaeBuilder_parse_fmi";
-  case 1091: return "DaeBuilder_provides_directional_derivatives";
-  case 1092: return "DaeBuilder_provides_directional_derivative";
-  case 1093: return "DaeBuilder_load_fmi_description";
-  case 1094: return "DaeBuilder_export_fmu";
-  case 1095: return "DaeBuilder_add_lc";
-  case 1096: return "DaeBuilder_create";
-  case 1097: return "DaeBuilder_dependent_fun";
-  case 1098: return "DaeBuilder_transition";
-  case 1099: return "DaeBuilder_var";
-  case 1100: return "DaeBuilder_paren";
-  case 1101: return "DaeBuilder_der";
-  case 1102: return "DaeBuilder_pre";
-  case 1103: return "DaeBuilder_has_beq";
-  case 1104: return "DaeBuilder_beq";
-  case 1105: return "DaeBuilder_value_reference";
-  case 1106: return "DaeBuilder_set_value_reference";
-  case 1107: return "DaeBuilder_description";
-  case 1108: return "DaeBuilder_set_description";
-  case 1109: return "DaeBuilder_type";
-  case 1110: return "DaeBuilder_set_type";
-  case 1111: return "DaeBuilder_causality";
-  case 1112: return "DaeBuilder_set_causality";
-  case 1113: return "DaeBuilder_variability";
-  case 1114: return "DaeBuilder_set_variability";
-  case 1115: return "DaeBuilder_category";
-  case 1116: return "DaeBuilder_set_category";
-  case 1117: return "DaeBuilder_initial";
-  case 1118: return "DaeBuilder_set_initial";
-  case 1119: return "DaeBuilder_unit";
-  case 1120: return "DaeBuilder_set_unit";
-  case 1121: return "DaeBuilder_display_unit";
-  case 1122: return "DaeBuilder_set_display_unit";
-  case 1123: return "DaeBuilder_numel";
-  case 1124: return "DaeBuilder_dimension";
-  case 1125: return "DaeBuilder_start_time";
-  case 1126: return "DaeBuilder_set_start_time";
-  case 1127: return "DaeBuilder_stop_time";
-  case 1128: return "DaeBuilder_set_stop_time";
-  case 1129: return "DaeBuilder_tolerance";
-  case 1130: return "DaeBuilder_set_tolerance";
-  case 1131: return "DaeBuilder_step_size";
-  case 1132: return "DaeBuilder_set_step_size";
-  case 1133: return "DaeBuilder_attribute";
-  case 1134: return "DaeBuilder_set_attribute";
-  case 1135: return "DaeBuilder_min";
-  case 1136: return "DaeBuilder_set_min";
-  case 1137: return "DaeBuilder_max";
-  case 1138: return "DaeBuilder_set_max";
-  case 1139: return "DaeBuilder_nominal";
-  case 1140: return "DaeBuilder_set_nominal";
-  case 1141: return "DaeBuilder_start";
-  case 1142: return "DaeBuilder_set_start";
-  case 1143: return "DaeBuilder_set";
-  case 1144: return "DaeBuilder_get";
-  case 1145: return "DaeBuilder_has";
-  case 1146: return "DaeBuilder_all";
-  case 1147: return "DaeBuilder_oracle";
-  case 1148: return "DaeBuilder_jac_sparsity";
-  case 1149: return "new_DaeBuilder";
-  case 1150: return "delete_DaeBuilder";
-  case 1151: return "XmlFile_type_name";
-  case 1152: return "delete_XmlFile";
-  case 1153: return "XmlFile_load_plugin";
-  case 1154: return "XmlFile_doc";
-  case 1155: return "new_XmlFile";
-  case 1156: return "_wrap_has_archiver";
-  case 1157: return "_wrap_load_archiver";
-  case 1158: return "_wrap_doc_archiver";
-  case 1159: return "_wrap_has_filesystem";
-  case 1160: return "_wrap_load_filesystem";
-  case 1161: return "_wrap_doc_filesystem";
-  case 1162: return "Options_all";
-  case 1163: return "Options_type";
-  case 1164: return "Options_info";
-  case 1165: return "Options_word_distance";
-  case 1166: return "Options_suggestions";
-  case 1167: return "Options_best_matches";
-  case 1168: return "Options_has_dot";
-  case 1169: return "Options_has_null";
-  case 1170: return "Options_is_sane";
-  case 1171: return "Options_sanitize";
-  case 1172: return "Options_check";
-  case 1173: return "Options_print_all";
-  case 1174: return "Options_print_one";
-  case 1175: return "new_Options";
-  case 1176: return "delete_Options";
-  case 1177: return "delete_SerializerBase";
-  case 1178: return "SerializerBase_pack";
-  case 1179: return "SerializerBase_type_to_string";
-  case 1180: return "SerializerBase_connect";
-  case 1181: return "SerializerBase_reset";
-  case 1182: return "delete_DeserializerBase";
-  case 1183: return "DeserializerBase_internal_pop_type";
-  case 1184: return "DeserializerBase_blind_unpack_sparsity";
-  case 1185: return "DeserializerBase_blind_unpack_mx";
-  case 1186: return "DeserializerBase_blind_unpack_mx_v1";
-  case 1187: return "DeserializerBase_blind_unpack_dm";
-  case 1188: return "DeserializerBase_blind_unpack_sx";
-  case 1189: return "DeserializerBase_blind_unpack_sx_v1";
-  case 1190: return "DeserializerBase_blind_unpack_linsol";
-  case 1191: return "DeserializerBase_blind_unpack_function";
-  case 1192: return "DeserializerBase_blind_unpack_generictype";
-  case 1193: return "DeserializerBase_blind_unpack_int";
-  case 1194: return "DeserializerBase_blind_unpack_double";
-  case 1195: return "DeserializerBase_blind_unpack_string";
-  case 1196: return "DeserializerBase_blind_unpack_sparsity_vector";
-  case 1197: return "DeserializerBase_blind_unpack_mx_vector";
-  case 1198: return "DeserializerBase_blind_unpack_mx_vector_v1";
-  case 1199: return "DeserializerBase_blind_unpack_dm_vector";
-  case 1200: return "DeserializerBase_blind_unpack_sx_vector";
-  case 1201: return "DeserializerBase_blind_unpack_sx_vector_v1";
-  case 1202: return "DeserializerBase_blind_unpack_linsol_vector";
-  case 1203: return "DeserializerBase_blind_unpack_function_vector";
-  case 1204: return "DeserializerBase_blind_unpack_generictype_vector";
-  case 1205: return "DeserializerBase_blind_unpack_int_vector";
-  case 1206: return "DeserializerBase_blind_unpack_double_vector";
-  case 1207: return "DeserializerBase_blind_unpack_string_vector";
-  case 1208: return "DeserializerBase_unpack_sparsity";
-  case 1209: return "DeserializerBase_unpack_mx";
-  case 1210: return "DeserializerBase_unpack_dm";
-  case 1211: return "DeserializerBase_unpack_sx";
-  case 1212: return "DeserializerBase_unpack_linsol";
-  case 1213: return "DeserializerBase_unpack_function";
-  case 1214: return "DeserializerBase_unpack_generictype";
-  case 1215: return "DeserializerBase_unpack_int";
-  case 1216: return "DeserializerBase_unpack_double";
-  case 1217: return "DeserializerBase_unpack_string";
-  case 1218: return "DeserializerBase_unpack_sparsity_vector";
-  case 1219: return "DeserializerBase_unpack_mx_vector";
-  case 1220: return "DeserializerBase_unpack_dm_vector";
-  case 1221: return "DeserializerBase_unpack_sx_vector";
-  case 1222: return "DeserializerBase_unpack_linsol_vector";
-  case 1223: return "DeserializerBase_unpack_function_vector";
-  case 1224: return "DeserializerBase_unpack_generictype_vector";
-  case 1225: return "DeserializerBase_unpack_int_vector";
-  case 1226: return "DeserializerBase_unpack_double_vector";
-  case 1227: return "DeserializerBase_unpack_string_vector";
-  case 1228: return "DeserializerBase_connect";
-  case 1229: return "DeserializerBase_reset";
-  case 1230: return "new_StringSerializer";
-  case 1231: return "delete_StringSerializer";
-  case 1232: return "StringSerializer_encode";
-  case 1233: return "new_FileSerializer";
-  case 1234: return "delete_FileSerializer";
-  case 1235: return "new_StringDeserializer";
-  case 1236: return "delete_StringDeserializer";
-  case 1237: return "StringDeserializer_decode";
-  case 1238: return "new_FileDeserializer";
-  case 1239: return "delete_FileDeserializer";
-  case 1240: return "Opti_internal_variable";
-  case 1241: return "Opti_internal_parameter";
-  case 1242: return "Opti_minimize";
-  case 1243: return "Opti_internal_subject_to";
-  case 1244: return "Opti_solver";
-  case 1245: return "Opti_set_initial";
-  case 1246: return "Opti_set_value";
-  case 1247: return "Opti_set_domain";
-  case 1248: return "Opti_set_linear_scale";
-  case 1249: return "Opti_solve";
-  case 1250: return "Opti_solve_limited";
-  case 1251: return "Opti_value";
-  case 1252: return "Opti_stats";
-  case 1253: return "Opti_return_status";
-  case 1254: return "Opti_initial";
-  case 1255: return "Opti_value_variables";
-  case 1256: return "Opti_value_parameters";
-  case 1257: return "Opti_scale_helper";
-  case 1258: return "Opti_dual";
-  case 1259: return "Opti_nx";
-  case 1260: return "Opti_np";
-  case 1261: return "Opti_ng";
-  case 1262: return "Opti_x";
-  case 1263: return "Opti_p";
-  case 1264: return "Opti_g";
-  case 1265: return "Opti_f";
-  case 1266: return "Opti_lbg";
-  case 1267: return "Opti_ubg";
-  case 1268: return "Opti_x_linear_scale";
-  case 1269: return "Opti_x_linear_scale_offset";
-  case 1270: return "Opti_g_linear_scale";
-  case 1271: return "Opti_f_linear_scale";
-  case 1272: return "Opti_lam_g";
-  case 1273: return "Opti_to_function";
-  case 1274: return "Opti_debug";
-  case 1275: return "Opti_advanced";
-  case 1276: return "Opti_copy";
-  case 1277: return "Opti_update_user_dict";
-  case 1278: return "Opti_user_dict";
-  case 1279: return "Opti_type_name";
-  case 1280: return "Opti_disp";
-  case 1281: return "Opti_str";
-  case 1282: return "Opti_callback_class";
-  case 1283: return "new_Opti";
-  case 1284: return "delete_Opti";
-  case 1285: return "IndexAbstraction_start_get";
-  case 1286: return "IndexAbstraction_stop_get";
-  case 1287: return "new_IndexAbstraction";
-  case 1288: return "delete_IndexAbstraction";
-  case 1289: return "MetaCon_original_get";
-  case 1290: return "MetaCon_canon_get";
-  case 1291: return "MetaCon_type_get";
-  case 1292: return "MetaCon_lb_get";
-  case 1293: return "MetaCon_ub_get";
-  case 1294: return "MetaCon_n_get";
-  case 1295: return "MetaCon_flipped_get";
-  case 1296: return "MetaCon_dual_canon_get";
-  case 1297: return "MetaCon_dual_get";
-  case 1298: return "MetaCon_extra_get";
-  case 1299: return "MetaCon_linear_scale_get";
-  case 1300: return "new_MetaCon";
-  case 1301: return "delete_MetaCon";
-  case 1302: return "MetaVar_attribute_get";
-  case 1303: return "MetaVar_n_get";
-  case 1304: return "MetaVar_m_get";
-  case 1305: return "MetaVar_type_get";
-  case 1306: return "MetaVar_domain_get";
-  case 1307: return "MetaVar_count_get";
-  case 1308: return "MetaVar_i_get";
-  case 1309: return "MetaVar_active_i_get";
-  case 1310: return "MetaVar_extra_get";
-  case 1311: return "new_MetaVar";
-  case 1312: return "delete_MetaVar";
-  case 1313: return "new_OptiCallback";
-  case 1314: return "OptiCallback_call";
-  case 1315: return "delete_OptiCallback";
-  case 1316: return "delete_OptiAdvanced";
-  case 1317: return "OptiAdvanced_solver";
-  case 1318: return "OptiAdvanced_is_parametric";
-  case 1319: return "OptiAdvanced_symvar";
-  case 1320: return "OptiAdvanced_canon_expr";
-  case 1321: return "OptiAdvanced_get_meta";
-  case 1322: return "OptiAdvanced_get_meta_con";
-  case 1323: return "OptiAdvanced_set_meta";
-  case 1324: return "OptiAdvanced_set_meta_con";
-  case 1325: return "OptiAdvanced_assert_active_symbol";
-  case 1326: return "OptiAdvanced_active_symvar";
-  case 1327: return "OptiAdvanced_active_values";
-  case 1328: return "OptiAdvanced_x_lookup";
-  case 1329: return "OptiAdvanced_g_lookup";
-  case 1330: return "OptiAdvanced_g_index_reduce_g";
-  case 1331: return "OptiAdvanced_g_index_reduce_x";
-  case 1332: return "OptiAdvanced_g_index_unreduce_g";
-  case 1333: return "OptiAdvanced_x_describe";
-  case 1334: return "OptiAdvanced_g_describe";
-  case 1335: return "OptiAdvanced_describe";
-  case 1336: return "OptiAdvanced_show_infeasibilities";
-  case 1337: return "OptiAdvanced_solve_prepare";
-  case 1338: return "OptiAdvanced_solve_actual";
-  case 1339: return "OptiAdvanced_arg";
-  case 1340: return "OptiAdvanced_res";
-  case 1341: return "OptiAdvanced_constraints";
-  case 1342: return "OptiAdvanced_objective";
-  case 1343: return "OptiAdvanced_baked_copy";
-  case 1344: return "OptiAdvanced_assert_empty";
-  case 1345: return "OptiAdvanced_bake";
-  case 1346: return "OptiAdvanced_problem_dirty__get";
-  case 1347: return "OptiAdvanced_mark_problem_dirty";
-  case 1348: return "OptiAdvanced_problem_dirty";
-  case 1349: return "OptiAdvanced_solver_dirty__get";
-  case 1350: return "OptiAdvanced_mark_solver_dirty";
-  case 1351: return "OptiAdvanced_solver_dirty";
-  case 1352: return "OptiAdvanced_solved__get";
-  case 1353: return "OptiAdvanced_mark_solved";
-  case 1354: return "OptiAdvanced_solved";
-  case 1355: return "OptiAdvanced_assert_solved";
-  case 1356: return "OptiAdvanced_assert_baked";
-  case 1357: return "OptiAdvanced_instance_number";
-  case 1358: return "new_OptiAdvanced";
-  case 1359: return "OptiSol_type_name";
-  case 1360: return "OptiSol_disp";
-  case 1361: return "OptiSol_str";
-  case 1362: return "OptiSol_value";
-  case 1363: return "OptiSol_value_variables";
-  case 1364: return "OptiSol_value_parameters";
-  case 1365: return "OptiSol_stats";
-  case 1366: return "OptiSol_opti";
-  case 1367: return "new_OptiSol";
-  case 1368: return "delete_OptiSol";
-  case 1369: return "Resource_type_name";
-  case 1370: return "Resource_test_cast";
-  case 1371: return "Resource_path";
-  case 1372: return "Resource_serialize";
-  case 1373: return "Resource_change_option";
-  case 1374: return "Resource_deserialize";
-  case 1375: return "new_Resource";
-  case 1376: return "delete_Resource";
+  case 46: return "delete_StreamStateGuard";
+  case 47: return "new_StreamStateGuard";
+  case 48: return "_wrap_normalized_out";
+  case 49: return "_wrap_normalized_in";
+  case 50: return "GenericType_serialize";
+  case 51: return "GenericType_deserialize";
+  case 52: return "new_GenericType";
+  case 53: return "delete_GenericType";
+  case 54: return "SparsityInterfaceCommon_horzcat";
+  case 55: return "SparsityInterfaceCommon_vertcat";
+  case 56: return "SparsityInterfaceCommon_horzsplit";
+  case 57: return "SparsityInterfaceCommon_horzsplit_n";
+  case 58: return "SparsityInterfaceCommon_offset";
+  case 59: return "SparsityInterfaceCommon_vertsplit";
+  case 60: return "SparsityInterfaceCommon_vertsplit_n";
+  case 61: return "SparsityInterfaceCommon_blockcat";
+  case 62: return "SparsityInterfaceCommon_blocksplit";
+  case 63: return "SparsityInterfaceCommon_diagcat";
+  case 64: return "SparsityInterfaceCommon_diagsplit";
+  case 65: return "SparsityInterfaceCommon_veccat";
+  case 66: return "SparsityInterfaceCommon_mtimes";
+  case 67: return "SparsityInterfaceCommon_mac";
+  case 68: return "SparsityInterfaceCommon_transpose";
+  case 69: return "SparsityInterfaceCommon_vec";
+  case 70: return "SparsityInterfaceCommon_reshape";
+  case 71: return "SparsityInterfaceCommon_sparsity_cast";
+  case 72: return "SparsityInterfaceCommon_sprank";
+  case 73: return "SparsityInterfaceCommon_norm_0_mul";
+  case 74: return "SparsityInterfaceCommon_triu";
+  case 75: return "SparsityInterfaceCommon_tril";
+  case 76: return "SparsityInterfaceCommon_kron";
+  case 77: return "SparsityInterfaceCommon_repmat";
+  case 78: return "SparsityInterfaceCommon_sum2";
+  case 79: return "SparsityInterfaceCommon_sum1";
+  case 80: return "SparsityInterfaceCommon_length";
+  case 81: return "SparsityInterfaceCommon_sum";
+  case 82: return "new_SparsityInterfaceCommon";
+  case 83: return "delete_SparsityInterfaceCommon";
+  case 84: return "Sparsity_scalar";
+  case 85: return "Sparsity_dense";
+  case 86: return "Sparsity_unit";
+  case 87: return "Sparsity_upper";
+  case 88: return "Sparsity_lower";
+  case 89: return "Sparsity_diag";
+  case 90: return "Sparsity_band";
+  case 91: return "Sparsity_banded";
+  case 92: return "Sparsity_rowcol";
+  case 93: return "Sparsity_triplet";
+  case 94: return "Sparsity_nonzeros";
+  case 95: return "Sparsity_compressed";
+  case 96: return "Sparsity_permutation";
+  case 97: return "Sparsity_permutation_vector";
+  case 98: return "Sparsity_get_diag";
+  case 99: return "Sparsity_compress";
+  case 100: return "Sparsity_is_equal";
+  case 101: return "Sparsity_eq";
+  case 102: return "Sparsity_ne";
+  case 103: return "Sparsity_is_stacked";
+  case 104: return "Sparsity_size1";
+  case 105: return "Sparsity_rows";
+  case 106: return "Sparsity_size2";
+  case 107: return "Sparsity_columns";
+  case 108: return "Sparsity_numel";
+  case 109: return "Sparsity_density";
+  case 110: return "Sparsity_is_empty";
+  case 111: return "Sparsity_nnz";
+  case 112: return "Sparsity_nnz_upper";
+  case 113: return "Sparsity_nnz_lower";
+  case 114: return "Sparsity_nnz_diag";
+  case 115: return "Sparsity_bw_upper";
+  case 116: return "Sparsity_bw_lower";
+  case 117: return "Sparsity_size";
+  case 118: return "Sparsity_info";
+  case 119: return "Sparsity_to_file";
+  case 120: return "Sparsity_from_file";
+  case 121: return "Sparsity_serialize";
+  case 122: return "Sparsity_deserialize";
+  case 123: return "Sparsity_colind";
+  case 124: return "Sparsity_row";
+  case 125: return "Sparsity_get_col";
+  case 126: return "Sparsity_resize";
+  case 127: return "Sparsity_add_nz";
+  case 128: return "Sparsity_has_nz";
+  case 129: return "Sparsity_get_nz";
+  case 130: return "Sparsity_get_lower";
+  case 131: return "Sparsity_get_upper";
+  case 132: return "Sparsity_get_ccs";
+  case 133: return "Sparsity_get_crs";
+  case 134: return "Sparsity_get_triplet";
+  case 135: return "Sparsity_sub";
+  case 136: return "Sparsity_T";
+  case 137: return "Sparsity_transpose";
+  case 138: return "Sparsity_is_transpose";
+  case 139: return "Sparsity_is_reshape";
+  case 140: return "Sparsity_combine";
+  case 141: return "Sparsity_unite";
+  case 142: return "Sparsity_plus";
+  case 143: return "Sparsity_intersect";
+  case 144: return "Sparsity_mtimes";
+  case 145: return "Sparsity_is_subset";
+  case 146: return "Sparsity_sparsity_cast_mod";
+  case 147: return "Sparsity_pattern_inverse";
+  case 148: return "Sparsity_enlarge";
+  case 149: return "Sparsity_enlargeRows";
+  case 150: return "Sparsity_enlargeColumns";
+  case 151: return "Sparsity_makeDense";
+  case 152: return "Sparsity_erase";
+  case 153: return "Sparsity_append";
+  case 154: return "Sparsity_appendColumns";
+  case 155: return "Sparsity_is_scalar";
+  case 156: return "Sparsity_is_dense";
+  case 157: return "Sparsity_is_row";
+  case 158: return "Sparsity_is_column";
+  case 159: return "Sparsity_is_vector";
+  case 160: return "Sparsity_is_diag";
+  case 161: return "Sparsity_is_square";
+  case 162: return "Sparsity_is_symmetric";
+  case 163: return "Sparsity_is_triu";
+  case 164: return "Sparsity_is_tril";
+  case 165: return "Sparsity_is_singular";
+  case 166: return "Sparsity_is_permutation";
+  case 167: return "Sparsity_is_selection";
+  case 168: return "Sparsity_is_orthonormal";
+  case 169: return "Sparsity_is_orthonormal_rows";
+  case 170: return "Sparsity_is_orthonormal_columns";
+  case 171: return "Sparsity_rowsSequential";
+  case 172: return "Sparsity_removeDuplicates";
+  case 173: return "Sparsity_etree";
+  case 174: return "Sparsity_ldl";
+  case 175: return "Sparsity_qr_sparse";
+  case 176: return "Sparsity_dfs";
+  case 177: return "Sparsity_scc";
+  case 178: return "Sparsity_btf";
+  case 179: return "Sparsity_amd";
+  case 180: return "Sparsity_find";
+  case 181: return "Sparsity_uni_coloring";
+  case 182: return "Sparsity_star_coloring";
+  case 183: return "Sparsity_star_coloring2";
+  case 184: return "Sparsity_largest_first";
+  case 185: return "Sparsity_pmult";
+  case 186: return "Sparsity_dim";
+  case 187: return "Sparsity_postfix_dim";
+  case 188: return "Sparsity_repr_el";
+  case 189: return "Sparsity_spy";
+  case 190: return "Sparsity_spy_matlab";
+  case 191: return "Sparsity_export_code";
+  case 192: return "Sparsity_type_name";
+  case 193: return "Sparsity_hash";
+  case 194: return "Sparsity_test_cast";
+  case 195: return "Sparsity_kkt";
+  case 196: return "new_Sparsity";
+  case 197: return "delete_Sparsity";
+  case 198: return "_wrap_hash_sparsity";
+  case 199: return "Slice_start_get";
+  case 200: return "Slice_stop_get";
+  case 201: return "Slice_step_get";
+  case 202: return "Slice_all";
+  case 203: return "Slice_size";
+  case 204: return "Slice_is_empty";
+  case 205: return "Slice_is_scalar";
+  case 206: return "Slice_scalar";
+  case 207: return "Slice_eq";
+  case 208: return "Slice_ne";
+  case 209: return "Slice_apply";
+  case 210: return "Slice_minus";
+  case 211: return "Slice_mtimes";
+  case 212: return "Slice_type_name";
+  case 213: return "Slice_disp";
+  case 214: return "Slice_str";
+  case 215: return "Slice_info";
+  case 216: return "Slice_serialize";
+  case 217: return "Slice_deserialize";
+  case 218: return "new_Slice";
+  case 219: return "delete_Slice";
+  case 220: return "_wrap_to_slice";
+  case 221: return "_wrap_to_slice2";
+  case 222: return "_wrap_is_slice";
+  case 223: return "_wrap_is_slice2";
+  case 224: return "GenericMatrixCommon_mpower";
+  case 225: return "GenericMatrixCommon_mrdivide";
+  case 226: return "GenericMatrixCommon_mldivide";
+  case 227: return "GenericMatrixCommon_symvar";
+  case 228: return "GenericMatrixCommon_bilin";
+  case 229: return "GenericMatrixCommon_rank1";
+  case 230: return "GenericMatrixCommon_sumsqr";
+  case 231: return "GenericMatrixCommon_linspace";
+  case 232: return "GenericMatrixCommon_logsumexp";
+  case 233: return "GenericMatrixCommon_interp1d";
+  case 234: return "GenericMatrixCommon_soc";
+  case 235: return "GenericMatrixCommon_cross";
+  case 236: return "GenericMatrixCommon_skew";
+  case 237: return "GenericMatrixCommon_inv_skew";
+  case 238: return "GenericMatrixCommon_det";
+  case 239: return "GenericMatrixCommon_inv_minor";
+  case 240: return "GenericMatrixCommon_inv";
+  case 241: return "GenericMatrixCommon_trace";
+  case 242: return "GenericMatrixCommon_tril2symm";
+  case 243: return "GenericMatrixCommon_triu2symm";
+  case 244: return "GenericMatrixCommon_norm_fro";
+  case 245: return "GenericMatrixCommon_norm_2";
+  case 246: return "GenericMatrixCommon_norm_1";
+  case 247: return "GenericMatrixCommon_norm_inf";
+  case 248: return "GenericMatrixCommon_dot";
+  case 249: return "GenericMatrixCommon_nullspace";
+  case 250: return "GenericMatrixCommon_polyval";
+  case 251: return "GenericMatrixCommon_diag";
+  case 252: return "GenericMatrixCommon_unite";
+  case 253: return "GenericMatrixCommon_densify";
+  case 254: return "GenericMatrixCommon_project";
+  case 255: return "GenericMatrixCommon_if_else";
+  case 256: return "GenericMatrixCommon_conditional";
+  case 257: return "GenericMatrixCommon_depends_on";
+  case 258: return "GenericMatrixCommon_contains";
+  case 259: return "GenericMatrixCommon_contains_all";
+  case 260: return "GenericMatrixCommon_contains_any";
+  case 261: return "GenericMatrixCommon_solve";
+  case 262: return "GenericMatrixCommon_pinv";
+  case 263: return "GenericMatrixCommon_expm_const";
+  case 264: return "GenericMatrixCommon_expm";
+  case 265: return "GenericMatrixCommon_jacobian";
+  case 266: return "GenericMatrixCommon_jtimes";
+  case 267: return "GenericMatrixCommon_linearize";
+  case 268: return "GenericMatrixCommon_which_depends";
+  case 269: return "GenericMatrixCommon_jacobian_sparsity";
+  case 270: return "GenericMatrixCommon_is_linear";
+  case 271: return "GenericMatrixCommon_is_quadratic";
+  case 272: return "GenericMatrixCommon_gradient";
+  case 273: return "GenericMatrixCommon_tangent";
+  case 274: return "GenericMatrixCommon_hessian";
+  case 275: return "GenericMatrixCommon_quadratic_coeff";
+  case 276: return "GenericMatrixCommon_linear_coeff";
+  case 277: return "GenericMatrixCommon_n_nodes";
+  case 278: return "GenericMatrixCommon_print_operator";
+  case 279: return "GenericMatrixCommon_repsum";
+  case 280: return "GenericMatrixCommon_diff";
+  case 281: return "GenericMatrixCommon_cumsum";
+  case 282: return "GenericMatrixCommon_einstein";
+  case 283: return "GenericMatrixCommon_mmin";
+  case 284: return "GenericMatrixCommon_mmax";
+  case 285: return "GenericMatrixCommon_evalf";
+  case 286: return "GenericMatrixCommon_separate_linear";
+  case 287: return "new_GenericMatrixCommon";
+  case 288: return "delete_GenericMatrixCommon";
+  case 289: return "_wrap_index_interp1d";
+  case 290: return "GenDM_nnz";
+  case 291: return "GenDM_nnz_lower";
+  case 292: return "GenDM_nnz_upper";
+  case 293: return "GenDM_nnz_diag";
+  case 294: return "GenDM_numel";
+  case 295: return "GenDM_size1";
+  case 296: return "GenDM_rows";
+  case 297: return "GenDM_size2";
+  case 298: return "GenDM_columns";
+  case 299: return "GenDM_dim";
+  case 300: return "GenDM_size";
+  case 301: return "GenDM_is_empty";
+  case 302: return "GenDM_is_dense";
+  case 303: return "GenDM_is_scalar";
+  case 304: return "GenDM_is_square";
+  case 305: return "GenDM_is_vector";
+  case 306: return "GenDM_is_row";
+  case 307: return "GenDM_is_column";
+  case 308: return "GenDM_is_triu";
+  case 309: return "GenDM_is_tril";
+  case 310: return "GenDM_row";
+  case 311: return "GenDM_colind";
+  case 312: return "GenDM_sparsity";
+  case 313: return "GenDM_sym";
+  case 314: return "GenDM_zeros";
+  case 315: return "GenDM_ones";
+  case 316: return "new_GenDM";
+  case 317: return "delete_GenDM";
+  case 318: return "GenSX_nnz";
+  case 319: return "GenSX_nnz_lower";
+  case 320: return "GenSX_nnz_upper";
+  case 321: return "GenSX_nnz_diag";
+  case 322: return "GenSX_numel";
+  case 323: return "GenSX_size1";
+  case 324: return "GenSX_rows";
+  case 325: return "GenSX_size2";
+  case 326: return "GenSX_columns";
+  case 327: return "GenSX_dim";
+  case 328: return "GenSX_size";
+  case 329: return "GenSX_is_empty";
+  case 330: return "GenSX_is_dense";
+  case 331: return "GenSX_is_scalar";
+  case 332: return "GenSX_is_square";
+  case 333: return "GenSX_is_vector";
+  case 334: return "GenSX_is_row";
+  case 335: return "GenSX_is_column";
+  case 336: return "GenSX_is_triu";
+  case 337: return "GenSX_is_tril";
+  case 338: return "GenSX_row";
+  case 339: return "GenSX_colind";
+  case 340: return "GenSX_sparsity";
+  case 341: return "GenSX_sym";
+  case 342: return "GenSX_zeros";
+  case 343: return "GenSX_ones";
+  case 344: return "new_GenSX";
+  case 345: return "delete_GenSX";
+  case 346: return "GenMX_nnz";
+  case 347: return "GenMX_nnz_lower";
+  case 348: return "GenMX_nnz_upper";
+  case 349: return "GenMX_nnz_diag";
+  case 350: return "GenMX_numel";
+  case 351: return "GenMX_size1";
+  case 352: return "GenMX_rows";
+  case 353: return "GenMX_size2";
+  case 354: return "GenMX_columns";
+  case 355: return "GenMX_dim";
+  case 356: return "GenMX_size";
+  case 357: return "GenMX_is_empty";
+  case 358: return "GenMX_is_dense";
+  case 359: return "GenMX_is_scalar";
+  case 360: return "GenMX_is_square";
+  case 361: return "GenMX_is_vector";
+  case 362: return "GenMX_is_row";
+  case 363: return "GenMX_is_column";
+  case 364: return "GenMX_is_triu";
+  case 365: return "GenMX_is_tril";
+  case 366: return "GenMX_row";
+  case 367: return "GenMX_colind";
+  case 368: return "GenMX_sparsity";
+  case 369: return "GenMX_sym";
+  case 370: return "GenMX_zeros";
+  case 371: return "GenMX_ones";
+  case 372: return "new_GenMX";
+  case 373: return "delete_GenMX";
+  case 374: return "GenericExpressionCommon_plus";
+  case 375: return "GenericExpressionCommon_minus";
+  case 376: return "GenericExpressionCommon_times";
+  case 377: return "GenericExpressionCommon_rdivide";
+  case 378: return "GenericExpressionCommon_ldivide";
+  case 379: return "GenericExpressionCommon_lt";
+  case 380: return "GenericExpressionCommon_le";
+  case 381: return "GenericExpressionCommon_gt";
+  case 382: return "GenericExpressionCommon_ge";
+  case 383: return "GenericExpressionCommon_eq";
+  case 384: return "GenericExpressionCommon_ne";
+  case 385: return "GenericExpressionCommon_and";
+  case 386: return "GenericExpressionCommon_or";
+  case 387: return "GenericExpressionCommon_not";
+  case 388: return "GenericExpressionCommon_abs";
+  case 389: return "GenericExpressionCommon_sqrt";
+  case 390: return "GenericExpressionCommon_sin";
+  case 391: return "GenericExpressionCommon_cos";
+  case 392: return "GenericExpressionCommon_tan";
+  case 393: return "GenericExpressionCommon_atan";
+  case 394: return "GenericExpressionCommon_asin";
+  case 395: return "GenericExpressionCommon_acos";
+  case 396: return "GenericExpressionCommon_tanh";
+  case 397: return "GenericExpressionCommon_sinh";
+  case 398: return "GenericExpressionCommon_cosh";
+  case 399: return "GenericExpressionCommon_atanh";
+  case 400: return "GenericExpressionCommon_asinh";
+  case 401: return "GenericExpressionCommon_acosh";
+  case 402: return "GenericExpressionCommon_exp";
+  case 403: return "GenericExpressionCommon_log";
+  case 404: return "GenericExpressionCommon_log10";
+  case 405: return "GenericExpressionCommon_log1p";
+  case 406: return "GenericExpressionCommon_expm1";
+  case 407: return "GenericExpressionCommon_floor";
+  case 408: return "GenericExpressionCommon_ceil";
+  case 409: return "GenericExpressionCommon_erf";
+  case 410: return "GenericExpressionCommon_erfinv";
+  case 411: return "GenericExpressionCommon_sign";
+  case 412: return "GenericExpressionCommon_power";
+  case 413: return "GenericExpressionCommon_rem";
+  case 414: return "GenericExpressionCommon_fmod";
+  case 415: return "GenericExpressionCommon_remainder";
+  case 416: return "GenericExpressionCommon_atan2";
+  case 417: return "GenericExpressionCommon_fmin";
+  case 418: return "GenericExpressionCommon_fmax";
+  case 419: return "GenericExpressionCommon_hypot";
+  case 420: return "GenericExpressionCommon_simplify";
+  case 421: return "GenericExpressionCommon_is_equal";
+  case 422: return "GenericExpressionCommon_copysign";
+  case 423: return "GenericExpressionCommon_constpow";
+  case 424: return "new_GenericExpressionCommon";
+  case 425: return "delete_GenericExpressionCommon";
+  case 426: return "MatrixCommon_all";
+  case 427: return "MatrixCommon_any";
+  case 428: return "MatrixCommon_adj";
+  case 429: return "MatrixCommon_minor";
+  case 430: return "MatrixCommon_cofactor";
+  case 431: return "MatrixCommon_qr";
+  case 432: return "MatrixCommon_qr_sparse";
+  case 433: return "MatrixCommon_qr_solve";
+  case 434: return "MatrixCommon_ldl";
+  case 435: return "MatrixCommon_ldl_solve";
+  case 436: return "MatrixCommon_chol";
+  case 437: return "MatrixCommon_norm_inf_mul";
+  case 438: return "MatrixCommon_sparsify";
+  case 439: return "MatrixCommon_expand";
+  case 440: return "MatrixCommon_pw_const";
+  case 441: return "MatrixCommon_pw_lin";
+  case 442: return "MatrixCommon_heaviside";
+  case 443: return "MatrixCommon_rectangle";
+  case 444: return "MatrixCommon_triangle";
+  case 445: return "MatrixCommon_ramp";
+  case 446: return "MatrixCommon_gauss_quadrature";
+  case 447: return "MatrixCommon_taylor";
+  case 448: return "MatrixCommon_mtaylor";
+  case 449: return "MatrixCommon_poly_coeff";
+  case 450: return "MatrixCommon_poly_roots";
+  case 451: return "MatrixCommon_eig_symbolic";
+  case 452: return "new_MatrixCommon";
+  case 453: return "delete_MatrixCommon";
+  case 454: return "DM_has_nz";
+  case 455: return "DM_nonzero";
+  case 456: return "DM_get";
+  case 457: return "DM_set";
+  case 458: return "DM_get_nz";
+  case 459: return "DM_set_nz";
+  case 460: return "DM_uplus";
+  case 461: return "DM_uminus";
+  case 462: return "DM_binary";
+  case 463: return "DM_unary";
+  case 464: return "DM_scalar_matrix";
+  case 465: return "DM_matrix_scalar";
+  case 466: return "DM_matrix_matrix";
+  case 467: return "DM_call";
+  case 468: return "DM_printme";
+  case 469: return "DM_T";
+  case 470: return "DM_set_max_depth";
+  case 471: return "DM_get_max_depth";
+  case 472: return "DM_get_input";
+  case 473: return "DM_get_free";
+  case 474: return "DM_type_name";
+  case 475: return "DM_print_split";
+  case 476: return "DM_disp";
+  case 477: return "DM_str";
+  case 478: return "DM_print_scalar";
+  case 479: return "DM_print_vector";
+  case 480: return "DM_print_dense";
+  case 481: return "DM_print_sparse";
+  case 482: return "DM_clear";
+  case 483: return "DM_resize";
+  case 484: return "DM_reserve";
+  case 485: return "DM_erase";
+  case 486: return "DM_remove";
+  case 487: return "DM_enlarge";
+  case 488: return "DM_sparsity";
+  case 489: return "DM_get_output";
+  case 490: return "DM_triplet";
+  case 491: return "DM_inf";
+  case 492: return "DM_nan";
+  case 493: return "DM_eye";
+  case 494: return "DM_element_hash";
+  case 495: return "DM_is_regular";
+  case 496: return "DM_is_smooth";
+  case 497: return "DM_is_leaf";
+  case 498: return "DM_is_commutative";
+  case 499: return "DM_is_symbolic";
+  case 500: return "DM_is_valid_input";
+  case 501: return "DM_has_duplicates";
+  case 502: return "DM_reset_input";
+  case 503: return "DM_is_constant";
+  case 504: return "DM_is_call";
+  case 505: return "DM_is_output";
+  case 506: return "DM_has_output";
+  case 507: return "DM_which_output";
+  case 508: return "DM_which_function";
+  case 509: return "DM_is_integer";
+  case 510: return "DM_is_zero";
+  case 511: return "DM_is_one";
+  case 512: return "DM_is_minus_one";
+  case 513: return "DM_is_eye";
+  case 514: return "DM_op";
+  case 515: return "DM_is_op";
+  case 516: return "DM_has_zeros";
+  case 517: return "DM_nonzeros";
+  case 518: return "DM_elements";
+  case 519: return "DM_to_double";
+  case 520: return "DM_to_int";
+  case 521: return "DM_name";
+  case 522: return "DM_dep";
+  case 523: return "DM_n_dep";
+  case 524: return "DM_set_precision";
+  case 525: return "DM_set_width";
+  case 526: return "DM_set_scientific";
+  case 527: return "DM_rng";
+  case 528: return "DM_rand";
+  case 529: return "DM_export_code";
+  case 530: return "DM_info";
+  case 531: return "DM_serialize";
+  case 532: return "DM_deserialize";
+  case 533: return "DM_to_file";
+  case 534: return "DM_from_file";
+  case 535: return "new_DM";
+  case 536: return "DM_assign";
+  case 537: return "DM_paren";
+  case 538: return "DM_paren_asgn";
+  case 539: return "DM_brace";
+  case 540: return "DM_setbrace";
+  case 541: return "DM_end";
+  case 542: return "DM_numel";
+  case 543: return "DM_ctranspose";
+  case 544: return "DM_full";
+  case 545: return "DM_sparse";
+  case 546: return "delete_DM";
+  case 547: return "new_SXElem";
+  case 548: return "delete_SXElem";
+  case 549: return "SX_has_nz";
+  case 550: return "SX_nonzero";
+  case 551: return "SX_get";
+  case 552: return "SX_set";
+  case 553: return "SX_get_nz";
+  case 554: return "SX_set_nz";
+  case 555: return "SX_uplus";
+  case 556: return "SX_uminus";
+  case 557: return "SX_binary";
+  case 558: return "SX_unary";
+  case 559: return "SX_scalar_matrix";
+  case 560: return "SX_matrix_scalar";
+  case 561: return "SX_matrix_matrix";
+  case 562: return "SX_call";
+  case 563: return "SX_printme";
+  case 564: return "SX_T";
+  case 565: return "SX_set_max_depth";
+  case 566: return "SX_get_max_depth";
+  case 567: return "SX_get_input";
+  case 568: return "SX_get_free";
+  case 569: return "SX_type_name";
+  case 570: return "SX_print_split";
+  case 571: return "SX_disp";
+  case 572: return "SX_str";
+  case 573: return "SX_print_scalar";
+  case 574: return "SX_print_vector";
+  case 575: return "SX_print_dense";
+  case 576: return "SX_print_sparse";
+  case 577: return "SX_clear";
+  case 578: return "SX_resize";
+  case 579: return "SX_reserve";
+  case 580: return "SX_erase";
+  case 581: return "SX_remove";
+  case 582: return "SX_enlarge";
+  case 583: return "SX_sparsity";
+  case 584: return "SX_get_output";
+  case 585: return "SX_triplet";
+  case 586: return "SX_inf";
+  case 587: return "SX_nan";
+  case 588: return "SX_eye";
+  case 589: return "SX_element_hash";
+  case 590: return "SX_is_regular";
+  case 591: return "SX_is_smooth";
+  case 592: return "SX_is_leaf";
+  case 593: return "SX_is_commutative";
+  case 594: return "SX_is_symbolic";
+  case 595: return "SX_is_valid_input";
+  case 596: return "SX_has_duplicates";
+  case 597: return "SX_reset_input";
+  case 598: return "SX_is_constant";
+  case 599: return "SX_is_call";
+  case 600: return "SX_is_output";
+  case 601: return "SX_has_output";
+  case 602: return "SX_which_output";
+  case 603: return "SX_which_function";
+  case 604: return "SX_is_integer";
+  case 605: return "SX_is_zero";
+  case 606: return "SX_is_one";
+  case 607: return "SX_is_minus_one";
+  case 608: return "SX_is_eye";
+  case 609: return "SX_op";
+  case 610: return "SX_is_op";
+  case 611: return "SX_has_zeros";
+  case 612: return "SX_nonzeros";
+  case 613: return "SX_elements";
+  case 614: return "SX_to_double";
+  case 615: return "SX_to_int";
+  case 616: return "SX_name";
+  case 617: return "SX_dep";
+  case 618: return "SX_n_dep";
+  case 619: return "SX_set_precision";
+  case 620: return "SX_set_width";
+  case 621: return "SX_set_scientific";
+  case 622: return "SX_rng";
+  case 623: return "SX_rand";
+  case 624: return "SX_export_code";
+  case 625: return "SX_info";
+  case 626: return "SX_serialize";
+  case 627: return "SX_deserialize";
+  case 628: return "SX_to_file";
+  case 629: return "SX_from_file";
+  case 630: return "SX_paren";
+  case 631: return "SX_paren_asgn";
+  case 632: return "SX_brace";
+  case 633: return "SX_setbrace";
+  case 634: return "SX_end";
+  case 635: return "SX_numel";
+  case 636: return "SX_ctranspose";
+  case 637: return "new_SX";
+  case 638: return "delete_SX";
+  case 639: return "MX_type_name";
+  case 640: return "delete_MX";
+  case 641: return "MX_nonzero";
+  case 642: return "MX_sparsity";
+  case 643: return "MX_nonzeros";
+  case 644: return "MX_erase";
+  case 645: return "MX_enlarge";
+  case 646: return "MX_uminus";
+  case 647: return "MX_dep";
+  case 648: return "MX_n_out";
+  case 649: return "MX_get_output";
+  case 650: return "MX_n_dep";
+  case 651: return "MX_name";
+  case 652: return "MX_to_double";
+  case 653: return "MX_to_DM";
+  case 654: return "MX_is_symbolic";
+  case 655: return "MX_is_constant";
+  case 656: return "MX_is_call";
+  case 657: return "MX_which_function";
+  case 658: return "MX_is_output";
+  case 659: return "MX_has_output";
+  case 660: return "MX_which_output";
+  case 661: return "MX_is_op";
+  case 662: return "MX_is_multiplication";
+  case 663: return "MX_is_commutative";
+  case 664: return "MX_is_norm";
+  case 665: return "MX_is_valid_input";
+  case 666: return "MX_n_primitives";
+  case 667: return "MX_primitives";
+  case 668: return "MX_split_primitives";
+  case 669: return "MX_join_primitives";
+  case 670: return "MX_has_duplicates";
+  case 671: return "MX_reset_input";
+  case 672: return "MX_is_eye";
+  case 673: return "MX_is_zero";
+  case 674: return "MX_is_one";
+  case 675: return "MX_is_minus_one";
+  case 676: return "MX_is_transpose";
+  case 677: return "MX_is_regular";
+  case 678: return "MX_is_binary";
+  case 679: return "MX_is_unary";
+  case 680: return "MX_op";
+  case 681: return "MX_info";
+  case 682: return "MX_serialize";
+  case 683: return "MX_deserialize";
+  case 684: return "MX_get_temp";
+  case 685: return "MX_set_temp";
+  case 686: return "MX_binary";
+  case 687: return "MX_unary";
+  case 688: return "MX_inf";
+  case 689: return "MX_nan";
+  case 690: return "MX_eye";
+  case 691: return "MX_get";
+  case 692: return "MX_set";
+  case 693: return "MX_get_nz";
+  case 694: return "MX_set_nz";
+  case 695: return "MX_einstein";
+  case 696: return "MX_bspline_dual";
+  case 697: return "MX_interpn_linear";
+  case 698: return "MX_printme";
+  case 699: return "MX_attachAssert";
+  case 700: return "MX_monitor";
+  case 701: return "MX_T";
+  case 702: return "MX_mapping";
+  case 703: return "MX_set_max_depth";
+  case 704: return "MX_get_max_depth";
+  case 705: return "MX_test_cast";
+  case 706: return "MX_get_input";
+  case 707: return "MX_get_free";
+  case 708: return "MX_eval_mx";
+  case 709: return "MX_paren_asgn";
+  case 710: return "MX_setbrace";
+  case 711: return "MX_end";
+  case 712: return "MX_ctranspose";
+  case 713: return "MX_find";
+  case 714: return "MX_low";
+  case 715: return "MX_inv_node";
+  case 716: return "MX_brace";
+  case 717: return "MX_brace_asgn";
+  case 718: return "MX_paren";
+  case 719: return "MX_numel";
+  case 720: return "new_MX";
+  case 721: return "Function_type_name";
+  case 722: return "Function_jit";
+  case 723: return "delete_Function";
+  case 724: return "Function_expand";
+  case 725: return "Function_n_in";
+  case 726: return "Function_n_out";
+  case 727: return "Function_size1_in";
+  case 728: return "Function_size2_in";
+  case 729: return "Function_size_in";
+  case 730: return "Function_size1_out";
+  case 731: return "Function_size2_out";
+  case 732: return "Function_size_out";
+  case 733: return "Function_nnz_in";
+  case 734: return "Function_nnz_out";
+  case 735: return "Function_numel_in";
+  case 736: return "Function_numel_out";
+  case 737: return "Function_name_in";
+  case 738: return "Function_name_out";
+  case 739: return "Function_index_in";
+  case 740: return "Function_index_out";
+  case 741: return "Function_has_in";
+  case 742: return "Function_has_out";
+  case 743: return "Function_default_in";
+  case 744: return "Function_max_in";
+  case 745: return "Function_min_in";
+  case 746: return "Function_nominal_in";
+  case 747: return "Function_nominal_out";
+  case 748: return "Function_sparsity_in";
+  case 749: return "Function_sparsity_out";
+  case 750: return "Function_is_diff_in";
+  case 751: return "Function_is_diff_out";
+  case 752: return "Function_factory";
+  case 753: return "Function_oracle";
+  case 754: return "Function_wrap";
+  case 755: return "Function_wrap_as_needed";
+  case 756: return "Function_which_depends";
+  case 757: return "Function_print_dimensions";
+  case 758: return "Function_print_options";
+  case 759: return "Function_print_option";
+  case 760: return "Function_has_option";
+  case 761: return "Function_change_option";
+  case 762: return "Function_reset_dump_count";
+  case 763: return "Function_uses_output";
+  case 764: return "Function_jacobian_old";
+  case 765: return "Function_hessian_old";
+  case 766: return "Function_sparsity_jac";
+  case 767: return "Function_jacobian";
+  case 768: return "Function_call";
+  case 769: return "Function_mapsum";
+  case 770: return "Function_mapaccum";
+  case 771: return "Function_fold";
+  case 772: return "Function_map";
+  case 773: return "Function_slice";
+  case 774: return "Function_conditional";
+  case 775: return "Function_bspline";
+  case 776: return "Function_if_else";
+  case 777: return "Function_forward";
+  case 778: return "Function_reverse";
+  case 779: return "Function_jac_sparsity";
+  case 780: return "Function_generate";
+  case 781: return "Function_generate_dependencies";
+  case 782: return "Function_generate_in";
+  case 783: return "Function_generate_out";
+  case 784: return "Function_serialize";
+  case 785: return "Function_save";
+  case 786: return "Function_export_code";
+  case 787: return "Function_stats";
+  case 788: return "Function_sx_in";
+  case 789: return "Function_mx_in";
+  case 790: return "Function_sx_out";
+  case 791: return "Function_mx_out";
+  case 792: return "Function_nz_from_in";
+  case 793: return "Function_nz_from_out";
+  case 794: return "Function_nz_to_in";
+  case 795: return "Function_nz_to_out";
+  case 796: return "Function_convert_in";
+  case 797: return "Function_convert_out";
+  case 798: return "Function_has_free";
+  case 799: return "Function_get_free";
+  case 800: return "Function_free_sx";
+  case 801: return "Function_free_mx";
+  case 802: return "Function_generate_lifted";
+  case 803: return "Function_n_nodes";
+  case 804: return "Function_n_instructions";
+  case 805: return "Function_instruction_id";
+  case 806: return "Function_instruction_input";
+  case 807: return "Function_instruction_constant";
+  case 808: return "Function_instruction_output";
+  case 809: return "Function_instruction_MX";
+  case 810: return "Function_instructions_sx";
+  case 811: return "Function_has_spfwd";
+  case 812: return "Function_has_sprev";
+  case 813: return "Function_sz_arg";
+  case 814: return "Function_sz_res";
+  case 815: return "Function_sz_iw";
+  case 816: return "Function_sz_w";
+  case 817: return "Function_name";
+  case 818: return "Function_is_a";
+  case 819: return "Function_check_name";
+  case 820: return "Function_fix_name";
+  case 821: return "Function_load";
+  case 822: return "Function_deserialize";
+  case 823: return "Function_assert_size_in";
+  case 824: return "Function_assert_size_out";
+  case 825: return "Function_assert_sparsity_out";
+  case 826: return "Function_checkout";
+  case 827: return "Function_release";
+  case 828: return "Function_cache";
+  case 829: return "Function_get_function";
+  case 830: return "Function_has_function";
+  case 831: return "Function_find_functions";
+  case 832: return "Function_find_function";
+  case 833: return "Function_info";
+  case 834: return "new_Function";
+  case 835: return "_wrap_external";
+  case 836: return "_wrap_integrator";
+  case 837: return "_wrap_has_integrator";
+  case 838: return "_wrap_load_integrator";
+  case 839: return "_wrap_doc_integrator";
+  case 840: return "_wrap_integrator_in";
+  case 841: return "_wrap_integrator_out";
+  case 842: return "_wrap_integrator_n_in";
+  case 843: return "_wrap_integrator_n_out";
+  case 844: return "_wrap_dyn_in";
+  case 845: return "_wrap_dyn_out";
+  case 846: return "_wrap_dyn_n_in";
+  case 847: return "_wrap_dyn_n_out";
+  case 848: return "_wrap_event_in";
+  case 849: return "_wrap_event_out";
+  case 850: return "_wrap_conic";
+  case 851: return "_wrap_qpsol";
+  case 852: return "_wrap_conic_in";
+  case 853: return "_wrap_conic_out";
+  case 854: return "_wrap_conic_n_in";
+  case 855: return "_wrap_conic_n_out";
+  case 856: return "_wrap_conic_options";
+  case 857: return "_wrap_conic_option_type";
+  case 858: return "_wrap_conic_option_info";
+  case 859: return "_wrap_has_conic";
+  case 860: return "_wrap_load_conic";
+  case 861: return "_wrap_doc_conic";
+  case 862: return "_wrap_conic_debug";
+  case 863: return "_wrap_nlpsol";
+  case 864: return "_wrap_nlpsol_in";
+  case 865: return "_wrap_nlpsol_out";
+  case 866: return "_wrap_nlpsol_n_in";
+  case 867: return "_wrap_nlpsol_n_out";
+  case 868: return "_wrap_nlpsol_default_in";
+  case 869: return "_wrap_nlpsol_options";
+  case 870: return "_wrap_nlpsol_option_type";
+  case 871: return "_wrap_nlpsol_option_info";
+  case 872: return "_wrap_has_nlpsol";
+  case 873: return "_wrap_load_nlpsol";
+  case 874: return "_wrap_doc_nlpsol";
+  case 875: return "_wrap_rootfinder";
+  case 876: return "_wrap_rootfinder_in";
+  case 877: return "_wrap_rootfinder_out";
+  case 878: return "_wrap_rootfinder_n_in";
+  case 879: return "_wrap_rootfinder_n_out";
+  case 880: return "_wrap_rootfinder_options";
+  case 881: return "_wrap_rootfinder_option_type";
+  case 882: return "_wrap_rootfinder_option_info";
+  case 883: return "_wrap_has_rootfinder";
+  case 884: return "_wrap_load_rootfinder";
+  case 885: return "_wrap_doc_rootfinder";
+  case 886: return "Linsol_type_name";
+  case 887: return "Linsol_has_plugin";
+  case 888: return "Linsol_load_plugin";
+  case 889: return "Linsol_doc";
+  case 890: return "Linsol_plugin_name";
+  case 891: return "Linsol_sparsity";
+  case 892: return "Linsol_sfact";
+  case 893: return "Linsol_nfact";
+  case 894: return "Linsol_solve";
+  case 895: return "Linsol_neig";
+  case 896: return "Linsol_rank";
+  case 897: return "Linsol_stats";
+  case 898: return "new_Linsol";
+  case 899: return "delete_Linsol";
+  case 900: return "_wrap_has_linsol";
+  case 901: return "_wrap_load_linsol";
+  case 902: return "_wrap_doc_linsol";
+  case 903: return "_wrap_dplesol";
+  case 904: return "_wrap_dple_in";
+  case 905: return "_wrap_dple_out";
+  case 906: return "_wrap_dple_n_in";
+  case 907: return "_wrap_dple_n_out";
+  case 908: return "_wrap_has_dple";
+  case 909: return "_wrap_load_dple";
+  case 910: return "_wrap_doc_dple";
+  case 911: return "_wrap_expmsol";
+  case 912: return "_wrap_expm_n_in";
+  case 913: return "_wrap_expm_n_out";
+  case 914: return "_wrap_has_expm";
+  case 915: return "_wrap_load_expm";
+  case 916: return "_wrap_doc_expm";
+  case 917: return "_wrap_interpolant";
+  case 918: return "_wrap_has_interpolant";
+  case 919: return "_wrap_load_interpolant";
+  case 920: return "_wrap_doc_interpolant";
+  case 921: return "_wrap_blazing_spline";
+  case 922: return "new_CodeGenerator";
+  case 923: return "CodeGenerator_add";
+  case 924: return "CodeGenerator_dump";
+  case 925: return "CodeGenerator_generate";
+  case 926: return "CodeGenerator_add_include";
+  case 927: return "delete_CodeGenerator";
+  case 928: return "_wrap_cse";
+  case 929: return "_wrap_extract_parametric";
+  case 930: return "_wrap_forward";
+  case 931: return "_wrap_reverse";
+  case 932: return "_wrap_substitute";
+  case 933: return "_wrap_substitute_inplace";
+  case 934: return "_wrap_extract";
+  case 935: return "_wrap_shared";
+  case 936: return "_wrap_blockcat";
+  case 937: return "_wrap_matrix_expand";
+  case 938: return "_wrap_graph_substitute";
+  case 939: return "_wrap_bspline";
+  case 940: return "_wrap_convexify";
+  case 941: return "_wrap_stop_diff";
+  case 942: return "_wrap_difference";
+  case 943: return "_wrap_no_hess";
+  case 944: return "_wrap_no_grad";
+  case 945: return "Importer_type_name";
+  case 946: return "Importer_test_cast";
+  case 947: return "Importer_has_plugin";
+  case 948: return "Importer_load_plugin";
+  case 949: return "Importer_doc";
+  case 950: return "Importer_plugin_name";
+  case 951: return "Importer_has_function";
+  case 952: return "Importer_has_meta";
+  case 953: return "Importer_get_meta";
+  case 954: return "Importer_inlined";
+  case 955: return "Importer_body";
+  case 956: return "Importer_library";
+  case 957: return "Importer_serialize";
+  case 958: return "Importer_deserialize";
+  case 959: return "new_Importer";
+  case 960: return "delete_Importer";
+  case 961: return "Callback_type_name";
+  case 962: return "new_Callback";
+  case 963: return "delete_Callback";
+  case 964: return "Callback_construct";
+  case 965: return "Callback_init";
+  case 966: return "Callback_finalize";
+  case 967: return "Callback_eval";
+  case 968: return "Callback_eval_buffer";
+  case 969: return "Callback_has_eval_buffer";
+  case 970: return "Callback_get_n_in";
+  case 971: return "Callback_get_n_out";
+  case 972: return "Callback_get_sparsity_in";
+  case 973: return "Callback_get_sparsity_out";
+  case 974: return "Callback_get_name_in";
+  case 975: return "Callback_get_name_out";
+  case 976: return "Callback_uses_output";
+  case 977: return "Callback_get_factory";
+  case 978: return "Callback_has_jacobian";
+  case 979: return "Callback_get_jacobian";
+  case 980: return "Callback_has_forward";
+  case 981: return "Callback_get_forward";
+  case 982: return "Callback_has_reverse";
+  case 983: return "Callback_get_reverse";
+  case 984: return "Callback_has_jac_sparsity";
+  case 985: return "Callback_get_jac_sparsity";
+  case 986: return "GlobalOptions_setSimplificationOnTheFly";
+  case 987: return "GlobalOptions_getSimplificationOnTheFly";
+  case 988: return "GlobalOptions_setHierarchicalSparsity";
+  case 989: return "GlobalOptions_getHierarchicalSparsity";
+  case 990: return "GlobalOptions_setCasadiPath";
+  case 991: return "GlobalOptions_getCasadiPath";
+  case 992: return "GlobalOptions_setCasadiIncludePath";
+  case 993: return "GlobalOptions_getCasadiIncludePath";
+  case 994: return "GlobalOptions_setMaxNumDir";
+  case 995: return "GlobalOptions_getMaxNumDir";
+  case 996: return "GlobalOptions_setCopyElisionMinSize";
+  case 997: return "GlobalOptions_getCopyElisionMinSize";
+  case 998: return "new_GlobalOptions";
+  case 999: return "delete_GlobalOptions";
+  case 1000: return "CasadiMeta_version";
+  case 1001: return "CasadiMeta_git_revision";
+  case 1002: return "CasadiMeta_git_describe";
+  case 1003: return "CasadiMeta_feature_list";
+  case 1004: return "CasadiMeta_build_type";
+  case 1005: return "CasadiMeta_compiler_id";
+  case 1006: return "CasadiMeta_compiler";
+  case 1007: return "CasadiMeta_compiler_flags";
+  case 1008: return "CasadiMeta_modules";
+  case 1009: return "CasadiMeta_plugins";
+  case 1010: return "CasadiMeta_install_prefix";
+  case 1011: return "CasadiMeta_shared_library_prefix";
+  case 1012: return "CasadiMeta_shared_library_suffix";
+  case 1013: return "CasadiMeta_object_file_suffix";
+  case 1014: return "new_CasadiMeta";
+  case 1015: return "delete_CasadiMeta";
+  case 1016: return "_wrap_collocation_points";
+  case 1017: return "_wrap_collocation_interpolators";
+  case 1018: return "_wrap_collocation_coeff";
+  case 1019: return "_wrap_simpleRK";
+  case 1020: return "_wrap_simpleIRK";
+  case 1021: return "_wrap_simpleIntegrator";
+  case 1022: return "_wrap_dae_reduce_index";
+  case 1023: return "_wrap_dae_map_semi_expl";
+  case 1024: return "_wrap_dae_init_gen";
+  case 1025: return "_wrap_detect_simple_bounds";
+  case 1026: return "_wrap_external_transform";
+  case 1027: return "NlpBuilder_x_get";
+  case 1028: return "NlpBuilder_f_get";
+  case 1029: return "NlpBuilder_g_get";
+  case 1030: return "NlpBuilder_x_lb_get";
+  case 1031: return "NlpBuilder_x_ub_get";
+  case 1032: return "NlpBuilder_g_lb_get";
+  case 1033: return "NlpBuilder_g_ub_get";
+  case 1034: return "NlpBuilder_x_init_get";
+  case 1035: return "NlpBuilder_lambda_init_get";
+  case 1036: return "NlpBuilder_discrete_get";
+  case 1037: return "NlpBuilder_import_nl";
+  case 1038: return "NlpBuilder_type_name";
+  case 1039: return "NlpBuilder_disp";
+  case 1040: return "NlpBuilder_str";
+  case 1041: return "new_NlpBuilder";
+  case 1042: return "delete_NlpBuilder";
+  case 1043: return "DaeBuilder_type_name";
+  case 1044: return "DaeBuilder_name";
+  case 1045: return "DaeBuilder_time";
+  case 1046: return "DaeBuilder_t_new";
+  case 1047: return "DaeBuilder_x";
+  case 1048: return "DaeBuilder_y";
+  case 1049: return "DaeBuilder_ode";
+  case 1050: return "DaeBuilder_z";
+  case 1051: return "DaeBuilder_alg";
+  case 1052: return "DaeBuilder_q";
+  case 1053: return "DaeBuilder_quad";
+  case 1054: return "DaeBuilder_zero";
+  case 1055: return "DaeBuilder_ydef";
+  case 1056: return "DaeBuilder_set_y";
+  case 1057: return "DaeBuilder_rate";
+  case 1058: return "DaeBuilder_set_rate";
+  case 1059: return "DaeBuilder_u";
+  case 1060: return "DaeBuilder_p";
+  case 1061: return "DaeBuilder_c";
+  case 1062: return "DaeBuilder_cdef";
+  case 1063: return "DaeBuilder_d";
+  case 1064: return "DaeBuilder_ddef";
+  case 1065: return "DaeBuilder_w";
+  case 1066: return "DaeBuilder_wdef";
+  case 1067: return "DaeBuilder_init_lhs";
+  case 1068: return "DaeBuilder_init_rhs";
+  case 1069: return "DaeBuilder_outputs";
+  case 1070: return "DaeBuilder_derivatives";
+  case 1071: return "DaeBuilder_initial_unknowns";
+  case 1072: return "DaeBuilder_has_t";
+  case 1073: return "DaeBuilder_has_rate";
+  case 1074: return "DaeBuilder_nx";
+  case 1075: return "DaeBuilder_nz";
+  case 1076: return "DaeBuilder_nq";
+  case 1077: return "DaeBuilder_nzero";
+  case 1078: return "DaeBuilder_ny";
+  case 1079: return "DaeBuilder_nu";
+  case 1080: return "DaeBuilder_np";
+  case 1081: return "DaeBuilder_nc";
+  case 1082: return "DaeBuilder_nd";
+  case 1083: return "DaeBuilder_nw";
+  case 1084: return "DaeBuilder_add";
+  case 1085: return "DaeBuilder_t";
+  case 1086: return "DaeBuilder_add_t";
+  case 1087: return "DaeBuilder_add_p";
+  case 1088: return "DaeBuilder_add_u";
+  case 1089: return "DaeBuilder_add_x";
+  case 1090: return "DaeBuilder_add_z";
+  case 1091: return "DaeBuilder_add_q";
+  case 1092: return "DaeBuilder_add_c";
+  case 1093: return "DaeBuilder_add_d";
+  case 1094: return "DaeBuilder_add_w";
+  case 1095: return "DaeBuilder_add_y";
+  case 1096: return "DaeBuilder_set_beq";
+  case 1097: return "DaeBuilder_eq";
+  case 1098: return "DaeBuilder_when";
+  case 1099: return "DaeBuilder_assign";
+  case 1100: return "DaeBuilder_reinit";
+  case 1101: return "DaeBuilder_set_init";
+  case 1102: return "DaeBuilder_set_ode";
+  case 1103: return "DaeBuilder_set_alg";
+  case 1104: return "DaeBuilder_add_init";
+  case 1105: return "DaeBuilder_ne";
+  case 1106: return "DaeBuilder_e";
+  case 1107: return "DaeBuilder_sanity_check";
+  case 1108: return "DaeBuilder_reorder";
+  case 1109: return "DaeBuilder_clear_all";
+  case 1110: return "DaeBuilder_set_all";
+  case 1111: return "DaeBuilder_register_t";
+  case 1112: return "DaeBuilder_register_p";
+  case 1113: return "DaeBuilder_register_u";
+  case 1114: return "DaeBuilder_register_x";
+  case 1115: return "DaeBuilder_register_z";
+  case 1116: return "DaeBuilder_register_q";
+  case 1117: return "DaeBuilder_register_c";
+  case 1118: return "DaeBuilder_register_d";
+  case 1119: return "DaeBuilder_register_w";
+  case 1120: return "DaeBuilder_register_y";
+  case 1121: return "DaeBuilder_register_e";
+  case 1122: return "DaeBuilder_eliminate_d";
+  case 1123: return "DaeBuilder_eliminate_w";
+  case 1124: return "DaeBuilder_eliminate_quad";
+  case 1125: return "DaeBuilder_sort_d";
+  case 1126: return "DaeBuilder_sort_w";
+  case 1127: return "DaeBuilder_sort_z";
+  case 1128: return "DaeBuilder_eliminate";
+  case 1129: return "DaeBuilder_sort";
+  case 1130: return "DaeBuilder_lift";
+  case 1131: return "DaeBuilder_prune";
+  case 1132: return "DaeBuilder_tear";
+  case 1133: return "DaeBuilder_add_fun";
+  case 1134: return "DaeBuilder_has_fun";
+  case 1135: return "DaeBuilder_fun";
+  case 1136: return "DaeBuilder_gather_fun";
+  case 1137: return "DaeBuilder_parse_fmi";
+  case 1138: return "DaeBuilder_provides_directional_derivatives";
+  case 1139: return "DaeBuilder_provides_directional_derivative";
+  case 1140: return "DaeBuilder_load_fmi_description";
+  case 1141: return "DaeBuilder_export_fmu";
+  case 1142: return "DaeBuilder_add_lc";
+  case 1143: return "DaeBuilder_create";
+  case 1144: return "DaeBuilder_dependent_fun";
+  case 1145: return "DaeBuilder_transition";
+  case 1146: return "DaeBuilder_var";
+  case 1147: return "DaeBuilder_paren";
+  case 1148: return "DaeBuilder_der";
+  case 1149: return "DaeBuilder_pre";
+  case 1150: return "DaeBuilder_has_beq";
+  case 1151: return "DaeBuilder_beq";
+  case 1152: return "DaeBuilder_value_reference";
+  case 1153: return "DaeBuilder_set_value_reference";
+  case 1154: return "DaeBuilder_description";
+  case 1155: return "DaeBuilder_set_description";
+  case 1156: return "DaeBuilder_type";
+  case 1157: return "DaeBuilder_set_type";
+  case 1158: return "DaeBuilder_causality";
+  case 1159: return "DaeBuilder_set_causality";
+  case 1160: return "DaeBuilder_variability";
+  case 1161: return "DaeBuilder_set_variability";
+  case 1162: return "DaeBuilder_category";
+  case 1163: return "DaeBuilder_set_category";
+  case 1164: return "DaeBuilder_initial";
+  case 1165: return "DaeBuilder_set_initial";
+  case 1166: return "DaeBuilder_unit";
+  case 1167: return "DaeBuilder_set_unit";
+  case 1168: return "DaeBuilder_display_unit";
+  case 1169: return "DaeBuilder_set_display_unit";
+  case 1170: return "DaeBuilder_numel";
+  case 1171: return "DaeBuilder_dimension";
+  case 1172: return "DaeBuilder_start_time";
+  case 1173: return "DaeBuilder_set_start_time";
+  case 1174: return "DaeBuilder_stop_time";
+  case 1175: return "DaeBuilder_set_stop_time";
+  case 1176: return "DaeBuilder_tolerance";
+  case 1177: return "DaeBuilder_set_tolerance";
+  case 1178: return "DaeBuilder_step_size";
+  case 1179: return "DaeBuilder_set_step_size";
+  case 1180: return "DaeBuilder_attribute";
+  case 1181: return "DaeBuilder_set_attribute";
+  case 1182: return "DaeBuilder_min";
+  case 1183: return "DaeBuilder_set_min";
+  case 1184: return "DaeBuilder_max";
+  case 1185: return "DaeBuilder_set_max";
+  case 1186: return "DaeBuilder_nominal";
+  case 1187: return "DaeBuilder_set_nominal";
+  case 1188: return "DaeBuilder_start";
+  case 1189: return "DaeBuilder_set_start";
+  case 1190: return "DaeBuilder_set";
+  case 1191: return "DaeBuilder_get";
+  case 1192: return "DaeBuilder_has";
+  case 1193: return "DaeBuilder_all";
+  case 1194: return "DaeBuilder_add_variable";
+  case 1195: return "DaeBuilder_add_variable_new";
+  case 1196: return "DaeBuilder_has_variable";
+  case 1197: return "DaeBuilder_all_variables";
+  case 1198: return "DaeBuilder_oracle";
+  case 1199: return "DaeBuilder_jac_sparsity";
+  case 1200: return "new_DaeBuilder";
+  case 1201: return "delete_DaeBuilder";
+  case 1202: return "XmlFile_type_name";
+  case 1203: return "delete_XmlFile";
+  case 1204: return "XmlFile_load_plugin";
+  case 1205: return "XmlFile_doc";
+  case 1206: return "new_XmlFile";
+  case 1207: return "_wrap_has_archiver";
+  case 1208: return "_wrap_load_archiver";
+  case 1209: return "_wrap_doc_archiver";
+  case 1210: return "_wrap_has_filesystem";
+  case 1211: return "_wrap_load_filesystem";
+  case 1212: return "_wrap_doc_filesystem";
+  case 1213: return "Options_all";
+  case 1214: return "Options_type";
+  case 1215: return "Options_info";
+  case 1216: return "Options_word_distance";
+  case 1217: return "Options_suggestions";
+  case 1218: return "Options_best_matches";
+  case 1219: return "Options_has_dot";
+  case 1220: return "Options_has_null";
+  case 1221: return "Options_is_sane";
+  case 1222: return "Options_sanitize";
+  case 1223: return "Options_check";
+  case 1224: return "Options_print_all";
+  case 1225: return "Options_print_one";
+  case 1226: return "new_Options";
+  case 1227: return "delete_Options";
+  case 1228: return "delete_SerializerBase";
+  case 1229: return "SerializerBase_pack";
+  case 1230: return "SerializerBase_type_to_string";
+  case 1231: return "SerializerBase_connect";
+  case 1232: return "SerializerBase_reset";
+  case 1233: return "delete_DeserializerBase";
+  case 1234: return "DeserializerBase_internal_pop_type";
+  case 1235: return "DeserializerBase_blind_unpack_sparsity";
+  case 1236: return "DeserializerBase_blind_unpack_mx";
+  case 1237: return "DeserializerBase_blind_unpack_mx_v1";
+  case 1238: return "DeserializerBase_blind_unpack_dm";
+  case 1239: return "DeserializerBase_blind_unpack_sx";
+  case 1240: return "DeserializerBase_blind_unpack_sx_v1";
+  case 1241: return "DeserializerBase_blind_unpack_linsol";
+  case 1242: return "DeserializerBase_blind_unpack_function";
+  case 1243: return "DeserializerBase_blind_unpack_generictype";
+  case 1244: return "DeserializerBase_blind_unpack_int";
+  case 1245: return "DeserializerBase_blind_unpack_double";
+  case 1246: return "DeserializerBase_blind_unpack_string";
+  case 1247: return "DeserializerBase_blind_unpack_sparsity_vector";
+  case 1248: return "DeserializerBase_blind_unpack_mx_vector";
+  case 1249: return "DeserializerBase_blind_unpack_mx_vector_v1";
+  case 1250: return "DeserializerBase_blind_unpack_dm_vector";
+  case 1251: return "DeserializerBase_blind_unpack_sx_vector";
+  case 1252: return "DeserializerBase_blind_unpack_sx_vector_v1";
+  case 1253: return "DeserializerBase_blind_unpack_linsol_vector";
+  case 1254: return "DeserializerBase_blind_unpack_function_vector";
+  case 1255: return "DeserializerBase_blind_unpack_generictype_vector";
+  case 1256: return "DeserializerBase_blind_unpack_int_vector";
+  case 1257: return "DeserializerBase_blind_unpack_double_vector";
+  case 1258: return "DeserializerBase_blind_unpack_string_vector";
+  case 1259: return "DeserializerBase_unpack_sparsity";
+  case 1260: return "DeserializerBase_unpack_mx";
+  case 1261: return "DeserializerBase_unpack_dm";
+  case 1262: return "DeserializerBase_unpack_sx";
+  case 1263: return "DeserializerBase_unpack_linsol";
+  case 1264: return "DeserializerBase_unpack_function";
+  case 1265: return "DeserializerBase_unpack_generictype";
+  case 1266: return "DeserializerBase_unpack_int";
+  case 1267: return "DeserializerBase_unpack_double";
+  case 1268: return "DeserializerBase_unpack_string";
+  case 1269: return "DeserializerBase_unpack_sparsity_vector";
+  case 1270: return "DeserializerBase_unpack_mx_vector";
+  case 1271: return "DeserializerBase_unpack_dm_vector";
+  case 1272: return "DeserializerBase_unpack_sx_vector";
+  case 1273: return "DeserializerBase_unpack_linsol_vector";
+  case 1274: return "DeserializerBase_unpack_function_vector";
+  case 1275: return "DeserializerBase_unpack_generictype_vector";
+  case 1276: return "DeserializerBase_unpack_int_vector";
+  case 1277: return "DeserializerBase_unpack_double_vector";
+  case 1278: return "DeserializerBase_unpack_string_vector";
+  case 1279: return "DeserializerBase_connect";
+  case 1280: return "DeserializerBase_reset";
+  case 1281: return "new_StringSerializer";
+  case 1282: return "delete_StringSerializer";
+  case 1283: return "StringSerializer_encode";
+  case 1284: return "new_FileSerializer";
+  case 1285: return "delete_FileSerializer";
+  case 1286: return "new_StringDeserializer";
+  case 1287: return "delete_StringDeserializer";
+  case 1288: return "StringDeserializer_decode";
+  case 1289: return "new_FileDeserializer";
+  case 1290: return "delete_FileDeserializer";
+  case 1291: return "Opti_internal_variable";
+  case 1292: return "Opti_internal_parameter";
+  case 1293: return "Opti_minimize";
+  case 1294: return "Opti_internal_subject_to";
+  case 1295: return "Opti_solver";
+  case 1296: return "Opti_set_initial";
+  case 1297: return "Opti_set_value";
+  case 1298: return "Opti_set_domain";
+  case 1299: return "Opti_set_linear_scale";
+  case 1300: return "Opti_solve";
+  case 1301: return "Opti_solve_limited";
+  case 1302: return "Opti_value";
+  case 1303: return "Opti_stats";
+  case 1304: return "Opti_return_status";
+  case 1305: return "Opti_initial";
+  case 1306: return "Opti_value_variables";
+  case 1307: return "Opti_value_parameters";
+  case 1308: return "Opti_scale_helper";
+  case 1309: return "Opti_dual";
+  case 1310: return "Opti_nx";
+  case 1311: return "Opti_np";
+  case 1312: return "Opti_ng";
+  case 1313: return "Opti_x";
+  case 1314: return "Opti_p";
+  case 1315: return "Opti_g";
+  case 1316: return "Opti_f";
+  case 1317: return "Opti_lbg";
+  case 1318: return "Opti_ubg";
+  case 1319: return "Opti_x_linear_scale";
+  case 1320: return "Opti_x_linear_scale_offset";
+  case 1321: return "Opti_g_linear_scale";
+  case 1322: return "Opti_f_linear_scale";
+  case 1323: return "Opti_lam_g";
+  case 1324: return "Opti_to_function";
+  case 1325: return "Opti_debug";
+  case 1326: return "Opti_advanced";
+  case 1327: return "Opti_copy";
+  case 1328: return "Opti_update_user_dict";
+  case 1329: return "Opti_user_dict";
+  case 1330: return "Opti_type_name";
+  case 1331: return "Opti_disp";
+  case 1332: return "Opti_str";
+  case 1333: return "Opti_callback_class";
+  case 1334: return "new_Opti";
+  case 1335: return "delete_Opti";
+  case 1336: return "IndexAbstraction_start_get";
+  case 1337: return "IndexAbstraction_stop_get";
+  case 1338: return "new_IndexAbstraction";
+  case 1339: return "delete_IndexAbstraction";
+  case 1340: return "MetaCon_original_get";
+  case 1341: return "MetaCon_canon_get";
+  case 1342: return "MetaCon_type_get";
+  case 1343: return "MetaCon_lb_get";
+  case 1344: return "MetaCon_ub_get";
+  case 1345: return "MetaCon_n_get";
+  case 1346: return "MetaCon_flipped_get";
+  case 1347: return "MetaCon_dual_canon_get";
+  case 1348: return "MetaCon_dual_get";
+  case 1349: return "MetaCon_extra_get";
+  case 1350: return "MetaCon_linear_scale_get";
+  case 1351: return "new_MetaCon";
+  case 1352: return "delete_MetaCon";
+  case 1353: return "MetaVar_attribute_get";
+  case 1354: return "MetaVar_n_get";
+  case 1355: return "MetaVar_m_get";
+  case 1356: return "MetaVar_type_get";
+  case 1357: return "MetaVar_domain_get";
+  case 1358: return "MetaVar_count_get";
+  case 1359: return "MetaVar_i_get";
+  case 1360: return "MetaVar_active_i_get";
+  case 1361: return "MetaVar_extra_get";
+  case 1362: return "new_MetaVar";
+  case 1363: return "delete_MetaVar";
+  case 1364: return "new_OptiCallback";
+  case 1365: return "OptiCallback_call";
+  case 1366: return "delete_OptiCallback";
+  case 1367: return "delete_OptiAdvanced";
+  case 1368: return "OptiAdvanced_solver";
+  case 1369: return "OptiAdvanced_is_parametric";
+  case 1370: return "OptiAdvanced_symvar";
+  case 1371: return "OptiAdvanced_canon_expr";
+  case 1372: return "OptiAdvanced_get_meta";
+  case 1373: return "OptiAdvanced_get_meta_con";
+  case 1374: return "OptiAdvanced_set_meta";
+  case 1375: return "OptiAdvanced_set_meta_con";
+  case 1376: return "OptiAdvanced_assert_active_symbol";
+  case 1377: return "OptiAdvanced_active_symvar";
+  case 1378: return "OptiAdvanced_active_values";
+  case 1379: return "OptiAdvanced_x_lookup";
+  case 1380: return "OptiAdvanced_g_lookup";
+  case 1381: return "OptiAdvanced_g_index_reduce_g";
+  case 1382: return "OptiAdvanced_g_index_reduce_x";
+  case 1383: return "OptiAdvanced_g_index_unreduce_g";
+  case 1384: return "OptiAdvanced_x_describe";
+  case 1385: return "OptiAdvanced_g_describe";
+  case 1386: return "OptiAdvanced_describe";
+  case 1387: return "OptiAdvanced_show_infeasibilities";
+  case 1388: return "OptiAdvanced_solve_prepare";
+  case 1389: return "OptiAdvanced_solve_actual";
+  case 1390: return "OptiAdvanced_arg";
+  case 1391: return "OptiAdvanced_res";
+  case 1392: return "OptiAdvanced_constraints";
+  case 1393: return "OptiAdvanced_objective";
+  case 1394: return "OptiAdvanced_baked_copy";
+  case 1395: return "OptiAdvanced_assert_empty";
+  case 1396: return "OptiAdvanced_bake";
+  case 1397: return "OptiAdvanced_problem_dirty__get";
+  case 1398: return "OptiAdvanced_mark_problem_dirty";
+  case 1399: return "OptiAdvanced_problem_dirty";
+  case 1400: return "OptiAdvanced_solver_dirty__get";
+  case 1401: return "OptiAdvanced_mark_solver_dirty";
+  case 1402: return "OptiAdvanced_solver_dirty";
+  case 1403: return "OptiAdvanced_solved__get";
+  case 1404: return "OptiAdvanced_mark_solved";
+  case 1405: return "OptiAdvanced_solved";
+  case 1406: return "OptiAdvanced_assert_solved";
+  case 1407: return "OptiAdvanced_assert_baked";
+  case 1408: return "OptiAdvanced_instance_number";
+  case 1409: return "new_OptiAdvanced";
+  case 1410: return "OptiSol_type_name";
+  case 1411: return "OptiSol_disp";
+  case 1412: return "OptiSol_str";
+  case 1413: return "OptiSol_value";
+  case 1414: return "OptiSol_value_variables";
+  case 1415: return "OptiSol_value_parameters";
+  case 1416: return "OptiSol_stats";
+  case 1417: return "OptiSol_opti";
+  case 1418: return "new_OptiSol";
+  case 1419: return "delete_OptiSol";
+  case 1420: return "Resource_type_name";
+  case 1421: return "Resource_test_cast";
+  case 1422: return "Resource_path";
+  case 1423: return "Resource_serialize";
+  case 1424: return "Resource_change_option";
+  case 1425: return "Resource_deserialize";
+  case 1426: return "new_Resource";
+  case 1427: return "delete_Resource";
   default: return 0;
   }
 }
@@ -133348,1337 +136593,1388 @@ void mexFunction(int resc, mxArray *resv[], int argc, const mxArray *argv[]) {
   case 43: flag=_wrap_lookupvector(resc,resv,argc,(mxArray**)(argv)); break;
   case 44: flag=_wrap_temporary_file(resc,resv,argc,(mxArray**)(argv)); break;
   case 45: flag=_wrap_normalized_setup(resc,resv,argc,(mxArray**)(argv)); break;
-  case 46: flag=_wrap_normalized_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 47: flag=_wrap_normalized_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 48: flag=_wrap_GenericType_serialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 49: flag=_wrap_GenericType_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 50: flag=_wrap_new_GenericType(resc,resv,argc,(mxArray**)(argv)); break;
-  case 51: flag=_wrap_delete_GenericType(resc,resv,argc,(mxArray**)(argv)); break;
-  case 52: flag=_wrap_SparsityInterfaceCommon_horzcat(resc,resv,argc,(mxArray**)(argv)); break;
-  case 53: flag=_wrap_SparsityInterfaceCommon_vertcat(resc,resv,argc,(mxArray**)(argv)); break;
-  case 54: flag=_wrap_SparsityInterfaceCommon_horzsplit(resc,resv,argc,(mxArray**)(argv)); break;
-  case 55: flag=_wrap_SparsityInterfaceCommon_horzsplit_n(resc,resv,argc,(mxArray**)(argv)); break;
-  case 56: flag=_wrap_SparsityInterfaceCommon_offset(resc,resv,argc,(mxArray**)(argv)); break;
-  case 57: flag=_wrap_SparsityInterfaceCommon_vertsplit(resc,resv,argc,(mxArray**)(argv)); break;
-  case 58: flag=_wrap_SparsityInterfaceCommon_vertsplit_n(resc,resv,argc,(mxArray**)(argv)); break;
-  case 59: flag=_wrap_SparsityInterfaceCommon_blockcat(resc,resv,argc,(mxArray**)(argv)); break;
-  case 60: flag=_wrap_SparsityInterfaceCommon_blocksplit(resc,resv,argc,(mxArray**)(argv)); break;
-  case 61: flag=_wrap_SparsityInterfaceCommon_diagcat(resc,resv,argc,(mxArray**)(argv)); break;
-  case 62: flag=_wrap_SparsityInterfaceCommon_diagsplit(resc,resv,argc,(mxArray**)(argv)); break;
-  case 63: flag=_wrap_SparsityInterfaceCommon_veccat(resc,resv,argc,(mxArray**)(argv)); break;
-  case 64: flag=_wrap_SparsityInterfaceCommon_mtimes(resc,resv,argc,(mxArray**)(argv)); break;
-  case 65: flag=_wrap_SparsityInterfaceCommon_mac(resc,resv,argc,(mxArray**)(argv)); break;
-  case 66: flag=_wrap_SparsityInterfaceCommon_transpose(resc,resv,argc,(mxArray**)(argv)); break;
-  case 67: flag=_wrap_SparsityInterfaceCommon_vec(resc,resv,argc,(mxArray**)(argv)); break;
-  case 68: flag=_wrap_SparsityInterfaceCommon_reshape(resc,resv,argc,(mxArray**)(argv)); break;
-  case 69: flag=_wrap_SparsityInterfaceCommon_sparsity_cast(resc,resv,argc,(mxArray**)(argv)); break;
-  case 70: flag=_wrap_SparsityInterfaceCommon_sprank(resc,resv,argc,(mxArray**)(argv)); break;
-  case 71: flag=_wrap_SparsityInterfaceCommon_norm_0_mul(resc,resv,argc,(mxArray**)(argv)); break;
-  case 72: flag=_wrap_SparsityInterfaceCommon_triu(resc,resv,argc,(mxArray**)(argv)); break;
-  case 73: flag=_wrap_SparsityInterfaceCommon_tril(resc,resv,argc,(mxArray**)(argv)); break;
-  case 74: flag=_wrap_SparsityInterfaceCommon_kron(resc,resv,argc,(mxArray**)(argv)); break;
-  case 75: flag=_wrap_SparsityInterfaceCommon_repmat(resc,resv,argc,(mxArray**)(argv)); break;
-  case 76: flag=_wrap_SparsityInterfaceCommon_sum2(resc,resv,argc,(mxArray**)(argv)); break;
-  case 77: flag=_wrap_SparsityInterfaceCommon_sum1(resc,resv,argc,(mxArray**)(argv)); break;
-  case 78: flag=_wrap_SparsityInterfaceCommon_length(resc,resv,argc,(mxArray**)(argv)); break;
-  case 79: flag=_wrap_SparsityInterfaceCommon_sum(resc,resv,argc,(mxArray**)(argv)); break;
-  case 80: flag=_wrap_new_SparsityInterfaceCommon(resc,resv,argc,(mxArray**)(argv)); break;
-  case 81: flag=_wrap_delete_SparsityInterfaceCommon(resc,resv,argc,(mxArray**)(argv)); break;
-  case 82: flag=_wrap_Sparsity_scalar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 83: flag=_wrap_Sparsity_dense(resc,resv,argc,(mxArray**)(argv)); break;
-  case 84: flag=_wrap_Sparsity_unit(resc,resv,argc,(mxArray**)(argv)); break;
-  case 85: flag=_wrap_Sparsity_upper(resc,resv,argc,(mxArray**)(argv)); break;
-  case 86: flag=_wrap_Sparsity_lower(resc,resv,argc,(mxArray**)(argv)); break;
-  case 87: flag=_wrap_Sparsity_diag(resc,resv,argc,(mxArray**)(argv)); break;
-  case 88: flag=_wrap_Sparsity_band(resc,resv,argc,(mxArray**)(argv)); break;
-  case 89: flag=_wrap_Sparsity_banded(resc,resv,argc,(mxArray**)(argv)); break;
-  case 90: flag=_wrap_Sparsity_rowcol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 91: flag=_wrap_Sparsity_triplet(resc,resv,argc,(mxArray**)(argv)); break;
-  case 92: flag=_wrap_Sparsity_nonzeros(resc,resv,argc,(mxArray**)(argv)); break;
-  case 93: flag=_wrap_Sparsity_compressed(resc,resv,argc,(mxArray**)(argv)); break;
-  case 94: flag=_wrap_Sparsity_permutation(resc,resv,argc,(mxArray**)(argv)); break;
-  case 95: flag=_wrap_Sparsity_permutation_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 96: flag=_wrap_Sparsity_get_diag(resc,resv,argc,(mxArray**)(argv)); break;
-  case 97: flag=_wrap_Sparsity_compress(resc,resv,argc,(mxArray**)(argv)); break;
-  case 98: flag=_wrap_Sparsity_is_equal(resc,resv,argc,(mxArray**)(argv)); break;
-  case 99: flag=_wrap_Sparsity_eq(resc,resv,argc,(mxArray**)(argv)); break;
-  case 100: flag=_wrap_Sparsity_ne(resc,resv,argc,(mxArray**)(argv)); break;
-  case 101: flag=_wrap_Sparsity_is_stacked(resc,resv,argc,(mxArray**)(argv)); break;
-  case 102: flag=_wrap_Sparsity_size1(resc,resv,argc,(mxArray**)(argv)); break;
-  case 103: flag=_wrap_Sparsity_rows(resc,resv,argc,(mxArray**)(argv)); break;
-  case 104: flag=_wrap_Sparsity_size2(resc,resv,argc,(mxArray**)(argv)); break;
-  case 105: flag=_wrap_Sparsity_columns(resc,resv,argc,(mxArray**)(argv)); break;
-  case 106: flag=_wrap_Sparsity_numel(resc,resv,argc,(mxArray**)(argv)); break;
-  case 107: flag=_wrap_Sparsity_density(resc,resv,argc,(mxArray**)(argv)); break;
-  case 108: flag=_wrap_Sparsity_is_empty(resc,resv,argc,(mxArray**)(argv)); break;
-  case 109: flag=_wrap_Sparsity_nnz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 110: flag=_wrap_Sparsity_nnz_upper(resc,resv,argc,(mxArray**)(argv)); break;
-  case 111: flag=_wrap_Sparsity_nnz_lower(resc,resv,argc,(mxArray**)(argv)); break;
-  case 112: flag=_wrap_Sparsity_nnz_diag(resc,resv,argc,(mxArray**)(argv)); break;
-  case 113: flag=_wrap_Sparsity_bw_upper(resc,resv,argc,(mxArray**)(argv)); break;
-  case 114: flag=_wrap_Sparsity_bw_lower(resc,resv,argc,(mxArray**)(argv)); break;
-  case 115: flag=_wrap_Sparsity_size(resc,resv,argc,(mxArray**)(argv)); break;
-  case 116: flag=_wrap_Sparsity_info(resc,resv,argc,(mxArray**)(argv)); break;
-  case 117: flag=_wrap_Sparsity_to_file(resc,resv,argc,(mxArray**)(argv)); break;
-  case 118: flag=_wrap_Sparsity_from_file(resc,resv,argc,(mxArray**)(argv)); break;
-  case 119: flag=_wrap_Sparsity_serialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 120: flag=_wrap_Sparsity_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 121: flag=_wrap_Sparsity_colind(resc,resv,argc,(mxArray**)(argv)); break;
-  case 122: flag=_wrap_Sparsity_row(resc,resv,argc,(mxArray**)(argv)); break;
-  case 123: flag=_wrap_Sparsity_get_col(resc,resv,argc,(mxArray**)(argv)); break;
-  case 124: flag=_wrap_Sparsity_resize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 125: flag=_wrap_Sparsity_add_nz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 126: flag=_wrap_Sparsity_has_nz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 127: flag=_wrap_Sparsity_get_nz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 128: flag=_wrap_Sparsity_get_lower(resc,resv,argc,(mxArray**)(argv)); break;
-  case 129: flag=_wrap_Sparsity_get_upper(resc,resv,argc,(mxArray**)(argv)); break;
-  case 130: flag=_wrap_Sparsity_get_ccs(resc,resv,argc,(mxArray**)(argv)); break;
-  case 131: flag=_wrap_Sparsity_get_crs(resc,resv,argc,(mxArray**)(argv)); break;
-  case 132: flag=_wrap_Sparsity_get_triplet(resc,resv,argc,(mxArray**)(argv)); break;
-  case 133: flag=_wrap_Sparsity_sub(resc,resv,argc,(mxArray**)(argv)); break;
-  case 134: flag=_wrap_Sparsity_T(resc,resv,argc,(mxArray**)(argv)); break;
-  case 135: flag=_wrap_Sparsity_transpose(resc,resv,argc,(mxArray**)(argv)); break;
-  case 136: flag=_wrap_Sparsity_is_transpose(resc,resv,argc,(mxArray**)(argv)); break;
-  case 137: flag=_wrap_Sparsity_is_reshape(resc,resv,argc,(mxArray**)(argv)); break;
-  case 138: flag=_wrap_Sparsity_combine(resc,resv,argc,(mxArray**)(argv)); break;
-  case 139: flag=_wrap_Sparsity_unite(resc,resv,argc,(mxArray**)(argv)); break;
-  case 140: flag=_wrap_Sparsity_plus(resc,resv,argc,(mxArray**)(argv)); break;
-  case 141: flag=_wrap_Sparsity_intersect(resc,resv,argc,(mxArray**)(argv)); break;
-  case 142: flag=_wrap_Sparsity_mtimes(resc,resv,argc,(mxArray**)(argv)); break;
-  case 143: flag=_wrap_Sparsity_is_subset(resc,resv,argc,(mxArray**)(argv)); break;
-  case 144: flag=_wrap_Sparsity_sparsity_cast_mod(resc,resv,argc,(mxArray**)(argv)); break;
-  case 145: flag=_wrap_Sparsity_pattern_inverse(resc,resv,argc,(mxArray**)(argv)); break;
-  case 146: flag=_wrap_Sparsity_enlarge(resc,resv,argc,(mxArray**)(argv)); break;
-  case 147: flag=_wrap_Sparsity_enlargeRows(resc,resv,argc,(mxArray**)(argv)); break;
-  case 148: flag=_wrap_Sparsity_enlargeColumns(resc,resv,argc,(mxArray**)(argv)); break;
-  case 149: flag=_wrap_Sparsity_makeDense(resc,resv,argc,(mxArray**)(argv)); break;
-  case 150: flag=_wrap_Sparsity_erase(resc,resv,argc,(mxArray**)(argv)); break;
-  case 151: flag=_wrap_Sparsity_append(resc,resv,argc,(mxArray**)(argv)); break;
-  case 152: flag=_wrap_Sparsity_appendColumns(resc,resv,argc,(mxArray**)(argv)); break;
-  case 153: flag=_wrap_Sparsity_is_scalar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 154: flag=_wrap_Sparsity_is_dense(resc,resv,argc,(mxArray**)(argv)); break;
-  case 155: flag=_wrap_Sparsity_is_row(resc,resv,argc,(mxArray**)(argv)); break;
-  case 156: flag=_wrap_Sparsity_is_column(resc,resv,argc,(mxArray**)(argv)); break;
-  case 157: flag=_wrap_Sparsity_is_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 158: flag=_wrap_Sparsity_is_diag(resc,resv,argc,(mxArray**)(argv)); break;
-  case 159: flag=_wrap_Sparsity_is_square(resc,resv,argc,(mxArray**)(argv)); break;
-  case 160: flag=_wrap_Sparsity_is_symmetric(resc,resv,argc,(mxArray**)(argv)); break;
-  case 161: flag=_wrap_Sparsity_is_triu(resc,resv,argc,(mxArray**)(argv)); break;
-  case 162: flag=_wrap_Sparsity_is_tril(resc,resv,argc,(mxArray**)(argv)); break;
-  case 163: flag=_wrap_Sparsity_is_singular(resc,resv,argc,(mxArray**)(argv)); break;
-  case 164: flag=_wrap_Sparsity_is_permutation(resc,resv,argc,(mxArray**)(argv)); break;
-  case 165: flag=_wrap_Sparsity_is_selection(resc,resv,argc,(mxArray**)(argv)); break;
-  case 166: flag=_wrap_Sparsity_is_orthonormal(resc,resv,argc,(mxArray**)(argv)); break;
-  case 167: flag=_wrap_Sparsity_is_orthonormal_rows(resc,resv,argc,(mxArray**)(argv)); break;
-  case 168: flag=_wrap_Sparsity_is_orthonormal_columns(resc,resv,argc,(mxArray**)(argv)); break;
-  case 169: flag=_wrap_Sparsity_rowsSequential(resc,resv,argc,(mxArray**)(argv)); break;
-  case 170: flag=_wrap_Sparsity_removeDuplicates(resc,resv,argc,(mxArray**)(argv)); break;
-  case 171: flag=_wrap_Sparsity_etree(resc,resv,argc,(mxArray**)(argv)); break;
-  case 172: flag=_wrap_Sparsity_ldl(resc,resv,argc,(mxArray**)(argv)); break;
-  case 173: flag=_wrap_Sparsity_qr_sparse(resc,resv,argc,(mxArray**)(argv)); break;
-  case 174: flag=_wrap_Sparsity_dfs(resc,resv,argc,(mxArray**)(argv)); break;
-  case 175: flag=_wrap_Sparsity_scc(resc,resv,argc,(mxArray**)(argv)); break;
-  case 176: flag=_wrap_Sparsity_btf(resc,resv,argc,(mxArray**)(argv)); break;
-  case 177: flag=_wrap_Sparsity_amd(resc,resv,argc,(mxArray**)(argv)); break;
-  case 178: flag=_wrap_Sparsity_find(resc,resv,argc,(mxArray**)(argv)); break;
-  case 179: flag=_wrap_Sparsity_uni_coloring(resc,resv,argc,(mxArray**)(argv)); break;
-  case 180: flag=_wrap_Sparsity_star_coloring(resc,resv,argc,(mxArray**)(argv)); break;
-  case 181: flag=_wrap_Sparsity_star_coloring2(resc,resv,argc,(mxArray**)(argv)); break;
-  case 182: flag=_wrap_Sparsity_largest_first(resc,resv,argc,(mxArray**)(argv)); break;
-  case 183: flag=_wrap_Sparsity_pmult(resc,resv,argc,(mxArray**)(argv)); break;
-  case 184: flag=_wrap_Sparsity_dim(resc,resv,argc,(mxArray**)(argv)); break;
-  case 185: flag=_wrap_Sparsity_postfix_dim(resc,resv,argc,(mxArray**)(argv)); break;
-  case 186: flag=_wrap_Sparsity_repr_el(resc,resv,argc,(mxArray**)(argv)); break;
-  case 187: flag=_wrap_Sparsity_spy(resc,resv,argc,(mxArray**)(argv)); break;
-  case 188: flag=_wrap_Sparsity_spy_matlab(resc,resv,argc,(mxArray**)(argv)); break;
-  case 189: flag=_wrap_Sparsity_export_code(resc,resv,argc,(mxArray**)(argv)); break;
-  case 190: flag=_wrap_Sparsity_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 191: flag=_wrap_Sparsity_hash(resc,resv,argc,(mxArray**)(argv)); break;
-  case 192: flag=_wrap_Sparsity_test_cast(resc,resv,argc,(mxArray**)(argv)); break;
-  case 193: flag=_wrap_Sparsity_kkt(resc,resv,argc,(mxArray**)(argv)); break;
-  case 194: flag=_wrap_new_Sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 195: flag=_wrap_delete_Sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 196: flag=_wrap_hash_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 197: flag=_wrap_Slice_start_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 198: flag=_wrap_Slice_stop_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 199: flag=_wrap_Slice_step_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 200: flag=_wrap_Slice_all(resc,resv,argc,(mxArray**)(argv)); break;
-  case 201: flag=_wrap_Slice_size(resc,resv,argc,(mxArray**)(argv)); break;
-  case 202: flag=_wrap_Slice_is_empty(resc,resv,argc,(mxArray**)(argv)); break;
-  case 203: flag=_wrap_Slice_is_scalar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 204: flag=_wrap_Slice_scalar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 205: flag=_wrap_Slice_eq(resc,resv,argc,(mxArray**)(argv)); break;
-  case 206: flag=_wrap_Slice_ne(resc,resv,argc,(mxArray**)(argv)); break;
-  case 207: flag=_wrap_Slice_apply(resc,resv,argc,(mxArray**)(argv)); break;
-  case 208: flag=_wrap_Slice_minus(resc,resv,argc,(mxArray**)(argv)); break;
-  case 209: flag=_wrap_Slice_mtimes(resc,resv,argc,(mxArray**)(argv)); break;
-  case 210: flag=_wrap_Slice_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 211: flag=_wrap_Slice_disp(resc,resv,argc,(mxArray**)(argv)); break;
-  case 212: flag=_wrap_Slice_str(resc,resv,argc,(mxArray**)(argv)); break;
-  case 213: flag=_wrap_Slice_info(resc,resv,argc,(mxArray**)(argv)); break;
-  case 214: flag=_wrap_Slice_serialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 215: flag=_wrap_Slice_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 216: flag=_wrap_new_Slice(resc,resv,argc,(mxArray**)(argv)); break;
-  case 217: flag=_wrap_delete_Slice(resc,resv,argc,(mxArray**)(argv)); break;
-  case 218: flag=_wrap_to_slice(resc,resv,argc,(mxArray**)(argv)); break;
-  case 219: flag=_wrap_to_slice2(resc,resv,argc,(mxArray**)(argv)); break;
-  case 220: flag=_wrap_is_slice(resc,resv,argc,(mxArray**)(argv)); break;
-  case 221: flag=_wrap_is_slice2(resc,resv,argc,(mxArray**)(argv)); break;
-  case 222: flag=_wrap_GenericMatrixCommon_mpower(resc,resv,argc,(mxArray**)(argv)); break;
-  case 223: flag=_wrap_GenericMatrixCommon_mrdivide(resc,resv,argc,(mxArray**)(argv)); break;
-  case 224: flag=_wrap_GenericMatrixCommon_mldivide(resc,resv,argc,(mxArray**)(argv)); break;
-  case 225: flag=_wrap_GenericMatrixCommon_symvar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 226: flag=_wrap_GenericMatrixCommon_bilin(resc,resv,argc,(mxArray**)(argv)); break;
-  case 227: flag=_wrap_GenericMatrixCommon_rank1(resc,resv,argc,(mxArray**)(argv)); break;
-  case 228: flag=_wrap_GenericMatrixCommon_sumsqr(resc,resv,argc,(mxArray**)(argv)); break;
-  case 229: flag=_wrap_GenericMatrixCommon_linspace(resc,resv,argc,(mxArray**)(argv)); break;
-  case 230: flag=_wrap_GenericMatrixCommon_logsumexp(resc,resv,argc,(mxArray**)(argv)); break;
-  case 231: flag=_wrap_GenericMatrixCommon_interp1d(resc,resv,argc,(mxArray**)(argv)); break;
-  case 232: flag=_wrap_GenericMatrixCommon_soc(resc,resv,argc,(mxArray**)(argv)); break;
-  case 233: flag=_wrap_GenericMatrixCommon_cross(resc,resv,argc,(mxArray**)(argv)); break;
-  case 234: flag=_wrap_GenericMatrixCommon_skew(resc,resv,argc,(mxArray**)(argv)); break;
-  case 235: flag=_wrap_GenericMatrixCommon_inv_skew(resc,resv,argc,(mxArray**)(argv)); break;
-  case 236: flag=_wrap_GenericMatrixCommon_det(resc,resv,argc,(mxArray**)(argv)); break;
-  case 237: flag=_wrap_GenericMatrixCommon_inv_minor(resc,resv,argc,(mxArray**)(argv)); break;
-  case 238: flag=_wrap_GenericMatrixCommon_inv(resc,resv,argc,(mxArray**)(argv)); break;
-  case 239: flag=_wrap_GenericMatrixCommon_trace(resc,resv,argc,(mxArray**)(argv)); break;
-  case 240: flag=_wrap_GenericMatrixCommon_tril2symm(resc,resv,argc,(mxArray**)(argv)); break;
-  case 241: flag=_wrap_GenericMatrixCommon_triu2symm(resc,resv,argc,(mxArray**)(argv)); break;
-  case 242: flag=_wrap_GenericMatrixCommon_norm_fro(resc,resv,argc,(mxArray**)(argv)); break;
-  case 243: flag=_wrap_GenericMatrixCommon_norm_2(resc,resv,argc,(mxArray**)(argv)); break;
-  case 244: flag=_wrap_GenericMatrixCommon_norm_1(resc,resv,argc,(mxArray**)(argv)); break;
-  case 245: flag=_wrap_GenericMatrixCommon_norm_inf(resc,resv,argc,(mxArray**)(argv)); break;
-  case 246: flag=_wrap_GenericMatrixCommon_dot(resc,resv,argc,(mxArray**)(argv)); break;
-  case 247: flag=_wrap_GenericMatrixCommon_nullspace(resc,resv,argc,(mxArray**)(argv)); break;
-  case 248: flag=_wrap_GenericMatrixCommon_polyval(resc,resv,argc,(mxArray**)(argv)); break;
-  case 249: flag=_wrap_GenericMatrixCommon_diag(resc,resv,argc,(mxArray**)(argv)); break;
-  case 250: flag=_wrap_GenericMatrixCommon_unite(resc,resv,argc,(mxArray**)(argv)); break;
-  case 251: flag=_wrap_GenericMatrixCommon_densify(resc,resv,argc,(mxArray**)(argv)); break;
-  case 252: flag=_wrap_GenericMatrixCommon_project(resc,resv,argc,(mxArray**)(argv)); break;
-  case 253: flag=_wrap_GenericMatrixCommon_if_else(resc,resv,argc,(mxArray**)(argv)); break;
-  case 254: flag=_wrap_GenericMatrixCommon_conditional(resc,resv,argc,(mxArray**)(argv)); break;
-  case 255: flag=_wrap_GenericMatrixCommon_depends_on(resc,resv,argc,(mxArray**)(argv)); break;
-  case 256: flag=_wrap_GenericMatrixCommon_contains(resc,resv,argc,(mxArray**)(argv)); break;
-  case 257: flag=_wrap_GenericMatrixCommon_contains_all(resc,resv,argc,(mxArray**)(argv)); break;
-  case 258: flag=_wrap_GenericMatrixCommon_contains_any(resc,resv,argc,(mxArray**)(argv)); break;
-  case 259: flag=_wrap_GenericMatrixCommon_solve(resc,resv,argc,(mxArray**)(argv)); break;
-  case 260: flag=_wrap_GenericMatrixCommon_pinv(resc,resv,argc,(mxArray**)(argv)); break;
-  case 261: flag=_wrap_GenericMatrixCommon_expm_const(resc,resv,argc,(mxArray**)(argv)); break;
-  case 262: flag=_wrap_GenericMatrixCommon_expm(resc,resv,argc,(mxArray**)(argv)); break;
-  case 263: flag=_wrap_GenericMatrixCommon_jacobian(resc,resv,argc,(mxArray**)(argv)); break;
-  case 264: flag=_wrap_GenericMatrixCommon_jtimes(resc,resv,argc,(mxArray**)(argv)); break;
-  case 265: flag=_wrap_GenericMatrixCommon_linearize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 266: flag=_wrap_GenericMatrixCommon_which_depends(resc,resv,argc,(mxArray**)(argv)); break;
-  case 267: flag=_wrap_GenericMatrixCommon_jacobian_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 268: flag=_wrap_GenericMatrixCommon_is_linear(resc,resv,argc,(mxArray**)(argv)); break;
-  case 269: flag=_wrap_GenericMatrixCommon_is_quadratic(resc,resv,argc,(mxArray**)(argv)); break;
-  case 270: flag=_wrap_GenericMatrixCommon_gradient(resc,resv,argc,(mxArray**)(argv)); break;
-  case 271: flag=_wrap_GenericMatrixCommon_tangent(resc,resv,argc,(mxArray**)(argv)); break;
-  case 272: flag=_wrap_GenericMatrixCommon_hessian(resc,resv,argc,(mxArray**)(argv)); break;
-  case 273: flag=_wrap_GenericMatrixCommon_quadratic_coeff(resc,resv,argc,(mxArray**)(argv)); break;
-  case 274: flag=_wrap_GenericMatrixCommon_linear_coeff(resc,resv,argc,(mxArray**)(argv)); break;
-  case 275: flag=_wrap_GenericMatrixCommon_n_nodes(resc,resv,argc,(mxArray**)(argv)); break;
-  case 276: flag=_wrap_GenericMatrixCommon_print_operator(resc,resv,argc,(mxArray**)(argv)); break;
-  case 277: flag=_wrap_GenericMatrixCommon_repsum(resc,resv,argc,(mxArray**)(argv)); break;
-  case 278: flag=_wrap_GenericMatrixCommon_diff(resc,resv,argc,(mxArray**)(argv)); break;
-  case 279: flag=_wrap_GenericMatrixCommon_cumsum(resc,resv,argc,(mxArray**)(argv)); break;
-  case 280: flag=_wrap_GenericMatrixCommon_einstein(resc,resv,argc,(mxArray**)(argv)); break;
-  case 281: flag=_wrap_GenericMatrixCommon_mmin(resc,resv,argc,(mxArray**)(argv)); break;
-  case 282: flag=_wrap_GenericMatrixCommon_mmax(resc,resv,argc,(mxArray**)(argv)); break;
-  case 283: flag=_wrap_GenericMatrixCommon_evalf(resc,resv,argc,(mxArray**)(argv)); break;
-  case 284: flag=_wrap_GenericMatrixCommon_separate_linear(resc,resv,argc,(mxArray**)(argv)); break;
-  case 285: flag=_wrap_new_GenericMatrixCommon(resc,resv,argc,(mxArray**)(argv)); break;
-  case 286: flag=_wrap_delete_GenericMatrixCommon(resc,resv,argc,(mxArray**)(argv)); break;
-  case 287: flag=_wrap_index_interp1d(resc,resv,argc,(mxArray**)(argv)); break;
-  case 288: flag=_wrap_GenDM_nnz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 289: flag=_wrap_GenDM_nnz_lower(resc,resv,argc,(mxArray**)(argv)); break;
-  case 290: flag=_wrap_GenDM_nnz_upper(resc,resv,argc,(mxArray**)(argv)); break;
-  case 291: flag=_wrap_GenDM_nnz_diag(resc,resv,argc,(mxArray**)(argv)); break;
-  case 292: flag=_wrap_GenDM_numel(resc,resv,argc,(mxArray**)(argv)); break;
-  case 293: flag=_wrap_GenDM_size1(resc,resv,argc,(mxArray**)(argv)); break;
-  case 294: flag=_wrap_GenDM_rows(resc,resv,argc,(mxArray**)(argv)); break;
-  case 295: flag=_wrap_GenDM_size2(resc,resv,argc,(mxArray**)(argv)); break;
-  case 296: flag=_wrap_GenDM_columns(resc,resv,argc,(mxArray**)(argv)); break;
-  case 297: flag=_wrap_GenDM_dim(resc,resv,argc,(mxArray**)(argv)); break;
-  case 298: flag=_wrap_GenDM_size(resc,resv,argc,(mxArray**)(argv)); break;
-  case 299: flag=_wrap_GenDM_is_empty(resc,resv,argc,(mxArray**)(argv)); break;
-  case 300: flag=_wrap_GenDM_is_dense(resc,resv,argc,(mxArray**)(argv)); break;
-  case 301: flag=_wrap_GenDM_is_scalar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 302: flag=_wrap_GenDM_is_square(resc,resv,argc,(mxArray**)(argv)); break;
-  case 303: flag=_wrap_GenDM_is_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 304: flag=_wrap_GenDM_is_row(resc,resv,argc,(mxArray**)(argv)); break;
-  case 305: flag=_wrap_GenDM_is_column(resc,resv,argc,(mxArray**)(argv)); break;
-  case 306: flag=_wrap_GenDM_is_triu(resc,resv,argc,(mxArray**)(argv)); break;
-  case 307: flag=_wrap_GenDM_is_tril(resc,resv,argc,(mxArray**)(argv)); break;
-  case 308: flag=_wrap_GenDM_row(resc,resv,argc,(mxArray**)(argv)); break;
-  case 309: flag=_wrap_GenDM_colind(resc,resv,argc,(mxArray**)(argv)); break;
-  case 310: flag=_wrap_GenDM_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 311: flag=_wrap_GenDM_sym(resc,resv,argc,(mxArray**)(argv)); break;
-  case 312: flag=_wrap_GenDM_zeros(resc,resv,argc,(mxArray**)(argv)); break;
-  case 313: flag=_wrap_GenDM_ones(resc,resv,argc,(mxArray**)(argv)); break;
-  case 314: flag=_wrap_new_GenDM(resc,resv,argc,(mxArray**)(argv)); break;
-  case 315: flag=_wrap_delete_GenDM(resc,resv,argc,(mxArray**)(argv)); break;
-  case 316: flag=_wrap_GenSX_nnz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 317: flag=_wrap_GenSX_nnz_lower(resc,resv,argc,(mxArray**)(argv)); break;
-  case 318: flag=_wrap_GenSX_nnz_upper(resc,resv,argc,(mxArray**)(argv)); break;
-  case 319: flag=_wrap_GenSX_nnz_diag(resc,resv,argc,(mxArray**)(argv)); break;
-  case 320: flag=_wrap_GenSX_numel(resc,resv,argc,(mxArray**)(argv)); break;
-  case 321: flag=_wrap_GenSX_size1(resc,resv,argc,(mxArray**)(argv)); break;
-  case 322: flag=_wrap_GenSX_rows(resc,resv,argc,(mxArray**)(argv)); break;
-  case 323: flag=_wrap_GenSX_size2(resc,resv,argc,(mxArray**)(argv)); break;
-  case 324: flag=_wrap_GenSX_columns(resc,resv,argc,(mxArray**)(argv)); break;
-  case 325: flag=_wrap_GenSX_dim(resc,resv,argc,(mxArray**)(argv)); break;
-  case 326: flag=_wrap_GenSX_size(resc,resv,argc,(mxArray**)(argv)); break;
-  case 327: flag=_wrap_GenSX_is_empty(resc,resv,argc,(mxArray**)(argv)); break;
-  case 328: flag=_wrap_GenSX_is_dense(resc,resv,argc,(mxArray**)(argv)); break;
-  case 329: flag=_wrap_GenSX_is_scalar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 330: flag=_wrap_GenSX_is_square(resc,resv,argc,(mxArray**)(argv)); break;
-  case 331: flag=_wrap_GenSX_is_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 332: flag=_wrap_GenSX_is_row(resc,resv,argc,(mxArray**)(argv)); break;
-  case 333: flag=_wrap_GenSX_is_column(resc,resv,argc,(mxArray**)(argv)); break;
-  case 334: flag=_wrap_GenSX_is_triu(resc,resv,argc,(mxArray**)(argv)); break;
-  case 335: flag=_wrap_GenSX_is_tril(resc,resv,argc,(mxArray**)(argv)); break;
-  case 336: flag=_wrap_GenSX_row(resc,resv,argc,(mxArray**)(argv)); break;
-  case 337: flag=_wrap_GenSX_colind(resc,resv,argc,(mxArray**)(argv)); break;
-  case 338: flag=_wrap_GenSX_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 339: flag=_wrap_GenSX_sym(resc,resv,argc,(mxArray**)(argv)); break;
-  case 340: flag=_wrap_GenSX_zeros(resc,resv,argc,(mxArray**)(argv)); break;
-  case 341: flag=_wrap_GenSX_ones(resc,resv,argc,(mxArray**)(argv)); break;
-  case 342: flag=_wrap_new_GenSX(resc,resv,argc,(mxArray**)(argv)); break;
-  case 343: flag=_wrap_delete_GenSX(resc,resv,argc,(mxArray**)(argv)); break;
-  case 344: flag=_wrap_GenMX_nnz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 345: flag=_wrap_GenMX_nnz_lower(resc,resv,argc,(mxArray**)(argv)); break;
-  case 346: flag=_wrap_GenMX_nnz_upper(resc,resv,argc,(mxArray**)(argv)); break;
-  case 347: flag=_wrap_GenMX_nnz_diag(resc,resv,argc,(mxArray**)(argv)); break;
-  case 348: flag=_wrap_GenMX_numel(resc,resv,argc,(mxArray**)(argv)); break;
-  case 349: flag=_wrap_GenMX_size1(resc,resv,argc,(mxArray**)(argv)); break;
-  case 350: flag=_wrap_GenMX_rows(resc,resv,argc,(mxArray**)(argv)); break;
-  case 351: flag=_wrap_GenMX_size2(resc,resv,argc,(mxArray**)(argv)); break;
-  case 352: flag=_wrap_GenMX_columns(resc,resv,argc,(mxArray**)(argv)); break;
-  case 353: flag=_wrap_GenMX_dim(resc,resv,argc,(mxArray**)(argv)); break;
-  case 354: flag=_wrap_GenMX_size(resc,resv,argc,(mxArray**)(argv)); break;
-  case 355: flag=_wrap_GenMX_is_empty(resc,resv,argc,(mxArray**)(argv)); break;
-  case 356: flag=_wrap_GenMX_is_dense(resc,resv,argc,(mxArray**)(argv)); break;
-  case 357: flag=_wrap_GenMX_is_scalar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 358: flag=_wrap_GenMX_is_square(resc,resv,argc,(mxArray**)(argv)); break;
-  case 359: flag=_wrap_GenMX_is_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 360: flag=_wrap_GenMX_is_row(resc,resv,argc,(mxArray**)(argv)); break;
-  case 361: flag=_wrap_GenMX_is_column(resc,resv,argc,(mxArray**)(argv)); break;
-  case 362: flag=_wrap_GenMX_is_triu(resc,resv,argc,(mxArray**)(argv)); break;
-  case 363: flag=_wrap_GenMX_is_tril(resc,resv,argc,(mxArray**)(argv)); break;
-  case 364: flag=_wrap_GenMX_row(resc,resv,argc,(mxArray**)(argv)); break;
-  case 365: flag=_wrap_GenMX_colind(resc,resv,argc,(mxArray**)(argv)); break;
-  case 366: flag=_wrap_GenMX_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 367: flag=_wrap_GenMX_sym(resc,resv,argc,(mxArray**)(argv)); break;
-  case 368: flag=_wrap_GenMX_zeros(resc,resv,argc,(mxArray**)(argv)); break;
-  case 369: flag=_wrap_GenMX_ones(resc,resv,argc,(mxArray**)(argv)); break;
-  case 370: flag=_wrap_new_GenMX(resc,resv,argc,(mxArray**)(argv)); break;
-  case 371: flag=_wrap_delete_GenMX(resc,resv,argc,(mxArray**)(argv)); break;
-  case 372: flag=_wrap_GenericExpressionCommon_plus(resc,resv,argc,(mxArray**)(argv)); break;
-  case 373: flag=_wrap_GenericExpressionCommon_minus(resc,resv,argc,(mxArray**)(argv)); break;
-  case 374: flag=_wrap_GenericExpressionCommon_times(resc,resv,argc,(mxArray**)(argv)); break;
-  case 375: flag=_wrap_GenericExpressionCommon_rdivide(resc,resv,argc,(mxArray**)(argv)); break;
-  case 376: flag=_wrap_GenericExpressionCommon_ldivide(resc,resv,argc,(mxArray**)(argv)); break;
-  case 377: flag=_wrap_GenericExpressionCommon_lt(resc,resv,argc,(mxArray**)(argv)); break;
-  case 378: flag=_wrap_GenericExpressionCommon_le(resc,resv,argc,(mxArray**)(argv)); break;
-  case 379: flag=_wrap_GenericExpressionCommon_gt(resc,resv,argc,(mxArray**)(argv)); break;
-  case 380: flag=_wrap_GenericExpressionCommon_ge(resc,resv,argc,(mxArray**)(argv)); break;
-  case 381: flag=_wrap_GenericExpressionCommon_eq(resc,resv,argc,(mxArray**)(argv)); break;
-  case 382: flag=_wrap_GenericExpressionCommon_ne(resc,resv,argc,(mxArray**)(argv)); break;
-  case 383: flag=_wrap_GenericExpressionCommon_and(resc,resv,argc,(mxArray**)(argv)); break;
-  case 384: flag=_wrap_GenericExpressionCommon_or(resc,resv,argc,(mxArray**)(argv)); break;
-  case 385: flag=_wrap_GenericExpressionCommon_not(resc,resv,argc,(mxArray**)(argv)); break;
-  case 386: flag=_wrap_GenericExpressionCommon_abs(resc,resv,argc,(mxArray**)(argv)); break;
-  case 387: flag=_wrap_GenericExpressionCommon_sqrt(resc,resv,argc,(mxArray**)(argv)); break;
-  case 388: flag=_wrap_GenericExpressionCommon_sin(resc,resv,argc,(mxArray**)(argv)); break;
-  case 389: flag=_wrap_GenericExpressionCommon_cos(resc,resv,argc,(mxArray**)(argv)); break;
-  case 390: flag=_wrap_GenericExpressionCommon_tan(resc,resv,argc,(mxArray**)(argv)); break;
-  case 391: flag=_wrap_GenericExpressionCommon_atan(resc,resv,argc,(mxArray**)(argv)); break;
-  case 392: flag=_wrap_GenericExpressionCommon_asin(resc,resv,argc,(mxArray**)(argv)); break;
-  case 393: flag=_wrap_GenericExpressionCommon_acos(resc,resv,argc,(mxArray**)(argv)); break;
-  case 394: flag=_wrap_GenericExpressionCommon_tanh(resc,resv,argc,(mxArray**)(argv)); break;
-  case 395: flag=_wrap_GenericExpressionCommon_sinh(resc,resv,argc,(mxArray**)(argv)); break;
-  case 396: flag=_wrap_GenericExpressionCommon_cosh(resc,resv,argc,(mxArray**)(argv)); break;
-  case 397: flag=_wrap_GenericExpressionCommon_atanh(resc,resv,argc,(mxArray**)(argv)); break;
-  case 398: flag=_wrap_GenericExpressionCommon_asinh(resc,resv,argc,(mxArray**)(argv)); break;
-  case 399: flag=_wrap_GenericExpressionCommon_acosh(resc,resv,argc,(mxArray**)(argv)); break;
-  case 400: flag=_wrap_GenericExpressionCommon_exp(resc,resv,argc,(mxArray**)(argv)); break;
-  case 401: flag=_wrap_GenericExpressionCommon_log(resc,resv,argc,(mxArray**)(argv)); break;
-  case 402: flag=_wrap_GenericExpressionCommon_log10(resc,resv,argc,(mxArray**)(argv)); break;
-  case 403: flag=_wrap_GenericExpressionCommon_log1p(resc,resv,argc,(mxArray**)(argv)); break;
-  case 404: flag=_wrap_GenericExpressionCommon_expm1(resc,resv,argc,(mxArray**)(argv)); break;
-  case 405: flag=_wrap_GenericExpressionCommon_floor(resc,resv,argc,(mxArray**)(argv)); break;
-  case 406: flag=_wrap_GenericExpressionCommon_ceil(resc,resv,argc,(mxArray**)(argv)); break;
-  case 407: flag=_wrap_GenericExpressionCommon_erf(resc,resv,argc,(mxArray**)(argv)); break;
-  case 408: flag=_wrap_GenericExpressionCommon_erfinv(resc,resv,argc,(mxArray**)(argv)); break;
-  case 409: flag=_wrap_GenericExpressionCommon_sign(resc,resv,argc,(mxArray**)(argv)); break;
-  case 410: flag=_wrap_GenericExpressionCommon_power(resc,resv,argc,(mxArray**)(argv)); break;
-  case 411: flag=_wrap_GenericExpressionCommon_rem(resc,resv,argc,(mxArray**)(argv)); break;
-  case 412: flag=_wrap_GenericExpressionCommon_fmod(resc,resv,argc,(mxArray**)(argv)); break;
-  case 413: flag=_wrap_GenericExpressionCommon_remainder(resc,resv,argc,(mxArray**)(argv)); break;
-  case 414: flag=_wrap_GenericExpressionCommon_atan2(resc,resv,argc,(mxArray**)(argv)); break;
-  case 415: flag=_wrap_GenericExpressionCommon_fmin(resc,resv,argc,(mxArray**)(argv)); break;
-  case 416: flag=_wrap_GenericExpressionCommon_fmax(resc,resv,argc,(mxArray**)(argv)); break;
-  case 417: flag=_wrap_GenericExpressionCommon_hypot(resc,resv,argc,(mxArray**)(argv)); break;
-  case 418: flag=_wrap_GenericExpressionCommon_simplify(resc,resv,argc,(mxArray**)(argv)); break;
-  case 419: flag=_wrap_GenericExpressionCommon_is_equal(resc,resv,argc,(mxArray**)(argv)); break;
-  case 420: flag=_wrap_GenericExpressionCommon_copysign(resc,resv,argc,(mxArray**)(argv)); break;
-  case 421: flag=_wrap_GenericExpressionCommon_constpow(resc,resv,argc,(mxArray**)(argv)); break;
-  case 422: flag=_wrap_new_GenericExpressionCommon(resc,resv,argc,(mxArray**)(argv)); break;
-  case 423: flag=_wrap_delete_GenericExpressionCommon(resc,resv,argc,(mxArray**)(argv)); break;
-  case 424: flag=_wrap_MatrixCommon_all(resc,resv,argc,(mxArray**)(argv)); break;
-  case 425: flag=_wrap_MatrixCommon_any(resc,resv,argc,(mxArray**)(argv)); break;
-  case 426: flag=_wrap_MatrixCommon_adj(resc,resv,argc,(mxArray**)(argv)); break;
-  case 427: flag=_wrap_MatrixCommon_minor(resc,resv,argc,(mxArray**)(argv)); break;
-  case 428: flag=_wrap_MatrixCommon_cofactor(resc,resv,argc,(mxArray**)(argv)); break;
-  case 429: flag=_wrap_MatrixCommon_qr(resc,resv,argc,(mxArray**)(argv)); break;
-  case 430: flag=_wrap_MatrixCommon_qr_sparse(resc,resv,argc,(mxArray**)(argv)); break;
-  case 431: flag=_wrap_MatrixCommon_qr_solve(resc,resv,argc,(mxArray**)(argv)); break;
-  case 432: flag=_wrap_MatrixCommon_ldl(resc,resv,argc,(mxArray**)(argv)); break;
-  case 433: flag=_wrap_MatrixCommon_ldl_solve(resc,resv,argc,(mxArray**)(argv)); break;
-  case 434: flag=_wrap_MatrixCommon_chol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 435: flag=_wrap_MatrixCommon_norm_inf_mul(resc,resv,argc,(mxArray**)(argv)); break;
-  case 436: flag=_wrap_MatrixCommon_sparsify(resc,resv,argc,(mxArray**)(argv)); break;
-  case 437: flag=_wrap_MatrixCommon_expand(resc,resv,argc,(mxArray**)(argv)); break;
-  case 438: flag=_wrap_MatrixCommon_pw_const(resc,resv,argc,(mxArray**)(argv)); break;
-  case 439: flag=_wrap_MatrixCommon_pw_lin(resc,resv,argc,(mxArray**)(argv)); break;
-  case 440: flag=_wrap_MatrixCommon_heaviside(resc,resv,argc,(mxArray**)(argv)); break;
-  case 441: flag=_wrap_MatrixCommon_rectangle(resc,resv,argc,(mxArray**)(argv)); break;
-  case 442: flag=_wrap_MatrixCommon_triangle(resc,resv,argc,(mxArray**)(argv)); break;
-  case 443: flag=_wrap_MatrixCommon_ramp(resc,resv,argc,(mxArray**)(argv)); break;
-  case 444: flag=_wrap_MatrixCommon_gauss_quadrature(resc,resv,argc,(mxArray**)(argv)); break;
-  case 445: flag=_wrap_MatrixCommon_taylor(resc,resv,argc,(mxArray**)(argv)); break;
-  case 446: flag=_wrap_MatrixCommon_mtaylor(resc,resv,argc,(mxArray**)(argv)); break;
-  case 447: flag=_wrap_MatrixCommon_poly_coeff(resc,resv,argc,(mxArray**)(argv)); break;
-  case 448: flag=_wrap_MatrixCommon_poly_roots(resc,resv,argc,(mxArray**)(argv)); break;
-  case 449: flag=_wrap_MatrixCommon_eig_symbolic(resc,resv,argc,(mxArray**)(argv)); break;
-  case 450: flag=_wrap_new_MatrixCommon(resc,resv,argc,(mxArray**)(argv)); break;
-  case 451: flag=_wrap_delete_MatrixCommon(resc,resv,argc,(mxArray**)(argv)); break;
-  case 452: flag=_wrap_DM_has_nz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 453: flag=_wrap_DM_nonzero(resc,resv,argc,(mxArray**)(argv)); break;
-  case 454: flag=_wrap_DM_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 455: flag=_wrap_DM_set(resc,resv,argc,(mxArray**)(argv)); break;
-  case 456: flag=_wrap_DM_get_nz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 457: flag=_wrap_DM_set_nz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 458: flag=_wrap_DM_uplus(resc,resv,argc,(mxArray**)(argv)); break;
-  case 459: flag=_wrap_DM_uminus(resc,resv,argc,(mxArray**)(argv)); break;
-  case 460: flag=_wrap_DM_binary(resc,resv,argc,(mxArray**)(argv)); break;
-  case 461: flag=_wrap_DM_unary(resc,resv,argc,(mxArray**)(argv)); break;
-  case 462: flag=_wrap_DM_scalar_matrix(resc,resv,argc,(mxArray**)(argv)); break;
-  case 463: flag=_wrap_DM_matrix_scalar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 464: flag=_wrap_DM_matrix_matrix(resc,resv,argc,(mxArray**)(argv)); break;
-  case 465: flag=_wrap_DM_call(resc,resv,argc,(mxArray**)(argv)); break;
-  case 466: flag=_wrap_DM_printme(resc,resv,argc,(mxArray**)(argv)); break;
-  case 467: flag=_wrap_DM_T(resc,resv,argc,(mxArray**)(argv)); break;
-  case 468: flag=_wrap_DM_set_max_depth(resc,resv,argc,(mxArray**)(argv)); break;
-  case 469: flag=_wrap_DM_get_max_depth(resc,resv,argc,(mxArray**)(argv)); break;
-  case 470: flag=_wrap_DM_get_input(resc,resv,argc,(mxArray**)(argv)); break;
-  case 471: flag=_wrap_DM_get_free(resc,resv,argc,(mxArray**)(argv)); break;
-  case 472: flag=_wrap_DM_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 473: flag=_wrap_DM_print_split(resc,resv,argc,(mxArray**)(argv)); break;
-  case 474: flag=_wrap_DM_disp(resc,resv,argc,(mxArray**)(argv)); break;
-  case 475: flag=_wrap_DM_str(resc,resv,argc,(mxArray**)(argv)); break;
-  case 476: flag=_wrap_DM_print_scalar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 477: flag=_wrap_DM_print_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 478: flag=_wrap_DM_print_dense(resc,resv,argc,(mxArray**)(argv)); break;
-  case 479: flag=_wrap_DM_print_sparse(resc,resv,argc,(mxArray**)(argv)); break;
-  case 480: flag=_wrap_DM_clear(resc,resv,argc,(mxArray**)(argv)); break;
-  case 481: flag=_wrap_DM_resize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 482: flag=_wrap_DM_reserve(resc,resv,argc,(mxArray**)(argv)); break;
-  case 483: flag=_wrap_DM_erase(resc,resv,argc,(mxArray**)(argv)); break;
-  case 484: flag=_wrap_DM_remove(resc,resv,argc,(mxArray**)(argv)); break;
-  case 485: flag=_wrap_DM_enlarge(resc,resv,argc,(mxArray**)(argv)); break;
-  case 486: flag=_wrap_DM_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 487: flag=_wrap_DM_get_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 488: flag=_wrap_DM_triplet(resc,resv,argc,(mxArray**)(argv)); break;
-  case 489: flag=_wrap_DM_inf(resc,resv,argc,(mxArray**)(argv)); break;
-  case 490: flag=_wrap_DM_nan(resc,resv,argc,(mxArray**)(argv)); break;
-  case 491: flag=_wrap_DM_eye(resc,resv,argc,(mxArray**)(argv)); break;
-  case 492: flag=_wrap_DM_element_hash(resc,resv,argc,(mxArray**)(argv)); break;
-  case 493: flag=_wrap_DM_is_regular(resc,resv,argc,(mxArray**)(argv)); break;
-  case 494: flag=_wrap_DM_is_smooth(resc,resv,argc,(mxArray**)(argv)); break;
-  case 495: flag=_wrap_DM_is_leaf(resc,resv,argc,(mxArray**)(argv)); break;
-  case 496: flag=_wrap_DM_is_commutative(resc,resv,argc,(mxArray**)(argv)); break;
-  case 497: flag=_wrap_DM_is_symbolic(resc,resv,argc,(mxArray**)(argv)); break;
-  case 498: flag=_wrap_DM_is_valid_input(resc,resv,argc,(mxArray**)(argv)); break;
-  case 499: flag=_wrap_DM_has_duplicates(resc,resv,argc,(mxArray**)(argv)); break;
-  case 500: flag=_wrap_DM_reset_input(resc,resv,argc,(mxArray**)(argv)); break;
-  case 501: flag=_wrap_DM_is_constant(resc,resv,argc,(mxArray**)(argv)); break;
-  case 502: flag=_wrap_DM_is_call(resc,resv,argc,(mxArray**)(argv)); break;
-  case 503: flag=_wrap_DM_is_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 504: flag=_wrap_DM_has_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 505: flag=_wrap_DM_which_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 506: flag=_wrap_DM_which_function(resc,resv,argc,(mxArray**)(argv)); break;
-  case 507: flag=_wrap_DM_is_integer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 508: flag=_wrap_DM_is_zero(resc,resv,argc,(mxArray**)(argv)); break;
-  case 509: flag=_wrap_DM_is_one(resc,resv,argc,(mxArray**)(argv)); break;
-  case 510: flag=_wrap_DM_is_minus_one(resc,resv,argc,(mxArray**)(argv)); break;
-  case 511: flag=_wrap_DM_is_eye(resc,resv,argc,(mxArray**)(argv)); break;
-  case 512: flag=_wrap_DM_op(resc,resv,argc,(mxArray**)(argv)); break;
-  case 513: flag=_wrap_DM_is_op(resc,resv,argc,(mxArray**)(argv)); break;
-  case 514: flag=_wrap_DM_has_zeros(resc,resv,argc,(mxArray**)(argv)); break;
-  case 515: flag=_wrap_DM_nonzeros(resc,resv,argc,(mxArray**)(argv)); break;
-  case 516: flag=_wrap_DM_elements(resc,resv,argc,(mxArray**)(argv)); break;
-  case 517: flag=_wrap_DM_to_double(resc,resv,argc,(mxArray**)(argv)); break;
-  case 518: flag=_wrap_DM_to_int(resc,resv,argc,(mxArray**)(argv)); break;
-  case 519: flag=_wrap_DM_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 520: flag=_wrap_DM_dep(resc,resv,argc,(mxArray**)(argv)); break;
-  case 521: flag=_wrap_DM_n_dep(resc,resv,argc,(mxArray**)(argv)); break;
-  case 522: flag=_wrap_DM_set_precision(resc,resv,argc,(mxArray**)(argv)); break;
-  case 523: flag=_wrap_DM_set_width(resc,resv,argc,(mxArray**)(argv)); break;
-  case 524: flag=_wrap_DM_set_scientific(resc,resv,argc,(mxArray**)(argv)); break;
-  case 525: flag=_wrap_DM_rng(resc,resv,argc,(mxArray**)(argv)); break;
-  case 526: flag=_wrap_DM_rand(resc,resv,argc,(mxArray**)(argv)); break;
-  case 527: flag=_wrap_DM_export_code(resc,resv,argc,(mxArray**)(argv)); break;
-  case 528: flag=_wrap_DM_info(resc,resv,argc,(mxArray**)(argv)); break;
-  case 529: flag=_wrap_DM_serialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 530: flag=_wrap_DM_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 531: flag=_wrap_DM_to_file(resc,resv,argc,(mxArray**)(argv)); break;
-  case 532: flag=_wrap_DM_from_file(resc,resv,argc,(mxArray**)(argv)); break;
-  case 533: flag=_wrap_new_DM(resc,resv,argc,(mxArray**)(argv)); break;
-  case 534: flag=_wrap_DM_assign(resc,resv,argc,(mxArray**)(argv)); break;
-  case 535: flag=_wrap_DM_paren(resc,resv,argc,(mxArray**)(argv)); break;
-  case 536: flag=_wrap_DM_paren_asgn(resc,resv,argc,(mxArray**)(argv)); break;
-  case 537: flag=_wrap_DM_brace(resc,resv,argc,(mxArray**)(argv)); break;
-  case 538: flag=_wrap_DM_setbrace(resc,resv,argc,(mxArray**)(argv)); break;
-  case 539: flag=_wrap_DM_end(resc,resv,argc,(mxArray**)(argv)); break;
-  case 540: flag=_wrap_DM_numel(resc,resv,argc,(mxArray**)(argv)); break;
-  case 541: flag=_wrap_DM_ctranspose(resc,resv,argc,(mxArray**)(argv)); break;
-  case 542: flag=_wrap_DM_full(resc,resv,argc,(mxArray**)(argv)); break;
-  case 543: flag=_wrap_DM_sparse(resc,resv,argc,(mxArray**)(argv)); break;
-  case 544: flag=_wrap_delete_DM(resc,resv,argc,(mxArray**)(argv)); break;
-  case 545: flag=_wrap_new_SXElem(resc,resv,argc,(mxArray**)(argv)); break;
-  case 546: flag=_wrap_delete_SXElem(resc,resv,argc,(mxArray**)(argv)); break;
-  case 547: flag=_wrap_SX_has_nz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 548: flag=_wrap_SX_nonzero(resc,resv,argc,(mxArray**)(argv)); break;
-  case 549: flag=_wrap_SX_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 550: flag=_wrap_SX_set(resc,resv,argc,(mxArray**)(argv)); break;
-  case 551: flag=_wrap_SX_get_nz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 552: flag=_wrap_SX_set_nz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 553: flag=_wrap_SX_uplus(resc,resv,argc,(mxArray**)(argv)); break;
-  case 554: flag=_wrap_SX_uminus(resc,resv,argc,(mxArray**)(argv)); break;
-  case 555: flag=_wrap_SX_binary(resc,resv,argc,(mxArray**)(argv)); break;
-  case 556: flag=_wrap_SX_unary(resc,resv,argc,(mxArray**)(argv)); break;
-  case 557: flag=_wrap_SX_scalar_matrix(resc,resv,argc,(mxArray**)(argv)); break;
-  case 558: flag=_wrap_SX_matrix_scalar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 559: flag=_wrap_SX_matrix_matrix(resc,resv,argc,(mxArray**)(argv)); break;
-  case 560: flag=_wrap_SX_call(resc,resv,argc,(mxArray**)(argv)); break;
-  case 561: flag=_wrap_SX_printme(resc,resv,argc,(mxArray**)(argv)); break;
-  case 562: flag=_wrap_SX_T(resc,resv,argc,(mxArray**)(argv)); break;
-  case 563: flag=_wrap_SX_set_max_depth(resc,resv,argc,(mxArray**)(argv)); break;
-  case 564: flag=_wrap_SX_get_max_depth(resc,resv,argc,(mxArray**)(argv)); break;
-  case 565: flag=_wrap_SX_get_input(resc,resv,argc,(mxArray**)(argv)); break;
-  case 566: flag=_wrap_SX_get_free(resc,resv,argc,(mxArray**)(argv)); break;
-  case 567: flag=_wrap_SX_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 568: flag=_wrap_SX_print_split(resc,resv,argc,(mxArray**)(argv)); break;
-  case 569: flag=_wrap_SX_disp(resc,resv,argc,(mxArray**)(argv)); break;
-  case 570: flag=_wrap_SX_str(resc,resv,argc,(mxArray**)(argv)); break;
-  case 571: flag=_wrap_SX_print_scalar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 572: flag=_wrap_SX_print_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 573: flag=_wrap_SX_print_dense(resc,resv,argc,(mxArray**)(argv)); break;
-  case 574: flag=_wrap_SX_print_sparse(resc,resv,argc,(mxArray**)(argv)); break;
-  case 575: flag=_wrap_SX_clear(resc,resv,argc,(mxArray**)(argv)); break;
-  case 576: flag=_wrap_SX_resize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 577: flag=_wrap_SX_reserve(resc,resv,argc,(mxArray**)(argv)); break;
-  case 578: flag=_wrap_SX_erase(resc,resv,argc,(mxArray**)(argv)); break;
-  case 579: flag=_wrap_SX_remove(resc,resv,argc,(mxArray**)(argv)); break;
-  case 580: flag=_wrap_SX_enlarge(resc,resv,argc,(mxArray**)(argv)); break;
-  case 581: flag=_wrap_SX_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 582: flag=_wrap_SX_get_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 583: flag=_wrap_SX_triplet(resc,resv,argc,(mxArray**)(argv)); break;
-  case 584: flag=_wrap_SX_inf(resc,resv,argc,(mxArray**)(argv)); break;
-  case 585: flag=_wrap_SX_nan(resc,resv,argc,(mxArray**)(argv)); break;
-  case 586: flag=_wrap_SX_eye(resc,resv,argc,(mxArray**)(argv)); break;
-  case 587: flag=_wrap_SX_element_hash(resc,resv,argc,(mxArray**)(argv)); break;
-  case 588: flag=_wrap_SX_is_regular(resc,resv,argc,(mxArray**)(argv)); break;
-  case 589: flag=_wrap_SX_is_smooth(resc,resv,argc,(mxArray**)(argv)); break;
-  case 590: flag=_wrap_SX_is_leaf(resc,resv,argc,(mxArray**)(argv)); break;
-  case 591: flag=_wrap_SX_is_commutative(resc,resv,argc,(mxArray**)(argv)); break;
-  case 592: flag=_wrap_SX_is_symbolic(resc,resv,argc,(mxArray**)(argv)); break;
-  case 593: flag=_wrap_SX_is_valid_input(resc,resv,argc,(mxArray**)(argv)); break;
-  case 594: flag=_wrap_SX_has_duplicates(resc,resv,argc,(mxArray**)(argv)); break;
-  case 595: flag=_wrap_SX_reset_input(resc,resv,argc,(mxArray**)(argv)); break;
-  case 596: flag=_wrap_SX_is_constant(resc,resv,argc,(mxArray**)(argv)); break;
-  case 597: flag=_wrap_SX_is_call(resc,resv,argc,(mxArray**)(argv)); break;
-  case 598: flag=_wrap_SX_is_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 599: flag=_wrap_SX_has_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 600: flag=_wrap_SX_which_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 601: flag=_wrap_SX_which_function(resc,resv,argc,(mxArray**)(argv)); break;
-  case 602: flag=_wrap_SX_is_integer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 603: flag=_wrap_SX_is_zero(resc,resv,argc,(mxArray**)(argv)); break;
-  case 604: flag=_wrap_SX_is_one(resc,resv,argc,(mxArray**)(argv)); break;
-  case 605: flag=_wrap_SX_is_minus_one(resc,resv,argc,(mxArray**)(argv)); break;
-  case 606: flag=_wrap_SX_is_eye(resc,resv,argc,(mxArray**)(argv)); break;
-  case 607: flag=_wrap_SX_op(resc,resv,argc,(mxArray**)(argv)); break;
-  case 608: flag=_wrap_SX_is_op(resc,resv,argc,(mxArray**)(argv)); break;
-  case 609: flag=_wrap_SX_has_zeros(resc,resv,argc,(mxArray**)(argv)); break;
-  case 610: flag=_wrap_SX_nonzeros(resc,resv,argc,(mxArray**)(argv)); break;
-  case 611: flag=_wrap_SX_elements(resc,resv,argc,(mxArray**)(argv)); break;
-  case 612: flag=_wrap_SX_to_double(resc,resv,argc,(mxArray**)(argv)); break;
-  case 613: flag=_wrap_SX_to_int(resc,resv,argc,(mxArray**)(argv)); break;
-  case 614: flag=_wrap_SX_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 615: flag=_wrap_SX_dep(resc,resv,argc,(mxArray**)(argv)); break;
-  case 616: flag=_wrap_SX_n_dep(resc,resv,argc,(mxArray**)(argv)); break;
-  case 617: flag=_wrap_SX_set_precision(resc,resv,argc,(mxArray**)(argv)); break;
-  case 618: flag=_wrap_SX_set_width(resc,resv,argc,(mxArray**)(argv)); break;
-  case 619: flag=_wrap_SX_set_scientific(resc,resv,argc,(mxArray**)(argv)); break;
-  case 620: flag=_wrap_SX_rng(resc,resv,argc,(mxArray**)(argv)); break;
-  case 621: flag=_wrap_SX_rand(resc,resv,argc,(mxArray**)(argv)); break;
-  case 622: flag=_wrap_SX_export_code(resc,resv,argc,(mxArray**)(argv)); break;
-  case 623: flag=_wrap_SX_info(resc,resv,argc,(mxArray**)(argv)); break;
-  case 624: flag=_wrap_SX_serialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 625: flag=_wrap_SX_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 626: flag=_wrap_SX_to_file(resc,resv,argc,(mxArray**)(argv)); break;
-  case 627: flag=_wrap_SX_from_file(resc,resv,argc,(mxArray**)(argv)); break;
-  case 628: flag=_wrap_SX_paren(resc,resv,argc,(mxArray**)(argv)); break;
-  case 629: flag=_wrap_SX_paren_asgn(resc,resv,argc,(mxArray**)(argv)); break;
-  case 630: flag=_wrap_SX_brace(resc,resv,argc,(mxArray**)(argv)); break;
-  case 631: flag=_wrap_SX_setbrace(resc,resv,argc,(mxArray**)(argv)); break;
-  case 632: flag=_wrap_SX_end(resc,resv,argc,(mxArray**)(argv)); break;
-  case 633: flag=_wrap_SX_numel(resc,resv,argc,(mxArray**)(argv)); break;
-  case 634: flag=_wrap_SX_ctranspose(resc,resv,argc,(mxArray**)(argv)); break;
-  case 635: flag=_wrap_new_SX(resc,resv,argc,(mxArray**)(argv)); break;
-  case 636: flag=_wrap_delete_SX(resc,resv,argc,(mxArray**)(argv)); break;
-  case 637: flag=_wrap_MX_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 638: flag=_wrap_delete_MX(resc,resv,argc,(mxArray**)(argv)); break;
-  case 639: flag=_wrap_MX_nonzero(resc,resv,argc,(mxArray**)(argv)); break;
-  case 640: flag=_wrap_MX_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 641: flag=_wrap_MX_nonzeros(resc,resv,argc,(mxArray**)(argv)); break;
-  case 642: flag=_wrap_MX_erase(resc,resv,argc,(mxArray**)(argv)); break;
-  case 643: flag=_wrap_MX_enlarge(resc,resv,argc,(mxArray**)(argv)); break;
-  case 644: flag=_wrap_MX_uminus(resc,resv,argc,(mxArray**)(argv)); break;
-  case 645: flag=_wrap_MX_dep(resc,resv,argc,(mxArray**)(argv)); break;
-  case 646: flag=_wrap_MX_n_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 647: flag=_wrap_MX_get_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 648: flag=_wrap_MX_n_dep(resc,resv,argc,(mxArray**)(argv)); break;
-  case 649: flag=_wrap_MX_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 650: flag=_wrap_MX_to_double(resc,resv,argc,(mxArray**)(argv)); break;
-  case 651: flag=_wrap_MX_to_DM(resc,resv,argc,(mxArray**)(argv)); break;
-  case 652: flag=_wrap_MX_is_symbolic(resc,resv,argc,(mxArray**)(argv)); break;
-  case 653: flag=_wrap_MX_is_constant(resc,resv,argc,(mxArray**)(argv)); break;
-  case 654: flag=_wrap_MX_is_call(resc,resv,argc,(mxArray**)(argv)); break;
-  case 655: flag=_wrap_MX_which_function(resc,resv,argc,(mxArray**)(argv)); break;
-  case 656: flag=_wrap_MX_is_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 657: flag=_wrap_MX_has_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 658: flag=_wrap_MX_which_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 659: flag=_wrap_MX_is_op(resc,resv,argc,(mxArray**)(argv)); break;
-  case 660: flag=_wrap_MX_is_multiplication(resc,resv,argc,(mxArray**)(argv)); break;
-  case 661: flag=_wrap_MX_is_commutative(resc,resv,argc,(mxArray**)(argv)); break;
-  case 662: flag=_wrap_MX_is_norm(resc,resv,argc,(mxArray**)(argv)); break;
-  case 663: flag=_wrap_MX_is_valid_input(resc,resv,argc,(mxArray**)(argv)); break;
-  case 664: flag=_wrap_MX_n_primitives(resc,resv,argc,(mxArray**)(argv)); break;
-  case 665: flag=_wrap_MX_primitives(resc,resv,argc,(mxArray**)(argv)); break;
-  case 666: flag=_wrap_MX_split_primitives(resc,resv,argc,(mxArray**)(argv)); break;
-  case 667: flag=_wrap_MX_join_primitives(resc,resv,argc,(mxArray**)(argv)); break;
-  case 668: flag=_wrap_MX_has_duplicates(resc,resv,argc,(mxArray**)(argv)); break;
-  case 669: flag=_wrap_MX_reset_input(resc,resv,argc,(mxArray**)(argv)); break;
-  case 670: flag=_wrap_MX_is_eye(resc,resv,argc,(mxArray**)(argv)); break;
-  case 671: flag=_wrap_MX_is_zero(resc,resv,argc,(mxArray**)(argv)); break;
-  case 672: flag=_wrap_MX_is_one(resc,resv,argc,(mxArray**)(argv)); break;
-  case 673: flag=_wrap_MX_is_minus_one(resc,resv,argc,(mxArray**)(argv)); break;
-  case 674: flag=_wrap_MX_is_transpose(resc,resv,argc,(mxArray**)(argv)); break;
-  case 675: flag=_wrap_MX_is_regular(resc,resv,argc,(mxArray**)(argv)); break;
-  case 676: flag=_wrap_MX_is_binary(resc,resv,argc,(mxArray**)(argv)); break;
-  case 677: flag=_wrap_MX_is_unary(resc,resv,argc,(mxArray**)(argv)); break;
-  case 678: flag=_wrap_MX_op(resc,resv,argc,(mxArray**)(argv)); break;
-  case 679: flag=_wrap_MX_info(resc,resv,argc,(mxArray**)(argv)); break;
-  case 680: flag=_wrap_MX_serialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 681: flag=_wrap_MX_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 682: flag=_wrap_MX_get_temp(resc,resv,argc,(mxArray**)(argv)); break;
-  case 683: flag=_wrap_MX_set_temp(resc,resv,argc,(mxArray**)(argv)); break;
-  case 684: flag=_wrap_MX_binary(resc,resv,argc,(mxArray**)(argv)); break;
-  case 685: flag=_wrap_MX_unary(resc,resv,argc,(mxArray**)(argv)); break;
-  case 686: flag=_wrap_MX_inf(resc,resv,argc,(mxArray**)(argv)); break;
-  case 687: flag=_wrap_MX_nan(resc,resv,argc,(mxArray**)(argv)); break;
-  case 688: flag=_wrap_MX_eye(resc,resv,argc,(mxArray**)(argv)); break;
-  case 689: flag=_wrap_MX_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 690: flag=_wrap_MX_set(resc,resv,argc,(mxArray**)(argv)); break;
-  case 691: flag=_wrap_MX_get_nz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 692: flag=_wrap_MX_set_nz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 693: flag=_wrap_MX_einstein(resc,resv,argc,(mxArray**)(argv)); break;
-  case 694: flag=_wrap_MX_bspline_dual(resc,resv,argc,(mxArray**)(argv)); break;
-  case 695: flag=_wrap_MX_interpn_linear(resc,resv,argc,(mxArray**)(argv)); break;
-  case 696: flag=_wrap_MX_printme(resc,resv,argc,(mxArray**)(argv)); break;
-  case 697: flag=_wrap_MX_attachAssert(resc,resv,argc,(mxArray**)(argv)); break;
-  case 698: flag=_wrap_MX_monitor(resc,resv,argc,(mxArray**)(argv)); break;
-  case 699: flag=_wrap_MX_T(resc,resv,argc,(mxArray**)(argv)); break;
-  case 700: flag=_wrap_MX_mapping(resc,resv,argc,(mxArray**)(argv)); break;
-  case 701: flag=_wrap_MX_set_max_depth(resc,resv,argc,(mxArray**)(argv)); break;
-  case 702: flag=_wrap_MX_get_max_depth(resc,resv,argc,(mxArray**)(argv)); break;
-  case 703: flag=_wrap_MX_test_cast(resc,resv,argc,(mxArray**)(argv)); break;
-  case 704: flag=_wrap_MX_get_input(resc,resv,argc,(mxArray**)(argv)); break;
-  case 705: flag=_wrap_MX_get_free(resc,resv,argc,(mxArray**)(argv)); break;
-  case 706: flag=_wrap_MX_eval_mx(resc,resv,argc,(mxArray**)(argv)); break;
-  case 707: flag=_wrap_MX_paren_asgn(resc,resv,argc,(mxArray**)(argv)); break;
-  case 708: flag=_wrap_MX_setbrace(resc,resv,argc,(mxArray**)(argv)); break;
-  case 709: flag=_wrap_MX_end(resc,resv,argc,(mxArray**)(argv)); break;
-  case 710: flag=_wrap_MX_ctranspose(resc,resv,argc,(mxArray**)(argv)); break;
-  case 711: flag=_wrap_MX_find(resc,resv,argc,(mxArray**)(argv)); break;
-  case 712: flag=_wrap_MX_low(resc,resv,argc,(mxArray**)(argv)); break;
-  case 713: flag=_wrap_MX_inv_node(resc,resv,argc,(mxArray**)(argv)); break;
-  case 714: flag=_wrap_MX_brace(resc,resv,argc,(mxArray**)(argv)); break;
-  case 715: flag=_wrap_MX_brace_asgn(resc,resv,argc,(mxArray**)(argv)); break;
-  case 716: flag=_wrap_MX_paren(resc,resv,argc,(mxArray**)(argv)); break;
-  case 717: flag=_wrap_MX_numel(resc,resv,argc,(mxArray**)(argv)); break;
-  case 718: flag=_wrap_new_MX(resc,resv,argc,(mxArray**)(argv)); break;
-  case 719: flag=_wrap_Function_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 720: flag=_wrap_Function_jit(resc,resv,argc,(mxArray**)(argv)); break;
-  case 721: flag=_wrap_delete_Function(resc,resv,argc,(mxArray**)(argv)); break;
-  case 722: flag=_wrap_Function_expand(resc,resv,argc,(mxArray**)(argv)); break;
-  case 723: flag=_wrap_Function_n_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 724: flag=_wrap_Function_n_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 725: flag=_wrap_Function_size1_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 726: flag=_wrap_Function_size2_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 727: flag=_wrap_Function_size_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 728: flag=_wrap_Function_size1_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 729: flag=_wrap_Function_size2_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 730: flag=_wrap_Function_size_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 731: flag=_wrap_Function_nnz_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 732: flag=_wrap_Function_nnz_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 733: flag=_wrap_Function_numel_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 734: flag=_wrap_Function_numel_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 735: flag=_wrap_Function_name_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 736: flag=_wrap_Function_name_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 737: flag=_wrap_Function_index_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 738: flag=_wrap_Function_index_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 739: flag=_wrap_Function_has_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 740: flag=_wrap_Function_has_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 741: flag=_wrap_Function_default_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 742: flag=_wrap_Function_max_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 743: flag=_wrap_Function_min_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 744: flag=_wrap_Function_nominal_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 745: flag=_wrap_Function_nominal_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 746: flag=_wrap_Function_sparsity_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 747: flag=_wrap_Function_sparsity_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 748: flag=_wrap_Function_is_diff_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 749: flag=_wrap_Function_is_diff_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 750: flag=_wrap_Function_factory(resc,resv,argc,(mxArray**)(argv)); break;
-  case 751: flag=_wrap_Function_oracle(resc,resv,argc,(mxArray**)(argv)); break;
-  case 752: flag=_wrap_Function_wrap(resc,resv,argc,(mxArray**)(argv)); break;
-  case 753: flag=_wrap_Function_wrap_as_needed(resc,resv,argc,(mxArray**)(argv)); break;
-  case 754: flag=_wrap_Function_which_depends(resc,resv,argc,(mxArray**)(argv)); break;
-  case 755: flag=_wrap_Function_print_dimensions(resc,resv,argc,(mxArray**)(argv)); break;
-  case 756: flag=_wrap_Function_print_options(resc,resv,argc,(mxArray**)(argv)); break;
-  case 757: flag=_wrap_Function_print_option(resc,resv,argc,(mxArray**)(argv)); break;
-  case 758: flag=_wrap_Function_has_option(resc,resv,argc,(mxArray**)(argv)); break;
-  case 759: flag=_wrap_Function_change_option(resc,resv,argc,(mxArray**)(argv)); break;
-  case 760: flag=_wrap_Function_uses_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 761: flag=_wrap_Function_jacobian(resc,resv,argc,(mxArray**)(argv)); break;
-  case 762: flag=_wrap_Function_call(resc,resv,argc,(mxArray**)(argv)); break;
-  case 763: flag=_wrap_Function_mapsum(resc,resv,argc,(mxArray**)(argv)); break;
-  case 764: flag=_wrap_Function_mapaccum(resc,resv,argc,(mxArray**)(argv)); break;
-  case 765: flag=_wrap_Function_fold(resc,resv,argc,(mxArray**)(argv)); break;
-  case 766: flag=_wrap_Function_map(resc,resv,argc,(mxArray**)(argv)); break;
-  case 767: flag=_wrap_Function_slice(resc,resv,argc,(mxArray**)(argv)); break;
-  case 768: flag=_wrap_Function_conditional(resc,resv,argc,(mxArray**)(argv)); break;
-  case 769: flag=_wrap_Function_bspline(resc,resv,argc,(mxArray**)(argv)); break;
-  case 770: flag=_wrap_Function_if_else(resc,resv,argc,(mxArray**)(argv)); break;
-  case 771: flag=_wrap_Function_forward(resc,resv,argc,(mxArray**)(argv)); break;
-  case 772: flag=_wrap_Function_reverse(resc,resv,argc,(mxArray**)(argv)); break;
-  case 773: flag=_wrap_Function_jac_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 774: flag=_wrap_Function_generate(resc,resv,argc,(mxArray**)(argv)); break;
-  case 775: flag=_wrap_Function_generate_dependencies(resc,resv,argc,(mxArray**)(argv)); break;
-  case 776: flag=_wrap_Function_generate_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 777: flag=_wrap_Function_generate_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 778: flag=_wrap_Function_serialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 779: flag=_wrap_Function_save(resc,resv,argc,(mxArray**)(argv)); break;
-  case 780: flag=_wrap_Function_export_code(resc,resv,argc,(mxArray**)(argv)); break;
-  case 781: flag=_wrap_Function_stats(resc,resv,argc,(mxArray**)(argv)); break;
-  case 782: flag=_wrap_Function_sx_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 783: flag=_wrap_Function_mx_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 784: flag=_wrap_Function_sx_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 785: flag=_wrap_Function_mx_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 786: flag=_wrap_Function_nz_from_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 787: flag=_wrap_Function_nz_from_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 788: flag=_wrap_Function_nz_to_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 789: flag=_wrap_Function_nz_to_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 790: flag=_wrap_Function_convert_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 791: flag=_wrap_Function_convert_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 792: flag=_wrap_Function_has_free(resc,resv,argc,(mxArray**)(argv)); break;
-  case 793: flag=_wrap_Function_get_free(resc,resv,argc,(mxArray**)(argv)); break;
-  case 794: flag=_wrap_Function_free_sx(resc,resv,argc,(mxArray**)(argv)); break;
-  case 795: flag=_wrap_Function_free_mx(resc,resv,argc,(mxArray**)(argv)); break;
-  case 796: flag=_wrap_Function_generate_lifted(resc,resv,argc,(mxArray**)(argv)); break;
-  case 797: flag=_wrap_Function_n_nodes(resc,resv,argc,(mxArray**)(argv)); break;
-  case 798: flag=_wrap_Function_n_instructions(resc,resv,argc,(mxArray**)(argv)); break;
-  case 799: flag=_wrap_Function_instruction_id(resc,resv,argc,(mxArray**)(argv)); break;
-  case 800: flag=_wrap_Function_instruction_input(resc,resv,argc,(mxArray**)(argv)); break;
-  case 801: flag=_wrap_Function_instruction_constant(resc,resv,argc,(mxArray**)(argv)); break;
-  case 802: flag=_wrap_Function_instruction_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 803: flag=_wrap_Function_instruction_MX(resc,resv,argc,(mxArray**)(argv)); break;
-  case 804: flag=_wrap_Function_instructions_sx(resc,resv,argc,(mxArray**)(argv)); break;
-  case 805: flag=_wrap_Function_has_spfwd(resc,resv,argc,(mxArray**)(argv)); break;
-  case 806: flag=_wrap_Function_has_sprev(resc,resv,argc,(mxArray**)(argv)); break;
-  case 807: flag=_wrap_Function_sz_arg(resc,resv,argc,(mxArray**)(argv)); break;
-  case 808: flag=_wrap_Function_sz_res(resc,resv,argc,(mxArray**)(argv)); break;
-  case 809: flag=_wrap_Function_sz_iw(resc,resv,argc,(mxArray**)(argv)); break;
-  case 810: flag=_wrap_Function_sz_w(resc,resv,argc,(mxArray**)(argv)); break;
-  case 811: flag=_wrap_Function_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 812: flag=_wrap_Function_is_a(resc,resv,argc,(mxArray**)(argv)); break;
-  case 813: flag=_wrap_Function_check_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 814: flag=_wrap_Function_fix_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 815: flag=_wrap_Function_load(resc,resv,argc,(mxArray**)(argv)); break;
-  case 816: flag=_wrap_Function_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 817: flag=_wrap_Function_assert_size_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 818: flag=_wrap_Function_assert_size_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 819: flag=_wrap_Function_assert_sparsity_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 820: flag=_wrap_Function_checkout(resc,resv,argc,(mxArray**)(argv)); break;
-  case 821: flag=_wrap_Function_release(resc,resv,argc,(mxArray**)(argv)); break;
-  case 822: flag=_wrap_Function_cache(resc,resv,argc,(mxArray**)(argv)); break;
-  case 823: flag=_wrap_Function_get_function(resc,resv,argc,(mxArray**)(argv)); break;
-  case 824: flag=_wrap_Function_has_function(resc,resv,argc,(mxArray**)(argv)); break;
-  case 825: flag=_wrap_Function_find_functions(resc,resv,argc,(mxArray**)(argv)); break;
-  case 826: flag=_wrap_Function_find_function(resc,resv,argc,(mxArray**)(argv)); break;
-  case 827: flag=_wrap_Function_info(resc,resv,argc,(mxArray**)(argv)); break;
-  case 828: flag=_wrap_new_Function(resc,resv,argc,(mxArray**)(argv)); break;
-  case 829: flag=_wrap_external(resc,resv,argc,(mxArray**)(argv)); break;
-  case 830: flag=_wrap_integrator(resc,resv,argc,(mxArray**)(argv)); break;
-  case 831: flag=_wrap_has_integrator(resc,resv,argc,(mxArray**)(argv)); break;
-  case 832: flag=_wrap_load_integrator(resc,resv,argc,(mxArray**)(argv)); break;
-  case 833: flag=_wrap_doc_integrator(resc,resv,argc,(mxArray**)(argv)); break;
-  case 834: flag=_wrap_integrator_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 835: flag=_wrap_integrator_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 836: flag=_wrap_integrator_n_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 837: flag=_wrap_integrator_n_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 838: flag=_wrap_dyn_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 839: flag=_wrap_dyn_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 840: flag=_wrap_dyn_n_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 841: flag=_wrap_dyn_n_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 842: flag=_wrap_event_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 843: flag=_wrap_event_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 844: flag=_wrap_conic(resc,resv,argc,(mxArray**)(argv)); break;
-  case 845: flag=_wrap_qpsol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 846: flag=_wrap_conic_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 847: flag=_wrap_conic_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 848: flag=_wrap_conic_n_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 849: flag=_wrap_conic_n_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 850: flag=_wrap_conic_options(resc,resv,argc,(mxArray**)(argv)); break;
-  case 851: flag=_wrap_conic_option_type(resc,resv,argc,(mxArray**)(argv)); break;
-  case 852: flag=_wrap_conic_option_info(resc,resv,argc,(mxArray**)(argv)); break;
-  case 853: flag=_wrap_has_conic(resc,resv,argc,(mxArray**)(argv)); break;
-  case 854: flag=_wrap_load_conic(resc,resv,argc,(mxArray**)(argv)); break;
-  case 855: flag=_wrap_doc_conic(resc,resv,argc,(mxArray**)(argv)); break;
-  case 856: flag=_wrap_conic_debug(resc,resv,argc,(mxArray**)(argv)); break;
-  case 857: flag=_wrap_nlpsol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 858: flag=_wrap_nlpsol_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 859: flag=_wrap_nlpsol_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 860: flag=_wrap_nlpsol_n_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 861: flag=_wrap_nlpsol_n_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 862: flag=_wrap_nlpsol_default_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 863: flag=_wrap_nlpsol_options(resc,resv,argc,(mxArray**)(argv)); break;
-  case 864: flag=_wrap_nlpsol_option_type(resc,resv,argc,(mxArray**)(argv)); break;
-  case 865: flag=_wrap_nlpsol_option_info(resc,resv,argc,(mxArray**)(argv)); break;
-  case 866: flag=_wrap_has_nlpsol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 867: flag=_wrap_load_nlpsol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 868: flag=_wrap_doc_nlpsol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 869: flag=_wrap_rootfinder(resc,resv,argc,(mxArray**)(argv)); break;
-  case 870: flag=_wrap_rootfinder_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 871: flag=_wrap_rootfinder_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 872: flag=_wrap_rootfinder_n_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 873: flag=_wrap_rootfinder_n_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 874: flag=_wrap_rootfinder_options(resc,resv,argc,(mxArray**)(argv)); break;
-  case 875: flag=_wrap_rootfinder_option_type(resc,resv,argc,(mxArray**)(argv)); break;
-  case 876: flag=_wrap_rootfinder_option_info(resc,resv,argc,(mxArray**)(argv)); break;
-  case 877: flag=_wrap_has_rootfinder(resc,resv,argc,(mxArray**)(argv)); break;
-  case 878: flag=_wrap_load_rootfinder(resc,resv,argc,(mxArray**)(argv)); break;
-  case 879: flag=_wrap_doc_rootfinder(resc,resv,argc,(mxArray**)(argv)); break;
-  case 880: flag=_wrap_Linsol_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 881: flag=_wrap_Linsol_has_plugin(resc,resv,argc,(mxArray**)(argv)); break;
-  case 882: flag=_wrap_Linsol_load_plugin(resc,resv,argc,(mxArray**)(argv)); break;
-  case 883: flag=_wrap_Linsol_doc(resc,resv,argc,(mxArray**)(argv)); break;
-  case 884: flag=_wrap_Linsol_plugin_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 885: flag=_wrap_Linsol_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 886: flag=_wrap_Linsol_sfact(resc,resv,argc,(mxArray**)(argv)); break;
-  case 887: flag=_wrap_Linsol_nfact(resc,resv,argc,(mxArray**)(argv)); break;
-  case 888: flag=_wrap_Linsol_solve(resc,resv,argc,(mxArray**)(argv)); break;
-  case 889: flag=_wrap_Linsol_neig(resc,resv,argc,(mxArray**)(argv)); break;
-  case 890: flag=_wrap_Linsol_rank(resc,resv,argc,(mxArray**)(argv)); break;
-  case 891: flag=_wrap_Linsol_stats(resc,resv,argc,(mxArray**)(argv)); break;
-  case 892: flag=_wrap_new_Linsol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 893: flag=_wrap_delete_Linsol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 894: flag=_wrap_has_linsol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 895: flag=_wrap_load_linsol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 896: flag=_wrap_doc_linsol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 897: flag=_wrap_dplesol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 898: flag=_wrap_dple_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 899: flag=_wrap_dple_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 900: flag=_wrap_dple_n_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 901: flag=_wrap_dple_n_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 902: flag=_wrap_has_dple(resc,resv,argc,(mxArray**)(argv)); break;
-  case 903: flag=_wrap_load_dple(resc,resv,argc,(mxArray**)(argv)); break;
-  case 904: flag=_wrap_doc_dple(resc,resv,argc,(mxArray**)(argv)); break;
-  case 905: flag=_wrap_expmsol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 906: flag=_wrap_expm_n_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 907: flag=_wrap_expm_n_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 908: flag=_wrap_has_expm(resc,resv,argc,(mxArray**)(argv)); break;
-  case 909: flag=_wrap_load_expm(resc,resv,argc,(mxArray**)(argv)); break;
-  case 910: flag=_wrap_doc_expm(resc,resv,argc,(mxArray**)(argv)); break;
-  case 911: flag=_wrap_interpolant(resc,resv,argc,(mxArray**)(argv)); break;
-  case 912: flag=_wrap_has_interpolant(resc,resv,argc,(mxArray**)(argv)); break;
-  case 913: flag=_wrap_load_interpolant(resc,resv,argc,(mxArray**)(argv)); break;
-  case 914: flag=_wrap_doc_interpolant(resc,resv,argc,(mxArray**)(argv)); break;
-  case 915: flag=_wrap_blazing_spline(resc,resv,argc,(mxArray**)(argv)); break;
-  case 916: flag=_wrap_new_CodeGenerator(resc,resv,argc,(mxArray**)(argv)); break;
-  case 917: flag=_wrap_CodeGenerator_add(resc,resv,argc,(mxArray**)(argv)); break;
-  case 918: flag=_wrap_CodeGenerator_dump(resc,resv,argc,(mxArray**)(argv)); break;
-  case 919: flag=_wrap_CodeGenerator_generate(resc,resv,argc,(mxArray**)(argv)); break;
-  case 920: flag=_wrap_CodeGenerator_add_include(resc,resv,argc,(mxArray**)(argv)); break;
-  case 921: flag=_wrap_delete_CodeGenerator(resc,resv,argc,(mxArray**)(argv)); break;
-  case 922: flag=_wrap_cse(resc,resv,argc,(mxArray**)(argv)); break;
-  case 923: flag=_wrap_extract_parametric(resc,resv,argc,(mxArray**)(argv)); break;
-  case 924: flag=_wrap_forward(resc,resv,argc,(mxArray**)(argv)); break;
-  case 925: flag=_wrap_reverse(resc,resv,argc,(mxArray**)(argv)); break;
-  case 926: flag=_wrap_substitute(resc,resv,argc,(mxArray**)(argv)); break;
-  case 927: flag=_wrap_substitute_inplace(resc,resv,argc,(mxArray**)(argv)); break;
-  case 928: flag=_wrap_extract(resc,resv,argc,(mxArray**)(argv)); break;
-  case 929: flag=_wrap_shared(resc,resv,argc,(mxArray**)(argv)); break;
-  case 930: flag=_wrap_blockcat(resc,resv,argc,(mxArray**)(argv)); break;
-  case 931: flag=_wrap_matrix_expand(resc,resv,argc,(mxArray**)(argv)); break;
-  case 932: flag=_wrap_graph_substitute(resc,resv,argc,(mxArray**)(argv)); break;
-  case 933: flag=_wrap_bspline(resc,resv,argc,(mxArray**)(argv)); break;
-  case 934: flag=_wrap_convexify(resc,resv,argc,(mxArray**)(argv)); break;
-  case 935: flag=_wrap_stop_diff(resc,resv,argc,(mxArray**)(argv)); break;
-  case 936: flag=_wrap_difference(resc,resv,argc,(mxArray**)(argv)); break;
-  case 937: flag=_wrap_no_hess(resc,resv,argc,(mxArray**)(argv)); break;
-  case 938: flag=_wrap_no_grad(resc,resv,argc,(mxArray**)(argv)); break;
-  case 939: flag=_wrap_Importer_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 940: flag=_wrap_Importer_test_cast(resc,resv,argc,(mxArray**)(argv)); break;
-  case 941: flag=_wrap_Importer_has_plugin(resc,resv,argc,(mxArray**)(argv)); break;
-  case 942: flag=_wrap_Importer_load_plugin(resc,resv,argc,(mxArray**)(argv)); break;
-  case 943: flag=_wrap_Importer_doc(resc,resv,argc,(mxArray**)(argv)); break;
-  case 944: flag=_wrap_Importer_plugin_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 945: flag=_wrap_Importer_has_function(resc,resv,argc,(mxArray**)(argv)); break;
-  case 946: flag=_wrap_Importer_has_meta(resc,resv,argc,(mxArray**)(argv)); break;
-  case 947: flag=_wrap_Importer_get_meta(resc,resv,argc,(mxArray**)(argv)); break;
-  case 948: flag=_wrap_Importer_inlined(resc,resv,argc,(mxArray**)(argv)); break;
-  case 949: flag=_wrap_Importer_body(resc,resv,argc,(mxArray**)(argv)); break;
-  case 950: flag=_wrap_Importer_library(resc,resv,argc,(mxArray**)(argv)); break;
-  case 951: flag=_wrap_Importer_serialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 952: flag=_wrap_Importer_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 953: flag=_wrap_new_Importer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 954: flag=_wrap_delete_Importer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 955: flag=_wrap_Callback_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 956: flag=_wrap_new_Callback(resc,resv,argc,(mxArray**)(argv)); break;
-  case 957: flag=_wrap_delete_Callback(resc,resv,argc,(mxArray**)(argv)); break;
-  case 958: flag=_wrap_Callback_construct(resc,resv,argc,(mxArray**)(argv)); break;
-  case 959: flag=_wrap_Callback_init(resc,resv,argc,(mxArray**)(argv)); break;
-  case 960: flag=_wrap_Callback_finalize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 961: flag=_wrap_Callback_eval(resc,resv,argc,(mxArray**)(argv)); break;
-  case 962: flag=_wrap_Callback_eval_buffer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 963: flag=_wrap_Callback_has_eval_buffer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 964: flag=_wrap_Callback_get_n_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 965: flag=_wrap_Callback_get_n_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 966: flag=_wrap_Callback_get_sparsity_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 967: flag=_wrap_Callback_get_sparsity_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 968: flag=_wrap_Callback_get_name_in(resc,resv,argc,(mxArray**)(argv)); break;
-  case 969: flag=_wrap_Callback_get_name_out(resc,resv,argc,(mxArray**)(argv)); break;
-  case 970: flag=_wrap_Callback_uses_output(resc,resv,argc,(mxArray**)(argv)); break;
-  case 971: flag=_wrap_Callback_has_jacobian(resc,resv,argc,(mxArray**)(argv)); break;
-  case 972: flag=_wrap_Callback_get_jacobian(resc,resv,argc,(mxArray**)(argv)); break;
-  case 973: flag=_wrap_Callback_has_forward(resc,resv,argc,(mxArray**)(argv)); break;
-  case 974: flag=_wrap_Callback_get_forward(resc,resv,argc,(mxArray**)(argv)); break;
-  case 975: flag=_wrap_Callback_has_reverse(resc,resv,argc,(mxArray**)(argv)); break;
-  case 976: flag=_wrap_Callback_get_reverse(resc,resv,argc,(mxArray**)(argv)); break;
-  case 977: flag=_wrap_Callback_has_jac_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 978: flag=_wrap_Callback_get_jac_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 979: flag=_wrap_GlobalOptions_setSimplificationOnTheFly(resc,resv,argc,(mxArray**)(argv)); break;
-  case 980: flag=_wrap_GlobalOptions_getSimplificationOnTheFly(resc,resv,argc,(mxArray**)(argv)); break;
-  case 981: flag=_wrap_GlobalOptions_setHierarchicalSparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 982: flag=_wrap_GlobalOptions_getHierarchicalSparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 983: flag=_wrap_GlobalOptions_setCasadiPath(resc,resv,argc,(mxArray**)(argv)); break;
-  case 984: flag=_wrap_GlobalOptions_getCasadiPath(resc,resv,argc,(mxArray**)(argv)); break;
-  case 985: flag=_wrap_GlobalOptions_setCasadiIncludePath(resc,resv,argc,(mxArray**)(argv)); break;
-  case 986: flag=_wrap_GlobalOptions_getCasadiIncludePath(resc,resv,argc,(mxArray**)(argv)); break;
-  case 987: flag=_wrap_GlobalOptions_setMaxNumDir(resc,resv,argc,(mxArray**)(argv)); break;
-  case 988: flag=_wrap_GlobalOptions_getMaxNumDir(resc,resv,argc,(mxArray**)(argv)); break;
-  case 989: flag=_wrap_GlobalOptions_setCopyElisionMinSize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 990: flag=_wrap_GlobalOptions_getCopyElisionMinSize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 991: flag=_wrap_new_GlobalOptions(resc,resv,argc,(mxArray**)(argv)); break;
-  case 992: flag=_wrap_delete_GlobalOptions(resc,resv,argc,(mxArray**)(argv)); break;
-  case 993: flag=_wrap_CasadiMeta_version(resc,resv,argc,(mxArray**)(argv)); break;
-  case 994: flag=_wrap_CasadiMeta_git_revision(resc,resv,argc,(mxArray**)(argv)); break;
-  case 995: flag=_wrap_CasadiMeta_git_describe(resc,resv,argc,(mxArray**)(argv)); break;
-  case 996: flag=_wrap_CasadiMeta_feature_list(resc,resv,argc,(mxArray**)(argv)); break;
-  case 997: flag=_wrap_CasadiMeta_build_type(resc,resv,argc,(mxArray**)(argv)); break;
-  case 998: flag=_wrap_CasadiMeta_compiler_id(resc,resv,argc,(mxArray**)(argv)); break;
-  case 999: flag=_wrap_CasadiMeta_compiler(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1000: flag=_wrap_CasadiMeta_compiler_flags(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1001: flag=_wrap_CasadiMeta_modules(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1002: flag=_wrap_CasadiMeta_plugins(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1003: flag=_wrap_CasadiMeta_install_prefix(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1004: flag=_wrap_CasadiMeta_shared_library_prefix(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1005: flag=_wrap_CasadiMeta_shared_library_suffix(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1006: flag=_wrap_CasadiMeta_object_file_suffix(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1007: flag=_wrap_new_CasadiMeta(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1008: flag=_wrap_delete_CasadiMeta(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1009: flag=_wrap_collocation_points(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1010: flag=_wrap_collocation_interpolators(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1011: flag=_wrap_collocation_coeff(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1012: flag=_wrap_simpleRK(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1013: flag=_wrap_simpleIRK(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1014: flag=_wrap_simpleIntegrator(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1015: flag=_wrap_dae_reduce_index(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1016: flag=_wrap_dae_map_semi_expl(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1017: flag=_wrap_dae_init_gen(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1018: flag=_wrap_detect_simple_bounds(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1019: flag=_wrap_external_transform(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1020: flag=_wrap_NlpBuilder_x_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1021: flag=_wrap_NlpBuilder_f_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1022: flag=_wrap_NlpBuilder_g_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1023: flag=_wrap_NlpBuilder_x_lb_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1024: flag=_wrap_NlpBuilder_x_ub_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1025: flag=_wrap_NlpBuilder_g_lb_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1026: flag=_wrap_NlpBuilder_g_ub_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1027: flag=_wrap_NlpBuilder_x_init_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1028: flag=_wrap_NlpBuilder_lambda_init_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1029: flag=_wrap_NlpBuilder_discrete_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1030: flag=_wrap_NlpBuilder_import_nl(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1031: flag=_wrap_NlpBuilder_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1032: flag=_wrap_NlpBuilder_disp(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1033: flag=_wrap_NlpBuilder_str(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1034: flag=_wrap_new_NlpBuilder(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1035: flag=_wrap_delete_NlpBuilder(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1036: flag=_wrap_DaeBuilder_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1037: flag=_wrap_DaeBuilder_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1038: flag=_wrap_DaeBuilder_time(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1039: flag=_wrap_DaeBuilder_t_new(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1040: flag=_wrap_DaeBuilder_x(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1041: flag=_wrap_DaeBuilder_y(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1042: flag=_wrap_DaeBuilder_ode(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1043: flag=_wrap_DaeBuilder_z(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1044: flag=_wrap_DaeBuilder_alg(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1045: flag=_wrap_DaeBuilder_q(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1046: flag=_wrap_DaeBuilder_quad(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1047: flag=_wrap_DaeBuilder_zero(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1048: flag=_wrap_DaeBuilder_ydef(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1049: flag=_wrap_DaeBuilder_u(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1050: flag=_wrap_DaeBuilder_p(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1051: flag=_wrap_DaeBuilder_c(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1052: flag=_wrap_DaeBuilder_cdef(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1053: flag=_wrap_DaeBuilder_d(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1054: flag=_wrap_DaeBuilder_ddef(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1055: flag=_wrap_DaeBuilder_w(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1056: flag=_wrap_DaeBuilder_wdef(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1057: flag=_wrap_DaeBuilder_init_lhs(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1058: flag=_wrap_DaeBuilder_init_rhs(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1059: flag=_wrap_DaeBuilder_outputs(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1060: flag=_wrap_DaeBuilder_derivatives(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1061: flag=_wrap_DaeBuilder_initial_unknowns(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1062: flag=_wrap_DaeBuilder_has_t(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1063: flag=_wrap_DaeBuilder_nx(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1064: flag=_wrap_DaeBuilder_nz(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1065: flag=_wrap_DaeBuilder_nq(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1066: flag=_wrap_DaeBuilder_nzero(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1067: flag=_wrap_DaeBuilder_ny(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1068: flag=_wrap_DaeBuilder_nu(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1069: flag=_wrap_DaeBuilder_np(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1070: flag=_wrap_DaeBuilder_nc(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1071: flag=_wrap_DaeBuilder_nd(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1072: flag=_wrap_DaeBuilder_nw(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1073: flag=_wrap_DaeBuilder_add(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1074: flag=_wrap_DaeBuilder_eq(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1075: flag=_wrap_DaeBuilder_when(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1076: flag=_wrap_DaeBuilder_assign(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1077: flag=_wrap_DaeBuilder_reinit(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1078: flag=_wrap_DaeBuilder_set_init(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1079: flag=_wrap_DaeBuilder_sanity_check(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1080: flag=_wrap_DaeBuilder_reorder(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1081: flag=_wrap_DaeBuilder_eliminate(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1082: flag=_wrap_DaeBuilder_sort(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1083: flag=_wrap_DaeBuilder_lift(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1084: flag=_wrap_DaeBuilder_prune(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1085: flag=_wrap_DaeBuilder_tear(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1086: flag=_wrap_DaeBuilder_add_fun(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1087: flag=_wrap_DaeBuilder_has_fun(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1088: flag=_wrap_DaeBuilder_fun(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1089: flag=_wrap_DaeBuilder_gather_fun(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1090: flag=_wrap_DaeBuilder_parse_fmi(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1091: flag=_wrap_DaeBuilder_provides_directional_derivatives(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1092: flag=_wrap_DaeBuilder_provides_directional_derivative(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1093: flag=_wrap_DaeBuilder_load_fmi_description(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1094: flag=_wrap_DaeBuilder_export_fmu(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1095: flag=_wrap_DaeBuilder_add_lc(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1096: flag=_wrap_DaeBuilder_create(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1097: flag=_wrap_DaeBuilder_dependent_fun(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1098: flag=_wrap_DaeBuilder_transition(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1099: flag=_wrap_DaeBuilder_var(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1100: flag=_wrap_DaeBuilder_paren(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1101: flag=_wrap_DaeBuilder_der(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1102: flag=_wrap_DaeBuilder_pre(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1103: flag=_wrap_DaeBuilder_has_beq(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1104: flag=_wrap_DaeBuilder_beq(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1105: flag=_wrap_DaeBuilder_value_reference(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1106: flag=_wrap_DaeBuilder_set_value_reference(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1107: flag=_wrap_DaeBuilder_description(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1108: flag=_wrap_DaeBuilder_set_description(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1109: flag=_wrap_DaeBuilder_type(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1110: flag=_wrap_DaeBuilder_set_type(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1111: flag=_wrap_DaeBuilder_causality(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1112: flag=_wrap_DaeBuilder_set_causality(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1113: flag=_wrap_DaeBuilder_variability(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1114: flag=_wrap_DaeBuilder_set_variability(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1115: flag=_wrap_DaeBuilder_category(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1116: flag=_wrap_DaeBuilder_set_category(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1117: flag=_wrap_DaeBuilder_initial(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1118: flag=_wrap_DaeBuilder_set_initial(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1119: flag=_wrap_DaeBuilder_unit(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1120: flag=_wrap_DaeBuilder_set_unit(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1121: flag=_wrap_DaeBuilder_display_unit(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1122: flag=_wrap_DaeBuilder_set_display_unit(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1123: flag=_wrap_DaeBuilder_numel(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1124: flag=_wrap_DaeBuilder_dimension(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1125: flag=_wrap_DaeBuilder_start_time(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1126: flag=_wrap_DaeBuilder_set_start_time(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1127: flag=_wrap_DaeBuilder_stop_time(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1128: flag=_wrap_DaeBuilder_set_stop_time(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1129: flag=_wrap_DaeBuilder_tolerance(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1130: flag=_wrap_DaeBuilder_set_tolerance(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1131: flag=_wrap_DaeBuilder_step_size(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1132: flag=_wrap_DaeBuilder_set_step_size(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1133: flag=_wrap_DaeBuilder_attribute(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1134: flag=_wrap_DaeBuilder_set_attribute(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1135: flag=_wrap_DaeBuilder_min(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1136: flag=_wrap_DaeBuilder_set_min(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1137: flag=_wrap_DaeBuilder_max(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1138: flag=_wrap_DaeBuilder_set_max(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1139: flag=_wrap_DaeBuilder_nominal(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1140: flag=_wrap_DaeBuilder_set_nominal(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1141: flag=_wrap_DaeBuilder_start(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1142: flag=_wrap_DaeBuilder_set_start(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1143: flag=_wrap_DaeBuilder_set(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1144: flag=_wrap_DaeBuilder_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1145: flag=_wrap_DaeBuilder_has(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1146: flag=_wrap_DaeBuilder_all(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1147: flag=_wrap_DaeBuilder_oracle(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1148: flag=_wrap_DaeBuilder_jac_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1149: flag=_wrap_new_DaeBuilder(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1150: flag=_wrap_delete_DaeBuilder(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1151: flag=_wrap_XmlFile_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1152: flag=_wrap_delete_XmlFile(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1153: flag=_wrap_XmlFile_load_plugin(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1154: flag=_wrap_XmlFile_doc(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1155: flag=_wrap_new_XmlFile(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1156: flag=_wrap_has_archiver(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1157: flag=_wrap_load_archiver(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1158: flag=_wrap_doc_archiver(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1159: flag=_wrap_has_filesystem(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1160: flag=_wrap_load_filesystem(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1161: flag=_wrap_doc_filesystem(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1162: flag=_wrap_Options_all(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1163: flag=_wrap_Options_type(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1164: flag=_wrap_Options_info(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1165: flag=_wrap_Options_word_distance(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1166: flag=_wrap_Options_suggestions(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1167: flag=_wrap_Options_best_matches(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1168: flag=_wrap_Options_has_dot(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1169: flag=_wrap_Options_has_null(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1170: flag=_wrap_Options_is_sane(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1171: flag=_wrap_Options_sanitize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1172: flag=_wrap_Options_check(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1173: flag=_wrap_Options_print_all(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1174: flag=_wrap_Options_print_one(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1175: flag=_wrap_new_Options(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1176: flag=_wrap_delete_Options(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1177: flag=_wrap_delete_SerializerBase(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1178: flag=_wrap_SerializerBase_pack(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1179: flag=_wrap_SerializerBase_type_to_string(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1180: flag=_wrap_SerializerBase_connect(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1181: flag=_wrap_SerializerBase_reset(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1182: flag=_wrap_delete_DeserializerBase(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1183: flag=_wrap_DeserializerBase_internal_pop_type(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1184: flag=_wrap_DeserializerBase_blind_unpack_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1185: flag=_wrap_DeserializerBase_blind_unpack_mx(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1186: flag=_wrap_DeserializerBase_blind_unpack_mx_v1(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1187: flag=_wrap_DeserializerBase_blind_unpack_dm(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1188: flag=_wrap_DeserializerBase_blind_unpack_sx(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1189: flag=_wrap_DeserializerBase_blind_unpack_sx_v1(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1190: flag=_wrap_DeserializerBase_blind_unpack_linsol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1191: flag=_wrap_DeserializerBase_blind_unpack_function(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1192: flag=_wrap_DeserializerBase_blind_unpack_generictype(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1193: flag=_wrap_DeserializerBase_blind_unpack_int(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1194: flag=_wrap_DeserializerBase_blind_unpack_double(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1195: flag=_wrap_DeserializerBase_blind_unpack_string(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1196: flag=_wrap_DeserializerBase_blind_unpack_sparsity_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1197: flag=_wrap_DeserializerBase_blind_unpack_mx_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1198: flag=_wrap_DeserializerBase_blind_unpack_mx_vector_v1(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1199: flag=_wrap_DeserializerBase_blind_unpack_dm_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1200: flag=_wrap_DeserializerBase_blind_unpack_sx_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1201: flag=_wrap_DeserializerBase_blind_unpack_sx_vector_v1(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1202: flag=_wrap_DeserializerBase_blind_unpack_linsol_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1203: flag=_wrap_DeserializerBase_blind_unpack_function_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1204: flag=_wrap_DeserializerBase_blind_unpack_generictype_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1205: flag=_wrap_DeserializerBase_blind_unpack_int_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1206: flag=_wrap_DeserializerBase_blind_unpack_double_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1207: flag=_wrap_DeserializerBase_blind_unpack_string_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1208: flag=_wrap_DeserializerBase_unpack_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1209: flag=_wrap_DeserializerBase_unpack_mx(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1210: flag=_wrap_DeserializerBase_unpack_dm(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1211: flag=_wrap_DeserializerBase_unpack_sx(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1212: flag=_wrap_DeserializerBase_unpack_linsol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1213: flag=_wrap_DeserializerBase_unpack_function(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1214: flag=_wrap_DeserializerBase_unpack_generictype(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1215: flag=_wrap_DeserializerBase_unpack_int(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1216: flag=_wrap_DeserializerBase_unpack_double(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1217: flag=_wrap_DeserializerBase_unpack_string(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1218: flag=_wrap_DeserializerBase_unpack_sparsity_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1219: flag=_wrap_DeserializerBase_unpack_mx_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1220: flag=_wrap_DeserializerBase_unpack_dm_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1221: flag=_wrap_DeserializerBase_unpack_sx_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1222: flag=_wrap_DeserializerBase_unpack_linsol_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1223: flag=_wrap_DeserializerBase_unpack_function_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1224: flag=_wrap_DeserializerBase_unpack_generictype_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1225: flag=_wrap_DeserializerBase_unpack_int_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1226: flag=_wrap_DeserializerBase_unpack_double_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1227: flag=_wrap_DeserializerBase_unpack_string_vector(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1228: flag=_wrap_DeserializerBase_connect(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1229: flag=_wrap_DeserializerBase_reset(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1230: flag=_wrap_new_StringSerializer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1231: flag=_wrap_delete_StringSerializer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1232: flag=_wrap_StringSerializer_encode(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1233: flag=_wrap_new_FileSerializer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1234: flag=_wrap_delete_FileSerializer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1235: flag=_wrap_new_StringDeserializer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1236: flag=_wrap_delete_StringDeserializer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1237: flag=_wrap_StringDeserializer_decode(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1238: flag=_wrap_new_FileDeserializer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1239: flag=_wrap_delete_FileDeserializer(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1240: flag=_wrap_Opti_internal_variable(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1241: flag=_wrap_Opti_internal_parameter(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1242: flag=_wrap_Opti_minimize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1243: flag=_wrap_Opti_internal_subject_to(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1244: flag=_wrap_Opti_solver(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1245: flag=_wrap_Opti_set_initial(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1246: flag=_wrap_Opti_set_value(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1247: flag=_wrap_Opti_set_domain(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1248: flag=_wrap_Opti_set_linear_scale(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1249: flag=_wrap_Opti_solve(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1250: flag=_wrap_Opti_solve_limited(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1251: flag=_wrap_Opti_value(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1252: flag=_wrap_Opti_stats(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1253: flag=_wrap_Opti_return_status(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1254: flag=_wrap_Opti_initial(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1255: flag=_wrap_Opti_value_variables(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1256: flag=_wrap_Opti_value_parameters(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1257: flag=_wrap_Opti_scale_helper(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1258: flag=_wrap_Opti_dual(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1259: flag=_wrap_Opti_nx(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1260: flag=_wrap_Opti_np(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1261: flag=_wrap_Opti_ng(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1262: flag=_wrap_Opti_x(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1263: flag=_wrap_Opti_p(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1264: flag=_wrap_Opti_g(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1265: flag=_wrap_Opti_f(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1266: flag=_wrap_Opti_lbg(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1267: flag=_wrap_Opti_ubg(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1268: flag=_wrap_Opti_x_linear_scale(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1269: flag=_wrap_Opti_x_linear_scale_offset(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1270: flag=_wrap_Opti_g_linear_scale(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1271: flag=_wrap_Opti_f_linear_scale(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1272: flag=_wrap_Opti_lam_g(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1273: flag=_wrap_Opti_to_function(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1274: flag=_wrap_Opti_debug(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1275: flag=_wrap_Opti_advanced(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1276: flag=_wrap_Opti_copy(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1277: flag=_wrap_Opti_update_user_dict(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1278: flag=_wrap_Opti_user_dict(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1279: flag=_wrap_Opti_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1280: flag=_wrap_Opti_disp(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1281: flag=_wrap_Opti_str(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1282: flag=_wrap_Opti_callback_class(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1283: flag=_wrap_new_Opti(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1284: flag=_wrap_delete_Opti(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1285: flag=_wrap_IndexAbstraction_start_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1286: flag=_wrap_IndexAbstraction_stop_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1287: flag=_wrap_new_IndexAbstraction(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1288: flag=_wrap_delete_IndexAbstraction(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1289: flag=_wrap_MetaCon_original_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1290: flag=_wrap_MetaCon_canon_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1291: flag=_wrap_MetaCon_type_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1292: flag=_wrap_MetaCon_lb_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1293: flag=_wrap_MetaCon_ub_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1294: flag=_wrap_MetaCon_n_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1295: flag=_wrap_MetaCon_flipped_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1296: flag=_wrap_MetaCon_dual_canon_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1297: flag=_wrap_MetaCon_dual_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1298: flag=_wrap_MetaCon_extra_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1299: flag=_wrap_MetaCon_linear_scale_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1300: flag=_wrap_new_MetaCon(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1301: flag=_wrap_delete_MetaCon(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1302: flag=_wrap_MetaVar_attribute_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1303: flag=_wrap_MetaVar_n_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1304: flag=_wrap_MetaVar_m_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1305: flag=_wrap_MetaVar_type_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1306: flag=_wrap_MetaVar_domain_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1307: flag=_wrap_MetaVar_count_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1308: flag=_wrap_MetaVar_i_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1309: flag=_wrap_MetaVar_active_i_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1310: flag=_wrap_MetaVar_extra_get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1311: flag=_wrap_new_MetaVar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1312: flag=_wrap_delete_MetaVar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1313: flag=_wrap_new_OptiCallback(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1314: flag=_wrap_OptiCallback_call(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1315: flag=_wrap_delete_OptiCallback(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1316: flag=_wrap_delete_OptiAdvanced(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1317: flag=_wrap_OptiAdvanced_solver(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1318: flag=_wrap_OptiAdvanced_is_parametric(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1319: flag=_wrap_OptiAdvanced_symvar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1320: flag=_wrap_OptiAdvanced_canon_expr(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1321: flag=_wrap_OptiAdvanced_get_meta(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1322: flag=_wrap_OptiAdvanced_get_meta_con(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1323: flag=_wrap_OptiAdvanced_set_meta(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1324: flag=_wrap_OptiAdvanced_set_meta_con(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1325: flag=_wrap_OptiAdvanced_assert_active_symbol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1326: flag=_wrap_OptiAdvanced_active_symvar(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1327: flag=_wrap_OptiAdvanced_active_values(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1328: flag=_wrap_OptiAdvanced_x_lookup(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1329: flag=_wrap_OptiAdvanced_g_lookup(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1330: flag=_wrap_OptiAdvanced_g_index_reduce_g(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1331: flag=_wrap_OptiAdvanced_g_index_reduce_x(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1332: flag=_wrap_OptiAdvanced_g_index_unreduce_g(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1333: flag=_wrap_OptiAdvanced_x_describe(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1334: flag=_wrap_OptiAdvanced_g_describe(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1335: flag=_wrap_OptiAdvanced_describe(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1336: flag=_wrap_OptiAdvanced_show_infeasibilities(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1337: flag=_wrap_OptiAdvanced_solve_prepare(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1338: flag=_wrap_OptiAdvanced_solve_actual(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1339: flag=_wrap_OptiAdvanced_arg(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1340: flag=_wrap_OptiAdvanced_res(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1341: flag=_wrap_OptiAdvanced_constraints(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1342: flag=_wrap_OptiAdvanced_objective(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1343: flag=_wrap_OptiAdvanced_baked_copy(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1344: flag=_wrap_OptiAdvanced_assert_empty(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1345: flag=_wrap_OptiAdvanced_bake(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1346: flag=_wrap_OptiAdvanced_problem_dirty__get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1347: flag=_wrap_OptiAdvanced_mark_problem_dirty(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1348: flag=_wrap_OptiAdvanced_problem_dirty(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1349: flag=_wrap_OptiAdvanced_solver_dirty__get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1350: flag=_wrap_OptiAdvanced_mark_solver_dirty(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1351: flag=_wrap_OptiAdvanced_solver_dirty(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1352: flag=_wrap_OptiAdvanced_solved__get(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1353: flag=_wrap_OptiAdvanced_mark_solved(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1354: flag=_wrap_OptiAdvanced_solved(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1355: flag=_wrap_OptiAdvanced_assert_solved(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1356: flag=_wrap_OptiAdvanced_assert_baked(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1357: flag=_wrap_OptiAdvanced_instance_number(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1358: flag=_wrap_new_OptiAdvanced(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1359: flag=_wrap_OptiSol_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1360: flag=_wrap_OptiSol_disp(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1361: flag=_wrap_OptiSol_str(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1362: flag=_wrap_OptiSol_value(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1363: flag=_wrap_OptiSol_value_variables(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1364: flag=_wrap_OptiSol_value_parameters(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1365: flag=_wrap_OptiSol_stats(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1366: flag=_wrap_OptiSol_opti(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1367: flag=_wrap_new_OptiSol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1368: flag=_wrap_delete_OptiSol(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1369: flag=_wrap_Resource_type_name(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1370: flag=_wrap_Resource_test_cast(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1371: flag=_wrap_Resource_path(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1372: flag=_wrap_Resource_serialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1373: flag=_wrap_Resource_change_option(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1374: flag=_wrap_Resource_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1375: flag=_wrap_new_Resource(resc,resv,argc,(mxArray**)(argv)); break;
-  case 1376: flag=_wrap_delete_Resource(resc,resv,argc,(mxArray**)(argv)); break;
+  case 46: flag=_wrap_delete_StreamStateGuard(resc,resv,argc,(mxArray**)(argv)); break;
+  case 47: flag=_wrap_new_StreamStateGuard(resc,resv,argc,(mxArray**)(argv)); break;
+  case 48: flag=_wrap_normalized_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 49: flag=_wrap_normalized_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 50: flag=_wrap_GenericType_serialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 51: flag=_wrap_GenericType_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 52: flag=_wrap_new_GenericType(resc,resv,argc,(mxArray**)(argv)); break;
+  case 53: flag=_wrap_delete_GenericType(resc,resv,argc,(mxArray**)(argv)); break;
+  case 54: flag=_wrap_SparsityInterfaceCommon_horzcat(resc,resv,argc,(mxArray**)(argv)); break;
+  case 55: flag=_wrap_SparsityInterfaceCommon_vertcat(resc,resv,argc,(mxArray**)(argv)); break;
+  case 56: flag=_wrap_SparsityInterfaceCommon_horzsplit(resc,resv,argc,(mxArray**)(argv)); break;
+  case 57: flag=_wrap_SparsityInterfaceCommon_horzsplit_n(resc,resv,argc,(mxArray**)(argv)); break;
+  case 58: flag=_wrap_SparsityInterfaceCommon_offset(resc,resv,argc,(mxArray**)(argv)); break;
+  case 59: flag=_wrap_SparsityInterfaceCommon_vertsplit(resc,resv,argc,(mxArray**)(argv)); break;
+  case 60: flag=_wrap_SparsityInterfaceCommon_vertsplit_n(resc,resv,argc,(mxArray**)(argv)); break;
+  case 61: flag=_wrap_SparsityInterfaceCommon_blockcat(resc,resv,argc,(mxArray**)(argv)); break;
+  case 62: flag=_wrap_SparsityInterfaceCommon_blocksplit(resc,resv,argc,(mxArray**)(argv)); break;
+  case 63: flag=_wrap_SparsityInterfaceCommon_diagcat(resc,resv,argc,(mxArray**)(argv)); break;
+  case 64: flag=_wrap_SparsityInterfaceCommon_diagsplit(resc,resv,argc,(mxArray**)(argv)); break;
+  case 65: flag=_wrap_SparsityInterfaceCommon_veccat(resc,resv,argc,(mxArray**)(argv)); break;
+  case 66: flag=_wrap_SparsityInterfaceCommon_mtimes(resc,resv,argc,(mxArray**)(argv)); break;
+  case 67: flag=_wrap_SparsityInterfaceCommon_mac(resc,resv,argc,(mxArray**)(argv)); break;
+  case 68: flag=_wrap_SparsityInterfaceCommon_transpose(resc,resv,argc,(mxArray**)(argv)); break;
+  case 69: flag=_wrap_SparsityInterfaceCommon_vec(resc,resv,argc,(mxArray**)(argv)); break;
+  case 70: flag=_wrap_SparsityInterfaceCommon_reshape(resc,resv,argc,(mxArray**)(argv)); break;
+  case 71: flag=_wrap_SparsityInterfaceCommon_sparsity_cast(resc,resv,argc,(mxArray**)(argv)); break;
+  case 72: flag=_wrap_SparsityInterfaceCommon_sprank(resc,resv,argc,(mxArray**)(argv)); break;
+  case 73: flag=_wrap_SparsityInterfaceCommon_norm_0_mul(resc,resv,argc,(mxArray**)(argv)); break;
+  case 74: flag=_wrap_SparsityInterfaceCommon_triu(resc,resv,argc,(mxArray**)(argv)); break;
+  case 75: flag=_wrap_SparsityInterfaceCommon_tril(resc,resv,argc,(mxArray**)(argv)); break;
+  case 76: flag=_wrap_SparsityInterfaceCommon_kron(resc,resv,argc,(mxArray**)(argv)); break;
+  case 77: flag=_wrap_SparsityInterfaceCommon_repmat(resc,resv,argc,(mxArray**)(argv)); break;
+  case 78: flag=_wrap_SparsityInterfaceCommon_sum2(resc,resv,argc,(mxArray**)(argv)); break;
+  case 79: flag=_wrap_SparsityInterfaceCommon_sum1(resc,resv,argc,(mxArray**)(argv)); break;
+  case 80: flag=_wrap_SparsityInterfaceCommon_length(resc,resv,argc,(mxArray**)(argv)); break;
+  case 81: flag=_wrap_SparsityInterfaceCommon_sum(resc,resv,argc,(mxArray**)(argv)); break;
+  case 82: flag=_wrap_new_SparsityInterfaceCommon(resc,resv,argc,(mxArray**)(argv)); break;
+  case 83: flag=_wrap_delete_SparsityInterfaceCommon(resc,resv,argc,(mxArray**)(argv)); break;
+  case 84: flag=_wrap_Sparsity_scalar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 85: flag=_wrap_Sparsity_dense(resc,resv,argc,(mxArray**)(argv)); break;
+  case 86: flag=_wrap_Sparsity_unit(resc,resv,argc,(mxArray**)(argv)); break;
+  case 87: flag=_wrap_Sparsity_upper(resc,resv,argc,(mxArray**)(argv)); break;
+  case 88: flag=_wrap_Sparsity_lower(resc,resv,argc,(mxArray**)(argv)); break;
+  case 89: flag=_wrap_Sparsity_diag(resc,resv,argc,(mxArray**)(argv)); break;
+  case 90: flag=_wrap_Sparsity_band(resc,resv,argc,(mxArray**)(argv)); break;
+  case 91: flag=_wrap_Sparsity_banded(resc,resv,argc,(mxArray**)(argv)); break;
+  case 92: flag=_wrap_Sparsity_rowcol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 93: flag=_wrap_Sparsity_triplet(resc,resv,argc,(mxArray**)(argv)); break;
+  case 94: flag=_wrap_Sparsity_nonzeros(resc,resv,argc,(mxArray**)(argv)); break;
+  case 95: flag=_wrap_Sparsity_compressed(resc,resv,argc,(mxArray**)(argv)); break;
+  case 96: flag=_wrap_Sparsity_permutation(resc,resv,argc,(mxArray**)(argv)); break;
+  case 97: flag=_wrap_Sparsity_permutation_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 98: flag=_wrap_Sparsity_get_diag(resc,resv,argc,(mxArray**)(argv)); break;
+  case 99: flag=_wrap_Sparsity_compress(resc,resv,argc,(mxArray**)(argv)); break;
+  case 100: flag=_wrap_Sparsity_is_equal(resc,resv,argc,(mxArray**)(argv)); break;
+  case 101: flag=_wrap_Sparsity_eq(resc,resv,argc,(mxArray**)(argv)); break;
+  case 102: flag=_wrap_Sparsity_ne(resc,resv,argc,(mxArray**)(argv)); break;
+  case 103: flag=_wrap_Sparsity_is_stacked(resc,resv,argc,(mxArray**)(argv)); break;
+  case 104: flag=_wrap_Sparsity_size1(resc,resv,argc,(mxArray**)(argv)); break;
+  case 105: flag=_wrap_Sparsity_rows(resc,resv,argc,(mxArray**)(argv)); break;
+  case 106: flag=_wrap_Sparsity_size2(resc,resv,argc,(mxArray**)(argv)); break;
+  case 107: flag=_wrap_Sparsity_columns(resc,resv,argc,(mxArray**)(argv)); break;
+  case 108: flag=_wrap_Sparsity_numel(resc,resv,argc,(mxArray**)(argv)); break;
+  case 109: flag=_wrap_Sparsity_density(resc,resv,argc,(mxArray**)(argv)); break;
+  case 110: flag=_wrap_Sparsity_is_empty(resc,resv,argc,(mxArray**)(argv)); break;
+  case 111: flag=_wrap_Sparsity_nnz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 112: flag=_wrap_Sparsity_nnz_upper(resc,resv,argc,(mxArray**)(argv)); break;
+  case 113: flag=_wrap_Sparsity_nnz_lower(resc,resv,argc,(mxArray**)(argv)); break;
+  case 114: flag=_wrap_Sparsity_nnz_diag(resc,resv,argc,(mxArray**)(argv)); break;
+  case 115: flag=_wrap_Sparsity_bw_upper(resc,resv,argc,(mxArray**)(argv)); break;
+  case 116: flag=_wrap_Sparsity_bw_lower(resc,resv,argc,(mxArray**)(argv)); break;
+  case 117: flag=_wrap_Sparsity_size(resc,resv,argc,(mxArray**)(argv)); break;
+  case 118: flag=_wrap_Sparsity_info(resc,resv,argc,(mxArray**)(argv)); break;
+  case 119: flag=_wrap_Sparsity_to_file(resc,resv,argc,(mxArray**)(argv)); break;
+  case 120: flag=_wrap_Sparsity_from_file(resc,resv,argc,(mxArray**)(argv)); break;
+  case 121: flag=_wrap_Sparsity_serialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 122: flag=_wrap_Sparsity_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 123: flag=_wrap_Sparsity_colind(resc,resv,argc,(mxArray**)(argv)); break;
+  case 124: flag=_wrap_Sparsity_row(resc,resv,argc,(mxArray**)(argv)); break;
+  case 125: flag=_wrap_Sparsity_get_col(resc,resv,argc,(mxArray**)(argv)); break;
+  case 126: flag=_wrap_Sparsity_resize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 127: flag=_wrap_Sparsity_add_nz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 128: flag=_wrap_Sparsity_has_nz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 129: flag=_wrap_Sparsity_get_nz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 130: flag=_wrap_Sparsity_get_lower(resc,resv,argc,(mxArray**)(argv)); break;
+  case 131: flag=_wrap_Sparsity_get_upper(resc,resv,argc,(mxArray**)(argv)); break;
+  case 132: flag=_wrap_Sparsity_get_ccs(resc,resv,argc,(mxArray**)(argv)); break;
+  case 133: flag=_wrap_Sparsity_get_crs(resc,resv,argc,(mxArray**)(argv)); break;
+  case 134: flag=_wrap_Sparsity_get_triplet(resc,resv,argc,(mxArray**)(argv)); break;
+  case 135: flag=_wrap_Sparsity_sub(resc,resv,argc,(mxArray**)(argv)); break;
+  case 136: flag=_wrap_Sparsity_T(resc,resv,argc,(mxArray**)(argv)); break;
+  case 137: flag=_wrap_Sparsity_transpose(resc,resv,argc,(mxArray**)(argv)); break;
+  case 138: flag=_wrap_Sparsity_is_transpose(resc,resv,argc,(mxArray**)(argv)); break;
+  case 139: flag=_wrap_Sparsity_is_reshape(resc,resv,argc,(mxArray**)(argv)); break;
+  case 140: flag=_wrap_Sparsity_combine(resc,resv,argc,(mxArray**)(argv)); break;
+  case 141: flag=_wrap_Sparsity_unite(resc,resv,argc,(mxArray**)(argv)); break;
+  case 142: flag=_wrap_Sparsity_plus(resc,resv,argc,(mxArray**)(argv)); break;
+  case 143: flag=_wrap_Sparsity_intersect(resc,resv,argc,(mxArray**)(argv)); break;
+  case 144: flag=_wrap_Sparsity_mtimes(resc,resv,argc,(mxArray**)(argv)); break;
+  case 145: flag=_wrap_Sparsity_is_subset(resc,resv,argc,(mxArray**)(argv)); break;
+  case 146: flag=_wrap_Sparsity_sparsity_cast_mod(resc,resv,argc,(mxArray**)(argv)); break;
+  case 147: flag=_wrap_Sparsity_pattern_inverse(resc,resv,argc,(mxArray**)(argv)); break;
+  case 148: flag=_wrap_Sparsity_enlarge(resc,resv,argc,(mxArray**)(argv)); break;
+  case 149: flag=_wrap_Sparsity_enlargeRows(resc,resv,argc,(mxArray**)(argv)); break;
+  case 150: flag=_wrap_Sparsity_enlargeColumns(resc,resv,argc,(mxArray**)(argv)); break;
+  case 151: flag=_wrap_Sparsity_makeDense(resc,resv,argc,(mxArray**)(argv)); break;
+  case 152: flag=_wrap_Sparsity_erase(resc,resv,argc,(mxArray**)(argv)); break;
+  case 153: flag=_wrap_Sparsity_append(resc,resv,argc,(mxArray**)(argv)); break;
+  case 154: flag=_wrap_Sparsity_appendColumns(resc,resv,argc,(mxArray**)(argv)); break;
+  case 155: flag=_wrap_Sparsity_is_scalar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 156: flag=_wrap_Sparsity_is_dense(resc,resv,argc,(mxArray**)(argv)); break;
+  case 157: flag=_wrap_Sparsity_is_row(resc,resv,argc,(mxArray**)(argv)); break;
+  case 158: flag=_wrap_Sparsity_is_column(resc,resv,argc,(mxArray**)(argv)); break;
+  case 159: flag=_wrap_Sparsity_is_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 160: flag=_wrap_Sparsity_is_diag(resc,resv,argc,(mxArray**)(argv)); break;
+  case 161: flag=_wrap_Sparsity_is_square(resc,resv,argc,(mxArray**)(argv)); break;
+  case 162: flag=_wrap_Sparsity_is_symmetric(resc,resv,argc,(mxArray**)(argv)); break;
+  case 163: flag=_wrap_Sparsity_is_triu(resc,resv,argc,(mxArray**)(argv)); break;
+  case 164: flag=_wrap_Sparsity_is_tril(resc,resv,argc,(mxArray**)(argv)); break;
+  case 165: flag=_wrap_Sparsity_is_singular(resc,resv,argc,(mxArray**)(argv)); break;
+  case 166: flag=_wrap_Sparsity_is_permutation(resc,resv,argc,(mxArray**)(argv)); break;
+  case 167: flag=_wrap_Sparsity_is_selection(resc,resv,argc,(mxArray**)(argv)); break;
+  case 168: flag=_wrap_Sparsity_is_orthonormal(resc,resv,argc,(mxArray**)(argv)); break;
+  case 169: flag=_wrap_Sparsity_is_orthonormal_rows(resc,resv,argc,(mxArray**)(argv)); break;
+  case 170: flag=_wrap_Sparsity_is_orthonormal_columns(resc,resv,argc,(mxArray**)(argv)); break;
+  case 171: flag=_wrap_Sparsity_rowsSequential(resc,resv,argc,(mxArray**)(argv)); break;
+  case 172: flag=_wrap_Sparsity_removeDuplicates(resc,resv,argc,(mxArray**)(argv)); break;
+  case 173: flag=_wrap_Sparsity_etree(resc,resv,argc,(mxArray**)(argv)); break;
+  case 174: flag=_wrap_Sparsity_ldl(resc,resv,argc,(mxArray**)(argv)); break;
+  case 175: flag=_wrap_Sparsity_qr_sparse(resc,resv,argc,(mxArray**)(argv)); break;
+  case 176: flag=_wrap_Sparsity_dfs(resc,resv,argc,(mxArray**)(argv)); break;
+  case 177: flag=_wrap_Sparsity_scc(resc,resv,argc,(mxArray**)(argv)); break;
+  case 178: flag=_wrap_Sparsity_btf(resc,resv,argc,(mxArray**)(argv)); break;
+  case 179: flag=_wrap_Sparsity_amd(resc,resv,argc,(mxArray**)(argv)); break;
+  case 180: flag=_wrap_Sparsity_find(resc,resv,argc,(mxArray**)(argv)); break;
+  case 181: flag=_wrap_Sparsity_uni_coloring(resc,resv,argc,(mxArray**)(argv)); break;
+  case 182: flag=_wrap_Sparsity_star_coloring(resc,resv,argc,(mxArray**)(argv)); break;
+  case 183: flag=_wrap_Sparsity_star_coloring2(resc,resv,argc,(mxArray**)(argv)); break;
+  case 184: flag=_wrap_Sparsity_largest_first(resc,resv,argc,(mxArray**)(argv)); break;
+  case 185: flag=_wrap_Sparsity_pmult(resc,resv,argc,(mxArray**)(argv)); break;
+  case 186: flag=_wrap_Sparsity_dim(resc,resv,argc,(mxArray**)(argv)); break;
+  case 187: flag=_wrap_Sparsity_postfix_dim(resc,resv,argc,(mxArray**)(argv)); break;
+  case 188: flag=_wrap_Sparsity_repr_el(resc,resv,argc,(mxArray**)(argv)); break;
+  case 189: flag=_wrap_Sparsity_spy(resc,resv,argc,(mxArray**)(argv)); break;
+  case 190: flag=_wrap_Sparsity_spy_matlab(resc,resv,argc,(mxArray**)(argv)); break;
+  case 191: flag=_wrap_Sparsity_export_code(resc,resv,argc,(mxArray**)(argv)); break;
+  case 192: flag=_wrap_Sparsity_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 193: flag=_wrap_Sparsity_hash(resc,resv,argc,(mxArray**)(argv)); break;
+  case 194: flag=_wrap_Sparsity_test_cast(resc,resv,argc,(mxArray**)(argv)); break;
+  case 195: flag=_wrap_Sparsity_kkt(resc,resv,argc,(mxArray**)(argv)); break;
+  case 196: flag=_wrap_new_Sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 197: flag=_wrap_delete_Sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 198: flag=_wrap_hash_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 199: flag=_wrap_Slice_start_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 200: flag=_wrap_Slice_stop_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 201: flag=_wrap_Slice_step_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 202: flag=_wrap_Slice_all(resc,resv,argc,(mxArray**)(argv)); break;
+  case 203: flag=_wrap_Slice_size(resc,resv,argc,(mxArray**)(argv)); break;
+  case 204: flag=_wrap_Slice_is_empty(resc,resv,argc,(mxArray**)(argv)); break;
+  case 205: flag=_wrap_Slice_is_scalar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 206: flag=_wrap_Slice_scalar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 207: flag=_wrap_Slice_eq(resc,resv,argc,(mxArray**)(argv)); break;
+  case 208: flag=_wrap_Slice_ne(resc,resv,argc,(mxArray**)(argv)); break;
+  case 209: flag=_wrap_Slice_apply(resc,resv,argc,(mxArray**)(argv)); break;
+  case 210: flag=_wrap_Slice_minus(resc,resv,argc,(mxArray**)(argv)); break;
+  case 211: flag=_wrap_Slice_mtimes(resc,resv,argc,(mxArray**)(argv)); break;
+  case 212: flag=_wrap_Slice_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 213: flag=_wrap_Slice_disp(resc,resv,argc,(mxArray**)(argv)); break;
+  case 214: flag=_wrap_Slice_str(resc,resv,argc,(mxArray**)(argv)); break;
+  case 215: flag=_wrap_Slice_info(resc,resv,argc,(mxArray**)(argv)); break;
+  case 216: flag=_wrap_Slice_serialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 217: flag=_wrap_Slice_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 218: flag=_wrap_new_Slice(resc,resv,argc,(mxArray**)(argv)); break;
+  case 219: flag=_wrap_delete_Slice(resc,resv,argc,(mxArray**)(argv)); break;
+  case 220: flag=_wrap_to_slice(resc,resv,argc,(mxArray**)(argv)); break;
+  case 221: flag=_wrap_to_slice2(resc,resv,argc,(mxArray**)(argv)); break;
+  case 222: flag=_wrap_is_slice(resc,resv,argc,(mxArray**)(argv)); break;
+  case 223: flag=_wrap_is_slice2(resc,resv,argc,(mxArray**)(argv)); break;
+  case 224: flag=_wrap_GenericMatrixCommon_mpower(resc,resv,argc,(mxArray**)(argv)); break;
+  case 225: flag=_wrap_GenericMatrixCommon_mrdivide(resc,resv,argc,(mxArray**)(argv)); break;
+  case 226: flag=_wrap_GenericMatrixCommon_mldivide(resc,resv,argc,(mxArray**)(argv)); break;
+  case 227: flag=_wrap_GenericMatrixCommon_symvar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 228: flag=_wrap_GenericMatrixCommon_bilin(resc,resv,argc,(mxArray**)(argv)); break;
+  case 229: flag=_wrap_GenericMatrixCommon_rank1(resc,resv,argc,(mxArray**)(argv)); break;
+  case 230: flag=_wrap_GenericMatrixCommon_sumsqr(resc,resv,argc,(mxArray**)(argv)); break;
+  case 231: flag=_wrap_GenericMatrixCommon_linspace(resc,resv,argc,(mxArray**)(argv)); break;
+  case 232: flag=_wrap_GenericMatrixCommon_logsumexp(resc,resv,argc,(mxArray**)(argv)); break;
+  case 233: flag=_wrap_GenericMatrixCommon_interp1d(resc,resv,argc,(mxArray**)(argv)); break;
+  case 234: flag=_wrap_GenericMatrixCommon_soc(resc,resv,argc,(mxArray**)(argv)); break;
+  case 235: flag=_wrap_GenericMatrixCommon_cross(resc,resv,argc,(mxArray**)(argv)); break;
+  case 236: flag=_wrap_GenericMatrixCommon_skew(resc,resv,argc,(mxArray**)(argv)); break;
+  case 237: flag=_wrap_GenericMatrixCommon_inv_skew(resc,resv,argc,(mxArray**)(argv)); break;
+  case 238: flag=_wrap_GenericMatrixCommon_det(resc,resv,argc,(mxArray**)(argv)); break;
+  case 239: flag=_wrap_GenericMatrixCommon_inv_minor(resc,resv,argc,(mxArray**)(argv)); break;
+  case 240: flag=_wrap_GenericMatrixCommon_inv(resc,resv,argc,(mxArray**)(argv)); break;
+  case 241: flag=_wrap_GenericMatrixCommon_trace(resc,resv,argc,(mxArray**)(argv)); break;
+  case 242: flag=_wrap_GenericMatrixCommon_tril2symm(resc,resv,argc,(mxArray**)(argv)); break;
+  case 243: flag=_wrap_GenericMatrixCommon_triu2symm(resc,resv,argc,(mxArray**)(argv)); break;
+  case 244: flag=_wrap_GenericMatrixCommon_norm_fro(resc,resv,argc,(mxArray**)(argv)); break;
+  case 245: flag=_wrap_GenericMatrixCommon_norm_2(resc,resv,argc,(mxArray**)(argv)); break;
+  case 246: flag=_wrap_GenericMatrixCommon_norm_1(resc,resv,argc,(mxArray**)(argv)); break;
+  case 247: flag=_wrap_GenericMatrixCommon_norm_inf(resc,resv,argc,(mxArray**)(argv)); break;
+  case 248: flag=_wrap_GenericMatrixCommon_dot(resc,resv,argc,(mxArray**)(argv)); break;
+  case 249: flag=_wrap_GenericMatrixCommon_nullspace(resc,resv,argc,(mxArray**)(argv)); break;
+  case 250: flag=_wrap_GenericMatrixCommon_polyval(resc,resv,argc,(mxArray**)(argv)); break;
+  case 251: flag=_wrap_GenericMatrixCommon_diag(resc,resv,argc,(mxArray**)(argv)); break;
+  case 252: flag=_wrap_GenericMatrixCommon_unite(resc,resv,argc,(mxArray**)(argv)); break;
+  case 253: flag=_wrap_GenericMatrixCommon_densify(resc,resv,argc,(mxArray**)(argv)); break;
+  case 254: flag=_wrap_GenericMatrixCommon_project(resc,resv,argc,(mxArray**)(argv)); break;
+  case 255: flag=_wrap_GenericMatrixCommon_if_else(resc,resv,argc,(mxArray**)(argv)); break;
+  case 256: flag=_wrap_GenericMatrixCommon_conditional(resc,resv,argc,(mxArray**)(argv)); break;
+  case 257: flag=_wrap_GenericMatrixCommon_depends_on(resc,resv,argc,(mxArray**)(argv)); break;
+  case 258: flag=_wrap_GenericMatrixCommon_contains(resc,resv,argc,(mxArray**)(argv)); break;
+  case 259: flag=_wrap_GenericMatrixCommon_contains_all(resc,resv,argc,(mxArray**)(argv)); break;
+  case 260: flag=_wrap_GenericMatrixCommon_contains_any(resc,resv,argc,(mxArray**)(argv)); break;
+  case 261: flag=_wrap_GenericMatrixCommon_solve(resc,resv,argc,(mxArray**)(argv)); break;
+  case 262: flag=_wrap_GenericMatrixCommon_pinv(resc,resv,argc,(mxArray**)(argv)); break;
+  case 263: flag=_wrap_GenericMatrixCommon_expm_const(resc,resv,argc,(mxArray**)(argv)); break;
+  case 264: flag=_wrap_GenericMatrixCommon_expm(resc,resv,argc,(mxArray**)(argv)); break;
+  case 265: flag=_wrap_GenericMatrixCommon_jacobian(resc,resv,argc,(mxArray**)(argv)); break;
+  case 266: flag=_wrap_GenericMatrixCommon_jtimes(resc,resv,argc,(mxArray**)(argv)); break;
+  case 267: flag=_wrap_GenericMatrixCommon_linearize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 268: flag=_wrap_GenericMatrixCommon_which_depends(resc,resv,argc,(mxArray**)(argv)); break;
+  case 269: flag=_wrap_GenericMatrixCommon_jacobian_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 270: flag=_wrap_GenericMatrixCommon_is_linear(resc,resv,argc,(mxArray**)(argv)); break;
+  case 271: flag=_wrap_GenericMatrixCommon_is_quadratic(resc,resv,argc,(mxArray**)(argv)); break;
+  case 272: flag=_wrap_GenericMatrixCommon_gradient(resc,resv,argc,(mxArray**)(argv)); break;
+  case 273: flag=_wrap_GenericMatrixCommon_tangent(resc,resv,argc,(mxArray**)(argv)); break;
+  case 274: flag=_wrap_GenericMatrixCommon_hessian(resc,resv,argc,(mxArray**)(argv)); break;
+  case 275: flag=_wrap_GenericMatrixCommon_quadratic_coeff(resc,resv,argc,(mxArray**)(argv)); break;
+  case 276: flag=_wrap_GenericMatrixCommon_linear_coeff(resc,resv,argc,(mxArray**)(argv)); break;
+  case 277: flag=_wrap_GenericMatrixCommon_n_nodes(resc,resv,argc,(mxArray**)(argv)); break;
+  case 278: flag=_wrap_GenericMatrixCommon_print_operator(resc,resv,argc,(mxArray**)(argv)); break;
+  case 279: flag=_wrap_GenericMatrixCommon_repsum(resc,resv,argc,(mxArray**)(argv)); break;
+  case 280: flag=_wrap_GenericMatrixCommon_diff(resc,resv,argc,(mxArray**)(argv)); break;
+  case 281: flag=_wrap_GenericMatrixCommon_cumsum(resc,resv,argc,(mxArray**)(argv)); break;
+  case 282: flag=_wrap_GenericMatrixCommon_einstein(resc,resv,argc,(mxArray**)(argv)); break;
+  case 283: flag=_wrap_GenericMatrixCommon_mmin(resc,resv,argc,(mxArray**)(argv)); break;
+  case 284: flag=_wrap_GenericMatrixCommon_mmax(resc,resv,argc,(mxArray**)(argv)); break;
+  case 285: flag=_wrap_GenericMatrixCommon_evalf(resc,resv,argc,(mxArray**)(argv)); break;
+  case 286: flag=_wrap_GenericMatrixCommon_separate_linear(resc,resv,argc,(mxArray**)(argv)); break;
+  case 287: flag=_wrap_new_GenericMatrixCommon(resc,resv,argc,(mxArray**)(argv)); break;
+  case 288: flag=_wrap_delete_GenericMatrixCommon(resc,resv,argc,(mxArray**)(argv)); break;
+  case 289: flag=_wrap_index_interp1d(resc,resv,argc,(mxArray**)(argv)); break;
+  case 290: flag=_wrap_GenDM_nnz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 291: flag=_wrap_GenDM_nnz_lower(resc,resv,argc,(mxArray**)(argv)); break;
+  case 292: flag=_wrap_GenDM_nnz_upper(resc,resv,argc,(mxArray**)(argv)); break;
+  case 293: flag=_wrap_GenDM_nnz_diag(resc,resv,argc,(mxArray**)(argv)); break;
+  case 294: flag=_wrap_GenDM_numel(resc,resv,argc,(mxArray**)(argv)); break;
+  case 295: flag=_wrap_GenDM_size1(resc,resv,argc,(mxArray**)(argv)); break;
+  case 296: flag=_wrap_GenDM_rows(resc,resv,argc,(mxArray**)(argv)); break;
+  case 297: flag=_wrap_GenDM_size2(resc,resv,argc,(mxArray**)(argv)); break;
+  case 298: flag=_wrap_GenDM_columns(resc,resv,argc,(mxArray**)(argv)); break;
+  case 299: flag=_wrap_GenDM_dim(resc,resv,argc,(mxArray**)(argv)); break;
+  case 300: flag=_wrap_GenDM_size(resc,resv,argc,(mxArray**)(argv)); break;
+  case 301: flag=_wrap_GenDM_is_empty(resc,resv,argc,(mxArray**)(argv)); break;
+  case 302: flag=_wrap_GenDM_is_dense(resc,resv,argc,(mxArray**)(argv)); break;
+  case 303: flag=_wrap_GenDM_is_scalar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 304: flag=_wrap_GenDM_is_square(resc,resv,argc,(mxArray**)(argv)); break;
+  case 305: flag=_wrap_GenDM_is_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 306: flag=_wrap_GenDM_is_row(resc,resv,argc,(mxArray**)(argv)); break;
+  case 307: flag=_wrap_GenDM_is_column(resc,resv,argc,(mxArray**)(argv)); break;
+  case 308: flag=_wrap_GenDM_is_triu(resc,resv,argc,(mxArray**)(argv)); break;
+  case 309: flag=_wrap_GenDM_is_tril(resc,resv,argc,(mxArray**)(argv)); break;
+  case 310: flag=_wrap_GenDM_row(resc,resv,argc,(mxArray**)(argv)); break;
+  case 311: flag=_wrap_GenDM_colind(resc,resv,argc,(mxArray**)(argv)); break;
+  case 312: flag=_wrap_GenDM_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 313: flag=_wrap_GenDM_sym(resc,resv,argc,(mxArray**)(argv)); break;
+  case 314: flag=_wrap_GenDM_zeros(resc,resv,argc,(mxArray**)(argv)); break;
+  case 315: flag=_wrap_GenDM_ones(resc,resv,argc,(mxArray**)(argv)); break;
+  case 316: flag=_wrap_new_GenDM(resc,resv,argc,(mxArray**)(argv)); break;
+  case 317: flag=_wrap_delete_GenDM(resc,resv,argc,(mxArray**)(argv)); break;
+  case 318: flag=_wrap_GenSX_nnz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 319: flag=_wrap_GenSX_nnz_lower(resc,resv,argc,(mxArray**)(argv)); break;
+  case 320: flag=_wrap_GenSX_nnz_upper(resc,resv,argc,(mxArray**)(argv)); break;
+  case 321: flag=_wrap_GenSX_nnz_diag(resc,resv,argc,(mxArray**)(argv)); break;
+  case 322: flag=_wrap_GenSX_numel(resc,resv,argc,(mxArray**)(argv)); break;
+  case 323: flag=_wrap_GenSX_size1(resc,resv,argc,(mxArray**)(argv)); break;
+  case 324: flag=_wrap_GenSX_rows(resc,resv,argc,(mxArray**)(argv)); break;
+  case 325: flag=_wrap_GenSX_size2(resc,resv,argc,(mxArray**)(argv)); break;
+  case 326: flag=_wrap_GenSX_columns(resc,resv,argc,(mxArray**)(argv)); break;
+  case 327: flag=_wrap_GenSX_dim(resc,resv,argc,(mxArray**)(argv)); break;
+  case 328: flag=_wrap_GenSX_size(resc,resv,argc,(mxArray**)(argv)); break;
+  case 329: flag=_wrap_GenSX_is_empty(resc,resv,argc,(mxArray**)(argv)); break;
+  case 330: flag=_wrap_GenSX_is_dense(resc,resv,argc,(mxArray**)(argv)); break;
+  case 331: flag=_wrap_GenSX_is_scalar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 332: flag=_wrap_GenSX_is_square(resc,resv,argc,(mxArray**)(argv)); break;
+  case 333: flag=_wrap_GenSX_is_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 334: flag=_wrap_GenSX_is_row(resc,resv,argc,(mxArray**)(argv)); break;
+  case 335: flag=_wrap_GenSX_is_column(resc,resv,argc,(mxArray**)(argv)); break;
+  case 336: flag=_wrap_GenSX_is_triu(resc,resv,argc,(mxArray**)(argv)); break;
+  case 337: flag=_wrap_GenSX_is_tril(resc,resv,argc,(mxArray**)(argv)); break;
+  case 338: flag=_wrap_GenSX_row(resc,resv,argc,(mxArray**)(argv)); break;
+  case 339: flag=_wrap_GenSX_colind(resc,resv,argc,(mxArray**)(argv)); break;
+  case 340: flag=_wrap_GenSX_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 341: flag=_wrap_GenSX_sym(resc,resv,argc,(mxArray**)(argv)); break;
+  case 342: flag=_wrap_GenSX_zeros(resc,resv,argc,(mxArray**)(argv)); break;
+  case 343: flag=_wrap_GenSX_ones(resc,resv,argc,(mxArray**)(argv)); break;
+  case 344: flag=_wrap_new_GenSX(resc,resv,argc,(mxArray**)(argv)); break;
+  case 345: flag=_wrap_delete_GenSX(resc,resv,argc,(mxArray**)(argv)); break;
+  case 346: flag=_wrap_GenMX_nnz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 347: flag=_wrap_GenMX_nnz_lower(resc,resv,argc,(mxArray**)(argv)); break;
+  case 348: flag=_wrap_GenMX_nnz_upper(resc,resv,argc,(mxArray**)(argv)); break;
+  case 349: flag=_wrap_GenMX_nnz_diag(resc,resv,argc,(mxArray**)(argv)); break;
+  case 350: flag=_wrap_GenMX_numel(resc,resv,argc,(mxArray**)(argv)); break;
+  case 351: flag=_wrap_GenMX_size1(resc,resv,argc,(mxArray**)(argv)); break;
+  case 352: flag=_wrap_GenMX_rows(resc,resv,argc,(mxArray**)(argv)); break;
+  case 353: flag=_wrap_GenMX_size2(resc,resv,argc,(mxArray**)(argv)); break;
+  case 354: flag=_wrap_GenMX_columns(resc,resv,argc,(mxArray**)(argv)); break;
+  case 355: flag=_wrap_GenMX_dim(resc,resv,argc,(mxArray**)(argv)); break;
+  case 356: flag=_wrap_GenMX_size(resc,resv,argc,(mxArray**)(argv)); break;
+  case 357: flag=_wrap_GenMX_is_empty(resc,resv,argc,(mxArray**)(argv)); break;
+  case 358: flag=_wrap_GenMX_is_dense(resc,resv,argc,(mxArray**)(argv)); break;
+  case 359: flag=_wrap_GenMX_is_scalar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 360: flag=_wrap_GenMX_is_square(resc,resv,argc,(mxArray**)(argv)); break;
+  case 361: flag=_wrap_GenMX_is_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 362: flag=_wrap_GenMX_is_row(resc,resv,argc,(mxArray**)(argv)); break;
+  case 363: flag=_wrap_GenMX_is_column(resc,resv,argc,(mxArray**)(argv)); break;
+  case 364: flag=_wrap_GenMX_is_triu(resc,resv,argc,(mxArray**)(argv)); break;
+  case 365: flag=_wrap_GenMX_is_tril(resc,resv,argc,(mxArray**)(argv)); break;
+  case 366: flag=_wrap_GenMX_row(resc,resv,argc,(mxArray**)(argv)); break;
+  case 367: flag=_wrap_GenMX_colind(resc,resv,argc,(mxArray**)(argv)); break;
+  case 368: flag=_wrap_GenMX_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 369: flag=_wrap_GenMX_sym(resc,resv,argc,(mxArray**)(argv)); break;
+  case 370: flag=_wrap_GenMX_zeros(resc,resv,argc,(mxArray**)(argv)); break;
+  case 371: flag=_wrap_GenMX_ones(resc,resv,argc,(mxArray**)(argv)); break;
+  case 372: flag=_wrap_new_GenMX(resc,resv,argc,(mxArray**)(argv)); break;
+  case 373: flag=_wrap_delete_GenMX(resc,resv,argc,(mxArray**)(argv)); break;
+  case 374: flag=_wrap_GenericExpressionCommon_plus(resc,resv,argc,(mxArray**)(argv)); break;
+  case 375: flag=_wrap_GenericExpressionCommon_minus(resc,resv,argc,(mxArray**)(argv)); break;
+  case 376: flag=_wrap_GenericExpressionCommon_times(resc,resv,argc,(mxArray**)(argv)); break;
+  case 377: flag=_wrap_GenericExpressionCommon_rdivide(resc,resv,argc,(mxArray**)(argv)); break;
+  case 378: flag=_wrap_GenericExpressionCommon_ldivide(resc,resv,argc,(mxArray**)(argv)); break;
+  case 379: flag=_wrap_GenericExpressionCommon_lt(resc,resv,argc,(mxArray**)(argv)); break;
+  case 380: flag=_wrap_GenericExpressionCommon_le(resc,resv,argc,(mxArray**)(argv)); break;
+  case 381: flag=_wrap_GenericExpressionCommon_gt(resc,resv,argc,(mxArray**)(argv)); break;
+  case 382: flag=_wrap_GenericExpressionCommon_ge(resc,resv,argc,(mxArray**)(argv)); break;
+  case 383: flag=_wrap_GenericExpressionCommon_eq(resc,resv,argc,(mxArray**)(argv)); break;
+  case 384: flag=_wrap_GenericExpressionCommon_ne(resc,resv,argc,(mxArray**)(argv)); break;
+  case 385: flag=_wrap_GenericExpressionCommon_and(resc,resv,argc,(mxArray**)(argv)); break;
+  case 386: flag=_wrap_GenericExpressionCommon_or(resc,resv,argc,(mxArray**)(argv)); break;
+  case 387: flag=_wrap_GenericExpressionCommon_not(resc,resv,argc,(mxArray**)(argv)); break;
+  case 388: flag=_wrap_GenericExpressionCommon_abs(resc,resv,argc,(mxArray**)(argv)); break;
+  case 389: flag=_wrap_GenericExpressionCommon_sqrt(resc,resv,argc,(mxArray**)(argv)); break;
+  case 390: flag=_wrap_GenericExpressionCommon_sin(resc,resv,argc,(mxArray**)(argv)); break;
+  case 391: flag=_wrap_GenericExpressionCommon_cos(resc,resv,argc,(mxArray**)(argv)); break;
+  case 392: flag=_wrap_GenericExpressionCommon_tan(resc,resv,argc,(mxArray**)(argv)); break;
+  case 393: flag=_wrap_GenericExpressionCommon_atan(resc,resv,argc,(mxArray**)(argv)); break;
+  case 394: flag=_wrap_GenericExpressionCommon_asin(resc,resv,argc,(mxArray**)(argv)); break;
+  case 395: flag=_wrap_GenericExpressionCommon_acos(resc,resv,argc,(mxArray**)(argv)); break;
+  case 396: flag=_wrap_GenericExpressionCommon_tanh(resc,resv,argc,(mxArray**)(argv)); break;
+  case 397: flag=_wrap_GenericExpressionCommon_sinh(resc,resv,argc,(mxArray**)(argv)); break;
+  case 398: flag=_wrap_GenericExpressionCommon_cosh(resc,resv,argc,(mxArray**)(argv)); break;
+  case 399: flag=_wrap_GenericExpressionCommon_atanh(resc,resv,argc,(mxArray**)(argv)); break;
+  case 400: flag=_wrap_GenericExpressionCommon_asinh(resc,resv,argc,(mxArray**)(argv)); break;
+  case 401: flag=_wrap_GenericExpressionCommon_acosh(resc,resv,argc,(mxArray**)(argv)); break;
+  case 402: flag=_wrap_GenericExpressionCommon_exp(resc,resv,argc,(mxArray**)(argv)); break;
+  case 403: flag=_wrap_GenericExpressionCommon_log(resc,resv,argc,(mxArray**)(argv)); break;
+  case 404: flag=_wrap_GenericExpressionCommon_log10(resc,resv,argc,(mxArray**)(argv)); break;
+  case 405: flag=_wrap_GenericExpressionCommon_log1p(resc,resv,argc,(mxArray**)(argv)); break;
+  case 406: flag=_wrap_GenericExpressionCommon_expm1(resc,resv,argc,(mxArray**)(argv)); break;
+  case 407: flag=_wrap_GenericExpressionCommon_floor(resc,resv,argc,(mxArray**)(argv)); break;
+  case 408: flag=_wrap_GenericExpressionCommon_ceil(resc,resv,argc,(mxArray**)(argv)); break;
+  case 409: flag=_wrap_GenericExpressionCommon_erf(resc,resv,argc,(mxArray**)(argv)); break;
+  case 410: flag=_wrap_GenericExpressionCommon_erfinv(resc,resv,argc,(mxArray**)(argv)); break;
+  case 411: flag=_wrap_GenericExpressionCommon_sign(resc,resv,argc,(mxArray**)(argv)); break;
+  case 412: flag=_wrap_GenericExpressionCommon_power(resc,resv,argc,(mxArray**)(argv)); break;
+  case 413: flag=_wrap_GenericExpressionCommon_rem(resc,resv,argc,(mxArray**)(argv)); break;
+  case 414: flag=_wrap_GenericExpressionCommon_fmod(resc,resv,argc,(mxArray**)(argv)); break;
+  case 415: flag=_wrap_GenericExpressionCommon_remainder(resc,resv,argc,(mxArray**)(argv)); break;
+  case 416: flag=_wrap_GenericExpressionCommon_atan2(resc,resv,argc,(mxArray**)(argv)); break;
+  case 417: flag=_wrap_GenericExpressionCommon_fmin(resc,resv,argc,(mxArray**)(argv)); break;
+  case 418: flag=_wrap_GenericExpressionCommon_fmax(resc,resv,argc,(mxArray**)(argv)); break;
+  case 419: flag=_wrap_GenericExpressionCommon_hypot(resc,resv,argc,(mxArray**)(argv)); break;
+  case 420: flag=_wrap_GenericExpressionCommon_simplify(resc,resv,argc,(mxArray**)(argv)); break;
+  case 421: flag=_wrap_GenericExpressionCommon_is_equal(resc,resv,argc,(mxArray**)(argv)); break;
+  case 422: flag=_wrap_GenericExpressionCommon_copysign(resc,resv,argc,(mxArray**)(argv)); break;
+  case 423: flag=_wrap_GenericExpressionCommon_constpow(resc,resv,argc,(mxArray**)(argv)); break;
+  case 424: flag=_wrap_new_GenericExpressionCommon(resc,resv,argc,(mxArray**)(argv)); break;
+  case 425: flag=_wrap_delete_GenericExpressionCommon(resc,resv,argc,(mxArray**)(argv)); break;
+  case 426: flag=_wrap_MatrixCommon_all(resc,resv,argc,(mxArray**)(argv)); break;
+  case 427: flag=_wrap_MatrixCommon_any(resc,resv,argc,(mxArray**)(argv)); break;
+  case 428: flag=_wrap_MatrixCommon_adj(resc,resv,argc,(mxArray**)(argv)); break;
+  case 429: flag=_wrap_MatrixCommon_minor(resc,resv,argc,(mxArray**)(argv)); break;
+  case 430: flag=_wrap_MatrixCommon_cofactor(resc,resv,argc,(mxArray**)(argv)); break;
+  case 431: flag=_wrap_MatrixCommon_qr(resc,resv,argc,(mxArray**)(argv)); break;
+  case 432: flag=_wrap_MatrixCommon_qr_sparse(resc,resv,argc,(mxArray**)(argv)); break;
+  case 433: flag=_wrap_MatrixCommon_qr_solve(resc,resv,argc,(mxArray**)(argv)); break;
+  case 434: flag=_wrap_MatrixCommon_ldl(resc,resv,argc,(mxArray**)(argv)); break;
+  case 435: flag=_wrap_MatrixCommon_ldl_solve(resc,resv,argc,(mxArray**)(argv)); break;
+  case 436: flag=_wrap_MatrixCommon_chol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 437: flag=_wrap_MatrixCommon_norm_inf_mul(resc,resv,argc,(mxArray**)(argv)); break;
+  case 438: flag=_wrap_MatrixCommon_sparsify(resc,resv,argc,(mxArray**)(argv)); break;
+  case 439: flag=_wrap_MatrixCommon_expand(resc,resv,argc,(mxArray**)(argv)); break;
+  case 440: flag=_wrap_MatrixCommon_pw_const(resc,resv,argc,(mxArray**)(argv)); break;
+  case 441: flag=_wrap_MatrixCommon_pw_lin(resc,resv,argc,(mxArray**)(argv)); break;
+  case 442: flag=_wrap_MatrixCommon_heaviside(resc,resv,argc,(mxArray**)(argv)); break;
+  case 443: flag=_wrap_MatrixCommon_rectangle(resc,resv,argc,(mxArray**)(argv)); break;
+  case 444: flag=_wrap_MatrixCommon_triangle(resc,resv,argc,(mxArray**)(argv)); break;
+  case 445: flag=_wrap_MatrixCommon_ramp(resc,resv,argc,(mxArray**)(argv)); break;
+  case 446: flag=_wrap_MatrixCommon_gauss_quadrature(resc,resv,argc,(mxArray**)(argv)); break;
+  case 447: flag=_wrap_MatrixCommon_taylor(resc,resv,argc,(mxArray**)(argv)); break;
+  case 448: flag=_wrap_MatrixCommon_mtaylor(resc,resv,argc,(mxArray**)(argv)); break;
+  case 449: flag=_wrap_MatrixCommon_poly_coeff(resc,resv,argc,(mxArray**)(argv)); break;
+  case 450: flag=_wrap_MatrixCommon_poly_roots(resc,resv,argc,(mxArray**)(argv)); break;
+  case 451: flag=_wrap_MatrixCommon_eig_symbolic(resc,resv,argc,(mxArray**)(argv)); break;
+  case 452: flag=_wrap_new_MatrixCommon(resc,resv,argc,(mxArray**)(argv)); break;
+  case 453: flag=_wrap_delete_MatrixCommon(resc,resv,argc,(mxArray**)(argv)); break;
+  case 454: flag=_wrap_DM_has_nz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 455: flag=_wrap_DM_nonzero(resc,resv,argc,(mxArray**)(argv)); break;
+  case 456: flag=_wrap_DM_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 457: flag=_wrap_DM_set(resc,resv,argc,(mxArray**)(argv)); break;
+  case 458: flag=_wrap_DM_get_nz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 459: flag=_wrap_DM_set_nz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 460: flag=_wrap_DM_uplus(resc,resv,argc,(mxArray**)(argv)); break;
+  case 461: flag=_wrap_DM_uminus(resc,resv,argc,(mxArray**)(argv)); break;
+  case 462: flag=_wrap_DM_binary(resc,resv,argc,(mxArray**)(argv)); break;
+  case 463: flag=_wrap_DM_unary(resc,resv,argc,(mxArray**)(argv)); break;
+  case 464: flag=_wrap_DM_scalar_matrix(resc,resv,argc,(mxArray**)(argv)); break;
+  case 465: flag=_wrap_DM_matrix_scalar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 466: flag=_wrap_DM_matrix_matrix(resc,resv,argc,(mxArray**)(argv)); break;
+  case 467: flag=_wrap_DM_call(resc,resv,argc,(mxArray**)(argv)); break;
+  case 468: flag=_wrap_DM_printme(resc,resv,argc,(mxArray**)(argv)); break;
+  case 469: flag=_wrap_DM_T(resc,resv,argc,(mxArray**)(argv)); break;
+  case 470: flag=_wrap_DM_set_max_depth(resc,resv,argc,(mxArray**)(argv)); break;
+  case 471: flag=_wrap_DM_get_max_depth(resc,resv,argc,(mxArray**)(argv)); break;
+  case 472: flag=_wrap_DM_get_input(resc,resv,argc,(mxArray**)(argv)); break;
+  case 473: flag=_wrap_DM_get_free(resc,resv,argc,(mxArray**)(argv)); break;
+  case 474: flag=_wrap_DM_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 475: flag=_wrap_DM_print_split(resc,resv,argc,(mxArray**)(argv)); break;
+  case 476: flag=_wrap_DM_disp(resc,resv,argc,(mxArray**)(argv)); break;
+  case 477: flag=_wrap_DM_str(resc,resv,argc,(mxArray**)(argv)); break;
+  case 478: flag=_wrap_DM_print_scalar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 479: flag=_wrap_DM_print_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 480: flag=_wrap_DM_print_dense(resc,resv,argc,(mxArray**)(argv)); break;
+  case 481: flag=_wrap_DM_print_sparse(resc,resv,argc,(mxArray**)(argv)); break;
+  case 482: flag=_wrap_DM_clear(resc,resv,argc,(mxArray**)(argv)); break;
+  case 483: flag=_wrap_DM_resize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 484: flag=_wrap_DM_reserve(resc,resv,argc,(mxArray**)(argv)); break;
+  case 485: flag=_wrap_DM_erase(resc,resv,argc,(mxArray**)(argv)); break;
+  case 486: flag=_wrap_DM_remove(resc,resv,argc,(mxArray**)(argv)); break;
+  case 487: flag=_wrap_DM_enlarge(resc,resv,argc,(mxArray**)(argv)); break;
+  case 488: flag=_wrap_DM_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 489: flag=_wrap_DM_get_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 490: flag=_wrap_DM_triplet(resc,resv,argc,(mxArray**)(argv)); break;
+  case 491: flag=_wrap_DM_inf(resc,resv,argc,(mxArray**)(argv)); break;
+  case 492: flag=_wrap_DM_nan(resc,resv,argc,(mxArray**)(argv)); break;
+  case 493: flag=_wrap_DM_eye(resc,resv,argc,(mxArray**)(argv)); break;
+  case 494: flag=_wrap_DM_element_hash(resc,resv,argc,(mxArray**)(argv)); break;
+  case 495: flag=_wrap_DM_is_regular(resc,resv,argc,(mxArray**)(argv)); break;
+  case 496: flag=_wrap_DM_is_smooth(resc,resv,argc,(mxArray**)(argv)); break;
+  case 497: flag=_wrap_DM_is_leaf(resc,resv,argc,(mxArray**)(argv)); break;
+  case 498: flag=_wrap_DM_is_commutative(resc,resv,argc,(mxArray**)(argv)); break;
+  case 499: flag=_wrap_DM_is_symbolic(resc,resv,argc,(mxArray**)(argv)); break;
+  case 500: flag=_wrap_DM_is_valid_input(resc,resv,argc,(mxArray**)(argv)); break;
+  case 501: flag=_wrap_DM_has_duplicates(resc,resv,argc,(mxArray**)(argv)); break;
+  case 502: flag=_wrap_DM_reset_input(resc,resv,argc,(mxArray**)(argv)); break;
+  case 503: flag=_wrap_DM_is_constant(resc,resv,argc,(mxArray**)(argv)); break;
+  case 504: flag=_wrap_DM_is_call(resc,resv,argc,(mxArray**)(argv)); break;
+  case 505: flag=_wrap_DM_is_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 506: flag=_wrap_DM_has_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 507: flag=_wrap_DM_which_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 508: flag=_wrap_DM_which_function(resc,resv,argc,(mxArray**)(argv)); break;
+  case 509: flag=_wrap_DM_is_integer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 510: flag=_wrap_DM_is_zero(resc,resv,argc,(mxArray**)(argv)); break;
+  case 511: flag=_wrap_DM_is_one(resc,resv,argc,(mxArray**)(argv)); break;
+  case 512: flag=_wrap_DM_is_minus_one(resc,resv,argc,(mxArray**)(argv)); break;
+  case 513: flag=_wrap_DM_is_eye(resc,resv,argc,(mxArray**)(argv)); break;
+  case 514: flag=_wrap_DM_op(resc,resv,argc,(mxArray**)(argv)); break;
+  case 515: flag=_wrap_DM_is_op(resc,resv,argc,(mxArray**)(argv)); break;
+  case 516: flag=_wrap_DM_has_zeros(resc,resv,argc,(mxArray**)(argv)); break;
+  case 517: flag=_wrap_DM_nonzeros(resc,resv,argc,(mxArray**)(argv)); break;
+  case 518: flag=_wrap_DM_elements(resc,resv,argc,(mxArray**)(argv)); break;
+  case 519: flag=_wrap_DM_to_double(resc,resv,argc,(mxArray**)(argv)); break;
+  case 520: flag=_wrap_DM_to_int(resc,resv,argc,(mxArray**)(argv)); break;
+  case 521: flag=_wrap_DM_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 522: flag=_wrap_DM_dep(resc,resv,argc,(mxArray**)(argv)); break;
+  case 523: flag=_wrap_DM_n_dep(resc,resv,argc,(mxArray**)(argv)); break;
+  case 524: flag=_wrap_DM_set_precision(resc,resv,argc,(mxArray**)(argv)); break;
+  case 525: flag=_wrap_DM_set_width(resc,resv,argc,(mxArray**)(argv)); break;
+  case 526: flag=_wrap_DM_set_scientific(resc,resv,argc,(mxArray**)(argv)); break;
+  case 527: flag=_wrap_DM_rng(resc,resv,argc,(mxArray**)(argv)); break;
+  case 528: flag=_wrap_DM_rand(resc,resv,argc,(mxArray**)(argv)); break;
+  case 529: flag=_wrap_DM_export_code(resc,resv,argc,(mxArray**)(argv)); break;
+  case 530: flag=_wrap_DM_info(resc,resv,argc,(mxArray**)(argv)); break;
+  case 531: flag=_wrap_DM_serialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 532: flag=_wrap_DM_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 533: flag=_wrap_DM_to_file(resc,resv,argc,(mxArray**)(argv)); break;
+  case 534: flag=_wrap_DM_from_file(resc,resv,argc,(mxArray**)(argv)); break;
+  case 535: flag=_wrap_new_DM(resc,resv,argc,(mxArray**)(argv)); break;
+  case 536: flag=_wrap_DM_assign(resc,resv,argc,(mxArray**)(argv)); break;
+  case 537: flag=_wrap_DM_paren(resc,resv,argc,(mxArray**)(argv)); break;
+  case 538: flag=_wrap_DM_paren_asgn(resc,resv,argc,(mxArray**)(argv)); break;
+  case 539: flag=_wrap_DM_brace(resc,resv,argc,(mxArray**)(argv)); break;
+  case 540: flag=_wrap_DM_setbrace(resc,resv,argc,(mxArray**)(argv)); break;
+  case 541: flag=_wrap_DM_end(resc,resv,argc,(mxArray**)(argv)); break;
+  case 542: flag=_wrap_DM_numel(resc,resv,argc,(mxArray**)(argv)); break;
+  case 543: flag=_wrap_DM_ctranspose(resc,resv,argc,(mxArray**)(argv)); break;
+  case 544: flag=_wrap_DM_full(resc,resv,argc,(mxArray**)(argv)); break;
+  case 545: flag=_wrap_DM_sparse(resc,resv,argc,(mxArray**)(argv)); break;
+  case 546: flag=_wrap_delete_DM(resc,resv,argc,(mxArray**)(argv)); break;
+  case 547: flag=_wrap_new_SXElem(resc,resv,argc,(mxArray**)(argv)); break;
+  case 548: flag=_wrap_delete_SXElem(resc,resv,argc,(mxArray**)(argv)); break;
+  case 549: flag=_wrap_SX_has_nz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 550: flag=_wrap_SX_nonzero(resc,resv,argc,(mxArray**)(argv)); break;
+  case 551: flag=_wrap_SX_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 552: flag=_wrap_SX_set(resc,resv,argc,(mxArray**)(argv)); break;
+  case 553: flag=_wrap_SX_get_nz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 554: flag=_wrap_SX_set_nz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 555: flag=_wrap_SX_uplus(resc,resv,argc,(mxArray**)(argv)); break;
+  case 556: flag=_wrap_SX_uminus(resc,resv,argc,(mxArray**)(argv)); break;
+  case 557: flag=_wrap_SX_binary(resc,resv,argc,(mxArray**)(argv)); break;
+  case 558: flag=_wrap_SX_unary(resc,resv,argc,(mxArray**)(argv)); break;
+  case 559: flag=_wrap_SX_scalar_matrix(resc,resv,argc,(mxArray**)(argv)); break;
+  case 560: flag=_wrap_SX_matrix_scalar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 561: flag=_wrap_SX_matrix_matrix(resc,resv,argc,(mxArray**)(argv)); break;
+  case 562: flag=_wrap_SX_call(resc,resv,argc,(mxArray**)(argv)); break;
+  case 563: flag=_wrap_SX_printme(resc,resv,argc,(mxArray**)(argv)); break;
+  case 564: flag=_wrap_SX_T(resc,resv,argc,(mxArray**)(argv)); break;
+  case 565: flag=_wrap_SX_set_max_depth(resc,resv,argc,(mxArray**)(argv)); break;
+  case 566: flag=_wrap_SX_get_max_depth(resc,resv,argc,(mxArray**)(argv)); break;
+  case 567: flag=_wrap_SX_get_input(resc,resv,argc,(mxArray**)(argv)); break;
+  case 568: flag=_wrap_SX_get_free(resc,resv,argc,(mxArray**)(argv)); break;
+  case 569: flag=_wrap_SX_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 570: flag=_wrap_SX_print_split(resc,resv,argc,(mxArray**)(argv)); break;
+  case 571: flag=_wrap_SX_disp(resc,resv,argc,(mxArray**)(argv)); break;
+  case 572: flag=_wrap_SX_str(resc,resv,argc,(mxArray**)(argv)); break;
+  case 573: flag=_wrap_SX_print_scalar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 574: flag=_wrap_SX_print_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 575: flag=_wrap_SX_print_dense(resc,resv,argc,(mxArray**)(argv)); break;
+  case 576: flag=_wrap_SX_print_sparse(resc,resv,argc,(mxArray**)(argv)); break;
+  case 577: flag=_wrap_SX_clear(resc,resv,argc,(mxArray**)(argv)); break;
+  case 578: flag=_wrap_SX_resize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 579: flag=_wrap_SX_reserve(resc,resv,argc,(mxArray**)(argv)); break;
+  case 580: flag=_wrap_SX_erase(resc,resv,argc,(mxArray**)(argv)); break;
+  case 581: flag=_wrap_SX_remove(resc,resv,argc,(mxArray**)(argv)); break;
+  case 582: flag=_wrap_SX_enlarge(resc,resv,argc,(mxArray**)(argv)); break;
+  case 583: flag=_wrap_SX_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 584: flag=_wrap_SX_get_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 585: flag=_wrap_SX_triplet(resc,resv,argc,(mxArray**)(argv)); break;
+  case 586: flag=_wrap_SX_inf(resc,resv,argc,(mxArray**)(argv)); break;
+  case 587: flag=_wrap_SX_nan(resc,resv,argc,(mxArray**)(argv)); break;
+  case 588: flag=_wrap_SX_eye(resc,resv,argc,(mxArray**)(argv)); break;
+  case 589: flag=_wrap_SX_element_hash(resc,resv,argc,(mxArray**)(argv)); break;
+  case 590: flag=_wrap_SX_is_regular(resc,resv,argc,(mxArray**)(argv)); break;
+  case 591: flag=_wrap_SX_is_smooth(resc,resv,argc,(mxArray**)(argv)); break;
+  case 592: flag=_wrap_SX_is_leaf(resc,resv,argc,(mxArray**)(argv)); break;
+  case 593: flag=_wrap_SX_is_commutative(resc,resv,argc,(mxArray**)(argv)); break;
+  case 594: flag=_wrap_SX_is_symbolic(resc,resv,argc,(mxArray**)(argv)); break;
+  case 595: flag=_wrap_SX_is_valid_input(resc,resv,argc,(mxArray**)(argv)); break;
+  case 596: flag=_wrap_SX_has_duplicates(resc,resv,argc,(mxArray**)(argv)); break;
+  case 597: flag=_wrap_SX_reset_input(resc,resv,argc,(mxArray**)(argv)); break;
+  case 598: flag=_wrap_SX_is_constant(resc,resv,argc,(mxArray**)(argv)); break;
+  case 599: flag=_wrap_SX_is_call(resc,resv,argc,(mxArray**)(argv)); break;
+  case 600: flag=_wrap_SX_is_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 601: flag=_wrap_SX_has_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 602: flag=_wrap_SX_which_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 603: flag=_wrap_SX_which_function(resc,resv,argc,(mxArray**)(argv)); break;
+  case 604: flag=_wrap_SX_is_integer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 605: flag=_wrap_SX_is_zero(resc,resv,argc,(mxArray**)(argv)); break;
+  case 606: flag=_wrap_SX_is_one(resc,resv,argc,(mxArray**)(argv)); break;
+  case 607: flag=_wrap_SX_is_minus_one(resc,resv,argc,(mxArray**)(argv)); break;
+  case 608: flag=_wrap_SX_is_eye(resc,resv,argc,(mxArray**)(argv)); break;
+  case 609: flag=_wrap_SX_op(resc,resv,argc,(mxArray**)(argv)); break;
+  case 610: flag=_wrap_SX_is_op(resc,resv,argc,(mxArray**)(argv)); break;
+  case 611: flag=_wrap_SX_has_zeros(resc,resv,argc,(mxArray**)(argv)); break;
+  case 612: flag=_wrap_SX_nonzeros(resc,resv,argc,(mxArray**)(argv)); break;
+  case 613: flag=_wrap_SX_elements(resc,resv,argc,(mxArray**)(argv)); break;
+  case 614: flag=_wrap_SX_to_double(resc,resv,argc,(mxArray**)(argv)); break;
+  case 615: flag=_wrap_SX_to_int(resc,resv,argc,(mxArray**)(argv)); break;
+  case 616: flag=_wrap_SX_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 617: flag=_wrap_SX_dep(resc,resv,argc,(mxArray**)(argv)); break;
+  case 618: flag=_wrap_SX_n_dep(resc,resv,argc,(mxArray**)(argv)); break;
+  case 619: flag=_wrap_SX_set_precision(resc,resv,argc,(mxArray**)(argv)); break;
+  case 620: flag=_wrap_SX_set_width(resc,resv,argc,(mxArray**)(argv)); break;
+  case 621: flag=_wrap_SX_set_scientific(resc,resv,argc,(mxArray**)(argv)); break;
+  case 622: flag=_wrap_SX_rng(resc,resv,argc,(mxArray**)(argv)); break;
+  case 623: flag=_wrap_SX_rand(resc,resv,argc,(mxArray**)(argv)); break;
+  case 624: flag=_wrap_SX_export_code(resc,resv,argc,(mxArray**)(argv)); break;
+  case 625: flag=_wrap_SX_info(resc,resv,argc,(mxArray**)(argv)); break;
+  case 626: flag=_wrap_SX_serialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 627: flag=_wrap_SX_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 628: flag=_wrap_SX_to_file(resc,resv,argc,(mxArray**)(argv)); break;
+  case 629: flag=_wrap_SX_from_file(resc,resv,argc,(mxArray**)(argv)); break;
+  case 630: flag=_wrap_SX_paren(resc,resv,argc,(mxArray**)(argv)); break;
+  case 631: flag=_wrap_SX_paren_asgn(resc,resv,argc,(mxArray**)(argv)); break;
+  case 632: flag=_wrap_SX_brace(resc,resv,argc,(mxArray**)(argv)); break;
+  case 633: flag=_wrap_SX_setbrace(resc,resv,argc,(mxArray**)(argv)); break;
+  case 634: flag=_wrap_SX_end(resc,resv,argc,(mxArray**)(argv)); break;
+  case 635: flag=_wrap_SX_numel(resc,resv,argc,(mxArray**)(argv)); break;
+  case 636: flag=_wrap_SX_ctranspose(resc,resv,argc,(mxArray**)(argv)); break;
+  case 637: flag=_wrap_new_SX(resc,resv,argc,(mxArray**)(argv)); break;
+  case 638: flag=_wrap_delete_SX(resc,resv,argc,(mxArray**)(argv)); break;
+  case 639: flag=_wrap_MX_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 640: flag=_wrap_delete_MX(resc,resv,argc,(mxArray**)(argv)); break;
+  case 641: flag=_wrap_MX_nonzero(resc,resv,argc,(mxArray**)(argv)); break;
+  case 642: flag=_wrap_MX_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 643: flag=_wrap_MX_nonzeros(resc,resv,argc,(mxArray**)(argv)); break;
+  case 644: flag=_wrap_MX_erase(resc,resv,argc,(mxArray**)(argv)); break;
+  case 645: flag=_wrap_MX_enlarge(resc,resv,argc,(mxArray**)(argv)); break;
+  case 646: flag=_wrap_MX_uminus(resc,resv,argc,(mxArray**)(argv)); break;
+  case 647: flag=_wrap_MX_dep(resc,resv,argc,(mxArray**)(argv)); break;
+  case 648: flag=_wrap_MX_n_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 649: flag=_wrap_MX_get_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 650: flag=_wrap_MX_n_dep(resc,resv,argc,(mxArray**)(argv)); break;
+  case 651: flag=_wrap_MX_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 652: flag=_wrap_MX_to_double(resc,resv,argc,(mxArray**)(argv)); break;
+  case 653: flag=_wrap_MX_to_DM(resc,resv,argc,(mxArray**)(argv)); break;
+  case 654: flag=_wrap_MX_is_symbolic(resc,resv,argc,(mxArray**)(argv)); break;
+  case 655: flag=_wrap_MX_is_constant(resc,resv,argc,(mxArray**)(argv)); break;
+  case 656: flag=_wrap_MX_is_call(resc,resv,argc,(mxArray**)(argv)); break;
+  case 657: flag=_wrap_MX_which_function(resc,resv,argc,(mxArray**)(argv)); break;
+  case 658: flag=_wrap_MX_is_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 659: flag=_wrap_MX_has_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 660: flag=_wrap_MX_which_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 661: flag=_wrap_MX_is_op(resc,resv,argc,(mxArray**)(argv)); break;
+  case 662: flag=_wrap_MX_is_multiplication(resc,resv,argc,(mxArray**)(argv)); break;
+  case 663: flag=_wrap_MX_is_commutative(resc,resv,argc,(mxArray**)(argv)); break;
+  case 664: flag=_wrap_MX_is_norm(resc,resv,argc,(mxArray**)(argv)); break;
+  case 665: flag=_wrap_MX_is_valid_input(resc,resv,argc,(mxArray**)(argv)); break;
+  case 666: flag=_wrap_MX_n_primitives(resc,resv,argc,(mxArray**)(argv)); break;
+  case 667: flag=_wrap_MX_primitives(resc,resv,argc,(mxArray**)(argv)); break;
+  case 668: flag=_wrap_MX_split_primitives(resc,resv,argc,(mxArray**)(argv)); break;
+  case 669: flag=_wrap_MX_join_primitives(resc,resv,argc,(mxArray**)(argv)); break;
+  case 670: flag=_wrap_MX_has_duplicates(resc,resv,argc,(mxArray**)(argv)); break;
+  case 671: flag=_wrap_MX_reset_input(resc,resv,argc,(mxArray**)(argv)); break;
+  case 672: flag=_wrap_MX_is_eye(resc,resv,argc,(mxArray**)(argv)); break;
+  case 673: flag=_wrap_MX_is_zero(resc,resv,argc,(mxArray**)(argv)); break;
+  case 674: flag=_wrap_MX_is_one(resc,resv,argc,(mxArray**)(argv)); break;
+  case 675: flag=_wrap_MX_is_minus_one(resc,resv,argc,(mxArray**)(argv)); break;
+  case 676: flag=_wrap_MX_is_transpose(resc,resv,argc,(mxArray**)(argv)); break;
+  case 677: flag=_wrap_MX_is_regular(resc,resv,argc,(mxArray**)(argv)); break;
+  case 678: flag=_wrap_MX_is_binary(resc,resv,argc,(mxArray**)(argv)); break;
+  case 679: flag=_wrap_MX_is_unary(resc,resv,argc,(mxArray**)(argv)); break;
+  case 680: flag=_wrap_MX_op(resc,resv,argc,(mxArray**)(argv)); break;
+  case 681: flag=_wrap_MX_info(resc,resv,argc,(mxArray**)(argv)); break;
+  case 682: flag=_wrap_MX_serialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 683: flag=_wrap_MX_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 684: flag=_wrap_MX_get_temp(resc,resv,argc,(mxArray**)(argv)); break;
+  case 685: flag=_wrap_MX_set_temp(resc,resv,argc,(mxArray**)(argv)); break;
+  case 686: flag=_wrap_MX_binary(resc,resv,argc,(mxArray**)(argv)); break;
+  case 687: flag=_wrap_MX_unary(resc,resv,argc,(mxArray**)(argv)); break;
+  case 688: flag=_wrap_MX_inf(resc,resv,argc,(mxArray**)(argv)); break;
+  case 689: flag=_wrap_MX_nan(resc,resv,argc,(mxArray**)(argv)); break;
+  case 690: flag=_wrap_MX_eye(resc,resv,argc,(mxArray**)(argv)); break;
+  case 691: flag=_wrap_MX_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 692: flag=_wrap_MX_set(resc,resv,argc,(mxArray**)(argv)); break;
+  case 693: flag=_wrap_MX_get_nz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 694: flag=_wrap_MX_set_nz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 695: flag=_wrap_MX_einstein(resc,resv,argc,(mxArray**)(argv)); break;
+  case 696: flag=_wrap_MX_bspline_dual(resc,resv,argc,(mxArray**)(argv)); break;
+  case 697: flag=_wrap_MX_interpn_linear(resc,resv,argc,(mxArray**)(argv)); break;
+  case 698: flag=_wrap_MX_printme(resc,resv,argc,(mxArray**)(argv)); break;
+  case 699: flag=_wrap_MX_attachAssert(resc,resv,argc,(mxArray**)(argv)); break;
+  case 700: flag=_wrap_MX_monitor(resc,resv,argc,(mxArray**)(argv)); break;
+  case 701: flag=_wrap_MX_T(resc,resv,argc,(mxArray**)(argv)); break;
+  case 702: flag=_wrap_MX_mapping(resc,resv,argc,(mxArray**)(argv)); break;
+  case 703: flag=_wrap_MX_set_max_depth(resc,resv,argc,(mxArray**)(argv)); break;
+  case 704: flag=_wrap_MX_get_max_depth(resc,resv,argc,(mxArray**)(argv)); break;
+  case 705: flag=_wrap_MX_test_cast(resc,resv,argc,(mxArray**)(argv)); break;
+  case 706: flag=_wrap_MX_get_input(resc,resv,argc,(mxArray**)(argv)); break;
+  case 707: flag=_wrap_MX_get_free(resc,resv,argc,(mxArray**)(argv)); break;
+  case 708: flag=_wrap_MX_eval_mx(resc,resv,argc,(mxArray**)(argv)); break;
+  case 709: flag=_wrap_MX_paren_asgn(resc,resv,argc,(mxArray**)(argv)); break;
+  case 710: flag=_wrap_MX_setbrace(resc,resv,argc,(mxArray**)(argv)); break;
+  case 711: flag=_wrap_MX_end(resc,resv,argc,(mxArray**)(argv)); break;
+  case 712: flag=_wrap_MX_ctranspose(resc,resv,argc,(mxArray**)(argv)); break;
+  case 713: flag=_wrap_MX_find(resc,resv,argc,(mxArray**)(argv)); break;
+  case 714: flag=_wrap_MX_low(resc,resv,argc,(mxArray**)(argv)); break;
+  case 715: flag=_wrap_MX_inv_node(resc,resv,argc,(mxArray**)(argv)); break;
+  case 716: flag=_wrap_MX_brace(resc,resv,argc,(mxArray**)(argv)); break;
+  case 717: flag=_wrap_MX_brace_asgn(resc,resv,argc,(mxArray**)(argv)); break;
+  case 718: flag=_wrap_MX_paren(resc,resv,argc,(mxArray**)(argv)); break;
+  case 719: flag=_wrap_MX_numel(resc,resv,argc,(mxArray**)(argv)); break;
+  case 720: flag=_wrap_new_MX(resc,resv,argc,(mxArray**)(argv)); break;
+  case 721: flag=_wrap_Function_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 722: flag=_wrap_Function_jit(resc,resv,argc,(mxArray**)(argv)); break;
+  case 723: flag=_wrap_delete_Function(resc,resv,argc,(mxArray**)(argv)); break;
+  case 724: flag=_wrap_Function_expand(resc,resv,argc,(mxArray**)(argv)); break;
+  case 725: flag=_wrap_Function_n_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 726: flag=_wrap_Function_n_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 727: flag=_wrap_Function_size1_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 728: flag=_wrap_Function_size2_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 729: flag=_wrap_Function_size_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 730: flag=_wrap_Function_size1_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 731: flag=_wrap_Function_size2_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 732: flag=_wrap_Function_size_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 733: flag=_wrap_Function_nnz_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 734: flag=_wrap_Function_nnz_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 735: flag=_wrap_Function_numel_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 736: flag=_wrap_Function_numel_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 737: flag=_wrap_Function_name_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 738: flag=_wrap_Function_name_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 739: flag=_wrap_Function_index_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 740: flag=_wrap_Function_index_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 741: flag=_wrap_Function_has_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 742: flag=_wrap_Function_has_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 743: flag=_wrap_Function_default_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 744: flag=_wrap_Function_max_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 745: flag=_wrap_Function_min_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 746: flag=_wrap_Function_nominal_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 747: flag=_wrap_Function_nominal_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 748: flag=_wrap_Function_sparsity_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 749: flag=_wrap_Function_sparsity_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 750: flag=_wrap_Function_is_diff_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 751: flag=_wrap_Function_is_diff_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 752: flag=_wrap_Function_factory(resc,resv,argc,(mxArray**)(argv)); break;
+  case 753: flag=_wrap_Function_oracle(resc,resv,argc,(mxArray**)(argv)); break;
+  case 754: flag=_wrap_Function_wrap(resc,resv,argc,(mxArray**)(argv)); break;
+  case 755: flag=_wrap_Function_wrap_as_needed(resc,resv,argc,(mxArray**)(argv)); break;
+  case 756: flag=_wrap_Function_which_depends(resc,resv,argc,(mxArray**)(argv)); break;
+  case 757: flag=_wrap_Function_print_dimensions(resc,resv,argc,(mxArray**)(argv)); break;
+  case 758: flag=_wrap_Function_print_options(resc,resv,argc,(mxArray**)(argv)); break;
+  case 759: flag=_wrap_Function_print_option(resc,resv,argc,(mxArray**)(argv)); break;
+  case 760: flag=_wrap_Function_has_option(resc,resv,argc,(mxArray**)(argv)); break;
+  case 761: flag=_wrap_Function_change_option(resc,resv,argc,(mxArray**)(argv)); break;
+  case 762: flag=_wrap_Function_reset_dump_count(resc,resv,argc,(mxArray**)(argv)); break;
+  case 763: flag=_wrap_Function_uses_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 764: flag=_wrap_Function_jacobian_old(resc,resv,argc,(mxArray**)(argv)); break;
+  case 765: flag=_wrap_Function_hessian_old(resc,resv,argc,(mxArray**)(argv)); break;
+  case 766: flag=_wrap_Function_sparsity_jac(resc,resv,argc,(mxArray**)(argv)); break;
+  case 767: flag=_wrap_Function_jacobian(resc,resv,argc,(mxArray**)(argv)); break;
+  case 768: flag=_wrap_Function_call(resc,resv,argc,(mxArray**)(argv)); break;
+  case 769: flag=_wrap_Function_mapsum(resc,resv,argc,(mxArray**)(argv)); break;
+  case 770: flag=_wrap_Function_mapaccum(resc,resv,argc,(mxArray**)(argv)); break;
+  case 771: flag=_wrap_Function_fold(resc,resv,argc,(mxArray**)(argv)); break;
+  case 772: flag=_wrap_Function_map(resc,resv,argc,(mxArray**)(argv)); break;
+  case 773: flag=_wrap_Function_slice(resc,resv,argc,(mxArray**)(argv)); break;
+  case 774: flag=_wrap_Function_conditional(resc,resv,argc,(mxArray**)(argv)); break;
+  case 775: flag=_wrap_Function_bspline(resc,resv,argc,(mxArray**)(argv)); break;
+  case 776: flag=_wrap_Function_if_else(resc,resv,argc,(mxArray**)(argv)); break;
+  case 777: flag=_wrap_Function_forward(resc,resv,argc,(mxArray**)(argv)); break;
+  case 778: flag=_wrap_Function_reverse(resc,resv,argc,(mxArray**)(argv)); break;
+  case 779: flag=_wrap_Function_jac_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 780: flag=_wrap_Function_generate(resc,resv,argc,(mxArray**)(argv)); break;
+  case 781: flag=_wrap_Function_generate_dependencies(resc,resv,argc,(mxArray**)(argv)); break;
+  case 782: flag=_wrap_Function_generate_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 783: flag=_wrap_Function_generate_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 784: flag=_wrap_Function_serialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 785: flag=_wrap_Function_save(resc,resv,argc,(mxArray**)(argv)); break;
+  case 786: flag=_wrap_Function_export_code(resc,resv,argc,(mxArray**)(argv)); break;
+  case 787: flag=_wrap_Function_stats(resc,resv,argc,(mxArray**)(argv)); break;
+  case 788: flag=_wrap_Function_sx_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 789: flag=_wrap_Function_mx_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 790: flag=_wrap_Function_sx_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 791: flag=_wrap_Function_mx_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 792: flag=_wrap_Function_nz_from_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 793: flag=_wrap_Function_nz_from_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 794: flag=_wrap_Function_nz_to_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 795: flag=_wrap_Function_nz_to_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 796: flag=_wrap_Function_convert_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 797: flag=_wrap_Function_convert_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 798: flag=_wrap_Function_has_free(resc,resv,argc,(mxArray**)(argv)); break;
+  case 799: flag=_wrap_Function_get_free(resc,resv,argc,(mxArray**)(argv)); break;
+  case 800: flag=_wrap_Function_free_sx(resc,resv,argc,(mxArray**)(argv)); break;
+  case 801: flag=_wrap_Function_free_mx(resc,resv,argc,(mxArray**)(argv)); break;
+  case 802: flag=_wrap_Function_generate_lifted(resc,resv,argc,(mxArray**)(argv)); break;
+  case 803: flag=_wrap_Function_n_nodes(resc,resv,argc,(mxArray**)(argv)); break;
+  case 804: flag=_wrap_Function_n_instructions(resc,resv,argc,(mxArray**)(argv)); break;
+  case 805: flag=_wrap_Function_instruction_id(resc,resv,argc,(mxArray**)(argv)); break;
+  case 806: flag=_wrap_Function_instruction_input(resc,resv,argc,(mxArray**)(argv)); break;
+  case 807: flag=_wrap_Function_instruction_constant(resc,resv,argc,(mxArray**)(argv)); break;
+  case 808: flag=_wrap_Function_instruction_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 809: flag=_wrap_Function_instruction_MX(resc,resv,argc,(mxArray**)(argv)); break;
+  case 810: flag=_wrap_Function_instructions_sx(resc,resv,argc,(mxArray**)(argv)); break;
+  case 811: flag=_wrap_Function_has_spfwd(resc,resv,argc,(mxArray**)(argv)); break;
+  case 812: flag=_wrap_Function_has_sprev(resc,resv,argc,(mxArray**)(argv)); break;
+  case 813: flag=_wrap_Function_sz_arg(resc,resv,argc,(mxArray**)(argv)); break;
+  case 814: flag=_wrap_Function_sz_res(resc,resv,argc,(mxArray**)(argv)); break;
+  case 815: flag=_wrap_Function_sz_iw(resc,resv,argc,(mxArray**)(argv)); break;
+  case 816: flag=_wrap_Function_sz_w(resc,resv,argc,(mxArray**)(argv)); break;
+  case 817: flag=_wrap_Function_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 818: flag=_wrap_Function_is_a(resc,resv,argc,(mxArray**)(argv)); break;
+  case 819: flag=_wrap_Function_check_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 820: flag=_wrap_Function_fix_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 821: flag=_wrap_Function_load(resc,resv,argc,(mxArray**)(argv)); break;
+  case 822: flag=_wrap_Function_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 823: flag=_wrap_Function_assert_size_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 824: flag=_wrap_Function_assert_size_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 825: flag=_wrap_Function_assert_sparsity_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 826: flag=_wrap_Function_checkout(resc,resv,argc,(mxArray**)(argv)); break;
+  case 827: flag=_wrap_Function_release(resc,resv,argc,(mxArray**)(argv)); break;
+  case 828: flag=_wrap_Function_cache(resc,resv,argc,(mxArray**)(argv)); break;
+  case 829: flag=_wrap_Function_get_function(resc,resv,argc,(mxArray**)(argv)); break;
+  case 830: flag=_wrap_Function_has_function(resc,resv,argc,(mxArray**)(argv)); break;
+  case 831: flag=_wrap_Function_find_functions(resc,resv,argc,(mxArray**)(argv)); break;
+  case 832: flag=_wrap_Function_find_function(resc,resv,argc,(mxArray**)(argv)); break;
+  case 833: flag=_wrap_Function_info(resc,resv,argc,(mxArray**)(argv)); break;
+  case 834: flag=_wrap_new_Function(resc,resv,argc,(mxArray**)(argv)); break;
+  case 835: flag=_wrap_external(resc,resv,argc,(mxArray**)(argv)); break;
+  case 836: flag=_wrap_integrator(resc,resv,argc,(mxArray**)(argv)); break;
+  case 837: flag=_wrap_has_integrator(resc,resv,argc,(mxArray**)(argv)); break;
+  case 838: flag=_wrap_load_integrator(resc,resv,argc,(mxArray**)(argv)); break;
+  case 839: flag=_wrap_doc_integrator(resc,resv,argc,(mxArray**)(argv)); break;
+  case 840: flag=_wrap_integrator_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 841: flag=_wrap_integrator_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 842: flag=_wrap_integrator_n_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 843: flag=_wrap_integrator_n_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 844: flag=_wrap_dyn_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 845: flag=_wrap_dyn_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 846: flag=_wrap_dyn_n_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 847: flag=_wrap_dyn_n_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 848: flag=_wrap_event_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 849: flag=_wrap_event_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 850: flag=_wrap_conic(resc,resv,argc,(mxArray**)(argv)); break;
+  case 851: flag=_wrap_qpsol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 852: flag=_wrap_conic_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 853: flag=_wrap_conic_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 854: flag=_wrap_conic_n_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 855: flag=_wrap_conic_n_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 856: flag=_wrap_conic_options(resc,resv,argc,(mxArray**)(argv)); break;
+  case 857: flag=_wrap_conic_option_type(resc,resv,argc,(mxArray**)(argv)); break;
+  case 858: flag=_wrap_conic_option_info(resc,resv,argc,(mxArray**)(argv)); break;
+  case 859: flag=_wrap_has_conic(resc,resv,argc,(mxArray**)(argv)); break;
+  case 860: flag=_wrap_load_conic(resc,resv,argc,(mxArray**)(argv)); break;
+  case 861: flag=_wrap_doc_conic(resc,resv,argc,(mxArray**)(argv)); break;
+  case 862: flag=_wrap_conic_debug(resc,resv,argc,(mxArray**)(argv)); break;
+  case 863: flag=_wrap_nlpsol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 864: flag=_wrap_nlpsol_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 865: flag=_wrap_nlpsol_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 866: flag=_wrap_nlpsol_n_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 867: flag=_wrap_nlpsol_n_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 868: flag=_wrap_nlpsol_default_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 869: flag=_wrap_nlpsol_options(resc,resv,argc,(mxArray**)(argv)); break;
+  case 870: flag=_wrap_nlpsol_option_type(resc,resv,argc,(mxArray**)(argv)); break;
+  case 871: flag=_wrap_nlpsol_option_info(resc,resv,argc,(mxArray**)(argv)); break;
+  case 872: flag=_wrap_has_nlpsol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 873: flag=_wrap_load_nlpsol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 874: flag=_wrap_doc_nlpsol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 875: flag=_wrap_rootfinder(resc,resv,argc,(mxArray**)(argv)); break;
+  case 876: flag=_wrap_rootfinder_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 877: flag=_wrap_rootfinder_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 878: flag=_wrap_rootfinder_n_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 879: flag=_wrap_rootfinder_n_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 880: flag=_wrap_rootfinder_options(resc,resv,argc,(mxArray**)(argv)); break;
+  case 881: flag=_wrap_rootfinder_option_type(resc,resv,argc,(mxArray**)(argv)); break;
+  case 882: flag=_wrap_rootfinder_option_info(resc,resv,argc,(mxArray**)(argv)); break;
+  case 883: flag=_wrap_has_rootfinder(resc,resv,argc,(mxArray**)(argv)); break;
+  case 884: flag=_wrap_load_rootfinder(resc,resv,argc,(mxArray**)(argv)); break;
+  case 885: flag=_wrap_doc_rootfinder(resc,resv,argc,(mxArray**)(argv)); break;
+  case 886: flag=_wrap_Linsol_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 887: flag=_wrap_Linsol_has_plugin(resc,resv,argc,(mxArray**)(argv)); break;
+  case 888: flag=_wrap_Linsol_load_plugin(resc,resv,argc,(mxArray**)(argv)); break;
+  case 889: flag=_wrap_Linsol_doc(resc,resv,argc,(mxArray**)(argv)); break;
+  case 890: flag=_wrap_Linsol_plugin_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 891: flag=_wrap_Linsol_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 892: flag=_wrap_Linsol_sfact(resc,resv,argc,(mxArray**)(argv)); break;
+  case 893: flag=_wrap_Linsol_nfact(resc,resv,argc,(mxArray**)(argv)); break;
+  case 894: flag=_wrap_Linsol_solve(resc,resv,argc,(mxArray**)(argv)); break;
+  case 895: flag=_wrap_Linsol_neig(resc,resv,argc,(mxArray**)(argv)); break;
+  case 896: flag=_wrap_Linsol_rank(resc,resv,argc,(mxArray**)(argv)); break;
+  case 897: flag=_wrap_Linsol_stats(resc,resv,argc,(mxArray**)(argv)); break;
+  case 898: flag=_wrap_new_Linsol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 899: flag=_wrap_delete_Linsol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 900: flag=_wrap_has_linsol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 901: flag=_wrap_load_linsol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 902: flag=_wrap_doc_linsol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 903: flag=_wrap_dplesol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 904: flag=_wrap_dple_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 905: flag=_wrap_dple_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 906: flag=_wrap_dple_n_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 907: flag=_wrap_dple_n_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 908: flag=_wrap_has_dple(resc,resv,argc,(mxArray**)(argv)); break;
+  case 909: flag=_wrap_load_dple(resc,resv,argc,(mxArray**)(argv)); break;
+  case 910: flag=_wrap_doc_dple(resc,resv,argc,(mxArray**)(argv)); break;
+  case 911: flag=_wrap_expmsol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 912: flag=_wrap_expm_n_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 913: flag=_wrap_expm_n_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 914: flag=_wrap_has_expm(resc,resv,argc,(mxArray**)(argv)); break;
+  case 915: flag=_wrap_load_expm(resc,resv,argc,(mxArray**)(argv)); break;
+  case 916: flag=_wrap_doc_expm(resc,resv,argc,(mxArray**)(argv)); break;
+  case 917: flag=_wrap_interpolant(resc,resv,argc,(mxArray**)(argv)); break;
+  case 918: flag=_wrap_has_interpolant(resc,resv,argc,(mxArray**)(argv)); break;
+  case 919: flag=_wrap_load_interpolant(resc,resv,argc,(mxArray**)(argv)); break;
+  case 920: flag=_wrap_doc_interpolant(resc,resv,argc,(mxArray**)(argv)); break;
+  case 921: flag=_wrap_blazing_spline(resc,resv,argc,(mxArray**)(argv)); break;
+  case 922: flag=_wrap_new_CodeGenerator(resc,resv,argc,(mxArray**)(argv)); break;
+  case 923: flag=_wrap_CodeGenerator_add(resc,resv,argc,(mxArray**)(argv)); break;
+  case 924: flag=_wrap_CodeGenerator_dump(resc,resv,argc,(mxArray**)(argv)); break;
+  case 925: flag=_wrap_CodeGenerator_generate(resc,resv,argc,(mxArray**)(argv)); break;
+  case 926: flag=_wrap_CodeGenerator_add_include(resc,resv,argc,(mxArray**)(argv)); break;
+  case 927: flag=_wrap_delete_CodeGenerator(resc,resv,argc,(mxArray**)(argv)); break;
+  case 928: flag=_wrap_cse(resc,resv,argc,(mxArray**)(argv)); break;
+  case 929: flag=_wrap_extract_parametric(resc,resv,argc,(mxArray**)(argv)); break;
+  case 930: flag=_wrap_forward(resc,resv,argc,(mxArray**)(argv)); break;
+  case 931: flag=_wrap_reverse(resc,resv,argc,(mxArray**)(argv)); break;
+  case 932: flag=_wrap_substitute(resc,resv,argc,(mxArray**)(argv)); break;
+  case 933: flag=_wrap_substitute_inplace(resc,resv,argc,(mxArray**)(argv)); break;
+  case 934: flag=_wrap_extract(resc,resv,argc,(mxArray**)(argv)); break;
+  case 935: flag=_wrap_shared(resc,resv,argc,(mxArray**)(argv)); break;
+  case 936: flag=_wrap_blockcat(resc,resv,argc,(mxArray**)(argv)); break;
+  case 937: flag=_wrap_matrix_expand(resc,resv,argc,(mxArray**)(argv)); break;
+  case 938: flag=_wrap_graph_substitute(resc,resv,argc,(mxArray**)(argv)); break;
+  case 939: flag=_wrap_bspline(resc,resv,argc,(mxArray**)(argv)); break;
+  case 940: flag=_wrap_convexify(resc,resv,argc,(mxArray**)(argv)); break;
+  case 941: flag=_wrap_stop_diff(resc,resv,argc,(mxArray**)(argv)); break;
+  case 942: flag=_wrap_difference(resc,resv,argc,(mxArray**)(argv)); break;
+  case 943: flag=_wrap_no_hess(resc,resv,argc,(mxArray**)(argv)); break;
+  case 944: flag=_wrap_no_grad(resc,resv,argc,(mxArray**)(argv)); break;
+  case 945: flag=_wrap_Importer_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 946: flag=_wrap_Importer_test_cast(resc,resv,argc,(mxArray**)(argv)); break;
+  case 947: flag=_wrap_Importer_has_plugin(resc,resv,argc,(mxArray**)(argv)); break;
+  case 948: flag=_wrap_Importer_load_plugin(resc,resv,argc,(mxArray**)(argv)); break;
+  case 949: flag=_wrap_Importer_doc(resc,resv,argc,(mxArray**)(argv)); break;
+  case 950: flag=_wrap_Importer_plugin_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 951: flag=_wrap_Importer_has_function(resc,resv,argc,(mxArray**)(argv)); break;
+  case 952: flag=_wrap_Importer_has_meta(resc,resv,argc,(mxArray**)(argv)); break;
+  case 953: flag=_wrap_Importer_get_meta(resc,resv,argc,(mxArray**)(argv)); break;
+  case 954: flag=_wrap_Importer_inlined(resc,resv,argc,(mxArray**)(argv)); break;
+  case 955: flag=_wrap_Importer_body(resc,resv,argc,(mxArray**)(argv)); break;
+  case 956: flag=_wrap_Importer_library(resc,resv,argc,(mxArray**)(argv)); break;
+  case 957: flag=_wrap_Importer_serialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 958: flag=_wrap_Importer_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 959: flag=_wrap_new_Importer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 960: flag=_wrap_delete_Importer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 961: flag=_wrap_Callback_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 962: flag=_wrap_new_Callback(resc,resv,argc,(mxArray**)(argv)); break;
+  case 963: flag=_wrap_delete_Callback(resc,resv,argc,(mxArray**)(argv)); break;
+  case 964: flag=_wrap_Callback_construct(resc,resv,argc,(mxArray**)(argv)); break;
+  case 965: flag=_wrap_Callback_init(resc,resv,argc,(mxArray**)(argv)); break;
+  case 966: flag=_wrap_Callback_finalize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 967: flag=_wrap_Callback_eval(resc,resv,argc,(mxArray**)(argv)); break;
+  case 968: flag=_wrap_Callback_eval_buffer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 969: flag=_wrap_Callback_has_eval_buffer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 970: flag=_wrap_Callback_get_n_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 971: flag=_wrap_Callback_get_n_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 972: flag=_wrap_Callback_get_sparsity_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 973: flag=_wrap_Callback_get_sparsity_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 974: flag=_wrap_Callback_get_name_in(resc,resv,argc,(mxArray**)(argv)); break;
+  case 975: flag=_wrap_Callback_get_name_out(resc,resv,argc,(mxArray**)(argv)); break;
+  case 976: flag=_wrap_Callback_uses_output(resc,resv,argc,(mxArray**)(argv)); break;
+  case 977: flag=_wrap_Callback_get_factory(resc,resv,argc,(mxArray**)(argv)); break;
+  case 978: flag=_wrap_Callback_has_jacobian(resc,resv,argc,(mxArray**)(argv)); break;
+  case 979: flag=_wrap_Callback_get_jacobian(resc,resv,argc,(mxArray**)(argv)); break;
+  case 980: flag=_wrap_Callback_has_forward(resc,resv,argc,(mxArray**)(argv)); break;
+  case 981: flag=_wrap_Callback_get_forward(resc,resv,argc,(mxArray**)(argv)); break;
+  case 982: flag=_wrap_Callback_has_reverse(resc,resv,argc,(mxArray**)(argv)); break;
+  case 983: flag=_wrap_Callback_get_reverse(resc,resv,argc,(mxArray**)(argv)); break;
+  case 984: flag=_wrap_Callback_has_jac_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 985: flag=_wrap_Callback_get_jac_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 986: flag=_wrap_GlobalOptions_setSimplificationOnTheFly(resc,resv,argc,(mxArray**)(argv)); break;
+  case 987: flag=_wrap_GlobalOptions_getSimplificationOnTheFly(resc,resv,argc,(mxArray**)(argv)); break;
+  case 988: flag=_wrap_GlobalOptions_setHierarchicalSparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 989: flag=_wrap_GlobalOptions_getHierarchicalSparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 990: flag=_wrap_GlobalOptions_setCasadiPath(resc,resv,argc,(mxArray**)(argv)); break;
+  case 991: flag=_wrap_GlobalOptions_getCasadiPath(resc,resv,argc,(mxArray**)(argv)); break;
+  case 992: flag=_wrap_GlobalOptions_setCasadiIncludePath(resc,resv,argc,(mxArray**)(argv)); break;
+  case 993: flag=_wrap_GlobalOptions_getCasadiIncludePath(resc,resv,argc,(mxArray**)(argv)); break;
+  case 994: flag=_wrap_GlobalOptions_setMaxNumDir(resc,resv,argc,(mxArray**)(argv)); break;
+  case 995: flag=_wrap_GlobalOptions_getMaxNumDir(resc,resv,argc,(mxArray**)(argv)); break;
+  case 996: flag=_wrap_GlobalOptions_setCopyElisionMinSize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 997: flag=_wrap_GlobalOptions_getCopyElisionMinSize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 998: flag=_wrap_new_GlobalOptions(resc,resv,argc,(mxArray**)(argv)); break;
+  case 999: flag=_wrap_delete_GlobalOptions(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1000: flag=_wrap_CasadiMeta_version(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1001: flag=_wrap_CasadiMeta_git_revision(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1002: flag=_wrap_CasadiMeta_git_describe(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1003: flag=_wrap_CasadiMeta_feature_list(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1004: flag=_wrap_CasadiMeta_build_type(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1005: flag=_wrap_CasadiMeta_compiler_id(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1006: flag=_wrap_CasadiMeta_compiler(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1007: flag=_wrap_CasadiMeta_compiler_flags(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1008: flag=_wrap_CasadiMeta_modules(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1009: flag=_wrap_CasadiMeta_plugins(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1010: flag=_wrap_CasadiMeta_install_prefix(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1011: flag=_wrap_CasadiMeta_shared_library_prefix(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1012: flag=_wrap_CasadiMeta_shared_library_suffix(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1013: flag=_wrap_CasadiMeta_object_file_suffix(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1014: flag=_wrap_new_CasadiMeta(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1015: flag=_wrap_delete_CasadiMeta(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1016: flag=_wrap_collocation_points(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1017: flag=_wrap_collocation_interpolators(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1018: flag=_wrap_collocation_coeff(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1019: flag=_wrap_simpleRK(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1020: flag=_wrap_simpleIRK(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1021: flag=_wrap_simpleIntegrator(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1022: flag=_wrap_dae_reduce_index(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1023: flag=_wrap_dae_map_semi_expl(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1024: flag=_wrap_dae_init_gen(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1025: flag=_wrap_detect_simple_bounds(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1026: flag=_wrap_external_transform(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1027: flag=_wrap_NlpBuilder_x_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1028: flag=_wrap_NlpBuilder_f_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1029: flag=_wrap_NlpBuilder_g_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1030: flag=_wrap_NlpBuilder_x_lb_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1031: flag=_wrap_NlpBuilder_x_ub_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1032: flag=_wrap_NlpBuilder_g_lb_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1033: flag=_wrap_NlpBuilder_g_ub_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1034: flag=_wrap_NlpBuilder_x_init_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1035: flag=_wrap_NlpBuilder_lambda_init_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1036: flag=_wrap_NlpBuilder_discrete_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1037: flag=_wrap_NlpBuilder_import_nl(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1038: flag=_wrap_NlpBuilder_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1039: flag=_wrap_NlpBuilder_disp(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1040: flag=_wrap_NlpBuilder_str(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1041: flag=_wrap_new_NlpBuilder(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1042: flag=_wrap_delete_NlpBuilder(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1043: flag=_wrap_DaeBuilder_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1044: flag=_wrap_DaeBuilder_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1045: flag=_wrap_DaeBuilder_time(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1046: flag=_wrap_DaeBuilder_t_new(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1047: flag=_wrap_DaeBuilder_x(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1048: flag=_wrap_DaeBuilder_y(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1049: flag=_wrap_DaeBuilder_ode(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1050: flag=_wrap_DaeBuilder_z(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1051: flag=_wrap_DaeBuilder_alg(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1052: flag=_wrap_DaeBuilder_q(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1053: flag=_wrap_DaeBuilder_quad(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1054: flag=_wrap_DaeBuilder_zero(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1055: flag=_wrap_DaeBuilder_ydef(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1056: flag=_wrap_DaeBuilder_set_y(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1057: flag=_wrap_DaeBuilder_rate(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1058: flag=_wrap_DaeBuilder_set_rate(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1059: flag=_wrap_DaeBuilder_u(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1060: flag=_wrap_DaeBuilder_p(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1061: flag=_wrap_DaeBuilder_c(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1062: flag=_wrap_DaeBuilder_cdef(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1063: flag=_wrap_DaeBuilder_d(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1064: flag=_wrap_DaeBuilder_ddef(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1065: flag=_wrap_DaeBuilder_w(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1066: flag=_wrap_DaeBuilder_wdef(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1067: flag=_wrap_DaeBuilder_init_lhs(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1068: flag=_wrap_DaeBuilder_init_rhs(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1069: flag=_wrap_DaeBuilder_outputs(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1070: flag=_wrap_DaeBuilder_derivatives(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1071: flag=_wrap_DaeBuilder_initial_unknowns(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1072: flag=_wrap_DaeBuilder_has_t(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1073: flag=_wrap_DaeBuilder_has_rate(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1074: flag=_wrap_DaeBuilder_nx(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1075: flag=_wrap_DaeBuilder_nz(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1076: flag=_wrap_DaeBuilder_nq(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1077: flag=_wrap_DaeBuilder_nzero(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1078: flag=_wrap_DaeBuilder_ny(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1079: flag=_wrap_DaeBuilder_nu(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1080: flag=_wrap_DaeBuilder_np(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1081: flag=_wrap_DaeBuilder_nc(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1082: flag=_wrap_DaeBuilder_nd(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1083: flag=_wrap_DaeBuilder_nw(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1084: flag=_wrap_DaeBuilder_add(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1085: flag=_wrap_DaeBuilder_t(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1086: flag=_wrap_DaeBuilder_add_t(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1087: flag=_wrap_DaeBuilder_add_p(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1088: flag=_wrap_DaeBuilder_add_u(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1089: flag=_wrap_DaeBuilder_add_x(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1090: flag=_wrap_DaeBuilder_add_z(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1091: flag=_wrap_DaeBuilder_add_q(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1092: flag=_wrap_DaeBuilder_add_c(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1093: flag=_wrap_DaeBuilder_add_d(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1094: flag=_wrap_DaeBuilder_add_w(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1095: flag=_wrap_DaeBuilder_add_y(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1096: flag=_wrap_DaeBuilder_set_beq(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1097: flag=_wrap_DaeBuilder_eq(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1098: flag=_wrap_DaeBuilder_when(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1099: flag=_wrap_DaeBuilder_assign(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1100: flag=_wrap_DaeBuilder_reinit(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1101: flag=_wrap_DaeBuilder_set_init(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1102: flag=_wrap_DaeBuilder_set_ode(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1103: flag=_wrap_DaeBuilder_set_alg(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1104: flag=_wrap_DaeBuilder_add_init(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1105: flag=_wrap_DaeBuilder_ne(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1106: flag=_wrap_DaeBuilder_e(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1107: flag=_wrap_DaeBuilder_sanity_check(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1108: flag=_wrap_DaeBuilder_reorder(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1109: flag=_wrap_DaeBuilder_clear_all(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1110: flag=_wrap_DaeBuilder_set_all(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1111: flag=_wrap_DaeBuilder_register_t(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1112: flag=_wrap_DaeBuilder_register_p(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1113: flag=_wrap_DaeBuilder_register_u(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1114: flag=_wrap_DaeBuilder_register_x(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1115: flag=_wrap_DaeBuilder_register_z(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1116: flag=_wrap_DaeBuilder_register_q(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1117: flag=_wrap_DaeBuilder_register_c(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1118: flag=_wrap_DaeBuilder_register_d(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1119: flag=_wrap_DaeBuilder_register_w(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1120: flag=_wrap_DaeBuilder_register_y(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1121: flag=_wrap_DaeBuilder_register_e(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1122: flag=_wrap_DaeBuilder_eliminate_d(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1123: flag=_wrap_DaeBuilder_eliminate_w(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1124: flag=_wrap_DaeBuilder_eliminate_quad(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1125: flag=_wrap_DaeBuilder_sort_d(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1126: flag=_wrap_DaeBuilder_sort_w(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1127: flag=_wrap_DaeBuilder_sort_z(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1128: flag=_wrap_DaeBuilder_eliminate(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1129: flag=_wrap_DaeBuilder_sort(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1130: flag=_wrap_DaeBuilder_lift(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1131: flag=_wrap_DaeBuilder_prune(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1132: flag=_wrap_DaeBuilder_tear(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1133: flag=_wrap_DaeBuilder_add_fun(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1134: flag=_wrap_DaeBuilder_has_fun(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1135: flag=_wrap_DaeBuilder_fun(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1136: flag=_wrap_DaeBuilder_gather_fun(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1137: flag=_wrap_DaeBuilder_parse_fmi(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1138: flag=_wrap_DaeBuilder_provides_directional_derivatives(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1139: flag=_wrap_DaeBuilder_provides_directional_derivative(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1140: flag=_wrap_DaeBuilder_load_fmi_description(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1141: flag=_wrap_DaeBuilder_export_fmu(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1142: flag=_wrap_DaeBuilder_add_lc(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1143: flag=_wrap_DaeBuilder_create(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1144: flag=_wrap_DaeBuilder_dependent_fun(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1145: flag=_wrap_DaeBuilder_transition(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1146: flag=_wrap_DaeBuilder_var(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1147: flag=_wrap_DaeBuilder_paren(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1148: flag=_wrap_DaeBuilder_der(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1149: flag=_wrap_DaeBuilder_pre(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1150: flag=_wrap_DaeBuilder_has_beq(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1151: flag=_wrap_DaeBuilder_beq(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1152: flag=_wrap_DaeBuilder_value_reference(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1153: flag=_wrap_DaeBuilder_set_value_reference(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1154: flag=_wrap_DaeBuilder_description(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1155: flag=_wrap_DaeBuilder_set_description(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1156: flag=_wrap_DaeBuilder_type(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1157: flag=_wrap_DaeBuilder_set_type(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1158: flag=_wrap_DaeBuilder_causality(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1159: flag=_wrap_DaeBuilder_set_causality(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1160: flag=_wrap_DaeBuilder_variability(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1161: flag=_wrap_DaeBuilder_set_variability(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1162: flag=_wrap_DaeBuilder_category(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1163: flag=_wrap_DaeBuilder_set_category(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1164: flag=_wrap_DaeBuilder_initial(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1165: flag=_wrap_DaeBuilder_set_initial(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1166: flag=_wrap_DaeBuilder_unit(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1167: flag=_wrap_DaeBuilder_set_unit(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1168: flag=_wrap_DaeBuilder_display_unit(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1169: flag=_wrap_DaeBuilder_set_display_unit(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1170: flag=_wrap_DaeBuilder_numel(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1171: flag=_wrap_DaeBuilder_dimension(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1172: flag=_wrap_DaeBuilder_start_time(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1173: flag=_wrap_DaeBuilder_set_start_time(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1174: flag=_wrap_DaeBuilder_stop_time(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1175: flag=_wrap_DaeBuilder_set_stop_time(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1176: flag=_wrap_DaeBuilder_tolerance(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1177: flag=_wrap_DaeBuilder_set_tolerance(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1178: flag=_wrap_DaeBuilder_step_size(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1179: flag=_wrap_DaeBuilder_set_step_size(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1180: flag=_wrap_DaeBuilder_attribute(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1181: flag=_wrap_DaeBuilder_set_attribute(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1182: flag=_wrap_DaeBuilder_min(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1183: flag=_wrap_DaeBuilder_set_min(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1184: flag=_wrap_DaeBuilder_max(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1185: flag=_wrap_DaeBuilder_set_max(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1186: flag=_wrap_DaeBuilder_nominal(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1187: flag=_wrap_DaeBuilder_set_nominal(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1188: flag=_wrap_DaeBuilder_start(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1189: flag=_wrap_DaeBuilder_set_start(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1190: flag=_wrap_DaeBuilder_set(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1191: flag=_wrap_DaeBuilder_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1192: flag=_wrap_DaeBuilder_has(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1193: flag=_wrap_DaeBuilder_all(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1194: flag=_wrap_DaeBuilder_add_variable(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1195: flag=_wrap_DaeBuilder_add_variable_new(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1196: flag=_wrap_DaeBuilder_has_variable(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1197: flag=_wrap_DaeBuilder_all_variables(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1198: flag=_wrap_DaeBuilder_oracle(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1199: flag=_wrap_DaeBuilder_jac_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1200: flag=_wrap_new_DaeBuilder(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1201: flag=_wrap_delete_DaeBuilder(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1202: flag=_wrap_XmlFile_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1203: flag=_wrap_delete_XmlFile(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1204: flag=_wrap_XmlFile_load_plugin(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1205: flag=_wrap_XmlFile_doc(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1206: flag=_wrap_new_XmlFile(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1207: flag=_wrap_has_archiver(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1208: flag=_wrap_load_archiver(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1209: flag=_wrap_doc_archiver(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1210: flag=_wrap_has_filesystem(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1211: flag=_wrap_load_filesystem(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1212: flag=_wrap_doc_filesystem(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1213: flag=_wrap_Options_all(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1214: flag=_wrap_Options_type(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1215: flag=_wrap_Options_info(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1216: flag=_wrap_Options_word_distance(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1217: flag=_wrap_Options_suggestions(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1218: flag=_wrap_Options_best_matches(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1219: flag=_wrap_Options_has_dot(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1220: flag=_wrap_Options_has_null(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1221: flag=_wrap_Options_is_sane(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1222: flag=_wrap_Options_sanitize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1223: flag=_wrap_Options_check(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1224: flag=_wrap_Options_print_all(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1225: flag=_wrap_Options_print_one(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1226: flag=_wrap_new_Options(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1227: flag=_wrap_delete_Options(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1228: flag=_wrap_delete_SerializerBase(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1229: flag=_wrap_SerializerBase_pack(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1230: flag=_wrap_SerializerBase_type_to_string(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1231: flag=_wrap_SerializerBase_connect(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1232: flag=_wrap_SerializerBase_reset(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1233: flag=_wrap_delete_DeserializerBase(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1234: flag=_wrap_DeserializerBase_internal_pop_type(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1235: flag=_wrap_DeserializerBase_blind_unpack_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1236: flag=_wrap_DeserializerBase_blind_unpack_mx(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1237: flag=_wrap_DeserializerBase_blind_unpack_mx_v1(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1238: flag=_wrap_DeserializerBase_blind_unpack_dm(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1239: flag=_wrap_DeserializerBase_blind_unpack_sx(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1240: flag=_wrap_DeserializerBase_blind_unpack_sx_v1(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1241: flag=_wrap_DeserializerBase_blind_unpack_linsol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1242: flag=_wrap_DeserializerBase_blind_unpack_function(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1243: flag=_wrap_DeserializerBase_blind_unpack_generictype(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1244: flag=_wrap_DeserializerBase_blind_unpack_int(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1245: flag=_wrap_DeserializerBase_blind_unpack_double(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1246: flag=_wrap_DeserializerBase_blind_unpack_string(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1247: flag=_wrap_DeserializerBase_blind_unpack_sparsity_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1248: flag=_wrap_DeserializerBase_blind_unpack_mx_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1249: flag=_wrap_DeserializerBase_blind_unpack_mx_vector_v1(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1250: flag=_wrap_DeserializerBase_blind_unpack_dm_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1251: flag=_wrap_DeserializerBase_blind_unpack_sx_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1252: flag=_wrap_DeserializerBase_blind_unpack_sx_vector_v1(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1253: flag=_wrap_DeserializerBase_blind_unpack_linsol_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1254: flag=_wrap_DeserializerBase_blind_unpack_function_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1255: flag=_wrap_DeserializerBase_blind_unpack_generictype_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1256: flag=_wrap_DeserializerBase_blind_unpack_int_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1257: flag=_wrap_DeserializerBase_blind_unpack_double_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1258: flag=_wrap_DeserializerBase_blind_unpack_string_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1259: flag=_wrap_DeserializerBase_unpack_sparsity(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1260: flag=_wrap_DeserializerBase_unpack_mx(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1261: flag=_wrap_DeserializerBase_unpack_dm(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1262: flag=_wrap_DeserializerBase_unpack_sx(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1263: flag=_wrap_DeserializerBase_unpack_linsol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1264: flag=_wrap_DeserializerBase_unpack_function(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1265: flag=_wrap_DeserializerBase_unpack_generictype(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1266: flag=_wrap_DeserializerBase_unpack_int(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1267: flag=_wrap_DeserializerBase_unpack_double(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1268: flag=_wrap_DeserializerBase_unpack_string(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1269: flag=_wrap_DeserializerBase_unpack_sparsity_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1270: flag=_wrap_DeserializerBase_unpack_mx_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1271: flag=_wrap_DeserializerBase_unpack_dm_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1272: flag=_wrap_DeserializerBase_unpack_sx_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1273: flag=_wrap_DeserializerBase_unpack_linsol_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1274: flag=_wrap_DeserializerBase_unpack_function_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1275: flag=_wrap_DeserializerBase_unpack_generictype_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1276: flag=_wrap_DeserializerBase_unpack_int_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1277: flag=_wrap_DeserializerBase_unpack_double_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1278: flag=_wrap_DeserializerBase_unpack_string_vector(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1279: flag=_wrap_DeserializerBase_connect(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1280: flag=_wrap_DeserializerBase_reset(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1281: flag=_wrap_new_StringSerializer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1282: flag=_wrap_delete_StringSerializer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1283: flag=_wrap_StringSerializer_encode(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1284: flag=_wrap_new_FileSerializer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1285: flag=_wrap_delete_FileSerializer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1286: flag=_wrap_new_StringDeserializer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1287: flag=_wrap_delete_StringDeserializer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1288: flag=_wrap_StringDeserializer_decode(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1289: flag=_wrap_new_FileDeserializer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1290: flag=_wrap_delete_FileDeserializer(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1291: flag=_wrap_Opti_internal_variable(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1292: flag=_wrap_Opti_internal_parameter(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1293: flag=_wrap_Opti_minimize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1294: flag=_wrap_Opti_internal_subject_to(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1295: flag=_wrap_Opti_solver(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1296: flag=_wrap_Opti_set_initial(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1297: flag=_wrap_Opti_set_value(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1298: flag=_wrap_Opti_set_domain(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1299: flag=_wrap_Opti_set_linear_scale(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1300: flag=_wrap_Opti_solve(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1301: flag=_wrap_Opti_solve_limited(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1302: flag=_wrap_Opti_value(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1303: flag=_wrap_Opti_stats(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1304: flag=_wrap_Opti_return_status(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1305: flag=_wrap_Opti_initial(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1306: flag=_wrap_Opti_value_variables(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1307: flag=_wrap_Opti_value_parameters(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1308: flag=_wrap_Opti_scale_helper(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1309: flag=_wrap_Opti_dual(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1310: flag=_wrap_Opti_nx(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1311: flag=_wrap_Opti_np(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1312: flag=_wrap_Opti_ng(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1313: flag=_wrap_Opti_x(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1314: flag=_wrap_Opti_p(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1315: flag=_wrap_Opti_g(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1316: flag=_wrap_Opti_f(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1317: flag=_wrap_Opti_lbg(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1318: flag=_wrap_Opti_ubg(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1319: flag=_wrap_Opti_x_linear_scale(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1320: flag=_wrap_Opti_x_linear_scale_offset(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1321: flag=_wrap_Opti_g_linear_scale(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1322: flag=_wrap_Opti_f_linear_scale(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1323: flag=_wrap_Opti_lam_g(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1324: flag=_wrap_Opti_to_function(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1325: flag=_wrap_Opti_debug(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1326: flag=_wrap_Opti_advanced(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1327: flag=_wrap_Opti_copy(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1328: flag=_wrap_Opti_update_user_dict(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1329: flag=_wrap_Opti_user_dict(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1330: flag=_wrap_Opti_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1331: flag=_wrap_Opti_disp(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1332: flag=_wrap_Opti_str(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1333: flag=_wrap_Opti_callback_class(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1334: flag=_wrap_new_Opti(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1335: flag=_wrap_delete_Opti(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1336: flag=_wrap_IndexAbstraction_start_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1337: flag=_wrap_IndexAbstraction_stop_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1338: flag=_wrap_new_IndexAbstraction(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1339: flag=_wrap_delete_IndexAbstraction(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1340: flag=_wrap_MetaCon_original_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1341: flag=_wrap_MetaCon_canon_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1342: flag=_wrap_MetaCon_type_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1343: flag=_wrap_MetaCon_lb_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1344: flag=_wrap_MetaCon_ub_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1345: flag=_wrap_MetaCon_n_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1346: flag=_wrap_MetaCon_flipped_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1347: flag=_wrap_MetaCon_dual_canon_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1348: flag=_wrap_MetaCon_dual_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1349: flag=_wrap_MetaCon_extra_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1350: flag=_wrap_MetaCon_linear_scale_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1351: flag=_wrap_new_MetaCon(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1352: flag=_wrap_delete_MetaCon(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1353: flag=_wrap_MetaVar_attribute_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1354: flag=_wrap_MetaVar_n_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1355: flag=_wrap_MetaVar_m_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1356: flag=_wrap_MetaVar_type_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1357: flag=_wrap_MetaVar_domain_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1358: flag=_wrap_MetaVar_count_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1359: flag=_wrap_MetaVar_i_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1360: flag=_wrap_MetaVar_active_i_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1361: flag=_wrap_MetaVar_extra_get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1362: flag=_wrap_new_MetaVar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1363: flag=_wrap_delete_MetaVar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1364: flag=_wrap_new_OptiCallback(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1365: flag=_wrap_OptiCallback_call(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1366: flag=_wrap_delete_OptiCallback(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1367: flag=_wrap_delete_OptiAdvanced(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1368: flag=_wrap_OptiAdvanced_solver(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1369: flag=_wrap_OptiAdvanced_is_parametric(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1370: flag=_wrap_OptiAdvanced_symvar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1371: flag=_wrap_OptiAdvanced_canon_expr(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1372: flag=_wrap_OptiAdvanced_get_meta(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1373: flag=_wrap_OptiAdvanced_get_meta_con(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1374: flag=_wrap_OptiAdvanced_set_meta(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1375: flag=_wrap_OptiAdvanced_set_meta_con(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1376: flag=_wrap_OptiAdvanced_assert_active_symbol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1377: flag=_wrap_OptiAdvanced_active_symvar(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1378: flag=_wrap_OptiAdvanced_active_values(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1379: flag=_wrap_OptiAdvanced_x_lookup(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1380: flag=_wrap_OptiAdvanced_g_lookup(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1381: flag=_wrap_OptiAdvanced_g_index_reduce_g(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1382: flag=_wrap_OptiAdvanced_g_index_reduce_x(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1383: flag=_wrap_OptiAdvanced_g_index_unreduce_g(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1384: flag=_wrap_OptiAdvanced_x_describe(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1385: flag=_wrap_OptiAdvanced_g_describe(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1386: flag=_wrap_OptiAdvanced_describe(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1387: flag=_wrap_OptiAdvanced_show_infeasibilities(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1388: flag=_wrap_OptiAdvanced_solve_prepare(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1389: flag=_wrap_OptiAdvanced_solve_actual(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1390: flag=_wrap_OptiAdvanced_arg(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1391: flag=_wrap_OptiAdvanced_res(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1392: flag=_wrap_OptiAdvanced_constraints(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1393: flag=_wrap_OptiAdvanced_objective(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1394: flag=_wrap_OptiAdvanced_baked_copy(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1395: flag=_wrap_OptiAdvanced_assert_empty(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1396: flag=_wrap_OptiAdvanced_bake(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1397: flag=_wrap_OptiAdvanced_problem_dirty__get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1398: flag=_wrap_OptiAdvanced_mark_problem_dirty(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1399: flag=_wrap_OptiAdvanced_problem_dirty(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1400: flag=_wrap_OptiAdvanced_solver_dirty__get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1401: flag=_wrap_OptiAdvanced_mark_solver_dirty(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1402: flag=_wrap_OptiAdvanced_solver_dirty(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1403: flag=_wrap_OptiAdvanced_solved__get(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1404: flag=_wrap_OptiAdvanced_mark_solved(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1405: flag=_wrap_OptiAdvanced_solved(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1406: flag=_wrap_OptiAdvanced_assert_solved(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1407: flag=_wrap_OptiAdvanced_assert_baked(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1408: flag=_wrap_OptiAdvanced_instance_number(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1409: flag=_wrap_new_OptiAdvanced(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1410: flag=_wrap_OptiSol_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1411: flag=_wrap_OptiSol_disp(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1412: flag=_wrap_OptiSol_str(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1413: flag=_wrap_OptiSol_value(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1414: flag=_wrap_OptiSol_value_variables(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1415: flag=_wrap_OptiSol_value_parameters(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1416: flag=_wrap_OptiSol_stats(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1417: flag=_wrap_OptiSol_opti(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1418: flag=_wrap_new_OptiSol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1419: flag=_wrap_delete_OptiSol(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1420: flag=_wrap_Resource_type_name(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1421: flag=_wrap_Resource_test_cast(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1422: flag=_wrap_Resource_path(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1423: flag=_wrap_Resource_serialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1424: flag=_wrap_Resource_change_option(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1425: flag=_wrap_Resource_deserialize(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1426: flag=_wrap_new_Resource(resc,resv,argc,(mxArray**)(argv)); break;
+  case 1427: flag=_wrap_delete_Resource(resc,resv,argc,(mxArray**)(argv)); break;
   default: flag=1, SWIG_Error_Format(SWIG_RuntimeError, "No function id %d.", fcn_id);
   }
   if (flag) {

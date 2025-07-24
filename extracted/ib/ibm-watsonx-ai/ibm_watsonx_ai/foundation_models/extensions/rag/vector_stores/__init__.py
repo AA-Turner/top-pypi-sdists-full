@@ -24,6 +24,7 @@ __all__ = [
     "RetrievalOptions",
     "HybridStrategyElasticsearch",
     "ChromaVectorStore",
+    "DB2VectorStore",
 ]
 
 _module_lookup = {
@@ -34,6 +35,7 @@ _module_lookup = {
     "MilvusBM25BuiltinFunction": ".adapters.milvus_utils",
     "MilvusSpladeEmbeddingFunction": ".adapters.milvus_utils",
     "ChromaVectorStore": ".adapters.chroma_adapter",
+    "DB2VectorStore": ".adapters.db2_adapter",
 }
 _root_module = "ibm_watsonx_ai.foundation_models.extensions.rag.vector_stores"
 

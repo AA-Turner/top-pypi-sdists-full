@@ -111,6 +111,7 @@ def stream_workflow_route() -> Response:
         )
 
     cancel_signal = ThreadingEvent()
+    timeout_signal = ThreadingEvent()
 
     process: Optional[Process] = None
     if ENABLE_PROCESS_WRAPPER:
@@ -119,6 +120,7 @@ def stream_workflow_route() -> Response:
                 executor_context=context,
                 queue=process_output_queue,
                 cancel_signal=cancel_signal,
+                timeout_signal=timeout_signal,
             )
             increment_process_count(1)
         except Exception as e:
@@ -150,6 +152,7 @@ def stream_workflow_route() -> Response:
                     context,
                     disable_redirect=True,
                     cancel_signal=cancel_signal,
+                    timeout_signal=timeout_signal,
                 )
                 yield f"{SPAN_ID_EVENT}:{span_id}"
                 span_id_emitted = True
@@ -201,6 +204,9 @@ def stream_workflow_route() -> Response:
             ):
                 logger.error("Workflow timed out, waiting 5 seconds before ending request...")
                 cancel_signal.set()
+                # We pass this separate signal in so we can get the vembda time_out flag set to true in the vembda
+                # fulfilled event inside of exec. In the future we might have a separate timeout event in wsdk
+                timeout_signal.set()
                 timed_out_time = time.time()
 
             if timed_out_time is not None and timed_out_time + 5 < time.time():

@@ -51,6 +51,12 @@ class MetricKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     METRIC_KIND_DISK_WRITE_BYTES: _ClassVar[MetricKind]
     METRIC_KIND_STREAM_LAG: _ClassVar[MetricKind]
     METRIC_KIND_USAGE: _ClassVar[MetricKind]
+    METRIC_KIND_FEATURE_COMPUTED_COUNT: _ClassVar[MetricKind]
+    METRIC_KIND_FEATURE_LOOKED_UP_COUNT: _ClassVar[MetricKind]
+    METRIC_KIND_FEATURE_INTERMEDIATE_COUNT: _ClassVar[MetricKind]
+    METRIC_KIND_FEATURE_COMPUTED_NULL_RATIO: _ClassVar[MetricKind]
+    METRIC_KIND_FEATURE_LOOKED_UP_NULL_RATIO: _ClassVar[MetricKind]
+    METRIC_KIND_FEATURE_INTERMEDIATE_NULL_RATIO: _ClassVar[MetricKind]
 
 class FilterKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -134,6 +140,7 @@ class AlertSeverityKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     ALERT_SEVERITY_KIND_ERROR: _ClassVar[AlertSeverityKind]
     ALERT_SEVERITY_KIND_WARNING: _ClassVar[AlertSeverityKind]
     ALERT_SEVERITY_KIND_INFO: _ClassVar[AlertSeverityKind]
+    ALERT_SEVERITY_KIND_RESOLVED: _ClassVar[AlertSeverityKind]
 
 class ThresholdKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -191,6 +198,12 @@ METRIC_KIND_DISK_READ_BYTES: MetricKind
 METRIC_KIND_DISK_WRITE_BYTES: MetricKind
 METRIC_KIND_STREAM_LAG: MetricKind
 METRIC_KIND_USAGE: MetricKind
+METRIC_KIND_FEATURE_COMPUTED_COUNT: MetricKind
+METRIC_KIND_FEATURE_LOOKED_UP_COUNT: MetricKind
+METRIC_KIND_FEATURE_INTERMEDIATE_COUNT: MetricKind
+METRIC_KIND_FEATURE_COMPUTED_NULL_RATIO: MetricKind
+METRIC_KIND_FEATURE_LOOKED_UP_NULL_RATIO: MetricKind
+METRIC_KIND_FEATURE_INTERMEDIATE_NULL_RATIO: MetricKind
 FILTER_KIND_UNSPECIFIED: FilterKind
 FILTER_KIND_FEATURE_STATUS: FilterKind
 FILTER_KIND_FEATURE_NAME: FilterKind
@@ -256,6 +269,7 @@ ALERT_SEVERITY_KIND_CRITICAL: AlertSeverityKind
 ALERT_SEVERITY_KIND_ERROR: AlertSeverityKind
 ALERT_SEVERITY_KIND_WARNING: AlertSeverityKind
 ALERT_SEVERITY_KIND_INFO: AlertSeverityKind
+ALERT_SEVERITY_KIND_RESOLVED: AlertSeverityKind
 THRESHOLD_KIND_UNSPECIFIED: ThresholdKind
 THRESHOLD_KIND_ABOVE: ThresholdKind
 THRESHOLD_KIND_BELOW: ThresholdKind

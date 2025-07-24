@@ -3,12 +3,25 @@ from enum import Enum
 
 
 class MetricKind(str, Enum):
+    # statistics about features that were outputs of a query
+    # or live-computed
     FEATURE_REQUEST_COUNT = "FEATURE_REQUEST_COUNT"
     FEATURE_LATENCY = "FEATURE_LATENCY"
     FEATURE_STALENESS = "FEATURE_STALENESS"
     FEATURE_VALUE = "FEATURE_VALUE"
     FEATURE_WRITE = "FEATURE_WRITE"
     FEATURE_NULL_RATIO = "FEATURE_NULL_RATIO"
+    # Statistics about features computed by resolvers
+    FEATURE_COMPUTED_COUNT = "FEATURE_COMPUTED_COUNT"
+    FEATURE_COMPUTED_NULL_RATIO = "FEATURE_COMPUTED_NULL_RATIO"
+    # statistics about features looked up from the online store during a query
+    FEATURE_LOOKED_UP_COUNT = "FEATURE_LOOKED_UP_COUNT"
+    FEATURE_LOOKED_UP_NULL_RATIO = "FEATURE_LOOKED_UP_NULL_RATIO"
+    # statistics about features whose values were produced during a query
+    # either computed OR looked up. Differs from request_count as they do
+    # not necessarily need to be requested as an output.
+    FEATURE_INTERMEDIATE_COUNT = "FEATURE_INTERMEDIATE_COUNT"
+    FEATURE_INTERMEDIATE_NULL_RATIO = "FEATURE_INTERMEDIATE_NULL_RATIO"
 
     RESOLVER_REQUEST_COUNT = "RESOLVER_REQUEST_COUNT"
     RESOLVER_LATENCY = "RESOLVER_LATENCY"
@@ -33,8 +46,25 @@ class MetricKind(str, Enum):
 
     STREAM_LAG = "STREAM_LAG"
 
+    ONLINE_STORE_USED_MEMORY = "ONLINE_STORE_USED_MEMORY"
+    ONLINE_STORE_KEY_COUNT = "ONLINE_STORE_KEY_COUNT"
+    ONLINE_STORE_EXPIRED_KEY_COUNT = "ONLINE_STORE_EXPIRED_KEY_COUNT"
+    ONLINE_STORE_REQUESTS_PER_SECOND = "ONLINE_STORE_REQUESTS_PER_SECOND"
+    ONLINE_STORE_TOTAL_MEMORY = "ONLINE_STORE_TOTAL_MEMORY"
+
     # Usage
     USAGE = "USAGE"
+
+    #
+    CPU_UTILIZATION_PERCENT = "CPU_UTILIZATION_PERCENT"
+    MEMORY_USAGE_BYTES = "MEMORY_USAGE_BYTES"
+    TOTAL_MEMORY_AVAILABLE_BYTES = "TOTAL_MEMORY_AVAILABLE_BYTES"
+    NETWORK_READ_BYTES = "NETWORK_READ_BYTES"
+    NETWORK_WRITE_BYTES = "NETWORK_WRITE_BYTES"
+    DISK_READ_BYTES = "DISK_READ_BYTES"
+    DISK_WRITE_BYTES = "DISK_WRITE_BYTES"
+
+    REPLICA_COUNT = "REPLICA_COUNT"
 
 
 class FilterKind(str, Enum):
@@ -59,6 +89,11 @@ class FilterKind(str, Enum):
     IS_NULL = "IS_NULL"
 
     USAGE_KIND = "USAGE_KIND"
+
+    COMPUTATION_CONTEXT = "COMPUTATION_CONTEXT"
+    RESOURCE_GROUP = "RESOURCE_GROUP"
+
+    POD_NAME = "POD_NAME"
 
 
 class ComparatorKind(str, Enum):
@@ -102,11 +137,17 @@ class GroupByKind(str, Enum):
 
     DEPLOYMENT_ID = "DEPLOYMENT_ID"
 
+    OPERATION_ID = "OPERATION_ID"
+    RESOURCE_GROUP = "RESOURCE_GROUP"
+
+    POD_NAME = "POD_NAME"
+
 
 class ChartLinkKind(str, Enum):
     resolver = "resolver"
     feature = "feature"
     query = "query"
+    scheduled_query = "scheduled_query"
     manual = "manual"
 
 

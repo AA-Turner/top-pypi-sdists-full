@@ -112,6 +112,9 @@ class DefaultHandler(ExceptionHandler):
         else:
             response.error.message = e.message if hasattr(e, "message") else str(e)  # type: ignore
 
+        if not isinstance(status_code, int):
+            status_code = None
+
         response.error.status_code = status_code
         # TODO: add line number
         response.error.raised_in = f"{original_func.__module__}:{original_func.__name__}"

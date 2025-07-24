@@ -5,11 +5,71 @@ from functools import lru_cache
 from datetime import datetime, date
 import os
 import logging
+from prophecy.config.utils import ConfigurationRecord
 
 logger = logging.getLogger(__name__)
 
 is_serverless = bool(int(os.environ.get("DATABRICKS_SERVERLESS_MODE_ENABLED", "0")))
 logger.info(f'is_serverless is {is_serverless}')
+
+
+class ProjectConfig:
+
+    @staticmethod
+    def get_merged_values(base_values, overridden_values):
+        from pyhocon import ConfigFactory, ConfigTree
+        def to_plain_dict(obj):
+            if isinstance(obj, dict):
+                return {k: to_plain_dict(v) for k, v in obj.items()}
+            elif isinstance(obj, list):
+                return [to_plain_dict(i) for i in obj]
+            else:
+                return obj
+        conf1 = ConfigFactory.from_dict(base_values)
+        conf2 = ConfigFactory.from_dict(overridden_values)
+
+        # Merge using pyhocon's built-in merge
+        return to_plain_dict(ConfigTree.merge_configs(conf1, conf2).as_plain_ordered_dict())
+
+    @staticmethod
+    def get_resolved_project_config_values(project_config_values, overridden_values):
+        merged_values = ProjectConfig.get_merged_values(project_config_values, overridden_values)
+        # Override with pipeline config values for fields that are present in config_values
+        keys_to_delete = []
+        for field_name, field_value in merged_values.items():
+            if field_name not in project_config_values:
+                # Delete those fields which are not in project config
+                keys_to_delete.append(field_name)
+        for key in keys_to_delete:
+            del merged_values[key]
+        return merged_values
+
+    def __init__(self, config_schema: ConfigurationRecord, config_values: dict):
+        """
+        :param config_schema: The schema.json of ProjectConfig variables.
+        :param config_values: The final values as a dictionary. Same as <instance>.json.
+        """
+        self.config_schema = config_schema
+        self.config_values = config_values
+
+    def with_pipeline_overrides(self, overridden_values: dict):
+        self.config_values = self.get_resolved_values(overridden_values)
+        return self
+
+    def get_resolved_values(self, overridden_values: dict):
+        """
+        Resolve project configuration values by overriding project config values with pipeline config values
+        for fields that are present in config_values.
+
+        Args:
+            overridden_values: The project config values (project config)
+
+        Returns:
+            dict: Resolved configuration values where pipeline config overrides project config
+                  for fields present in config_values, but project config values are kept
+                  for fields not present in config_values
+        """
+        return ProjectConfig.get_resolved_project_config_values(self.config_values, overridden_values)
 
 class ConfigBase:
 
@@ -195,11 +255,20 @@ class ConfigBase:
         else:
             return self.generate_object(override, cls)
 
-    def generate_config_object(self, spark, value, cls):
+    def generate_config_object(self, spark, value, cls, project_config: ProjectConfig=None):
         if isinstance(value, list):
+            # `project_config` will only be passed for subgraphs. It won't be passed for normal records.
+            # No need to pass project_config here.
             return [self.generate_config_object(spark, x, cls) for x in value]
         elif isinstance(value, dict):
-            return cls(**{**{"prophecy_spark": spark}, **value})
+            if project_config is None:
+                # Keep this as a safety check.
+                return cls(**{**{"prophecy_spark": spark}, **value})
+            else:
+                # No need to worry whether the generated code of the pipeline has the `prophecy_project_config` argument
+                # mentioned or not. **kwargs is present in all the calls class's __init__ methods. This will prevent throwing
+                # any exception.
+                return cls(**{**{"prophecy_spark": spark, "prophecy_project_config": project_config}, **value})
         return value
 
     def get_secret_config_object(self, spark, default, override, cls):
@@ -210,14 +279,15 @@ class ConfigBase:
         else:
             return self.get_config_object(spark, default, override, cls)
 
-    def get_config_object(self, spark, default, override, cls):
+    def get_config_object(self, spark, default, override, cls, project_config: ProjectConfig=None):
+        # project_config will only be passed for Subgraphs. Won't be passed for normal records
         if override == None:
             return default
         else:
-            return self.generate_config_object(spark, override, cls)
+            return self.generate_config_object(spark, override, cls, project_config)
 
     def to_dict(self):
-        to_ignore = ["spark", "prophecy_spark", "jvm", "secret_manager"]
+        to_ignore = ["spark", "prophecy_spark", "jvm", "secret_manager", "prophecy_project_config"]
         def to_dict_recursive(obj):
             def should_include(key, value):
                 # remove any unwanted objects from the config:
@@ -293,7 +363,10 @@ class ConfigBase:
         new_config = copy.deepcopy(self)
         spark_variable = self.find_spark(self)
         updated_config_json = {**new_config.to_dict(), **row.asDict(recursive=True)}
-        return self.get_config_object(spark_variable, new_config, updated_config_json, new_config.__class__)
+        prophecy_project_config = None
+        if hasattr(self, 'prophecy_project_config'):
+            prophecy_project_config = self.prophecy_project_config
+        return self.get_config_object(spark_variable, new_config, updated_config_json, new_config.__class__, project_config=prophecy_project_config)
 
     def update_from_row_map(self, row: Row, config_to_column: dict):
         import copy
@@ -304,7 +377,10 @@ class ConfigBase:
         for config_name, column_name in config_to_column.items():
             overridden_values[config_name] = row_as_dict[column_name]
         updated_config_json = {**new_config.to_dict(), **overridden_values}
-        return self.get_config_object(spark_variable, new_config, updated_config_json, new_config.__class__)
+        prophecy_project_config = None
+        if hasattr(self, 'prophecy_project_config'):
+            prophecy_project_config = self.prophecy_project_config
+        return self.get_config_object(spark_variable, new_config, updated_config_json, new_config.__class__, project_config=prophecy_project_config)
 
     def __deepcopy__(self, memo):
         import copy
@@ -318,3 +394,157 @@ class ConfigBase:
             else:
                 setattr(result, k, copy.deepcopy(v, memo))
         return result
+
+    def add_config_fields(self, config_record, config_values: dict):
+        """
+        Add configuration fields to this ConfigBase instance based on a ConfigurationRecord
+        and a dictionary of key-value pairs.
+        
+        Args:
+            config_record: ConfigurationRecord object defining the schema
+            config_values: Dictionary with field names as keys and their values
+        """
+        from prophecy.config.utils import (
+            StringElement, IntElement, LongElement, ShortElement, 
+            FloatElement, DoubleElement, BooleanElement, DateElement, 
+            TimestampElement, ArrayElement, ConfigurationRecord, SecretElement,
+            EnumElement, LookupElement, ValueElement, TableNameElement, 
+            ColumnNameElement, SparkColumnElement, SparkExpressionElement
+        )
+        
+        def convert_value(value, data_element):
+            """Convert a value based on the DataElement type."""
+            element_type = data_element.get_name()
+            
+            if element_type == "string":
+                return str(value) if value is not None else None
+            elif element_type == "spark_column":
+                return str(value) if value is not None else None
+            elif element_type == "spark_expression":
+                return str(value) if value is not None else None
+            elif element_type == "int":
+                return self.get_int_value(value)
+            elif element_type == "long":
+                return self.get_int_value(value)  # Python doesn't distinguish int/long
+            elif element_type == "short":
+                return self.get_int_value(value)  # Python doesn't distinguish int/short
+            elif element_type == "float":
+                return self.get_float_value(value)
+            elif element_type == "double":
+                return self.get_float_value(value)  # Python doesn't distinguish float/double
+            elif element_type == "boolean":
+                return self.get_bool_value(value)
+            elif element_type == "date":
+                return self.get_date_value(value)
+            elif element_type == "timestamp":
+                return self.get_timestamp_value(value)
+            elif element_type == "array":
+                if isinstance(value, list):
+                    return [convert_value(item, data_element.element_type) for item in value]
+                else:
+                    return value
+            elif element_type == "record":
+                if isinstance(value, dict):
+                    # Create a nested ConfigBase instance for record types
+                    nested_config = type('NestedConfig', (ConfigBase,), {})()
+                    nested_config.add_config_fields(data_element, value)
+                    return nested_config
+                else:
+                    return value
+            elif element_type == "enum":
+                # For enum, validate that the value is in the allowed values
+                if value in data_element.values:
+                    return value
+                else:
+                    raise ValueError(f"Value '{value}' is not in allowed enum values: {data_element.values}")
+            elif element_type == "secret":
+                # For secrets, create a SecretValue instance
+                if isinstance(value, dict):
+                    return self.SecretValue(**value)
+                else:
+                    return value
+            else:
+                # For unknown types, return as-is
+                return value
+        
+        def process_fields(fields, values_dict):
+            """Process configuration fields recursively."""
+            for field in fields:
+                field_name = field.name
+                field_kind = field.kind
+                
+                # Skip if field is not in the provided values and is optional
+                if field_name not in values_dict:
+                    if field.optional:
+                        continue
+                    else:
+                        raise ValueError(f"Required field '{field_name}' is missing from config values")
+                
+                field_value = values_dict[field_name]
+                
+                # Convert the value based on the field type
+                converted_value = convert_value(field_value, field_kind)
+                
+                # Set the field on this ConfigBase instance
+                setattr(self, field_name, converted_value)
+        
+        # Process the configuration record fields
+        if hasattr(config_record, 'fields'):
+            process_fields(config_record.fields, config_values)
+        else:
+            raise ValueError("ConfigurationRecord must have a 'fields' attribute")
+
+    def add_project_config(self, project_config: ProjectConfig, overridden_values: dict):
+        self.prophecy_project_config = project_config
+        if project_config is not None and hasattr(self, 'add_config_fields'):
+            # Merge project_config.config_values with overridden_values
+            # Start with project config values
+            merged_values = ProjectConfig.get_resolved_project_config_values(project_config.config_values, overridden_values)
+            # Call add_config_fields with the merged values
+            self.add_config_fields(project_config.config_schema, merged_values)
+
+    def add_project_config(self, overridden_values: dict):
+        # Assumption here is that the `prophecy_project_config` is already part of the class variable.
+        self.add_project_config(self.prophecy_project_config, overridden_values)
+
+    def update_project_conf_values(self, project_config: ProjectConfig, overridden_values):
+        if project_config is None:
+            return None
+        return project_config.with_pipeline_overrides(overridden_values)
+
+    def update_and_add_project_config(self, project_config: ProjectConfig=None, overridden_values: dict=None):
+        """
+        This will merge the overridden values with the project config values and then assign the new values along with
+        schema to `prophecy_project_config`.
+        :param project_config:
+        :param overridden_values:
+        :return:
+        """
+        self.prophecy_project_config = project_config
+        if project_config is not None:
+            if overridden_values is None:
+                self.add_config_fields(project_config.config_schema, config_values=project_config.config_values)
+            else:
+                # Merge project_config.config_values with overridden_values
+                # Start with project config values
+                merged_values = ProjectConfig.get_resolved_project_config_values(project_config.config_values, overridden_values)
+                self.add_config_fields(project_config.config_schema, merged_values)
+
+    def update_project_config_fields(self, source_config):
+        """
+        Copy all project config variables from another ConfigBase instance to this ConfigBase instance.
+        
+        Args:
+            source_config: The ConfigBase instance from which project config variables will be copied
+        """
+        if hasattr(source_config, 'prophecy_project_config') and source_config.prophecy_project_config is not None:
+            # Copy the project config from the source to self
+            self.prophecy_project_config = source_config.prophecy_project_config
+            
+            # Copy all project config fields using the schema field names
+            if hasattr(source_config.prophecy_project_config, 'config_schema') and source_config.prophecy_project_config.config_schema is not None:
+                for field in source_config.prophecy_project_config.config_schema.fields:
+                    field_name = field.name
+                    if hasattr(source_config, field_name):
+                        attr_value = getattr(source_config, field_name)
+                        setattr(self, field_name, attr_value)

@@ -57,6 +57,7 @@ class MgmtV1:
     user_generate_magic_link_for_test_path = "/v1/mgmt/tests/generate/magiclink"
     user_generate_enchanted_link_for_test_path = "/v1/mgmt/tests/generate/enchantedlink"
     user_generate_embedded_link_path = "/v1/mgmt/user/signin/embeddedlink"
+    user_generate_sign_up_embedded_link_path = "/v1/mgmt/user/signup/embeddedlink"
     user_history_path = "/v1/mgmt/user/history"
 
     # access key
@@ -363,3 +364,8 @@ def sort_to_dict(sort: List[Sort]) -> list:
                 }
             )
     return sort_list
+
+def map_to_values_object(input_map: dict):
+    if not input_map:
+        return {}
+    return {k: {"values": v} for k, v in input_map.items()}

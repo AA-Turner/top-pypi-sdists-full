@@ -16,6 +16,11 @@ import httpx
 from functools import cache as sync_cache
 from betterproto.lib.std.google.protobuf import FieldMask
 from google.protobuf.field_mask_pb2 import FieldMask as SyncFieldMask
+from fireworks.control_plane.generated.protos_grpcio.gateway.rlor_trainer_job_pb2 import (
+    CreateRlorTrainerJobRequest as SyncCreateRlorTrainerJobRequest,
+    RlorTrainerJob as SyncRlorTrainerJob,
+    GetRlorTrainerJobRequest as SyncGetRlorTrainerJobRequest,
+)
 from fireworks.control_plane.generated.protos_grpcio.gateway.gateway_pb2_grpc import GatewayStub as SyncGatewayStub
 from fireworks.control_plane.generated.protos_grpcio.gateway.supervised_fine_tuning_job_pb2 import (
     SupervisedFineTuningJob as SyncSupervisedFineTuningJob,
@@ -42,6 +47,7 @@ from fireworks.control_plane.generated.protos_grpcio.gateway.dataset_pb2 import 
     CreateDatasetRequest as SyncCreateDatasetRequest,
     DeleteDatasetRequest as SyncDeleteDatasetRequest,
     ListDatasetsRequest as SyncListDatasetsRequest,
+    ListDatasetsResponse as SyncListDatasetsResponse,
     GetDatasetUploadEndpointRequest as SyncGetDatasetUploadEndpointRequest,
     GetDatasetRequest as SyncGetDatasetRequest,
     ValidateDatasetUploadRequest as SyncValidateDatasetUploadRequest,
@@ -366,9 +372,7 @@ class Gateway:
                 return None
             raise e
 
-    def create_batch_inference_job_sync(
-        self, request: SyncCreateBatchInferenceJobRequest
-    ) -> SyncBatchInferenceJob:
+    def create_batch_inference_job_sync(self, request: SyncCreateBatchInferenceJobRequest) -> SyncBatchInferenceJob:
         account_id = self.account_id()
         request.parent = f"accounts/{account_id}"
         response = self._sync_stub.CreateBatchInferenceJob(request)
@@ -401,10 +405,11 @@ class Gateway:
                 if attempt == max_retries - 1:  # Last attempt
                     raise e
                 if e.code() == grpc.StatusCode.UNAVAILABLE:
-                    delay = base_delay * (2 ** attempt)  # Exponential backoff
+                    delay = base_delay * (2**attempt)  # Exponential backoff
                     time.sleep(delay)
                 else:
                     raise e
+        raise Exception("Failed to list batch inference jobs")
 
     def delete_batch_inference_job_sync(self, name: str) -> None:
         try:
@@ -433,11 +438,11 @@ class Gateway:
     def list_datasets_sync(
         self,
         request: SyncListDatasetsRequest,
-    ) -> List[SyncDataset]:
+    ) -> SyncListDatasetsResponse:
         account_id = self.account_id()
         request.parent = f"accounts/{account_id}"
-        response = self._sync_stub.ListDatasets(request)
-        return response.datasets
+        response: SyncListDatasetsResponse = self._sync_stub.ListDatasets(request)
+        return response
 
     async def delete_dataset(self, name: str) -> None:
         account_id = self.account_id()
@@ -646,6 +651,22 @@ class Gateway:
         created_deployment = self._sync_stub.CreateDeployment(request, metadata=[("x-api-key", self._api_key)])
         return created_deployment
 
+    def create_rlor_trainer_job_sync(
+        self,
+        request: SyncCreateRlorTrainerJobRequest,
+    ) -> SyncRlorTrainerJob:
+        account_id = self.account_id()
+        request.parent = f"accounts/{account_id}"
+        return self._sync_stub.CreateRlorTrainerJob(request)
+
+    def get_rlor_trainer_job_sync(self, name: str) -> Optional[SyncRlorTrainerJob]:
+        try:
+            return self._sync_stub.GetRlorTrainerJob(SyncGetRlorTrainerJobRequest(name=name))
+        except _InactiveRpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                return None
+            raise e
+
     async def scale_deployment(self, name: str, replicas: int):
         await self._stub.scale_deployment(ScaleDeploymentRequest(name=name, replica_count=replicas))
 
@@ -732,8 +753,13 @@ class Gateway:
                 return None
             raise e
 
-    def get_model_sync(self, name: str) -> SyncModel:
-        return self._sync_stub.GetModel(SyncGetModelRequest(name=name))
+    def get_model_sync(self, name: str) -> Optional[SyncModel]:
+        try:
+            return self._sync_stub.GetModel(SyncGetModelRequest(name=name))
+        except _InactiveRpcError as e:
+            if e.code() == grpc.StatusCode.NOT_FOUND:
+                return None
+            raise e
 
     @sync_cache
     def account_id(self) -> str:

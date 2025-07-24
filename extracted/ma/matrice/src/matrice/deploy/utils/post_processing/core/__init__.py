@@ -56,6 +56,8 @@ from ..usecases.field_mapping import FieldMappingConfig, FieldMappingUseCase
 from ..usecases.wound_segmentation import WoundConfig,WoundSegmentationUseCase
 from ..usecases.leaf_disease import LeafDiseaseDetectionConfig, LeafDiseaseDetectionUseCase
 from ..usecases.flower_segmentation import FlowerUseCase, FlowerConfig
+from ..usecases.parking import ParkingConfig, ParkingUseCase
+from ..usecases.leaf import LeafConfig, LeafUseCase
 
 
 __all__ = [
@@ -74,10 +76,12 @@ __all__ = [
     'PotholeSegmentationUseCase',
     'AntiSpoofingDetectionUseCase',
     'WoundSegmentationUseCase',
+    'LeafUseCase',
     'ShelfInventoryUseCase',
     'LaneDetectionUseCase',
 
     'ShopliftingDetectionUseCase',
+    'ParkingUseCase',
     'ParkingSpaceUseCase',
     'FlareAnalysisUseCase',
     'MaskDetectionUseCase',
@@ -127,6 +131,7 @@ __all__ = [
     'ShopliftingDetectionConfig',
     'CarDamageConfig',
     'FlareAnalysisConfig',
+    'LeafConfig',
     'FieldMappingConfig',
     'FaceEmotionConfig',
     'UnderwaterPlasticConfig',
@@ -134,6 +139,7 @@ __all__ = [
     'AgeDetectionConfig',
     'WeldDefectConfig',
     'PriceTagConfig',
+    'ParkingConfig',
     'DistractedDriverConfig',
     'EmergencyVehicleConfig',
     'ChickenPoseDetectionConfig',

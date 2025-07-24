@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonargparse
-Version: 4.40.0
+Version: 4.40.1
 Summary: Implement minimal boilerplate CLIs derived from type hints and parse from command line, config files and environment variables.
 Author-email: Mauricio Villegas <mauricio@omnius.com>
 License: The MIT License (MIT)
@@ -65,8 +65,9 @@ Requires-Dist: jsonargparse[typing-extensions]; extra == "all"
 Requires-Dist: jsonargparse[reconplogger]; extra == "all"
 Provides-Extra: signatures
 Requires-Dist: jsonargparse[typing-extensions]; extra == "signatures"
-Requires-Dist: docstring-parser>=0.15; extra == "signatures"
-Requires-Dist: typeshed-client>=2.3.0; extra == "signatures"
+Requires-Dist: docstring-parser>=0.17; extra == "signatures"
+Requires-Dist: typeshed-client>=2.3.0; python_version == "3.8" and extra == "signatures"
+Requires-Dist: typeshed-client>=2.8.2; python_version >= "3.9" and extra == "signatures"
 Provides-Extra: jsonschema
 Requires-Dist: jsonschema>=3.2.0; extra == "jsonschema"
 Provides-Extra: jsonnet

@@ -1,12 +1,12 @@
 from __future__ import annotations
 
 import typing as t
+import uuid
 
 from .base import TokenStorage
 from .token_data import TokenStorageData
 
 if t.TYPE_CHECKING:
-    from globus_sdk._types import UUIDLike
     from globus_sdk.globus_app import GlobusAppConfig
 
 
@@ -28,7 +28,7 @@ class MemoryTokenStorage(TokenStorage):
     def for_globus_app(
         cls,
         # pylint: disable=unused-argument
-        client_id: UUIDLike,
+        client_id: uuid.UUID | str,
         app_name: str,
         config: GlobusAppConfig,
         # pylint: enable=unused-argument

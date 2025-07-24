@@ -3450,7 +3450,7 @@ class Functiontests(casadiTestCase):
       lines = """
   casadi_int i, j, k;
   casadi_real *rr, w0, *w1=w+2, w2, *w3=w+8, *w4=w+18, *w5=w+28, *w6=w+33, *w7=w+38, *w8=w+43, *w9=w+68;
-  const casadi_real *cr, *cs, *ct, *wr3, *wr4, *wr6, *wr9;
+  const casadi_real *cs, *ct, *wr3, *wr4, *wr6, *wr9;
   /* #0: @0 = 0 */
   w0 = 0.;
   /* #1: @1 = ones(1x5) */
@@ -3474,12 +3474,9 @@ class Functiontests(casadiTestCase):
   /* #10: @4 = (@2*@4) */
   for (i=0, rr=w4, cs=wr4; i<10; ++i) (*rr++)  = (w2*(*cs++));
   /* #11: @4 = monitor(@4, b) */
-  CASADI_PRINTF("b\\n[");
-    for (i=0, cr=w4; i!=10; ++i) {
-        if (i!=0) CASADI_PRINTF(", ");
-        CASADI_PRINTF("%g", *cr++);
-      }
-    CASADI_PRINTF("]\\n");
+  CASADI_PRINTF("b:\\n");
+  casadi_print_canonical(casadi_s0, w4);
+  CASADI_PRINTF("\\n");
   /* #12: @7 = @4[2:7] */
   for (rr=w7, cs=w4+2; cs!=w4+7; cs+=1) *rr++ = *cs;
   /* #13: @5 = (@5+@7) */
@@ -3523,6 +3520,59 @@ class Functiontests(casadiTestCase):
         print(lines.strip())
         self.assertTrue(lines.strip() in code)
       self.check_codegen(f,inputs=[DM.rand(f.sparsity_in(i)) for i in range(f.n_in())])
+      
+      x = MX.sym("x",100,10)
+
+      i = MX.sym("i")
+      y = x[4:90,i]
+      f = Function("f",[i,x],[sin(y)+x[7,i]])
+
+      f.disp(True)
+
+      f.generate('f.c')
+      
+      code = open('f.c','r').read()
+      
+      self.assertEqual("wr" in code, enabled)
+      
+      lines = """
+  casadi_int i;
+  casadi_real *rr, w1, w2, w3, *w4=w+1003;
+  const casadi_real *cs, *wr0, *wr4;
+  /* #0: @0 = input[1][0] */
+  wr0 = arg[1] ? arg[1] : casadi_zeros;
+  /* #1: @1 = 100 */
+  w1 = 100.;
+  /* #2: @2 = input[0][0] */
+  w2 = arg[0] ? arg[0][0] : 0;
+  /* #3: @3 = floor(@2) */
+  w3 = floor( w2 );
+  /* #4: @1 = (@1*@3) */
+  w1 *= w3;
+  /* #5: @4 = @0[(4:90;@1)] */
+  wr4 = wr0 + 4 + (int)w1;
+  /* #6: @4 = sin(@4) */
+  for (i=0, rr=w4, cs=wr4; i<86; ++i) *rr++ = sin( *cs++ );
+  /* #7: @1 = 100 */
+  w1 = 100.;
+  /* #8: @2 = floor(@2) */
+  w2 = floor( w2 );
+  /* #9: @1 = (@1*@2) */
+  w1 *= w2;
+  /* #10: @2 = @0[(7;@1)] */
+  i = 7 + (int) w1;
+  w2 = i>=0 && i<1000 ? wr0[i] : casadi_nan;
+  /* #11: @4 = (@4+@2) */
+  for (i=0, rr=w4; i<86; ++i) (*rr++) += w2;
+  /* #12: output[0][0] = @4 */
+  casadi_copy(w4, 86, res[0]);
+  return 0;
+"""
+      if enabled:
+        print(code)
+        print(lines.strip())
+        self.assertTrue(lines.strip() in code)
+      self.check_codegen(f,inputs=[3,DM.rand(f.sparsity_in(1))],std="c99")
     ca.GlobalOptions.setCopyElisionMinSize(backup)
     
   @skip("simde" not in CasadiMeta.feature_list())

@@ -25,12 +25,12 @@ class SolarPanelConfig(BaseConfig):
     # Smoothing configuration
     enable_smoothing: bool = True
     smoothing_algorithm: str = "observability"  # "window" or "observability"
-    smoothing_window_size: int = 20
+    smoothing_window_size: int = 10
     smoothing_cooldown_frames: int = 5
-    smoothing_confidence_range_factor: float = 0.5
+    smoothing_confidence_range_factor: float = 0.2
     
     # solar confidence thresholds
-    confidence_threshold: float = 0.6
+    confidence_threshold: float = 0.2
 
     
     solar_categories: List[str] = field(

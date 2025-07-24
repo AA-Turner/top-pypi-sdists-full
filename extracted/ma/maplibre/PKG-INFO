@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: maplibre
-Version: 0.3.4
+Version: 0.3.5
 Summary: Python bindings for MapLibre GL JS
 License: MIT
 Author: Stefan Kuethe
@@ -43,6 +43,10 @@ MapLibre for Python provides Python bindings for [MapLibre GL JS](https://github
 Furthermore, [Deck.GL Layers](https://deck.gl/docs/api-reference/layers) can be mixed with [MapLibre Layers](https://maplibre.org/maplibre-style-spec/layers/).
 
 It integrates seamlessly into [Shiny for Python](https://github.com/posit-dev/py-shiny), [Marimo](https://marimo.io/), [Jupyter](https://jupyter.org/) and [JupyterLite](https://github.com/jupyter-widgets-contrib/anywidget-lite).
+
+## Join the conversation
+
+Join us on [Slack](https://join.slack.com/t/eoda-dev/shared_invite/zt-39s73mev7-smKDIphRkDJ9jMV24N1omw).
 
 ## Installation
 

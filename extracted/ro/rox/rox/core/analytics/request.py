@@ -34,7 +34,7 @@ def post(device_properties, environment, write_key, host=None, gzip=False, batch
             gz.write(data.encode('utf-8'))
         data = buf.getvalue()
 
-    res = _session.post(url, data=data, headers=headers, timeout=15, verify=False)
+    res = _session.post(url, data=data, headers=headers, timeout=15)
 
     if res.status_code == 200:
         Logging.get_logger().debug('data uploaded successfully')

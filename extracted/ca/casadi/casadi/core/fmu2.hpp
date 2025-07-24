@@ -57,6 +57,24 @@ class CASADI_EXPORT Fmu2 : public FmuInternal {
   // Initialize
   void init(const DaeBuilderInternal* dae) override;
 
+  /** \brief Initalize memory block
+
+      \identifier{2do} */
+  int init_mem(FmuMemory* m) const override;
+
+  /** \brief Create memory block
+
+      \identifier{2dp} */
+  FmuMemory* alloc_mem(const FmuFunction& f) const override;
+
+  /** \brief Free memory block
+
+      \identifier{2du} */
+  void free_mem(void *mem) const override;
+
+  // Finalize
+  void finalize() override;
+
   // Set C API functions
   void load_functions() override;
 
@@ -81,6 +99,8 @@ class CASADI_EXPORT Fmu2 : public FmuInternal {
   fmi2EnterInitializationModeTYPE* enter_initialization_mode_;
   fmi2ExitInitializationModeTYPE* exit_initialization_mode_;
   fmi2EnterContinuousTimeModeTYPE* enter_continuous_time_mode_;
+  fmi2GetDerivativesTYPE* get_derivatives_;
+  fmi2SetTimeTYPE* set_time_;
   fmi2GetRealTYPE* get_real_;
   fmi2SetRealTYPE* set_real_;
   fmi2GetBooleanTYPE* get_boolean_;
@@ -129,6 +149,8 @@ class CASADI_EXPORT Fmu2 : public FmuInternal {
   // Update discrete states
   int update_discrete_states(void* instance, EventMemory* eventmem) const override;
 
+  int get_derivatives(void* instance, double* derivatives, size_t nx) const override;
+
   // Set real values
   int set_real(void* instance, const unsigned int* vr, size_t n_vr,
     const double* values, size_t n_values) const override;
@@ -147,6 +169,9 @@ class CASADI_EXPORT Fmu2 : public FmuInternal {
 
   // Retrieve auxilliary variables from FMU
   int get_aux(void* instance) override;
+
+  // Retrieve auxilliary variables from FMU, implementation
+  int get_aux_impl(void* instance, Value& aux_value) const;
 
   /** \brief Get stats
 

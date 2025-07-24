@@ -29,6 +29,7 @@ def _mode_2d(X, axis=1):
 
 
 class SpdClassifMixin(ClassifierMixin):
+    """ClassifierMixin for SPD matrices"""
 
     def score(self, X, y, sample_weight=None):
         """Return the mean accuracy on the given test data and labels.
@@ -75,7 +76,7 @@ class MDM(SpdClassifMixin, TransformerMixin, BaseEstimator):
         to boost the computional speed, and "riemann" for the "distance" in
         order to keep the good sensitivity for the classification.
     n_jobs : int, default=1
-        The number of jobs to use for the computation. This works by computing
+        Number of jobs to use for the computation. This works by computing
         each of the class centroid in parallel.
         If -1 all CPUs are used. If 1 is given, no parallel computing code is
         used at all, which is useful for debugging. For n_jobs below -1,
@@ -137,22 +138,13 @@ class MDM(SpdClassifMixin, TransformerMixin, BaseEstimator):
         if sample_weight is None:
             sample_weight = np.ones(X.shape[0])
 
-        if self.n_jobs == 1:
-            self.covmeans_ = [
-                mean_covariance(
-                    X[y == c],
-                    metric=self.metric_mean,
-                    sample_weight=sample_weight[y == c]
-                ) for c in self.classes_
-            ]
-        else:
-            self.covmeans_ = Parallel(n_jobs=self.n_jobs)(
-                delayed(mean_covariance)(
-                    X[y == c],
-                    metric=self.metric_mean,
-                    sample_weight=sample_weight[y == c]
-                ) for c in self.classes_
-            )
+        self.covmeans_ = Parallel(n_jobs=self.n_jobs)(
+            delayed(mean_covariance)(
+                X[y == c],
+                metric=self.metric_mean,
+                sample_weight=sample_weight[y == c]
+            ) for c in self.classes_
+        )
 
         self.covmeans_ = np.stack(self.covmeans_, axis=0)
 
@@ -161,17 +153,10 @@ class MDM(SpdClassifMixin, TransformerMixin, BaseEstimator):
     def _predict_distances(self, X):
         """Helper to predict the distance. Equivalent to transform."""
 
-        if self.n_jobs == 1:
-            dist = [
-                distance(X, covmean, self.metric_dist)
-                for covmean in self.covmeans_
-            ]
-        else:
-            dist = Parallel(n_jobs=self.n_jobs)(
-                delayed(distance)(
-                    X, covmean, self.metric_dist
-                ) for covmean in self.covmeans_
-            )
+        dist = Parallel(n_jobs=self.n_jobs)(
+            delayed(distance)(X, covmean, self.metric_dist)
+            for covmean in self.covmeans_
+        )
 
         dist = np.concatenate(dist, axis=1)
         return dist
@@ -274,7 +259,7 @@ class FgMDM(SpdClassifMixin, TransformerMixin, BaseEstimator):
         online implementation. Performance are better when the number of
         matrices for prediction is higher.
     n_jobs : int, default=1
-        The number of jobs to use for the computation. This works by computing
+        Number of jobs to use for the computation. This works by computing
         each of the class centroid in parallel.
         If -1 all CPUs are used. If 1 is given, no parallel computing code is
         used at all, which is useful for debugging. For n_jobs below -1,
@@ -547,7 +532,7 @@ class KNearestNeighbor(MDM):
         The metric can be a dict with two keys, "mean" and "distance"
         in order to pass different metrics.
     n_jobs : int, default=1
-        The number of jobs to use for the computation. This works by computing
+        Number of jobs to use for the computation. This works by computing
         each of the distance to the training set in parallel.
         If -1 all CPUs are used. If 1 is given, no parallel computing code is
         used at all, which is useful for debugging. For n_jobs below -1,
@@ -668,10 +653,10 @@ class SVC(sklearnSVC):
         calculate Cref.
     kernel_fct : None | "precomputed" | callable, default=None
         If None or "precomputed", the kernel matrix for datasets X and Y is
-        estimated according to `pyriemann.utils.kernel(X, Y, Cref, metric)`.
+        estimated according to ``pyriemann.utils.kernel(X, Y, Cref, metric)``.
         If callable, the callable is passed as the kernel parameter to
-        `sklearn.svm.SVC()` [2]_. The callable has to be of the form
-        `kernel(X, Y, Cref, metric)`.
+        ``sklearn.svm.SVC()`` [2]_. The callable has to be of the form
+        ``kernel(X, Y, Cref, metric)``.
     C : float, default=1.0
         Regularization parameter. The strength of the regularization is
         inversely proportional to C. Must be strictly positive. The penalty
@@ -680,9 +665,9 @@ class SVC(sklearnSVC):
         Whether to use the shrinking heuristic.
     probability : bool, default=False
         Whether to enable probability estimates. This must be enabled prior
-        to calling `fit`, will slow down that method as it internally uses
-        5-fold cross-validation, and `predict_proba` may be inconsistent with
-        `predict`.
+        to calling ``fit``, will slow down that method as it internally uses
+        5-fold cross-validation, and ``predict_proba`` may be inconsistent with
+        ``predict``.
     tol : float, default=1e-3
         Tolerance for stopping criterion.
     cache_size : float, default=200
@@ -692,7 +677,7 @@ class SVC(sklearnSVC):
         given, all classes are supposed to have weight one.
         The "balanced" mode uses the values of y to automatically adjust
         weights inversely proportional to class frequencies in the input data
-        as ``n_matrices / (n_classes * np.bincount(y))``.
+        as n_matrices / (n_classes * np.bincount(y)).
     verbose : bool, default=False
         Enable verbose output. Note that this setting takes advantage of a
         per-process runtime setting in libsvm that, if enabled, may not work
@@ -708,14 +693,14 @@ class SVC(sklearnSVC):
         to train models; an ovr matrix is only constructed from the ovo matrix.
         The parameter is ignored for binary classification.
     break_ties : bool, default=False
-        If true, ``decision_function_shape="ovr"``, and number of classes > 2,
-        `predict` will break ties according to the confidence values of
-        `decision_function`; otherwise the first class among the tied
+        If True, ``decision_function_shape`` ="ovr", and n_classes > 2,
+        ``predict`` will break ties according to the confidence values of
+        ``decision_function``; otherwise the first class among the tied
         classes is returned. Please note that breaking ties comes at a
         relatively high computational cost compared to a simple predict.
     random_state : None | int | RandomState instance, default=None
         Controls the pseudo random number generation for shuffling the data for
-        probability estimates. Ignored when `probability` is False.
+        probability estimates. Ignored when ``probability`` is False.
         Pass an int for reproducible output across multiple function calls.
 
     Notes
@@ -828,10 +813,13 @@ class SVC(sklearnSVC):
 
 
 class MeanField(SpdClassifMixin, TransformerMixin, BaseEstimator):
-    """Classification by Minimum Distance to Mean Field.
+    """Classification by Mean Field.
 
-    Classification by Minimum Distance to Mean Field [1]_, defining several
-    power means for each class.
+    The Mean Field estimates several power means for each class.
+    Then, it can be used as a classifier, which computes the minimum distance
+    to the mean field [1]_;
+    or as a feature extractor, which must be pipelined with another classifier
+    [2]_.
 
     Parameters
     ----------
@@ -853,8 +841,8 @@ class MeanField(SpdClassifMixin, TransformerMixin, BaseEstimator):
     ----------
     classes_ : ndarray, shape (n_classes,)
         Labels for each class.
-    covmeans_ : dict of ``n_powers`` dicts of ``n_classes`` ndarrays of shape \
-            (n_channels, n_channels)
+    covmeans_ : dict of len(``power_list``) dicts of n_classes ndarrays of \
+            shape (n_channels, n_channels)
         Centroids for each power and each class.
 
     See Also
@@ -871,6 +859,9 @@ class MeanField(SpdClassifMixin, TransformerMixin, BaseEstimator):
         <https://hal.archives-ouvertes.fr/hal-02315131>`_
         M Congedo, PLC Rodrigues, C Jutten. BCI 2019 - 8th International
         Brain-Computer Interface Conference, Sep 2019, Graz, Austria.
+    .. [2] `The Riemannian Means Field Classifier for EEG-Based BCI Data
+        <https://www.mdpi.com/1424-8220/25/7/2305>`_
+        A Andreev, G Cattan, M Congedo. MDPI Sensors journal, April 2025
     """
 
     def __init__(

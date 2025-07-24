@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cg
-Version: 75.0.0
+Version: 75.0.2
 Summary: Clinical Genomics command center
 Requires-Python: >=3.9,<3.13
 Classifier: Programming Language :: Python

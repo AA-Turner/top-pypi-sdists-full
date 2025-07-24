@@ -46,18 +46,34 @@ class OptilogicClient:
     def get_connection_string(self, model_name: str) -> Tuple[bool, str]:
 
         # TODO: There are two connection string fetch functions, see also frog_dbtools
+        max_retries = int(os.getenv("CFLIB_DEFAULT_MAX_RETRIES", "3"))
+        max_timeout = int(os.getenv("CFLIB_DEFAULT_RETRY_DELAY", "5"))
 
-        try:
-            rv = {"message": "error getting connection string"}
-            if not self.api.storagename_database_exists(model_name):
-                return False, ""
+        request_attempts = 0
 
-            connection_info = self.api.sql_connection_info(model_name)
+        for number_of_attempts in range(max_retries):
 
-            return True, connection_info["connectionStrings"]["url"]
+            try:
+                self.logger.info('Getting connection string')
+                rv = {"message": "error getting connection string"}
+                if not self.api.storagename_database_exists(model_name):
+                    return False, ""
 
-        except Exception as e:
-            self.logger.error(f"Exception in cosmicfrog: {e}")
+                connection_info = self.api.sql_connection_info(model_name)
+
+                if connection_info:
+                    self.logger.info('connection information retrieved')
+
+                return True, connection_info["connectionStrings"]["url"]
+
+            except Exception as e:
+                self.logger.error(f"Exception in cosmicfrog: {e}")
+                self.logger.error(f"attempt {number_of_attempts} out of {max_retries}")
+                request_attempts = number_of_attempts + 1
+                time.sleep(max_timeout)
+
+        if request_attempts >= max_retries:
+            self.logger.error('Getting connection failed. Too many attempts')
             return False, ""
 
     def create_model_synchronous(self, model_name: str, model_template: str):
