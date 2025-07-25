@@ -3,19 +3,16 @@
 
 use crate::errors::OfflineRetrievalError;
 use crate::ontology::{GraphIdentifier, Ontology, OntologyLocation};
-use crate::util::read_format;
+use crate::util::{get_file_contents, get_url_contents};
 use anyhow::{anyhow, Error, Result};
 use chrono::prelude::*;
-use log::{debug, error};
+use log::{debug, info};
 use oxigraph::io::{RdfFormat, RdfParser};
-use oxigraph::model::NamedOrBlankNode;
-use oxigraph::model::{Dataset, Graph, GraphName, Quad, Triple};
+use oxigraph::model::{Dataset, Graph, GraphName, GraphNameRef, NamedNode, Quad};
 use oxigraph::store::Store;
-use reqwest::header::CONTENT_TYPE;
-use std::collections::HashMap;
-use std::io::BufReader;
 use std::path::Path;
 use std::path::PathBuf;
+use std::time::Instant;
 
 #[derive(Debug, Clone)]
 pub struct StoreStats {
@@ -23,12 +20,90 @@ pub struct StoreStats {
     pub num_triples: usize,
 }
 
+/// A helper function to read an ontology from a location, add it to a store,
+/// and return the parsed ontology metadata. This is used by multiple GraphIO implementations.
+fn add_ontology_to_store(
+    store: &Store,
+    location: OntologyLocation,
+    overwrite: bool,
+    offline: bool,
+    strict: bool,
+) -> Result<Ontology> {
+    // 1. Get content into bytes and determine format
+    let (bytes, format) = match &location {
+        OntologyLocation::File(path) => get_file_contents(path)?,
+        OntologyLocation::Url(url) => {
+            if offline {
+                return Err(Error::new(OfflineRetrievalError {
+                    file: url.clone(),
+                }));
+            }
+            get_url_contents(url.as_str())?
+        }
+    };
+
+    let temp_graph_name = NamedNode::new_unchecked("temp:graph");
+    if store.contains_named_graph(temp_graph_name.as_ref())? {
+        store.remove_named_graph(temp_graph_name.as_ref())?;
+    }
+    let parser = RdfParser::from_format(format.unwrap_or(RdfFormat::Turtle))
+        .with_default_graph(GraphNameRef::NamedNode(temp_graph_name.as_ref()))
+        .without_named_graphs();
+    let now = Instant::now();
+    store
+        .bulk_loader()
+        .load_from_reader(parser, bytes.as_slice())?;
+    info!(
+        "Bulk loaded {} into temp graph in {:?}",
+        location.as_str(),
+        now.elapsed()
+    );
+    let temp_graph_id = GraphIdentifier::new(temp_graph_name.as_ref());
+    let ontology = Ontology::from_store(store, &temp_graph_id, strict)?;
+
+    // The location is incorrectly parsed from the temp graph id, so we set it from the original
+    // location here by round-tripping through JSON.
+    let mut ont_json = serde_json::to_value(&ontology)?;
+    ont_json["location"] = serde_json::to_value(&location)?;
+    let mut ontology: Ontology = serde_json::from_value(ont_json)?;
+
+    debug!("Adding ontology: {}", ontology.id());
+    ontology.with_last_updated(Utc::now());
+    let id = ontology.id();
+    let graphname: GraphName = id.graphname()?;
+
+    // 3. Load from bytes using bulk loader
+    if overwrite || !store.contains_named_graph(id.name())? {
+        store.remove_named_graph(id.name())?;
+        let now = Instant::now();
+        let quads_to_load = store
+            .quads_for_pattern(
+                None,
+                None,
+                None,
+                Some(GraphNameRef::NamedNode(temp_graph_name.as_ref())),
+            )
+            .map(|res| {
+                res.map(|q| Quad::new(q.subject, q.predicate, q.object, graphname.clone()))
+            });
+        debug!("Loading quads into graph {}", id);
+        store
+            .bulk_loader()
+            .load_ok_quads::<_, oxigraph::store::StorageError>(quads_to_load)?;
+        info!(
+            "Copied temp graph to {} in {:?}",
+            id.name(),
+            now.elapsed()
+        );
+    }
+    store.remove_named_graph(temp_graph_name.as_ref())?;
+    Ok(ontology)
+}
+
 pub trait GraphIO: Send + Sync {
     /// Returns true if the store is offline; if this is true, then the store
     /// will not fetch any data from the internet
     fn is_offline(&self) -> bool;
-    /// Returns the graph with the given identifier
-    fn get_graph(&self, id: &GraphIdentifier) -> Result<Graph>;
 
     /// Returns the type of the store (e.g., "persistent", "memory", "read-only")
     fn io_type(&self) -> String;
@@ -36,20 +111,66 @@ pub trait GraphIO: Send + Sync {
     /// Returns the path to the store, if it is a file-based store
     fn store_location(&self) -> Option<&Path>;
 
-    /// Returns the size of the underlying store.
-    fn size(&self) -> Result<StoreStats>;
+    /// Returns a reference to the underlying store
+    fn store(&self) -> &Store;
 
     /// Adds a graph to the store and returns the ontology metadata. Overwrites any existing graph with
     /// the same identifier if 'overwrite' is true.
-    fn add(&mut self, location: OntologyLocation, _overwrite: bool) -> Result<Ontology>;
+    fn add(&mut self, location: OntologyLocation, overwrite: bool) -> Result<Ontology>;
+
+    /// Returns the graph with the given identifier
+    fn get_graph(&self, id: &GraphIdentifier) -> Result<Graph> {
+        let mut graph = Graph::new();
+        let graphname = id.graphname()?;
+        for quad in self
+            .store()
+            .quads_for_pattern(None, None, None, Some(graphname.as_ref()))
+        {
+            graph.insert(quad?.as_ref());
+        }
+        Ok(graph)
+    }
+
+    /// Returns the size of the underlying store.
+    fn size(&self) -> Result<StoreStats> {
+        let num_graphs = self.store().named_graphs().count();
+        let num_triples = self.store().len()?;
+        Ok(StoreStats {
+            num_graphs,
+            num_triples,
+        })
+    }
 
     /// Removes the graph with the given identifier from the store and ontology metadata
-    fn remove(&mut self, id: &GraphIdentifier) -> Result<()>;
+    fn remove(&mut self, id: &GraphIdentifier) -> Result<()> {
+        let graphname = id.name();
+        self.store().remove_named_graph(graphname)?;
+        Ok(())
+    }
 
     /// Returns the union of the graphs with the given identifiers
-    fn union_graph(&self, ids: &[GraphIdentifier]) -> Dataset;
+    fn union_graph(&self, ids: &[GraphIdentifier]) -> Dataset {
+        let mut graph = Dataset::new();
+        for id in ids {
+            let graphname = id.graphname().unwrap();
+            let g = self.get_graph(id).unwrap();
+            for t in g.iter() {
+                graph.insert(&Quad::new(
+                    t.subject,
+                    t.predicate,
+                    t.object,
+                    graphname.clone(),
+                ));
+            }
+        }
+        graph
+    }
 
-    fn flush(&mut self) -> Result<()>;
+    fn flush(&mut self) -> Result<()> {
+        self.store()
+            .flush()
+            .map_err(|e| anyhow!("Failed to flush store: {}", e))
+    }
 
     /// Returns the last time the graph with the given identifier was modified at its location
     /// - for on-disk files (file://), if the file has been modified since the last refresh
@@ -79,79 +200,12 @@ pub trait GraphIO: Send + Sync {
         Ok(modified_time)
     }
 
-    // /// Refreshes the contents of each graph whose identifier is in the list.
-    // /// Returns the new ontologies that were added to the store and the updated
-    // /// ontology records. These all need to be added to the environment.
-    // fn refresh(&mut self, env: &Environment, ids: Vec<GraphIdentifier>) -> Result<Vec<Ontology>> {
-    //     let updated_ontologies: Vec<Ontology> = Vec::new();
-    //     for id in ids {
-    //         let ont = self.add(id.location().clone(), force)?;
-    //         ont.last_updated = Some(Utc::now());
-    //         if *ont.id() != id {
-    //             // TODO: handle
-    //             return Err(anyhow!("Refreshed graph has different identifier"));
-    //         }
-    //         updated_ontologies.push(ont);
-    //     }
-    //     Ok(updated_ontologies)
-    // }
-
     fn read_file(&self, file: &Path) -> Result<Graph> {
-        debug!("Reading file: {}", file.to_str().unwrap());
-        let filename = file;
-        let file = std::fs::File::open(file)?;
-        let content: BufReader<_> = BufReader::new(file);
-        let content_type = filename.extension().and_then(|ext| ext.to_str());
-        let content_type = content_type.and_then(|ext| match ext {
-            "ttl" => Some(RdfFormat::Turtle),
-            "xml" => Some(RdfFormat::RdfXml),
-            "n3" => Some(RdfFormat::Turtle),
-            "nt" => Some(RdfFormat::NTriples),
-            _ => None,
-        });
-        let parser = RdfParser::from_format(content_type.unwrap_or(RdfFormat::Turtle));
-        let mut graph = Graph::new();
-        let parser = parser.for_reader(content);
-        for quad in parser {
-            let quad = quad?;
-            let triple = Triple::new(quad.subject, quad.predicate, quad.object);
-            graph.insert(&triple);
-        }
-
-        Ok(graph)
+        crate::util::read_file(file)
     }
 
     fn read_url(&self, file: &str) -> Result<Graph> {
-        debug!("Reading url: {}", file);
-
-        let client = reqwest::blocking::Client::new();
-        let resp = client
-            .get(file)
-            .header(CONTENT_TYPE, "application/x-turtle")
-            .send()?;
-        if !resp.status().is_success() {
-            error!("Failed to fetch ontology from {} ({})", file, resp.status());
-            return Err(anyhow::anyhow!(
-                "Failed to fetch ontology from {} ({})",
-                file,
-                resp.status()
-            ));
-        }
-        let content_type = resp.headers().get("Content-Type");
-        let content_type = content_type.and_then(|ct| ct.to_str().ok());
-        let content_type = content_type.and_then(|ext| match ext {
-            "application/x-turtle" => Some(RdfFormat::Turtle),
-            "text/turtle" => Some(RdfFormat::Turtle),
-            "application/rdf+xml" => Some(RdfFormat::RdfXml),
-            "text/rdf+n3" => Some(RdfFormat::NTriples),
-            _ => {
-                debug!("Unknown content type: {}", ext);
-                None
-            }
-        });
-
-        let content: BufReader<_> = BufReader::new(std::io::Cursor::new(resp.bytes()?));
-        read_format(content, content_type)
+        crate::util::read_url(file)
     }
 }
 
@@ -184,92 +238,16 @@ impl GraphIO for PersistentGraphIO {
         "persistent".to_string()
     }
 
-    fn flush(&mut self) -> Result<()> {
-        self.store
-            .flush()
-            .map_err(|e| anyhow!("Failed to flush store: {}", e))
-    }
-
-    fn size(&self) -> Result<StoreStats> {
-        let num_graphs = self.store.named_graphs().count();
-        let num_triples = self.store.len()?;
-        Ok(StoreStats {
-            num_graphs,
-            num_triples,
-        })
-    }
-
     fn store_location(&self) -> Option<&Path> {
         Some(&self.store_path)
     }
 
-    fn union_graph(&self, ids: &[GraphIdentifier]) -> Dataset {
-        let mut graph = Dataset::new();
-        for id in ids {
-            let graphname = id.graphname().unwrap();
-            let g = self.get_graph(&id).unwrap();
-            for t in g.iter() {
-                graph.insert(&Quad::new(
-                    t.subject.clone(),
-                    t.predicate.clone(),
-                    t.object.clone(),
-                    graphname.clone(),
-                ));
-            }
-        }
-        graph
+    fn store(&self) -> &Store {
+        &self.store
     }
 
     fn add(&mut self, location: OntologyLocation, overwrite: bool) -> Result<Ontology> {
-        let graph = match location {
-            OntologyLocation::File(ref path) => self.read_file(&path)?,
-            OntologyLocation::Url(ref url) => {
-                if self.offline {
-                    return Err(Error::new(OfflineRetrievalError { file: url.clone() }));
-                } else {
-                    self.read_url(&url)?
-                }
-            }
-        };
-
-        let ontology = Ontology::from_graph(&graph, location.clone(), self.strict)?;
-        let id = ontology.id().clone();
-
-        let graphname: NamedOrBlankNode = match id.graphname()? {
-            GraphName::NamedNode(n) => NamedOrBlankNode::NamedNode(n),
-            _ => return Err(anyhow!("Graph name not found")),
-        };
-
-        if overwrite || !self.store.contains_named_graph(graphname.as_ref())? {
-            self.store.remove_named_graph(graphname.as_ref())?;
-            self.store.bulk_loader().load_quads(graph.iter().map(|t| {
-                Quad::new(
-                    t.subject.clone(),
-                    t.predicate.clone(),
-                    t.object.clone(),
-                    graphname.clone(),
-                )
-            }))?;
-        }
-        Ok(ontology)
-    }
-
-    fn get_graph(&self, id: &GraphIdentifier) -> Result<Graph> {
-        let mut graph = Graph::new();
-        let graphname = id.graphname()?;
-        for quad in self
-            .store
-            .quads_for_pattern(None, None, None, Some(graphname.as_ref()))
-        {
-            graph.insert(quad?.as_ref());
-        }
-        Ok(graph)
-    }
-
-    fn remove(&mut self, id: &GraphIdentifier) -> Result<()> {
-        let graphname = id.name();
-        self.store.remove_named_graph(graphname)?;
-        Ok(())
+        add_ontology_to_store(&self.store, location, overwrite, self.offline, self.strict)
     }
 }
 
@@ -304,50 +282,16 @@ impl GraphIO for ReadOnlyPersistentGraphIO {
         Ok(())
     }
 
-    fn size(&self) -> Result<StoreStats> {
-        let num_graphs = self.store.named_graphs().count();
-        let num_triples = self.store.len()?;
-        Ok(StoreStats {
-            num_graphs,
-            num_triples,
-        })
-    }
-
     fn store_location(&self) -> Option<&Path> {
         Some(&self.store_path)
     }
 
-    fn union_graph(&self, ids: &[GraphIdentifier]) -> Dataset {
-        let mut graph = Dataset::new();
-        for id in ids {
-            let graphname = id.graphname().unwrap();
-            let g = self.get_graph(&id).unwrap();
-            for t in g.iter() {
-                graph.insert(&Quad::new(
-                    t.subject.clone(),
-                    t.predicate.clone(),
-                    t.object.clone(),
-                    graphname.clone(),
-                ));
-            }
-        }
-        graph
+    fn store(&self) -> &Store {
+        &self.store
     }
 
     fn add(&mut self, _location: OntologyLocation, _overwrite: bool) -> Result<Ontology> {
         Err(anyhow!("Cannot add to read-only store"))
-    }
-
-    fn get_graph(&self, id: &GraphIdentifier) -> Result<Graph> {
-        let mut graph = Graph::new();
-        let graphname = id.graphname()?;
-        for quad in self
-            .store
-            .quads_for_pattern(None, None, None, Some(graphname.as_ref()))
-        {
-            graph.insert(quad?.as_ref());
-        }
-        Ok(graph)
     }
 
     fn remove(&mut self, _id: &GraphIdentifier) -> Result<()> {
@@ -355,23 +299,71 @@ impl GraphIO for ReadOnlyPersistentGraphIO {
     }
 }
 
+pub struct ExternalStoreGraphIO {
+    store: Store,
+    offline: bool,
+    strict: bool,
+}
+
+impl ExternalStoreGraphIO {
+    pub fn new(store: Store, offline: bool, strict: bool) -> Self {
+        Self {
+            store,
+            offline,
+            strict,
+        }
+    }
+}
+
+impl GraphIO for ExternalStoreGraphIO {
+    fn is_offline(&self) -> bool {
+        self.offline
+    }
+
+    fn io_type(&self) -> String {
+        "external-store".to_string()
+    }
+
+    fn store_location(&self) -> Option<&Path> {
+        None
+    }
+
+    fn store(&self) -> &Store {
+        &self.store
+    }
+
+    fn add(&mut self, location: OntologyLocation, overwrite: bool) -> Result<Ontology> {
+        add_ontology_to_store(&self.store, location, overwrite, self.offline, self.strict)
+    }
+}
+
 pub struct MemoryGraphIO {
-    graphs: HashMap<GraphIdentifier, Graph>,
+    store: Store,
     offline: bool,
     strict: bool,
 }
 
 impl MemoryGraphIO {
-    pub fn new(offline: bool, strict: bool) -> Self {
-        Self {
-            graphs: HashMap::new(),
+    pub fn new(offline: bool, strict: bool) -> Result<Self> {
+        Ok(Self {
+            store: Store::new()?,
             offline,
             strict,
-        }
+        })
     }
 
-    pub fn add_graph(&mut self, id: GraphIdentifier, graph: Graph) {
-        self.graphs.insert(id, graph);
+    pub fn add_graph(&mut self, id: GraphIdentifier, graph: Graph) -> Result<()> {
+        let graphname = id.graphname()?;
+        self.store.remove_named_graph(id.name())?;
+        self.store.bulk_loader().load_quads(graph.iter().map(|t| {
+            Quad::new(
+                t.subject,
+                t.predicate,
+                t.object,
+                graphname.clone(),
+            )
+        }))?;
+        Ok(())
     }
 }
 
@@ -388,70 +380,11 @@ impl GraphIO for MemoryGraphIO {
         None
     }
 
-    fn flush(&mut self) -> Result<()> {
-        Ok(())
-    }
-
-    fn size(&self) -> Result<StoreStats> {
-        let num_graphs = self.graphs.len();
-        let num_triples = self
-            .graphs
-            .values()
-            .map(|g| g.len())
-            .fold(0, |acc, x| acc + x);
-        Ok(StoreStats {
-            num_graphs,
-            num_triples,
-        })
-    }
-
-    fn union_graph(&self, ids: &[GraphIdentifier]) -> Dataset {
-        let mut graph = Dataset::new();
-        for id in ids {
-            let graphname = id.graphname().unwrap();
-            let g = self.get_graph(&id).unwrap();
-            for t in g.iter() {
-                graph.insert(&Quad::new(
-                    t.subject.clone(),
-                    t.predicate.clone(),
-                    t.object.clone(),
-                    graphname.clone(),
-                ));
-            }
-        }
-        graph
+    fn store(&self) -> &Store {
+        &self.store
     }
 
     fn add(&mut self, location: OntologyLocation, overwrite: bool) -> Result<Ontology> {
-        let graph = match location {
-            OntologyLocation::File(ref path) => self.read_file(&path)?,
-            OntologyLocation::Url(ref url) => {
-                if self.offline {
-                    return Err(Error::new(OfflineRetrievalError { file: url.clone() }));
-                } else {
-                    self.read_url(&url)?
-                }
-            }
-        };
-
-        let ontology = Ontology::from_graph(&graph, location.clone(), self.strict)?;
-        let id = ontology.id().clone();
-        if overwrite || self.graphs.get(&id).is_none() {
-            self.graphs.insert(id, graph);
-        }
-        Ok(ontology)
-    }
-
-    fn get_graph(&self, id: &GraphIdentifier) -> Result<Graph> {
-        Ok(self
-            .graphs
-            .get(&id)
-            .ok_or(anyhow!("Graph not found"))?
-            .clone())
-    }
-
-    fn remove(&mut self, id: &GraphIdentifier) -> Result<()> {
-        self.graphs.remove(id);
-        Ok(())
+        add_ontology_to_store(&self.store, location, overwrite, self.offline, self.strict)
     }
 }

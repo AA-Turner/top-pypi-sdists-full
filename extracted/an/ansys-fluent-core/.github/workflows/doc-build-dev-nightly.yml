@@ -13,7 +13,7 @@ permissions:
 
 env:
   DOCUMENTATION_CNAME: "fluent.docs.pyansys.com"
-  DOC_DEPLOYMENT_IMAGE_TAG: v26.1.0
+  DOC_DEPLOYMENT_IMAGE_TAG: ${{ vars.FLUENT_STABLE_IMAGE_DEV }}
   ANSYSLMD_LICENSE_FILE: ${{ format('1055@{0}', secrets.LICENSE_SERVER) }}
   PYFLUENT_TIMEOUT_FORCE_EXIT: 30
   PYFLUENT_LAUNCH_CONTAINER: 1
@@ -127,7 +127,7 @@ jobs:
     if: github.ref == 'refs/heads/main'
     steps:
       - name: "Deploy development documentation"
-        uses: ansys/actions/doc-deploy-dev@v9.0
+        uses: ansys/actions/doc-deploy-dev@v10.0
         with:
           doc-artifact-name: "HTML-Documentation-tag-${{ env.DOC_DEPLOYMENT_IMAGE_TAG }}"
           decompress-artifact: true

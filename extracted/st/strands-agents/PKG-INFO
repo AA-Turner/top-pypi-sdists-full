@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: strands-agents
-Version: 1.0.1
+Version: 1.1.0
 Summary: A model-driven approach to building AI agents in just a few lines of code
 Project-URL: Homepage, https://github.com/strands-agents/sdk-python
 Project-URL: Bug Tracker, https://github.com/strands-agents/sdk-python/issues
@@ -32,13 +32,13 @@ Requires-Dist: pydantic<3.0.0,>=2.0.0
 Requires-Dist: typing-extensions<5.0.0,>=4.13.2
 Requires-Dist: watchdog<7.0.0,>=6.0.0
 Provides-Extra: a2a
-Requires-Dist: a2a-sdk[sql]<1.0.0,>=0.2.11; extra == 'a2a'
+Requires-Dist: a2a-sdk[sql]<1.0.0,>=0.2.16; extra == 'a2a'
 Requires-Dist: fastapi<1.0.0,>=0.115.12; extra == 'a2a'
 Requires-Dist: httpx<1.0.0,>=0.28.1; extra == 'a2a'
 Requires-Dist: starlette<1.0.0,>=0.46.2; extra == 'a2a'
 Requires-Dist: uvicorn<1.0.0,>=0.34.2; extra == 'a2a'
 Provides-Extra: all
-Requires-Dist: a2a-sdk[sql]<1.0.0,>=0.2.11; extra == 'all'
+Requires-Dist: a2a-sdk[sql]<1.0.0,>=0.2.16; extra == 'all'
 Requires-Dist: anthropic<1.0.0,>=0.21.0; extra == 'all'
 Requires-Dist: commitizen<5.0.0,>=4.4.0; extra == 'all'
 Requires-Dist: fastapi<1.0.0,>=0.115.12; extra == 'all'
@@ -99,7 +99,7 @@ Description-Content-Type: text/markdown
 <div align="center">
   <div>
     <a href="https://strandsagents.com">
-      <img src="https://strandsagents.com/latest/assets/logo-light.svg" alt="Strands Agents" width="55px" height="105px">
+      <img src="https://strandsagents.com/latest/assets/logo-github.svg" alt="Strands Agents" width="55px" height="105px">
     </a>
   </div>
 
@@ -187,6 +187,17 @@ def word_count(text: str) -> int:
 
 agent = Agent(tools=[word_count])
 response = agent("How many words are in this sentence?")
+```
+
+**Hot Reloading from Directory:**
+Enable automatic tool loading and reloading from the `./tools/` directory:
+
+```python
+from strands import Agent
+
+# Agent will watch ./tools/ directory for changes
+agent = Agent(load_tools_from_directory=True)
+response = agent("Use any tools you find in the tools directory")
 ```
 
 ### MCP Support

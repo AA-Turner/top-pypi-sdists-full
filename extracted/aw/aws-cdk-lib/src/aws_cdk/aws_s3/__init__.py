@@ -4435,7 +4435,7 @@ class CfnBucket(
         :param bucket_name: A name for the bucket. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must contain only lowercase letters, numbers, periods (.), and dashes (-) and must follow `Amazon S3 bucket restrictions and limitations <https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html>`_ . For more information, see `Rules for naming Amazon S3 buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_ in the *Amazon S3 User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
         :param cors_configuration: Describes the cross-origin access configuration for objects in an Amazon S3 bucket. For more information, see `Enabling Cross-Origin Resource Sharing <https://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html>`_ in the *Amazon S3 User Guide* .
         :param intelligent_tiering_configurations: Defines how Amazon S3 handles Intelligent-Tiering storage.
-        :param inventory_configurations: Specifies the inventory configuration for an Amazon S3 bucket. For more information, see `GET Bucket inventory <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html>`_ in the *Amazon S3 API Reference* .
+        :param inventory_configurations: Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see `GET Bucket inventory <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html>`_ in the *Amazon S3 API Reference* .
         :param lifecycle_configuration: Specifies the lifecycle configuration for objects in an Amazon S3 bucket. For more information, see `Object Lifecycle Management <https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html>`_ in the *Amazon S3 User Guide* .
         :param logging_configuration: Settings that define where logs are stored.
         :param metadata_table_configuration: The metadata table configuration of an Amazon S3 general purpose bucket.
@@ -4729,7 +4729,7 @@ class CfnBucket(
     def inventory_configurations(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBucket.InventoryConfigurationProperty"]]]]:
-        '''Specifies the inventory configuration for an Amazon S3 bucket.'''
+        '''Specifies the S3 Inventory configuration for an Amazon S3 bucket.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnBucket.InventoryConfigurationProperty"]]]], jsii.get(self, "inventoryConfigurations"))
 
     @inventory_configurations.setter
@@ -6265,7 +6265,7 @@ class CfnBucket(
             optional_fields: typing.Optional[typing.Sequence[builtins.str]] = None,
             prefix: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Specifies the inventory configuration for an Amazon S3 bucket.
+            '''Specifies the S3 Inventory configuration for an Amazon S3 bucket.
 
             For more information, see `GET Bucket inventory <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html>`_ in the *Amazon S3 API Reference* .
 
@@ -9828,9 +9828,12 @@ class CfnBucket(
             table_arn: typing.Optional[builtins.str] = None,
             table_namespace: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''The destination information for the metadata table configuration.
+            '''The destination information for a V1 S3 Metadata configuration.
 
             The destination table bucket must be in the same Region and AWS account as the general purpose bucket. The specified metadata table name must be unique within the ``aws_s3_metadata`` namespace in the destination table bucket.
+            .. epigraph::
+
+               If you created your S3 Metadata configuration before July 15, 2025, we recommend that you delete and re-create your configuration by using `CreateBucketMetadataConfiguration <https://docs.aws.amazon.com/AmazonS3/latest/API/API_CreateBucketMetadataConfiguration.html>`_ so that you can expire journal table records and create a live inventory table.
 
             :param table_bucket_arn: The Amazon Resource Name (ARN) for the table bucket that's specified as the destination in the metadata table configuration. The destination table bucket must be in the same Region and AWS account as the general purpose bucket.
             :param table_name: The name for the metadata table in your metadata table configuration. The specified metadata table name must be unique within the ``aws_s3_metadata`` namespace in the destination table bucket.
@@ -11244,7 +11247,7 @@ class CfnBucketProps:
         :param bucket_name: A name for the bucket. If you don't specify a name, AWS CloudFormation generates a unique ID and uses that ID for the bucket name. The bucket name must contain only lowercase letters, numbers, periods (.), and dashes (-) and must follow `Amazon S3 bucket restrictions and limitations <https://docs.aws.amazon.com/AmazonS3/latest/dev/BucketRestrictions.html>`_ . For more information, see `Rules for naming Amazon S3 buckets <https://docs.aws.amazon.com/AmazonS3/latest/userguide/bucketnamingrules.html>`_ in the *Amazon S3 User Guide* . .. epigraph:: If you specify a name, you can't perform updates that require replacement of this resource. You can perform updates that require no or some interruption. If you need to replace the resource, specify a new name.
         :param cors_configuration: Describes the cross-origin access configuration for objects in an Amazon S3 bucket. For more information, see `Enabling Cross-Origin Resource Sharing <https://docs.aws.amazon.com/AmazonS3/latest/dev/cors.html>`_ in the *Amazon S3 User Guide* .
         :param intelligent_tiering_configurations: Defines how Amazon S3 handles Intelligent-Tiering storage.
-        :param inventory_configurations: Specifies the inventory configuration for an Amazon S3 bucket. For more information, see `GET Bucket inventory <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html>`_ in the *Amazon S3 API Reference* .
+        :param inventory_configurations: Specifies the S3 Inventory configuration for an Amazon S3 bucket. For more information, see `GET Bucket inventory <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html>`_ in the *Amazon S3 API Reference* .
         :param lifecycle_configuration: Specifies the lifecycle configuration for objects in an Amazon S3 bucket. For more information, see `Object Lifecycle Management <https://docs.aws.amazon.com/AmazonS3/latest/dev/object-lifecycle-mgmt.html>`_ in the *Amazon S3 User Guide* .
         :param logging_configuration: Settings that define where logs are stored.
         :param metadata_table_configuration: The metadata table configuration of an Amazon S3 general purpose bucket.
@@ -11439,7 +11442,7 @@ class CfnBucketProps:
     def inventory_configurations(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnBucket.InventoryConfigurationProperty]]]]:
-        '''Specifies the inventory configuration for an Amazon S3 bucket.
+        '''Specifies the S3 Inventory configuration for an Amazon S3 bucket.
 
         For more information, see `GET Bucket inventory <https://docs.aws.amazon.com/AmazonS3/latest/API/RESTBucketGETInventoryConfig.html>`_ in the *Amazon S3 API Reference* .
 

@@ -1752,7 +1752,7 @@ class CfnConnector(
         ) -> None:
             '''A structure that contains the parameters for an SFTP connector object.
 
-            :param max_concurrent_connections: Specifies the number of active connections that your connector can establish with the remote server at the same time. Default: - 1
+            :param max_concurrent_connections: Specify the number of concurrent connections that your connector creates to the remote server. The default value is ``1`` . The maximum values is ``5`` . .. epigraph:: If you are using the AWS Management Console , the default value is ``5`` . This parameter specifies the number of active connections that your connector can establish with the remote server at the same time. Increasing this value can enhance connector performance when transferring large file batches by enabling parallel operations. Default: - 1
             :param trusted_host_keys: The public portion of the host key, or keys, that are used to identify the external server to which you are connecting. You can use the ``ssh-keyscan`` command against the SFTP server to retrieve the necessary key. .. epigraph:: ``TrustedHostKeys`` is optional for ``CreateConnector`` . If not provided, you can use ``TestConnection`` to retrieve the server host key during the initial connection attempt, and subsequently update the connector with the observed host key. The three standard SSH public key format elements are ``<key type>`` , ``<body base64>`` , and an optional ``<comment>`` , with spaces between each element. Specify only the ``<key type>`` and ``<body base64>`` : do not enter the ``<comment>`` portion of the key. For the trusted host key, AWS Transfer Family accepts RSA and ECDSA keys. - For RSA keys, the ``<key type>`` string is ``ssh-rsa`` . - For ECDSA keys, the ``<key type>`` string is either ``ecdsa-sha2-nistp256`` , ``ecdsa-sha2-nistp384`` , or ``ecdsa-sha2-nistp521`` , depending on the size of the key you generated. Run this command to retrieve the SFTP server host key, where your SFTP server name is ``ftp.host.com`` . ``ssh-keyscan ftp.host.com`` This prints the public host key to standard output. ``ftp.host.com ssh-rsa AAAAB3Nza...<long-string-for-public-key`` Copy and paste this string into the ``TrustedHostKeys`` field for the ``create-connector`` command or into the *Trusted host keys* field in the console.
             :param user_secret_id: The identifier for the secret (in AWS Secrets Manager) that contains the SFTP user's private key, password, or both. The identifier must be the Amazon Resource Name (ARN) of the secret. .. epigraph:: - Required when creating an SFTP connector - Optional when updating an existing SFTP connector
 
@@ -1786,7 +1786,14 @@ class CfnConnector(
 
         @builtins.property
         def max_concurrent_connections(self) -> typing.Optional[jsii.Number]:
-            '''Specifies the number of active connections that your connector can establish with the remote server at the same time.
+            '''Specify the number of concurrent connections that your connector creates to the remote server.
+
+            The default value is ``1`` . The maximum values is ``5`` .
+            .. epigraph::
+
+               If you are using the AWS Management Console , the default value is ``5`` .
+
+            This parameter specifies the number of active connections that your connector can establish with the remote server at the same time. Increasing this value can enhance connector performance when transferring large file batches by enabling parallel operations.
 
             :default: - 1
 
@@ -2435,7 +2442,7 @@ class CfnServer(
         :param pre_authentication_login_banner: Specifies a string to display when users connect to a server. This string is displayed before the user authenticates. For example, the following banner displays details about using the system: ``This system is for the use of authorized users only. Individuals using this computer system without authority, or in excess of their authority, are subject to having all of their activities on this system monitored and recorded by system personnel.``
         :param protocol_details: The protocol settings that are configured for your server. - To indicate passive mode (for FTP and FTPS protocols), use the ``PassiveIp`` parameter. Enter a single dotted-quad IPv4 address, such as the external IP address of a firewall, router, or load balancer. - To ignore the error that is generated when the client attempts to use the ``SETSTAT`` command on a file that you are uploading to an Amazon S3 bucket, use the ``SetStatOption`` parameter. To have the AWS Transfer Family server ignore the ``SETSTAT`` command and upload files without needing to make any changes to your SFTP client, set the value to ``ENABLE_NO_OP`` . If you set the ``SetStatOption`` parameter to ``ENABLE_NO_OP`` , Transfer Family generates a log entry to Amazon CloudWatch Logs, so that you can determine when the client is making a ``SETSTAT`` call. - To determine whether your AWS Transfer Family server resumes recent, negotiated sessions through a unique session ID, use the ``TlsSessionResumptionMode`` parameter. - ``As2Transports`` indicates the transport method for the AS2 messages. Currently, only HTTP is supported. The ``Protocols`` parameter is an array of strings. *Allowed values* : One or more of ``SFTP`` , ``FTPS`` , ``FTP`` , ``AS2``
         :param protocols: Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint. The available protocols are: - ``SFTP`` (Secure Shell (SSH) File Transfer Protocol): File transfer over SSH - ``FTPS`` (File Transfer Protocol Secure): File transfer with TLS encryption - ``FTP`` (File Transfer Protocol): Unencrypted file transfer - ``AS2`` (Applicability Statement 2): used for transporting structured business-to-business data .. epigraph:: - If you select ``FTPS`` , you must choose a certificate stored in AWS Certificate Manager (ACM) which is used to identify your server when clients connect to it over FTPS. - If ``Protocol`` includes either ``FTP`` or ``FTPS`` , then the ``EndpointType`` must be ``VPC`` and the ``IdentityProviderType`` must be either ``AWS_DIRECTORY_SERVICE`` , ``AWS_LAMBDA`` , or ``API_GATEWAY`` . - If ``Protocol`` includes ``FTP`` , then ``AddressAllocationIds`` cannot be associated. - If ``Protocol`` is set only to ``SFTP`` , the ``EndpointType`` can be set to ``PUBLIC`` and the ``IdentityProviderType`` can be set any of the supported identity types: ``SERVICE_MANAGED`` , ``AWS_DIRECTORY_SERVICE`` , ``AWS_LAMBDA`` , or ``API_GATEWAY`` . - If ``Protocol`` includes ``AS2`` , then the ``EndpointType`` must be ``VPC`` , and domain must be Amazon S3. The ``Protocols`` parameter is an array of strings. *Allowed values* : One or more of ``SFTP`` , ``FTPS`` , ``FTP`` , ``AS2``
-        :param s3_storage_options: Specifies whether or not performance for your Amazon S3 directories is optimized. This is disabled by default. By default, home directory mappings have a ``TYPE`` of ``DIRECTORY`` . If you enable this option, you would then need to explicitly set the ``HomeDirectoryMapEntry`` ``Type`` to ``FILE`` if you want a mapping to have a file target.
+        :param s3_storage_options: Specifies whether or not performance for your Amazon S3 directories is optimized. - If using the console, this is enabled by default. - If using the API or CLI, this is disabled by default. By default, home directory mappings have a ``TYPE`` of ``DIRECTORY`` . If you enable this option, you would then need to explicitly set the ``HomeDirectoryMapEntry`` ``Type`` to ``FILE`` if you want a mapping to have a file target.
         :param security_policy_name: Specifies the name of the security policy for the server.
         :param structured_log_destinations: Specifies the log groups to which your server logs are sent. To specify a log group, you must provide the ARN for an existing log group. In this case, the format of the log group is as follows: ``arn:aws:logs:region-name:amazon-account-id:log-group:log-group-name:*`` For example, ``arn:aws:logs:us-east-1:111122223333:log-group:mytestgroup:*`` If you have previously specified a log group for a server, you can clear it, and in effect turn off structured logging, by providing an empty value for this parameter in an ``update-server`` call. For example: ``update-server --server-id s-1234567890abcdef0 --structured-log-destinations``
         :param tags: Key-value pairs that can be used to group and search for servers.
@@ -2723,10 +2730,7 @@ class CfnServer(
     def s3_storage_options(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServer.S3StorageOptionsProperty"]]:
-        '''Specifies whether or not performance for your Amazon S3 directories is optimized.
-
-        This is disabled by default.
-        '''
+        '''Specifies whether or not performance for your Amazon S3 directories is optimized.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnServer.S3StorageOptionsProperty"]], jsii.get(self, "s3StorageOptions"))
 
     @s3_storage_options.setter
@@ -3240,7 +3244,7 @@ class CfnServer(
         ) -> None:
             '''The Amazon S3 storage options that are configured for your server.
 
-            :param directory_listing_optimization: Specifies whether or not performance for your Amazon S3 directories is optimized. This is disabled by default. By default, home directory mappings have a ``TYPE`` of ``DIRECTORY`` . If you enable this option, you would then need to explicitly set the ``HomeDirectoryMapEntry`` ``Type`` to ``FILE`` if you want a mapping to have a file target.
+            :param directory_listing_optimization: Specifies whether or not performance for your Amazon S3 directories is optimized. - If using the console, this is enabled by default. - If using the API or CLI, this is disabled by default. By default, home directory mappings have a ``TYPE`` of ``DIRECTORY`` . If you enable this option, you would then need to explicitly set the ``HomeDirectoryMapEntry`` ``Type`` to ``FILE`` if you want a mapping to have a file target.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-transfer-server-s3storageoptions.html
             :exampleMetadata: fixture=_generated
@@ -3264,7 +3268,10 @@ class CfnServer(
 
         @builtins.property
         def directory_listing_optimization(self) -> typing.Optional[builtins.str]:
-            '''Specifies whether or not performance for your Amazon S3 directories is optimized. This is disabled by default.
+            '''Specifies whether or not performance for your Amazon S3 directories is optimized.
+
+            - If using the console, this is enabled by default.
+            - If using the API or CLI, this is disabled by default.
 
             By default, home directory mappings have a ``TYPE`` of ``DIRECTORY`` . If you enable this option, you would then need to explicitly set the ``HomeDirectoryMapEntry`` ``Type`` to ``FILE`` if you want a mapping to have a file target.
 
@@ -3510,7 +3517,7 @@ class CfnServerProps:
         :param pre_authentication_login_banner: Specifies a string to display when users connect to a server. This string is displayed before the user authenticates. For example, the following banner displays details about using the system: ``This system is for the use of authorized users only. Individuals using this computer system without authority, or in excess of their authority, are subject to having all of their activities on this system monitored and recorded by system personnel.``
         :param protocol_details: The protocol settings that are configured for your server. - To indicate passive mode (for FTP and FTPS protocols), use the ``PassiveIp`` parameter. Enter a single dotted-quad IPv4 address, such as the external IP address of a firewall, router, or load balancer. - To ignore the error that is generated when the client attempts to use the ``SETSTAT`` command on a file that you are uploading to an Amazon S3 bucket, use the ``SetStatOption`` parameter. To have the AWS Transfer Family server ignore the ``SETSTAT`` command and upload files without needing to make any changes to your SFTP client, set the value to ``ENABLE_NO_OP`` . If you set the ``SetStatOption`` parameter to ``ENABLE_NO_OP`` , Transfer Family generates a log entry to Amazon CloudWatch Logs, so that you can determine when the client is making a ``SETSTAT`` call. - To determine whether your AWS Transfer Family server resumes recent, negotiated sessions through a unique session ID, use the ``TlsSessionResumptionMode`` parameter. - ``As2Transports`` indicates the transport method for the AS2 messages. Currently, only HTTP is supported. The ``Protocols`` parameter is an array of strings. *Allowed values* : One or more of ``SFTP`` , ``FTPS`` , ``FTP`` , ``AS2``
         :param protocols: Specifies the file transfer protocol or protocols over which your file transfer protocol client can connect to your server's endpoint. The available protocols are: - ``SFTP`` (Secure Shell (SSH) File Transfer Protocol): File transfer over SSH - ``FTPS`` (File Transfer Protocol Secure): File transfer with TLS encryption - ``FTP`` (File Transfer Protocol): Unencrypted file transfer - ``AS2`` (Applicability Statement 2): used for transporting structured business-to-business data .. epigraph:: - If you select ``FTPS`` , you must choose a certificate stored in AWS Certificate Manager (ACM) which is used to identify your server when clients connect to it over FTPS. - If ``Protocol`` includes either ``FTP`` or ``FTPS`` , then the ``EndpointType`` must be ``VPC`` and the ``IdentityProviderType`` must be either ``AWS_DIRECTORY_SERVICE`` , ``AWS_LAMBDA`` , or ``API_GATEWAY`` . - If ``Protocol`` includes ``FTP`` , then ``AddressAllocationIds`` cannot be associated. - If ``Protocol`` is set only to ``SFTP`` , the ``EndpointType`` can be set to ``PUBLIC`` and the ``IdentityProviderType`` can be set any of the supported identity types: ``SERVICE_MANAGED`` , ``AWS_DIRECTORY_SERVICE`` , ``AWS_LAMBDA`` , or ``API_GATEWAY`` . - If ``Protocol`` includes ``AS2`` , then the ``EndpointType`` must be ``VPC`` , and domain must be Amazon S3. The ``Protocols`` parameter is an array of strings. *Allowed values* : One or more of ``SFTP`` , ``FTPS`` , ``FTP`` , ``AS2``
-        :param s3_storage_options: Specifies whether or not performance for your Amazon S3 directories is optimized. This is disabled by default. By default, home directory mappings have a ``TYPE`` of ``DIRECTORY`` . If you enable this option, you would then need to explicitly set the ``HomeDirectoryMapEntry`` ``Type`` to ``FILE`` if you want a mapping to have a file target.
+        :param s3_storage_options: Specifies whether or not performance for your Amazon S3 directories is optimized. - If using the console, this is enabled by default. - If using the API or CLI, this is disabled by default. By default, home directory mappings have a ``TYPE`` of ``DIRECTORY`` . If you enable this option, you would then need to explicitly set the ``HomeDirectoryMapEntry`` ``Type`` to ``FILE`` if you want a mapping to have a file target.
         :param security_policy_name: Specifies the name of the security policy for the server.
         :param structured_log_destinations: Specifies the log groups to which your server logs are sent. To specify a log group, you must provide the ARN for an existing log group. In this case, the format of the log group is as follows: ``arn:aws:logs:region-name:amazon-account-id:log-group:log-group-name:*`` For example, ``arn:aws:logs:us-east-1:111122223333:log-group:mytestgroup:*`` If you have previously specified a log group for a server, you can clear it, and in effect turn off structured logging, by providing an empty value for this parameter in an ``update-server`` call. For example: ``update-server --server-id s-1234567890abcdef0 --structured-log-destinations``
         :param tags: Key-value pairs that can be used to group and search for servers.
@@ -3817,7 +3824,10 @@ class CfnServerProps:
     def s3_storage_options(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnServer.S3StorageOptionsProperty]]:
-        '''Specifies whether or not performance for your Amazon S3 directories is optimized. This is disabled by default.
+        '''Specifies whether or not performance for your Amazon S3 directories is optimized.
+
+        - If using the console, this is enabled by default.
+        - If using the API or CLI, this is disabled by default.
 
         By default, home directory mappings have a ``TYPE`` of ``DIRECTORY`` . If you enable this option, you would then need to explicitly set the ``HomeDirectoryMapEntry`` ``Type`` to ``FILE`` if you want a mapping to have a file target.
 

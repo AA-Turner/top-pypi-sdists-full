@@ -352,7 +352,8 @@ class OmicsClient(BaseClient):
 
     def cancel_run(self, **kwargs: Unpack[CancelRunRequestTypeDef]) -> EmptyResponseMetadataTypeDef:
         """
-        Cancels a run.
+        Cancels a run using its ID and returns a response with no body if the operation
+        is successful.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/cancel_run.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#cancel_run)
@@ -422,8 +423,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[CreateRunCacheRequestTypeDef]
     ) -> CreateRunCacheResponseTypeDef:
         """
-        You can create a run cache to save the task outputs from completed tasks in a
-        run for a private workflow.
+        Creates a run cache to store and reference task outputs from completed private
+        runs.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/create_run_cache.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#create_run_cache)
@@ -433,8 +434,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[CreateRunGroupRequestTypeDef]
     ) -> CreateRunGroupResponseTypeDef:
         """
-        You can optionally create a run group to limit the compute resources for the
-        runs that you add to the group.
+        Creates a run group to limit the compute resources for the runs that are added
+        to the group.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/create_run_group.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#create_run_group)
@@ -474,8 +475,7 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[CreateWorkflowRequestTypeDef]
     ) -> CreateWorkflowResponseTypeDef:
         """
-        Creates a private workflow.Private workflows depend on a variety of resources
-        that you create and configure before creating the workflow:.
+        Creates a private workflow.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/create_workflow.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#create_workflow)
@@ -532,7 +532,8 @@ class OmicsClient(BaseClient):
 
     def delete_run(self, **kwargs: Unpack[DeleteRunRequestTypeDef]) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes a workflow run.
+        Deletes a run and returns a response with no body if the operation is
+        successful.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_run.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#delete_run)
@@ -542,7 +543,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[DeleteRunCacheRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Delete a run cache.
+        Deletes a run cache and returns a response with no body if the operation is
+        successful.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_run_cache.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#delete_run_cache)
@@ -552,7 +554,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[DeleteRunGroupRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes a workflow run group.
+        Deletes a run group and returns a response with no body if the operation is
+        successful.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_run_group.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#delete_run_group)
@@ -602,7 +605,7 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[DeleteWorkflowRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes a workflow.
+        Deletes a workflow by specifying its ID.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/delete_workflow.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#delete_workflow)
@@ -738,7 +741,7 @@ class OmicsClient(BaseClient):
 
     def get_run(self, **kwargs: Unpack[GetRunRequestTypeDef]) -> GetRunResponseTypeDef:
         """
-        Gets information about a workflow run.
+        Gets detailed information about a specific run using its ID.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_run.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#get_run)
@@ -748,7 +751,7 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[GetRunCacheRequestTypeDef]
     ) -> GetRunCacheResponseTypeDef:
         """
-        Retrieve the details for the specified run cache.
+        Retrieves detailed information about the specified run cache using its ID.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_run_cache.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#get_run_cache)
@@ -758,7 +761,7 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[GetRunGroupRequestTypeDef]
     ) -> GetRunGroupResponseTypeDef:
         """
-        Gets information about a workflow run group.
+        Gets information about a run group and returns its metadata.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_run_group.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#get_run_group)
@@ -766,7 +769,7 @@ class OmicsClient(BaseClient):
 
     def get_run_task(self, **kwargs: Unpack[GetRunTaskRequestTypeDef]) -> GetRunTaskResponseTypeDef:
         """
-        Gets information about a workflow run task.
+        Gets detailed information about a run task using its ID.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_run_task.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#get_run_task)
@@ -824,7 +827,7 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[GetWorkflowRequestTypeDef]
     ) -> GetWorkflowResponseTypeDef:
         """
-        Gets information about a workflow.
+        Gets all information about a workflow using its ID.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/get_workflow.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#get_workflow)
@@ -965,7 +968,7 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[ListRunCachesRequestTypeDef]
     ) -> ListRunCachesResponseTypeDef:
         """
-        Retrieves a list of your run caches.
+        Retrieves a list of your run caches and the metadata for each cache.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_run_caches.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#list_run_caches)
@@ -975,7 +978,7 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[ListRunGroupsRequestTypeDef]
     ) -> ListRunGroupsResponseTypeDef:
         """
-        Retrieves a list of run groups.
+        Retrieves a list of all run groups and returns the metadata for each run group.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_run_groups.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#list_run_groups)
@@ -985,7 +988,7 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[ListRunTasksRequestTypeDef]
     ) -> ListRunTasksResponseTypeDef:
         """
-        Retrieves a list of tasks for a run.
+        Returns a list of tasks and status information within their specified run.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_run_tasks.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#list_run_tasks)
@@ -993,7 +996,7 @@ class OmicsClient(BaseClient):
 
     def list_runs(self, **kwargs: Unpack[ListRunsRequestTypeDef]) -> ListRunsResponseTypeDef:
         """
-        Retrieves a list of runs.
+        Retrieves a list of runs and returns each run's metadata and status.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_runs.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#list_runs)
@@ -1061,7 +1064,7 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[ListWorkflowsRequestTypeDef]
     ) -> ListWorkflowsResponseTypeDef:
         """
-        Retrieves a list of workflows.
+        Retrieves a list of existing workflows.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/list_workflows.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#list_workflows)
@@ -1129,7 +1132,8 @@ class OmicsClient(BaseClient):
 
     def start_run(self, **kwargs: Unpack[StartRunRequestTypeDef]) -> StartRunResponseTypeDef:
         """
-        Starts a new run or duplicates an existing run.
+        Starts a new run and returns details about the run, or duplicates an existing
+        run.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/start_run.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#start_run)
@@ -1185,7 +1189,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[UpdateRunCacheRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Update a run cache.
+        Updates a run cache using its ID and returns a response with no body if the
+        operation is successful.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/update_run_cache.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#update_run_cache)
@@ -1195,7 +1200,8 @@ class OmicsClient(BaseClient):
         self, **kwargs: Unpack[UpdateRunGroupRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Updates a run group.
+        Updates the settings of a run group and returns a response with no body if the
+        operation is successful.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/omics/client/update_run_group.html)
         [Show boto3-stubs-full documentation](https://youtype.github.io/boto3_stubs_docs/mypy_boto3_omics/client/#update_run_group)

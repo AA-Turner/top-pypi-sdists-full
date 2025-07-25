@@ -24,27 +24,30 @@ class WereadLoader(BaseLoader):
     def __init__(self, from_year, to_year, _type, **kwargs):
         super().__init__(from_year, to_year, _type)
 
-        self.weread_cookie = kwargs.get("weread_cookie", "")
+        # self.weread_cookie = kwargs.get("weread_cookie", "")
         self.session = requests.Session()
         self.session.headers = headers
+        self.token = os.getenv("REFRESH_TOKEN")
+        self.activation_code = os.getenv("ACTIVATION_CODE")
+        self.device_id = os.getenv("DEVICE_ID")
         self.refresh_token()
         self._make_years_list()
 
     @classmethod
     def add_loader_arguments(cls, parser, optional):
-        parser.add_argument(
-            "--weread_cookie",
-            dest="weread_cookie",
-            type=str,
-            required=False,
-            help="",
-        )
+        pass
+        # parser.add_argument(
+        #     "--weread_cookie",
+        #     dest="weread_cookie",
+        #     type=str,
+        #     required=False,
+        #     help="",
+        # )
 
     def refresh_token(self):
-        github_repo_env = os.getenv('REPOSITORY')
-        body = {'url': f"https://github.com/{github_repo_env}","token":os.getenv("TOKEN")}
+        body = {"deviceId":self.device_id ,"refreshToken":self.token,"activationCode":self.activation_code}
         r = self.session.post(
-            "https://api.notionhub.app/refresh-weread-token/v2", json=body
+            "https://api.notionhub.app/refresh-weread-token", json=body
         )
         if r.ok:
             response_data = r.json()
@@ -52,6 +55,8 @@ class WereadLoader(BaseLoader):
             accessToken = response_data.get("accessToken")
             if vid and accessToken:
                 self.session.headers.update({"vid": str(vid), "accessToken": accessToken})
+            else:
+                print("Failed to refresh token")
         else:
             print("Failed to refresh token")
        
@@ -61,7 +66,7 @@ class WereadLoader(BaseLoader):
         if not r.ok:
             print(r.text)
             # need to refresh cookie
-            if r.json()["errcode"] == -2012 or r.json()["errcode"] == -2010:
+            if r.json()["errcode"] == -2012:
                 self.refresh_token()
                 r = self.session.get(WEREAD_HISTORY_URL)
             else:

@@ -25,7 +25,7 @@ import lollipop.types as lt
 import lollipop.validators as lv
 from lollipop.utils import identity, is_mapping
 
-from collections import OrderedDict, namedtuple
+from collections import OrderedDict
 from .compat import itervalues, iteritems
 import re
 
@@ -83,7 +83,7 @@ class TypeEncoder(object):
             if not choices:
                 raise ValueError('AnyOf constraints choices does not allow any values')
 
-            js['enum'] = list(schema.dump(choice) for choice in choices)
+            js['enum'] = list(schema.dump(choice) for choice in sorted(choices))
 
         none_of_validators = find_validators(schema, lv.NoneOf)
         if none_of_validators:
@@ -92,7 +92,8 @@ class TypeEncoder(object):
                 choices = choices.union(set(validator.values))
 
             if choices:
-                js['not'] = {'enum': list(schema.dump(choice) for choice in choices)}
+                js['not'] = {'enum': list(
+                    schema.dump(choice) for choice in sorted(choices))}
 
         return js
 
@@ -109,21 +110,36 @@ class ModifierEncoder(TypeEncoder):
     schema_type = lt.Modifier
 
     def json_schema(self, encoder, schema):
-        js = encoder.json_schema(schema.inner_type)
-        if js is None:
+        inner_schema = encoder.json_schema(schema.inner_type)
+
+        if inner_schema is None:
             return None
 
         if isinstance(schema, lt.Optional):
             default = schema.load_default()
-            if default is None:
-                js['default'] = None
-            elif default is not lt.MISSING:
-                js['default'] = schema.inner_type.dump(default)
+
+            if default not in [None, lt.MISSING]:
+                default = schema.inner_type.dump(default)
+
+            js = {
+                'anyOf': [
+                    inner_schema,
+                    {
+                        'type': 'null',
+                    }
+                ],
+            }
+
+            if default is not lt.MISSING:
+                js['default'] = default
+
         elif encoder.mode and (
                 (encoder.mode == 'dump' and not is_dump_schema(schema)) or
                 (encoder.mode == 'load' and not is_load_schema(schema))
         ):
             return None
+        else:
+            js = inner_schema
 
         return js
 
@@ -291,7 +307,13 @@ class TupleEncoder(TypeEncoder):
         if not items_schema:
             js['maxItems'] = 0
         else:
-            js['items'] = items_schema
+            # modern JSON Schema standard prescribes to use "prefixItems" for
+            # tuples, not "items", see
+            # https://json-schema.org/understanding-json-schema/reference/array
+            js['prefixItems'] = items_schema
+            js['minItems'] = len(items_schema)
+            js['maxItems'] = len(items_schema)
+            js['items'] = False
 
         return js
 
@@ -320,7 +342,7 @@ class ObjectEncoder(TypeEncoder):
 
             required = [
                 field_name
-                for field_name, field in iteritems(schema.fields)
+                for field_name, field in sorted(iteritems(schema.fields))
                 if not is_optional(field.field_type) and field_name in js['properties']
             ]
             if required:
@@ -360,7 +382,7 @@ class DictEncoder(TypeEncoder):
             js['properties'] = properties
         required = [
             k
-            for k, v in iteritems(schema.value_types)
+            for k, v in sorted(iteritems(schema.value_types))
             if not is_optional(v) and k in properties
         ]
         if required:
@@ -406,19 +428,22 @@ class ConstantEncoder(TypeEncoder):
 
 
 class SchemaUsageCounter(object):
-    def __init__(self, type_encoders):
+    def __init__(self, type_encoders, mode=None):
         self._type_encoders = type_encoders
+        self.mode = mode
         self.counts = {}
 
     def json_schema(self, schema, force_render=False):
         if isinstance(schema, lr.TypeRef):
             schema = schema.inner_type
 
-        if schema in self.counts:
-            self.counts[schema] += 1
+        schema_key = (schema, self.mode)
+
+        if schema_key in self.counts:
+            self.counts[schema_key] += 1
             return
 
-        self.counts[schema] = 1
+        self.counts[schema_key] = 1
 
         for type_encoder in self._type_encoders:
             if type_encoder.match(schema):
@@ -436,8 +461,9 @@ class JsonSchemaGenerator(object):
         if isinstance(schema, lr.TypeRef):
             schema = schema.inner_type
 
-        if schema in self.definitions and not force_render:
-            return {'$ref': '#/definitions/' + self.definitions[schema].name}
+        schema_key = (schema, self.mode)
+        if schema_key in self.definitions and not force_render:
+            return {'$ref': '#/components/schemas/' + self.definitions[schema_key].name}
 
         js = None
         for type_encoder in self.type_encoders:
@@ -479,16 +505,21 @@ class Encoder(object):
         definition_names = {definition.name
                             for definition in itervalues(definitions)}
 
-        counter = SchemaUsageCounter(self._encoders)
+        counter = SchemaUsageCounter(self._encoders, mode=mode)
         counter.json_schema(schema)
         counts = counter.counts
 
-        for schema1, count in iteritems(counts):
+        mode_suffix = '_' + mode if mode else ''
+
+        for schema_key, count in iteritems(counts):
             if count == 1:
                 continue
 
-            if schema1 not in definitions:
-                def_name = _sanitize_name(schema1.name) if schema1.name else 'Type'
+            schema1, mode = schema_key
+            if schema_key not in definitions:
+                def_name = schema1.name or 'Type'
+                def_name += mode_suffix
+                def_name = _sanitize_name(def_name)
 
                 if def_name in definition_names:
                     i = 1
@@ -496,23 +527,29 @@ class Encoder(object):
                         i += 1
                     def_name += str(i)
 
-                definitions[schema1] = Definition(def_name)
+                definitions[schema_key] = Definition(def_name)
                 definition_names.add(def_name)
 
         generator = JsonSchemaGenerator(self._encoders, definitions=definitions, mode=mode)
 
-        for schema1, definition in iteritems(definitions):
+        for schema_key, definition in iteritems(definitions):
             if definition.jsonschema is not None:
                 continue
 
-            definitions[schema1].jsonschema = generator.json_schema(
+            schema1, mode = schema_key
+
+            definitions[schema_key].jsonschema = generator.json_schema(
                 schema1, force_render=True,
             )
 
         js = generator.json_schema(schema)
         if is_top_level_schema and definitions:
-            js['definitions'] = {definition.name: definition.jsonschema
-                                for definition in itervalues(definitions)}
+            components_obj = js.setdefault('components', {})
+            schemas_obj = components_obj.setdefault('schemas', {})
+            schemas_obj.update({
+                definition.name: definition.jsonschema
+                for definition in itervalues(definitions)
+            })
 
         return js
 

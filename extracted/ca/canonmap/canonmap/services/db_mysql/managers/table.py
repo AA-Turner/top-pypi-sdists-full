@@ -4,6 +4,12 @@ import logging
 import re
 from pathlib import Path
 from typing import Union, Optional, List, Dict, Any
+import math
+import concurrent.futures
+from tqdm import tqdm
+import tempfile
+import csv
+import os
 
 from canonmap.services.db_mysql.adapters.connection import ConnectionManager
 from canonmap.services.db_mysql.schemas import TableField, FieldTransformType
@@ -158,31 +164,212 @@ class TableManager:
     #########################################################
     # Table TableField Management
     #########################################################
+    # def create_table_fields(
+    #     self,
+    #     fields: list["TableField"],
+    #     field_transform: FieldTransformType,
+    #     pk_field: str | None = None,
+    #     batch_size: int = 10_000,
+    #     skip_existing: bool = True,
+    # ) -> dict[str, list[str]]:
+    #     """
+    #     For each TableField create a derived column with the specified transform:
+    #     initialism  -> FIRST LETTERS ONLY (ABC)
+    #     phonetic    -> Double Metaphone primary code
+    #     soundex     -> MySQL SOUNDEX()
+
+    #     Args:
+    #         fields: List of TableField objects to transform
+    #         field_transform: Type of transform to apply to all fields
+    #         pk_field: Primary key field name (auto-detected if None)
+    #         batch_size: Batch size for processing large tables
+    #         skip_existing: If True, only process NULL/empty cells in transformed fields
+
+    #     Returns: {table_name: [new_field_names]}
+    #     """
+    #     # Validate transform type
+    #     if field_transform not in {FieldTransformType.INITIALISM, FieldTransformType.PHONETIC, FieldTransformType.SOUNDEX}:
+    #         raise ValueError(f"Invalid transform '{field_transform}'")
+        
+    #     # Group by table
+    #     by_table: dict[str, list[TableField]] = {}
+    #     for f in fields:
+    #         by_table.setdefault(f.table_name, []).append(f)
+
+    #     conn = self.connection_manager.connect()
+
+    #     import math, re
+    #     try:
+    #         from metaphone import doublemetaphone
+    #     except ImportError:
+    #         doublemetaphone = None
+
+    #     def to_initialism(text: str | None) -> str | None:
+    #         if not text:
+    #             return None
+    #         parts = re.findall(r"[A-Za-z]+", text)
+    #         return "".join(p[0].upper() for p in parts) if parts else None
+
+    #     def to_phonetic(text: str | None) -> str | None:
+    #         if not text:
+    #             return None
+    #         if doublemetaphone is None:
+    #             raise RuntimeError("metaphone package not installed")
+    #         p, s = doublemetaphone(text)
+    #         return p or s or None
+
+    #     created: dict[str, list[str]] = {}
+
+    #     for table_name, flist in by_table.items():
+    #         # Decide PK (use provided or auto)
+    #         effective_pk = pk_field or self._get_or_create_table_pk(table_name)
+
+    #         # Fetch columns
+    #         with get_cursor(conn) as cursor:
+    #             cursor.execute(
+    #                 "SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS "
+    #                 "WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s",
+    #                 (self.connection_manager.config.database, table_name)
+    #             )
+    #             cols = {r[0] for r in cursor.fetchall()}
+
+    #         # Split work
+    #         sql_jobs: list[tuple[TableField, str]] = []
+    #         py_jobs:  list[tuple[TableField, str]] = []
+
+    #         for f in flist:
+    #             if f.field_name not in cols:
+    #                 raise ValueError(f"Column '{f.field_name}' not found in '{table_name}'")
+
+    #             new_field = f"__{f.field_name}_{field_transform.value.lower()}__"
+    #             if new_field not in cols:
+    #                 with get_cursor(conn) as cursor:
+    #                     cursor.execute(f"ALTER TABLE `{table_name}` ADD COLUMN `{new_field}` VARCHAR(255)")
+    #                 conn.commit()
+    #                 cols.add(new_field)
+
+    #             if field_transform == FieldTransformType.SOUNDEX:
+    #                 sql_jobs.append((f, new_field))
+    #             else:
+    #                 py_jobs.append((f, new_field))
+
+    #         # SOUNDEX via SQL
+    #         for f, new_field in sql_jobs:
+    #             with get_cursor(conn) as cursor:
+    #                 if skip_existing:
+    #                     cursor.execute(
+    #                         f"UPDATE `{table_name}` SET `{new_field}` = SOUNDEX(`{f.field_name}`) "
+    #                         f"WHERE `{new_field}` IS NULL OR `{new_field}` = ''"
+    #                     )
+    #                 else:
+    #                     cursor.execute(
+    #                         f"UPDATE `{table_name}` SET `{new_field}` = SOUNDEX(`{f.field_name}`)"
+    #                     )
+    #             conn.commit()
+
+    #         # Python transforms batched
+    #         if py_jobs:
+    #             # Count total rows to process
+    #             if skip_existing:
+    #                 # Count only rows where transformed fields are NULL/empty
+    #                 null_conditions = []
+    #                 for f, new_field in py_jobs:
+    #                     null_conditions.append(f"`{new_field}` IS NULL OR `{new_field}` = ''")
+                    
+    #                 with get_cursor(conn) as cursor:
+    #                     cursor.execute(f"SELECT COUNT(*) FROM `{table_name}` WHERE {' OR '.join(null_conditions)}")
+    #                     total_rows = cursor.fetchone()[0]
+    #             else:
+    #                 with get_cursor(conn) as cursor:
+    #                     cursor.execute(f"SELECT COUNT(*) FROM `{table_name}`")
+    #                     total_rows = cursor.fetchone()[0]
+
+    #             batches = math.ceil(total_rows / batch_size)
+    #             select_cols = ", ".join({f"`{effective_pk}`"} | {f"`{f.field_name}`" for f, _ in py_jobs})
+
+    #             for i in range(batches):
+    #                 offset = i * batch_size
+    #                 with get_cursor(conn) as cursor:
+    #                     if skip_existing:
+    #                         # Only select rows where transformed fields are NULL/empty
+    #                         null_conditions = []
+    #                         for f, new_field in py_jobs:
+    #                             null_conditions.append(f"`{new_field}` IS NULL OR `{new_field}` = ''")
+                            
+    #                         cursor.execute(
+    #                             f"SELECT {select_cols} FROM `{table_name}` "
+    #                             f"WHERE {' OR '.join(null_conditions)} "
+    #                             f"LIMIT %s OFFSET %s",
+    #                             (batch_size, offset)
+    #                         )
+    #                     else:
+    #                         cursor.execute(
+    #                             f"SELECT {select_cols} FROM `{table_name}` LIMIT %s OFFSET %s",
+    #                             (batch_size, offset)
+    #                         )
+    #                     rows = cursor.fetchall()
+    #                     # capture column order once
+    #                     colnames = [d[0] for d in cursor.description]
+
+    #                 if not rows:
+    #                     break
+
+    #                 updates: dict[str, list[tuple[str | None, object]]] = {nf: [] for _, nf in py_jobs}
+    #                 pk_idx = colnames.index(effective_pk)
+    #                 for row in rows:
+    #                     pk_val = row[pk_idx]
+    #                     row_map = dict(zip(colnames, row))
+    #                     for f, new_field in py_jobs:
+    #                         src_val = row_map[f.field_name]
+    #                         if field_transform == FieldTransformType.INITIALISM:
+    #                             transformed = to_initialism(src_val)
+    #                         else:
+    #                             transformed = to_phonetic(src_val)
+    #                         updates[new_field].append((transformed, pk_val))
+
+    #                 with get_cursor(conn) as cursor:
+    #                     for new_field, data in updates.items():
+    #                         cursor.executemany(
+    #                             f"UPDATE `{table_name}` SET `{new_field}`=%s WHERE `{effective_pk}`=%s",
+    #                             data
+    #                         )
+    #                 conn.commit()
+
+    #         created[table_name] = [f"{f.field_name}_{field_transform.value.lower()}" for f in flist]
+
+    #     logger.info("✅ Finished create_table_fields.")
+    #     return created
+
+
+
     def create_table_fields(
         self,
         fields: list["TableField"],
+        field_transform: FieldTransformType,
         pk_field: str | None = None,
         batch_size: int = 10_000,
+        skip_existing: bool = True,
     ) -> dict[str, list[str]]:
         """
-        For each TableField(table_name, field_name, field_transform) create a derived column:
-        initialism  -> FIRST LETTERS ONLY (ABC)
-        phonetic    -> Double Metaphone primary code
+        For each TableField create a derived column with the specified transform:
+        initialism  -> FIRST LETTERS ONLY (ABC, in Python)
+        phonetic    -> Double Metaphone primary code (in Python)
         soundex     -> MySQL SOUNDEX()
 
-        Returns: {table_name: [new_field_names]}
+        For ultra-large datasets (batch_size > 100_000), an optional CSV export/transform/import
+        pipeline could be used for efficiency, but this is not enabled by default.
         """
-        # Group/validate
+        # Validate transform type
+        if field_transform not in {FieldTransformType.INITIALISM, FieldTransformType.PHONETIC, FieldTransformType.SOUNDEX}:
+            raise ValueError(f"Invalid transform '{field_transform}'")
+        
+        # Group by table
         by_table: dict[str, list[TableField]] = {}
         for f in fields:
-            kind = (f.field_transform or "").lower()
-            if kind not in {"initialism", "phonetic", "soundex"}:
-                raise ValueError(f"Invalid transform '{f.field_transform}' for {f.table_name}.{f.field_name}")
             by_table.setdefault(f.table_name, []).append(f)
 
         conn = self.connection_manager.connect()
 
-        import math, re
         try:
             from metaphone import doublemetaphone
         except ImportError:
@@ -205,6 +392,7 @@ class TableManager:
         created: dict[str, list[str]] = {}
 
         for table_name, flist in by_table.items():
+            logger.info(f"Starting transform for table '{table_name}' with {len(flist)} field(s).")
             # Decide PK (use provided or auto)
             effective_pk = pk_field or self._get_or_create_table_pk(table_name)
 
@@ -217,7 +405,7 @@ class TableManager:
                 )
                 cols = {r[0] for r in cursor.fetchall()}
 
-            # Split work
+            # Partition into SQL and Python jobs
             sql_jobs: list[tuple[TableField, str]] = []
             py_jobs:  list[tuple[TableField, str]] = []
 
@@ -225,61 +413,130 @@ class TableManager:
                 if f.field_name not in cols:
                     raise ValueError(f"Column '{f.field_name}' not found in '{table_name}'")
 
-                new_field = f"__{f.field_name}_{f.field_transform.value.lower()}__"
+                new_field = f"__{f.field_name}_{field_transform.value.lower()}__"
                 if new_field not in cols:
                     with get_cursor(conn) as cursor:
                         cursor.execute(f"ALTER TABLE `{table_name}` ADD COLUMN `{new_field}` VARCHAR(255)")
                     conn.commit()
+                    logger.info(f"Added column '{new_field}' to table '{table_name}'.")
                     cols.add(new_field)
 
-                if f.field_transform == FieldTransformType.SOUNDEX:
+                if field_transform == FieldTransformType.SOUNDEX:
                     sql_jobs.append((f, new_field))
                 else:
                     py_jobs.append((f, new_field))
 
-            # SOUNDEX via SQL
+            # SOUNDEX via SQL (leave as-is)
             for f, new_field in sql_jobs:
+                logger.info(f"Updating '{new_field}' using SOUNDEX for field '{f.field_name}' in table '{table_name}'.")
                 with get_cursor(conn) as cursor:
-                    cursor.execute(
-                        f"UPDATE `{table_name}` SET `{new_field}` = SOUNDEX(`{f.field_name}`)"
-                    )
+                    if skip_existing:
+                        cursor.execute(
+                            f"UPDATE `{table_name}` SET `{new_field}` = SOUNDEX(`{f.field_name}`) "
+                            f"WHERE `{new_field}` IS NULL OR `{new_field}` = ''"
+                        )
+                        logger.debug(f"Updated rows where '{new_field}' is NULL or empty.")
+                    else:
+                        cursor.execute(
+                            f"UPDATE `{table_name}` SET `{new_field}` = SOUNDEX(`{f.field_name}`)"
+                        )
+                        logger.debug(f"Updated all rows in '{new_field}' for SOUNDEX.")
                 conn.commit()
+                logger.info(f"Completed SOUNDEX update for '{new_field}' in table '{table_name}'.")
 
-            # Python transforms batched
+            # Python transforms (initialism/phonetic)
             if py_jobs:
-                with get_cursor(conn) as cursor:
-                    cursor.execute(f"SELECT COUNT(*) FROM `{table_name}`")
-                    total_rows = cursor.fetchone()[0]
+                # Count total rows to process
+                if skip_existing:
+                    null_conditions = []
+                    for f, new_field in py_jobs:
+                        null_conditions.append(f"`{new_field}` IS NULL OR `{new_field}` = ''")
+                    with get_cursor(conn) as cursor:
+                        cursor.execute(f"SELECT COUNT(*) FROM `{table_name}` WHERE {' OR '.join(null_conditions)}")
+                        total_rows = cursor.fetchone()[0]
+                else:
+                    with get_cursor(conn) as cursor:
+                        cursor.execute(f"SELECT COUNT(*) FROM `{table_name}`")
+                        total_rows = cursor.fetchone()[0]
+
+                logger.info(f"Python-side transform: {total_rows} row(s) to process for table '{table_name}'.")
+
+                if total_rows == 0:
+                    logger.info(f"No rows to process for table '{table_name}'. Skipping Python-side transform.")
+                    created[table_name] = [f"{f.field_name}_{field_transform.value.lower()}" for f in flist]
+                    continue
 
                 batches = math.ceil(total_rows / batch_size)
                 select_cols = ", ".join({f"`{effective_pk}`"} | {f"`{f.field_name}`" for f, _ in py_jobs})
 
+                # Efficient per-row Python transform using ThreadPoolExecutor and tqdm for progress
                 for i in range(batches):
                     offset = i * batch_size
+                    logger.info(f"Table '{table_name}': Processing batch {i+1}/{batches} (offset={offset}, batch_size={batch_size})")
                     with get_cursor(conn) as cursor:
-                        cursor.execute(
-                            f"SELECT {select_cols} FROM `{table_name}` LIMIT %s OFFSET %s",
-                            (batch_size, offset)
-                        )
+                        if skip_existing:
+                            null_conditions = []
+                            for f, new_field in py_jobs:
+                                null_conditions.append(f"`{new_field}` IS NULL OR `{new_field}` = ''")
+                            cursor.execute(
+                                f"SELECT {select_cols} FROM `{table_name}` "
+                                f"WHERE {' OR '.join(null_conditions)} "
+                                f"LIMIT %s OFFSET %s",
+                                (batch_size, offset)
+                            )
+                        else:
+                            cursor.execute(
+                                f"SELECT {select_cols} FROM `{table_name}` LIMIT %s OFFSET %s",
+                                (batch_size, offset)
+                            )
                         rows = cursor.fetchall()
-                        # capture column order once
                         colnames = [d[0] for d in cursor.description]
 
+                    logger.debug(f"Batch {i+1}/{batches} for table '{table_name}': {len(rows)} row(s) fetched.")
+
                     if not rows:
+                        logger.info(f"Batch {i+1}/{batches} for table '{table_name}' is empty. Skipping remaining batches.")
                         break
 
                     updates: dict[str, list[tuple[str | None, object]]] = {nf: [] for _, nf in py_jobs}
                     pk_idx = colnames.index(effective_pk)
+                    # Compose jobs for each row/field pair
+                    jobs = []
                     for row in rows:
                         pk_val = row[pk_idx]
                         row_map = dict(zip(colnames, row))
                         for f, new_field in py_jobs:
                             src_val = row_map[f.field_name]
-                            if f.field_transform == FieldTransformType.INITIALISM:
-                                transformed = to_initialism(src_val)
-                            else:
-                                transformed = to_phonetic(src_val)
-                            updates[new_field].append((transformed, pk_val))
+                            jobs.append((f, new_field, src_val, pk_val))
+
+                    logger.debug(f"Batch {i+1}/{batches} for table '{table_name}': Starting parallel transform for {len(jobs)} job(s).")
+
+                    # Transform function for parallelization
+                    def transform_job(args):
+                        f, new_field, src_val, pk_val = args
+                        if field_transform == FieldTransformType.INITIALISM:
+                            transformed = to_initialism(src_val)
+                        else:
+                            transformed = to_phonetic(src_val)
+                        return (new_field, transformed, pk_val)
+
+                    # Parallel transform with progress bar
+                    with concurrent.futures.ThreadPoolExecutor() as executor:
+                        results = list(tqdm(
+                            executor.map(transform_job, jobs),
+                            total=len(jobs),
+                            desc=f"Transforming batch {i+1}/{batches} ({table_name})"
+                        ))
+
+                    if not results:
+                        logger.info(f"Batch {i+1}/{batches} for table '{table_name}': No transform results (skipped/empty).")
+                        continue
+
+                    logger.debug(f"Batch {i+1}/{batches} for table '{table_name}': Parallel transform finished.")
+
+                    # Organize updates for executemany
+                    for new_field, transformed, pk_val in results:
+                        updates[new_field].append((transformed, pk_val))
 
                     with get_cursor(conn) as cursor:
                         for new_field, data in updates.items():
@@ -288,18 +545,25 @@ class TableManager:
                                 data
                             )
                     conn.commit()
+                    logger.info(f"Batch {i+1}/{batches} for table '{table_name}' completed updates.")
 
-            created[table_name] = [f"{f.field_name}_{f.field_transform.value.lower()}" for f in flist]
+            created[table_name] = [f"{f.field_name}_{field_transform.value.lower()}" for f in flist]
+            logger.info(f"Completed all transforms for table '{table_name}'.")
 
         logger.info("✅ Finished create_table_fields.")
         return created
 
-    def drop_table_fields(self, fields: list["TableField"]) -> dict[str, list[str]]:
+
+
+    def drop_table_fields(self, fields: list["TableField"], field_transform: FieldTransformType) -> dict[str, list[str]]:
         """
         Drop the derived columns referenced by TableField objects.
-        Uses TableField.field_transform to infer the column name:
+        Uses the provided field_transform to infer the column name:
         new_col = f"{field_name}_{field_transform.lower()}"
-        If field_transform is None, it will try to drop `field_name` directly.
+
+        Args:
+            fields: List of TableField objects
+            field_transform: Type of transform that was applied
 
         Returns: {table_name: [dropped_cols]}
         """
@@ -324,10 +588,7 @@ class TableManager:
             # build list of real cols to drop
             to_drop: list[str] = []
             for f in flist:
-                if f.field_transform:
-                    col = f"{f.field_name}_{f.field_transform.value.lower()}"
-                else:
-                    col = f.field_name
+                col = f"__{f.field_name}_{field_transform.value.lower()}__"
                 if col in cols:
                     to_drop.append(col)
                 else:

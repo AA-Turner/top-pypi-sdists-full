@@ -1,6 +1,5 @@
 from collections.abc import Mapping
 
-import inflection
 from django.core.exceptions import ObjectDoesNotExist
 from django.db.models.query import QuerySet
 from django.utils.module_loading import import_string as import_class_from_dotted_path
@@ -27,6 +26,7 @@ from rest_framework_json_api.utils import (
     get_resource_type_from_instance,
     get_resource_type_from_model,
     get_resource_type_from_serializer,
+    undo_format_field_name,
 )
 
 
@@ -90,7 +90,10 @@ class SparseFieldsetsMixin:
                     sparse_fieldset_query_param
                 )
                 if sparse_fieldset_value is not None:
-                    sparse_fields = sparse_fieldset_value.split(",")
+                    sparse_fields = [
+                        undo_format_field_name(sparse_field)
+                        for sparse_field in sparse_fieldset_value.split(",")
+                    ]
                     return (
                         field
                         for field in readable_fields
@@ -129,7 +132,7 @@ class IncludedResourcesValidationMixin:
             serializers = getattr(serializer_class, "included_serializers", None)
             if serializers is None:
                 raise ParseError("This endpoint does not support the include parameter")
-            this_field_name = inflection.underscore(field_path[0])
+            this_field_name = field_path[0]
             this_included_serializer = serializers.get(this_field_name)
             if this_included_serializer is None:
                 raise ParseError(

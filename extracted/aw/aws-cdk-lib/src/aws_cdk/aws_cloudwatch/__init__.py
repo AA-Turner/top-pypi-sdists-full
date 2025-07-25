@@ -152,25 +152,32 @@ error_rate = cloudwatch.MathExpression(
 
 ### Search Expressions
 
-Math expressions also support search expressions. For example, the following
-search expression returns all CPUUtilization metrics that it finds, with the
-graph showing the Average statistic with an aggregation period of 5 minutes:
+Search expressions allow you to dynamically discover and display metrics that match specific criteria, making them ideal for monitoring dynamic infrastructure where the exact metrics aren't known in advance. A single search expression can return up to 500 time series.
+
+#### Using SearchExpression Class
+
+Following is an example of a search expression that returns all CPUUtilization metrics with the graph showing the Average statistic with an aggregation period of 5 minutes:
 
 ```python
-cpu_utilization = cloudwatch.MathExpression(
-    expression="SEARCH('{AWS/EC2,InstanceId} MetricName=\"CPUUtilization\"', 'Average', 300)",
-
-    # Specifying '' as the label suppresses the default behavior
-    # of using the expression as metric label. This is especially appropriate
-    # when using expressions that return multiple time series (like SEARCH()
-    # or METRICS()), to show the labels of the retrieved metrics only.
-    label=""
+cpu_utilization = cloudwatch.SearchExpression(
+    expression="SEARCH('{AWS/EC2,InstanceId} MetricName=\"CPUUtilization\"', 'Average', 900)",
+    label="EC2 CPU Utilization",
+    color="#ff7f0e"
 )
 ```
 
 Cross-account and cross-region search expressions are also supported. Use
 the `searchAccount` and `searchRegion` properties to specify the account
 and/or region to evaluate the search expression against.
+
+```python
+cross_account_search = cloudwatch.SearchExpression(
+    expression="SEARCH('{AWS/Lambda,FunctionName} MetricName=\"Invocations\"', 'Sum', 300)",
+    search_account="123456789012",
+    search_region="us-west-2",
+    label="Production Lambda Invocations"
+)
+```
 
 ### Aggregation
 
@@ -8926,15 +8933,20 @@ class MathExpression(
 
     Example::
 
-        # fn: lambda.Function
+        # matchmaking_rule_set: gamelift.MatchmakingRuleSet
         
-        
-        all_problems = cloudwatch.MathExpression(
-            expression="errors + throttles",
+        # Alarm that triggers when the per-second average of not placed matches exceed 10%
+        rule_evaluation_ratio = cloudwatch.MathExpression(
+            expression="1 - (ruleEvaluationsPassed / ruleEvaluationsFailed)",
             using_metrics={
-                "errors": fn.metric_errors(),
-                "throttles": fn.metric_throttles()
+                "rule_evaluations_passed": matchmaking_rule_set.metric_rule_evaluations_passed(statistic=cloudwatch.Statistic.SUM),
+                "rule_evaluations_failed": matchmaking_rule_set.metric("ruleEvaluationsFailed")
             }
+        )
+        cloudwatch.Alarm(self, "Alarm",
+            metric=rule_evaluation_ratio,
+            threshold=0.1,
+            evaluation_periods=3
         )
     '''
 
@@ -8954,7 +8966,7 @@ class MathExpression(
         :param using_metrics: The metrics used in the expression, in a map. The key is the identifier that represents the given metric in the expression, and the value is the actual Metric object. The ``period`` of each metric in ``usingMetrics`` is ignored and instead overridden by the ``period`` specified for the ``MathExpression`` construct. Even if no ``period`` is specified for the ``MathExpression``, it will be overridden by the default value (``Duration.minutes(5)``). Example:: declare const metrics: elbv2.IApplicationLoadBalancerMetrics; new cloudwatch.MathExpression({ expression: 'm1+m2', label: 'AlbErrors', usingMetrics: { m1: metrics.custom('HTTPCode_ELB_500_Count', { period: Duration.minutes(1), // <- This period will be ignored statistic: 'Sum', label: 'HTTPCode_ELB_500_Count', }), m2: metrics.custom('HTTPCode_ELB_502_Count', { period: Duration.minutes(1), // <- This period will be ignored statistic: 'Sum', label: 'HTTPCode_ELB_502_Count', }), }, period: Duration.minutes(3), // <- This overrides the period of each metric in `usingMetrics` // (Even if not specified, it is overridden by the default value) }); Default: - Empty map.
         :param color: Color for this metric when added to a Graph in a Dashboard. Default: - Automatic color
         :param label: Label for this expression when added to a Graph in a Dashboard. If this expression evaluates to more than one time series (for example, through the use of ``METRICS()`` or ``SEARCH()`` expressions), each time series will appear in the graph using a combination of the expression label and the individual metric label. Specify the empty string (``''``) to suppress the expression label and only keep the metric label. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. If the math expression produces more than one time series, the maximum will be shown for each individual time series produce by this math expression. Default: - Expression value is used as label
-        :param period: The period over which the expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
+        :param period: The period over which the math expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Specifying a searchAccount has no effect to the account used for metrics within the expression (passed via usingMetrics). Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Specifying a searchRegion has no effect to the region used for metrics within the expression (passed via usingMetrics). Default: - Deployment region.
         '''
@@ -9047,7 +9059,7 @@ class MathExpression(
 
         :param color: Color for this metric when added to a Graph in a Dashboard. Default: - Automatic color
         :param label: Label for this expression when added to a Graph in a Dashboard. If this expression evaluates to more than one time series (for example, through the use of ``METRICS()`` or ``SEARCH()`` expressions), each time series will appear in the graph using a combination of the expression label and the individual metric label. Specify the empty string (``''``) to suppress the expression label and only keep the metric label. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. If the math expression produces more than one time series, the maximum will be shown for each individual time series produce by this math expression. Default: - Expression value is used as label
-        :param period: The period over which the expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
+        :param period: The period over which the math expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Specifying a searchAccount has no effect to the account used for metrics within the expression (passed via usingMetrics). Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Specifying a searchRegion has no effect to the region used for metrics within the expression (passed via usingMetrics). Default: - Deployment region.
         '''
@@ -9148,7 +9160,7 @@ class MathExpressionOptions:
 
         :param color: Color for this metric when added to a Graph in a Dashboard. Default: - Automatic color
         :param label: Label for this expression when added to a Graph in a Dashboard. If this expression evaluates to more than one time series (for example, through the use of ``METRICS()`` or ``SEARCH()`` expressions), each time series will appear in the graph using a combination of the expression label and the individual metric label. Specify the empty string (``''``) to suppress the expression label and only keep the metric label. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. If the math expression produces more than one time series, the maximum will be shown for each individual time series produce by this math expression. Default: - Expression value is used as label
-        :param period: The period over which the expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
+        :param period: The period over which the math expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Specifying a searchAccount has no effect to the account used for metrics within the expression (passed via usingMetrics). Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Specifying a searchRegion has no effect to the region used for metrics within the expression (passed via usingMetrics). Default: - Deployment region.
 
@@ -9227,7 +9239,7 @@ class MathExpressionOptions:
 
     @builtins.property
     def period(self) -> typing.Optional[_Duration_4839e8c3]:
-        '''The period over which the expression's statistics are applied.
+        '''The period over which the math expression's statistics are applied.
 
         This period overrides all periods in the metrics used in this
         math expression.
@@ -9302,7 +9314,7 @@ class MathExpressionProps(MathExpressionOptions):
 
         :param color: Color for this metric when added to a Graph in a Dashboard. Default: - Automatic color
         :param label: Label for this expression when added to a Graph in a Dashboard. If this expression evaluates to more than one time series (for example, through the use of ``METRICS()`` or ``SEARCH()`` expressions), each time series will appear in the graph using a combination of the expression label and the individual metric label. Specify the empty string (``''``) to suppress the expression label and only keep the metric label. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. If the math expression produces more than one time series, the maximum will be shown for each individual time series produce by this math expression. Default: - Expression value is used as label
-        :param period: The period over which the expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
+        :param period: The period over which the math expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Specifying a searchAccount has no effect to the account used for metrics within the expression (passed via usingMetrics). Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Specifying a searchRegion has no effect to the region used for metrics within the expression (passed via usingMetrics). Default: - Deployment region.
         :param expression: The expression defining the metric. When an expression contains a SEARCH function, it cannot be used within an Alarm.
@@ -9312,15 +9324,20 @@ class MathExpressionProps(MathExpressionOptions):
 
         Example::
 
-            # fn: lambda.Function
+            # matchmaking_rule_set: gamelift.MatchmakingRuleSet
             
-            
-            all_problems = cloudwatch.MathExpression(
-                expression="errors + throttles",
+            # Alarm that triggers when the per-second average of not placed matches exceed 10%
+            rule_evaluation_ratio = cloudwatch.MathExpression(
+                expression="1 - (ruleEvaluationsPassed / ruleEvaluationsFailed)",
                 using_metrics={
-                    "errors": fn.metric_errors(),
-                    "throttles": fn.metric_throttles()
+                    "rule_evaluations_passed": matchmaking_rule_set.metric_rule_evaluations_passed(statistic=cloudwatch.Statistic.SUM),
+                    "rule_evaluations_failed": matchmaking_rule_set.metric("ruleEvaluationsFailed")
                 }
+            )
+            cloudwatch.Alarm(self, "Alarm",
+                metric=rule_evaluation_ratio,
+                threshold=0.1,
+                evaluation_periods=3
             )
         '''
         if __debug__:
@@ -9387,7 +9404,7 @@ class MathExpressionProps(MathExpressionOptions):
 
     @builtins.property
     def period(self) -> typing.Optional[_Duration_4839e8c3]:
-        '''The period over which the expression's statistics are applied.
+        '''The period over which the math expression's statistics are applied.
 
         This period overrides all periods in the metrics used in this
         math expression.
@@ -9595,7 +9612,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         :param std_devs: The number of standard deviations to use for the anomaly detection band. The higher the value, the wider the band. - Must be greater than 0. A value of 0 or negative values would not make sense in the context of calculating standard deviations. - There is no strict maximum value defined, as standard deviations can theoretically extend infinitely. However, in practice, values beyond 5 or 6 standard deviations are rarely used, as they would result in an extremely wide anomaly detection band, potentially missing significant anomalies. Default: 2
         :param color: Color for this metric when added to a Graph in a Dashboard. Default: - Automatic color
         :param label: Label for this expression when added to a Graph in a Dashboard. If this expression evaluates to more than one time series (for example, through the use of ``METRICS()`` or ``SEARCH()`` expressions), each time series will appear in the graph using a combination of the expression label and the individual metric label. Specify the empty string (``''``) to suppress the expression label and only keep the metric label. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. If the math expression produces more than one time series, the maximum will be shown for each individual time series produce by this math expression. Default: - Expression value is used as label
-        :param period: The period over which the expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
+        :param period: The period over which the math expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Specifying a searchAccount has no effect to the account used for metrics within the expression (passed via usingMetrics). Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Specifying a searchRegion has no effect to the region used for metrics within the expression (passed via usingMetrics). Default: - Deployment region.
 
@@ -9856,6 +9873,7 @@ class Metric(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.aws_cloudwatch.Metr
         "math_expression": "mathExpression",
         "metric_stat": "metricStat",
         "rendering_properties": "renderingProperties",
+        "search_expression": "searchExpression",
     },
 )
 class MetricConfig:
@@ -9865,12 +9883,14 @@ class MetricConfig:
         math_expression: typing.Optional[typing.Union["MetricExpressionConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         metric_stat: typing.Optional[typing.Union["MetricStatConfig", typing.Dict[builtins.str, typing.Any]]] = None,
         rendering_properties: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+        search_expression: typing.Optional[typing.Union["MetricExpressionConfig", typing.Dict[builtins.str, typing.Any]]] = None,
     ) -> None:
         '''Properties of a rendered metric.
 
         :param math_expression: In case the metric is a math expression, the details of the math expression. Default: - None
         :param metric_stat: In case the metric represents a query, the details of the query. Default: - None
         :param rendering_properties: Additional properties which will be rendered if the metric is used in a dashboard. Examples are 'label' and 'color', but any key in here will be added to dashboard graphs. Default: - None
+        :param search_expression: In case the metric is a search expression, the details of the search expression. Default: - None
 
         :exampleMetadata: fixture=_generated
 
@@ -9916,18 +9936,32 @@ class MetricConfig:
                 ),
                 rendering_properties={
                     "rendering_properties_key": rendering_properties
-                }
+                },
+                search_expression=cloudwatch.MetricExpressionConfig(
+                    expression="expression",
+                    period=123,
+                    using_metrics={
+                        "using_metrics_key": metric
+                    },
+            
+                    # the properties below are optional
+                    search_account="searchAccount",
+                    search_region="searchRegion"
+                )
             )
         '''
         if isinstance(math_expression, dict):
             math_expression = MetricExpressionConfig(**math_expression)
         if isinstance(metric_stat, dict):
             metric_stat = MetricStatConfig(**metric_stat)
+        if isinstance(search_expression, dict):
+            search_expression = MetricExpressionConfig(**search_expression)
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2ddb584abe8421d7f77520aa621133794d500e179ff044f43970dac3fd018cca)
             check_type(argname="argument math_expression", value=math_expression, expected_type=type_hints["math_expression"])
             check_type(argname="argument metric_stat", value=metric_stat, expected_type=type_hints["metric_stat"])
             check_type(argname="argument rendering_properties", value=rendering_properties, expected_type=type_hints["rendering_properties"])
+            check_type(argname="argument search_expression", value=search_expression, expected_type=type_hints["search_expression"])
         self._values: typing.Dict[builtins.str, typing.Any] = {}
         if math_expression is not None:
             self._values["math_expression"] = math_expression
@@ -9935,6 +9969,8 @@ class MetricConfig:
             self._values["metric_stat"] = metric_stat
         if rendering_properties is not None:
             self._values["rendering_properties"] = rendering_properties
+        if search_expression is not None:
+            self._values["search_expression"] = search_expression
 
     @builtins.property
     def math_expression(self) -> typing.Optional["MetricExpressionConfig"]:
@@ -9967,6 +10003,15 @@ class MetricConfig:
         '''
         result = self._values.get("rendering_properties")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, typing.Any]], result)
+
+    @builtins.property
+    def search_expression(self) -> typing.Optional["MetricExpressionConfig"]:
+        '''In case the metric is a search expression, the details of the search expression.
+
+        :default: - None
+        '''
+        result = self._values.get("search_expression")
+        return typing.cast(typing.Optional["MetricExpressionConfig"], result)
 
     def __eq__(self, rhs: typing.Any) -> builtins.bool:
         return isinstance(rhs, self.__class__) and rhs._values == self._values
@@ -11203,6 +11248,475 @@ class SearchComponents:
 
     def __repr__(self) -> str:
         return "SearchComponents(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.implements(IMetric)
+class SearchExpression(
+    metaclass=jsii.JSIIMeta,
+    jsii_type="aws-cdk-lib.aws_cloudwatch.SearchExpression",
+):
+    '''A CloudWatch search expression for dynamically finding and graphing multiple related metrics.
+
+    Search expressions allow you to search for and graph multiple related metrics from a single expression.
+    This is particularly useful in dynamic environments where the exact metric names or dimensions
+    may not be known at deployment time.
+
+    Example::
+
+       search_expression = cloudwatch.SearchExpression(
+           expression="SEARCH('{AWS/EC2,InstanceId} CPUUtilization', 'Average', 300)",
+           label="EC2 CPU Utilization",
+           period=Duration.minutes(5)
+       )
+
+    This class does not represent a resource, so hence is not a construct. Instead,
+    SearchExpression is an abstraction that makes it easy to specify metrics for use in graphs.
+
+    :exampleMetadata: infused
+
+    Example::
+
+        cpu_utilization = cloudwatch.SearchExpression(
+            expression="SEARCH('{AWS/EC2,InstanceId} MetricName=\"CPUUtilization\"', 'Average', 900)",
+            label="EC2 CPU Utilization",
+            color="#ff7f0e"
+        )
+    '''
+
+    def __init__(
+        self,
+        *,
+        expression: builtins.str,
+        color: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        search_account: typing.Optional[builtins.str] = None,
+        search_region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''
+        :param expression: The search expression defining the metrics to be retrieved. A search expression cannot be used within an Alarm. A search expression allows you to retrieve and graph multiple related metrics in a single statement. It can return up to 500 time series. Examples: - ``SEARCH('{AWS/EC2,InstanceId} CPUUtilization', 'Average', 300)`` - ``SEARCH('{AWS/ApplicationELB,LoadBalancer} RequestCount', 'Sum', 60)`` - ``SEARCH('{MyNamespace,ServiceName} Errors', 'Sum')`` For more information about search expression syntax, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/search-expression-syntax.html
+        :param color: Color for the metric produced by the search expression. If the search expression produces more than one time series, the color is assigned to the first one. Other metrics are assigned colors automatically. Default: - Automatically assigned.
+        :param label: Label for this search expression when added to a Graph in a Dashboard. If this expression evaluates to more than one time series, each time series will appear in the graph using a combination of the expression label and the individual metric label. Specify the empty string (``''``) to suppress the expression label and only keep the metric label. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. If the search expression produces more than one time series, the maximum will be shown for each individual time series produce by this search expression. Default: - No label.
+        :param period: The period over which the search expression's statistics are applied. This period overrides the period defined within the search expression. Default: Duration.minutes(5)
+        :param search_account: Account to evaluate search expressions within. Default: - Deployment account.
+        :param search_region: Region to evaluate search expressions within. Default: - Deployment region.
+        '''
+        props = SearchExpressionProps(
+            expression=expression,
+            color=color,
+            label=label,
+            period=period,
+            search_account=search_account,
+            search_region=search_region,
+        )
+
+        jsii.create(self.__class__, self, [props])
+
+    @jsii.member(jsii_name="toMetricConfig")
+    def to_metric_config(self) -> MetricConfig:
+        '''Inspect the details of the metric object.'''
+        return typing.cast(MetricConfig, jsii.invoke(self, "toMetricConfig", []))
+
+    @jsii.member(jsii_name="toString")
+    def to_string(self) -> builtins.str:
+        '''Returns a string representation of an object.'''
+        return typing.cast(builtins.str, jsii.invoke(self, "toString", []))
+
+    @jsii.member(jsii_name="with")
+    def with_(
+        self,
+        *,
+        color: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        search_account: typing.Optional[builtins.str] = None,
+        search_region: typing.Optional[builtins.str] = None,
+    ) -> "SearchExpression":
+        '''Return a copy of SearchExpression with properties changed.
+
+        All properties except expression can be changed.
+
+        :param color: Color for the metric produced by the search expression. If the search expression produces more than one time series, the color is assigned to the first one. Other metrics are assigned colors automatically. Default: - Automatically assigned.
+        :param label: Label for this search expression when added to a Graph in a Dashboard. If this expression evaluates to more than one time series, each time series will appear in the graph using a combination of the expression label and the individual metric label. Specify the empty string (``''``) to suppress the expression label and only keep the metric label. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. If the search expression produces more than one time series, the maximum will be shown for each individual time series produce by this search expression. Default: - No label.
+        :param period: The period over which the search expression's statistics are applied. This period overrides the period defined within the search expression. Default: Duration.minutes(5)
+        :param search_account: Account to evaluate search expressions within. Default: - Deployment account.
+        :param search_region: Region to evaluate search expressions within. Default: - Deployment region.
+        '''
+        props = SearchExpressionOptions(
+            color=color,
+            label=label,
+            period=period,
+            search_account=search_account,
+            search_region=search_region,
+        )
+
+        return typing.cast("SearchExpression", jsii.invoke(self, "with", [props]))
+
+    @builtins.property
+    @jsii.member(jsii_name="expression")
+    def expression(self) -> builtins.str:
+        '''The search expression defining the metrics to be retrieved.'''
+        return typing.cast(builtins.str, jsii.get(self, "expression"))
+
+    @builtins.property
+    @jsii.member(jsii_name="period")
+    def period(self) -> _Duration_4839e8c3:
+        '''The aggregation period for the metrics produced by the Search Expression.'''
+        return typing.cast(_Duration_4839e8c3, jsii.get(self, "period"))
+
+    @builtins.property
+    @jsii.member(jsii_name="color")
+    def color(self) -> typing.Optional[builtins.str]:
+        '''Hex color code (e.g. '#00ff00'), to use when rendering the resulting metrics in a graph. If multiple time series are returned, color is assigned to the first metric, color for the other metrics is automatically assigned.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "color"))
+
+    @builtins.property
+    @jsii.member(jsii_name="label")
+    def label(self) -> typing.Optional[builtins.str]:
+        '''The label is used as a prefix for the title of each metric returned by the search expression.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "label"))
+
+    @builtins.property
+    @jsii.member(jsii_name="searchAccount")
+    def search_account(self) -> typing.Optional[builtins.str]:
+        '''Account to evaluate search expressions within.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "searchAccount"))
+
+    @builtins.property
+    @jsii.member(jsii_name="searchRegion")
+    def search_region(self) -> typing.Optional[builtins.str]:
+        '''Region to evaluate search expressions within.'''
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "searchRegion"))
+
+    @builtins.property
+    @jsii.member(jsii_name="warnings")
+    def warnings(self) -> typing.Optional[typing.List[builtins.str]]:
+        '''(deprecated) Warnings generated by this search expression.
+
+        :deprecated: - use warningsV2
+
+        :stability: deprecated
+        '''
+        return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "warnings"))
+
+    @builtins.property
+    @jsii.member(jsii_name="warningsV2")
+    def warnings_v2(
+        self,
+    ) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
+        '''Warnings generated by this search expression.'''
+        return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], jsii.get(self, "warningsV2"))
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.SearchExpressionOptions",
+    jsii_struct_bases=[],
+    name_mapping={
+        "color": "color",
+        "label": "label",
+        "period": "period",
+        "search_account": "searchAccount",
+        "search_region": "searchRegion",
+    },
+)
+class SearchExpressionOptions:
+    def __init__(
+        self,
+        *,
+        color: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        search_account: typing.Optional[builtins.str] = None,
+        search_region: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Configurable options for SearchExpressions.
+
+        :param color: Color for the metric produced by the search expression. If the search expression produces more than one time series, the color is assigned to the first one. Other metrics are assigned colors automatically. Default: - Automatically assigned.
+        :param label: Label for this search expression when added to a Graph in a Dashboard. If this expression evaluates to more than one time series, each time series will appear in the graph using a combination of the expression label and the individual metric label. Specify the empty string (``''``) to suppress the expression label and only keep the metric label. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. If the search expression produces more than one time series, the maximum will be shown for each individual time series produce by this search expression. Default: - No label.
+        :param period: The period over which the search expression's statistics are applied. This period overrides the period defined within the search expression. Default: Duration.minutes(5)
+        :param search_account: Account to evaluate search expressions within. Default: - Deployment account.
+        :param search_region: Region to evaluate search expressions within. Default: - Deployment region.
+
+        :exampleMetadata: fixture=_generated
+
+        Example::
+
+            # The code below shows an example of how to instantiate this type.
+            # The values are placeholders you should change.
+            import aws_cdk as cdk
+            from aws_cdk import aws_cloudwatch as cloudwatch
+            
+            search_expression_options = cloudwatch.SearchExpressionOptions(
+                color="color",
+                label="label",
+                period=cdk.Duration.minutes(30),
+                search_account="searchAccount",
+                search_region="searchRegion"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9f60f6548f685a7de97fff8e4e2d7ad81a4a32dbef7d990d9298e04900ccf74c)
+            check_type(argname="argument color", value=color, expected_type=type_hints["color"])
+            check_type(argname="argument label", value=label, expected_type=type_hints["label"])
+            check_type(argname="argument period", value=period, expected_type=type_hints["period"])
+            check_type(argname="argument search_account", value=search_account, expected_type=type_hints["search_account"])
+            check_type(argname="argument search_region", value=search_region, expected_type=type_hints["search_region"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {}
+        if color is not None:
+            self._values["color"] = color
+        if label is not None:
+            self._values["label"] = label
+        if period is not None:
+            self._values["period"] = period
+        if search_account is not None:
+            self._values["search_account"] = search_account
+        if search_region is not None:
+            self._values["search_region"] = search_region
+
+    @builtins.property
+    def color(self) -> typing.Optional[builtins.str]:
+        '''Color for the metric produced by the search expression.
+
+        If the search expression produces more than one time series, the color is assigned to the first one.
+        Other metrics are assigned colors automatically.
+
+        :default: - Automatically assigned.
+        '''
+        result = self._values.get("color")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def label(self) -> typing.Optional[builtins.str]:
+        '''Label for this search expression when added to a Graph in a Dashboard.
+
+        If this expression evaluates to more than one time series,
+        each time series will appear in the graph using a combination of the
+        expression label and the individual metric label. Specify the empty
+        string (``''``) to suppress the expression label and only keep the
+        metric label.
+
+        You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_
+        to show summary information about the displayed time series
+        in the legend. For example, if you use::
+
+           [max: ${MAX}] MyMetric
+
+        As the metric label, the maximum value in the visible range will
+        be shown next to the time series name in the graph's legend. If the
+        search expression produces more than one time series, the maximum
+        will be shown for each individual time series produce by this
+        search expression.
+
+        :default: - No label.
+        '''
+        result = self._values.get("label")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def period(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''The period over which the search expression's statistics are applied.
+
+        This period overrides the period defined within the search expression.
+
+        :default: Duration.minutes(5)
+        '''
+        result = self._values.get("period")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def search_account(self) -> typing.Optional[builtins.str]:
+        '''Account to evaluate search expressions within.
+
+        :default: - Deployment account.
+        '''
+        result = self._values.get("search_account")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def search_region(self) -> typing.Optional[builtins.str]:
+        '''Region to evaluate search expressions within.
+
+        :default: - Deployment region.
+        '''
+        result = self._values.get("search_region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SearchExpressionOptions(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+@jsii.data_type(
+    jsii_type="aws-cdk-lib.aws_cloudwatch.SearchExpressionProps",
+    jsii_struct_bases=[SearchExpressionOptions],
+    name_mapping={
+        "color": "color",
+        "label": "label",
+        "period": "period",
+        "search_account": "searchAccount",
+        "search_region": "searchRegion",
+        "expression": "expression",
+    },
+)
+class SearchExpressionProps(SearchExpressionOptions):
+    def __init__(
+        self,
+        *,
+        color: typing.Optional[builtins.str] = None,
+        label: typing.Optional[builtins.str] = None,
+        period: typing.Optional[_Duration_4839e8c3] = None,
+        search_account: typing.Optional[builtins.str] = None,
+        search_region: typing.Optional[builtins.str] = None,
+        expression: builtins.str,
+    ) -> None:
+        '''Properties for a SearchExpression.
+
+        :param color: Color for the metric produced by the search expression. If the search expression produces more than one time series, the color is assigned to the first one. Other metrics are assigned colors automatically. Default: - Automatically assigned.
+        :param label: Label for this search expression when added to a Graph in a Dashboard. If this expression evaluates to more than one time series, each time series will appear in the graph using a combination of the expression label and the individual metric label. Specify the empty string (``''``) to suppress the expression label and only keep the metric label. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. If the search expression produces more than one time series, the maximum will be shown for each individual time series produce by this search expression. Default: - No label.
+        :param period: The period over which the search expression's statistics are applied. This period overrides the period defined within the search expression. Default: Duration.minutes(5)
+        :param search_account: Account to evaluate search expressions within. Default: - Deployment account.
+        :param search_region: Region to evaluate search expressions within. Default: - Deployment region.
+        :param expression: The search expression defining the metrics to be retrieved. A search expression cannot be used within an Alarm. A search expression allows you to retrieve and graph multiple related metrics in a single statement. It can return up to 500 time series. Examples: - ``SEARCH('{AWS/EC2,InstanceId} CPUUtilization', 'Average', 300)`` - ``SEARCH('{AWS/ApplicationELB,LoadBalancer} RequestCount', 'Sum', 60)`` - ``SEARCH('{MyNamespace,ServiceName} Errors', 'Sum')`` For more information about search expression syntax, see: https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/search-expression-syntax.html
+
+        :exampleMetadata: infused
+
+        Example::
+
+            cpu_utilization = cloudwatch.SearchExpression(
+                expression="SEARCH('{AWS/EC2,InstanceId} MetricName=\"CPUUtilization\"', 'Average', 900)",
+                label="EC2 CPU Utilization",
+                color="#ff7f0e"
+            )
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__ea7b0e5733d6f08911d542fd96929aa00fb8c855f30bc6cce35d09d7e062f08e)
+            check_type(argname="argument color", value=color, expected_type=type_hints["color"])
+            check_type(argname="argument label", value=label, expected_type=type_hints["label"])
+            check_type(argname="argument period", value=period, expected_type=type_hints["period"])
+            check_type(argname="argument search_account", value=search_account, expected_type=type_hints["search_account"])
+            check_type(argname="argument search_region", value=search_region, expected_type=type_hints["search_region"])
+            check_type(argname="argument expression", value=expression, expected_type=type_hints["expression"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "expression": expression,
+        }
+        if color is not None:
+            self._values["color"] = color
+        if label is not None:
+            self._values["label"] = label
+        if period is not None:
+            self._values["period"] = period
+        if search_account is not None:
+            self._values["search_account"] = search_account
+        if search_region is not None:
+            self._values["search_region"] = search_region
+
+    @builtins.property
+    def color(self) -> typing.Optional[builtins.str]:
+        '''Color for the metric produced by the search expression.
+
+        If the search expression produces more than one time series, the color is assigned to the first one.
+        Other metrics are assigned colors automatically.
+
+        :default: - Automatically assigned.
+        '''
+        result = self._values.get("color")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def label(self) -> typing.Optional[builtins.str]:
+        '''Label for this search expression when added to a Graph in a Dashboard.
+
+        If this expression evaluates to more than one time series,
+        each time series will appear in the graph using a combination of the
+        expression label and the individual metric label. Specify the empty
+        string (``''``) to suppress the expression label and only keep the
+        metric label.
+
+        You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_
+        to show summary information about the displayed time series
+        in the legend. For example, if you use::
+
+           [max: ${MAX}] MyMetric
+
+        As the metric label, the maximum value in the visible range will
+        be shown next to the time series name in the graph's legend. If the
+        search expression produces more than one time series, the maximum
+        will be shown for each individual time series produce by this
+        search expression.
+
+        :default: - No label.
+        '''
+        result = self._values.get("label")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def period(self) -> typing.Optional[_Duration_4839e8c3]:
+        '''The period over which the search expression's statistics are applied.
+
+        This period overrides the period defined within the search expression.
+
+        :default: Duration.minutes(5)
+        '''
+        result = self._values.get("period")
+        return typing.cast(typing.Optional[_Duration_4839e8c3], result)
+
+    @builtins.property
+    def search_account(self) -> typing.Optional[builtins.str]:
+        '''Account to evaluate search expressions within.
+
+        :default: - Deployment account.
+        '''
+        result = self._values.get("search_account")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def search_region(self) -> typing.Optional[builtins.str]:
+        '''Region to evaluate search expressions within.
+
+        :default: - Deployment region.
+        '''
+        result = self._values.get("search_region")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
+    def expression(self) -> builtins.str:
+        '''The search expression defining the metrics to be retrieved.
+
+        A search expression cannot be used within an Alarm.
+
+        A search expression allows you to retrieve and graph multiple related metrics in a single statement.
+        It can return up to 500 time series.
+
+        Examples:
+
+        - ``SEARCH('{AWS/EC2,InstanceId} CPUUtilization', 'Average', 300)``
+        - ``SEARCH('{AWS/ApplicationELB,LoadBalancer} RequestCount', 'Sum', 60)``
+        - ``SEARCH('{MyNamespace,ServiceName} Errors', 'Sum')``
+
+        For more information about search expression syntax, see:
+        https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/search-expression-syntax.html
+        '''
+        result = self._values.get("expression")
+        assert result is not None, "Required property 'expression' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "SearchExpressionProps(%s)" % ", ".join(
             k + "=" + repr(v) for k, v in self._values.items()
         )
 
@@ -13727,7 +14241,7 @@ class AnomalyDetectionMetricOptions(MathExpressionOptions):
 
         :param color: Color for this metric when added to a Graph in a Dashboard. Default: - Automatic color
         :param label: Label for this expression when added to a Graph in a Dashboard. If this expression evaluates to more than one time series (for example, through the use of ``METRICS()`` or ``SEARCH()`` expressions), each time series will appear in the graph using a combination of the expression label and the individual metric label. Specify the empty string (``''``) to suppress the expression label and only keep the metric label. You can use `dynamic labels <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/graph-dynamic-labels.html>`_ to show summary information about the displayed time series in the legend. For example, if you use:: [max: ${MAX}] MyMetric As the metric label, the maximum value in the visible range will be shown next to the time series name in the graph's legend. If the math expression produces more than one time series, the maximum will be shown for each individual time series produce by this math expression. Default: - Expression value is used as label
-        :param period: The period over which the expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
+        :param period: The period over which the math expression's statistics are applied. This period overrides all periods in the metrics used in this math expression. Default: Duration.minutes(5)
         :param search_account: Account to evaluate search expressions within. Specifying a searchAccount has no effect to the account used for metrics within the expression (passed via usingMetrics). Default: - Deployment account.
         :param search_region: Region to evaluate search expressions within. Specifying a searchRegion has no effect to the region used for metrics within the expression (passed via usingMetrics). Default: - Deployment region.
         :param metric: The metric to add the alarm on. Metric objects can be obtained from most resources, or you can construct custom Metric objects by instantiating one.
@@ -13820,7 +14334,7 @@ class AnomalyDetectionMetricOptions(MathExpressionOptions):
 
     @builtins.property
     def period(self) -> typing.Optional[_Duration_4839e8c3]:
-        '''The period over which the expression's statistics are applied.
+        '''The period over which the math expression's statistics are applied.
 
         This period overrides all periods in the metrics used in this
         math expression.
@@ -16308,6 +16822,9 @@ __all__ = [
     "PeriodOverride",
     "Row",
     "SearchComponents",
+    "SearchExpression",
+    "SearchExpressionOptions",
+    "SearchExpressionProps",
     "Shading",
     "SingleValueWidget",
     "SingleValueWidgetProps",
@@ -17412,6 +17929,7 @@ def _typecheckingstub__2ddb584abe8421d7f77520aa621133794d500e179ff044f43970dac3f
     math_expression: typing.Optional[typing.Union[MetricExpressionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     metric_stat: typing.Optional[typing.Union[MetricStatConfig, typing.Dict[builtins.str, typing.Any]]] = None,
     rendering_properties: typing.Optional[typing.Mapping[builtins.str, typing.Any]] = None,
+    search_expression: typing.Optional[typing.Union[MetricExpressionConfig, typing.Dict[builtins.str, typing.Any]]] = None,
 ) -> None:
     """Type checking stubs"""
     pass
@@ -17517,6 +18035,29 @@ def _typecheckingstub__834c69a269555056b1b73146ff2784af68174eb591f39133c58560704
     metric_name: builtins.str,
     namespace: builtins.str,
     populate_from: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9f60f6548f685a7de97fff8e4e2d7ad81a4a32dbef7d990d9298e04900ccf74c(
+    *,
+    color: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    period: typing.Optional[_Duration_4839e8c3] = None,
+    search_account: typing.Optional[builtins.str] = None,
+    search_region: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__ea7b0e5733d6f08911d542fd96929aa00fb8c855f30bc6cce35d09d7e062f08e(
+    *,
+    color: typing.Optional[builtins.str] = None,
+    label: typing.Optional[builtins.str] = None,
+    period: typing.Optional[_Duration_4839e8c3] = None,
+    search_account: typing.Optional[builtins.str] = None,
+    search_region: typing.Optional[builtins.str] = None,
+    expression: builtins.str,
 ) -> None:
     """Type checking stubs"""
     pass

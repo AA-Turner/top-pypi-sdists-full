@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: amalgam-lang
-Version: 20.1.1
+Version: 21.0.0
 Summary: A direct interface with Amalgam compiled DLL, dylib, or so.
 Author: Howso Incorporated
 Author-email: support@howso.com
@@ -675,7 +675,6 @@ Classifier: Intended Audience :: Science/Research
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: License :: OSI Approved :: GNU Affero General Public License v3
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -686,7 +685,7 @@ Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: Microsoft :: Windows :: Windows 10
 Classifier: Operating System :: Microsoft :: Windows :: Windows 11
 Classifier: Operating System :: POSIX :: Linux
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
 Provides-Extra: dev
@@ -714,7 +713,7 @@ Coding in [Amalgam](https://github.com/howsoai/amalgam) can be done natively as 
 
 ## Supported Platforms
 
-Compatible with Python versions: 3.9, 3.10, 3.11, 3.12, and 3.13.
+Compatible with Python versions: 3.10, 3.11, 3.12, and 3.13.
 
 #### Operating Systems
 

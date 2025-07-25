@@ -24,7 +24,7 @@ from typing import (
 from collections.abc import Collection, Iterable, Iterator, Mapping, Sequence
 
 import coverage
-from coverage import Coverage
+from coverage import Coverage, env
 from coverage.cmdline import CoverageScript
 from coverage.data import CoverageData
 from coverage.misc import import_local_file
@@ -401,12 +401,14 @@ class CoverageTest(
     # https://salsa.debian.org/debian/pkg-python-coverage/-/blob/master/debian/patches/02.rename-public-programs.patch
     coverage_command = "coverage"
 
-    def run_command(self, cmd: str) -> str:
+    def run_command(self, cmd: str, *, status: int = 0) -> str:
         """Run the command-line `cmd` in a subprocess.
 
         `cmd` is the command line to invoke in a subprocess. Returns the
         combined content of `stdout` and `stderr` output streams from the
         subprocess.
+
+        Asserts that the exit status is `status` (default 0).
 
         See `run_command_status` for complete semantics.
 
@@ -415,7 +417,11 @@ class CoverageTest(
         Compare with `command_line`.
 
         """
-        _, output = self.run_command_status(cmd)
+        if status < 0 and env.LINUX:
+            # Mac properly returns -signal as the exit status. Linux returns 128 + signal.
+            status = 128 - status
+        actual_status, output = self.run_command_status(cmd)
+        assert actual_status == status
         return output
 
     def run_command_status(self, cmd: str) -> tuple[int, str]:

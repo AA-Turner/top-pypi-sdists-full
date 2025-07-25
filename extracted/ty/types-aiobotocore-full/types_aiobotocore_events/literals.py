@@ -33,7 +33,9 @@ __all__ = (
     "EndpointStateType",
     "EventBridgeServiceName",
     "EventSourceStateType",
+    "IncludeDetailType",
     "LaunchTypeType",
+    "LevelType",
     "ListRuleNamesByTargetPaginatorName",
     "ListRulesPaginatorName",
     "ListTargetsByRulePaginatorName",
@@ -73,7 +75,9 @@ EndpointStateType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATING", "DELETE_FAILED", "DELETING", "UPDATE_FAILED", "UPDATING"
 ]
 EventSourceStateType = Literal["ACTIVE", "DELETED", "PENDING"]
+IncludeDetailType = Literal["FULL", "NONE"]
 LaunchTypeType = Literal["EC2", "EXTERNAL", "FARGATE"]
+LevelType = Literal["ERROR", "INFO", "OFF", "TRACE"]
 ListRuleNamesByTargetPaginatorName = Literal["list_rule_names_by_target"]
 ListRulesPaginatorName = Literal["list_rules"]
 ListTargetsByRulePaginatorName = Literal["list_targets_by_rule"]
@@ -127,6 +131,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -359,6 +365,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -419,6 +426,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

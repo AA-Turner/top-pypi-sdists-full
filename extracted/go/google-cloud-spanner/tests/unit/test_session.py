@@ -28,10 +28,17 @@ from google.cloud.spanner_v1 import (
     Session as SessionRequestProto,
     ExecuteSqlRequest,
     TypeCode,
+    BeginTransactionRequest,
 )
 from google.cloud._helpers import UTC, _datetime_to_pb_timestamp
 from google.cloud.spanner_v1._helpers import _delay_until_retry
 from google.cloud.spanner_v1.transaction import Transaction
+from tests._builders import (
+    build_spanner_api,
+    build_session,
+    build_transaction_pb,
+    build_commit_response_pb,
+)
 from tests._helpers import (
     OpenTelemetryBase,
     LIB_VERSION,
@@ -55,8 +62,18 @@ from google.cloud.spanner_v1._helpers import (
     _metadata_with_request_id,
 )
 
+TABLE_NAME = "citizens"
+COLUMNS = ["email", "first_name", "last_name", "age"]
+VALUES = [
+    ["phred@exammple.com", "Phred", "Phlyntstone", 32],
+    ["bharney@example.com", "Bharney", "Rhubble", 31],
+]
+KEYS = ["bharney@example.com", "phred@example.com"]
+KEYSET = KeySet(keys=KEYS)
+TRANSACTION_ID = b"FACEDACE"
 
-def _make_rpc_error(error_cls, trailing_metadata=None):
+
+def _make_rpc_error(error_cls, trailing_metadata=[]):
     grpc_error = mock.create_autospec(grpc.Call, instance=True)
     grpc_error.trailing_metadata.return_value = trailing_metadata
     return error_cls("error", errors=(grpc_error,))
@@ -955,18 +972,6 @@ class TestSession(OpenTelemetryBase):
 
         self.assertIsInstance(transaction, Transaction)
         self.assertIs(transaction._session, session)
-        self.assertIs(session._transaction, transaction)
-
-    def test_transaction_w_existing_txn(self):
-        database = self._make_database()
-        session = self._make_one(database)
-        session._session_id = "DEADBEEF"
-
-        existing = session.transaction()
-        another = session.transaction()  # invalidates existing txn
-
-        self.assertIs(session._transaction, another)
-        self.assertTrue(existing.rolled_back)
 
     def test_run_in_transaction_callback_raises_non_gax_error(self):
         TABLE_NAME = "citizens"
@@ -998,7 +1003,6 @@ class TestSession(OpenTelemetryBase):
         with self.assertRaises(Testing):
             session.run_in_transaction(unit_of_work)
 
-        self.assertIsNone(session._transaction)
         self.assertEqual(len(called_with), 1)
         txn, args, kw = called_with[0]
         self.assertIsInstance(txn, Transaction)
@@ -1039,7 +1043,6 @@ class TestSession(OpenTelemetryBase):
         with self.assertRaises(Cancelled):
             session.run_in_transaction(unit_of_work)
 
-        self.assertIsNone(session._transaction)
         self.assertEqual(len(called_with), 1)
         txn, args, kw = called_with[0]
         self.assertIsInstance(txn, Transaction)
@@ -1050,9 +1053,132 @@ class TestSession(OpenTelemetryBase):
 
         gax_api.rollback.assert_not_called()
 
+    def test_run_in_transaction_retry_callback_raises_abort(self):
+        session = build_session()
+        database = session._database
+
+        # Build API responses.
+        api = database.spanner_api
+        begin_transaction = api.begin_transaction
+        streaming_read = api.streaming_read
+        streaming_read.side_effect = [_make_rpc_error(Aborted), []]
+
+        # Run in transaction.
+        def unit_of_work(transaction):
+            transaction.begin()
+            list(transaction.read(TABLE_NAME, COLUMNS, KEYSET))
+
+        session.create()
+        session.run_in_transaction(unit_of_work)
+
+        self.assertEqual(begin_transaction.call_count, 2)
+
+        begin_transaction.assert_called_with(
+            request=BeginTransactionRequest(
+                session=session.name,
+                options=TransactionOptions(read_write=TransactionOptions.ReadWrite()),
+            ),
+            metadata=[
+                ("google-cloud-resource-prefix", database.name),
+                ("x-goog-spanner-route-to-leader", "true"),
+                (
+                    "x-goog-spanner-request-id",
+                    f"1.{REQ_RAND_PROCESS_ID}.{database._nth_client_id}.{database._channel_id}.4.1",
+                ),
+            ],
+        )
+
+    def test_run_in_transaction_retry_callback_raises_abort_multiplexed(self):
+        session = build_session(is_multiplexed=True)
+        database = session._database
+        api = database.spanner_api
+
+        # Build API responses
+        previous_transaction_id = b"transaction-id"
+        begin_transaction = api.begin_transaction
+        begin_transaction.return_value = build_transaction_pb(
+            id=previous_transaction_id
+        )
+
+        streaming_read = api.streaming_read
+        streaming_read.side_effect = [_make_rpc_error(Aborted), []]
+
+        # Run in transaction.
+        def unit_of_work(transaction):
+            transaction.begin()
+            list(transaction.read(TABLE_NAME, COLUMNS, KEYSET))
+
+        session.create()
+        session.run_in_transaction(unit_of_work)
+
+        # Verify retried BeginTransaction API call.
+        self.assertEqual(begin_transaction.call_count, 2)
+
+        begin_transaction.assert_called_with(
+            request=BeginTransactionRequest(
+                session=session.name,
+                options=TransactionOptions(
+                    read_write=TransactionOptions.ReadWrite(
+                        multiplexed_session_previous_transaction_id=previous_transaction_id
+                    )
+                ),
+            ),
+            metadata=[
+                ("google-cloud-resource-prefix", database.name),
+                ("x-goog-spanner-route-to-leader", "true"),
+                (
+                    "x-goog-spanner-request-id",
+                    f"1.{REQ_RAND_PROCESS_ID}.{database._nth_client_id}.{database._channel_id}.4.1",
+                ),
+            ],
+        )
+
+    def test_run_in_transaction_retry_commit_raises_abort_multiplexed(self):
+        session = build_session(is_multiplexed=True)
+        database = session._database
+
+        # Build API responses
+        api = database.spanner_api
+        previous_transaction_id = b"transaction-id"
+        begin_transaction = api.begin_transaction
+        begin_transaction.return_value = build_transaction_pb(
+            id=previous_transaction_id
+        )
+
+        commit = api.commit
+        commit.side_effect = [_make_rpc_error(Aborted), build_commit_response_pb()]
+
+        # Run in transaction.
+        def unit_of_work(transaction):
+            transaction.begin()
+            list(transaction.read(TABLE_NAME, COLUMNS, KEYSET))
+
+        session.create()
+        session.run_in_transaction(unit_of_work)
+
+        # Verify retried BeginTransaction API call.
+        self.assertEqual(begin_transaction.call_count, 2)
+
+        begin_transaction.assert_called_with(
+            request=BeginTransactionRequest(
+                session=session.name,
+                options=TransactionOptions(
+                    read_write=TransactionOptions.ReadWrite(
+                        multiplexed_session_previous_transaction_id=previous_transaction_id
+                    )
+                ),
+            ),
+            metadata=[
+                ("google-cloud-resource-prefix", database.name),
+                ("x-goog-spanner-route-to-leader", "true"),
+                (
+                    "x-goog-spanner-request-id",
+                    f"1.{REQ_RAND_PROCESS_ID}.{database._nth_client_id}.{database._channel_id}.5.1",
+                ),
+            ],
+        )
+
     def test_run_in_transaction_w_args_w_kwargs_wo_abort(self):
-        TABLE_NAME = "citizens"
-        COLUMNS = ["email", "first_name", "last_name", "age"]
         VALUES = [
             ["phred@exammple.com", "Phred", "Phlyntstone", 32],
             ["bharney@example.com", "Bharney", "Rhubble", 31],
@@ -1079,7 +1205,6 @@ class TestSession(OpenTelemetryBase):
 
         return_value = session.run_in_transaction(unit_of_work, "abc", some_arg="def")
 
-        self.assertIsNone(session._transaction)
         self.assertEqual(len(called_with), 1)
         txn, args, kw = called_with[0]
         self.assertIsInstance(txn, Transaction)
@@ -1089,8 +1214,9 @@ class TestSession(OpenTelemetryBase):
 
         expected_options = TransactionOptions(read_write=TransactionOptions.ReadWrite())
         gax_api.begin_transaction.assert_called_once_with(
-            session=self.SESSION_NAME,
-            options=expected_options,
+            request=BeginTransactionRequest(
+                session=self.SESSION_NAME, options=expected_options
+            ),
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 ("x-goog-spanner-route-to-leader", "true"),
@@ -1125,17 +1251,16 @@ class TestSession(OpenTelemetryBase):
             ["phred@exammple.com", "Phred", "Phlyntstone", 32],
             ["bharney@example.com", "Bharney", "Rhubble", 31],
         ]
-        TRANSACTION_ID = b"FACEDACE"
-        gax_api = self._make_spanner_api()
-        gax_api.commit.side_effect = Unknown("error")
         database = self._make_database()
-        database.spanner_api = gax_api
+
+        api = database.spanner_api = build_spanner_api()
+        begin_transaction = api.begin_transaction
+        commit = api.commit
+
+        commit.side_effect = Unknown("error")
+
         session = self._make_one(database)
         session._session_id = self.SESSION_ID
-        begun_txn = session._transaction = Transaction(session)
-        begun_txn._transaction_id = TRANSACTION_ID
-
-        assert session._transaction._transaction_id
 
         called_with = []
 
@@ -1146,23 +1271,17 @@ class TestSession(OpenTelemetryBase):
         with self.assertRaises(Unknown):
             session.run_in_transaction(unit_of_work)
 
-        self.assertIsNone(session._transaction)
         self.assertEqual(len(called_with), 1)
         txn, args, kw = called_with[0]
-        self.assertIs(txn, begun_txn)
         self.assertEqual(txn.committed, None)
         self.assertEqual(args, ())
         self.assertEqual(kw, {})
 
-        gax_api.begin_transaction.assert_not_called()
-        request = CommitRequest(
-            session=self.SESSION_NAME,
-            mutations=txn._mutations,
-            transaction_id=TRANSACTION_ID,
-            request_options=RequestOptions(),
-        )
-        gax_api.commit.assert_called_once_with(
-            request=request,
+        begin_transaction.assert_called_once_with(
+            request=BeginTransactionRequest(
+                session=session.name,
+                options=TransactionOptions(read_write=TransactionOptions.ReadWrite()),
+            ),
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 ("x-goog-spanner-route-to-leader", "true"),
@@ -1173,14 +1292,24 @@ class TestSession(OpenTelemetryBase):
             ],
         )
 
+        api.commit.assert_called_once_with(
+            request=CommitRequest(
+                session=session.name,
+                mutations=txn._mutations,
+                transaction_id=begin_transaction.return_value.id,
+                request_options=RequestOptions(),
+            ),
+            metadata=[
+                ("google-cloud-resource-prefix", database.name),
+                ("x-goog-spanner-route-to-leader", "true"),
+                (
+                    "x-goog-spanner-request-id",
+                    f"1.{REQ_RAND_PROCESS_ID}.{database._nth_client_id}.{database._channel_id}.2.1",
+                ),
+            ],
+        )
+
     def test_run_in_transaction_w_abort_no_retry_metadata(self):
-        TABLE_NAME = "citizens"
-        COLUMNS = ["email", "first_name", "last_name", "age"]
-        VALUES = [
-            ["phred@exammple.com", "Phred", "Phlyntstone", 32],
-            ["bharney@example.com", "Bharney", "Rhubble", 31],
-        ]
-        TRANSACTION_ID = b"FACEDACE"
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
         now = datetime.datetime.utcnow().replace(tzinfo=UTC)
         now_pb = _datetime_to_pb_timestamp(now)
@@ -1212,13 +1341,16 @@ class TestSession(OpenTelemetryBase):
             self.assertEqual(args, ("abc",))
             self.assertEqual(kw, {"some_arg": "def"})
 
-        expected_options = TransactionOptions(read_write=TransactionOptions.ReadWrite())
         self.assertEqual(
             gax_api.begin_transaction.call_args_list,
             [
                 mock.call(
-                    session=self.SESSION_NAME,
-                    options=expected_options,
+                    request=BeginTransactionRequest(
+                        session=session.name,
+                        options=TransactionOptions(
+                            read_write=TransactionOptions.ReadWrite()
+                        ),
+                    ),
                     metadata=[
                         ("google-cloud-resource-prefix", database.name),
                         ("x-goog-spanner-route-to-leader", "true"),
@@ -1229,8 +1361,12 @@ class TestSession(OpenTelemetryBase):
                     ],
                 ),
                 mock.call(
-                    session=self.SESSION_NAME,
-                    options=expected_options,
+                    request=BeginTransactionRequest(
+                        session=session.name,
+                        options=TransactionOptions(
+                            read_write=TransactionOptions.ReadWrite()
+                        ),
+                    ),
                     metadata=[
                         ("google-cloud-resource-prefix", database.name),
                         ("x-goog-spanner-route-to-leader", "true"),
@@ -1277,13 +1413,6 @@ class TestSession(OpenTelemetryBase):
         )
 
     def test_run_in_transaction_w_abort_w_retry_metadata(self):
-        TABLE_NAME = "citizens"
-        COLUMNS = ["email", "first_name", "last_name", "age"]
-        VALUES = [
-            ["phred@exammple.com", "Phred", "Phlyntstone", 32],
-            ["bharney@example.com", "Bharney", "Rhubble", 31],
-        ]
-        TRANSACTION_ID = b"FACEDACE"
         RETRY_SECONDS = 12
         RETRY_NANOS = 3456
         retry_info = RetryInfo(
@@ -1326,13 +1455,16 @@ class TestSession(OpenTelemetryBase):
             self.assertEqual(args, ("abc",))
             self.assertEqual(kw, {"some_arg": "def"})
 
-        expected_options = TransactionOptions(read_write=TransactionOptions.ReadWrite())
         self.assertEqual(
             gax_api.begin_transaction.call_args_list,
             [
                 mock.call(
-                    session=self.SESSION_NAME,
-                    options=expected_options,
+                    request=BeginTransactionRequest(
+                        session=session.name,
+                        options=TransactionOptions(
+                            read_write=TransactionOptions.ReadWrite()
+                        ),
+                    ),
                     metadata=[
                         ("google-cloud-resource-prefix", database.name),
                         ("x-goog-spanner-route-to-leader", "true"),
@@ -1343,8 +1475,12 @@ class TestSession(OpenTelemetryBase):
                     ],
                 ),
                 mock.call(
-                    session=self.SESSION_NAME,
-                    options=expected_options,
+                    request=BeginTransactionRequest(
+                        session=session.name,
+                        options=TransactionOptions(
+                            read_write=TransactionOptions.ReadWrite()
+                        ),
+                    ),
                     metadata=[
                         ("google-cloud-resource-prefix", database.name),
                         ("x-goog-spanner-route-to-leader", "true"),
@@ -1391,13 +1527,6 @@ class TestSession(OpenTelemetryBase):
         )
 
     def test_run_in_transaction_w_callback_raises_abort_wo_metadata(self):
-        TABLE_NAME = "citizens"
-        COLUMNS = ["email", "first_name", "last_name", "age"]
-        VALUES = [
-            ["phred@exammple.com", "Phred", "Phlyntstone", 32],
-            ["bharney@example.com", "Bharney", "Rhubble", 31],
-        ]
-        TRANSACTION_ID = b"FACEDACE"
         RETRY_SECONDS = 1
         RETRY_NANOS = 3456
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
@@ -1444,8 +1573,9 @@ class TestSession(OpenTelemetryBase):
 
         # First call was aborted before commit operation, therefore no begin rpc was made during first attempt.
         gax_api.begin_transaction.assert_called_once_with(
-            session=self.SESSION_NAME,
-            options=expected_options,
+            request=BeginTransactionRequest(
+                session=self.SESSION_NAME, options=expected_options
+            ),
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 ("x-goog-spanner-route-to-leader", "true"),
@@ -1474,13 +1604,6 @@ class TestSession(OpenTelemetryBase):
         )
 
     def test_run_in_transaction_w_abort_w_retry_metadata_deadline(self):
-        TABLE_NAME = "citizens"
-        COLUMNS = ["email", "first_name", "last_name", "age"]
-        VALUES = [
-            ["phred@exammple.com", "Phred", "Phlyntstone", 32],
-            ["bharney@example.com", "Bharney", "Rhubble", 31],
-        ]
-        TRANSACTION_ID = b"FACEDACE"
         RETRY_SECONDS = 1
         RETRY_NANOS = 3456
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
@@ -1528,8 +1651,9 @@ class TestSession(OpenTelemetryBase):
 
         expected_options = TransactionOptions(read_write=TransactionOptions.ReadWrite())
         gax_api.begin_transaction.assert_called_once_with(
-            session=self.SESSION_NAME,
-            options=expected_options,
+            request=BeginTransactionRequest(
+                session=self.SESSION_NAME, options=expected_options
+            ),
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 ("x-goog-spanner-route-to-leader", "true"),
@@ -1558,13 +1682,6 @@ class TestSession(OpenTelemetryBase):
         )
 
     def test_run_in_transaction_w_timeout(self):
-        TABLE_NAME = "citizens"
-        COLUMNS = ["email", "first_name", "last_name", "age"]
-        VALUES = [
-            ["phred@exammple.com", "Phred", "Phlyntstone", 32],
-            ["bharney@example.com", "Bharney", "Rhubble", 31],
-        ]
-        TRANSACTION_ID = b"FACEDACE"
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
         aborted = _make_rpc_error(Aborted, trailing_metadata=[])
         gax_api = self._make_spanner_api()
@@ -1603,13 +1720,16 @@ class TestSession(OpenTelemetryBase):
             self.assertEqual(args, ())
             self.assertEqual(kw, {})
 
-        expected_options = TransactionOptions(read_write=TransactionOptions.ReadWrite())
         self.assertEqual(
             gax_api.begin_transaction.call_args_list,
             [
                 mock.call(
-                    session=self.SESSION_NAME,
-                    options=expected_options,
+                    request=BeginTransactionRequest(
+                        session=session.name,
+                        options=TransactionOptions(
+                            read_write=TransactionOptions.ReadWrite()
+                        ),
+                    ),
                     metadata=[
                         ("google-cloud-resource-prefix", database.name),
                         ("x-goog-spanner-route-to-leader", "true"),
@@ -1620,8 +1740,12 @@ class TestSession(OpenTelemetryBase):
                     ],
                 ),
                 mock.call(
-                    session=self.SESSION_NAME,
-                    options=expected_options,
+                    request=BeginTransactionRequest(
+                        session=session.name,
+                        options=TransactionOptions(
+                            read_write=TransactionOptions.ReadWrite()
+                        ),
+                    ),
                     metadata=[
                         ("google-cloud-resource-prefix", database.name),
                         ("x-goog-spanner-route-to-leader", "true"),
@@ -1632,8 +1756,12 @@ class TestSession(OpenTelemetryBase):
                     ],
                 ),
                 mock.call(
-                    session=self.SESSION_NAME,
-                    options=expected_options,
+                    request=BeginTransactionRequest(
+                        session=session.name,
+                        options=TransactionOptions(
+                            read_write=TransactionOptions.ReadWrite()
+                        ),
+                    ),
                     metadata=[
                         ("google-cloud-resource-prefix", database.name),
                         ("x-goog-spanner-route-to-leader", "true"),
@@ -1691,13 +1819,6 @@ class TestSession(OpenTelemetryBase):
         )
 
     def test_run_in_transaction_w_commit_stats_success(self):
-        TABLE_NAME = "citizens"
-        COLUMNS = ["email", "first_name", "last_name", "age"]
-        VALUES = [
-            ["phred@exammple.com", "Phred", "Phlyntstone", 32],
-            ["bharney@example.com", "Bharney", "Rhubble", 31],
-        ]
-        TRANSACTION_ID = b"FACEDACE"
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
         now = datetime.datetime.utcnow().replace(tzinfo=UTC)
         now_pb = _datetime_to_pb_timestamp(now)
@@ -1721,7 +1842,6 @@ class TestSession(OpenTelemetryBase):
 
         return_value = session.run_in_transaction(unit_of_work, "abc", some_arg="def")
 
-        self.assertIsNone(session._transaction)
         self.assertEqual(len(called_with), 1)
         txn, args, kw = called_with[0]
         self.assertIsInstance(txn, Transaction)
@@ -1731,8 +1851,9 @@ class TestSession(OpenTelemetryBase):
 
         expected_options = TransactionOptions(read_write=TransactionOptions.ReadWrite())
         gax_api.begin_transaction.assert_called_once_with(
-            session=self.SESSION_NAME,
-            options=expected_options,
+            request=BeginTransactionRequest(
+                session=self.SESSION_NAME, options=expected_options
+            ),
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 ("x-goog-spanner-route-to-leader", "true"),
@@ -1765,13 +1886,6 @@ class TestSession(OpenTelemetryBase):
         )
 
     def test_run_in_transaction_w_commit_stats_error(self):
-        TABLE_NAME = "citizens"
-        COLUMNS = ["email", "first_name", "last_name", "age"]
-        VALUES = [
-            ["phred@exammple.com", "Phred", "Phlyntstone", 32],
-            ["bharney@example.com", "Bharney", "Rhubble", 31],
-        ]
-        TRANSACTION_ID = b"FACEDACE"
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
         gax_api = self._make_spanner_api()
         gax_api.begin_transaction.return_value = transaction_pb
@@ -1792,7 +1906,6 @@ class TestSession(OpenTelemetryBase):
         with self.assertRaises(Unknown):
             session.run_in_transaction(unit_of_work, "abc", some_arg="def")
 
-        self.assertIsNone(session._transaction)
         self.assertEqual(len(called_with), 1)
         txn, args, kw = called_with[0]
         self.assertIsInstance(txn, Transaction)
@@ -1801,8 +1914,9 @@ class TestSession(OpenTelemetryBase):
 
         expected_options = TransactionOptions(read_write=TransactionOptions.ReadWrite())
         gax_api.begin_transaction.assert_called_once_with(
-            session=self.SESSION_NAME,
-            options=expected_options,
+            request=BeginTransactionRequest(
+                session=self.SESSION_NAME, options=expected_options
+            ),
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 ("x-goog-spanner-route-to-leader", "true"),
@@ -1833,13 +1947,6 @@ class TestSession(OpenTelemetryBase):
         database.logger.info.assert_not_called()
 
     def test_run_in_transaction_w_transaction_tag(self):
-        TABLE_NAME = "citizens"
-        COLUMNS = ["email", "first_name", "last_name", "age"]
-        VALUES = [
-            ["phred@exammple.com", "Phred", "Phlyntstone", 32],
-            ["bharney@example.com", "Bharney", "Rhubble", 31],
-        ]
-        TRANSACTION_ID = b"FACEDACE"
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
         now = datetime.datetime.utcnow().replace(tzinfo=UTC)
         now_pb = _datetime_to_pb_timestamp(now)
@@ -1865,7 +1972,6 @@ class TestSession(OpenTelemetryBase):
             unit_of_work, "abc", some_arg="def", transaction_tag=transaction_tag
         )
 
-        self.assertIsNone(session._transaction)
         self.assertEqual(len(called_with), 1)
         txn, args, kw = called_with[0]
         self.assertIsInstance(txn, Transaction)
@@ -1875,8 +1981,9 @@ class TestSession(OpenTelemetryBase):
 
         expected_options = TransactionOptions(read_write=TransactionOptions.ReadWrite())
         gax_api.begin_transaction.assert_called_once_with(
-            session=self.SESSION_NAME,
-            options=expected_options,
+            request=BeginTransactionRequest(
+                session=self.SESSION_NAME, options=expected_options
+            ),
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 ("x-goog-spanner-route-to-leader", "true"),
@@ -1905,13 +2012,6 @@ class TestSession(OpenTelemetryBase):
         )
 
     def test_run_in_transaction_w_exclude_txn_from_change_streams(self):
-        TABLE_NAME = "citizens"
-        COLUMNS = ["email", "first_name", "last_name", "age"]
-        VALUES = [
-            ["phred@exammple.com", "Phred", "Phlyntstone", 32],
-            ["bharney@example.com", "Bharney", "Rhubble", 31],
-        ]
-        TRANSACTION_ID = b"FACEDACE"
         transaction_pb = TransactionPB(id=TRANSACTION_ID)
         now = datetime.datetime.utcnow().replace(tzinfo=UTC)
         now_pb = _datetime_to_pb_timestamp(now)
@@ -1936,7 +2036,6 @@ class TestSession(OpenTelemetryBase):
             unit_of_work, "abc", exclude_txn_from_change_streams=True
         )
 
-        self.assertIsNone(session._transaction)
         self.assertEqual(len(called_with), 1)
         txn, args, kw = called_with[0]
         self.assertIsInstance(txn, Transaction)
@@ -1948,8 +2047,9 @@ class TestSession(OpenTelemetryBase):
             exclude_txn_from_change_streams=True,
         )
         gax_api.begin_transaction.assert_called_once_with(
-            session=self.SESSION_NAME,
-            options=expected_options,
+            request=BeginTransactionRequest(
+                session=self.SESSION_NAME, options=expected_options
+            ),
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 ("x-goog-spanner-route-to-leader", "true"),
@@ -1980,13 +2080,6 @@ class TestSession(OpenTelemetryBase):
     def test_run_in_transaction_w_abort_w_retry_metadata_w_exclude_txn_from_change_streams(
         self,
     ):
-        TABLE_NAME = "citizens"
-        COLUMNS = ["email", "first_name", "last_name", "age"]
-        VALUES = [
-            ["phred@exammple.com", "Phred", "Phlyntstone", 32],
-            ["bharney@example.com", "Bharney", "Rhubble", 31],
-        ]
-        TRANSACTION_ID = b"FACEDACE"
         RETRY_SECONDS = 12
         RETRY_NANOS = 3456
         retry_info = RetryInfo(
@@ -2034,16 +2127,17 @@ class TestSession(OpenTelemetryBase):
             self.assertEqual(args, ("abc",))
             self.assertEqual(kw, {"some_arg": "def"})
 
-        expected_options = TransactionOptions(
-            read_write=TransactionOptions.ReadWrite(),
-            exclude_txn_from_change_streams=True,
-        )
         self.assertEqual(
             gax_api.begin_transaction.call_args_list,
             [
                 mock.call(
-                    session=self.SESSION_NAME,
-                    options=expected_options,
+                    request=BeginTransactionRequest(
+                        session=session.name,
+                        options=TransactionOptions(
+                            read_write=TransactionOptions.ReadWrite(),
+                            exclude_txn_from_change_streams=True,
+                        ),
+                    ),
                     metadata=[
                         ("google-cloud-resource-prefix", database.name),
                         ("x-goog-spanner-route-to-leader", "true"),
@@ -2054,8 +2148,13 @@ class TestSession(OpenTelemetryBase):
                     ],
                 ),
                 mock.call(
-                    session=self.SESSION_NAME,
-                    options=expected_options,
+                    request=BeginTransactionRequest(
+                        session=session.name,
+                        options=TransactionOptions(
+                            read_write=TransactionOptions.ReadWrite(),
+                            exclude_txn_from_change_streams=True,
+                        ),
+                    ),
                     metadata=[
                         ("google-cloud-resource-prefix", database.name),
                         ("x-goog-spanner-route-to-leader", "true"),
@@ -2102,10 +2201,8 @@ class TestSession(OpenTelemetryBase):
         )
 
     def test_run_in_transaction_w_isolation_level_at_request(self):
-        gax_api = self._make_spanner_api()
-        gax_api.begin_transaction.return_value = TransactionPB(id=b"FACEDACE")
         database = self._make_database()
-        database.spanner_api = gax_api
+        api = database.spanner_api = build_spanner_api()
         session = self._make_one(database)
         session._session_id = self.SESSION_ID
 
@@ -2117,16 +2214,16 @@ class TestSession(OpenTelemetryBase):
             unit_of_work, "abc", isolation_level="SERIALIZABLE"
         )
 
-        self.assertIsNone(session._transaction)
         self.assertEqual(return_value, 42)
 
         expected_options = TransactionOptions(
             read_write=TransactionOptions.ReadWrite(),
             isolation_level=TransactionOptions.IsolationLevel.SERIALIZABLE,
         )
-        gax_api.begin_transaction.assert_called_once_with(
-            session=self.SESSION_NAME,
-            options=expected_options,
+        api.begin_transaction.assert_called_once_with(
+            request=BeginTransactionRequest(
+                session=self.SESSION_NAME, options=expected_options
+            ),
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 ("x-goog-spanner-route-to-leader", "true"),
@@ -2138,14 +2235,12 @@ class TestSession(OpenTelemetryBase):
         )
 
     def test_run_in_transaction_w_isolation_level_at_client(self):
-        gax_api = self._make_spanner_api()
-        gax_api.begin_transaction.return_value = TransactionPB(id=b"FACEDACE")
         database = self._make_database(
             default_transaction_options=DefaultTransactionOptions(
                 isolation_level="SERIALIZABLE"
             )
         )
-        database.spanner_api = gax_api
+        api = database.spanner_api = build_spanner_api()
         session = self._make_one(database)
         session._session_id = self.SESSION_ID
 
@@ -2155,16 +2250,16 @@ class TestSession(OpenTelemetryBase):
 
         return_value = session.run_in_transaction(unit_of_work, "abc")
 
-        self.assertIsNone(session._transaction)
         self.assertEqual(return_value, 42)
 
         expected_options = TransactionOptions(
             read_write=TransactionOptions.ReadWrite(),
             isolation_level=TransactionOptions.IsolationLevel.SERIALIZABLE,
         )
-        gax_api.begin_transaction.assert_called_once_with(
-            session=self.SESSION_NAME,
-            options=expected_options,
+        api.begin_transaction.assert_called_once_with(
+            request=BeginTransactionRequest(
+                session=self.SESSION_NAME, options=expected_options
+            ),
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 ("x-goog-spanner-route-to-leader", "true"),
@@ -2176,14 +2271,12 @@ class TestSession(OpenTelemetryBase):
         )
 
     def test_run_in_transaction_w_isolation_level_at_request_overrides_client(self):
-        gax_api = self._make_spanner_api()
-        gax_api.begin_transaction.return_value = TransactionPB(id=b"FACEDACE")
         database = self._make_database(
             default_transaction_options=DefaultTransactionOptions(
                 isolation_level="SERIALIZABLE"
             )
         )
-        database.spanner_api = gax_api
+        api = database.spanner_api = build_spanner_api()
         session = self._make_one(database)
         session._session_id = self.SESSION_ID
 
@@ -2197,16 +2290,16 @@ class TestSession(OpenTelemetryBase):
             isolation_level=TransactionOptions.IsolationLevel.REPEATABLE_READ,
         )
 
-        self.assertIsNone(session._transaction)
         self.assertEqual(return_value, 42)
 
         expected_options = TransactionOptions(
             read_write=TransactionOptions.ReadWrite(),
             isolation_level=TransactionOptions.IsolationLevel.REPEATABLE_READ,
         )
-        gax_api.begin_transaction.assert_called_once_with(
-            session=self.SESSION_NAME,
-            options=expected_options,
+        api.begin_transaction.assert_called_once_with(
+            request=BeginTransactionRequest(
+                session=self.SESSION_NAME, options=expected_options
+            ),
             metadata=[
                 ("google-cloud-resource-prefix", database.name),
                 ("x-goog-spanner-route-to-leader", "true"),

@@ -3,11 +3,11 @@
 # Minimum requirements for the build system to execute.
 requires = [
     'setuptools >= 77.0.0',
-    'passagemath-setup ~= 10.5.47.0',
+    'passagemath-setup ~= 10.5.48.0',
     'pkgconfig',
-    'passagemath-environment ~= 10.5.47.0',
-    'passagemath-categories ~= 10.5.47.0',
-    'passagemath-modules ~= 10.5.47.0',
+    'passagemath-environment ~= 10.5.48.0',
+    'passagemath-categories ~= 10.5.48.0',
+    'passagemath-modules ~= 10.5.48.0',
     'numpy >=1.19', 'numpy >=1.22.4',
     'cython >=3.0, != 3.0.3, <4.0', 'cython >=3.0.8,<3.1.0',
     'gmpy2 ~=2.1.b999',
@@ -23,8 +23,8 @@ dependencies = [
     'gmpy2 ~=2.1.b999',
     'cysignals >=1.11.2, != 1.12.0',
     'memory_allocator',
-    'passagemath-categories ~= 10.5.47.0',
-    'passagemath-modules ~= 10.5.47.0',
+    'passagemath-categories ~= 10.5.48.0',
+    'passagemath-modules ~= 10.5.48.0',
     'numpy >=1.19', 'numpy >=1.22.4',
     'scipy >=1.5',
     'pillow >=7.2.0',
@@ -79,7 +79,7 @@ test            = [
 jsmol           = ['jupyter-jsmol',]
 matplotlib      = []  # no extra needed
 playwright      = ['playwright',]
-tachyon         = ['passagemath-tachyon ~= 10.5.47.0',]
+tachyon         = ['passagemath-tachyon ~= 10.5.48.0',]
 threejs         = []  # no extra needed
 
 # extras by other features

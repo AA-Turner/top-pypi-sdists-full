@@ -1,0 +1,84 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gitea-deployment
+  namespace: intellithing
+  labels:
+    app: gitea
+spec:
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: gitea
+  template:
+    metadata:
+      labels:
+        app: gitea
+    spec:
+      securityContext:
+        fsGroup: 1000  
+      initContainers:
+      - name: gitea-init-config
+        image: europe-west2-docker.pkg.dev/intellithing/intellithing/gitea:__IMAGE_TAG__
+        command: ["/bin/sh", "/init-script/gitea-init-script.sh"]
+        volumeMounts:
+        - name: gitea-values-volume
+          mountPath: /gitea-values
+          readOnly: true
+        - name: gitea-config-volume
+          mountPath: /gitea-config
+        - name: gitea-config-template-volume
+          mountPath: /config-templates
+          readOnly: true
+        - name: gitea-init-script-volume
+          mountPath: /init-script
+          readOnly: true
+        - name: gitea-data-volume
+          mountPath: /data
+      containers:
+      - name: gitea
+        image: europe-west2-docker.pkg.dev/intellithing/intellithing/gitea:__IMAGE_TAG__
+        env:
+        - name: GITEA__log__MODE
+          value: "console"
+        - name: GITEA__log__LEVEL
+          value: "Debug"
+        ports:
+          - name: http
+            containerPort: 3000
+          - name: ssh
+            containerPort: 2222
+        volumeMounts:
+        - name: gitea-config-volume
+          mountPath: /etc/gitea
+        - name: gitea-data-volume
+          mountPath: /data
+      volumes:
+      # The secret containing all the final, resolved values.
+      - name: gitea-values-volume
+        secret:
+          secretName: __GITEA_RESOLVED_SECRET_NAME__ 
+      
+      # The temporary volume for the final app.ini.
+      - name: gitea-config-volume
+        emptyDir: {}
+        
+      # The persistent volume for Git data.
+      - name: gitea-data-volume
+        persistentVolumeClaim:
+          claimName: gitea-data
+          
+      # The ConfigMap for the template file.
+      - name: gitea-config-template-volume
+        configMap:
+          name: gitea-config-template
+          
+      # The ConfigMap for the init script file.
+      - name: gitea-init-script-volume
+        configMap:
+          name: gitea-init-script
+          defaultMode: 0755

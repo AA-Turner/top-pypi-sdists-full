@@ -12,13 +12,13 @@ LONG_DESCRIPTION = (Path(__file__).parent / "README.md").read_text()
 
 setup(
     name="types-aiobotocore",
-    version="2.23.1",
+    version="2.23.2",
     packages=["aiobotocore-stubs"],
     url="https://github.com/youtype/mypy_boto3_builder",
     license="MIT License",
     author="Vlad Emelianov",
     author_email="vlad.emelianov.nz@gmail.com",
-    description="Type annotations for aiobotocore 2.23.1 generated with mypy-boto3-builder 8.11.0",
+    description="Type annotations for aiobotocore 2.23.2 generated with mypy-boto3-builder 8.11.0",
     classifiers=[
         "Development Status :: 5 - Production/Stable",
         "Intended Audience :: Developers",
@@ -51,7 +51,7 @@ setup(
     install_requires=["botocore-stubs", 'typing-extensions>=4.1.0; python_version<"3.12"'],
     extras_require={
         "full": ["types-aiobotocore-full>=2.23.0, <2.24.0"],
-        "aiobotocore": ["aiobotocore==2.23.1"],
+        "aiobotocore": ["aiobotocore==2.23.2"],
         "all": [
             "types-aiobotocore-accessanalyzer>=2.23.0, <2.24.0",
             "types-aiobotocore-account>=2.23.0, <2.24.0",
@@ -95,6 +95,8 @@ setup(
             "types-aiobotocore-bedrock>=2.23.0, <2.24.0",
             "types-aiobotocore-bedrock-agent>=2.23.0, <2.24.0",
             "types-aiobotocore-bedrock-agent-runtime>=2.23.0, <2.24.0",
+            "types-aiobotocore-bedrock-agentcore>=2.23.0, <2.24.0",
+            "types-aiobotocore-bedrock-agentcore-control>=2.23.0, <2.24.0",
             "types-aiobotocore-bedrock-data-automation>=2.23.0, <2.24.0",
             "types-aiobotocore-bedrock-data-automation-runtime>=2.23.0, <2.24.0",
             "types-aiobotocore-bedrock-runtime>=2.23.0, <2.24.0",
@@ -327,6 +329,7 @@ setup(
             "types-aiobotocore-notificationscontacts>=2.23.0, <2.24.0",
             "types-aiobotocore-oam>=2.23.0, <2.24.0",
             "types-aiobotocore-observabilityadmin>=2.23.0, <2.24.0",
+            "types-aiobotocore-odb>=2.23.0, <2.24.0",
             "types-aiobotocore-omics>=2.23.0, <2.24.0",
             "types-aiobotocore-opensearch>=2.23.0, <2.24.0",
             "types-aiobotocore-opensearchserverless>=2.23.0, <2.24.0",
@@ -387,6 +390,7 @@ setup(
             "types-aiobotocore-s3control>=2.23.0, <2.24.0",
             "types-aiobotocore-s3outposts>=2.23.0, <2.24.0",
             "types-aiobotocore-s3tables>=2.23.0, <2.24.0",
+            "types-aiobotocore-s3vectors>=2.23.0, <2.24.0",
             "types-aiobotocore-sagemaker>=2.23.0, <2.24.0",
             "types-aiobotocore-sagemaker-a2i-runtime>=2.23.0, <2.24.0",
             "types-aiobotocore-sagemaker-edge>=2.23.0, <2.24.0",
@@ -513,6 +517,10 @@ setup(
         "bedrock": ["types-aiobotocore-bedrock>=2.23.0, <2.24.0"],
         "bedrock-agent": ["types-aiobotocore-bedrock-agent>=2.23.0, <2.24.0"],
         "bedrock-agent-runtime": ["types-aiobotocore-bedrock-agent-runtime>=2.23.0, <2.24.0"],
+        "bedrock-agentcore": ["types-aiobotocore-bedrock-agentcore>=2.23.0, <2.24.0"],
+        "bedrock-agentcore-control": [
+            "types-aiobotocore-bedrock-agentcore-control>=2.23.0, <2.24.0"
+        ],
         "bedrock-data-automation": ["types-aiobotocore-bedrock-data-automation>=2.23.0, <2.24.0"],
         "bedrock-data-automation-runtime": [
             "types-aiobotocore-bedrock-data-automation-runtime>=2.23.0, <2.24.0"
@@ -761,6 +769,7 @@ setup(
         "notificationscontacts": ["types-aiobotocore-notificationscontacts>=2.23.0, <2.24.0"],
         "oam": ["types-aiobotocore-oam>=2.23.0, <2.24.0"],
         "observabilityadmin": ["types-aiobotocore-observabilityadmin>=2.23.0, <2.24.0"],
+        "odb": ["types-aiobotocore-odb>=2.23.0, <2.24.0"],
         "omics": ["types-aiobotocore-omics>=2.23.0, <2.24.0"],
         "opensearch": ["types-aiobotocore-opensearch>=2.23.0, <2.24.0"],
         "opensearchserverless": ["types-aiobotocore-opensearchserverless>=2.23.0, <2.24.0"],
@@ -827,6 +836,7 @@ setup(
         "s3control": ["types-aiobotocore-s3control>=2.23.0, <2.24.0"],
         "s3outposts": ["types-aiobotocore-s3outposts>=2.23.0, <2.24.0"],
         "s3tables": ["types-aiobotocore-s3tables>=2.23.0, <2.24.0"],
+        "s3vectors": ["types-aiobotocore-s3vectors>=2.23.0, <2.24.0"],
         "sagemaker": ["types-aiobotocore-sagemaker>=2.23.0, <2.24.0"],
         "sagemaker-a2i-runtime": ["types-aiobotocore-sagemaker-a2i-runtime>=2.23.0, <2.24.0"],
         "sagemaker-edge": ["types-aiobotocore-sagemaker-edge>=2.23.0, <2.24.0"],

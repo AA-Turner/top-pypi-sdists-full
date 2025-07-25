@@ -89,14 +89,14 @@ def parse_args() -> Args:
             dest="poll_queue_sleep",
             type=int,
             default=30,
-            help="Poll sleep time for queued jobs"
+            help="Poll sleep time for queued jobs",
         )
         subparser.add_argument(
             "--poll-sleep",
             dest="poll_sleep",
             type=int,
             default=60,
-            help="Poll sleep time for running jobs"
+            help="Poll sleep time for running jobs",
         )
 
     def apply_request_args(subparser: ArgumentParser) -> None:
@@ -148,6 +148,12 @@ def parse_args() -> Args:
             "--no-remove-others",
             action="store_true",
             help="If set, existing files not part of artifacts won't be deleted",
+        )
+        subparser.add_argument(
+            "--total-download-timeout",
+            type=int,
+            default=60,
+            help="Time in seconds a download for a single file may take before rising a TimeoutError",
         )
 
     parser_request = subparsers.add_parser(
@@ -265,6 +271,7 @@ def download_artifacts(
     client: Jenkins,
     build: Build,
     out_dir: Path,
+    total_download_timeout: int = 60,
     no_remove_others: bool = False,
 ) -> tuple[Sequence[str], Sequence[str]]:
     """Downloads all artifacts listed for given job/build to @out_dir"""
@@ -329,8 +336,9 @@ def download_artifacts(
                 fp_hash,
             )
 
-        MAX_RETRIES = 3
-        for attempt in range(MAX_RETRIES):
+        MAX_RETRIES = 2
+        for attempts_left in range(MAX_RETRIES, -1, -1):
+            time_start = time.time()
             try:
                 with client._session.get(f"{build.url}artifact/{artifact}", stream=True) as reply:
                     log().debug("download: %s", artifact)
@@ -338,19 +346,29 @@ def download_artifacts(
                     artifact_filename.parent.mkdir(parents=True, exist_ok=True)
                     with open(artifact_filename, "wb") as out_file:
                         for chunk in reply.iter_content(chunk_size=8192):
+                            if (
+                                current_dl_duration := (time.time() - time_start)
+                            ) > total_download_timeout:
+                                raise TimeoutError(
+                                    f"Downloading of {reply.url} took longer than {total_download_timeout}s"
+                                )
                             if chunk:  # Filter out keep-alive chunks
                                 out_file.write(chunk)
+                    log().debug(
+                        "download: %s - successful (took %.2fs)", artifact, current_dl_duration
+                    )
                     downloaded_artifacts.append(artifact)
                 break
-            except requests.exceptions.ChunkedEncodingError as e:
-                log().info("Retrying due to chunked encoding error: %s (attempt %d/%d)", e, attempt + 1, MAX_RETRIES)
-                if attempt == MAX_RETRIES - 1:
+            except (
+                requests.exceptions.ChunkedEncodingError,
+                requests.exceptions.ConnectionError,
+                TimeoutError,
+            ) as exc:
+                if not attempts_left:
                     raise
-            except requests.exceptions.ConnectionError as e:
-                # like "Remote end closed connection without response"
-                log().info("Retrying due to connection error error: %s (attempt %d/%d)", e, attempt + 1, MAX_RETRIES)
-                if attempt == MAX_RETRIES - 1:
-                    raise
+                log().warning(
+                    "download_artifacts() caught %r (%s retries left)", exc, attempts_left
+                )
 
     if not no_remove_others:
         for path in existing_files - set(downloaded_artifacts) - set(skipped_artifacts):
@@ -403,7 +421,12 @@ def find_mismatching_parameters(
         if first_val := first.get(key, ""):
             second_val = second.get(key, "")
 
-            assert first_val not in ["TRUE", "FALSE", "True", "False"], "Only groovy lower case bool 'false' or 'true' allowed"
+            assert first_val not in [
+                "TRUE",
+                "FALSE",
+                "True",
+                "False",
+            ], "Only groovy lower case bool 'false' or 'true' allowed"
 
             # apply bool mapping in most stupid way
             if isinstance(first_val, str):
@@ -509,7 +532,9 @@ def meets_constraints(
     return result
 
 
-def build_id_from_queue_item(client: Jenkins, queue_id: QueueId, next_check_sleep: int = 30) -> BuildId:
+def build_id_from_queue_item(
+    client: Jenkins, queue_id: QueueId, next_check_sleep: int = 30
+) -> BuildId:
     """Waits for queue item with given @queue_id to be scheduled and returns Build instance"""
     queue_item = client.get_queue_item(queue_id)
     log().info(
@@ -657,7 +682,12 @@ async def _fn_request_build(args: Args) -> None:
                 )
             )
         else:
-            new_build = await trigger_build(jenkins_client=jenkins_client, job=job, params=new_build_params, next_check_sleep=args.poll_queue_sleep)
+            new_build = await trigger_build(
+                jenkins_client=jenkins_client,
+                job=job,
+                params=new_build_params,
+                next_check_sleep=args.poll_queue_sleep,
+            )
             print(
                 json.dumps(
                     {
@@ -711,6 +741,7 @@ async def _fn_await_and_handle_build(args: Args) -> None:
                                     jenkins_client.client,
                                     completed_build,
                                     out_dir,
+                                    args.total_download_timeout,
                                     args.no_remove_others,
                                 )
                             )
@@ -777,6 +808,7 @@ async def _fn_fetch(args: Args) -> None:
                         jenkins_client.client,
                         completed_build,
                         out_dir,
+                        args.total_download_timeout,
                         args.no_remove_others,
                     )
                 )
@@ -825,7 +857,13 @@ async def identify_matching_build(
             log().info("found matching unfinished build: %s (%s)", build.number, build.url)
             return build
 
-    if matching_item := await find_matching_queue_item(jenkins_client=jenkins_client, job=job, params=params, path_hashes=path_hashes, next_check_sleep=next_check_sleep):
+    if matching_item := await find_matching_queue_item(
+        jenkins_client=jenkins_client,
+        job=job,
+        params=params,
+        path_hashes=path_hashes,
+        next_check_sleep=next_check_sleep,
+    ):
         return await jenkins_client.build_info(job.path, matching_item)
 
     return None

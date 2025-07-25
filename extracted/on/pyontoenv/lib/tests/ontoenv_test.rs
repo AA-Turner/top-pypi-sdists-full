@@ -1,6 +1,6 @@
 use anyhow::Result;
 use ontoenv::api::{OntoEnv, ResolveTarget};
-use ontoenv::config::{Config, HowCreated};
+use ontoenv::config::Config;
 use ontoenv::ontology::OntologyLocation;
 use oxigraph::model::NamedNodeRef;
 use std::path::PathBuf;
@@ -32,18 +32,14 @@ macro_rules! setup {
         $(
             let source_path: PathBuf = PathBuf::from($from);
             let dest_path: PathBuf = dir.path().join($to);
-            if !dest_path.exists() {
-                // Ensure the parent directories exist
-                if let Some(parent) = dest_path.parent() {
-                    if !parent.exists() {
-                        fs::create_dir_all(parent).expect("Failed to create parent directories");
-                    }
+            // Ensure the parent directories exist
+            if let Some(parent) = dest_path.parent() {
+                if !parent.exists() {
+                    fs::create_dir_all(parent).expect("Failed to create parent directories");
                 }
-
-                // 'copy_file' is assumed to be a custom function in the user's project
-                // If not, consider using std::fs::copy for basic file copying
-                copy_file(&source_path, &dest_path).expect(format!("Failed to copy file from {} to {}", source_path.display(), dest_path.display()).as_str());
             }
+
+            copy_file(&source_path, &dest_path).expect(format!("Failed to copy file from {} to {}", source_path.display(), dest_path.display()).as_str());
         )*
 
         // Check the contents of the temporary directory
@@ -68,51 +64,26 @@ fn copy_file(src_path: &PathBuf, dst_path: &PathBuf) -> Result<(), std::io::Erro
 }
 
 fn default_config(dir: &TempDir) -> Config {
-    Config::new(
-        dir.path().into(),
-        Some(vec![dir.path().into()]),
-        &["*.ttl", "*.xml"],
-        &[""],
-        false,
-        true,
-        true,
-        "default".to_string(),
-        false, // no search
-        false, // temporary
-    )
-    .unwrap()
-}
-
-fn default_config_ttl_only(dir: &TempDir) -> Config {
-    Config::new(
-        dir.path().into(),
-        Some(vec![dir.path().into()]),
-        &["*.ttl"],
-        &[""],
-        false,
-        true,
-        true,
-        "default".to_string(),
-        false, // no search
-        false, // temporary
-    )
-    .unwrap()
+    Config::builder()
+        .root(dir.path().into())
+        .locations(vec![dir.path().into()])
+        .includes(&["*.ttl", "*.xml"])
+        .excludes(&[] as &[&str])
+        .strict(true)
+        .offline(true)
+        .build()
+        .unwrap()
 }
 
 fn default_config_with_subdir(dir: &TempDir, path: &str) -> Config {
-    Config::new(
-        dir.path().into(),
-        Some(vec![dir.path().join(path)]),
-        &["*.ttl"],
-        &[""],
-        false,
-        false,
-        true,
-        "default".to_string(),
-        false, // no search
-        false, // temporary
-    )
-    .unwrap()
+    Config::builder()
+        .root(dir.path().into())
+        .locations(vec![dir.path().join(path)])
+        .includes(&["*.ttl"])
+        .excludes(&[] as &[&str])
+        .offline(true)
+        .build()
+        .unwrap()
 }
 
 // we don't care about errors when cleaning up the TempDir so
@@ -143,14 +114,11 @@ fn test_ontoenv_scans_default() -> Result<()> {
                    "fixtures/ont2.ttl" => "ont2.ttl",
                    "fixtures/ont3.ttl" => "ont3.ttl",
                    "fixtures/ont4.ttl" => "ont4.ttl" });
-    let cfg = Config::new_with_default_matches(
-        dir.path().into(),
-        Some([dir.path().into()]),
-        false,
-        false,
-        true,
-        false, // no temporary
-    )?;
+    let cfg = Config::builder()
+        .root(dir.path().into())
+        .locations(vec![dir.path().into()])
+        .offline(true)
+        .build()?;
     let mut env = OntoEnv::init(cfg, false)?;
     env.update()?;
     assert_eq!(env.stats()?.num_graphs, 4);
@@ -166,18 +134,13 @@ fn test_ontoenv_num_triples() -> Result<()> {
                   "fixtures/fileendings/model.nt" => "model.nt",
                   "fixtures/fileendings/model.ttl" => "model.ttl",
                   "fixtures/fileendings/model.xml" => "model.xml"});
-    let cfg1 = Config::new(
-        dir.path().into(),
-        Some(vec![dir.path().into()]),
-        &["*.n3"],
-        &[""],
-        false,
-        false,
-        true,
-        "default".to_string(),
-        false, // no search
-        false, // no temporary
-    )?;
+    let cfg1 = Config::builder()
+        .root(dir.path().into())
+        .locations(vec![dir.path().into()])
+        .includes(&["*.n3"])
+        .excludes(&[] as &[&str])
+        .offline(true)
+        .build()?;
     let mut env = OntoEnv::init(cfg1, false)?;
     env.update()?;
     assert_eq!(env.stats()?.num_graphs, 1);
@@ -382,7 +345,7 @@ fn test_check_for_updates() -> Result<()> {
     });
 
     let updates = env.get_updated_locations()?;
-    assert_eq!(updates.len(), 1);
+    assert_eq!(updates.len(), 2);
     teardown(dir);
     Ok(())
 }
@@ -418,7 +381,7 @@ fn test_ontoenv_dependency_closure() -> Result<()> {
 
     let ont1 = NamedNodeRef::new("https://brickschema.org/schema/1.3/Brick")?;
     let ont_graph = env.resolve(ResolveTarget::Graph(ont1.into())).unwrap();
-    let closure = env.get_dependency_closure(&ont_graph).unwrap();
+    let closure = env.get_closure(&ont_graph, -1).unwrap();
     assert_eq!(closure.len(), 19);
     teardown(dir);
     Ok(())
@@ -446,7 +409,7 @@ fn test_ontoenv_dag_structure() -> Result<()> {
     // get the graph for ontology2
     let ont2 = NamedNodeRef::new("http://example.org/ontology2")?;
     let ont_graph = env.resolve(ResolveTarget::Graph(ont2.into())).unwrap();
-    let closure = env.get_dependency_closure(&ont_graph).unwrap();
+    let closure = env.get_closure(&ont_graph, -1).unwrap();
     assert_eq!(closure.len(), 2);
     let union = env.get_union_graph(&closure, None, None)?;
     assert_eq!(union.len(), 4);
@@ -456,7 +419,7 @@ fn test_ontoenv_dag_structure() -> Result<()> {
     // ont3 => {ont3, ont2, ont1}
     let ont3 = NamedNodeRef::new("http://example.org/ontology3")?;
     let ont_graph = env.resolve(ResolveTarget::Graph(ont3.into())).unwrap();
-    let closure = env.get_dependency_closure(&ont_graph).unwrap();
+    let closure = env.get_closure(&ont_graph, -1).unwrap();
     assert_eq!(closure.len(), 3);
     let union = env.get_union_graph(&closure, None, None)?;
     assert_eq!(union.len(), 5);
@@ -466,13 +429,39 @@ fn test_ontoenv_dag_structure() -> Result<()> {
     // ont5 => {ont5, ont4, ont3, ont2, ont1}
     let ont5 = NamedNodeRef::new("http://example.org/ontology5")?;
     let ont_graph = env.resolve(ResolveTarget::Graph(ont5.into())).unwrap();
-    let closure = env.get_dependency_closure(&ont_graph).unwrap();
+    let closure = env.get_closure(&ont_graph, -1).unwrap();
     assert_eq!(closure.len(), 5);
     let union = env.get_union_graph(&closure, None, None)?;
     assert_eq!(union.len(), 7);
     let union = env.get_union_graph(&closure, None, Some(false))?;
     // print the union
     assert_eq!(union.len(), 14);
+
+    // check recursion depths
+    let closure = env.get_closure(&ont_graph, 0).unwrap();
+    assert_eq!(closure.len(), 1);
+    let closure_names: std::collections::HashSet<String> =
+        closure.iter().map(|ont| ont.name().to_string()).collect();
+    assert!(closure_names.contains("<http://example.org/ontology5>"));
+
+    let closure = env.get_closure(&ont_graph, 1).unwrap();
+    assert_eq!(closure.len(), 4); // ont5, ont4, ont3, ont2
+    let closure_names: std::collections::HashSet<String> =
+        closure.iter().map(|ont| ont.name().to_string()).collect();
+    assert!(closure_names.contains("<http://example.org/ontology5>"));
+    assert!(closure_names.contains("<http://example.org/ontology4>"));
+    assert!(closure_names.contains("<http://example.org/ontology3>"));
+    assert!(closure_names.contains("<http://example.org/ontology2>"));
+
+    let closure = env.get_closure(&ont_graph, -1).unwrap();
+    assert_eq!(closure.len(), 5); // ont5, ont4, ont3, ont2, ont1
+    let closure_names: std::collections::HashSet<String> =
+        closure.iter().map(|ont| ont.name().to_string()).collect();
+    assert!(closure_names.contains("<http://example.org/ontology5>"));
+    assert!(closure_names.contains("<http://example.org/ontology4>"));
+    assert!(closure_names.contains("<http://example.org/ontology3>"));
+    assert!(closure_names.contains("<http://example.org/ontology2>"));
+    assert!(closure_names.contains("<http://example.org/ontology1>"));
 
     Ok(())
 }
@@ -486,18 +475,12 @@ fn test_init_with_config_new_dir() -> Result<()> {
     // Ensure the directory does not exist initially
     assert!(!env_path.exists());
 
-    let cfg = Config::new(
-        env_path.clone(),             // root path
-        Some(vec![env_path.clone()]), // search paths
-        &["*.ttl"],
-        &[""],
-        false, // require_ontology_names
-        false, // strict
-        false, // offline
-        "default".to_string(),
-        false, // search_imports (assuming false if not specified)
-        false, // temporary
-    )?;
+    let cfg = Config::builder()
+        .root(env_path.clone())
+        .locations(vec![env_path.clone()])
+        .includes(&["*.ttl"])
+        .excludes(&[] as &[&str])
+        .build()?;
 
     // Initialize with recreate=true (implicit in init)
     let env = OntoEnv::init(cfg, true)?; // recreate = true
@@ -519,18 +502,12 @@ fn test_init_with_config_existing_empty_dir() -> Result<()> {
     assert!(env_path.is_dir());
     assert!(std::fs::read_dir(&env_path)?.next().is_none()); // Check empty
 
-    let cfg = Config::new(
-        env_path.clone(),
-        Some(vec![env_path.clone()]),
-        &["*.ttl"],
-        &[""],
-        false,
-        false,
-        false,
-        "default".to_string(),
-        false,
-        false,
-    )?;
+    let cfg = Config::builder()
+        .root(env_path.clone())
+        .locations(vec![env_path.clone()])
+        .includes(&["*.ttl"])
+        .excludes(&[] as &[&str])
+        .build()?;
 
     // Initialize with recreate=true
     let env = OntoEnv::init(cfg, true)?;
@@ -551,18 +528,12 @@ fn test_init_load_from_existing_dir() -> Result<()> {
     std::fs::create_dir(&env_path)?;
 
     // Create a dummy environment first
-    let cfg = Config::new(
-        env_path.clone(),
-        Some(vec![env_path.clone()]),
-        &["*.ttl"],
-        &[""],
-        false,
-        false,
-        false,
-        "default".to_string(),
-        false,
-        false,
-    )?;
+    let cfg = Config::builder()
+        .root(env_path.clone())
+        .locations(vec![env_path.clone()])
+        .includes(&["*.ttl"])
+        .excludes(&[] as &[&str])
+        .build()?;
     let mut initial_env = OntoEnv::init(cfg, true)?;
     initial_env.flush()?; // Ensure store is created/flushed
     let expected_store_path = initial_env.store_path().unwrap().to_path_buf();
@@ -586,18 +557,12 @@ fn test_init_recreate_existing_dir() -> Result<()> {
     std::fs::create_dir(&env_path)?;
 
     // Create a dummy environment first
-    let cfg = Config::new(
-        env_path.clone(),
-        Some(vec![env_path.clone()]),
-        &["*.ttl"],
-        &[""],
-        false,
-        false,
-        false,
-        "default".to_string(),
-        false,
-        false,
-    )?;
+    let cfg = Config::builder()
+        .root(env_path.clone())
+        .locations(vec![env_path.clone()])
+        .includes(&["*.ttl"])
+        .excludes(&[] as &[&str])
+        .build()?;
     let mut initial_env = OntoEnv::init(cfg.clone(), true)?;
     // Add a dummy file to check for removal
     let dummy_file_path = env_path.join(".ontoenv").join("dummy.txt");
@@ -628,18 +593,12 @@ fn test_init_read_only() -> Result<()> {
     std::fs::create_dir(&env_path)?;
 
     // Create a dummy environment first
-    let cfg = Config::new(
-        env_path.clone(),
-        Some(vec![env_path.clone()]),
-        &["*.ttl"],
-        &[""],
-        false,
-        false,
-        false,
-        "default".to_string(),
-        false,
-        false,
-    )?;
+    let cfg = Config::builder()
+        .root(env_path.clone())
+        .locations(vec![env_path.clone()])
+        .includes(&["*.ttl"])
+        .excludes(&[] as &[&str])
+        .build()?;
     let mut initial_env = OntoEnv::init(cfg, true)?;
     initial_env.flush()?;
     initial_env.save_to_directory()?;
@@ -706,18 +665,13 @@ fn test_init_temporary() -> Result<()> {
     let env_path = dir.path().join("temp_env_root");
     // Temporary envs shouldn't persist to disk relative to root
 
-    let cfg = Config::new(
-        env_path.clone(),             // Root path (shouldn't be used for storage)
-        Some(vec![env_path.clone()]), // Search path (can still be used)
-        &["*.ttl"],
-        &[""],
-        false, // require_ontology_names
-        false, // strict
-        false, // offline
-        "default".to_string(),
-        false, // search_imports
-        true,  // temporary = true
-    )?;
+    let cfg = Config::builder()
+        .root(env_path.clone())
+        .locations(vec![env_path.clone()])
+        .includes(&["*.ttl"])
+        .excludes(&[] as &[&str])
+        .temporary(true)
+        .build()?;
 
     let mut env = OntoEnv::init(cfg, false)?; // recreate doesn't matter much for temp
 

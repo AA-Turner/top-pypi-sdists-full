@@ -12,8 +12,8 @@ def print_info() -> None:
     Print package info to stdout.
     """
     sys.stdout.write(
-        "Type annotations for aiobotocore CloudFrontKeyValueStore 2.23.1\n"
-        "Version:         2.23.1\n"
+        "Type annotations for aiobotocore CloudFrontKeyValueStore 2.23.2\n"
+        "Version:         2.23.2\n"
         "Builder version: 8.11.0\n"
         "Docs:            https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudfront_keyvaluestore//\n"
         "Boto3 docs:      https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cloudfront-keyvaluestore.html#cloudfrontkeyvaluestore\n"
@@ -26,7 +26,7 @@ def print_version() -> None:
     """
     Print package version to stdout.
     """
-    sys.stdout.write("2.23.1\n")
+    sys.stdout.write("2.23.2\n")
 
 
 def main() -> None:

@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: types-aiobotocore
-Version: 2.23.1
-Summary: Type annotations for aiobotocore 2.23.1 generated with mypy-boto3-builder 8.11.0
+Version: 2.23.2
+Summary: Type annotations for aiobotocore 2.23.2 generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -35,7 +35,7 @@ Requires-Dist: typing-extensions>=4.1.0; python_version < "3.12"
 Provides-Extra: full
 Requires-Dist: types-aiobotocore-full<2.24.0,>=2.23.0; extra == "full"
 Provides-Extra: aiobotocore
-Requires-Dist: aiobotocore==2.23.1; extra == "aiobotocore"
+Requires-Dist: aiobotocore==2.23.2; extra == "aiobotocore"
 Provides-Extra: all
 Requires-Dist: types-aiobotocore-accessanalyzer<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-account<2.24.0,>=2.23.0; extra == "all"
@@ -79,6 +79,8 @@ Requires-Dist: types-aiobotocore-bcm-pricing-calculator<2.24.0,>=2.23.0; extra =
 Requires-Dist: types-aiobotocore-bedrock<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-bedrock-agent<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-bedrock-agent-runtime<2.24.0,>=2.23.0; extra == "all"
+Requires-Dist: types-aiobotocore-bedrock-agentcore<2.24.0,>=2.23.0; extra == "all"
+Requires-Dist: types-aiobotocore-bedrock-agentcore-control<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-bedrock-data-automation<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-bedrock-data-automation-runtime<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-bedrock-runtime<2.24.0,>=2.23.0; extra == "all"
@@ -311,6 +313,7 @@ Requires-Dist: types-aiobotocore-notifications<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-notificationscontacts<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-oam<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-observabilityadmin<2.24.0,>=2.23.0; extra == "all"
+Requires-Dist: types-aiobotocore-odb<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-omics<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-opensearch<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-opensearchserverless<2.24.0,>=2.23.0; extra == "all"
@@ -371,6 +374,7 @@ Requires-Dist: types-aiobotocore-s3<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-s3control<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-s3outposts<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-s3tables<2.24.0,>=2.23.0; extra == "all"
+Requires-Dist: types-aiobotocore-s3vectors<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-sagemaker<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-sagemaker-a2i-runtime<2.24.0,>=2.23.0; extra == "all"
 Requires-Dist: types-aiobotocore-sagemaker-edge<2.24.0,>=2.23.0; extra == "all"
@@ -537,6 +541,10 @@ Provides-Extra: bedrock-agent
 Requires-Dist: types-aiobotocore-bedrock-agent<2.24.0,>=2.23.0; extra == "bedrock-agent"
 Provides-Extra: bedrock-agent-runtime
 Requires-Dist: types-aiobotocore-bedrock-agent-runtime<2.24.0,>=2.23.0; extra == "bedrock-agent-runtime"
+Provides-Extra: bedrock-agentcore
+Requires-Dist: types-aiobotocore-bedrock-agentcore<2.24.0,>=2.23.0; extra == "bedrock-agentcore"
+Provides-Extra: bedrock-agentcore-control
+Requires-Dist: types-aiobotocore-bedrock-agentcore-control<2.24.0,>=2.23.0; extra == "bedrock-agentcore-control"
 Provides-Extra: bedrock-data-automation
 Requires-Dist: types-aiobotocore-bedrock-data-automation<2.24.0,>=2.23.0; extra == "bedrock-data-automation"
 Provides-Extra: bedrock-data-automation-runtime
@@ -1001,6 +1009,8 @@ Provides-Extra: oam
 Requires-Dist: types-aiobotocore-oam<2.24.0,>=2.23.0; extra == "oam"
 Provides-Extra: observabilityadmin
 Requires-Dist: types-aiobotocore-observabilityadmin<2.24.0,>=2.23.0; extra == "observabilityadmin"
+Provides-Extra: odb
+Requires-Dist: types-aiobotocore-odb<2.24.0,>=2.23.0; extra == "odb"
 Provides-Extra: omics
 Requires-Dist: types-aiobotocore-omics<2.24.0,>=2.23.0; extra == "omics"
 Provides-Extra: opensearch
@@ -1121,6 +1131,8 @@ Provides-Extra: s3outposts
 Requires-Dist: types-aiobotocore-s3outposts<2.24.0,>=2.23.0; extra == "s3outposts"
 Provides-Extra: s3tables
 Requires-Dist: types-aiobotocore-s3tables<2.24.0,>=2.23.0; extra == "s3tables"
+Provides-Extra: s3vectors
+Requires-Dist: types-aiobotocore-s3vectors<2.24.0,>=2.23.0; extra == "s3vectors"
 Provides-Extra: sagemaker
 Requires-Dist: types-aiobotocore-sagemaker<2.24.0,>=2.23.0; extra == "sagemaker"
 Provides-Extra: sagemaker-a2i-runtime
@@ -1296,7 +1308,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[aiobotocore 2.23.1](https://pypi.org/project/aiobotocore/) compatible with
+[aiobotocore 2.23.2](https://pypi.org/project/aiobotocore/) compatible with
 [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -1352,7 +1364,7 @@ You can generate type annotations for `aiobotocore` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'aiobotocore==2.23.1' mypy-boto3-builder`
+   `uvx --with 'aiobotocore==2.23.2' mypy-boto3-builder`
 2. Select `aiobotocore` AWS SDK.
 3. Select services you use in the current project.
 4. Use provided commands to install generated packages.
@@ -1648,9 +1660,9 @@ repository.
 
 ## Submodules
 
-- `types-aiobotocore[full]` - Type annotations for all 408 services in one
+- `types-aiobotocore[full]` - Type annotations for all 412 services in one
   package (recommended).
-- `types-aiobotocore[all]` - Type annotations for all 408 services in separate
+- `types-aiobotocore[all]` - Type annotations for all 412 services in separate
   packages.
 - `types-aiobotocore[essential]` - Type annotations for
   [CloudFormation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cloudformation/),
@@ -1789,6 +1801,12 @@ repository.
   service.
 - `types-aiobotocore[bedrock-agent-runtime]` - Type annotations for
   [AgentsforBedrockRuntime](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agent_runtime/)
+  service.
+- `types-aiobotocore[bedrock-agentcore]` - Type annotations for
+  [BedrockAgentCoreDataPlaneFrontingLayer](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore/)
+  service.
+- `types-aiobotocore[bedrock-agentcore-control]` - Type annotations for
+  [BedrockAgentCoreControlPlaneFrontingLayer](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_agentcore_control/)
   service.
 - `types-aiobotocore[bedrock-data-automation]` - Type annotations for
   [DataAutomationforBedrock](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock_data_automation/)
@@ -2488,6 +2506,9 @@ repository.
 - `types-aiobotocore[observabilityadmin]` - Type annotations for
   [CloudWatchObservabilityAdminService](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_observabilityadmin/)
   service.
+- `types-aiobotocore[odb]` - Type annotations for
+  [Odb](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_odb/)
+  service.
 - `types-aiobotocore[omics]` - Type annotations for
   [Omics](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_omics/)
   service.
@@ -2667,6 +2688,9 @@ repository.
   service.
 - `types-aiobotocore[s3tables]` - Type annotations for
   [S3Tables](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3tables/)
+  service.
+- `types-aiobotocore[s3vectors]` - Type annotations for
+  [S3Vectors](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3vectors/)
   service.
 - `types-aiobotocore[sagemaker]` - Type annotations for
   [SageMaker](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/)

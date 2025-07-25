@@ -32,12 +32,12 @@ from neptune_api.credentials import Credentials
 from neptune_api.models import ClientConfig
 from neptune_api.types import Response
 
-from neptune_fetcher.exceptions import NeptuneFailedToFetchClientConfig
-from neptune_fetcher.internal.env import (
+from ..exceptions import NeptuneFailedToFetchClientConfig
+from .env import (
     NEPTUNE_HTTP_REQUEST_TIMEOUT_SECONDS,
     NEPTUNE_VERIFY_SSL,
 )
-from neptune_fetcher.internal.retrieval.retry import handle_errors_default
+from .retrieval.retry import handle_errors_default
 
 
 @dataclass
@@ -65,7 +65,7 @@ def _wrap_httpx_json_response(httpx_response: httpx.Response) -> Response:
 
 
 def get_config_and_token_urls(
-    *, credentials: Credentials, proxies: Optional[Dict[str, str]]
+    *, credentials: Credentials, proxies: Optional[Dict[str, str]] = None
 ) -> tuple[ClientConfig, TokenRefreshingURLs]:
     timeout = httpx.Timeout(NEPTUNE_HTTP_REQUEST_TIMEOUT_SECONDS.get())
     with Client(
@@ -94,7 +94,7 @@ def create_auth_api_client(
     credentials: Credentials,
     config: ClientConfig,
     token_refreshing_urls: TokenRefreshingURLs,
-    proxies: Optional[Dict[str, str]],
+    proxies: Optional[Dict[str, str]] = None,
 ) -> AuthenticatedClient:
     return AuthenticatedClient(
         base_url=credentials.base_url,

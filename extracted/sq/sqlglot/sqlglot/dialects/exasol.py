@@ -6,6 +6,7 @@ from sqlglot.dialects.dialect import (
     binary_from_function,
     build_formatted_time,
     timestrtotime_sql,
+    strposition_sql,
 )
 from sqlglot.helper import seq_get
 from sqlglot.generator import unsupported_args
@@ -75,6 +76,13 @@ class Exasol(Dialect):
                 target_tz=seq_get(args, 2),
                 timestamp=seq_get(args, 0),
                 options=seq_get(args, 3),
+            ),
+        }
+        CONSTRAINT_PARSERS = {
+            **parser.Parser.CONSTRAINT_PARSERS,
+            "COMMENT": lambda self: self.expression(
+                exp.CommentColumnConstraint,
+                this=self._match(TokenType.IS) and self._parse_string(),
             ),
         }
 
@@ -159,6 +167,14 @@ class Exasol(Dialect):
                 "'UTC'",
                 e.args.get("zone"),
             ),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/instr.htm
+            exp.StrPosition: lambda self, e: (
+                strposition_sql(
+                    self, e, func_name="INSTR", supports_position=True, supports_occurrence=True
+                )
+            ),
+            # https://docs.exasol.com/db/latest/sql/create_view.htm
+            exp.CommentColumnConstraint: lambda self, e: f"COMMENT IS {self.sql(e, 'this')}",
         }
 
         def converttimezone_sql(self, expression: exp.ConvertTimezone) -> str:

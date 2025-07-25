@@ -630,6 +630,7 @@ CreateServiceSpecificCredentialRequestTypeDef = TypedDict(
     {
         "UserName": str,
         "ServiceName": str,
+        "CredentialAgeDays": NotRequired[int],
     },
 )
 ServiceSpecificCredentialTypeDef = TypedDict(
@@ -637,11 +638,14 @@ ServiceSpecificCredentialTypeDef = TypedDict(
     {
         "CreateDate": datetime,
         "ServiceName": str,
-        "ServiceUserName": str,
-        "ServicePassword": str,
         "ServiceSpecificCredentialId": str,
         "UserName": str,
         "Status": StatusTypeType,
+        "ExpirationDate": NotRequired[datetime],
+        "ServiceUserName": NotRequired[str],
+        "ServicePassword": NotRequired[str],
+        "ServiceCredentialAlias": NotRequired[str],
+        "ServiceCredentialSecret": NotRequired[str],
     },
 )
 
@@ -1112,6 +1116,9 @@ ListServiceSpecificCredentialsRequestTypeDef = TypedDict(
     {
         "UserName": NotRequired[str],
         "ServiceName": NotRequired[str],
+        "AllUsers": NotRequired[bool],
+        "Marker": NotRequired[str],
+        "MaxItems": NotRequired[int],
     },
 )
 ServiceSpecificCredentialMetadataTypeDef = TypedDict(
@@ -1119,10 +1126,12 @@ ServiceSpecificCredentialMetadataTypeDef = TypedDict(
     {
         "UserName": str,
         "Status": StatusTypeType,
-        "ServiceUserName": str,
         "CreateDate": datetime,
         "ServiceSpecificCredentialId": str,
         "ServiceName": str,
+        "ServiceUserName": NotRequired[str],
+        "ServiceCredentialAlias": NotRequired[str],
+        "ExpirationDate": NotRequired[datetime],
     },
 )
 
@@ -2129,6 +2138,8 @@ class UploadServerCertificateResponseTypeDef(TypedDict):
 
 class ListServiceSpecificCredentialsResponseTypeDef(TypedDict):
     ServiceSpecificCredentials: List[ServiceSpecificCredentialMetadataTypeDef]
+    Marker: str
+    IsTruncated: bool
     ResponseMetadata: ResponseMetadataTypeDef
 
 class ListSigningCertificatesResponseTypeDef(TypedDict):

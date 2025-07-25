@@ -434,6 +434,9 @@ class ConfigManager:
             'windmill_maintenance': None,
             'face_emotion': None,
             'flower_segmentation': None,
+
+            #Put all IMAGE based usecases here
+            'bloodcancer_img_detection': None,
         }
 
     def register_config_class(self, usecase: str, config_class: type) -> None:
@@ -779,6 +782,15 @@ class ConfigManager:
         try:
             from ..usecases.flower_segmentation import FlowerConfig
             return FlowerConfig
+        except ImportError:
+            return None
+
+    #Put all IMAGE based usecases here
+    def _get_bloodcancer_detection_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.blood_cancer_detection_img import BloodCancerDetectionConfig
+            return BloodCancerDetectionConfig
         except ImportError:
             return None
 
@@ -1600,6 +1612,25 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
+
+
+
+        #Put all IMAGE based usecases here
+        elif usecase == "bloodcancer_img_detection":
+            # Import here to avoid circular import
+            from ..usecases.blood_cancer_detection_img import BloodCancerDetectionConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = BloodCancerDetectionConfig(
+                category=category or "healthcare",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
             
         else:
             raise ConfigValidationError(f"Unknown use case: {usecase}")
@@ -1943,6 +1974,13 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.flower_segmentation import FlowerConfig
             default_config = FlowerConfig()
+            return default_config.to_dict()
+
+        #Put all IMAGE based usecases here
+        elif usecase == "bloodcancer_img_detection":
+            # Import here to avoid circular import
+            from ..usecases.blood_cancer_detection_img import BloodCancerDetectionConfig
+            default_config = BloodCancerDetectionConfig()
             return default_config.to_dict()
 
         elif usecase not in self._config_classes:

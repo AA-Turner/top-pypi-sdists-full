@@ -15,6 +15,7 @@ Usage::
         GetChatControlsConfigurationPaginator,
         ListApplicationsPaginator,
         ListAttachmentsPaginator,
+        ListChatResponseConfigurationsPaginator,
         ListConversationsPaginator,
         ListDataAccessorsPaginator,
         ListDataSourceSyncJobsPaginator,
@@ -40,6 +41,7 @@ Usage::
         get_chat_controls_configuration_paginator: GetChatControlsConfigurationPaginator = client.get_paginator("get_chat_controls_configuration")
         list_applications_paginator: ListApplicationsPaginator = client.get_paginator("list_applications")
         list_attachments_paginator: ListAttachmentsPaginator = client.get_paginator("list_attachments")
+        list_chat_response_configurations_paginator: ListChatResponseConfigurationsPaginator = client.get_paginator("list_chat_response_configurations")
         list_conversations_paginator: ListConversationsPaginator = client.get_paginator("list_conversations")
         list_data_accessors_paginator: ListDataAccessorsPaginator = client.get_paginator("list_data_accessors")
         list_data_source_sync_jobs_paginator: ListDataSourceSyncJobsPaginator = client.get_paginator("list_data_source_sync_jobs")
@@ -73,6 +75,8 @@ from .type_defs import (
     ListApplicationsResponseTypeDef,
     ListAttachmentsRequestPaginateTypeDef,
     ListAttachmentsResponseTypeDef,
+    ListChatResponseConfigurationsRequestPaginateTypeDef,
+    ListChatResponseConfigurationsResponseTypeDef,
     ListConversationsRequestPaginateTypeDef,
     ListConversationsResponseTypeDef,
     ListDataAccessorsRequestPaginateTypeDef,
@@ -116,6 +120,7 @@ __all__ = (
     "GetChatControlsConfigurationPaginator",
     "ListApplicationsPaginator",
     "ListAttachmentsPaginator",
+    "ListChatResponseConfigurationsPaginator",
     "ListConversationsPaginator",
     "ListDataAccessorsPaginator",
     "ListDataSourceSyncJobsPaginator",
@@ -188,6 +193,26 @@ class ListAttachmentsPaginator(_ListAttachmentsPaginatorBase):
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/paginator/ListAttachments.html#QBusiness.Paginator.ListAttachments.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/paginators/#listattachmentspaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListChatResponseConfigurationsPaginatorBase = AioPaginator[
+        ListChatResponseConfigurationsResponseTypeDef
+    ]
+else:
+    _ListChatResponseConfigurationsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListChatResponseConfigurationsPaginator(_ListChatResponseConfigurationsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/paginator/ListChatResponseConfigurations.html#QBusiness.Paginator.ListChatResponseConfigurations)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/paginators/#listchatresponseconfigurationspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListChatResponseConfigurationsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListChatResponseConfigurationsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/paginator/ListChatResponseConfigurations.html#QBusiness.Paginator.ListChatResponseConfigurations.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/paginators/#listchatresponseconfigurationspaginator)
         """
 
 if TYPE_CHECKING:

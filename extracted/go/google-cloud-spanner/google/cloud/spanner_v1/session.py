@@ -17,6 +17,7 @@
 from functools import total_ordering
 import time
 from datetime import datetime
+from typing import MutableMapping, Optional
 
 from google.api_core.exceptions import Aborted
 from google.api_core.exceptions import GoogleAPICallError
@@ -69,17 +70,17 @@ class Session(object):
     :param is_multiplexed: (Optional) whether this session is a multiplexed session.
     """
 
-    _session_id = None
-    _transaction = None
-
     def __init__(self, database, labels=None, database_role=None, is_multiplexed=False):
         self._database = database
+        self._session_id: Optional[str] = None
+
         if labels is None:
             labels = {}
-        self._labels = labels
-        self._database_role = database_role
-        self._is_multiplexed = is_multiplexed
-        self._last_use_time = datetime.utcnow()
+
+        self._labels: MutableMapping[str, str] = labels
+        self._database_role: Optional[str] = database_role
+        self._is_multiplexed: bool = is_multiplexed
+        self._last_use_time: datetime = datetime.utcnow()
 
     def __lt__(self, other):
         return self._session_id < other._session_id
@@ -100,7 +101,7 @@ class Session(object):
 
     @property
     def last_use_time(self):
-        """ "Approximate last use time of this session
+        """Approximate last use time of this session
 
         :rtype: datetime
         :returns: the approximate last use time of this session"""
@@ -157,27 +158,28 @@ class Session(object):
 
         if self._session_id is not None:
             raise ValueError("Session ID already set by back-end")
-        api = self._database.spanner_api
-        metadata = _metadata_with_prefix(self._database.name)
-        if self._database._route_to_leader_enabled:
+
+        database = self._database
+        api = database.spanner_api
+
+        metadata = _metadata_with_prefix(database.name)
+        if database._route_to_leader_enabled:
             metadata.append(
-                _metadata_with_leader_aware_routing(
-                    self._database._route_to_leader_enabled
-                )
+                _metadata_with_leader_aware_routing(database._route_to_leader_enabled)
             )
 
-        request = CreateSessionRequest(database=self._database.name)
-        if self._database.database_role is not None:
-            request.session.creator_role = self._database.database_role
+        create_session_request = CreateSessionRequest(database=database.name)
+        if database.database_role is not None:
+            create_session_request.session.creator_role = database.database_role
 
         if self._labels:
-            request.session.labels = self._labels
+            create_session_request.session.labels = self._labels
 
         # Set the multiplexed field for multiplexed sessions
         if self._is_multiplexed:
-            request.session.multiplexed = True
+            create_session_request.session.multiplexed = True
 
-        observability_options = getattr(self._database, "observability_options", None)
+        observability_options = getattr(database, "observability_options", None)
         span_name = (
             "CloudSpanner.CreateMultiplexedSession"
             if self._is_multiplexed
@@ -191,9 +193,9 @@ class Session(object):
             metadata=metadata,
         ) as span, MetricsCapture():
             session_pb = api.create_session(
-                request=request,
-                metadata=self._database.metadata_with_request_id(
-                    self._database._next_nth_request,
+                request=create_session_request,
+                metadata=database.metadata_with_request_id(
+                    database._next_nth_request,
                     1,
                     metadata,
                     span,
@@ -273,7 +275,13 @@ class Session(object):
                 current_span, "Deleting Session failed due to unset session_id"
             )
             raise ValueError("Session ID not set by back-end")
-
+        if self._is_multiplexed:
+            add_span_event(
+                current_span,
+                "Skipped deleting Multiplexed Session",
+                {"session.id": self._session_id},
+            )
+            return
         add_span_event(
             current_span, "Deleting Session", {"session.id": self._session_id}
         )
@@ -462,22 +470,18 @@ class Session(object):
 
         return Batch(self)
 
-    def transaction(self):
+    def transaction(self) -> Transaction:
         """Create a transaction to perform a set of reads with shared staleness.
 
         :rtype: :class:`~google.cloud.spanner_v1.transaction.Transaction`
         :returns: a transaction bound to this session
+
         :raises ValueError: if the session has not yet been created.
         """
         if self._session_id is None:
             raise ValueError("Session has not been created.")
 
-        if self._transaction is not None:
-            self._transaction.rolled_back = True
-            del self._transaction
-
-        txn = self._transaction = Transaction(self)
-        return txn
+        return Transaction(self)
 
     def run_in_transaction(self, func, *args, **kw):
         """Perform a unit of work in a transaction, retrying on abort.
@@ -522,38 +526,43 @@ class Session(object):
         )
         isolation_level = kw.pop("isolation_level", None)
 
-        attempts = 0
+        database = self._database
+        log_commit_stats = database.log_commit_stats
 
-        observability_options = getattr(self._database, "observability_options", None)
         with trace_call(
             "CloudSpanner.Session.run_in_transaction",
             self,
-            observability_options=observability_options,
+            observability_options=getattr(database, "observability_options", None),
         ) as span, MetricsCapture():
-            while True:
-                if self._transaction is None:
-                    txn = self.transaction()
-                    txn.transaction_tag = transaction_tag
-                    txn.exclude_txn_from_change_streams = (
-                        exclude_txn_from_change_streams
-                    )
-                    txn.isolation_level = isolation_level
-                else:
-                    txn = self._transaction
+            attempts: int = 0
 
-                span_attributes = dict()
+            # If a transaction using a multiplexed session is retried after an aborted
+            # user operation, it should include the previous transaction ID in the
+            # transaction options used to begin the transaction. This allows the backend
+            # to recognize the transaction and increase the lock order for the new
+            # transaction that is created.
+            # See :attr:`~google.cloud.spanner_v1.types.TransactionOptions.ReadWrite.multiplexed_session_previous_transaction_id`
+            previous_transaction_id: Optional[bytes] = None
+
+            while True:
+                txn = self.transaction()
+                txn.transaction_tag = transaction_tag
+                txn.exclude_txn_from_change_streams = exclude_txn_from_change_streams
+                txn.isolation_level = isolation_level
+
+                if self.is_multiplexed:
+                    txn._multiplexed_session_previous_transaction_id = (
+                        previous_transaction_id
+                    )
+
+                attempts += 1
+                span_attributes = dict(attempt=attempts)
 
                 try:
-                    attempts += 1
-                    span_attributes["attempt"] = attempts
-                    txn_id = getattr(txn, "_transaction_id", "") or ""
-                    if txn_id:
-                        span_attributes["transaction.id"] = txn_id
-
                     return_value = func(txn, *args, **kw)
 
                 except Aborted as exc:
-                    del self._transaction
+                    previous_transaction_id = txn._transaction_id
                     if span:
                         delay_seconds = _get_retry_delay(
                             exc.errors[0],
@@ -572,14 +581,15 @@ class Session(object):
                         exc, deadline, attempts, default_retry_delay=default_retry_delay
                     )
                     continue
+
                 except GoogleAPICallError:
-                    del self._transaction
                     add_span_event(
                         span,
                         "User operation failed due to GoogleAPICallError, not retrying",
                         span_attributes,
                     )
                     raise
+
                 except Exception:
                     add_span_event(
                         span,
@@ -591,12 +601,13 @@ class Session(object):
 
                 try:
                     txn.commit(
-                        return_commit_stats=self._database.log_commit_stats,
+                        return_commit_stats=log_commit_stats,
                         request_options=commit_request_options,
                         max_commit_delay=max_commit_delay,
                     )
+
                 except Aborted as exc:
-                    del self._transaction
+                    previous_transaction_id = txn._transaction_id
                     if span:
                         delay_seconds = _get_retry_delay(
                             exc.errors[0],
@@ -607,24 +618,25 @@ class Session(object):
                         attributes.update(span_attributes)
                         add_span_event(
                             span,
-                            "Transaction got aborted during commit, retrying afresh",
+                            "Transaction was aborted during commit, retrying",
                             attributes,
                         )
 
                     _delay_until_retry(
                         exc, deadline, attempts, default_retry_delay=default_retry_delay
                     )
+
                 except GoogleAPICallError:
-                    del self._transaction
                     add_span_event(
                         span,
                         "Transaction.commit failed due to GoogleAPICallError, not retrying",
                         span_attributes,
                     )
                     raise
+
                 else:
-                    if self._database.log_commit_stats and txn.commit_stats:
-                        self._database.logger.info(
+                    if log_commit_stats and txn.commit_stats:
+                        database.logger.info(
                             "CommitStats: {}".format(txn.commit_stats),
                             extra={"commit_stats": txn.commit_stats},
                         )

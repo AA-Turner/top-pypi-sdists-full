@@ -43,6 +43,7 @@ from .paginator import (
     ListMLInputChannelsPaginator,
     ListTrainedModelInferenceJobsPaginator,
     ListTrainedModelsPaginator,
+    ListTrainedModelVersionsPaginator,
     ListTrainingDatasetsPaginator,
 )
 from .type_defs import (
@@ -131,6 +132,8 @@ from .type_defs import (
     ListTrainedModelInferenceJobsResponseTypeDef,
     ListTrainedModelsRequestTypeDef,
     ListTrainedModelsResponseTypeDef,
+    ListTrainedModelVersionsRequestTypeDef,
+    ListTrainedModelVersionsResponseTypeDef,
     ListTrainingDatasetsRequestTypeDef,
     ListTrainingDatasetsResponseTypeDef,
     PutConfiguredAudienceModelPolicyRequestTypeDef,
@@ -167,8 +170,10 @@ class Exceptions(BaseClientExceptions):
     AccessDeniedException: Type[BotocoreClientError]
     ClientError: Type[BotocoreClientError]
     ConflictException: Type[BotocoreClientError]
+    InternalServiceException: Type[BotocoreClientError]
     ResourceNotFoundException: Type[BotocoreClientError]
     ServiceQuotaExceededException: Type[BotocoreClientError]
+    ThrottlingException: Type[BotocoreClientError]
     ValidationException: Type[BotocoreClientError]
 
 
@@ -385,7 +390,7 @@ class CleanRoomsMLClient(AioBaseClient):
         self, **kwargs: Unpack[DeleteTrainedModelOutputRequestTypeDef]
     ) -> EmptyResponseMetadataTypeDef:
         """
-        Deletes the output of a trained model.
+        Deletes the model artifacts stored by the service.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanroomsml/client/delete_trained_model_output.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanroomsml/client/#delete_trained_model_output)
@@ -684,6 +689,16 @@ class CleanRoomsMLClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanroomsml/client/#list_trained_model_inference_jobs)
         """
 
+    async def list_trained_model_versions(
+        self, **kwargs: Unpack[ListTrainedModelVersionsRequestTypeDef]
+    ) -> ListTrainedModelVersionsResponseTypeDef:
+        """
+        Returns a list of trained model versions for a specified trained model.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanroomsml/client/list_trained_model_versions.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanroomsml/client/#list_trained_model_versions)
+        """
+
     async def list_trained_models(
         self, **kwargs: Unpack[ListTrainedModelsRequestTypeDef]
     ) -> ListTrainedModelsResponseTypeDef:
@@ -926,6 +941,17 @@ class CleanRoomsMLClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_trained_model_inference_jobs"]
     ) -> ListTrainedModelInferenceJobsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanroomsml/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanroomsml/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_trained_model_versions"]
+    ) -> ListTrainedModelVersionsPaginator:
         """
         Create a paginator for an operation.
 

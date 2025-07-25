@@ -10,6 +10,11 @@ pub enum UnaryOperator {
     Not,
     IsNull,
     IsNotNull,
+    Abs,
+    Ln,
+    Exp,
+    Sqrt,
+    Square,
 }
 
 impl From<UnaryOperator> for topk_rs::proto::v1::data::logical_expr::unary_op::Op {
@@ -20,6 +25,11 @@ impl From<UnaryOperator> for topk_rs::proto::v1::data::logical_expr::unary_op::O
             UnaryOperator::IsNotNull => {
                 topk_rs::proto::v1::data::logical_expr::unary_op::Op::IsNotNull
             }
+            UnaryOperator::Abs => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Abs,
+            UnaryOperator::Ln => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Ln,
+            UnaryOperator::Exp => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Exp,
+            UnaryOperator::Sqrt => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Sqrt,
+            UnaryOperator::Square => topk_rs::proto::v1::data::logical_expr::unary_op::Op::Square,
         }
     }
 }
@@ -27,11 +37,9 @@ impl From<UnaryOperator> for topk_rs::proto::v1::data::logical_expr::unary_op::O
 #[derive(Debug, Clone, Copy, PartialEq)]
 #[pyclass(eq, eq_int)]
 pub enum BinaryOperator {
-    // Logical ops
     And,
     Or,
     Xor,
-    // Comparison ops
     Eq,
     NotEq,
     Lt,
@@ -40,16 +48,16 @@ pub enum BinaryOperator {
     GtEq,
     StartsWith,
     Contains,
-    // Arithmetic ops
     Add,
     Sub,
     Mul,
     Div,
     Rem,
-    // Other
     MatchAll,
     MatchAny,
     Coalesce,
+    Min,
+    Max,
 }
 
 impl From<BinaryOperator> for topk_rs::proto::v1::data::logical_expr::binary_op::Op {
@@ -84,6 +92,8 @@ impl From<BinaryOperator> for topk_rs::proto::v1::data::logical_expr::binary_op:
             }
             BinaryOperator::Rem => unimplemented!("`rem` operator is not supported"),
             BinaryOperator::Xor => unimplemented!("`xor` operator is not supported"),
+            BinaryOperator::Min => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Min,
+            BinaryOperator::Max => topk_rs::proto::v1::data::logical_expr::binary_op::Op::Max,
         }
     }
 }
@@ -222,8 +232,6 @@ impl LogicalExpr {
         self == other
     }
 
-    // Unary operators
-
     fn is_null(&self, py: Python<'_>) -> PyResult<Self> {
         Ok(Self::Unary {
             op: UnaryOperator::IsNull,
@@ -234,6 +242,45 @@ impl LogicalExpr {
     fn is_not_null(&self, py: Python<'_>) -> PyResult<Self> {
         Ok(Self::Unary {
             op: UnaryOperator::IsNotNull,
+            expr: Py::new(py, self.clone())?,
+        })
+    }
+
+    fn abs(&self, py: Python<'_>) -> PyResult<Self> {
+        Ok(Self::Unary {
+            op: UnaryOperator::Abs,
+            expr: Py::new(py, self.clone())?,
+        })
+    }
+
+    fn __abs__(&self, py: Python<'_>) -> PyResult<Self> {
+        self.abs(py)
+    }
+
+    fn ln(&self, py: Python<'_>) -> PyResult<Self> {
+        Ok(Self::Unary {
+            op: UnaryOperator::Ln,
+            expr: Py::new(py, self.clone())?,
+        })
+    }
+
+    fn exp(&self, py: Python<'_>) -> PyResult<Self> {
+        Ok(Self::Unary {
+            op: UnaryOperator::Exp,
+            expr: Py::new(py, self.clone())?,
+        })
+    }
+
+    fn sqrt(&self, py: Python<'_>) -> PyResult<Self> {
+        Ok(Self::Unary {
+            op: UnaryOperator::Sqrt,
+            expr: Py::new(py, self.clone())?,
+        })
+    }
+
+    fn square(&self, py: Python<'_>) -> PyResult<Self> {
+        Ok(Self::Unary {
+            op: UnaryOperator::Square,
             expr: Py::new(py, self.clone())?,
         })
     }
@@ -531,6 +578,22 @@ impl LogicalExpr {
             condition_expr.choose(py, FlexibleExpr::Expr(boost.into()), FlexibleExpr::Int(1))?;
         let choose_numeric = Numeric::Expr(choose_expr);
         self.mul(py, choose_numeric)
+    }
+
+    fn min(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::Min,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
+    }
+
+    fn max(&self, py: Python<'_>, other: Numeric) -> PyResult<Self> {
+        Ok(Self::Binary {
+            left: Py::new(py, self.clone())?,
+            op: BinaryOperator::Max,
+            right: Py::new(py, Into::<LogicalExpr>::into(other))?,
+        })
     }
 }
 

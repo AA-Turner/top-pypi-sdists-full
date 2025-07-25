@@ -19,7 +19,7 @@ import threading
 from dataclasses import dataclass
 from typing import Optional
 
-from neptune_fetcher.internal.env import (
+from .env import (
     NEPTUNE_API_TOKEN,
     NEPTUNE_PROJECT,
 )
@@ -33,7 +33,7 @@ __all__ = (
     "validate_context",
 )
 
-from neptune_fetcher.exceptions import (
+from ..exceptions import (
     NeptuneApiTokenNotProvided,
     NeptuneProjectNotProvided,
 )

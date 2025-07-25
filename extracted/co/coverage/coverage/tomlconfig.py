@@ -11,7 +11,7 @@ import re
 from typing import Any, Callable, TypeVar
 from collections.abc import Iterable
 
-from coverage import env
+from coverage import config, env
 from coverage.exceptions import ConfigError
 from coverage.misc import import_third_party, isolate_module, substitute_variables
 from coverage.types import TConfigSectionOut, TConfigValueOut
@@ -178,6 +178,10 @@ class TomlConfigParser:
         bool_strings = {"true": True, "false": False}
         return self._check_type(name, option, value, bool, bool_strings.__getitem__, "a boolean")
 
+    def getfile(self, section: str, option: str) -> str:
+        _, value = self._get_single(section, option)
+        return config.process_file_value(value)
+
     def _get_list(self, section: str, option: str) -> tuple[str, list[str]]:
         """Get a list of strings, substituting environment variables in the elements."""
         name, values = self._get(section, option)
@@ -191,13 +195,7 @@ class TomlConfigParser:
 
     def getregexlist(self, section: str, option: str) -> list[str]:
         name, values = self._get_list(section, option)
-        for value in values:
-            value = value.strip()
-            try:
-                re.compile(value)
-            except re.error as e:
-                raise ConfigError(f"Invalid [{name}].{option} value {value!r}: {e}") from e
-        return values
+        return config.process_regexlist(name, option, values)
 
     def getint(self, section: str, option: str) -> int:
         name, value = self._get_single(section, option)

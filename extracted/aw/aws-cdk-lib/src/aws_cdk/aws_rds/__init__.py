@@ -1749,7 +1749,21 @@ rds.DatabaseCluster(self, "Database",
 )
 ```
 
-Note: Database Insights are only supported for Amazon Aurora MySQL and Amazon Aurora PostgreSQL clusters.
+Database Insights is also supported for RDS instances:
+
+```python
+# vpc: ec2.Vpc
+
+rds.DatabaseInstance(self, "PostgresInstance",
+    engine=rds.DatabaseInstanceEngine.postgres(version=rds.PostgresEngineVersion.VER_17_5),
+    instance_type=ec2.InstanceType.of(ec2.InstanceClass.R5, ec2.InstanceSize.LARGE),
+    vpc=vpc,
+    # If you enable the advanced mode of Database Insights,
+    # Performance Insights is enabled and you must set the `performanceInsightRetention` to 465(15 months).
+    database_insights_mode=rds.DatabaseInsightsMode.ADVANCED,
+    performance_insight_retention=rds.PerformanceInsightRetention.MONTHS_15
+)
+```
 
 > Visit [CloudWatch Database Insights](https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Database-Insights.html) for more details.
 
@@ -5490,7 +5504,7 @@ class CfnDBCluster(
         :param availability_zones: A list of Availability Zones (AZs) where instances in the DB cluster can be created. For information on AWS Regions and Availability Zones, see `Choosing the Regions and Availability Zones <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.RegionsAndAvailabilityZones.html>`_ in the *Amazon Aurora User Guide* . Valid for: Aurora DB clusters only
         :param backtrack_window: The target backtrack window, in seconds. To disable backtracking, set this value to ``0`` . Valid for Cluster Type: Aurora MySQL DB clusters only Default: ``0`` Constraints: - If specified, this value must be set to a number from 0 to 259,200 (72 hours).
         :param backup_retention_period: The number of days for which automated backups are retained. Default: 1 Constraints: - Must be a value from 1 to 35 Valid for: Aurora DB clusters and Multi-AZ DB clusters Default: - 1
-        :param cluster_scalability_type: Specifies the scalability mode of the Aurora DB cluster. When set to ``limitless`` , the cluster operates as an Aurora Limitless Database, allowing you to create a DB shard group for horizontal scaling (sharding) capabilities. When set to ``standard`` (the default), the cluster uses normal DB instance creation.
+        :param cluster_scalability_type: Specifies the scalability mode of the Aurora DB cluster. When set to ``limitless`` , the cluster operates as an Aurora Limitless Database, allowing you to create a DB shard group for horizontal scaling (sharding) capabilities. When set to ``standard`` (the default), the cluster uses normal DB instance creation. *Important:* Automated backup retention isn't supported with Aurora Limitless Database clusters. If you set this property to ``limitless`` , you cannot set ``DeleteAutomatedBackups`` to ``false`` . To create a backup, use manual snapshots instead.
         :param copy_tags_to_snapshot: A value that indicates whether to copy all tags from the DB cluster to snapshots of the DB cluster. The default is not to copy them. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param database_insights_mode: The mode of Database Insights to enable for the DB cluster. If you set this value to ``advanced`` , you must also set the ``PerformanceInsightsEnabled`` parameter to ``true`` and the ``PerformanceInsightsRetentionPeriod`` parameter to 465. Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB clusters
         :param database_name: The name of your database. If you don't provide a name, then Amazon RDS won't create a database in this DB cluster. For naming constraints, see `Naming Constraints <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/CHAP_Limits.html#RDS_Limits.Constraints>`_ in the *Amazon Aurora User Guide* . Valid for: Aurora DB clusters and Multi-AZ DB clusters
@@ -5535,7 +5549,7 @@ class CfnDBCluster(
         :param scaling_configuration: The scaling configuration of an Aurora Serverless v1 DB cluster. This property is only supported for Aurora Serverless v1. For Aurora Serverless v2, Use the ``ServerlessV2ScalingConfiguration`` property. Valid for: Aurora Serverless v1 DB clusters only
         :param serverless_v2_scaling_configuration: The scaling configuration of an Aurora Serverless V2 DB cluster. This property is only supported for Aurora Serverless v2. For Aurora Serverless v1, Use the ``ScalingConfiguration`` property. Valid for: Aurora Serverless v2 DB clusters only
         :param snapshot_identifier: The identifier for the DB snapshot or DB cluster snapshot to restore from. You can use either the name or the Amazon Resource Name (ARN) to specify a DB cluster snapshot. However, you can use only the ARN to specify a DB snapshot. After you restore a DB cluster with a ``SnapshotIdentifier`` property, you must specify the same ``SnapshotIdentifier`` property for any future updates to the DB cluster. When you specify this property for an update, the DB cluster is not restored from the snapshot again, and the data in the database is not changed. However, if you don't specify the ``SnapshotIdentifier`` property, an empty DB cluster is created, and the original DB cluster is deleted. If you specify a property that is different from the previous snapshot restore property, a new DB cluster is restored from the specified ``SnapshotIdentifier`` property, and the original DB cluster is deleted. If you specify the ``SnapshotIdentifier`` property to restore a DB cluster (as opposed to specifying it for DB cluster updates), then don't specify the following properties: - ``GlobalClusterIdentifier`` - ``MasterUsername`` - ``MasterUserPassword`` - ``ReplicationSourceIdentifier`` - ``RestoreType`` - ``SourceDBClusterIdentifier`` - ``SourceRegion`` - ``StorageEncrypted`` (for an encrypted snapshot) - ``UseLatestRestorableTime`` Constraints: - Must match the identifier of an existing Snapshot. Valid for: Aurora DB clusters and Multi-AZ DB clusters
-        :param source_db_cluster_identifier: When restoring a DB cluster to a point in time, the identifier of the source DB cluster from which to restore. Constraints: - Must match the identifier of an existing DBCluster. Valid for: Aurora DB clusters and Multi-AZ DB clusters
+        :param source_db_cluster_identifier: When restoring a DB cluster to a point in time, the identifier of the source DB cluster from which to restore. Constraints: - Must match the identifier of an existing DBCluster. - Cannot be specified if ``SourceDbClusterResourceId`` is specified. You must specify either ``SourceDBClusterIdentifier`` or ``SourceDbClusterResourceId`` , but not both. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param source_region: The AWS Region which contains the source DB cluster when replicating a DB cluster. For example, ``us-east-1`` . Valid for: Aurora DB clusters only
         :param storage_encrypted: Indicates whether the DB cluster is encrypted. If you specify the ``KmsKeyId`` property, then you must enable encryption. If you specify the ``SourceDBClusterIdentifier`` property, don't specify this property. The value is inherited from the source DB cluster, and if the DB cluster is encrypted, the specified ``KmsKeyId`` property is used. If you specify the ``SnapshotIdentifier`` and the specified snapshot is encrypted, don't specify this property. The value is inherited from the snapshot, and the specified ``KmsKeyId`` property is used. If you specify the ``SnapshotIdentifier`` and the specified snapshot isn't encrypted, you can use this property to specify that the restored DB cluster is encrypted. Specify the ``KmsKeyId`` property for the KMS key to use for encryption. If you don't want the restored DB cluster to be encrypted, then don't set this property or set it to ``false`` . .. epigraph:: If you specify both the ``StorageEncrypted`` and ``SnapshotIdentifier`` properties without specifying the ``KmsKeyId`` property, then the restored DB cluster inherits the encryption settings from the DB snapshot that provide. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param storage_type: The storage type to associate with the DB cluster. For information on storage types for Aurora DB clusters, see `Storage configurations for Amazon Aurora DB clusters <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Overview.StorageReliability.html#aurora-storage-type>`_ . For information on storage types for Multi-AZ DB clusters, see `Settings for creating Multi-AZ DB clusters <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/create-multi-az-db-cluster.html#create-multi-az-db-cluster-settings>`_ . This setting is required to create a Multi-AZ DB cluster. When specified for a Multi-AZ DB cluster, a value for the ``Iops`` parameter is required. Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB clusters Valid Values: - Aurora DB clusters - ``aurora | aurora-iopt1`` - Multi-AZ DB clusters - ``io1 | io2 | gp3`` Default: - Aurora DB clusters - ``aurora`` - Multi-AZ DB clusters - ``io1`` .. epigraph:: When you create an Aurora DB cluster with the storage type set to ``aurora-iopt1`` , the storage type is returned in the response. The storage type isn't returned when you set it to ``aurora`` .
@@ -7684,7 +7698,7 @@ class CfnDBClusterProps:
         :param availability_zones: A list of Availability Zones (AZs) where instances in the DB cluster can be created. For information on AWS Regions and Availability Zones, see `Choosing the Regions and Availability Zones <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Concepts.RegionsAndAvailabilityZones.html>`_ in the *Amazon Aurora User Guide* . Valid for: Aurora DB clusters only
         :param backtrack_window: The target backtrack window, in seconds. To disable backtracking, set this value to ``0`` . Valid for Cluster Type: Aurora MySQL DB clusters only Default: ``0`` Constraints: - If specified, this value must be set to a number from 0 to 259,200 (72 hours).
         :param backup_retention_period: The number of days for which automated backups are retained. Default: 1 Constraints: - Must be a value from 1 to 35 Valid for: Aurora DB clusters and Multi-AZ DB clusters Default: - 1
-        :param cluster_scalability_type: Specifies the scalability mode of the Aurora DB cluster. When set to ``limitless`` , the cluster operates as an Aurora Limitless Database, allowing you to create a DB shard group for horizontal scaling (sharding) capabilities. When set to ``standard`` (the default), the cluster uses normal DB instance creation.
+        :param cluster_scalability_type: Specifies the scalability mode of the Aurora DB cluster. When set to ``limitless`` , the cluster operates as an Aurora Limitless Database, allowing you to create a DB shard group for horizontal scaling (sharding) capabilities. When set to ``standard`` (the default), the cluster uses normal DB instance creation. *Important:* Automated backup retention isn't supported with Aurora Limitless Database clusters. If you set this property to ``limitless`` , you cannot set ``DeleteAutomatedBackups`` to ``false`` . To create a backup, use manual snapshots instead.
         :param copy_tags_to_snapshot: A value that indicates whether to copy all tags from the DB cluster to snapshots of the DB cluster. The default is not to copy them. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param database_insights_mode: The mode of Database Insights to enable for the DB cluster. If you set this value to ``advanced`` , you must also set the ``PerformanceInsightsEnabled`` parameter to ``true`` and the ``PerformanceInsightsRetentionPeriod`` parameter to 465. Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB clusters
         :param database_name: The name of your database. If you don't provide a name, then Amazon RDS won't create a database in this DB cluster. For naming constraints, see `Naming Constraints <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/CHAP_Limits.html#RDS_Limits.Constraints>`_ in the *Amazon Aurora User Guide* . Valid for: Aurora DB clusters and Multi-AZ DB clusters
@@ -7729,7 +7743,7 @@ class CfnDBClusterProps:
         :param scaling_configuration: The scaling configuration of an Aurora Serverless v1 DB cluster. This property is only supported for Aurora Serverless v1. For Aurora Serverless v2, Use the ``ServerlessV2ScalingConfiguration`` property. Valid for: Aurora Serverless v1 DB clusters only
         :param serverless_v2_scaling_configuration: The scaling configuration of an Aurora Serverless V2 DB cluster. This property is only supported for Aurora Serverless v2. For Aurora Serverless v1, Use the ``ScalingConfiguration`` property. Valid for: Aurora Serverless v2 DB clusters only
         :param snapshot_identifier: The identifier for the DB snapshot or DB cluster snapshot to restore from. You can use either the name or the Amazon Resource Name (ARN) to specify a DB cluster snapshot. However, you can use only the ARN to specify a DB snapshot. After you restore a DB cluster with a ``SnapshotIdentifier`` property, you must specify the same ``SnapshotIdentifier`` property for any future updates to the DB cluster. When you specify this property for an update, the DB cluster is not restored from the snapshot again, and the data in the database is not changed. However, if you don't specify the ``SnapshotIdentifier`` property, an empty DB cluster is created, and the original DB cluster is deleted. If you specify a property that is different from the previous snapshot restore property, a new DB cluster is restored from the specified ``SnapshotIdentifier`` property, and the original DB cluster is deleted. If you specify the ``SnapshotIdentifier`` property to restore a DB cluster (as opposed to specifying it for DB cluster updates), then don't specify the following properties: - ``GlobalClusterIdentifier`` - ``MasterUsername`` - ``MasterUserPassword`` - ``ReplicationSourceIdentifier`` - ``RestoreType`` - ``SourceDBClusterIdentifier`` - ``SourceRegion`` - ``StorageEncrypted`` (for an encrypted snapshot) - ``UseLatestRestorableTime`` Constraints: - Must match the identifier of an existing Snapshot. Valid for: Aurora DB clusters and Multi-AZ DB clusters
-        :param source_db_cluster_identifier: When restoring a DB cluster to a point in time, the identifier of the source DB cluster from which to restore. Constraints: - Must match the identifier of an existing DBCluster. Valid for: Aurora DB clusters and Multi-AZ DB clusters
+        :param source_db_cluster_identifier: When restoring a DB cluster to a point in time, the identifier of the source DB cluster from which to restore. Constraints: - Must match the identifier of an existing DBCluster. - Cannot be specified if ``SourceDbClusterResourceId`` is specified. You must specify either ``SourceDBClusterIdentifier`` or ``SourceDbClusterResourceId`` , but not both. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param source_region: The AWS Region which contains the source DB cluster when replicating a DB cluster. For example, ``us-east-1`` . Valid for: Aurora DB clusters only
         :param storage_encrypted: Indicates whether the DB cluster is encrypted. If you specify the ``KmsKeyId`` property, then you must enable encryption. If you specify the ``SourceDBClusterIdentifier`` property, don't specify this property. The value is inherited from the source DB cluster, and if the DB cluster is encrypted, the specified ``KmsKeyId`` property is used. If you specify the ``SnapshotIdentifier`` and the specified snapshot is encrypted, don't specify this property. The value is inherited from the snapshot, and the specified ``KmsKeyId`` property is used. If you specify the ``SnapshotIdentifier`` and the specified snapshot isn't encrypted, you can use this property to specify that the restored DB cluster is encrypted. Specify the ``KmsKeyId`` property for the KMS key to use for encryption. If you don't want the restored DB cluster to be encrypted, then don't set this property or set it to ``false`` . .. epigraph:: If you specify both the ``StorageEncrypted`` and ``SnapshotIdentifier`` properties without specifying the ``KmsKeyId`` property, then the restored DB cluster inherits the encryption settings from the DB snapshot that provide. Valid for: Aurora DB clusters and Multi-AZ DB clusters
         :param storage_type: The storage type to associate with the DB cluster. For information on storage types for Aurora DB clusters, see `Storage configurations for Amazon Aurora DB clusters <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/Aurora.Overview.StorageReliability.html#aurora-storage-type>`_ . For information on storage types for Multi-AZ DB clusters, see `Settings for creating Multi-AZ DB clusters <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/create-multi-az-db-cluster.html#create-multi-az-db-cluster-settings>`_ . This setting is required to create a Multi-AZ DB cluster. When specified for a Multi-AZ DB cluster, a value for the ``Iops`` parameter is required. Valid for Cluster Type: Aurora DB clusters and Multi-AZ DB clusters Valid Values: - Aurora DB clusters - ``aurora | aurora-iopt1`` - Multi-AZ DB clusters - ``io1 | io2 | gp3`` Default: - Aurora DB clusters - ``aurora`` - Multi-AZ DB clusters - ``io1`` .. epigraph:: When you create an Aurora DB cluster with the storage type set to ``aurora-iopt1`` , the storage type is returned in the response. The storage type isn't returned when you set it to ``aurora`` .
@@ -8106,6 +8120,8 @@ class CfnDBClusterProps:
         '''Specifies the scalability mode of the Aurora DB cluster.
 
         When set to ``limitless`` , the cluster operates as an Aurora Limitless Database, allowing you to create a DB shard group for horizontal scaling (sharding) capabilities. When set to ``standard`` (the default), the cluster uses normal DB instance creation.
+
+        *Important:* Automated backup retention isn't supported with Aurora Limitless Database clusters. If you set this property to ``limitless`` , you cannot set ``DeleteAutomatedBackups`` to ``false`` . To create a backup, use manual snapshots instead.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html#cfn-rds-dbcluster-clusterscalabilitytype
         '''
@@ -8925,6 +8941,7 @@ class CfnDBClusterProps:
         Constraints:
 
         - Must match the identifier of an existing DBCluster.
+        - Cannot be specified if ``SourceDbClusterResourceId`` is specified. You must specify either ``SourceDBClusterIdentifier`` or ``SourceDbClusterResourceId`` , but not both.
 
         Valid for: Aurora DB clusters and Multi-AZ DB clusters
 
@@ -9302,7 +9319,7 @@ class CfnDBInstance(
         :param auto_minor_version_upgrade: A value that indicates whether minor engine upgrades are applied automatically to the DB instance during the maintenance window. By default, minor engine upgrades are applied automatically.
         :param availability_zone: The Availability Zone (AZ) where the database will be created. For information on AWS Regions and Availability Zones, see `Regions and Availability Zones <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html>`_ . For Amazon Aurora, each Aurora DB cluster hosts copies of its storage in three separate Availability Zones. Specify one of these Availability Zones. Aurora automatically chooses an appropriate Availability Zone if you don't specify one. Default: A random, system-chosen Availability Zone in the endpoint's AWS Region . Constraints: - The ``AvailabilityZone`` parameter can't be specified if the DB instance is a Multi-AZ deployment. - The specified Availability Zone must be in the same AWS Region as the current endpoint. Example: ``us-east-1d``
         :param backup_retention_period: The number of days for which automated backups are retained. Setting this parameter to a positive number enables backups. Setting this parameter to 0 disables automated backups. *Amazon Aurora* Not applicable. The retention period for automated backups is managed by the DB cluster. Default: 1 Constraints: - Must be a value from 0 to 35 - Can't be set to 0 if the DB instance is a source to read replicas
-        :param backup_target: 
+        :param backup_target: The location for storing automated backups and manual snapshots. Valid Values: - ``local`` (Dedicated Local Zone) - ``outposts`` ( AWS Outposts) - ``region`` ( AWS Region ) Default: ``region`` For more information, see `Working with Amazon RDS on AWS Outposts <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html>`_ in the *Amazon RDS User Guide* .
         :param ca_certificate_identifier: The identifier of the CA certificate for this DB instance. For more information, see `Using SSL/TLS to encrypt a connection to a DB instance <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html>`_ in the *Amazon RDS User Guide* and `Using SSL/TLS to encrypt a connection to a DB cluster <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL.html>`_ in the *Amazon Aurora User Guide* .
         :param certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your SSL/TLS certificate. By default, the DB instance is restarted when you rotate your SSL/TLS certificate. The certificate is not updated until the DB instance is restarted. .. epigraph:: Set this parameter only if you are *not* using SSL/TLS to connect to the DB instance. If you are using SSL/TLS to connect to the DB instance, follow the appropriate instructions for your DB engine to rotate your SSL/TLS certificate: - For more information about rotating your SSL/TLS certificate for RDS DB engines, see `Rotating Your SSL/TLS Certificate. <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL-certificate-rotation.html>`_ in the *Amazon RDS User Guide.* - For more information about rotating your SSL/TLS certificate for Aurora DB engines, see `Rotating Your SSL/TLS Certificate <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL-certificate-rotation.html>`_ in the *Amazon Aurora User Guide* . This setting doesn't apply to RDS Custom DB instances.
         :param character_set_name: For supported engines, indicates that the DB instance should be associated with the specified character set. *Amazon Aurora* Not applicable. The character set is managed by the DB cluster. For more information, see `AWS::RDS::DBCluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html>`_ .
@@ -9790,6 +9807,7 @@ class CfnDBInstance(
     @builtins.property
     @jsii.member(jsii_name="backupTarget")
     def backup_target(self) -> typing.Optional[builtins.str]:
+        '''The location for storing automated backups and manual snapshots.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "backupTarget"))
 
     @backup_target.setter
@@ -11404,7 +11422,7 @@ class CfnDBInstanceProps:
         :param auto_minor_version_upgrade: A value that indicates whether minor engine upgrades are applied automatically to the DB instance during the maintenance window. By default, minor engine upgrades are applied automatically.
         :param availability_zone: The Availability Zone (AZ) where the database will be created. For information on AWS Regions and Availability Zones, see `Regions and Availability Zones <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/Concepts.RegionsAndAvailabilityZones.html>`_ . For Amazon Aurora, each Aurora DB cluster hosts copies of its storage in three separate Availability Zones. Specify one of these Availability Zones. Aurora automatically chooses an appropriate Availability Zone if you don't specify one. Default: A random, system-chosen Availability Zone in the endpoint's AWS Region . Constraints: - The ``AvailabilityZone`` parameter can't be specified if the DB instance is a Multi-AZ deployment. - The specified Availability Zone must be in the same AWS Region as the current endpoint. Example: ``us-east-1d``
         :param backup_retention_period: The number of days for which automated backups are retained. Setting this parameter to a positive number enables backups. Setting this parameter to 0 disables automated backups. *Amazon Aurora* Not applicable. The retention period for automated backups is managed by the DB cluster. Default: 1 Constraints: - Must be a value from 0 to 35 - Can't be set to 0 if the DB instance is a source to read replicas
-        :param backup_target: 
+        :param backup_target: The location for storing automated backups and manual snapshots. Valid Values: - ``local`` (Dedicated Local Zone) - ``outposts`` ( AWS Outposts) - ``region`` ( AWS Region ) Default: ``region`` For more information, see `Working with Amazon RDS on AWS Outposts <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html>`_ in the *Amazon RDS User Guide* .
         :param ca_certificate_identifier: The identifier of the CA certificate for this DB instance. For more information, see `Using SSL/TLS to encrypt a connection to a DB instance <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL.html>`_ in the *Amazon RDS User Guide* and `Using SSL/TLS to encrypt a connection to a DB cluster <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL.html>`_ in the *Amazon Aurora User Guide* .
         :param certificate_rotation_restart: Specifies whether the DB instance is restarted when you rotate your SSL/TLS certificate. By default, the DB instance is restarted when you rotate your SSL/TLS certificate. The certificate is not updated until the DB instance is restarted. .. epigraph:: Set this parameter only if you are *not* using SSL/TLS to connect to the DB instance. If you are using SSL/TLS to connect to the DB instance, follow the appropriate instructions for your DB engine to rotate your SSL/TLS certificate: - For more information about rotating your SSL/TLS certificate for RDS DB engines, see `Rotating Your SSL/TLS Certificate. <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/UsingWithRDS.SSL-certificate-rotation.html>`_ in the *Amazon RDS User Guide.* - For more information about rotating your SSL/TLS certificate for Aurora DB engines, see `Rotating Your SSL/TLS Certificate <https://docs.aws.amazon.com/AmazonRDS/latest/AuroraUserGuide/UsingWithRDS.SSL-certificate-rotation.html>`_ in the *Amazon Aurora User Guide* . This setting doesn't apply to RDS Custom DB instances.
         :param character_set_name: For supported engines, indicates that the DB instance should be associated with the specified character set. *Amazon Aurora* Not applicable. The character set is managed by the DB cluster. For more information, see `AWS::RDS::DBCluster <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbcluster.html>`_ .
@@ -12039,7 +12057,18 @@ class CfnDBInstanceProps:
 
     @builtins.property
     def backup_target(self) -> typing.Optional[builtins.str]:
-        '''
+        '''The location for storing automated backups and manual snapshots.
+
+        Valid Values:
+
+        - ``local`` (Dedicated Local Zone)
+        - ``outposts`` ( AWS Outposts)
+        - ``region`` ( AWS Region )
+
+        Default: ``region``
+
+        For more information, see `Working with Amazon RDS on AWS Outposts <https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/rds-on-outposts.html>`_ in the *Amazon RDS User Guide* .
+
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-rds-dbinstance.html#cfn-rds-dbinstance-backuptarget
         '''
         result = self._values.get("backup_target")
@@ -23457,7 +23486,7 @@ class DatabaseClusterProps:
 
 @jsii.enum(jsii_type="aws-cdk-lib.aws_rds.DatabaseInsightsMode")
 class DatabaseInsightsMode(enum.Enum):
-    '''The database insights mode of the Aurora DB cluster.
+    '''The database insights mode.
 
     :exampleMetadata: infused
 
@@ -23950,6 +23979,7 @@ class DatabaseInstanceLookupOptions:
         "cloudwatch_logs_retention": "cloudwatchLogsRetention",
         "cloudwatch_logs_retention_role": "cloudwatchLogsRetentionRole",
         "copy_tags_to_snapshot": "copyTagsToSnapshot",
+        "database_insights_mode": "databaseInsightsMode",
         "delete_automated_backups": "deleteAutomatedBackups",
         "deletion_protection": "deletionProtection",
         "domain": "domain",
@@ -23999,6 +24029,7 @@ class DatabaseInstanceNewProps:
         cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
         cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
         copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+        database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
         delete_automated_backups: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         domain: typing.Optional[builtins.str] = None,
@@ -24045,6 +24076,7 @@ class DatabaseInstanceNewProps:
         :param cloudwatch_logs_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``Infinity``. Default: - logs never expire
         :param cloudwatch_logs_retention_role: The IAM role for the Lambda function associated with the custom resource that sets the retention policy. Default: - a new role is created.
         :param copy_tags_to_snapshot: Indicates whether to copy all of the user-defined tags from the DB instance to snapshots of the DB instance. Default: true
+        :param database_insights_mode: The database insights mode. Default: - DatabaseInsightsMode.STANDARD when performance insights are enabled, otherwise not set.
         :param delete_automated_backups: Indicates whether automated backups should be deleted or retained when you delete a DB instance. Default: true
         :param deletion_protection: Indicates whether the DB instance should have deletion protection enabled. Default: - true if ``removalPolicy`` is RETAIN, false otherwise
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
@@ -24062,7 +24094,7 @@ class DatabaseInstanceNewProps:
         :param option_group: The option group to associate with the instance. Default: - no option group
         :param parameter_group: The DB parameter group to associate with the instance. Default: - no parameter group
         :param performance_insight_encryption_key: The AWS KMS key for encryption of Performance Insights data. Default: - default master key
-        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. Default: 7 this is the free tier
+        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. If you set ``databaseInsightsMode`` to ``DatabaseInsightsMode.ADVANCED``, you must set this property to ``PerformanceInsightRetention.MONTHS_15``. Default: 7 this is the free tier
         :param port: The port for the instance. Default: - the default port for the chosen engine.
         :param preferred_backup_window: The daily time range during which automated backups are performed. Constraints: - Must be in the format ``hh24:mi-hh24:mi``. - Must be in Universal Coordinated Time (UTC). - Must not conflict with the preferred maintenance window. - Must be at least 30 minutes. Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html#USER_WorkingWithAutomatedBackups.BackupWindow
         :param preferred_maintenance_window: The weekly time range (in UTC) during which system maintenance can occur. Format: ``ddd:hh24:mi-ddd:hh24:mi`` Constraint: Minimum 30-minute window Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region, occurring on a random day of the week. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_UpgradeDBInstance.Maintenance.html#Concepts.DBMaintenance
@@ -24118,6 +24150,7 @@ class DatabaseInstanceNewProps:
                 cloudwatch_logs_retention=logs.RetentionDays.ONE_DAY,
                 cloudwatch_logs_retention_role=role,
                 copy_tags_to_snapshot=False,
+                database_insights_mode=rds.DatabaseInsightsMode.STANDARD,
                 delete_automated_backups=False,
                 deletion_protection=False,
                 domain="domain",
@@ -24179,6 +24212,7 @@ class DatabaseInstanceNewProps:
             check_type(argname="argument cloudwatch_logs_retention", value=cloudwatch_logs_retention, expected_type=type_hints["cloudwatch_logs_retention"])
             check_type(argname="argument cloudwatch_logs_retention_role", value=cloudwatch_logs_retention_role, expected_type=type_hints["cloudwatch_logs_retention_role"])
             check_type(argname="argument copy_tags_to_snapshot", value=copy_tags_to_snapshot, expected_type=type_hints["copy_tags_to_snapshot"])
+            check_type(argname="argument database_insights_mode", value=database_insights_mode, expected_type=type_hints["database_insights_mode"])
             check_type(argname="argument delete_automated_backups", value=delete_automated_backups, expected_type=type_hints["delete_automated_backups"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
@@ -24233,6 +24267,8 @@ class DatabaseInstanceNewProps:
             self._values["cloudwatch_logs_retention_role"] = cloudwatch_logs_retention_role
         if copy_tags_to_snapshot is not None:
             self._values["copy_tags_to_snapshot"] = copy_tags_to_snapshot
+        if database_insights_mode is not None:
+            self._values["database_insights_mode"] = database_insights_mode
         if delete_automated_backups is not None:
             self._values["delete_automated_backups"] = delete_automated_backups
         if deletion_protection is not None:
@@ -24412,6 +24448,15 @@ class DatabaseInstanceNewProps:
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def database_insights_mode(self) -> typing.Optional[DatabaseInsightsMode]:
+        '''The database insights mode.
+
+        :default: - DatabaseInsightsMode.STANDARD when performance insights are enabled, otherwise not set.
+        '''
+        result = self._values.get("database_insights_mode")
+        return typing.cast(typing.Optional[DatabaseInsightsMode], result)
+
+    @builtins.property
     def delete_automated_backups(self) -> typing.Optional[builtins.bool]:
         '''Indicates whether automated backups should be deleted or retained when you delete a DB instance.
 
@@ -24588,6 +24633,8 @@ class DatabaseInstanceNewProps:
         self,
     ) -> typing.Optional["PerformanceInsightRetention"]:
         '''The amount of time, in days, to retain Performance Insights data.
+
+        If you set ``databaseInsightsMode`` to ``DatabaseInsightsMode.ADVANCED``, you must set this property to ``PerformanceInsightRetention.MONTHS_15``.
 
         :default: 7 this is the free tier
         '''
@@ -24822,6 +24869,7 @@ class DatabaseInstanceNewProps:
         "cloudwatch_logs_retention": "cloudwatchLogsRetention",
         "cloudwatch_logs_retention_role": "cloudwatchLogsRetentionRole",
         "copy_tags_to_snapshot": "copyTagsToSnapshot",
+        "database_insights_mode": "databaseInsightsMode",
         "delete_automated_backups": "deleteAutomatedBackups",
         "deletion_protection": "deletionProtection",
         "domain": "domain",
@@ -24876,6 +24924,7 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
         cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
         cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
         copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+        database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
         delete_automated_backups: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         domain: typing.Optional[builtins.str] = None,
@@ -24927,6 +24976,7 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
         :param cloudwatch_logs_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``Infinity``. Default: - logs never expire
         :param cloudwatch_logs_retention_role: The IAM role for the Lambda function associated with the custom resource that sets the retention policy. Default: - a new role is created.
         :param copy_tags_to_snapshot: Indicates whether to copy all of the user-defined tags from the DB instance to snapshots of the DB instance. Default: true
+        :param database_insights_mode: The database insights mode. Default: - DatabaseInsightsMode.STANDARD when performance insights are enabled, otherwise not set.
         :param delete_automated_backups: Indicates whether automated backups should be deleted or retained when you delete a DB instance. Default: true
         :param deletion_protection: Indicates whether the DB instance should have deletion protection enabled. Default: - true if ``removalPolicy`` is RETAIN, false otherwise
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
@@ -24944,7 +24994,7 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
         :param option_group: The option group to associate with the instance. Default: - no option group
         :param parameter_group: The DB parameter group to associate with the instance. Default: - no parameter group
         :param performance_insight_encryption_key: The AWS KMS key for encryption of Performance Insights data. Default: - default master key
-        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. Default: 7 this is the free tier
+        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. If you set ``databaseInsightsMode`` to ``DatabaseInsightsMode.ADVANCED``, you must set this property to ``PerformanceInsightRetention.MONTHS_15``. Default: 7 this is the free tier
         :param port: The port for the instance. Default: - the default port for the chosen engine.
         :param preferred_backup_window: The daily time range during which automated backups are performed. Constraints: - Must be in the format ``hh24:mi-hh24:mi``. - Must be in Universal Coordinated Time (UTC). - Must not conflict with the preferred maintenance window. - Must be at least 30 minutes. Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html#USER_WorkingWithAutomatedBackups.BackupWindow
         :param preferred_maintenance_window: The weekly time range (in UTC) during which system maintenance can occur. Format: ``ddd:hh24:mi-ddd:hh24:mi`` Constraint: Minimum 30-minute window Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region, occurring on a random day of the week. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_UpgradeDBInstance.Maintenance.html#Concepts.DBMaintenance
@@ -25003,6 +25053,7 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
             check_type(argname="argument cloudwatch_logs_retention", value=cloudwatch_logs_retention, expected_type=type_hints["cloudwatch_logs_retention"])
             check_type(argname="argument cloudwatch_logs_retention_role", value=cloudwatch_logs_retention_role, expected_type=type_hints["cloudwatch_logs_retention_role"])
             check_type(argname="argument copy_tags_to_snapshot", value=copy_tags_to_snapshot, expected_type=type_hints["copy_tags_to_snapshot"])
+            check_type(argname="argument database_insights_mode", value=database_insights_mode, expected_type=type_hints["database_insights_mode"])
             check_type(argname="argument delete_automated_backups", value=delete_automated_backups, expected_type=type_hints["delete_automated_backups"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
@@ -25064,6 +25115,8 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
             self._values["cloudwatch_logs_retention_role"] = cloudwatch_logs_retention_role
         if copy_tags_to_snapshot is not None:
             self._values["copy_tags_to_snapshot"] = copy_tags_to_snapshot
+        if database_insights_mode is not None:
+            self._values["database_insights_mode"] = database_insights_mode
         if delete_automated_backups is not None:
             self._values["delete_automated_backups"] = delete_automated_backups
         if deletion_protection is not None:
@@ -25249,6 +25302,15 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def database_insights_mode(self) -> typing.Optional[DatabaseInsightsMode]:
+        '''The database insights mode.
+
+        :default: - DatabaseInsightsMode.STANDARD when performance insights are enabled, otherwise not set.
+        '''
+        result = self._values.get("database_insights_mode")
+        return typing.cast(typing.Optional[DatabaseInsightsMode], result)
+
+    @builtins.property
     def delete_automated_backups(self) -> typing.Optional[builtins.bool]:
         '''Indicates whether automated backups should be deleted or retained when you delete a DB instance.
 
@@ -25425,6 +25487,8 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
         self,
     ) -> typing.Optional["PerformanceInsightRetention"]:
         '''The amount of time, in days, to retain Performance Insights data.
+
+        If you set ``databaseInsightsMode`` to ``DatabaseInsightsMode.ADVANCED``, you must set this property to ``PerformanceInsightRetention.MONTHS_15``.
 
         :default: 7 this is the free tier
         '''
@@ -25704,6 +25768,7 @@ class DatabaseInstanceReadReplicaProps(DatabaseInstanceNewProps):
         "cloudwatch_logs_retention": "cloudwatchLogsRetention",
         "cloudwatch_logs_retention_role": "cloudwatchLogsRetentionRole",
         "copy_tags_to_snapshot": "copyTagsToSnapshot",
+        "database_insights_mode": "databaseInsightsMode",
         "delete_automated_backups": "deleteAutomatedBackups",
         "deletion_protection": "deletionProtection",
         "domain": "domain",
@@ -25761,6 +25826,7 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
         cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
         cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
         copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+        database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
         delete_automated_backups: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         domain: typing.Optional[builtins.str] = None,
@@ -25815,6 +25881,7 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
         :param cloudwatch_logs_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``Infinity``. Default: - logs never expire
         :param cloudwatch_logs_retention_role: The IAM role for the Lambda function associated with the custom resource that sets the retention policy. Default: - a new role is created.
         :param copy_tags_to_snapshot: Indicates whether to copy all of the user-defined tags from the DB instance to snapshots of the DB instance. Default: true
+        :param database_insights_mode: The database insights mode. Default: - DatabaseInsightsMode.STANDARD when performance insights are enabled, otherwise not set.
         :param delete_automated_backups: Indicates whether automated backups should be deleted or retained when you delete a DB instance. Default: true
         :param deletion_protection: Indicates whether the DB instance should have deletion protection enabled. Default: - true if ``removalPolicy`` is RETAIN, false otherwise
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
@@ -25832,7 +25899,7 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
         :param option_group: The option group to associate with the instance. Default: - no option group
         :param parameter_group: The DB parameter group to associate with the instance. Default: - no parameter group
         :param performance_insight_encryption_key: The AWS KMS key for encryption of Performance Insights data. Default: - default master key
-        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. Default: 7 this is the free tier
+        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. If you set ``databaseInsightsMode`` to ``DatabaseInsightsMode.ADVANCED``, you must set this property to ``PerformanceInsightRetention.MONTHS_15``. Default: 7 this is the free tier
         :param port: The port for the instance. Default: - the default port for the chosen engine.
         :param preferred_backup_window: The daily time range during which automated backups are performed. Constraints: - Must be in the format ``hh24:mi-hh24:mi``. - Must be in Universal Coordinated Time (UTC). - Must not conflict with the preferred maintenance window. - Must be at least 30 minutes. Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html#USER_WorkingWithAutomatedBackups.BackupWindow
         :param preferred_maintenance_window: The weekly time range (in UTC) during which system maintenance can occur. Format: ``ddd:hh24:mi-ddd:hh24:mi`` Constraint: Minimum 30-minute window Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region, occurring on a random day of the week. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_UpgradeDBInstance.Maintenance.html#Concepts.DBMaintenance
@@ -25901,6 +25968,7 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
                 cloudwatch_logs_retention=logs.RetentionDays.ONE_DAY,
                 cloudwatch_logs_retention_role=role,
                 copy_tags_to_snapshot=False,
+                database_insights_mode=rds.DatabaseInsightsMode.STANDARD,
                 database_name="databaseName",
                 delete_automated_backups=False,
                 deletion_protection=False,
@@ -25969,6 +26037,7 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
             check_type(argname="argument cloudwatch_logs_retention", value=cloudwatch_logs_retention, expected_type=type_hints["cloudwatch_logs_retention"])
             check_type(argname="argument cloudwatch_logs_retention_role", value=cloudwatch_logs_retention_role, expected_type=type_hints["cloudwatch_logs_retention_role"])
             check_type(argname="argument copy_tags_to_snapshot", value=copy_tags_to_snapshot, expected_type=type_hints["copy_tags_to_snapshot"])
+            check_type(argname="argument database_insights_mode", value=database_insights_mode, expected_type=type_hints["database_insights_mode"])
             check_type(argname="argument delete_automated_backups", value=delete_automated_backups, expected_type=type_hints["delete_automated_backups"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
@@ -26032,6 +26101,8 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
             self._values["cloudwatch_logs_retention_role"] = cloudwatch_logs_retention_role
         if copy_tags_to_snapshot is not None:
             self._values["copy_tags_to_snapshot"] = copy_tags_to_snapshot
+        if database_insights_mode is not None:
+            self._values["database_insights_mode"] = database_insights_mode
         if delete_automated_backups is not None:
             self._values["delete_automated_backups"] = delete_automated_backups
         if deletion_protection is not None:
@@ -26225,6 +26296,15 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def database_insights_mode(self) -> typing.Optional[DatabaseInsightsMode]:
+        '''The database insights mode.
+
+        :default: - DatabaseInsightsMode.STANDARD when performance insights are enabled, otherwise not set.
+        '''
+        result = self._values.get("database_insights_mode")
+        return typing.cast(typing.Optional[DatabaseInsightsMode], result)
+
+    @builtins.property
     def delete_automated_backups(self) -> typing.Optional[builtins.bool]:
         '''Indicates whether automated backups should be deleted or retained when you delete a DB instance.
 
@@ -26401,6 +26481,8 @@ class DatabaseInstanceSourceProps(DatabaseInstanceNewProps):
         self,
     ) -> typing.Optional["PerformanceInsightRetention"]:
         '''The amount of time, in days, to retain Performance Insights data.
+
+        If you set ``databaseInsightsMode`` to ``DatabaseInsightsMode.ADVANCED``, you must set this property to ``PerformanceInsightRetention.MONTHS_15``.
 
         :default: 7 this is the free tier
         '''
@@ -44621,6 +44703,7 @@ class DatabaseInstanceFromSnapshot(
         cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
         cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
         copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+        database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
         delete_automated_backups: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         domain: typing.Optional[builtins.str] = None,
@@ -44679,6 +44762,7 @@ class DatabaseInstanceFromSnapshot(
         :param cloudwatch_logs_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``Infinity``. Default: - logs never expire
         :param cloudwatch_logs_retention_role: The IAM role for the Lambda function associated with the custom resource that sets the retention policy. Default: - a new role is created.
         :param copy_tags_to_snapshot: Indicates whether to copy all of the user-defined tags from the DB instance to snapshots of the DB instance. Default: true
+        :param database_insights_mode: The database insights mode. Default: - DatabaseInsightsMode.STANDARD when performance insights are enabled, otherwise not set.
         :param delete_automated_backups: Indicates whether automated backups should be deleted or retained when you delete a DB instance. Default: true
         :param deletion_protection: Indicates whether the DB instance should have deletion protection enabled. Default: - true if ``removalPolicy`` is RETAIN, false otherwise
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
@@ -44696,7 +44780,7 @@ class DatabaseInstanceFromSnapshot(
         :param option_group: The option group to associate with the instance. Default: - no option group
         :param parameter_group: The DB parameter group to associate with the instance. Default: - no parameter group
         :param performance_insight_encryption_key: The AWS KMS key for encryption of Performance Insights data. Default: - default master key
-        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. Default: 7 this is the free tier
+        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. If you set ``databaseInsightsMode`` to ``DatabaseInsightsMode.ADVANCED``, you must set this property to ``PerformanceInsightRetention.MONTHS_15``. Default: 7 this is the free tier
         :param port: The port for the instance. Default: - the default port for the chosen engine.
         :param preferred_backup_window: The daily time range during which automated backups are performed. Constraints: - Must be in the format ``hh24:mi-hh24:mi``. - Must be in Universal Coordinated Time (UTC). - Must not conflict with the preferred maintenance window. - Must be at least 30 minutes. Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html#USER_WorkingWithAutomatedBackups.BackupWindow
         :param preferred_maintenance_window: The weekly time range (in UTC) during which system maintenance can occur. Format: ``ddd:hh24:mi-ddd:hh24:mi`` Constraint: Minimum 30-minute window Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region, occurring on a random day of the week. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_UpgradeDBInstance.Maintenance.html#Concepts.DBMaintenance
@@ -44739,6 +44823,7 @@ class DatabaseInstanceFromSnapshot(
             cloudwatch_logs_retention=cloudwatch_logs_retention,
             cloudwatch_logs_retention_role=cloudwatch_logs_retention_role,
             copy_tags_to_snapshot=copy_tags_to_snapshot,
+            database_insights_mode=database_insights_mode,
             delete_automated_backups=delete_automated_backups,
             deletion_protection=deletion_protection,
             domain=domain,
@@ -44992,6 +45077,7 @@ class DatabaseInstanceFromSnapshot(
         "cloudwatch_logs_retention": "cloudwatchLogsRetention",
         "cloudwatch_logs_retention_role": "cloudwatchLogsRetentionRole",
         "copy_tags_to_snapshot": "copyTagsToSnapshot",
+        "database_insights_mode": "databaseInsightsMode",
         "delete_automated_backups": "deleteAutomatedBackups",
         "deletion_protection": "deletionProtection",
         "domain": "domain",
@@ -45052,6 +45138,7 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
         cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
         copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+        database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
         delete_automated_backups: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         domain: typing.Optional[builtins.str] = None,
@@ -45109,6 +45196,7 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         :param cloudwatch_logs_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``Infinity``. Default: - logs never expire
         :param cloudwatch_logs_retention_role: The IAM role for the Lambda function associated with the custom resource that sets the retention policy. Default: - a new role is created.
         :param copy_tags_to_snapshot: Indicates whether to copy all of the user-defined tags from the DB instance to snapshots of the DB instance. Default: true
+        :param database_insights_mode: The database insights mode. Default: - DatabaseInsightsMode.STANDARD when performance insights are enabled, otherwise not set.
         :param delete_automated_backups: Indicates whether automated backups should be deleted or retained when you delete a DB instance. Default: true
         :param deletion_protection: Indicates whether the DB instance should have deletion protection enabled. Default: - true if ``removalPolicy`` is RETAIN, false otherwise
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
@@ -45126,7 +45214,7 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         :param option_group: The option group to associate with the instance. Default: - no option group
         :param parameter_group: The DB parameter group to associate with the instance. Default: - no parameter group
         :param performance_insight_encryption_key: The AWS KMS key for encryption of Performance Insights data. Default: - default master key
-        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. Default: 7 this is the free tier
+        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. If you set ``databaseInsightsMode`` to ``DatabaseInsightsMode.ADVANCED``, you must set this property to ``PerformanceInsightRetention.MONTHS_15``. Default: 7 this is the free tier
         :param port: The port for the instance. Default: - the default port for the chosen engine.
         :param preferred_backup_window: The daily time range during which automated backups are performed. Constraints: - Must be in the format ``hh24:mi-hh24:mi``. - Must be in Universal Coordinated Time (UTC). - Must not conflict with the preferred maintenance window. - Must be at least 30 minutes. Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html#USER_WorkingWithAutomatedBackups.BackupWindow
         :param preferred_maintenance_window: The weekly time range (in UTC) during which system maintenance can occur. Format: ``ddd:hh24:mi-ddd:hh24:mi`` Constraint: Minimum 30-minute window Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region, occurring on a random day of the week. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_UpgradeDBInstance.Maintenance.html#Concepts.DBMaintenance
@@ -45190,6 +45278,7 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
             check_type(argname="argument cloudwatch_logs_retention", value=cloudwatch_logs_retention, expected_type=type_hints["cloudwatch_logs_retention"])
             check_type(argname="argument cloudwatch_logs_retention_role", value=cloudwatch_logs_retention_role, expected_type=type_hints["cloudwatch_logs_retention_role"])
             check_type(argname="argument copy_tags_to_snapshot", value=copy_tags_to_snapshot, expected_type=type_hints["copy_tags_to_snapshot"])
+            check_type(argname="argument database_insights_mode", value=database_insights_mode, expected_type=type_hints["database_insights_mode"])
             check_type(argname="argument delete_automated_backups", value=delete_automated_backups, expected_type=type_hints["delete_automated_backups"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
@@ -45256,6 +45345,8 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
             self._values["cloudwatch_logs_retention_role"] = cloudwatch_logs_retention_role
         if copy_tags_to_snapshot is not None:
             self._values["copy_tags_to_snapshot"] = copy_tags_to_snapshot
+        if database_insights_mode is not None:
+            self._values["database_insights_mode"] = database_insights_mode
         if delete_automated_backups is not None:
             self._values["delete_automated_backups"] = delete_automated_backups
         if deletion_protection is not None:
@@ -45455,6 +45546,15 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def database_insights_mode(self) -> typing.Optional[DatabaseInsightsMode]:
+        '''The database insights mode.
+
+        :default: - DatabaseInsightsMode.STANDARD when performance insights are enabled, otherwise not set.
+        '''
+        result = self._values.get("database_insights_mode")
+        return typing.cast(typing.Optional[DatabaseInsightsMode], result)
+
+    @builtins.property
     def delete_automated_backups(self) -> typing.Optional[builtins.bool]:
         '''Indicates whether automated backups should be deleted or retained when you delete a DB instance.
 
@@ -45631,6 +45731,8 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         self,
     ) -> typing.Optional[PerformanceInsightRetention]:
         '''The amount of time, in days, to retain Performance Insights data.
+
+        If you set ``databaseInsightsMode`` to ``DatabaseInsightsMode.ADVANCED``, you must set this property to ``PerformanceInsightRetention.MONTHS_15``.
 
         :default: 7 this is the free tier
         '''
@@ -45988,6 +46090,7 @@ class DatabaseInstanceFromSnapshotProps(DatabaseInstanceSourceProps):
         "cloudwatch_logs_retention": "cloudwatchLogsRetention",
         "cloudwatch_logs_retention_role": "cloudwatchLogsRetentionRole",
         "copy_tags_to_snapshot": "copyTagsToSnapshot",
+        "database_insights_mode": "databaseInsightsMode",
         "delete_automated_backups": "deleteAutomatedBackups",
         "deletion_protection": "deletionProtection",
         "domain": "domain",
@@ -46049,6 +46152,7 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
         cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
         cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
         copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+        database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
         delete_automated_backups: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         domain: typing.Optional[builtins.str] = None,
@@ -46107,6 +46211,7 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
         :param cloudwatch_logs_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``Infinity``. Default: - logs never expire
         :param cloudwatch_logs_retention_role: The IAM role for the Lambda function associated with the custom resource that sets the retention policy. Default: - a new role is created.
         :param copy_tags_to_snapshot: Indicates whether to copy all of the user-defined tags from the DB instance to snapshots of the DB instance. Default: true
+        :param database_insights_mode: The database insights mode. Default: - DatabaseInsightsMode.STANDARD when performance insights are enabled, otherwise not set.
         :param delete_automated_backups: Indicates whether automated backups should be deleted or retained when you delete a DB instance. Default: true
         :param deletion_protection: Indicates whether the DB instance should have deletion protection enabled. Default: - true if ``removalPolicy`` is RETAIN, false otherwise
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
@@ -46124,7 +46229,7 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
         :param option_group: The option group to associate with the instance. Default: - no option group
         :param parameter_group: The DB parameter group to associate with the instance. Default: - no parameter group
         :param performance_insight_encryption_key: The AWS KMS key for encryption of Performance Insights data. Default: - default master key
-        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. Default: 7 this is the free tier
+        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. If you set ``databaseInsightsMode`` to ``DatabaseInsightsMode.ADVANCED``, you must set this property to ``PerformanceInsightRetention.MONTHS_15``. Default: 7 this is the free tier
         :param port: The port for the instance. Default: - the default port for the chosen engine.
         :param preferred_backup_window: The daily time range during which automated backups are performed. Constraints: - Must be in the format ``hh24:mi-hh24:mi``. - Must be in Universal Coordinated Time (UTC). - Must not conflict with the preferred maintenance window. - Must be at least 30 minutes. Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html#USER_WorkingWithAutomatedBackups.BackupWindow
         :param preferred_maintenance_window: The weekly time range (in UTC) during which system maintenance can occur. Format: ``ddd:hh24:mi-ddd:hh24:mi`` Constraint: Minimum 30-minute window Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region, occurring on a random day of the week. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_UpgradeDBInstance.Maintenance.html#Concepts.DBMaintenance
@@ -46191,6 +46296,7 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
             check_type(argname="argument cloudwatch_logs_retention", value=cloudwatch_logs_retention, expected_type=type_hints["cloudwatch_logs_retention"])
             check_type(argname="argument cloudwatch_logs_retention_role", value=cloudwatch_logs_retention_role, expected_type=type_hints["cloudwatch_logs_retention_role"])
             check_type(argname="argument copy_tags_to_snapshot", value=copy_tags_to_snapshot, expected_type=type_hints["copy_tags_to_snapshot"])
+            check_type(argname="argument database_insights_mode", value=database_insights_mode, expected_type=type_hints["database_insights_mode"])
             check_type(argname="argument delete_automated_backups", value=delete_automated_backups, expected_type=type_hints["delete_automated_backups"])
             check_type(argname="argument deletion_protection", value=deletion_protection, expected_type=type_hints["deletion_protection"])
             check_type(argname="argument domain", value=domain, expected_type=type_hints["domain"])
@@ -46258,6 +46364,8 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
             self._values["cloudwatch_logs_retention_role"] = cloudwatch_logs_retention_role
         if copy_tags_to_snapshot is not None:
             self._values["copy_tags_to_snapshot"] = copy_tags_to_snapshot
+        if database_insights_mode is not None:
+            self._values["database_insights_mode"] = database_insights_mode
         if delete_automated_backups is not None:
             self._values["delete_automated_backups"] = delete_automated_backups
         if deletion_protection is not None:
@@ -46459,6 +46567,15 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
         return typing.cast(typing.Optional[builtins.bool], result)
 
     @builtins.property
+    def database_insights_mode(self) -> typing.Optional[DatabaseInsightsMode]:
+        '''The database insights mode.
+
+        :default: - DatabaseInsightsMode.STANDARD when performance insights are enabled, otherwise not set.
+        '''
+        result = self._values.get("database_insights_mode")
+        return typing.cast(typing.Optional[DatabaseInsightsMode], result)
+
+    @builtins.property
     def delete_automated_backups(self) -> typing.Optional[builtins.bool]:
         '''Indicates whether automated backups should be deleted or retained when you delete a DB instance.
 
@@ -46635,6 +46752,8 @@ class DatabaseInstanceProps(DatabaseInstanceSourceProps):
         self,
     ) -> typing.Optional[PerformanceInsightRetention]:
         '''The amount of time, in days, to retain Performance Insights data.
+
+        If you set ``databaseInsightsMode`` to ``DatabaseInsightsMode.ADVANCED``, you must set this property to ``PerformanceInsightRetention.MONTHS_15``.
 
         :default: 7 this is the free tier
         '''
@@ -47017,6 +47136,7 @@ class DatabaseInstanceReadReplica(
         cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
         cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
         copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+        database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
         delete_automated_backups: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         domain: typing.Optional[builtins.str] = None,
@@ -47069,6 +47189,7 @@ class DatabaseInstanceReadReplica(
         :param cloudwatch_logs_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``Infinity``. Default: - logs never expire
         :param cloudwatch_logs_retention_role: The IAM role for the Lambda function associated with the custom resource that sets the retention policy. Default: - a new role is created.
         :param copy_tags_to_snapshot: Indicates whether to copy all of the user-defined tags from the DB instance to snapshots of the DB instance. Default: true
+        :param database_insights_mode: The database insights mode. Default: - DatabaseInsightsMode.STANDARD when performance insights are enabled, otherwise not set.
         :param delete_automated_backups: Indicates whether automated backups should be deleted or retained when you delete a DB instance. Default: true
         :param deletion_protection: Indicates whether the DB instance should have deletion protection enabled. Default: - true if ``removalPolicy`` is RETAIN, false otherwise
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
@@ -47086,7 +47207,7 @@ class DatabaseInstanceReadReplica(
         :param option_group: The option group to associate with the instance. Default: - no option group
         :param parameter_group: The DB parameter group to associate with the instance. Default: - no parameter group
         :param performance_insight_encryption_key: The AWS KMS key for encryption of Performance Insights data. Default: - default master key
-        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. Default: 7 this is the free tier
+        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. If you set ``databaseInsightsMode`` to ``DatabaseInsightsMode.ADVANCED``, you must set this property to ``PerformanceInsightRetention.MONTHS_15``. Default: 7 this is the free tier
         :param port: The port for the instance. Default: - the default port for the chosen engine.
         :param preferred_backup_window: The daily time range during which automated backups are performed. Constraints: - Must be in the format ``hh24:mi-hh24:mi``. - Must be in Universal Coordinated Time (UTC). - Must not conflict with the preferred maintenance window. - Must be at least 30 minutes. Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html#USER_WorkingWithAutomatedBackups.BackupWindow
         :param preferred_maintenance_window: The weekly time range (in UTC) during which system maintenance can occur. Format: ``ddd:hh24:mi-ddd:hh24:mi`` Constraint: Minimum 30-minute window Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region, occurring on a random day of the week. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_UpgradeDBInstance.Maintenance.html#Concepts.DBMaintenance
@@ -47123,6 +47244,7 @@ class DatabaseInstanceReadReplica(
             cloudwatch_logs_retention=cloudwatch_logs_retention,
             cloudwatch_logs_retention_role=cloudwatch_logs_retention_role,
             copy_tags_to_snapshot=copy_tags_to_snapshot,
+            database_insights_mode=database_insights_mode,
             delete_automated_backups=delete_automated_backups,
             deletion_protection=deletion_protection,
             domain=domain,
@@ -48292,6 +48414,7 @@ class DatabaseInstance(
         cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
         cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
         copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+        database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
         delete_automated_backups: typing.Optional[builtins.bool] = None,
         deletion_protection: typing.Optional[builtins.bool] = None,
         domain: typing.Optional[builtins.str] = None,
@@ -48351,6 +48474,7 @@ class DatabaseInstance(
         :param cloudwatch_logs_retention: The number of days log events are kept in CloudWatch Logs. When updating this property, unsetting it doesn't remove the log retention policy. To remove the retention policy, set the value to ``Infinity``. Default: - logs never expire
         :param cloudwatch_logs_retention_role: The IAM role for the Lambda function associated with the custom resource that sets the retention policy. Default: - a new role is created.
         :param copy_tags_to_snapshot: Indicates whether to copy all of the user-defined tags from the DB instance to snapshots of the DB instance. Default: true
+        :param database_insights_mode: The database insights mode. Default: - DatabaseInsightsMode.STANDARD when performance insights are enabled, otherwise not set.
         :param delete_automated_backups: Indicates whether automated backups should be deleted or retained when you delete a DB instance. Default: true
         :param deletion_protection: Indicates whether the DB instance should have deletion protection enabled. Default: - true if ``removalPolicy`` is RETAIN, false otherwise
         :param domain: The Active Directory directory ID to create the DB instance in. Default: - Do not join domain
@@ -48368,7 +48492,7 @@ class DatabaseInstance(
         :param option_group: The option group to associate with the instance. Default: - no option group
         :param parameter_group: The DB parameter group to associate with the instance. Default: - no parameter group
         :param performance_insight_encryption_key: The AWS KMS key for encryption of Performance Insights data. Default: - default master key
-        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. Default: 7 this is the free tier
+        :param performance_insight_retention: The amount of time, in days, to retain Performance Insights data. If you set ``databaseInsightsMode`` to ``DatabaseInsightsMode.ADVANCED``, you must set this property to ``PerformanceInsightRetention.MONTHS_15``. Default: 7 this is the free tier
         :param port: The port for the instance. Default: - the default port for the chosen engine.
         :param preferred_backup_window: The daily time range during which automated backups are performed. Constraints: - Must be in the format ``hh24:mi-hh24:mi``. - Must be in Universal Coordinated Time (UTC). - Must not conflict with the preferred maintenance window. - Must be at least 30 minutes. Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_WorkingWithAutomatedBackups.html#USER_WorkingWithAutomatedBackups.BackupWindow
         :param preferred_maintenance_window: The weekly time range (in UTC) during which system maintenance can occur. Format: ``ddd:hh24:mi-ddd:hh24:mi`` Constraint: Minimum 30-minute window Default: - a 30-minute window selected at random from an 8-hour block of time for each AWS Region, occurring on a random day of the week. To see the time blocks available, see https://docs.aws.amazon.com/AmazonRDS/latest/UserGuide/USER_UpgradeDBInstance.Maintenance.html#Concepts.DBMaintenance
@@ -48412,6 +48536,7 @@ class DatabaseInstance(
             cloudwatch_logs_retention=cloudwatch_logs_retention,
             cloudwatch_logs_retention_role=cloudwatch_logs_retention_role,
             copy_tags_to_snapshot=copy_tags_to_snapshot,
+            database_insights_mode=database_insights_mode,
             delete_automated_backups=delete_automated_backups,
             deletion_protection=deletion_protection,
             domain=domain,
@@ -51651,6 +51776,7 @@ def _typecheckingstub__d110b1cb0043ae6adf59fc0d1bcb136b4655ac973cfbff361a0a3e2fe
     cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
     cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
     copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+    database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
     delete_automated_backups: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     domain: typing.Optional[builtins.str] = None,
@@ -51700,6 +51826,7 @@ def _typecheckingstub__5508238388ee4afc86f97d5f22fa50578f8a1bdeed9ade8d0210c955b
     cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
     cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
     copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+    database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
     delete_automated_backups: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     domain: typing.Optional[builtins.str] = None,
@@ -51754,6 +51881,7 @@ def _typecheckingstub__77d3b41152c4c7a3436d76bad0d83368717917e66a0f0cd849998fcd4
     cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
     cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
     copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+    database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
     delete_automated_backups: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     domain: typing.Optional[builtins.str] = None,
@@ -53019,6 +53147,7 @@ def _typecheckingstub__dbf7e60a650d0a1bea1826814200716f46cd1f59eea36a42193653d7f
     cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
     cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
     copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+    database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
     delete_automated_backups: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     domain: typing.Optional[builtins.str] = None,
@@ -53095,6 +53224,7 @@ def _typecheckingstub__f06d86058a0a7538eb7dbf55de032c8cf05f7fa7b4ab5d5c1d47f7617
     cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
     cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
     copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+    database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
     delete_automated_backups: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     domain: typing.Optional[builtins.str] = None,
@@ -53155,6 +53285,7 @@ def _typecheckingstub__23675ebe667ec40ba6afd82bf8b65d901cc9a4bfc79be222b108037d5
     cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
     cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
     copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+    database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
     delete_automated_backups: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     domain: typing.Optional[builtins.str] = None,
@@ -53223,6 +53354,7 @@ def _typecheckingstub__b2082895d1c502ba05a38a32c44782a7480089cd804d396ed1b41ca4a
     cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
     cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
     copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+    database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
     delete_automated_backups: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     domain: typing.Optional[builtins.str] = None,
@@ -53462,6 +53594,7 @@ def _typecheckingstub__cb12c4cf0f41b623c75db1c295b846314e730919538b3374019067232
     cloudwatch_logs_retention: typing.Optional[_RetentionDays_070f99f0] = None,
     cloudwatch_logs_retention_role: typing.Optional[_IRole_235f5d8e] = None,
     copy_tags_to_snapshot: typing.Optional[builtins.bool] = None,
+    database_insights_mode: typing.Optional[DatabaseInsightsMode] = None,
     delete_automated_backups: typing.Optional[builtins.bool] = None,
     deletion_protection: typing.Optional[builtins.bool] = None,
     domain: typing.Optional[builtins.str] = None,

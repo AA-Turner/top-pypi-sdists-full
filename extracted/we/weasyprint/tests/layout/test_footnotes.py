@@ -361,6 +361,51 @@ def test_reported_sequential_footnote_second_line():
 
 
 @assert_no_logs
+def test_footnote_report_orphans():
+    page1, page2 = render_pages('''
+      <style>
+        @page {
+          font-family: weasyprint;
+          size: 20px;
+        }
+        body {
+          font-family: weasyprint;
+          font-size: 2px;
+          line-height: 1;
+          orphans: 2;
+          widows: 2;
+        }
+        span {
+          float: footnote;
+        }
+      </style>
+      <div>
+        a<br>
+        b<br>
+        c<br>
+        d<br>
+        e
+      </div>
+      <div>
+        f<span>1</span><span>2</span><span>3</span><span>4</span><br>
+        g<br>
+        h<br>
+        i
+      </div>''')
+    html, footnote_area = page1.children
+    body, = html.children
+    div1, div2 = body.children
+    assert len(div1.children) == 5
+    assert len(div2.children) == 2
+    assert len(footnote_area.children) == 3
+    html, footnote_area = page2.children
+    body, = html.children
+    div, = body.children
+    assert len(div.children) == 2
+    assert len(footnote_area.children) == 1
+
+
+@assert_no_logs
 @pytest.mark.parametrize('css, tail', (
     ('p { break-inside: avoid }', '<br>e<br>f'),
     ('p { widows: 4 }', '<br>e<br>f'),
@@ -391,7 +436,7 @@ def test_footnote_area_after_call(css, tail):
         <p>c<br>d<span>x</span>%s</p>''' % (css, tail))
 
     footnote_call = tree_position(
-        pages, lambda box: box.element_tag == 'p::footnote-call')
+        pages, lambda box: box.element_tag == 'span::footnote-call')
     footnote_area = tree_position(
         pages, lambda box: type(box).__name__ == 'FootnoteAreaBox')
     assert footnote_call < footnote_area
@@ -630,7 +675,7 @@ def test_footnote_repagination():
 
 @assert_no_logs
 def test_reported_footnote_repagination():
-    # Regression test for https://github.com/Kozea/WeasyPrint/issues/1700
+    # Regression test for #1700.
     page1, page2 = render_pages('''
         <style>
             @page {
@@ -822,3 +867,36 @@ def test_footnote_table_aborted_group():
     line, = footnote.children
     marker, textbox = line.children
     assert textbox.text == 'f'
+
+
+@assert_no_logs
+def test_footnote_bottom_margin():
+    page, = render_pages('''
+        <style>
+            @page {
+                size: 9px 7px;
+            }
+            div {
+                font-family: weasyprint;
+                font-size: 2px;
+                line-height: 1;
+            }
+            span {
+                float: footnote;
+                margin-bottom: 1px;
+            }
+        </style>
+        <div>abc<span>de</span></div>''')
+    html, footnote_area = page.children
+    body, = html.children
+    div, = body.children
+    div_textbox, footnote_call = div.children[0].children
+    assert div_textbox.text == 'abc'
+    assert footnote_call.children[0].text == '1'
+    assert div_textbox.position_y == 0
+
+    footnote_marker, footnote_textbox = (
+        footnote_area.children[0].children[0].children)
+    assert footnote_marker.children[0].text == '1.'
+    assert footnote_textbox.text == 'de'
+    assert footnote_area.position_y == 5

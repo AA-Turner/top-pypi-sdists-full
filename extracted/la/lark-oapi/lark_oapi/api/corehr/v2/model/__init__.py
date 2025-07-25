@@ -77,6 +77,7 @@ from .email import *
 from .email_for_update import *
 from .emergency_contact import *
 from .emergency_contact_for_update import *
+from .emp_custom_object_info import *
 from .emp_custom_org_list import *
 from .employee import *
 from .employee_job_family import *
@@ -88,6 +89,7 @@ from .employee_default_cost_center import *
 from .employee_domain_event_data import *
 from .employee_international_assignment import *
 from .employee_job_data import *
+from .employee_union_city_info import *
 from .employees_additional_job import *
 from .employees_additional_job_batch_req_date import *
 from .employees_additional_job_edit import *
@@ -98,6 +100,7 @@ from .employees_international_assignment_resp import *
 from .employment import *
 from .employment_bp import *
 from .employment_cost_allocation import *
+from .employment_custom_object_record import *
 from .employment_default_cost_center import *
 from .employment_leave_balance import *
 from .enum import *

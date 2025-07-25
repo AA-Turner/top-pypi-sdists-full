@@ -76,6 +76,7 @@ __all__ = (
     "TableStatusType",
     "TimeToLiveStatusType",
     "WaiterName",
+    "WitnessStatusType",
 )
 
 
@@ -139,11 +140,14 @@ ProjectionTypeType = Literal["ALL", "INCLUDE", "KEYS_ONLY"]
 QueryPaginatorName = Literal["query"]
 ReplicaStatusType = Literal[
     "ACTIVE",
+    "ARCHIVED",
+    "ARCHIVING",
     "CREATING",
     "CREATION_FAILED",
     "DELETING",
     "INACCESSIBLE_ENCRYPTION_CREDENTIALS",
     "REGION_DISABLED",
+    "REPLICATION_NOT_AUTHORIZED",
     "UPDATING",
 ]
 ReturnConsumedCapacityType = Literal["INDEXES", "NONE", "TOTAL"]
@@ -167,9 +171,11 @@ TableStatusType = Literal[
     "CREATING",
     "DELETING",
     "INACCESSIBLE_ENCRYPTION_CREDENTIALS",
+    "REPLICATION_NOT_AUTHORIZED",
     "UPDATING",
 ]
 TimeToLiveStatusType = Literal["DISABLED", "DISABLING", "ENABLED", "ENABLING"]
+WitnessStatusType = Literal["ACTIVE", "CREATING", "DELETING"]
 DynamoDBServiceName = Literal["dynamodb"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -214,6 +220,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -446,6 +454,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -506,6 +515,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

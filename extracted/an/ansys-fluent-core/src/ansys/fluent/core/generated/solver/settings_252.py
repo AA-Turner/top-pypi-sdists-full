@@ -10,6 +10,7 @@ from ansys.fluent.core.solver.flobject import (
     _InputFile,
     _OutputFile,
     _InOutFile,
+    _FlStringConstant,
 )
 
 SHASH = "ecd8273c09ee749503e43e373a8c3b5a430996abcf6df4b070f45612150c0c0a"
@@ -71000,7 +71001,6 @@ class expression_7(NamedObject[expression_7_child], CreatableNamedObjectMixin[ex
     Create a new or edit an existing report definition.
     """
     _version = '252'
-    _deprecated_version = '21.1'
     fluent_name = 'expression'
     _python_name = 'expression'
     command_names = ['create', 'delete', 'rename', 'list', 'list_properties', 'make_a_copy']
@@ -103172,6 +103172,14 @@ class transient_post_processing(Group):
         compute_and_clip_range=compute_and_clip_range,
     )
 
+class switch_to_meshing_mode(Command):
+    """
+    Switch to meshing mode (Beta feature).
+    """
+    _version = '252'
+    fluent_name = 'switch-to-meshing-mode'
+    _python_name = 'switch_to_meshing_mode'
+
 class root(Group):
     """
     'root' object.
@@ -103180,6 +103188,7 @@ class root(Group):
     fluent_name = ''
     _python_name = 'root'
     child_names = ['file', 'mesh', 'server', 'setup', 'solution', 'results', 'design', 'parametric_studies', 'current_parametric_study', 'parameters', 'parallel', 'transient_post_processing']
+    command_names = ['switch_to_meshing_mode']
     _child_classes = dict(
         file=file,
         mesh=mesh,
@@ -103193,5 +103202,6 @@ class root(Group):
         parameters=parameters,
         parallel=parallel,
         transient_post_processing=transient_post_processing,
+        switch_to_meshing_mode=switch_to_meshing_mode,
     )
 

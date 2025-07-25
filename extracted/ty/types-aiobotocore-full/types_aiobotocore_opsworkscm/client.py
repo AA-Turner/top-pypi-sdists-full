@@ -171,7 +171,7 @@ class OpsWorksCMClient(AioBaseClient):
 
     async def delete_server(self, **kwargs: Unpack[DeleteServerRequestTypeDef]) -> Dict[str, Any]:
         """
-        Deletes the server and the underlying AWS CloudFormation stacks (including the
+        Deletes the server and the underlying CloudFormation stacks (including the
         server's EC2 instance).
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opsworkscm/client/delete_server.html)
@@ -180,7 +180,7 @@ class OpsWorksCMClient(AioBaseClient):
 
     async def describe_account_attributes(self) -> DescribeAccountAttributesResponseTypeDef:
         """
-        Describes your OpsWorks-CM account attributes.
+        Describes your OpsWorks CM account attributes.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opsworkscm/client/describe_account_attributes.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opsworkscm/client/#describe_account_attributes)
@@ -231,8 +231,8 @@ class OpsWorksCMClient(AioBaseClient):
         self, **kwargs: Unpack[DisassociateNodeRequestTypeDef]
     ) -> DisassociateNodeResponseTypeDef:
         """
-        Disassociates a node from an AWS OpsWorks CM server, and removes the node from
-        the server's managed nodes.
+        Disassociates a node from an OpsWorks CM server, and removes the node from the
+        server's managed nodes.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opsworkscm/client/disassociate_node.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opsworkscm/client/#disassociate_node)
@@ -252,8 +252,8 @@ class OpsWorksCMClient(AioBaseClient):
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResponseTypeDef:
         """
-        Returns a list of tags that are applied to the specified AWS OpsWorks for Chef
-        Automate or AWS OpsWorks for Puppet Enterprise servers or backups.
+        Returns a list of tags that are applied to the specified OpsWorks for Chef
+        Automate or OpsWorks for Puppet Enterprise servers or backups.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opsworkscm/client/list_tags_for_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opsworkscm/client/#list_tags_for_resource)
@@ -283,8 +283,8 @@ class OpsWorksCMClient(AioBaseClient):
 
     async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
         """
-        Applies tags to an AWS OpsWorks for Chef Automate or AWS OpsWorks for Puppet
-        Enterprise server, or to server backups.
+        Applies tags to an OpsWorks for Chef Automate or OpsWorks for Puppet Enterprise
+        server, or to server backups.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opsworkscm/client/tag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opsworkscm/client/#tag_resource)
@@ -292,7 +292,7 @@ class OpsWorksCMClient(AioBaseClient):
 
     async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
         """
-        Removes specified tags from an AWS OpsWorks-CM server or backup.
+        Removes specified tags from an OpsWorks CM server or backup.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/opsworkscm/client/untag_resource.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_opsworkscm/client/#untag_resource)

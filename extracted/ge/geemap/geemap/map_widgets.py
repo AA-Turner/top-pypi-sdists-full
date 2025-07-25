@@ -1,18 +1,32 @@
 """Various ipywidgets that can be added to a map."""
 
+import enum
 import functools
-from typing import Any, Dict, List, Optional, Tuple, Union
-
+import json
+import os
+import pathlib
+import re
+from typing import Any, Callable, Dict, List, Optional, Tuple, Union
 
 import IPython
 from IPython.display import HTML, display
 
+import anywidget
 import ee
-import ipyevents
-import ipytree
+import ipyleaflet
 import ipywidgets
+import traitlets
 
+from . import common
+from . import conversion
 from . import coreutils
+
+
+class TypedTuple(traitlets.Container):
+    """A trait for a tuple of any length with type-checked elements."""
+
+    klass = tuple
+    _cast_types = (list,)
 
 
 def _set_css_in_cell_output(info: Any) -> None:
@@ -250,14 +264,23 @@ class Colorbar(ipywidgets.Output):
 
 
 @Theme.apply
-class Legend(ipywidgets.VBox):
+class Legend(anywidget.AnyWidget):
     """A legend widget that can be added to the map."""
 
     ALLOWED_POSITIONS = ["topleft", "topright", "bottomleft", "bottomright"]
     DEFAULT_COLORS = ["#8DD3C7", "#FFFFB3", "#BEBADA", "#FB8072", "#80B1D3"]
     DEFAULT_KEYS = ["One", "Two", "Three", "Four", "etc"]
-    DEFAULT_MAX_HEIGHT = "400px"
-    DEFAULT_MAX_WIDTH = "300px"
+
+    _esm = pathlib.Path(__file__).parent / "static" / "legend.js"
+
+    title = traitlets.Unicode("Legend").tag(sync=True)
+    legend_keys = traitlets.List([]).tag(sync=True)
+    legend_colors = traitlets.List([]).tag(sync=True)
+    add_header = traitlets.Bool(True).tag(sync=True)
+    show_close_button = traitlets.Bool(False).tag(sync=True)
+
+    position = "bottomright"
+    host_map = None
 
     def __init__(
         self,
@@ -286,13 +309,12 @@ class Legend(ipywidgets.VBox):
                 to the map. Defaults to None.
             add_header (bool, optional): Whether the legend can be closed or
                 not. Defaults to True.
-            widget_args (dict, optional): Additional arguments passed to the
-                widget_template() function. Defaults to {}.
+            widget_args (dict, optional): Additional arguments. Only
+                "show_close_button" is supported.
 
         Raises:
             TypeError: If the keys are not a list.
             TypeError: If the colors are not list.
-            TypeError: If the colors are not a list of tuples.
             ValueError: If the legend template does not exist.
             ValueError: If a rgb value cannot to be converted to hex.
             ValueError: If the keys and colors are not the same length.
@@ -300,108 +322,80 @@ class Legend(ipywidgets.VBox):
             ValueError: If the position is not allowed.
 
         """
-        import os  # pylint: disable=import-outside-toplevel
-        import pkg_resources  # pylint: disable=import-outside-toplevel
+        super().__init__()
+
         from .legends import builtin_legends  # pylint: disable=import-outside-toplevel
+
+        self.title = title
+        self.position = position
 
         if not widget_args:
             widget_args = {}
 
-        pkg_dir = os.path.dirname(
-            pkg_resources.resource_filename("geemap", "geemap.py")
-        )
-        legend_template = os.path.join(pkg_dir, "data/template/legend.html")
-
-        if not os.path.exists(legend_template):
-            raise ValueError("The legend template does not exist.")
-
         if legend_dict is not None:
             if not isinstance(legend_dict, dict):
                 raise TypeError("The legend dict must be a dictionary.")
+            self.legend_keys = list(legend_dict.keys())
+            self.legend_colors = list(
+                map(self._normalize_color_to_hex, legend_dict.values())
+            )
+        elif keys or colors:
+            if "labels" in kwargs:
+                self.legend_keys = kwargs.pop("labels")
+            if keys is not None:
+                if not isinstance(keys, list):
+                    raise TypeError("The legend keys must be a list.")
+                self.legend_keys = keys
             else:
-                keys = list(legend_dict.keys())
-                colors = list(legend_dict.values())
-                if all(isinstance(item, tuple) for item in colors):
-                    colors = Legend.__convert_rgb_colors_to_hex(colors)
+                self.legend_keys = self.DEFAULT_KEYS
 
-        if "labels" in kwargs:
-            keys = kwargs["labels"]
-            kwargs.pop("labels")
-
-        if keys is not None:
-            if not isinstance(keys, list):
-                raise TypeError("The legend keys must be a list.")
-        else:
-            keys = Legend.DEFAULT_KEYS
-
-        if colors is not None:
-            if not isinstance(colors, list):
-                raise TypeError("The legend colors must be a list.")
-            elif all(isinstance(item, tuple) for item in colors):
-                colors = Legend.__convert_rgb_colors_to_hex(colors)
-            elif all((item.startswith("#") and len(item) == 7) for item in colors):
-                pass
-            elif all((len(item) == 6) for item in colors):
-                pass
+            if colors is not None:
+                if not isinstance(colors, list):
+                    raise TypeError("The legend colors must be a list.")
+                self.legend_colors = list(map(self._normalize_color_to_hex, colors))
             else:
-                raise TypeError("The legend colors must be a list of tuples.")
-        else:
-            colors = Legend.DEFAULT_COLORS
-
-        if len(keys) != len(colors):
-            raise ValueError("The legend keys and colors must be the same length.")
+                self.legend_colors = self.DEFAULT_COLORS
+            if len(self.legend_keys) != len(self.legend_colors):
+                raise ValueError("The legend keys and colors must be the same length.")
 
         allowed_builtin_legends = builtin_legends.keys()
         if builtin_legend is not None:
-            builtin_legend_allowed = Legend.__check_if_allowed(
+            builtin_legend_allowed = self._check_if_allowed(
                 builtin_legend, "builtin legend", allowed_builtin_legends
             )
             if builtin_legend_allowed:
                 legend_dict = builtin_legends[builtin_legend]
-                keys = list(legend_dict.keys())
-                colors = list(legend_dict.values())
-            if all(isinstance(item, tuple) for item in colors):
-                colors = Legend.__convert_rgb_colors_to_hex(colors)
+                self.legend_keys = list(legend_dict.keys())
+                self.legend_colors = list(
+                    map(self._normalize_color_to_hex, legend_dict.values())
+                )
 
-        Legend.__check_if_allowed(position, "position", Legend.ALLOWED_POSITIONS)
-        header = []
-        footer = []
-        content = Legend.__create_legend_items(keys, colors)
+        self._check_if_allowed(position, "position", self.ALLOWED_POSITIONS)
 
-        with open(legend_template) as f:
-            lines = f.readlines()
-            lines[3] = lines[3].replace("Legend", title)
-            header = lines[:6]
-            footer = lines[11:]
-
-        legend_html = header + content + footer
-        legend_text = "".join(legend_html)
-        legend_output = ipywidgets.Output(layout=Legend.__create_layout(**kwargs))
-        legend_widget = ipywidgets.HTML(value=legend_text)
-
-        if add_header:
-            if "show_close_button" not in widget_args:
-                widget_args["show_close_button"] = False
-            if "widget_icon" not in widget_args:
-                widget_args["widget_icon"] = "bars"
-
-            legend_output_widget = coreutils.widget_template(
-                legend_output,
-                position=position,
-                display_widget=legend_widget,
-                **widget_args,
-            )
+        self.add_header = add_header
+        if "show_close_button" in widget_args:
+            self.show_close_button = widget_args["show_close_button"]
         else:
-            legend_output_widget = legend_widget
+            self.show_close_button = False
 
-        super().__init__(children=[legend_output_widget])
+        # Setup event listener.
+        self.on_msg(self._handle_message_event)
 
-        legend_output.clear_output()
-        with legend_output:
-            display(legend_widget)
+    def _handle_message_event(
+        self, widget: ipywidgets.Widget, content: Dict[str, Any], buffers: List[Any]
+    ) -> None:
+        del widget, buffers  # Unused
+        if content.get("type") == "click":
+            msg_id = content.get("id", "")
+            if msg_id == "close":
+                self.cleanup()
 
-    def __check_if_allowed(
-        value: str, value_name: str, allowed_list: List[str]
+    def cleanup(self):
+        if self.host_map:
+            self.host_map.remove(self)
+
+    def _check_if_allowed(
+        self, value: str, value_name: str, allowed_list: List[str]
     ) -> bool:
         """Checks if a value is allowed.
 
@@ -424,91 +418,35 @@ class Legend(ipywidgets.VBox):
             )
         return True
 
-    def __convert_rgb_colors_to_hex(colors: List[tuple]) -> List[str]:
-        """Converts a list of RGB colors to hex.
-
-        Args:
-            colors (List[tuple]): A list of RGB color tuples.
-
-        Returns:
-            List[str]: A list of hex color strings.
-
-        Raises:
-            ValueError: If unable to convert an RGB value to hex.
-        """
-        try:
-            return [coreutils.rgb_to_hex(x) for x in colors]
-        except:
-            raise ValueError("Unable to convert rgb value to hex.")
-
-    def __create_legend_items(keys: List[str], colors: List[str]) -> List[str]:
-        """Creates HTML legend items.
-
-        Args:
-            keys (List[str]): A list of legend keys.
-            colors (List[str]): A list of legend colors.
-
-        Returns:
-            List[str]: A list of HTML strings for the legend items.
-        """
-        legend_items = []
-        for index, key in enumerate(keys):
-            color = colors[index]
-            if not color.startswith("#"):
-                color = "#" + color
-            item = "<li><span style='background:{};'></span>{}</li>\n".format(
-                color, key
-            )
-            legend_items.append(item)
-        return legend_items
-
-    def __create_layout(**kwargs: Any) -> Dict[str, Optional[str]]:
-        """Creates the layout for the legend.
-
-        Args:
-            **kwargs (Any): Additional keyword arguments for layout properties.
-
-        Returns:
-            Dict[str, Optional[str]]: A dictionary of layout properties.
-        """
-        height = Legend.__create_layout_property("height", None, **kwargs)
-
-        min_height = Legend.__create_layout_property("min_height", None, **kwargs)
-
-        if height is None:
-            max_height = Legend.DEFAULT_MAX_HEIGHT
-        else:
-            max_height = Legend.__create_layout_property("max_height", None, **kwargs)
-
-        width = Legend.__create_layout_property("width", None, **kwargs)
-
-        if "min_width" not in kwargs:
-            min_width = None
-
-        if width is None:
-            max_width = Legend.DEFAULT_MAX_WIDTH
-        else:
-            max_width = Legend.__create_layout_property(
-                "max_width", Legend.DEFAULT_MAX_WIDTH, **kwargs
-            )
-
-        return {
-            "height": height,
-            "max_height": max_height,
-            "max_width": max_width,
-            "min_height": min_height,
-            "min_width": min_width,
-            "overflow": "scroll",
-            "width": width,
-        }
-
-    def __create_layout_property(name, default_value, **kwargs):
-        return default_value if name not in kwargs else kwargs[name]
+    def _normalize_color_to_hex(self, color: Union[str, tuple]) -> str:
+        """Converts a list of RGB colors to hex."""
+        if isinstance(color, tuple):
+            try:
+                return f"#{coreutils.rgb_to_hex(color)}"
+            except:
+                raise ValueError(f"Unable to convert rgb value to hex: {color}")
+        elif re.search(r"^(?:[0-9a-fA-F]{3}){1,2}(?:[0-9a-fA-F]{1,2})?$", color):
+            # Add a # for hexadecimal strings of length 3 or 6, with optional
+            # fourth alpha.
+            return f"#{color}"
+        return color
 
 
 @Theme.apply
-class Inspector(ipywidgets.VBox):
+class Inspector(anywidget.AnyWidget):
     """Inspector widget for Earth Engine data."""
+
+    _esm = pathlib.Path(__file__).parent / "static" / "inspector.js"
+
+    hide_close_button = traitlets.Bool(False).tag(sync=True)
+
+    expand_points = traitlets.Bool(False).tag(sync=True)
+    expand_pixels = traitlets.Bool(True).tag(sync=True)
+    expand_objects = traitlets.Bool(False).tag(sync=True)
+
+    point_info = traitlets.Dict({}).tag(sync=True)
+    pixel_info = traitlets.Dict({}).tag(sync=True)
+    object_info = traitlets.Dict({}).tag(sync=True)
 
     def __init__(
         self,
@@ -534,6 +472,7 @@ class Inspector(ipywidgets.VBox):
             show_close_button (bool, optional): Whether to show the close
                 button. Defaults to True.
         """
+        super().__init__()
 
         self._host_map = host_map
         if not host_map:
@@ -543,70 +482,13 @@ class Inspector(ipywidgets.VBox):
         self._visible = visible
         self._decimals = decimals
         self._opened = opened
+        self.hide_close_button = not show_close_button
 
         self.on_close = None
 
-        self._expand_point_tree = False
-        self._expand_pixels_tree = True
-        self._expand_objects_tree = False
-
         host_map.default_style = {"cursor": "crosshair"}
-
-        left_padded_square = ipywidgets.Layout(
-            width="28px", height="28px", padding="0px 0px 0px 4px"
-        )
-
-        self.toolbar_button = ipywidgets.ToggleButton(
-            value=opened, tooltip="Inspector", icon="info", layout=left_padded_square
-        )
-        self.toolbar_button.observe(self._on_toolbar_btn_click, "value")
-
-        close_button = ipywidgets.ToggleButton(
-            value=False,
-            tooltip="Close the tool",
-            icon="times",
-            button_style="primary",
-            layout=left_padded_square,
-        )
-        close_button.observe(self._on_close_btn_click, "value")
-
-        point_checkbox = self._create_checkbox("Point", self._expand_point_tree)
-        pixels_checkbox = self._create_checkbox("Pixels", self._expand_pixels_tree)
-        objects_checkbox = self._create_checkbox("Objects", self._expand_objects_tree)
-        point_checkbox.observe(self._on_point_checkbox_changed, "value")
-        pixels_checkbox.observe(self._on_pixels_checkbox_changed, "value")
-        objects_checkbox.observe(self._on_objects_checkbox_changed, "value")
-        self.inspector_checks = ipywidgets.HBox(
-            children=[
-                ipywidgets.Label(
-                    "Expand", layout=ipywidgets.Layout(padding="0px 8px 0px 4px")
-                ),
-                point_checkbox,
-                pixels_checkbox,
-                objects_checkbox,
-            ]
-        )
-
-        if show_close_button:
-            self.toolbar_header = ipywidgets.HBox(
-                children=[close_button, self.toolbar_button]
-            )
-        else:
-            self.toolbar_header = ipywidgets.HBox(children=[self.toolbar_button])
-        self.tree_output = ipywidgets.VBox(
-            children=[],
-            layout=ipywidgets.Layout(
-                max_width="600px", max_height="300px", overflow="auto", display="block"
-            ),
-        )
-        self._clear_inspector_output()
-
         host_map.on_interaction(self._on_map_interaction)
-        self.toolbar_button.value = opened
-
-        super().__init__(
-            children=[self.toolbar_header, self.inspector_checks, self.tree_output]
-        )
+        self.on_msg(self._handle_message_event)
 
     def cleanup(self):
         """Removes the widget from the map and performs cleanup."""
@@ -616,20 +498,12 @@ class Inspector(ipywidgets.VBox):
         if self.on_close is not None:
             self.on_close()
 
-    def _create_checkbox(self, title: str, checked: bool) -> ipywidgets.Checkbox:
-        """Creates a checkbox widget.
-
-        Args:
-            title (str): The title of the checkbox.
-            checked (bool): Whether the checkbox is checked.
-
-        Returns:
-            ipywidgets.Checkbox: The created checkbox widget.
-        """
-        layout = ipywidgets.Layout(width="auto", padding="0px 6px 0px 0px")
-        return ipywidgets.Checkbox(
-            description=title, indent=False, value=checked, layout=layout
-        )
+    def _handle_message_event(
+        self, widget: ipywidgets.Widget, content: Dict[str, Any], buffers: List[Any]
+    ) -> None:
+        del widget, buffers  # Unused
+        if content.get("type") == "click" and content.get("id") == "close":
+            self._on_close_btn_click()
 
     def _on_map_interaction(self, **kwargs: Any) -> None:
         """Handles map interaction events.
@@ -637,7 +511,7 @@ class Inspector(ipywidgets.VBox):
         Args:
             **kwargs (Any): The interaction event arguments.
         """
-        latlon = kwargs.get("coordinates")
+        latlon = kwargs.get("coordinates", [])
         if kwargs.get("type") == "click":
             self._on_map_click(latlon)
 
@@ -647,77 +521,27 @@ class Inspector(ipywidgets.VBox):
         Args:
             latlon (List[float]): The latitude and longitude of the click event.
         """
-        if self.toolbar_button.value:
-            self._host_map.default_style = {"cursor": "wait"}
-            self._clear_inspector_output()
+        if not latlon or len(latlon) < 2:
+            return
 
-            nodes = [self._point_info(latlon)]
-            pixels_node = self._pixels_info(latlon)
-            if pixels_node.nodes:
-                nodes.append(pixels_node)
-            objects_node = self._objects_info(latlon)
-            if objects_node.nodes:
-                nodes.append(objects_node)
+        self._clear_inspector_output()
+        self._host_map.default_style = {"cursor": "wait"}
 
-            self.tree_output.children = [ipytree.Tree(nodes=nodes)]
-            self._host_map.default_style = {"cursor": "crosshair"}
+        self.point_info = self._point_info(latlon)
+        self.pixel_info = self._pixel_info(latlon)
+        self.object_info = self._object_info(latlon)
+
+        self._host_map.default_style = {"cursor": "crosshair"}
 
     def _clear_inspector_output(self) -> None:
         """Clears the inspector output."""
-        self.tree_output.children = []
-        self.children = []
-        self.children = [self.toolbar_header, self.inspector_checks, self.tree_output]
+        self.point_info = {}
+        self.pixel_info = {}
+        self.object_info = {}
 
-    def _on_point_checkbox_changed(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the point checkbox.
-
-        Args:
-            change (Dict[str, Any]): The change event arguments.
-        """
-        self._expand_point_tree = change["new"]
-
-    def _on_pixels_checkbox_changed(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the pixels checkbox.
-
-        Args:
-            change (Dict[str, Any]): The change event arguments.
-        """
-        self._expand_pixels_tree = change["new"]
-
-    def _on_objects_checkbox_changed(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the objects checkbox.
-
-        Args:
-            change (Dict[str, Any]): The change event arguments.
-        """
-        self._expand_objects_tree = change["new"]
-
-    def _on_toolbar_btn_click(self, change: Dict[str, Any]) -> None:
-        """Handles toolbar button click events.
-
-        Args:
-            change (Dict[str, Any]): The change event arguments.
-        """
-        if change["new"]:
-            self._host_map.default_style = {"cursor": "crosshair"}
-            self.children = [
-                self.toolbar_header,
-                self.inspector_checks,
-                self.tree_output,
-            ]
-            self._clear_inspector_output()
-        else:
-            self.children = [self.toolbar_button]
-            self._host_map.default_style = {"cursor": "default"}
-
-    def _on_close_btn_click(self, change: Dict[str, Any]) -> None:
-        """Handles close button click events.
-
-        Args:
-            change (Dict[str, Any]): The change event arguments.
-        """
-        if change["new"]:
-            self.cleanup()
+    def _on_close_btn_click(self) -> None:
+        """Handles close button click events."""
+        self.cleanup()
 
     def _get_visible_map_layers(self) -> Dict[str, Any]:
         """Gets the visible map layers.
@@ -735,51 +559,31 @@ class Inspector(ipywidgets.VBox):
             layers = self._host_map.ee_layers
         return {k: v for k, v in layers.items() if v["ee_layer"].visible}
 
-    def _root_node(
-        self, title: str, nodes: List[ipytree.Node], **kwargs: Any
-    ) -> ipytree.Node:
-        """Creates a root node for the tree.
-
-        Args:
-            title (str): The title of the root node.
-            nodes (List[ipytree.Node]): The child nodes of the root node.
-            **kwargs (Any): Additional keyword arguments.
-
-        Returns:
-            ipytree.Node: The created root node.
-        """
-        return ipytree.Node(
-            title,
-            icon="archive",
-            nodes=nodes,
-            open_icon="plus-square",
-            open_icon_style="success",
-            close_icon="minus-square",
-            close_icon_style="info",
-            **kwargs,
-        )
-
-    def _point_info(self, latlon: List[float]) -> ipytree.Node:
+    def _point_info(self, latlon: List[float]) -> Dict[str, Any]:
         """Gets information about a point.
 
         Args:
             latlon (List[float]): The latitude and longitude of the point.
 
         Returns:
-            ipytree.Node: The node containing the point information.
+            Dict[str, Any]: The node containing the point information.
         """
         scale = self._host_map.get_scale()
         label = (
             f"Point ({latlon[1]:.{self._decimals}f}, "
             + f"{latlon[0]:.{self._decimals}f}) at {int(scale)}m/px"
         )
-        nodes = [
-            ipytree.Node(f"Longitude: {latlon[1]}"),
-            ipytree.Node(f"Latitude: {latlon[0]}"),
-            ipytree.Node(f"Zoom Level: {self._host_map.zoom}"),
-            ipytree.Node(f"Scale (approx. m/px): {scale}"),
-        ]
-        return self._root_node(label, nodes, opened=self._expand_point_tree)
+        return coreutils.new_tree_node(
+            label,
+            [
+                coreutils.new_tree_node(f"Longitude: {latlon[1]}"),
+                coreutils.new_tree_node(f"Latitude: {latlon[0]}"),
+                coreutils.new_tree_node(f"Zoom Level: {self._host_map.zoom}"),
+                coreutils.new_tree_node(f"Scale (approx. m/px): {scale}"),
+            ],
+            top_level=True,
+            expanded=self.expand_points,
+        )
 
     def _query_point(
         self, latlon: List[float], ee_object: ee.ComputedObject
@@ -801,20 +605,21 @@ class Inspector(ipywidgets.VBox):
             return ee_object.reduceRegion(ee.Reducer.first(), point, scale).getInfo()
         return None
 
-    def _pixels_info(self, latlon: List[float]) -> ipytree.Node:
+    def _pixel_info(self, latlon: List[float]) -> Dict[str, Any]:
         """Gets information about pixels at a point.
 
         Args:
             latlon (List[float]): The latitude and longitude of the point.
 
         Returns:
-            ipytree.Node: The node containing the pixels information.
+            Dict[str, Any]: The node containing the pixels information.
         """
+
+        root = coreutils.new_tree_node("Pixels", expanded=True, top_level=True)
         if not self._visible:
-            return self._root_node("Pixels", [])
+            return root
 
         layers = self._get_visible_map_layers()
-        nodes = []
         for layer_name, layer in layers.items():
             ee_object = layer["ee_object"]
             pixel = self._query_point(latlon, ee_object)
@@ -823,14 +628,18 @@ class Inspector(ipywidgets.VBox):
             pluralized_band = "band" if len(pixel) == 1 else "bands"
             ee_obj_type = ee_object.__class__.__name__
             label = f"{layer_name}: {ee_obj_type} ({len(pixel)} {pluralized_band})"
-            layer_node = ipytree.Node(label, opened=self._expand_pixels_tree)
+            layer_node = coreutils.new_tree_node(label, expanded=self.expand_pixels)
             for key, value in sorted(pixel.items()):
                 if isinstance(value, float):
                     value = round(value, self._decimals)
-                layer_node.add_node(ipytree.Node(f"{key}: {value}", icon="file"))
-            nodes.append(layer_node)
+                layer_node["children"].append(
+                    coreutils.new_tree_node(
+                        f"{key}: {value}", expanded=self.expand_pixels
+                    )
+                )
+            root["children"].append(layer_node)
 
-        return self._root_node("Pixels", nodes)
+        return root
 
     def _get_bbox(self, latlon: List[float]) -> ee.Geometry.BBox:
         """Gets a bounding box around a point.
@@ -845,7 +654,7 @@ class Inspector(ipywidgets.VBox):
         delta = 0.005
         return ee.Geometry.BBox(lon - delta, lat - delta, lon + delta, lat + delta)
 
-    def _objects_info(self, latlon: List[float]) -> ipytree.Node:
+    def _object_info(self, latlon: List[float]) -> Dict[str, Any]:
         """Gets information about objects at a point.
 
         Args:
@@ -854,12 +663,12 @@ class Inspector(ipywidgets.VBox):
         Returns:
             ipytree.Node: The node containing the objects information.
         """
+        root = coreutils.new_tree_node("Objects", top_level=True, expanded=True)
         if not self._visible:
-            return self._root_node("Objects", [])
+            return root
 
         layers = self._get_visible_map_layers()
         point = ee.Geometry.Point(latlon[::-1])
-        nodes = []
         for layer_name, layer in layers.items():
             ee_object = layer["ee_object"]
             if isinstance(ee_object, ee.FeatureCollection):
@@ -869,375 +678,161 @@ class Inspector(ipywidgets.VBox):
                     geom.type().compareTo(ee.String("Point")), point, bbox
                 )
                 ee_object = ee_object.filterBounds(is_point).first()
-                tree_node = coreutils.get_info(
-                    ee_object, layer_name, self._expand_objects_tree, True
+                tree_node = coreutils.build_computed_object_tree(
+                    ee_object, layer_name, self.expand_objects
                 )
                 if tree_node:
-                    nodes.append(tree_node)
+                    root["children"].append(tree_node)
 
-        return self._root_node("Objects", nodes)
+        return root
 
 
 @Theme.apply
-class LayerManager(ipywidgets.VBox):
-    """A layer manager widget for managing map layers."""
+class LayerManagerRow(anywidget.AnyWidget):
+    """A layer manager row widget for geemap."""
 
-    def __init__(self, host_map: "geemap.Map"):
-        """Initializes a layer manager widget.
+    _esm = pathlib.Path(__file__).parent / "static" / "layer_manager_row.js"
+    name = traitlets.Unicode("").tag(sync=True)
+    visible = traitlets.Bool(True).tag(sync=True)
+    opacity = traitlets.Float(1).tag(sync=True)
+    is_loading = traitlets.Bool(False).tag(sync=True)
 
-        Args:
-            host_map (geemap.Map): The geemap.Map object.
-        """
-        self._host_map = host_map
+    def __init__(self, host_map: "core.MapInterface", layer: Any):
+        super().__init__()
+        self.host_map = host_map
+        self.layer = layer
+        if not host_map or not layer:
+            raise ValueError(
+                "Must pass a valid map and layer when creating a layer manager row."
+            )
+
+        self.name = layer.name
+        self.visible = self._get_layer_visibility()
+        self.opacity = self._get_layer_opacity()
+
+        self.opacity_link: Optional[ipywidgets.widget_link.Link] = None
+        self.visibility_link: Optional[ipywidgets.widget_link.Link] = None
+        self._setup_event_listeners()
+
+    def _can_set_up_jslink(self, obj: Any, trait: str) -> bool:
+        return isinstance(obj, ipywidgets.Widget) and hasattr(obj, trait)
+
+    def _traitlet_link_type(self) -> Callable[..., Any]:
+        if coreutils.in_colab_shell():
+            # TODO: jslink doesn't work in Colab before the layers are added to the map.
+            # A potential workaround is calling display() on the layer before jslinking.
+            return ipywidgets.link
+        return ipywidgets.jslink
+
+    def _setup_event_listeners(self) -> None:
+        self.layer.observe(self._on_layer_loading_changed, "loading")
+        self.on_msg(self._handle_message_event)
+
+        link_func = self._traitlet_link_type()
+        if self._can_set_up_jslink(self.layer, "opacity"):
+            self.opacity_link = link_func((self.layer, "opacity"), (self, "opacity"))
+        if self._can_set_up_jslink(self.layer, "visible"):
+            self.visibility_link = link_func((self.layer, "visible"), (self, "visible"))
+
+    def _on_layer_loading_changed(self, change: Dict[str, Any]) -> None:
+        self.is_loading = change.get("new", False)
+
+    def _handle_message_event(
+        self, widget: ipywidgets.Widget, content: Dict[str, Any], buffers: List[Any]
+    ) -> None:
+        del widget, buffers  # Unused
+        if content.get("type") == "click":
+            self._handle_button_click(content.get("id", ""))
+
+    @traitlets.observe("opacity")
+    def _on_opacity_change(self, change: Dict[str, Any]) -> None:
+        if self._can_set_up_jslink(self.layer, "opacity"):
+            return  # Return if the opacity is handled by a jslink.
+        if opacity := change.get("new"):
+            if self.layer in self.host_map.geojson_layers:
+                # For GeoJSON layers, use style.opacity and style.fillOpacity.
+                self.layer.style.update({"opacity": opacity, "fillOpacity": opacity})
+
+    def _get_layer_opacity(self) -> float:
+        if hasattr(self.layer, "opacity"):
+            return self.layer.opacity
+        elif self.layer in self.host_map.geojson_layers:
+            opacity = self.layer.style.get("opacity", 1.0)
+            fill_opacity = self.layer.style.get("fillOpacity", 1.0)
+            return max(opacity, fill_opacity)
+        return 1.0
+
+    def _get_layer_visibility(self) -> bool:
+        if hasattr(self.layer, "visible"):
+            return self.layer.visible
+        return True
+
+    def _handle_button_click(self, msg_id: str) -> None:
+        if msg_id == "settings":
+            self._open_layer_editor()
+        elif msg_id == "delete":
+            self._delete_layer()
+
+    def _open_layer_editor(self) -> None:
+        metadata = self.host_map.ee_layers.get(self.name, None)
+        self.host_map.add("layer_editor", position="bottomright", layer_dict=metadata)
+
+    def _delete_layer(self) -> None:
+        self.host_map.remove_layer(self.layer)
+
+
+class LayerManager(anywidget.AnyWidget):
+    """A layer manager widget for geemap."""
+
+    _esm = pathlib.Path(__file__).parent / "static" / "layer_manager.js"
+
+    # Whether all layers should be visible or not. Represented as a checkbox in the UI.
+    visible = traitlets.Bool(True).tag(sync=True)
+
+    # Child widgets in the container. Using a tuple here to force reassignment to update
+    # the list. When a proper notifying-list trait exists, use that instead.
+    children = TypedTuple(
+        trait=traitlets.Instance(ipywidgets.Widget),
+        help="List of widget children",
+    ).tag(sync=True, **ipywidgets.widget_serialization)
+
+    def __init__(self, host_map: "core.MapInterface"):
+        super().__init__()
+        self.host_map = host_map
         if not host_map:
             raise ValueError("Must pass a valid map when creating a layer manager.")
 
-        self._collapse_button = ipywidgets.ToggleButton(
-            value=False,
-            tooltip="Layer Manager",
-            icon="server",
-            layout=ipywidgets.Layout(
-                width="28px", height="28px", padding="0px 0px 0px 4px"
-            ),
-        )
-        self._close_button = ipywidgets.Button(
-            tooltip="Close the tool",
-            icon="times",
-            button_style="primary",
-            layout=ipywidgets.Layout(width="28px", height="28px", padding="0px"),
-        )
-
-        self._toolbar_header = ipywidgets.HBox(
-            children=[self._close_button, self._collapse_button]
-        )
-        self._toolbar_footer = ipywidgets.VBox(children=[])
-
-        self._collapse_button.observe(self._on_collapse_click, "value")
-        self._close_button.on_click(self._on_close_click)
-
-        self.on_close = None
-        self.on_open_vis = None
-
-        self.collapsed = False
-        self.header_hidden = False
-        self.close_button_hidden = False
-
-        super().__init__([self._toolbar_header, self._toolbar_footer])
-
-    @property
-    def collapsed(self) -> bool:
-        """bool: Whether the layer manager is collapsed."""
-        return not self._collapse_button.value
-
-    @collapsed.setter
-    def collapsed(self, value: bool) -> None:
-        self._collapse_button.value = not value
-
-    @property
-    def header_hidden(self) -> bool:
-        """bool: Whether the header is hidden."""
-        return self._toolbar_header.layout.display == "none"
-
-    @header_hidden.setter
-    def header_hidden(self, value: bool) -> None:
-        self._toolbar_header.layout.display = "none" if value else "block"
-
-    @property
-    def close_button_hidden(self) -> bool:
-        """bool: Whether the close button is hidden."""
-        return self._close_button.style.display == "none"
-
-    @close_button_hidden.setter
-    def close_button_hidden(self, value: bool) -> None:
-        self._close_button.style.display = "none" if value else "inline-block"
-
     def refresh_layers(self) -> None:
-        """Recreates all the layer widgets."""
-        toggle_all_layout = ipywidgets.Layout(
-            height="18px", width="30ex", padding="0px 4px 25px 4px"
-        )
-        toggle_all_checkbox = ipywidgets.Checkbox(
-            value=False,
-            description="All layers on/off",
-            indent=False,
-            layout=toggle_all_layout,
-        )
-        toggle_all_checkbox.observe(self._on_all_layers_visibility_toggled, "value")
+        """Refresh the layers in the layer manager.
 
-        layer_rows = []
-        # non_basemap_layers = self._host_map.layers[1:]  # Skip the basemap.
-        for layer in self._host_map.layers:
-            layer_rows.append(self._render_layer_row(layer))
-        self._toolbar_footer.children = [toggle_all_checkbox] + layer_rows
-
-    def _on_close_click(self, _) -> None:
-        """Handles the close button click event."""
-        if self.on_close:
-            self.on_close()
-
-    def _on_collapse_click(self, change: Dict[str, Any]) -> None:
-        """Handles the collapse button click event.
-
-        Args:
-            change (Dict[str, Any]): The change event arguments.
+        Uses the map interface to pull active layers. This function must be called
+        whenever a layer is added or removed on the map.
         """
-        if change["new"]:
-            self.refresh_layers()
-            self.children = [self._toolbar_header, self._toolbar_footer]
-        else:
-            self.children = [self._collapse_button]
+        self.children = list(map(self._create_row_widget, self.host_map.layers))
 
-    def _render_layer_row(self, layer: Any) -> ipywidgets.HBox:
-        """Renders a row for a layer.
+    def _create_row_widget(self, layer: Any) -> LayerManagerRow:
+        return LayerManagerRow(self.host_map, layer)
 
-        Args:
-            layer (Any): The layer to render.
-
-        Returns:
-            ipywidgets.HBox: The rendered layer row.
-        """
-        visibility_checkbox = ipywidgets.Checkbox(
-            value=self._compute_layer_visibility(layer),
-            description=layer.name,
-            indent=False,
-            layout=ipywidgets.Layout(height="18px", width="140px"),
-        )
-        visibility_checkbox.observe(
-            lambda change: self._on_layer_visibility_changed(change, layer), "value"
-        )
-
-        opacity_slider = ipywidgets.FloatSlider(
-            value=self._compute_layer_opacity(layer),
-            min=0,
-            max=1,
-            step=0.01,
-            readout=False,
-            layout=ipywidgets.Layout(width="70px", padding="0px 3px 0px 0px"),
-        )
-        opacity_slider.observe(
-            lambda change: self._on_layer_opacity_changed(change, layer), "value"
-        )
-
-        settings_button = ipywidgets.Button(
-            icon="gear",
-            layout=ipywidgets.Layout(width="25px", height="25px", padding="0px"),
-            tooltip=layer.name,
-        )
-        settings_button.on_click(self._on_layer_settings_click)
-
-        spinner = ipywidgets.Button(
-            icon="times",
-            layout=ipywidgets.Layout(width="25px", height="25px", padding="0px"),
-            tooltip="Loaded",
-        )
-
-        def loading_change(change):
-            if change["new"]:
-                spinner.tooltip = "Loading ..."
-                spinner.icon = "spinner spin lg"
-            else:
-                spinner.tooltip = "Loaded"
-                spinner.icon = "times"
-
-        layer.observe(loading_change, "loading")
-
-        spinner_event = ipyevents.Event(
-            source=spinner, watched_events=["mouseenter", "mouseleave"]
-        )
-
-        def handle_spinner_event(event):
-            if event["type"] == "mouseenter":
-                spinner.icon = "times"
-            elif event["type"] == "mouseleave":
-                if hasattr(layer, "loading") and layer.loading:
-                    spinner.icon = "spinner spin lg"
-                else:
-                    spinner.icon = "times"
-
-        spinner_event.on_dom_event(handle_spinner_event)
-
-        def remove_layer_click(_):
-            self._on_layer_remove_click(layer)
-
-        spinner.on_click(remove_layer_click)
-
-        return ipywidgets.HBox(
-            [
-                visibility_checkbox,
-                opacity_slider,
-                settings_button,
-                spinner,
-            ],
-            layout=ipywidgets.Layout(padding="0px 4px 0px 4px"),
-        )
-
-    def _find_layer_row_index(self, layer: Any) -> int:
-        """Finds the index of a layer row.
-
-        Args:
-            layer (Any): The layer to find.
-
-        Returns:
-            int: The index of the layer row.
-        """
-        for index, child in enumerate(self._toolbar_footer.children[1:]):
-            if child.children[0].description == layer.name:
-                return index + 1
-        return -1
-
-    def _remove_confirm_widget(self) -> None:
-        """Removes the confirm widget."""
-        for index, child in enumerate(self._toolbar_footer.children[1:]):
-            if child.children[0].value == "Remove layer?":
-                self._toolbar_footer.children = (
-                    self._toolbar_footer.children[: index + 1]
-                    + self._toolbar_footer.children[index + 2 :]
-                )
-                break
-
-    def _on_layer_remove_click(self, layer: Any) -> None:
-        """Handles the layer remove click event.
-
-        Args:
-            layer (Any): The layer to remove.
-        """
-        self._remove_confirm_widget()
-
-        label = ipywidgets.Label(
-            "Remove layer?",
-            layout=ipywidgets.Layout(padding="0px 4px 0px 4px"),
-        )
-        yes_button = ipywidgets.Button(
-            description="Yes",
-            button_style="primary",
-        )
-        yes_button.layout.width = "86px"
-        no_button = ipywidgets.Button(
-            description="No",
-            button_style="primary",
-        )
-        no_button.layout.width = "86px"
-
-        confirm_widget = ipywidgets.HBox(
-            [label, yes_button, no_button], layout=ipywidgets.Layout(width="284px")
-        )
-
-        layer_row_index = self._find_layer_row_index(layer)
-
-        self._toolbar_footer.children = (
-            list(self._toolbar_footer.children[: layer_row_index + 1])
-            + [confirm_widget]
-            + list(self._toolbar_footer.children[layer_row_index + 1 :])
-        )
-
-        def on_yes_button_click(_):
-            self._host_map.remove_layer(layer)
-            self._remove_confirm_widget()
-
-        yes_button.on_click(on_yes_button_click)
-
-        def on_no_button_click(_):
-            self._remove_confirm_widget()
-
-        no_button.on_click(on_no_button_click)
-
-    def _compute_layer_opacity(self, layer: Any) -> float:
-        """Computes the opacity of a layer.
-
-        Args:
-            layer (Any): The layer to compute the opacity for.
-
-        Returns:
-            float: The opacity of the layer.
-        """
-        if layer in self._host_map.geojson_layers:
-            opacity = layer.style.get("opacity", 1.0)
-            fill_opacity = layer.style.get("fillOpacity", 1.0)
-            return max(opacity, fill_opacity)
-        return layer.opacity if hasattr(layer, "opacity") else 1.0
-
-    def _compute_layer_visibility(self, layer: Any) -> bool:
-        """Computes the visibility of a layer.
-
-        Args:
-            layer (Any): The layer to compute the visibility for.
-
-        Returns:
-            bool: The visibility of the layer.
-        """
-        return layer.visible if hasattr(layer, "visible") else True
-
-    def _on_layer_settings_click(self, button: ipywidgets.Button) -> None:
-        """Handles the layer settings click event.
-
-        Args:
-            button (ipywidgets.Button): The button that was clicked.
-        """
-        if self.on_open_vis:
-            self.on_open_vis(button.tooltip)
-
-    def _on_all_layers_visibility_toggled(self, change: Dict[str, Any]) -> None:
-        """Handles the all layers visibility toggled event.
-
-        Args:
-            change (Dict[str, Any]): The change event arguments.
-        """
-        checkboxes = [
-            row.children[0] for row in self._toolbar_footer.children[1:]
-        ]  # Skip the all on/off checkbox.
-        for checkbox in checkboxes:
-            checkbox.value = change["new"]
-
-    def _on_layer_opacity_changed(self, change: Dict[str, Any], layer: Any) -> None:
-        """Handles the layer opacity changed event.
-
-        Args:
-            change (Dict[str, Any]): The change event arguments.
-            layer (Any): The layer to change the opacity for.
-        """
-        if layer in self._host_map.geojson_layers:
-            # For non-TileLayer, use layer.style.opacity and layer.style.fillOpacity.
-            layer.style.update({"opacity": change["new"], "fillOpacity": change["new"]})
-        elif hasattr(layer, "opacity"):
-            layer.opacity = change["new"]
-
-    def _on_layer_visibility_changed(self, change: Dict[str, Any], layer: Any) -> None:
-        """Handles the layer visibility changed event.
-
-        Args:
-            change (Dict[str, Any]): The change event arguments.
-            layer (Any): The layer to change the visibility for.
-        """
-        if hasattr(layer, "visible"):
-            layer.visible = change["new"]
-
-        layer_name = change["owner"].description
-        if layer_name not in self._host_map.ee_layers:
-            return
-
-        layer_dict = self._host_map.ee_layers[layer_name]
-        for attachment_name in ["legend", "colorbar"]:
-            attachment = layer_dict.get(attachment_name, None)
-            attachment_on_map = attachment in self._host_map.controls
-            if change["new"] and not attachment_on_map:
-                try:
-                    self._host_map.add(attachment)
-                except:
-                    from ipyleaflet import WidgetControl
-
-                    widget = attachment.widget
-                    position = attachment.position
-                    control = WidgetControl(widget=widget, position=position)
-                    self._host_map.add(control)
-                    layer_dict["colorbar"] = control
-
-            elif not change["new"] and attachment_on_map:
-                self._host_map.remove_control(attachment)
+    @traitlets.observe("visible")
+    def _observe_visible(self, change: Dict[str, Any]) -> None:
+        # When the `visible` property changes, propagate that change to all children.
+        if (visible := change.get("new")) is not None:
+            for child in self.children:
+                child.visible = visible
 
 
 @Theme.apply
-class Basemap(ipywidgets.HBox):
+class BasemapSelector(anywidget.AnyWidget):
     """Widget for selecting a basemap."""
+
+    _esm = pathlib.Path(__file__).parent / "static" / "basemap_selector.js"
+
+    # The list of basemap names to make available for selection.
+    basemaps = traitlets.Dict({}).tag(sync=True)
+
+    # The currently selected basemap value.
+    provider = traitlets.Unicode("").tag(sync=True)
+    resource = traitlets.Unicode("").tag(sync=True)
 
     def __init__(self, basemaps: List[str], value: str):
         """Creates a widget for selecting a basemap.
@@ -1246,48 +841,83 @@ class Basemap(ipywidgets.HBox):
             basemaps (list): The list of basemap names to make available for selection.
             value (str): The default value from basemaps to select.
         """
+        super().__init__()
         self.on_close = None
         self.on_basemap_changed = None
+        self.basemaps = self._get_basemap_dictionary(basemaps)
+        provider, resource = self._parse_basemap_name(value)
+        self.provider = provider
+        self.resource = resource
+        self._setup_event_listeners()
 
-        self._dropdown = ipywidgets.Dropdown(
-            options=list(basemaps),
-            value=value,
-            layout=ipywidgets.Layout(width="200px"),
-        )
-        self._dropdown.observe(self._on_dropdown_click, "value")
+    def _parse_basemap_name(self, name: str) -> Tuple[str, str]:
+        components = name.split(".")
+        resource = ".".join(components[1:]) if len(components) > 1 else ""
+        return components[0], resource
 
-        close_button = ipywidgets.Button(
-            icon="times",
-            tooltip="Close the basemap widget",
-            button_style="primary",
-            layout=ipywidgets.Layout(width="32px"),
-        )
-        close_button.on_click(self._on_close_click)
+    def _get_basemap_dictionary(self, basemaps: List[str]) -> Dict[str, List[str]]:
+        basemaps_dict: Dict[str, List[str]] = {}
+        for basemap in basemaps:
+            provider, resource = self._parse_basemap_name(basemap)
+            provider_map = basemaps_dict.setdefault(provider, [])
+            if resource:
+                provider_map.append(resource)
+        return basemaps_dict
 
-        super().__init__([self._dropdown, close_button])
+    def _setup_event_listeners(self) -> None:
+        self.on_msg(self._handle_message_event)
 
-    def _on_dropdown_click(self, change: dict) -> None:
-        """Handles the dropdown value change event.
+    def _handle_message_event(
+        self, widget: ipywidgets.Widget, content: Dict[str, Any], buffers: List[Any]
+    ) -> None:
+        del widget, buffers  # Unused
+        if content.get("type") == "click":
+            msg_id = content.get("id", "")
+            if msg_id == "close":
+                self.cleanup()
+            if msg_id == "apply":
+                self.apply_basemap()
 
-        Args:
-            change (dict): The change event dictionary.
-        """
-        if self.on_basemap_changed and change["new"]:
-            self.on_basemap_changed(self._dropdown.value)
+    def apply_basemap(self) -> None:
+        basemap_name = self.provider
+        if self.resource:
+            basemap_name = basemap_name + f".{self.resource}"
+        if self.on_basemap_changed:
+            self.on_basemap_changed(basemap_name)
 
     def cleanup(self) -> None:
         """Cleans up the widget by calling the on_close callback if set."""
         if self.on_close:
             self.on_close()
 
-    def _on_close_click(self, _) -> None:
-        """Handles the close button click event."""
-        self.cleanup()
+
+# Type alias for backwards compatibility.
+Basemap = BasemapSelector
 
 
 @Theme.apply
-class LayerEditor(ipywidgets.VBox):
+class LayerEditor(anywidget.AnyWidget):
     """Widget for displaying and editing layer visualization properties."""
+
+    class LayerType(enum.Enum):
+        """Layer types."""
+
+        RASTER = "raster"
+        VECTOR = "vector"
+
+    _esm = pathlib.Path(__file__).parent / "static" / "layer_editor.js"
+
+    layer_name: traitlets.Unicode = traitlets.Unicode("").tag(sync=True)
+    layer_type: traitlets.Unicode = traitlets.Unicode("").tag(sync=True)
+    band_names: traitlets.List = traitlets.List([]).tag(sync=True)
+    colormaps: traitlets.List = traitlets.List([]).tag(sync=True)
+
+    # Child widgets in the container. Using a tuple here to force reassignment to update
+    # the list. When a proper notifying-list trait exists, use that instead.
+    children = TypedTuple(
+        trait=traitlets.Instance(ipywidgets.Widget),
+        help="List of widget children",
+    ).tag(sync=True, **ipywidgets.widget_serialization)
 
     def __init__(self, host_map: "geemap.Map", layer_dict: Optional[Dict[str, Any]]):
         """Initializes a layer editor widget.
@@ -1296,6 +926,7 @@ class LayerEditor(ipywidgets.VBox):
             host_map (geemap.Map): The geemap.Map object.
             layer_dict (Optional[Dict[str, Any]]): The layer object to edit.
         """
+        super().__init__()
 
         self.on_close = None
 
@@ -1305,1502 +936,586 @@ class LayerEditor(ipywidgets.VBox):
                 f"Must pass a valid map when creating a {self.__class__.__name__} widget."
             )
 
-        self._toggle_button = ipywidgets.ToggleButton(
-            value=True,
-            tooltip="Layer editor",
-            icon="gear",
-            layout=ipywidgets.Layout(
-                width="28px", height="28px", padding="0px 0 0 3px"
-            ),
-        )
-        self._toggle_button.observe(self._on_toggle_click, "value")
-
-        self._close_button = ipywidgets.Button(
-            tooltip="Close the vis params dialog",
-            icon="times",
-            button_style="primary",
-            layout=ipywidgets.Layout(width="28px", height="28px", padding="0"),
-        )
-        self._close_button.on_click(self._on_close_click)
-
-        layout = ipywidgets.Layout(width="95px")
-        self._import_button = ipywidgets.Button(
-            description="Import",
-            button_style="primary",
-            tooltip="Import vis params to notebook",
-            layout=layout,
-        )
-        self._apply_button = ipywidgets.Button(
-            description="Apply", tooltip="Apply vis params to the layer", layout=layout
-        )
-        self._import_button.on_click(self._on_import_click)
-        self._apply_button.on_click(self._on_apply_click)
-
-        self._label = ipywidgets.Label(
-            value="Layer name",
-            layout=ipywidgets.Layout(max_width="250px", padding="1px 8px 0 4px"),
-        )
-        self._embedded_widget = ipywidgets.Label(value="Vis params are uneditable")
         if layer_dict is not None:
             self._ee_object = layer_dict["ee_object"]
             if isinstance(self._ee_object, (ee.Feature, ee.Geometry)):
                 self._ee_object = ee.FeatureCollection(self._ee_object)
 
             self._ee_layer = layer_dict["ee_layer"]
-            self._label.value = self._ee_layer.name
+            self.layer_name = self._ee_layer.name
+            self.colormaps = self._get_colormaps()
+
             if isinstance(self._ee_object, ee.FeatureCollection):
-                self._embedded_widget = _VectorLayerEditor(
-                    host_map=host_map, layer_dict=layer_dict
-                )
+                self.layer_type = LayerEditor.LayerType.VECTOR.value
             elif isinstance(self._ee_object, ee.Image):
-                self._embedded_widget = _RasterLayerEditor(
-                    host_map=host_map, layer_dict=layer_dict
-                )
+                self.layer_type = LayerEditor.LayerType.RASTER.value
+                self.band_names = self._ee_object.bandNames().getInfo()
 
-        super().__init__(children=[])
-        self._on_toggle_click({"new": True})
+        self.on_msg(self._handle_message_event)
 
-    def _on_toggle_click(self, change: Dict[str, Any]) -> None:
-        """Handles the toggle button click event.
-
-        Args:
-            change (Dict[str, Any]): The change event arguments.
-        """
-        if change["new"]:
-            self.children = [
-                ipywidgets.HBox([self._close_button, self._toggle_button, self._label]),
-                self._embedded_widget,
-                ipywidgets.HBox([self._import_button, self._apply_button]),
-            ]
-        else:
-            self.children = [
-                ipywidgets.HBox([self._close_button, self._toggle_button, self._label]),
-            ]
-
-    def _on_import_click(self, _) -> None:
-        """Handles the import button click event."""
-        self._embedded_widget.on_import_click()
-
-    def _on_apply_click(self, _) -> None:
-        """Handles the apply button click event."""
-        self._embedded_widget.on_apply_click()
-
-    def _on_close_click(self, _) -> None:
+    def _on_close_click(self) -> None:
         """Handles the close button click event."""
         if self.on_close:
             self.on_close()
 
+    def _handle_message_event(
+        self, widget: ipywidgets.Widget, content: Dict[str, Any], buffers: List[Any]
+    ) -> None:
+        del widget, buffers  # Unused
 
-def _tokenize_legend_colors(string: str, delimiter: str = ",") -> List[str]:
-    """Tokenizes a string of legend colors.
+        msg_details = content.get("detail", {})
+        msg_type = content.get("type")
+        msg_id = content.get("id")
+        if msg_type == "click":
+            if msg_id == "close":
+                self._on_close_click()
+            elif msg_id == "apply":
+                if self.layer_type == LayerEditor.LayerType.RASTER.value:
+                    self._on_apply_click_raster(msg_details)
+                else:
+                    self._on_apply_click_vector(msg_details)
+            elif msg_id == "import":
+                if self.layer_type == LayerEditor.LayerType.RASTER.value:
+                    self._on_import_click_raster(msg_details)
+                else:
+                    self._on_import_click_vector(msg_details)
+        elif msg_type == "calculate":
+            response = None
+            if msg_id == "band-stats":
+                response = self._calculate_band_stats(msg_details)
+            elif msg_id == "palette":
+                response = self._calculate_palette(msg_details)
+            elif msg_id == "fields":
+                response = self._calculate_fields()
+            elif msg_id == "field-values":
+                response = self._calculate_field_values(msg_details)
+            if response:
+                self.send({"type": msg_type, "id": msg_id, "response": response})
 
-    Args:
-        string (str): The string of legend colors.
-        delimiter (str, optional): The delimiter used to split the string. Defaults to ",".
-
-    Returns:
-        List[str]: A list of hex color strings.
-    """
-    return coreutils.to_hex_colors([c.strip() for c in string.split(delimiter)])
-
-
-def _tokenize_legend_labels(string: str, delimiter: str = ",") -> List[str]:
-    """Tokenizes a string of legend labels.
-
-    Args:
-        string (str): The string of legend labels.
-        delimiter (str, optional): The delimiter used to split the string. Defaults to ",".
-
-    Returns:
-        List[str]: A list of legend labels.
-    """
-    return [l.strip() for l in string.split(delimiter)]
-
-
-@Theme.apply
-class _RasterLayerEditor(ipywidgets.VBox):
-    """Widget for displaying and editing layer visualization properties for raster layers."""
-
-    def __init__(self, host_map: "geemap.Map", layer_dict: Dict[str, Any]):
-        """Initializes a raster layer editor widget.
-
-        Args:
-            host_map (geemap.Map): The geemap.Map object.
-            layer_dict (Dict[str, Any]): The layer object to edit.
-        """
-        self._host_map = host_map
-        self._layer_dict = layer_dict
-
-        self._ee_object = layer_dict["ee_object"]
-        self._ee_layer = layer_dict["ee_layer"]
-        self._vis_params = layer_dict["vis_params"]
-
-        self._layer_name = self._ee_layer.name
-        self._layer_opacity = self._ee_layer.opacity
-
-        self._min_value = 0
-        self._max_value = 100
-        self._sel_bands = None
-        self._layer_palette = []
-        self._layer_gamma = 1
-        self._left_value = 0
-        self._right_value = 10000
-
-        band_names = self._ee_object.bandNames().getInfo()
-        self._band_count = len(band_names)
-
-        if "min" in self._vis_params.keys():
-            self._min_value = self._vis_params["min"]
-            if self._min_value < self._left_value:
-                self._left_value = self._min_value - self._max_value
-        if "max" in self._vis_params.keys():
-            self._max_value = self._vis_params["max"]
-            self._right_value = 2 * self._max_value
-        if "gamma" in self._vis_params.keys():
-            if isinstance(self._vis_params["gamma"], list):
-                self._layer_gamma = self._vis_params["gamma"][0]
-            else:
-                self._layer_gamma = self._vis_params["gamma"]
-        if "bands" in self._vis_params.keys():
-            self._sel_bands = self._vis_params["bands"]
-        if "palette" in self._vis_params.keys():
-            self._layer_palette = [
-                color.replace("#", "") for color in list(self._vis_params["palette"])
-            ]
-
-        # ipywidgets doesn't support horizontal radio buttons
-        # (https://github.com/jupyter-widgets/ipywidgets/issues/1247). Instead,
-        # use two individual radio buttons with some hackery.
-        self._grayscale_radio_button = ipywidgets.RadioButtons(
-            options=["1 band (Grayscale)"],
-            layout={"width": "max-content", "margin": "0 16px 0 0"},
-        )
-        self._rgb_radio_button = ipywidgets.RadioButtons(
-            options=["3 bands (RGB)"], layout={"width": "max-content"}
-        )
-        self._grayscale_radio_button.index = None
-        self._rgb_radio_button.index = None
-
-        band_dropdown_layout = ipywidgets.Layout(width="98px")
-        self._band_1_dropdown = ipywidgets.Dropdown(
-            options=band_names, value=band_names[0], layout=band_dropdown_layout
-        )
-        self._band_2_dropdown = ipywidgets.Dropdown(
-            options=band_names, value=band_names[0], layout=band_dropdown_layout
-        )
-        self._band_3_dropdown = ipywidgets.Dropdown(
-            options=band_names, value=band_names[0], layout=band_dropdown_layout
-        )
-        self._bands_hbox = ipywidgets.HBox(layout=ipywidgets.Layout(margin="0 0 6px 0"))
-
-        self._color_picker = ipywidgets.ColorPicker(
-            concise=False,
-            value="#000000",
-            layout=ipywidgets.Layout(width="116px"),
-            style={"description_width": "initial"},
-        )
-
-        self._add_color_button = ipywidgets.Button(
-            icon="plus",
-            tooltip="Add a hex color string to the palette",
-            layout=ipywidgets.Layout(width="32px"),
-        )
-        self._del_color_button = ipywidgets.Button(
-            icon="minus",
-            tooltip="Remove a hex color string from the palette",
-            layout=ipywidgets.Layout(width="32px"),
-        )
-        self._reset_color_button = ipywidgets.Button(
-            icon="eraser",
-            tooltip="Remove all color strings from the palette",
-            layout=ipywidgets.Layout(width="34px"),
-        )
-        self._add_color_button.on_click(self._add_color_clicked)
-        self._del_color_button.on_click(self._del_color_clicked)
-        self._reset_color_button.on_click(self._reset_color_clicked)
-
-        self._classes_dropdown = ipywidgets.Dropdown(
-            options=["Any"] + [str(i) for i in range(3, 13)],
-            description="Classes:",
-            layout=ipywidgets.Layout(width="115px"),
-            style={"description_width": "initial"},
-        )
-        self._classes_dropdown.observe(self._classes_changed, "value")
-
-        self._colormap_dropdown = ipywidgets.Dropdown(
-            options=self._get_colormaps(),
-            value=None,
-            description="Colormap:",
-            layout=ipywidgets.Layout(width="181px"),
-            style={"description_width": "initial"},
-        )
-        self._colormap_dropdown.observe(self._colormap_changed, "value")
-
-        self._palette_label = ipywidgets.Text(
-            value=", ".join(self._layer_palette),
-            placeholder="List of hex color code (RRGGBB)",
-            description="Palette:",
-            tooltip="Enter a list of hex color code (RRGGBB)",
-            layout=ipywidgets.Layout(width="300px"),
-            style={"description_width": "initial"},
-        )
-
-        self._stretch_dropdown = ipywidgets.Dropdown(
-            options={
-                "Custom": {},
-                "1 σ": {"sigma": 1},
-                "2 σ": {"sigma": 2},
-                "3 σ": {"sigma": 3},
-                "90%": {"percent": 0.90},
-                "98%": {"percent": 0.98},
-                "100%": {"percent": 1.0},
-            },
-            description="Stretch:",
-            layout=ipywidgets.Layout(width="260px"),
-            style={"description_width": "initial"},
-        )
-
-        self._stretch_button = ipywidgets.Button(
-            disabled=True,
-            tooltip="Re-calculate stretch",
-            layout=ipywidgets.Layout(width="36px"),
-            icon="refresh",
-        )
-        self._stretch_dropdown.observe(self._value_stretch_changed, names="value")
-        self._stretch_button.on_click(self._update_stretch)
-
-        self._value_range_slider = ipywidgets.FloatRangeSlider(
-            value=[self._min_value, self._max_value],
-            min=self._left_value,
-            max=self._right_value,
-            step=0.1,
-            description="Range:",
-            disabled=False,
-            continuous_update=False,
-            readout=True,
-            readout_format=".1f",
-            layout=ipywidgets.Layout(width="300px"),
-            style={"description_width": "45px"},
-        )
-
-        self._opacity_slider = ipywidgets.FloatSlider(
-            value=self._layer_opacity,
-            min=0,
-            max=1,
-            step=0.01,
-            description="Opacity:",
-            continuous_update=False,
-            readout=True,
-            readout_format=".2f",
-            layout=ipywidgets.Layout(width="320px"),
-            style={"description_width": "50px"},
-        )
-
-        # ipywidgets doesn't support horizontal radio buttons
-        # (https://github.com/jupyter-widgets/ipywidgets/issues/1247). Instead,
-        # use two individual radio buttons with some hackery.
-        self._palette_radio_button = ipywidgets.RadioButtons(
-            options=["Palette"],
-            layout={"width": "max-content", "margin": "2px 16px 0px 2px"},
-        )
-        self._gamma_radio_button = ipywidgets.RadioButtons(
-            options=["Gamma"],
-            layout={"width": "max-content"},
-        )
-        self._gamma_radio_button.index = None
-        self._palette_radio_button.index = None
-
-        self._gamma_slider = ipywidgets.FloatSlider(
-            value=self._layer_gamma,
-            min=0.1,
-            max=10,
-            step=0.01,
-            description="Gamma:",
-            continuous_update=False,
-            readout=True,
-            readout_format=".2f",
-            layout=ipywidgets.Layout(width="320px"),
-            style={"description_width": "50px"},
-        )
-
-        self._legend_checkbox = ipywidgets.Checkbox(
-            value=False,
-            description="Legend",
-            indent=False,
-            layout=ipywidgets.Layout(width="70px"),
-        )
-
-        self._linear_checkbox = ipywidgets.Checkbox(
-            value=True,
-            description="Linear colormap",
-            indent=False,
-            layout=ipywidgets.Layout(width="150px"),
-        )
-        self._step_checkbox = ipywidgets.Checkbox(
-            value=False,
-            description="Step colormap",
-            indent=False,
-            layout=ipywidgets.Layout(width="140px"),
-        )
-        self._linear_checkbox.observe(self._linear_checkbox_changed, "value")
-        self._step_checkbox.observe(self._step_checkbox_changed, "value")
-
-        self._legend_title_label = ipywidgets.Text(
-            value="Legend",
-            description="Legend title:",
-            tooltip="Enter a title for the legend",
-            layout=ipywidgets.Layout(width="300px"),
-            style={"description_width": "initial"},
-        )
-
-        self._legend_labels_label = ipywidgets.Text(
-            value="Class 1, Class 2, Class 3",
-            description="Legend labels:",
-            tooltip="Enter a a list of labels for the legend",
-            layout=ipywidgets.Layout(width="300px"),
-            style={"description_width": "initial"},
-        )
-
-        self._stretch_hbox = ipywidgets.HBox(
-            [self._stretch_dropdown, self._stretch_button]
-        )
-        self._colormap_hbox = ipywidgets.HBox(
-            [self._linear_checkbox, self._step_checkbox]
-        )
-        self._legend_vbox = ipywidgets.VBox()
-
-        self._colorbar_output = ipywidgets.Output(
-            layout=ipywidgets.Layout(height="60px", max_width="300px")
-        )
-
-        self._legend_checkbox.observe(self._legend_checkbox_changed, "value")
-
-        children = []
-        if self._band_count < 3:
-            self._grayscale_radio_button.index = 0
-            self._band_1_dropdown.layout.width = "300px"
-            self._bands_hbox.children = [self._band_1_dropdown]
-            if "palette" in self._vis_params:
-                self._palette_radio_button.index = 0
-            elif "gamma" in self._vis_params:
-                self._gamma_radio_button.index = 0
-            else:
-                # Palette takes precedence.
-                self._palette_radio_button.index = 0
-            palette_selected = self._palette_radio_button.index == 0
-            children = self._set_toolbar_layout(
-                grayscale=True, palette=palette_selected
-            )
-            self._legend_checkbox.value = False
-
-            if self._palette_label.value and "," in self._palette_label.value:
-                colors = coreutils.to_hex_colors(
-                    [color.strip() for color in self._palette_label.value.split(",")]
-                )
-                self._render_colorbar(colors)
-        else:
-            self._rgb_radio_button.index = 0
-            sel_bands = self._sel_bands
-            if (sel_bands is None) or (len(sel_bands) < 2):
-                sel_bands = band_names[0:3]
-            self._band_1_dropdown.value = sel_bands[0]
-            self._band_2_dropdown.value = sel_bands[1]
-            self._band_3_dropdown.value = sel_bands[2]
-            self._bands_hbox.children = [
-                self._band_1_dropdown,
-                self._band_2_dropdown,
-                self._band_3_dropdown,
-            ]
-            # We never show the palette in RGB mode.
-            children = self._set_toolbar_layout(grayscale=False, palette=False)
-
-        self._grayscale_radio_button.observe(
-            self._grayscale_radio_observer, names=["value"]
-        )
-        self._rgb_radio_button.observe(self._rgb_radio_observer, names=["value"])
-        self._gamma_radio_button.observe(self._gamma_radio_observer, names=["value"])
-        self._palette_radio_button.observe(
-            self._palette_radio_observer, names=["value"]
-        )
-
-        super().__init__(
-            layout=ipywidgets.Layout(
-                padding="5px 0px 5px 8px",  # top, right, bottom, left
-                # width="330px",
-                max_height="305px",
-                overflow="auto",
-                display="block",
-            ),
-            children=children,
-        )
-
-    def _value_stretch_changed(self, value: Dict[str, Any]) -> None:
-        """Apply the selected stretch option and update widget states.
-
-        Args:
-            value (Dict[str, Any]): The change event dictionary containing the new value.
-        """
-        stretch_option = value["new"]
-
-        if stretch_option:
-            self._stretch_button.disabled = False
-            self._value_range_slider.disabled = True
-            self._update_stretch()
-        else:
-            self._stretch_button.disabled = True
-            self._value_range_slider.disabled = False
-
-    def _update_stretch(self, *args: Any) -> None:
-        """Calculate and set the range slider by applying stretch parameters."""
-        stretch_params = self._stretch_dropdown.value
-
+    def _calculate_band_stats(
+        self, message: Dict[str, Any]
+    ) -> Optional[Dict[str, Any]]:
         (s, w), (n, e) = self._host_map.bounds
         map_bbox = ee.Geometry.BBox(west=w, south=s, east=e, north=n)
-        vis_bands = set((b.value for b in self._bands_hbox.children))
+
+        vis_bands = set(message.get("bands", []))
+        stretch = message.get("stretch", "")
+
+        if stretch == "custom":
+            return None
+
+        stretch_params = {}
+        stretch_value = int(re.search(r"\d+", stretch).group())
+        if stretch.startswith("percent"):
+            stretch_params["percent"] = stretch_value / 100.0
+        elif stretch.startswith("sigma"):
+            stretch_params["sigma"] = stretch_value
+
         min_val, max_val = self._ee_layer.calculate_vis_minmax(
             bounds=map_bbox, bands=vis_bands, **stretch_params
         )
+        return {"stretch": stretch, "min": min_val, "max": max_val}
 
-        # Update in the correct order to avoid setting an invalid range
-        if min_val > self._value_range_slider.max:
-            self._value_range_slider.max = max_val
-            self._value_range_slider.min = min_val
-        else:
-            self._value_range_slider.min = min_val
-            self._value_range_slider.max = max_val
+    def _render_colorbar(
+        self, colors: List[str], band_min: float, band_max: float
+    ) -> None:
+        if len(colors) < 2:
+            self.children = []
+            return
 
-        self._value_range_slider.value = [min_val, max_val]
+        import matplotlib  # pylint: disable=import-outside-toplevel
+        from matplotlib import pyplot  # pylint: disable=import-outside-toplevel
+        import numpy  # pylint: disable=import-outside-toplevel
 
-    def _set_toolbar_layout(
-        self, grayscale: bool, palette: bool
-    ) -> List[ipywidgets.Widget]:
-        """Sets the layout of the toolbar based on grayscale and palette options.
+        _, ax = pyplot.subplots(figsize=(5, 0.3))
+        cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
+            "custom", colors, N=256
+        )
+        norm = matplotlib.colors.Normalize(vmin=band_min, vmax=band_max)
+        ticks = numpy.linspace(band_min, band_max, 4, endpoint=True)
+        matplotlib.colorbar.ColorbarBase(
+            ax, norm=norm, cmap=cmap, orientation="horizontal", ticks=ticks
+        )
 
-        Args:
-            grayscale (bool): Whether the grayscale option is selected.
-            palette (bool): Whether the palette option is selected.
+        colorbar_output = ipywidgets.Output(
+            layout=ipywidgets.Layout(height="60px", max_width="300px")
+        )
+        with colorbar_output:
+            pyplot.show()
+        self.children = [colorbar_output]
 
-        Returns:
-            List[ipywidgets.Widget]: The list of toolbar widgets.
-        """
-        tools = [
-            ipywidgets.HBox([self._grayscale_radio_button, self._rgb_radio_button]),
-            self._bands_hbox,
-            self._stretch_hbox,
-            self._value_range_slider,
-            self._opacity_slider,
-        ]
-        if grayscale:
-            inner_tools = []
-            # These options are only available in grayscale.
-            inner_tools.append(
-                ipywidgets.HBox([self._palette_radio_button, self._gamma_radio_button])
-            )
-            # Show palette options if palette is selected, otherwise show gamma option.
-            if palette:
-                inner_tools += [
-                    ipywidgets.HBox([self._classes_dropdown, self._colormap_dropdown]),
-                    self._palette_label,
-                    self._colorbar_output,
-                    ipywidgets.HBox(
-                        [
-                            self._legend_checkbox,
-                            self._color_picker,
-                            self._add_color_button,
-                            self._del_color_button,
-                            self._reset_color_button,
-                        ]
-                    ),
-                    self._legend_vbox,
-                ]
-            else:
-                inner_tools.append(self._gamma_slider)
-            tools.append(
-                ipywidgets.VBox(
-                    inner_tools,
-                    layout=ipywidgets.Layout(
-                        border="1px solid lightgray", margin="0 8px 0 0"
-                    ),
-                    padding="10px",
-                )
-            )
-        else:
-            # Palette option is not available in RGB mode.
-            tools.append(self._gamma_slider)
-        return tools
+    def _calculate_palette(self, message: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+        import matplotlib  # pylint: disable=import-outside-toplevel
+        from matplotlib import pyplot  # pylint: disable=import-outside-toplevel
+
+        colormap = message.get("colormap", "")
+        classes = message.get("classes", "")
+        palette = message.get("palette", "")
+        band_min = message.get("bandMin", 0.0)
+        band_max = message.get("bandMax", 1.0)
+
+        if colormap == "Custom":
+            colors = [color.strip() for color in palette.split(",")]
+            self._render_colorbar(colors, band_min, band_max)
+            return {"palette": palette}
+
+        classes = None if classes == "any" else int(classes)
+        cmap = pyplot.get_cmap(colormap, classes)
+        cmap_colors = [matplotlib.colors.rgb2hex(cmap(i))[1:] for i in range(cmap.N)]
+        colors = coreutils.to_hex_colors(cmap_colors)
+
+        self._render_colorbar(colors, band_min, band_max)
+        return {"palette": ", ".join(colors)}
+
+    def _calculate_fields(self) -> Dict[str, Any]:
+        available_fields = ee.Feature(self._ee_object.first()).propertyNames().getInfo()
+        if available_fields:
+            field = available_fields[0]
+            values = self._calculate_field_values({"field": field})["field-values"]
+            return {"fields": available_fields, "field-values": values}
+        return {"fields": [], "field-values": []}
+
+    def _calculate_field_values(self, message: Dict[str, Any]) -> Dict[str, Any]:
+        field = message.get("field")
+        options = self._ee_object.aggregate_array(field).getInfo()
+        if options:
+            options = list(set(options))
+            options.sort()
+        return {"field-values": options or []}
 
     def _get_colormaps(self) -> List[str]:
-        """Gets the list of available colormaps.
-
-        Returns:
-            List[str]: The list of colormap names.
-        """
+        """Gets the list of available colormaps."""
         from matplotlib import pyplot  # pylint: disable=import-outside-toplevel
 
         colormap_options = pyplot.colormaps()
         colormap_options.sort()
-        return colormap_options
+        return ["Custom"] + colormap_options
 
-    def _render_colorbar(self, colors: List[str]) -> None:
-        """Renders a colorbar with the given colors.
+    def _hex_with_opacity(self, base_color: str, opacity: float) -> str:
+        """Adds opacity to a hex string (e.g. #000000 to #000000FF)."""
+        return base_color[1:] + str(hex(int(opacity * 255)))[2:].zfill(2)
 
-        Args:
-            colors (List[str]): The list of colors to use in the colorbar.
-        """
-        import matplotlib  # pylint: disable=import-outside-toplevel
-        from matplotlib import pyplot  # pylint: disable=import-outside-toplevel
+    def _on_import_click_vector(self, state: Dict[str, Any]) -> None:
+        """Handles the import button click event for vector layers."""
+        vis_options = self._get_vis_params(state)
+        coreutils.create_code_cell(f"style = {str(vis_options)}")
+        print(f"style = {str(vis_options)}")
 
-        colors = coreutils.to_hex_colors(colors)
-
-        _, ax = pyplot.subplots(figsize=(4, 0.3))
-        cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
-            "custom", colors, N=256
+    def _get_vis_params(self, state: Dict[str, Any]) -> Dict[str, Any]:
+        color = self._hex_with_opacity(
+            state.get("color", ""), state.get("opacity", 1.0)
         )
-        norm = matplotlib.colors.Normalize(
-            vmin=self._value_range_slider.value[0],
-            vmax=self._value_range_slider.value[1],
-        )
-        matplotlib.colorbar.ColorbarBase(
-            ax, norm=norm, cmap=cmap, orientation="horizontal"
-        )
+        fill_opacity = state.get("fillOpacity", 0.66)
+        fill_color = self._hex_with_opacity(state.pop("fillColor"), fill_opacity)
+        line_width = state.get("lineWidth")
+        line_type = state.get("lineType")
+        point_size = state.get("pointSize", None)
+        point_shape = state.get("pointShape", None)
+        vis_options = {
+            "color": color,
+            "fillColor": fill_color,
+            "width": line_width,
+            "lineType": line_type,
+        }
+        if coreutils.geometry_type(self._ee_object) in ["Point", "MultiPoint"]:
+            vis_options["pointSize"] = point_size
+            vis_options["pointShape"] = point_shape
+        return vis_options
 
-        self._palette_label.value = ", ".join(colors)
+    def _on_apply_click_vector(self, state: Dict[str, Any]) -> None:
+        """Handles the apply button click event from a vector layer."""
+        if self.layer_name in self._host_map.ee_layers:
+            self._host_map.remove(self._ee_layer)
 
-        self._colorbar_output.clear_output()
-        with self._colorbar_output:
-            pyplot.show()
-
-    def _classes_changed(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the classes dropdown.
-
-        Args:
-            change (Dict[str, Any]): The change event dictionary.
-        """
-        import matplotlib  # pylint: disable=import-outside-toplevel
-        from matplotlib import pyplot  # pylint: disable=import-outside-toplevel
-
-        if not change["new"]:
-            return
-
-        selected = change["owner"].value
-        if self._colormap_dropdown.value is not None:
-            n_class = None
-            if selected != "Any":
-                n_class = int(self._classes_dropdown.value)
-
-            colors = pyplot.get_cmap(self._colormap_dropdown.value, n_class)
-            cmap_colors = [
-                matplotlib.colors.rgb2hex(colors(i))[1:] for i in range(colors.N)
-            ]
-            self._render_colorbar(cmap_colors)
-
-            if self._palette_label.value and "," in self._palette_label.value:
-                labels = [
-                    f"Class {i+1}"
-                    for i in range(len(self._palette_label.value.split(",")))
+        new_layer_object = None
+        style_by_attribute = state.pop("shouldStyleByAttribute")
+        vis_options = self._get_vis_params(state)
+        if not style_by_attribute:
+            new_layer_object = self._ee_object.style(**vis_options)
+        else:
+            fill_opacity = vis_options.get("fillOpacity", 1.0)
+            colors = ee.List(
+                [
+                    self._hex_with_opacity(color.strip(), fill_opacity)
+                    for color in state.get("palette", [])
                 ]
-                self._legend_labels_label.value = ", ".join(labels)
-
-    def _add_color_clicked(self, _) -> None:
-        """Handles the add color button click event."""
-        if self._color_picker.value is not None:
-            if self._palette_label.value:
-                self._palette_label.value += ", " + self._color_picker.value[1:]
-            else:
-                self._palette_label.value = self._color_picker.value[1:]
-
-    def _del_color_clicked(self, _) -> None:
-        """Handles the delete color button click event."""
-        if "," in self._palette_label.value:
-            items = [item.strip() for item in self._palette_label.value.split(",")]
-            self._palette_label.value = ", ".join(items[:-1])
-        else:
-            self._palette_label.value = ""
-
-    def _reset_color_clicked(self, _) -> None:
-        """Handles the reset color button click event."""
-        self._palette_label.value = ""
-
-    def _linear_checkbox_changed(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the linear checkbox.
-
-        Args:
-            change (Dict[str, Any]): The change event dictionary.
-        """
-        if change["new"]:
-            self._step_checkbox.value = False
-            self._legend_vbox.children = [self._colormap_hbox]
-        else:
-            self._step_checkbox.value = True
-
-    def _step_checkbox_changed(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the step checkbox.
-
-        Args:
-            change (Dict[str, Any]): The change event dictionary.
-        """
-        if change["new"]:
-            self._linear_checkbox.value = False
-            if len(self._layer_palette) > 0:
-                self._legend_labels_label.value = ",".join(
-                    ["Class " + str(i) for i in range(1, len(self._layer_palette) + 1)]
+            )
+            field = state.get("field")
+            arr = self._ee_object.aggregate_array(field).distinct().sort()
+            fc = self._ee_object.map(
+                lambda f: f.set({"styleIndex": arr.indexOf(f.get(field))})
+            )
+            step = arr.size().divide(colors.size()).ceil()
+            fc = fc.map(
+                lambda f: f.set(
+                    {
+                        "style": {
+                            **vis_options,
+                            "fillColor": colors.get(
+                                ee.Number(f.get("styleIndex")).divide(step).floor()
+                            ),
+                        },
+                    }
                 )
-            self._legend_vbox.children = [
-                self._colormap_hbox,
-                self._legend_title_label,
-                self._legend_labels_label,
-            ]
-        else:
-            self._linear_checkbox.value = True
+            )
+            new_layer_object = fc.style(**{"styleProperty": "style"})
 
-    def _colormap_changed(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the colormap dropdown.
+        new_layer_name = state.pop("layerName")
+        self._host_map.add_layer(new_layer_object, {}, new_layer_name)
+        if legend := state.get("legend"):
+            self._apply_legend(legend, state.get("palette"), 0.0, 1.0)
 
-        Args:
-            change (Dict[str, Any]): The change event dictionary.
-        """
-        import matplotlib  # pylint: disable=import-outside-toplevel
-        from matplotlib import pyplot  # pylint: disable=import-outside-toplevel
+    def _on_import_click_raster(self, vis_params: Dict[str, Any]) -> None:
+        """Handles the import button click event for raster layers."""
+        vis_params.pop("opacity", None)
+        coreutils.create_code_cell(f"vis_params = {str(vis_params)}")
+        print(f"vis_params = {str(vis_params)}")
 
-        if change["new"]:
-            n_class = None
-            if self._classes_dropdown.value != "Any":
-                n_class = int(self._classes_dropdown.value)
-
-            colors = pyplot.get_cmap(self._colormap_dropdown.value, n_class)
-            cmap_colors = [
-                matplotlib.colors.rgb2hex(colors(i))[1:] for i in range(colors.N)
-            ]
-            self._render_colorbar(cmap_colors)
-
-            if self._palette_label.value and "," in self._palette_label.value:
-                labels = [
-                    f"Class {i+1}"
-                    for i in range(len(self._palette_label.value.split(",")))
-                ]
-                self._legend_labels_label.value = ", ".join(labels)
-
-    def _get_vis_params_from_selection(self) -> Dict[str, Any]:
-        """Gets the visualization parameters from the current selection.
-
-        Returns:
-            Dict[str, Any]: The visualization parameters.
-        """
-        vis = {}
-        if self._grayscale_radio_button.index == 0:
-            vis["bands"] = [self._band_1_dropdown.value]
-            if self._palette_radio_button.index == 0:
-                if self._palette_label.value:
-                    vis["palette"] = [
-                        c.strip() for c in self._palette_label.value.split(",")
-                    ]
-            else:
-                vis["gamma"] = self._gamma_slider.value
-        else:
-            vis["bands"] = [
-                self._band_1_dropdown.value,
-                self._band_2_dropdown.value,
-                self._band_3_dropdown.value,
-            ]
-            vis["gamma"] = self._gamma_slider.value
-
-        vis["min"] = self._value_range_slider.value[0]
-        vis["max"] = self._value_range_slider.value[1]
-        return vis
-
-    def on_import_click(self) -> None:
-        """Handles the import button click event."""
-        vis = self._get_vis_params_from_selection()
-
-        coreutils.create_code_cell(f"vis_params = {str(vis)}")
-        print(f"vis_params = {str(vis)}")
-
-    def on_apply_click(self) -> None:
-        """Handles the apply button click event."""
-        vis = self._get_vis_params_from_selection()
+    def _on_apply_click_raster(self, vis_params: Dict[str, Any]) -> None:
+        """Handles the apply button click event from a raster layer."""
+        opacity = vis_params.pop("opacity", 1.0)
+        legend = vis_params.pop("legend", {})
         self._host_map.add_layer(
-            self._ee_object, vis, self._layer_name, True, self._opacity_slider.value
+            self._ee_object, vis_params, self.layer_name, True, opacity
         )
         self._ee_layer.visible = False
-
-        if self._legend_checkbox.value:
-            palette_str = self._palette_label.value
-            if self._linear_checkbox.value:
-                if palette_str:
-                    colors = _tokenize_legend_colors(palette_str)
-                    if hasattr(self._host_map, "_add_colorbar"):
-                        # pylint: disable-next=protected-access
-                        self._host_map._add_colorbar(
-                            vis_params={
-                                "palette": colors,
-                                "min": self._value_range_slider.value[0],
-                                "max": self._value_range_slider.value[1],
-                            },
-                            layer_name=self._layer_name,
-                        )
-            elif self._step_checkbox.value:
-                labels_str = self._legend_labels_label.value
-                if palette_str and labels_str:
-                    colors = _tokenize_legend_colors(palette_str)
-                    labels = _tokenize_legend_labels(labels_str)
-                    if hasattr(self._host_map, "_add_legend"):
-                        # pylint: disable-next=protected-access
-                        self._host_map._add_legend(
-                            title=self._legend_title_label.value,
-                            layer_name=self._layer_name,
-                            keys=labels,
-                            colors=colors,
-                        )
-        else:
-            if self._grayscale_radio_button.index == 0 and "palette" in vis:
-                self._render_colorbar(vis["palette"])
-
-    def _legend_checkbox_changed(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the legend checkbox.
-
-        Args:
-            change (Dict[str, Any]): The change event dictionary.
-        """
-        if change["new"]:
-            self._linear_checkbox.value = True
-            self._legend_vbox.children = [
-                ipywidgets.HBox([self._linear_checkbox, self._step_checkbox]),
-            ]
-        else:
-            self._legend_vbox.children = []
-
-    def _render_grayscale_rgb_selection(self, grayscale: bool) -> None:
-        """Renders the grayscale or RGB selection.
-
-        Args:
-            grayscale (bool): Whether the grayscale option is selected.
-        """
-        if grayscale:
-            self._rgb_radio_button.unobserve(self._rgb_radio_observer, names=["value"])
-            self._rgb_radio_button.index = None
-            self._rgb_radio_button.observe(self._rgb_radio_observer, names=["value"])
-            self._band_1_dropdown.layout.width = "300px"
-            self._bands_hbox.children = [self._band_1_dropdown]
-        else:
-            self._grayscale_radio_button.unobserve(
-                self._grayscale_radio_observer, names=["value"]
-            )
-            self._grayscale_radio_button.index = None
-            self._grayscale_radio_button.observe(
-                self._grayscale_radio_observer, names=["value"]
-            )
-            self._band_1_dropdown.layout.width = "98px"
-            self._bands_hbox.children = [
-                self._band_1_dropdown,
-                self._band_2_dropdown,
-                self._band_3_dropdown,
-            ]
-
-    def _enable_palette(self, enabled: bool) -> None:
-        """Enables or disables the palette options.
-
-        Args:
-            enabled (bool): Whether to enable the palette options.
-        """
-        if enabled and not self._palette_label.value:
-            # Only set this if it hasn't been overridden. Note that if no
-            # palette was originally set, then this will be left blank here.
-            self._palette_label.value = ", ".join(self._layer_palette)
-        self._palette_label.disabled = not enabled
-        self._color_picker.disabled = not enabled
-        self._add_color_button.disabled = not enabled
-        self._del_color_button.disabled = not enabled
-        self._reset_color_button.disabled = not enabled
-
-    def _render_palette(self, enabled: bool) -> None:
-        """Renders the palette if enabled.
-
-        Args:
-            enabled (bool): Whether to render the palette.
-        """
-        if enabled:
-            if self._palette_label.value and "," in self._palette_label.value:
-                colors = [
-                    color.strip() for color in self._palette_label.value.split(",")
-                ]
-                self._render_colorbar(colors)
-        else:
-            self._colorbar_output.clear_output()
-
-    def _grayscale_radio_observer(self, _) -> None:
-        """Observer for the grayscale radio button."""
-        self._render_grayscale_rgb_selection(True)
-        self._enable_palette(True)
-        palette_selected = self._palette_radio_button.index == 0
-        self._render_palette(palette_selected)
-        self.children = self._set_toolbar_layout(
-            grayscale=True, palette=palette_selected
-        )
-
-    def _rgb_radio_observer(self, _) -> None:
-        """Observer for the RGB radio button."""
-        self._render_grayscale_rgb_selection(False)
-        self._enable_palette(False)
-        self._render_palette(False)
-        self.children = self._set_toolbar_layout(grayscale=False, palette=False)
-
-    def _render_gamma_palette_selection(self, gamma: bool) -> None:
-        """Renders the gamma or palette selection.
-
-        Args:
-            gamma (bool): Whether the gamma option is selected.
-        """
-        if gamma:
-            self._palette_radio_button.unobserve(
-                self._palette_radio_observer, names=["value"]
-            )
-            self._palette_radio_button.index = None
-            self._palette_radio_button.observe(
-                self._palette_radio_observer, names=["value"]
-            )
-        else:
-            self._gamma_radio_button.unobserve(
-                self._gamma_radio_observer, names=["value"]
-            )
-            self._gamma_radio_button.index = None
-            self._gamma_radio_button.observe(
-                self._gamma_radio_observer, names=["value"]
+        if legend:
+            self._apply_legend(
+                legend,
+                vis_params.get("palette"),
+                vis_params.get("min"),
+                vis_params.get("max"),
             )
 
-    def _gamma_radio_observer(self, _) -> None:
-        """Observer for the gamma radio button."""
-        self._render_gamma_palette_selection(True)
-        self._enable_palette(False)
-        self._render_palette(False)
-        grayscale = self._grayscale_radio_button.index == 0
-        self.children = self._set_toolbar_layout(grayscale=grayscale, palette=False)
-
-    def _palette_radio_observer(self, _) -> None:
-        """Observer for the palette radio button."""
-        self._render_gamma_palette_selection(False)
-        self._enable_palette(True)
-        self._render_palette(True)
-        grayscale = self._grayscale_radio_button.index == 0
-        self.children = self._set_toolbar_layout(grayscale=grayscale, palette=True)
+    def _apply_legend(
+        self,
+        legend: Dict[str, Any],
+        palette: Optional[str],
+        min_value: Optional[float],
+        max_value: Optional[float],
+    ) -> None:
+        if legend.get("type") == "linear":
+            if hasattr(self._host_map, "_add_colorbar"):
+                # pylint: disable-next=protected-access
+                self._host_map._add_colorbar(
+                    vis_params={
+                        "palette": palette,
+                        "min": min_value,
+                        "max": max_value,
+                    },
+                    layer_name=self.layer_name,
+                )
+        elif legend.get("type") == "step":
+            if hasattr(self._host_map, "_add_legend"):
+                # pylint: disable-next=protected-access
+                self._host_map._add_legend(
+                    title=legend.get("title", ""),
+                    layer_name=self.layer_name,
+                    keys=legend.get("labels", []),
+                    colors=palette,
+                )
 
 
 @Theme.apply
-class _VectorLayerEditor(ipywidgets.VBox):
-    """Widget for displaying and editing layer visualization properties."""
+class SearchBar(anywidget.AnyWidget):
+    _esm = pathlib.Path(__file__).parent / "static" / "search_bar.js"
 
-    _POINT_SHAPES = [
-        "circle",
-        "square",
-        "diamond",
-        "cross",
-        "plus",
-        "pentagram",
-        "hexagram",
-        "triangle",
-        "triangle_up",
-        "triangle_down",
-        "triangle_left",
-        "triangle_right",
-        "pentagon",
-        "hexagon",
-        "star5",
-        "star6",
-    ]
+    # Whether the search bar is collapsed.
+    collapsed = traitlets.Bool(True).tag(sync=True)
 
-    @property
-    def _layer_name(self) -> str:
-        """Returns the name of the layer."""
-        return self._ee_layer.name
+    # The currently selected tab.
+    tab_index = traitlets.Int(0).tag(sync=True)
 
-    @property
-    def _layer_opacity(self) -> float:
-        """Returns the opacity of the layer."""
-        return self._ee_layer.opacity
-
-    def __init__(self, host_map: "geemap.Map", layer_dict: Dict[str, Any]):
-        """Initializes a layer manager widget.
-
-        Args:
-            host_map (geemap.Map): The geemap.Map object.
-            layer_dict (Dict[str, Any]): The layer object to edit.
-        """
-
-        self._host_map = host_map
-        if not host_map:
-            raise ValueError("Must pass a valid map when creating a layer manager.")
-
-        self._layer_dict = layer_dict
-
-        self._ee_object = layer_dict["ee_object"]
-        if isinstance(self._ee_object, (ee.Feature, ee.Geometry)):
-            self._ee_object = ee.FeatureCollection(self._ee_object)
-
-        self._ee_layer = layer_dict["ee_layer"]
-
-        self._new_layer_name = ipywidgets.Text(
-            value=f"{self._layer_name} style",
-            description="New layer name:",
-            style={"description_width": "initial"},
+    # The stringified JSON for the location search.
+    location_model = traitlets.Unicode(
+        json.dumps(
+            {
+                "search": "",
+                "results": [],
+                "selected": "",
+                "additional_html": "",
+            }
         )
+    ).tag(sync=True)
 
-        self._color_picker = ipywidgets.ColorPicker(
-            concise=False,
-            value="#000000",
-            description="Color:",
-            layout=ipywidgets.Layout(width="140px"),
-            style={"description_width": "initial"},
+    # The stringified JSON for the dataset search.
+    dataset_model = traitlets.Unicode(
+        json.dumps(
+            {
+                "search": "",
+                "results": [],
+                "selected": "",
+                "additional_html": "",
+            }
         )
+    ).tag(sync=True)
 
-        self._color_opacity_slider = ipywidgets.FloatSlider(
-            value=self._layer_opacity,
-            min=0,
-            max=1,
-            step=0.01,
-            description="Opacity:",
-            continuous_update=True,
-            readout=False,
-            layout=ipywidgets.Layout(width="130px"),
-            style={"description_width": "50px"},
-        )
-        self._color_opacity_slider.observe(self._color_opacity_change, names="value")
+    def __init__(self, host_map, **kwargs):
+        super().__init__()
+        self.on_close = None
+        self.host_map = host_map
+        self.host_map.search_locations = None
+        self.host_map.search_loc_marker = None
+        self.host_map.search_loc_geom = None
+        self.host_map.search_datasets = None
 
-        self._color_opacity_label = ipywidgets.Label(
-            style={"description_width": "initial"},
-            layout=ipywidgets.Layout(padding="0px"),
-        )
+        self.on_msg(self.handle_message_event)
 
-        self._point_size_label = ipywidgets.IntText(
-            value=3,
-            description="Point size:",
-            layout=ipywidgets.Layout(width="110px"),
-            style={"description_width": "initial"},
-        )
+    def handle_message_event(
+        self, widget: ipywidgets.Widget, content: Dict[str, Any], buffers: List[Any]
+    ) -> None:
+        del widget, buffers  # Unused
+        if content.get("type") == "click":
+            msg_id = content.get("id", "")
+            if msg_id == "import":
+                self.import_button_clicked()
+            elif msg_id == "close":
+                self.cleanup()
 
-        self._point_shape_dropdown = ipywidgets.Dropdown(
-            options=self._POINT_SHAPES,
-            value="circle",
-            description="Point shape:",
-            layout=ipywidgets.Layout(width="185px"),
-            style={"description_width": "initial"},
-        )
+    def cleanup(self):
+        """Removes the widget from the map and performs cleanup."""
+        if self.on_close is not None:
+            self.on_close()
 
-        self._line_width_label = ipywidgets.IntText(
-            value=2,
-            description="Line width:",
-            layout=ipywidgets.Layout(width="110px"),
-            style={"description_width": "initial"},
-        )
-
-        self._line_type_label = ipywidgets.Dropdown(
-            options=["solid", "dotted", "dashed"],
-            value="solid",
-            description="Line type:",
-            layout=ipywidgets.Layout(width="185px"),
-            style={"description_width": "initial"},
-        )
-
-        self._fill_color_picker = ipywidgets.ColorPicker(
-            concise=False,
-            value="#000000",
-            description="Fill Color:",
-            layout=ipywidgets.Layout(width="160px"),
-            style={"description_width": "initial"},
-        )
-
-        self._fill_color_opacity_slider = ipywidgets.FloatSlider(
-            value=0.66,
-            min=0,
-            max=1,
-            step=0.01,
-            description="Opacity:",
-            continuous_update=True,
-            readout=False,
-            layout=ipywidgets.Layout(width="110px"),
-            style={"description_width": "50px"},
-        )
-        self._fill_color_opacity_slider.observe(
-            self._fill_color_opacity_change, names="value"
-        )
-
-        self._fill_color_opacity_label = ipywidgets.Label(
-            style={"description_width": "initial"},
-            layout=ipywidgets.Layout(padding="0px"),
-        )
-
-        self._color_picker = ipywidgets.ColorPicker(
-            concise=False,
-            value="#000000",
-            layout=ipywidgets.Layout(width="116px"),
-            style={"description_width": "initial"},
-        )
-
-        self._add_color = ipywidgets.Button(
-            icon="plus",
-            tooltip="Add a hex color string to the palette",
-            layout=ipywidgets.Layout(width="32px"),
-        )
-        self._del_color = ipywidgets.Button(
-            icon="minus",
-            tooltip="Remove a hex color string from the palette",
-            layout=ipywidgets.Layout(width="32px"),
-        )
-        self._reset_color = ipywidgets.Button(
-            icon="eraser",
-            tooltip="Remove all color strings from the palette",
-            layout=ipywidgets.Layout(width="34px"),
-        )
-        self._add_color.on_click(self._add_color_clicked)
-        self._del_color.on_click(self._del_color_clicked)
-        self._reset_color.on_click(self._reset_color_clicked)
-
-        self._palette_label = ipywidgets.Text(
-            value="",
-            placeholder="List of hex code (RRGGBB) separated by comma",
-            description="Palette:",
-            tooltip="Enter a list of hex code (RRGGBB) separated by comma",
-            layout=ipywidgets.Layout(width="300px"),
-            style={"description_width": "initial"},
-        )
-
-        self._legend_title_label = ipywidgets.Text(
-            value="Legend",
-            description="Legend title:",
-            tooltip="Enter a title for the legend",
-            layout=ipywidgets.Layout(width="300px"),
-            style={"description_width": "initial"},
-        )
-
-        self._legend_labels_label = ipywidgets.Text(
-            value="Labels",
-            description="Legend labels:",
-            tooltip="Enter a a list of labels for the legend",
-            layout=ipywidgets.Layout(width="300px"),
-            style={"description_width": "initial"},
-        )
-
-        self._field_dropdown = ipywidgets.Dropdown(
-            options=[],
-            value=None,
-            description="Field:",
-            layout=ipywidgets.Layout(width="140px"),
-            style={"description_width": "initial"},
-        )
-        self._field_dropdown.observe(self._field_changed, "value")
-
-        self._field_values_dropdown = ipywidgets.Dropdown(
-            options=[],
-            value=None,
-            description="Values:",
-            layout=ipywidgets.Layout(width="156px"),
-            style={"description_width": "initial"},
-        )
-
-        self._classes_dropdown = ipywidgets.Dropdown(
-            options=["Any"] + [str(i) for i in range(3, 13)],
-            description="Classes:",
-            layout=ipywidgets.Layout(width="115px"),
-            style={"description_width": "initial"},
-        )
-        self._colormap_dropdown = ipywidgets.Dropdown(
-            options=["viridis"],
-            value="viridis",
-            description="Colormap:",
-            layout=ipywidgets.Layout(width="181px"),
-            style={"description_width": "initial"},
-        )
-        self._classes_dropdown.observe(self._classes_changed, "value")
-        self._colormap_dropdown.observe(self._colormap_changed, "value")
-
-        self._style_chk = ipywidgets.Checkbox(
-            value=False,
-            description="Style by attribute",
-            indent=False,
-            layout=ipywidgets.Layout(width="140px"),
-        )
-        self._legend_checkbox = ipywidgets.Checkbox(
-            value=False,
-            description="Legend",
-            indent=False,
-            layout=ipywidgets.Layout(width="70px"),
-        )
-        self._style_chk.observe(self._style_chk_changed, "value")
-        self._legend_checkbox.observe(self._legend_chk_changed, "value")
-
-        self._compute_label = ipywidgets.Label(value="")
-
-        self._style_vbox = ipywidgets.VBox(
-            [ipywidgets.HBox([self._style_chk, self._compute_label])]
-        )
-
-        self._colorbar_output = ipywidgets.Output(
-            layout=ipywidgets.Layout(height="60px", width="300px")
-        )
-
-        is_point = coreutils.geometry_type(self._ee_object) in ["Point", "MultiPoint"]
-        self._point_size_label.disabled = not is_point
-        self._point_shape_dropdown.disabled = not is_point
-
-        super().__init__(
-            layout=ipywidgets.Layout(
-                padding="5px 5px 5px 8px",
-                # width="330px",
-                max_height="250px",
-                overflow="auto",
-                display="block",
-            ),
-            children=[
-                self._new_layer_name,
-                ipywidgets.HBox(
-                    [
-                        self._color_picker,
-                        self._color_opacity_slider,
-                        self._color_opacity_label,
-                    ]
-                ),
-                ipywidgets.HBox([self._point_size_label, self._point_shape_dropdown]),
-                ipywidgets.HBox([self._line_width_label, self._line_type_label]),
-                ipywidgets.HBox(
-                    [
-                        self._fill_color_picker,
-                        self._fill_color_opacity_slider,
-                        self._fill_color_opacity_label,
-                    ]
-                ),
-                self._style_vbox,
-            ],
-        )
-
-    def _get_vis_params(self) -> Dict[str, Any]:
-        """Gets the visualization parameters for the layer.
-
-        Returns:
-            Dict[str, Any]: The visualization parameters.
-        """
-        vis = {}
-        vis["color"] = self._color_picker.value[1:] + str(
-            hex(int(self._color_opacity_slider.value * 255))
-        )[2:].zfill(2)
-        if coreutils.geometry_type(self._ee_object) in ["Point", "MultiPoint"]:
-            vis["pointSize"] = self._point_size_label.value
-            vis["pointShape"] = self._point_shape_dropdown.value
-        vis["width"] = self._line_width_label.value
-        vis["lineType"] = self._line_type_label.value
-        vis["fillColor"] = self._fill_color_picker.value[1:] + str(
-            hex(int(self._fill_color_opacity_slider.value * 255))
-        )[2:].zfill(2)
-
-        return vis
-
-    def on_apply_click(self) -> None:
-        """Handles the apply button click event."""
-        self._compute_label.value = "Computing ..."
-
-        if self._new_layer_name.value in self._host_map.ee_layers:
-            old_layer = self._new_layer_name.value
-            self._host_map.remove(old_layer)
-
-        if not self._style_chk.value:
-            vis = self._get_vis_params()
-            self._host_map.add_layer(
-                self._ee_object.style(**vis), {}, self._new_layer_name.value
-            )
-            self._ee_layer.visible = False
-            self._compute_label.value = ""
-
-        elif (
-            self._style_chk.value
-            and self._palette_label.value
-            and "," in self._palette_label.value
-        ):
-            try:
-                colors = ee.List(
-                    [
-                        color.strip()
-                        + str(hex(int(self._fill_color_opacity_slider.value * 255)))[
-                            2:
-                        ].zfill(2)
-                        for color in self._palette_label.value.split(",")
-                    ]
-                )
-                arr = (
-                    self._ee_object.aggregate_array(self._field_dropdown.value)
-                    .distinct()
-                    .sort()
-                )
-                fc = self._ee_object.map(
-                    lambda f: f.set(
-                        {"styleIndex": arr.indexOf(f.get(self._field_dropdown.value))}
-                    )
-                )
-                step = arr.size().divide(colors.size()).ceil()
-                fc = fc.map(
-                    lambda f: f.set(
-                        {
-                            "style": {
-                                "color": self._color_picker.value[1:]
-                                + str(hex(int(self._color_opacity_slider.value * 255)))[
-                                    2:
-                                ].zfill(2),
-                                "pointSize": self._point_size_label.value,
-                                "pointShape": self._point_shape_dropdown.value,
-                                "width": self._line_width_label.value,
-                                "lineType": self._line_type_label.value,
-                                "fillColor": colors.get(
-                                    ee.Number(
-                                        ee.Number(f.get("styleIndex")).divide(step)
-                                    ).floor()
-                                ),
-                            }
-                        }
-                    )
-                )
-
-                self._host_map.add_layer(
-                    fc.style(**{"styleProperty": "style"}),
-                    {},
-                    f"{self._new_layer_name.value}",
-                )
-
-                palette_str = self._palette_label.value
-                labels_str = self._legend_labels_label.value
-                if self._legend_checkbox.value and palette_str and labels_str:
-                    colors = _tokenize_legend_colors(palette_str)
-                    labels = _tokenize_legend_labels(labels_str)
-                    if hasattr(self._host_map, "_add_legend"):
-                        # pylint: disable-next=protected-access
-                        self._host_map._add_legend(
-                            title=self._legend_title_label.value,
-                            layer_name=self._new_layer_name.value,
-                            keys=labels,
-                            colors=colors,
-                        )
-            except Exception as exc:
-                self._compute_label.value = "Error: " + str(exc)
-
-            self._ee_layer.visible = False
-            self._compute_label.value = ""
-
-    def _render_colorbar(self, colors: List[str]) -> None:
-        """Renders a colorbar with the given colors.
-
-        Args:
-            colors (List[str]): The list of colors to use in the colorbar.
-        """
-        import matplotlib  # pylint: disable=import-outside-toplevel
-        from matplotlib import pyplot  # pylint: disable=import-outside-toplevel
-
-        colors = coreutils.to_hex_colors(colors)
-
-        _, ax = pyplot.subplots(figsize=(4, 0.3))
-        cmap = matplotlib.colors.LinearSegmentedColormap.from_list(
-            "custom", colors, N=256
-        )
-        norm = matplotlib.colors.Normalize(vmin=0, vmax=1)
-        matplotlib.colorbar.ColorbarBase(
-            ax, norm=norm, cmap=cmap, orientation="horizontal"
-        )
-
-        self._palette_label.value = ", ".join(colors)
-        self._colorbar_output.clear_output()
-        with self._colorbar_output:
-            pyplot.show()
-
-    def _classes_changed(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the classes dropdown.
-
-        Args:
-            change (Dict[str, Any]): The change event dictionary.
-        """
-        import matplotlib  # pylint: disable=import-outside-toplevel
-        from matplotlib import pyplot  # pylint: disable=import-outside-toplevel
-
-        if change["new"]:
-            selected = change["owner"].value
-            if self._colormap_dropdown.value is not None:
-                n_class = None
-                if selected != "Any":
-                    n_class = int(self._classes_dropdown.value)
-
-                colors = pyplot.get_cmap(self._colormap_dropdown.value, n_class)
-                cmap_colors = [
-                    matplotlib.colors.rgb2hex(colors(i))[1:] for i in range(colors.N)
-                ]
-                self._render_colorbar(cmap_colors)
-
-                if self._palette_label.value and "," in self._palette_label.value:
-                    labels = [
-                        f"Class {i+1}"
-                        for i in range(len(self._palette_label.value.split(",")))
-                    ]
-                    self._legend_labels_label.value = ", ".join(labels)
-
-    def _colormap_changed(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the colormap dropdown.
-
-        Args:
-            change (Dict[str, Any]): The change event dictionary.
-        """
-        import matplotlib  # pylint: disable=import-outside-toplevel
-        from matplotlib import pyplot  # pylint: disable=import-outside-toplevel
-
-        if change["new"]:
-            n_class = None
-            if self._classes_dropdown.value != "Any":
-                n_class = int(self._classes_dropdown.value)
-
-            colors = pyplot.get_cmap(self._colormap_dropdown.value, n_class)
-            cmap_colors = [
-                matplotlib.colors.rgb2hex(colors(i))[1:] for i in range(colors.N)
-            ]
-            self._render_colorbar(cmap_colors)
-
-            if self._palette_label.value and "," in self._palette_label.value:
-                labels = [
-                    f"Class {i+1}"
-                    for i in range(len(self._palette_label.value.split(",")))
-                ]
-                self._legend_labels_label.value = ", ".join(labels)
-
-    def _fill_color_opacity_change(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the fill color opacity slider.
-
-        Args:
-            change (Dict[str, Any]): The change event dictionary.
-        """
-        self._fill_color_opacity_label.value = str(change["new"])
-
-    def _color_opacity_change(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the color opacity slider.
-
-        Args:
-            change (Dict[str, Any]): The change event dictionary.
-        """
-        self._color_opacity_label.value = str(change["new"])
-
-    def _add_color_clicked(self, _) -> None:
-        """Handles the add color button click event."""
-        if self._color_picker.value is not None:
-            if self._palette_label.value:
-                self._palette_label.value += ", " + self._color_picker.value[1:]
+    @traitlets.observe("location_model")
+    def _observe_location_model(self, change: Dict[str, Any]) -> None:
+        old = json.loads(change.get("old"))
+        new = json.loads(change.get("new"))
+        if new["search"] != old["search"]:
+            if new["search"]:
+                if common.latlon_from_text(new["search"]):
+                    self._search_lat_lon(new["search"])
+                else:
+                    self._search_location(new["search"])
             else:
-                self._palette_label.value = self._color_picker.value[1:]
+                self.location_model = json.dumps(
+                    {
+                        "search": "",
+                        "results": [],
+                        "selected": "",
+                        "additional_html": "",
+                    }
+                )
+                marker = self.host_map.search_loc_marker
+                self.host_map.search_loc_marker = None
+                self.host_map.remove(marker)
 
-    def _del_color_clicked(self, _) -> None:
-        """Handles the delete color button click event."""
-        if "," in self._palette_label.value:
-            items = [item.strip() for item in self._palette_label.value.split(",")]
-            self._palette_label.value = ", ".join(items[:-1])
+        elif new["selected"] and new["selected"] != old["selected"]:
+            self._set_selected_location(new["selected"])
+
+    @traitlets.observe("dataset_model")
+    def _observe_dataset_model(self, change: Dict[str, Any]) -> None:
+        old = json.loads(change.get("old"))
+        new = json.loads(change.get("new"))
+        if new["search"] != old["search"]:
+            if new["search"]:
+                self._search_dataset(new["search"])
+            else:
+                self.dataset_model = json.dumps(
+                    {
+                        "search": "",
+                        "results": [],
+                        "selected": "",
+                        "additional_html": "",
+                    }
+                )
+        elif new["selected"] and new["selected"] != old["selected"]:
+            self._select_dataset(new["selected"])
+
+    def _search_location(self, address):
+        location_model = json.loads(self.location_model)
+        geoloc_results = common.geocode(address)
+        self.host_map.search_locations = geoloc_results
+        if geoloc_results is not None and len(geoloc_results) > 0:
+            location_model["results"] = [x.address for x in geoloc_results]
+            self.location_model = json.dumps(location_model)
         else:
-            self._palette_label.value = ""
+            location_model["results"] = []
+            location_model["selected"] = ""
+            location_model["additional_html"] = "No results could be found."
+            self.location_model = json.dumps(location_model)
 
-    def _reset_color_clicked(self, _) -> None:
-        """Handles the reset color button click event."""
-        self._palette_label.value = ""
-
-    def _style_chk_changed(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the style checkbox.
-
-        Args:
-            change (Dict[str, Any]): The change event dictionary.
-        """
-        from matplotlib import pyplot  # pylint: disable=import-outside-toplevel
-
-        if change["new"]:
-            self._colorbar_output.clear_output()
-
-            self._fill_color_picker.disabled = True
-            colormap_options = pyplot.colormaps()
-            colormap_options.sort()
-            self._colormap_dropdown.options = colormap_options
-            self._colormap_dropdown.value = "viridis"
-            self._style_vbox.children = [
-                ipywidgets.HBox([self._style_chk, self._compute_label]),
-                ipywidgets.HBox([self._field_dropdown, self._field_values_dropdown]),
-                ipywidgets.HBox([self._classes_dropdown, self._colormap_dropdown]),
-                self._palette_label,
-                self._colorbar_output,
-                ipywidgets.HBox(
-                    [
-                        self._legend_checkbox,
-                        self._color_picker,
-                        self._add_color,
-                        self._del_color,
-                        self._reset_color,
-                    ]
-                ),
-            ]
-            self._compute_label.value = "Computing ..."
-
-            self._field_dropdown.options = (
-                ee.Feature(self._ee_object.first()).propertyNames().getInfo()
+    def _set_selected_location(self, address):
+        locations = self.host_map.search_locations
+        location = None
+        for l in locations:
+            if l.address == address:
+                location = l
+        if not location:
+            return
+        latlon = (location.lat, location.lng)
+        self.host_map.search_loc_geom = ee.Geometry.Point(location.lng, location.lat)
+        if self.host_map.search_loc_marker is None:
+            marker = ipyleaflet.Marker(
+                location=latlon,
+                draggable=False,
+                name="Search location",
             )
-            self._compute_label.value = ""
-            self._classes_dropdown.value = "Any"
-            self._legend_checkbox.value = False
-
+            self.host_map.search_loc_marker = marker
+            self.host_map.add(marker)
+            self.host_map.center = latlon
         else:
-            self._fill_color_picker.disabled = False
-            self._style_vbox.children = [
-                ipywidgets.HBox([self._style_chk, self._compute_label])
-            ]
-            self._compute_label.value = ""
-            self._colorbar_output.clear_output()
+            marker = self.host_map.search_loc_marker
+            marker.location = latlon
+            self.host_map.center = latlon
 
-    def _legend_chk_changed(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the legend checkbox.
-
-        Args:
-            change (Dict[str, Any]): The change event dictionary.
-        """
-        if change["new"]:
-            self._style_vbox.children = list(self._style_vbox.children) + [
-                ipywidgets.VBox([self._legend_title_label, self._legend_labels_label])
-            ]
-
-            if self._palette_label.value and "," in self._palette_label.value:
-                labels = [
-                    f"Class {i+1}"
-                    for i in range(len(self._palette_label.value.split(",")))
-                ]
-                self._legend_labels_label.value = ", ".join(labels)
-
+    def _search_lat_lon(self, lat_lon):
+        location_model = json.loads(self.location_model)
+        if latlon := common.latlon_from_text(lat_lon):
+            geoloc_results = common.geocode(lat_lon, reverse=True)
+            if geoloc_results is not None and len(geoloc_results) > 0:
+                top_loc = geoloc_results[0]
+                latlon = (top_loc.lat, top_loc.lng)
+                location_model["results"] = [x.address for x in geoloc_results]
+                location_model["selected"] = location_model["results"][0]
+                location_model["additional_html"] = ""
+                self.location_model = json.dumps(location_model)
+            else:
+                location_model["results"] = []
+                location_model["selected"] = ""
+                location_model["additional_html"] = "No results could be found."
+                self.location_model = json.dumps(location_model)
+            self.host_map.search_loc_geom = ee.Geometry.Point(latlon[1], latlon[0])
+            if self.host_map.search_loc_marker is None:
+                marker = ipyleaflet.Marker(
+                    location=latlon,
+                    draggable=False,
+                    name="Search location",
+                )
+                self.host_map.search_loc_marker = marker
+                self.host_map.add(marker)
+                self.host_map.center = latlon
+            else:
+                marker = self.host_map.search_loc_marker
+                marker.location = latlon
+                self.host_map.center = latlon
         else:
-            self._style_vbox.children = [
-                ipywidgets.HBox([self._style_chk, self._compute_label]),
-                ipywidgets.HBox([self._field_dropdown, self._field_values_dropdown]),
-                ipywidgets.HBox([self._classes_dropdown, self._colormap_dropdown]),
-                self._palette_label,
-                ipywidgets.HBox(
-                    [
-                        self._legend_checkbox,
-                        self._color_picker,
-                        self._add_color,
-                        self._del_color,
-                        self._reset_color,
-                    ]
-                ),
+            location_model["results"] = []
+            location_model["selected"] = ""
+            no_results = (
+                """<em style="color: red">"""
+                "The lat-lon coordinates should be numbers only and"
+                "<br>"
+                "separated by comma or space, such as 40.2, -100.3"
+                "</em>"
+            )
+            location_model["additional_html"] = no_results
+            self.location_model = json.dumps(location_model)
+
+    def _search_dataset(self, dataset_search):
+        dataset_model = json.loads(self.dataset_model)
+        dataset_model["additional_html"] = "Searching..."
+        self.dataset_model = json.dumps(dataset_model)
+        self.host_map.default_style = {"cursor": "wait"}
+        ee_assets = common.search_ee_data(dataset_search, source="all")
+        self.host_map.search_datasets = ee_assets
+        asset_titles = [x["title"] for x in ee_assets]
+        dataset_model["results"] = asset_titles
+        dataset_model["selected"] = asset_titles[0] if asset_titles else ""
+        dataset_model["additional_html"] = ""
+        if len(ee_assets) > 0:
+            dataset_model["additional_html"] = common.ee_data_html(ee_assets[0])
+        else:
+            dataset_model["additional_html"] = "No results found."
+        self.dataset_model = json.dumps(dataset_model)
+        self.host_map.default_style = {"cursor": "default"}
+
+    def _select_dataset(self, dataset_title):
+        dataset_model = json.loads(self.dataset_model)
+        dataset_model["additional_html"] = "Loading ..."
+        datasets = self.host_map.search_datasets
+        dataset = None
+        for d in datasets:
+            if d["title"] == dataset_title:
+                dataset = d
+        if not dataset:
+            return
+        dataset_html = common.ee_data_html(dataset)
+        dataset_model["additional_html"] = dataset_html
+        self.dataset_model = json.dumps(dataset_model)
+
+    def get_ee_example(self, asset_id):
+        try:
+            import importlib.resources
+
+            pkg_dir = str(
+                importlib.resources.files("geemap").joinpath("geemap.py").parent
+            )
+            with open(os.path.join(pkg_dir, "data/gee_f.json"), encoding="utf-8") as f:
+                functions = json.load(f)
+            details = [
+                dataset["code"]
+                for x in functions["examples"]
+                for dataset in x["contents"]
+                if x["name"] == "Datasets"
+                if dataset["name"] == asset_id.replace("/", "_")
             ]
 
-    def _field_changed(self, change: Dict[str, Any]) -> None:
-        """Handles changes to the field dropdown.
+            return conversion.js_snippet_to_py(
+                details[0],
+                add_new_cell=False,
+                import_ee=False,
+                import_geemap=False,
+                show_map=False,
+                Map=self.host_map._var_name,
+            )
 
-        Args:
-            change (Dict[str, Any]): The change event dictionary.
-        """
-        if change["new"]:
-            self._compute_label.value = "Computing ..."
-            options = self._ee_object.aggregate_array(
-                self._field_dropdown.value
-            ).getInfo()
-            if options is not None:
-                options = list(set(options))
-                options.sort()
+        except Exception as e:
+            pass
+        return
 
-            self._field_values_dropdown.options = options
-            self._compute_label.value = ""
+    def import_button_clicked(self):
+        dataset_model = json.loads(self.dataset_model)
+        print(dataset_model)
+        if dataset_model["selected"]:
+            datasets = self.host_map.search_datasets
+            dataset = None
+            for d in datasets:
+                if d["title"] == dataset_model["selected"]:
+                    dataset = d
+            if not dataset:
+                return
+            id_ = dataset["id"]
+            code = self.get_ee_example(id_)
 
-    def on_import_click(self) -> None:
-        """Handles the import button click event."""
-        vis = self._get_vis_params()
-        coreutils.create_code_cell(f"style = {str(vis)}")
-        print(f"style = {str(vis)}")
+            if not code:
+                dataset_uid = "dataset_" + coreutils.random_string(string_length=3)
+                translate = {
+                    "image_collection": "ImageCollection",
+                    "image": "Image",
+                    "table": "FeatureCollection",
+                    "table_collection": "FeatureCollection",
+                }
+                datatype = translate[dataset["type"]]
+                id_ = dataset["id"]
+                line1 = "{} = ee.{}('{}')".format(dataset_uid, datatype, id_)
+                action = {
+                    "image_collection": f"\n{self.host_map._var_name}.addLayer({dataset_uid}, {{}}, '{id_}')",
+                    "image": f"\n{self.host_map._var_name}.addLayer({dataset_uid}, {{}}, '{id_}')",
+                    "table": f"\n{self.host_map._var_name}.addLayer({dataset_uid}, {{}}, '{id_}')",
+                    "table_collection": f"\n{self.host_map._var_name}.addLayer({dataset_uid}, {{}}, '{id_}')",
+                }
+                line2 = action[dataset["type"]]
+                code = [line1, line2]
+
+            contents = "".join(code).strip()
+            # create_code_cell(contents)
+            copy_success = False
+            try:
+                import pyperclip
+
+                pyperclip.copy(str(contents))
+                copy_success = True
+            except Exception as e:
+                pass
+            if copy_success:
+                dataset_model["additional_html"] = (
+                    "<pre>"
+                    "# The code has been copied to the clipboard.\n"
+                    "# Press Ctrl+V in a new cell to paste it.\n"
+                    f"{contents}"
+                    "</pre"
+                )
+            else:
+                dataset_model["additional_html"] = f"<pre>{contents}</pre"
+            self.dataset_model = json.dumps(dataset_model)

@@ -30,15 +30,14 @@ from neptune_api.models import (
     QueryAttributeDefinitionsResultDTO,
 )
 
-# The following imports need to go after the AttributeDefinition to avoid circular imports, thus the noqa
-import neptune_fetcher.internal.filters as filters  # noqa: E402
-from neptune_fetcher.internal import (  # noqa: E402
+from .. import filters  # noqa: E402
+from .. import (  # noqa: E402
     env,
     identifiers,
 )
-from neptune_fetcher.internal.retrieval import attribute_types as types  # noqa: E402
-from neptune_fetcher.internal.retrieval import util  # noqa: E402
-from neptune_fetcher.internal.retrieval import retry
+from ..retrieval import attribute_types as types  # noqa: E402
+from ..retrieval import util  # noqa: E402
+from ..retrieval import retry
 
 
 def split_attribute_filters(

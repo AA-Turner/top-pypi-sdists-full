@@ -2,22 +2,27 @@ use ruff_python_ast::name::Name;
 use rustc_hash::FxHashMap;
 
 use crate::{
-    Db,
+    Db, FxOrderSet,
     place::{Place, PlaceAndQualifiers, place_from_bindings, place_from_declarations},
     semantic_index::{place_table, use_def_map},
-    types::{ClassLiteral, DynamicType, KnownClass, MemberLookupPolicy, Type, TypeQualifiers},
+    types::{
+        ClassLiteral, DynamicType, EnumLiteralType, KnownClass, MemberLookupPolicy, Type,
+        TypeQualifiers,
+    },
 };
 
-#[derive(Debug, PartialEq, Eq, get_size2::GetSize)]
+#[derive(Debug, PartialEq, Eq)]
 pub(crate) struct EnumMetadata {
-    pub(crate) members: Box<[Name]>,
+    pub(crate) members: FxOrderSet<Name>,
     pub(crate) aliases: FxHashMap<Name, Name>,
 }
+
+impl get_size2::GetSize for EnumMetadata {}
 
 impl EnumMetadata {
     fn empty() -> Self {
         EnumMetadata {
-            members: Box::new([]),
+            members: FxOrderSet::default(),
             aliases: FxHashMap::default(),
         }
     }
@@ -48,7 +53,7 @@ fn enum_metadata_cycle_initial(_db: &dyn Db, _class: ClassLiteral<'_>) -> Option
 
 /// List all members of an enum.
 #[allow(clippy::ref_option, clippy::unnecessary_wraps)]
-#[salsa::tracked(returns(ref), cycle_fn=enum_metadata_cycle_recover, cycle_initial=enum_metadata_cycle_initial, heap_size=get_size2::GetSize::get_heap_size)]
+#[salsa::tracked(returns(as_ref), cycle_fn=enum_metadata_cycle_recover, cycle_initial=enum_metadata_cycle_initial, heap_size=get_size2::GetSize::get_heap_size)]
 pub(crate) fn enum_metadata<'db>(
     db: &'db dyn Db,
     class: ClassLiteral<'db>,
@@ -61,8 +66,11 @@ pub(crate) fn enum_metadata<'db>(
         return None;
     }
 
-    // TODO: This check needs to be extended (`EnumMeta`/`EnumType`)
-    if !Type::ClassLiteral(class).is_subtype_of(db, KnownClass::Enum.to_subclass_of(db)) {
+    if !Type::ClassLiteral(class).is_subtype_of(db, KnownClass::Enum.to_subclass_of(db))
+        && !class
+            .metaclass(db)
+            .is_subtype_of(db, KnownClass::EnumType.to_subclass_of(db))
+    {
         return None;
     }
 
@@ -208,7 +216,7 @@ pub(crate) fn enum_metadata<'db>(
             Some(name)
         })
         .cloned()
-        .collect::<Box<_>>();
+        .collect::<FxOrderSet<_>>();
 
     if members.is_empty() {
         // Enum subclasses without members are not considered enums.
@@ -216,4 +224,29 @@ pub(crate) fn enum_metadata<'db>(
     }
 
     Some(EnumMetadata { members, aliases })
+}
+
+pub(crate) fn enum_member_literals<'a, 'db: 'a>(
+    db: &'db dyn Db,
+    class: ClassLiteral<'db>,
+    exclude_member: Option<&'a Name>,
+) -> Option<impl Iterator<Item = Type<'a>> + 'a> {
+    enum_metadata(db, class).map(|metadata| {
+        metadata
+            .members
+            .iter()
+            .filter(move |name| Some(*name) != exclude_member)
+            .map(move |name| Type::EnumLiteral(EnumLiteralType::new(db, class, name.clone())))
+    })
+}
+
+pub(crate) fn is_single_member_enum<'db>(db: &'db dyn Db, class: ClassLiteral<'db>) -> bool {
+    enum_metadata(db, class).is_some_and(|metadata| metadata.members.len() == 1)
+}
+
+pub(crate) fn is_enum_class<'db>(db: &'db dyn Db, ty: Type<'db>) -> bool {
+    match ty {
+        Type::ClassLiteral(class_literal) => enum_metadata(db, class_literal).is_some(),
+        _ => false,
+    }
 }

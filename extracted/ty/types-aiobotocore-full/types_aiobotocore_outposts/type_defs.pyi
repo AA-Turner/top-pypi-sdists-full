@@ -162,13 +162,13 @@ __all__ = (
 )
 
 class AddressTypeDef(TypedDict):
+    ContactName: str
+    ContactPhoneNumber: str
     AddressLine1: str
     City: str
     StateOrRegion: str
     PostalCode: str
     CountryCode: str
-    ContactName: NotRequired[str]
-    ContactPhoneNumber: NotRequired[str]
     AddressLine2: NotRequired[str]
     AddressLine3: NotRequired[str]
     DistrictOrCounty: NotRequired[str]

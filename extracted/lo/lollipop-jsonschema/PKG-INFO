@@ -1,98 +1,12 @@
-Metadata-Version: 1.1
+Metadata-Version: 2.4
 Name: lollipop-jsonschema
-Version: 0.8.2
+Version: 0.9.0
 Summary: Library to convert Lollipop schema to JSON schema
 Home-page: https://github.com/maximkulkin/lollipop-jsonschema
 Author: Maxim Kulkin
 Author-email: maxim.kulkin@gmail.com
 License: MIT
-Description: *******************
-        lollipop-jsonschema
-        *******************
-        
-        .. image:: https://img.shields.io/pypi/l/lollipop-jsonschema.svg
-            :target: https://github.com/maximkulkin/lollipop-jsonschema/blob/master/LICENSE
-            :alt: License: MIT
-        
-        .. image:: https://img.shields.io/travis/maximkulkin/lollipop-jsonschema.svg
-            :target: https://travis-ci.org/maximkulkin/lollipop-jsonschema
-            :alt: Build Status
-        
-        .. image:: https://img.shields.io/pypi/v/lollipop-jsonschema.svg
-            :target: https://pypi.python.org/pypi/lollipop-jsonschema
-            :alt: PyPI
-        
-        Library to convert `Lollipop schema <https://github.com/maximkulkin/lollipop>`_
-        to `JSON schema <http://json-schema.org>`_.
-        
-        Example
-        =======
-        .. code:: python
-        
-            import lollipop.types as lt
-            import lollipop.validators as lv
-        
-            EMAIL_REGEXP = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
-        
-            USER = lt.Object({
-                'name': lt.String(validate=lv.Length(min=1)),
-                'email': lt.String(validate=lv.Regexp(EMAIL_REGEXP)),
-                'age': lt.Optional(lt.Integer(validate=lv.Range(min=18))),
-            }, name='User', description='User information')
-        
-            from lollipop_jsonschema import json_schema
-            import json
-        
-            print json.dumps(json_schema(USER), indent=2)
-            # {
-            #   "title": "User",
-            #   "description": "User information",
-            #   "type": "object",
-            #   "properties": {
-            #     "age": {
-            #       "type": "integer",
-            #       "minimum": 18
-            #     },
-            #     "name": {
-            #       "type": "string",
-            #       "minLength": 1
-            #     },
-            #     "email": {
-            #       "type": "string",
-            #       "pattern": "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
-            #     }
-            #   },
-            #   "required": [
-            #     "name",
-            #     "email"
-            #   ]
-            # }
-        
-        Installation
-        ============
-        ::
-        
-            $ pip install lollipop-jsonschema
-        
-        Requirements
-        ============
-        
-        - Python >= 2.7 and <= 3.6
-        - `lollipop <https://pypi.python.org/pypi/lollipop>`_ >= 1.1.5
-        
-        Project Links
-        =============
-        
-        - PyPI: https://pypi.python.org/pypi/lollipop-jsonschema
-        - Issues: https://github.com/maximkulkin/lollipop-jsonschema/issues
-        
-        License
-        =======
-        
-        MIT licensed. See the bundled `LICENSE <https://github.com/maximkulkin/lollipop-jsconschema/blob/master/LICENSE>`_ file for more details.
-        
 Keywords: lollipop,json,schema
-Platform: UNKNOWN
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -105,3 +19,100 @@ Classifier: Programming Language :: Python :: 3.5
 Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
+License-File: LICENSE
+Requires-Dist: lollipop>=1.1.5
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: summary
+
+*******************
+lollipop-jsonschema
+*******************
+
+.. image:: https://img.shields.io/pypi/l/lollipop-jsonschema.svg
+    :target: https://github.com/maximkulkin/lollipop-jsonschema/blob/master/LICENSE
+    :alt: License: MIT
+
+.. image:: https://img.shields.io/travis/maximkulkin/lollipop-jsonschema.svg
+    :target: https://travis-ci.org/maximkulkin/lollipop-jsonschema
+    :alt: Build Status
+
+.. image:: https://img.shields.io/pypi/v/lollipop-jsonschema.svg
+    :target: https://pypi.python.org/pypi/lollipop-jsonschema
+    :alt: PyPI
+
+Library to convert `Lollipop schema <https://github.com/maximkulkin/lollipop>`_
+to `JSON schema <http://json-schema.org>`_ in a format compliant with OpenAPI 3.1.0.
+
+Example
+=======
+.. code:: python
+
+    import lollipop.types as lt
+    import lollipop.validators as lv
+
+    EMAIL_REGEXP = r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$"
+
+    USER = lt.Object({
+        'name': lt.String(validate=lv.Length(min=1)),
+        'email': lt.String(validate=lv.Regexp(EMAIL_REGEXP)),
+        'age': lt.Optional(lt.Integer(validate=lv.Range(min=18))),
+    }, name='User', description='User information')
+
+    from lollipop_jsonschema import json_schema
+    import json
+
+    print json.dumps(json_schema(USER), indent=2)
+    # {
+    #   "title": "User",
+    #   "description": "User information",
+    #   "type": "object",
+    #   "properties": {
+    #     "age": {
+    #       "type": "integer",
+    #       "minimum": 18
+    #     },
+    #     "name": {
+    #       "type": "string",
+    #       "minLength": 1
+    #     },
+    #     "email": {
+    #       "type": "string",
+    #       "pattern": "^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\\.[a-zA-Z0-9-.]+$"
+    #     }
+    #   },
+    #   "required": [
+    #     "name",
+    #     "email"
+    #   ]
+    # }
+
+Installation
+============
+::
+
+    $ pip install lollipop-jsonschema
+
+Requirements
+============
+
+- Python >= 2.7 and <= 3.6
+- `lollipop <https://pypi.python.org/pypi/lollipop>`_ >= 1.1.5
+
+Project Links
+=============
+
+- PyPI: https://pypi.python.org/pypi/lollipop-jsonschema
+- Issues: https://github.com/maximkulkin/lollipop-jsonschema/issues
+
+License
+=======
+
+MIT licensed. See the bundled `LICENSE <https://github.com/maximkulkin/lollipop-jsconschema/blob/master/LICENSE>`_ file for more details.

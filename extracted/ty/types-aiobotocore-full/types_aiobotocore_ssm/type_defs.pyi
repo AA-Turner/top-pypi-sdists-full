@@ -24,6 +24,7 @@ from aiobotocore.response import StreamingBody
 
 from .literals import (
     AccessRequestStatusType,
+    AccessTypeType,
     AssociationComplianceSeverityType,
     AssociationExecutionFilterKeyType,
     AssociationExecutionTargetsFilterKeyType,
@@ -3083,6 +3084,7 @@ class SessionTypeDef(TypedDict):
     Details: NotRequired[str]
     OutputUrl: NotRequired[SessionManagerOutputUrlTypeDef]
     MaxSessionDuration: NotRequired[str]
+    AccessType: NotRequired[AccessTypeType]
 
 TargetUnionTypeDef = Union[TargetTypeDef, TargetOutputTypeDef]
 

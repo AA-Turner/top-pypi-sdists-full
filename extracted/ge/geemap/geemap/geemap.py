@@ -42,8 +42,7 @@ basemaps = Box(xyz_to_leaflet(), frozen_box=True)
 class Map(core.Map):
     """The Map class inherits the core Map class. The arguments you can pass to the Map initialization
         can be found at https://ipyleaflet.readthedocs.io/en/latest/map_and_basemaps/map.html.
-        By default, the Map will add Google Maps as the basemap. Set add_google_map = False
-        to use OpenStreetMap as the basemap.
+        By default, the Map will use OpenStreetMap as the basemap.
 
     Returns:
         object: ipyleaflet map object.
@@ -129,7 +128,7 @@ class Map(core.Map):
             sandbox_path (str, optional): The path to a sandbox folder for voila web app. Defaults to None.
             lite_mode (bool, optional): Whether to enable lite mode, which only displays
                 zoom control on the map. Defaults to False.
-            data_ctrl (bool, optional): Whether to add the data control to the map. Defaults to True.
+            data_ctrl (bool, optional): Deprecated: use search_ctrl instead.
             zoom_ctrl (bool, optional): Whether to add the zoom control to the map. Defaults to True.
             fullscreen_ctrl (bool, optional): Whether to add the fullscreen control to the map. Defaults to True.
             search_ctrl (bool, optional): Whether to add the search control to the map. Defaults to True.
@@ -201,7 +200,7 @@ class Map(core.Map):
         topright = []
         bottomright = []
 
-        for control in ["data_ctrl", "zoom_ctrl", "fullscreen_ctrl", "draw_ctrl"]:
+        for control in ["search_ctrl", "zoom_ctrl", "fullscreen_ctrl", "draw_ctrl"]:
             if self.kwargs.get(control, True):
                 topleft.append(control)
 
@@ -211,6 +210,7 @@ class Map(core.Map):
 
         for control in ["toolbar_ctrl"]:
             if self.kwargs.get(control, True):
+                topright.append("layer_manager")
                 topright.append(control)
 
         for control in ["attribution_control"]:
@@ -345,18 +345,11 @@ class Map(core.Map):
             "scale_ctrl": "scale_control",
             "toolbar_ctrl": "toolbar",
             "draw_ctrl": "draw_control",
+            "data_ctrl": "search_control",
+            "search_ctrl": "search_control",
         }
         obj = backward_compatibilities.get(obj, obj)
-
-        if obj == "data_ctrl":
-            data_widget = toolbar.SearchDataGUI(self)
-            data_control = ipyleaflet.WidgetControl(
-                widget=data_widget, position=position
-            )
-            self.add(data_control)
-        elif obj == "search_ctrl":
-            self.add_search_control(position=position)
-        elif obj == "measure_ctrl":
+        if obj == "measure_ctrl":
             measure = ipyleaflet.MeasureControl(
                 position=position,
                 active_color="orange",
@@ -480,7 +473,10 @@ class Map(core.Map):
     setCenter = set_center
 
     def center_object(
-        self, ee_object: Union[ee.Element, ee.Geometry], zoom: Optional[int] = None
+        self,
+        ee_object: Union[ee.Element, ee.Geometry],
+        zoom: Optional[int] = None,
+        max_error: float = 0.001,
     ) -> None:
         """Centers the map view on a given object.
 
@@ -488,8 +484,9 @@ class Map(core.Map):
             ee_object (Union[ee.Element, ee.Geometry]): An Earth Engine object to
                 center on a geometry, image or feature.
             zoom (Optional[int], optional): The zoom level, from 1 to 24. Defaults to None.
+            max_error (float, optional): The maximum error for the geometry. Defaults to 0.001.
         """
-        super().center_object(ee_object, zoom)
+        super().center_object(ee_object=ee_object, zoom=zoom, max_error=max_error)
         if is_arcpy():
             bds = self.bounds
             arc_zoom_to_extent(bds[0][1], bds[0][0], bds[1][1], bds[1][0])
@@ -1289,7 +1286,7 @@ class Map(core.Map):
         Returns:
             list | dict: A list in the format [west, south, east, north] in degrees.
         """
-        return super().get_bounds(as_geo_json=asGeoJSON)
+        return super().get_bounds(as_geojson=asGeoJSON)
 
     def add_cog_layer(
         self,
@@ -5054,7 +5051,7 @@ def linked_maps(
 
     for i in range(rows):
         for j in range(cols):
-            index = i * rows + j
+            index = i * (rows - 1) + j
             m = Map(
                 height=height,
                 lite_mode=True,

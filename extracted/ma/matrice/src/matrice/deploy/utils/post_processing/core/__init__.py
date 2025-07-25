@@ -59,6 +59,9 @@ from ..usecases.flower_segmentation import FlowerUseCase, FlowerConfig
 from ..usecases.parking import ParkingConfig, ParkingUseCase
 from ..usecases.leaf import LeafConfig, LeafUseCase
 
+#Put all IMAGE based usecases here
+from ..usecases.blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
+
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -112,6 +115,9 @@ __all__ = [
     'WindmillMaintenanceUseCase',
     'FlowerUseCase',
 
+    #Put all IMAGE based usecases here
+    'BloodCancerDetectionUseCase',
+
 
 
 
@@ -163,4 +169,9 @@ __all__ = [
     'LaneDetectionConfig',
     'WindmillMaintenanceConfig',
     'FlowerConfig',
+
+    #Put all IMAGE based usecase CONFIGS here
+    'BloodCancerDetectionConfig',
+
+
 ]

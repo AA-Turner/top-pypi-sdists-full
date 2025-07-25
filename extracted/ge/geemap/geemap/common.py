@@ -1,5 +1,4 @@
-"""This module contains some common functions for both folium and ipyleaflet to interact with the Earth Engine Python API.
-"""
+"""This module contains some common functions for both folium and ipyleaflet to interact with the Earth Engine Python API."""
 
 # *******************************************************************************#
 # This module contains core features and extra features of the geemap package.   #
@@ -20,6 +19,7 @@ import tarfile
 import urllib.request
 import warnings
 import zipfile
+import importlib.resources
 
 import ee
 import ipywidgets as widgets
@@ -48,6 +48,7 @@ def ee_export_image(
     unmask_value=None,
     timeout=300,
     proxies=None,
+    verbose=True,
 ):
     """Exports an ee.Image as a GeoTIFF.
 
@@ -67,6 +68,7 @@ def ee_export_image(
             If the exported image contains zero values, you should set the unmask value to a  non-zero value so that the zero values are not treated as missing data. Defaults to None.
         timeout (int, optional): The timeout in seconds for the request. Defaults to 300.
         proxies (dict, optional): A dictionary of proxy servers to use. Defaults to None.
+        verbose (bool, optional): Whether to print out descriptive text. Defaults to True.
     """
 
     if not isinstance(ee_object, ee.Image):
@@ -91,7 +93,8 @@ def ee_export_image(
         return
 
     try:
-        print("Generating URL ...")
+        if verbose:
+            print("Generating URL ...")
         params = {"name": name, "filePerBand": file_per_band}
 
         params["scale"] = scale
@@ -114,7 +117,9 @@ def ee_export_image(
             print("An error occurred while downloading.")
             print(e)
             return
-        print(f"Downloading data from {url}\nPlease wait ...")
+
+        if verbose:
+            print(f"Downloading data from {url}\nPlease wait ...")
         # Need to initialize r to something because of how we currently handle errors
         # We should aim to refactor the code such that only one try block is needed
         r = None
@@ -140,10 +145,11 @@ def ee_export_image(
                 z.extractall(os.path.dirname(filename))
             os.remove(filename_zip)
 
-        if file_per_band:
-            print(f"Data downloaded to {os.path.dirname(filename)}")
-        else:
-            print(f"Data downloaded to {filename}")
+        if verbose:
+            if file_per_band:
+                print(f"Data downloaded to {os.path.dirname(filename)}")
+            else:
+                print(f"Data downloaded to {filename}")
     except Exception as e:
         print(e)
 
@@ -162,6 +168,7 @@ def ee_export_image_collection(
     filenames=None,
     timeout=300,
     proxies=None,
+    verbose=True,
 ):
     """Exports an ImageCollection as GeoTIFFs.
 
@@ -181,6 +188,7 @@ def ee_export_image_collection(
         filenames (list | int, optional): A list of filenames to use for the exported images. Defaults to None.
         timeout (int, optional): The timeout in seconds for the request. Defaults to 300.
         proxies (dict, optional): A dictionary of proxy servers to use. Defaults to None.
+        verbose (bool, optional): Whether to print out descriptive text. Defaults to True.
     """
 
     if not isinstance(ee_object, ee.ImageCollection):
@@ -192,7 +200,8 @@ def ee_export_image_collection(
 
     try:
         count = int(ee_object.size().getInfo())
-        print(f"Total number of images: {count}\n")
+        if verbose:
+            print(f"Total number of images: {count}\n")
 
         if filenames is None:
             filenames = ee_object.aggregate_array("system:index").getInfo()
@@ -209,7 +218,8 @@ def ee_export_image_collection(
         for i in range(0, count):
             image = ee.Image(ee_object.toList(count).get(i))
             filename = os.path.join(out_dir, filenames[i])
-            print(f"Exporting {i + 1}/{count}: {filename}")
+            if verbose:
+                print(f"Exporting {i + 1}/{count}: {filename}")
             ee_export_image(
                 image,
                 filename=filename,
@@ -3444,12 +3454,11 @@ def create_colorbar(
     import decimal
 
     # import io
-    import pkg_resources
     from colour import Color
     from PIL import Image, ImageDraw, ImageFont
 
     warnings.simplefilter("ignore")
-    pkg_dir = os.path.dirname(pkg_resources.resource_filename("geemap", "geemap.py"))
+    pkg_dir = str(importlib.resources.files("geemap").joinpath("geemap.py").parent)
 
     if out_file is None:
         filename = "colorbar_" + random_string() + ".png"
@@ -3781,7 +3790,6 @@ def geocode(location, max_rows=10, reverse=False):
         location (str): Place name or address
         max_rows (int, optional): Maximum number of records to return. Defaults to 10.
         reverse (bool, optional): Search place based on coordinates. Defaults to False.
-
     Returns:
         list: Returns a list of locations.
     """
@@ -3814,9 +3822,6 @@ def geocode(location, max_rows=10, reverse=False):
             elif " " in location:
                 latlon = [float(x) for x in location.split(" ")]
             else:
-                print(
-                    "The lat-lon coordinates should be numbers only and separated by comma or space, such as 40.2, -100.3"
-                )
                 return
             g = geocoder.arcgis(latlon, method="reverse")
             locations = []
@@ -4114,11 +4119,9 @@ def ee_api_to_csv(outfile=None, timeout=300, proxies=None):
         timeout (int, optional): Timeout in seconds. Defaults to 300.
         proxies (dict, optional): Proxy settings. Defaults to None.
     """
-    import pkg_resources
-
     from bs4 import BeautifulSoup
 
-    pkg_dir = os.path.dirname(pkg_resources.resource_filename("geemap", "geemap.py"))
+    pkg_dir = str(importlib.resources.files("geemap").joinpath("geemap.py").parent)
     data_dir = os.path.join(pkg_dir, "data")
     template_dir = os.path.join(data_dir, "template")
     csv_file = os.path.join(template_dir, "ee_api_docs.csv")
@@ -4234,9 +4237,7 @@ def read_api_csv():
     """
     import copy
 
-    import pkg_resources
-
-    pkg_dir = os.path.dirname(pkg_resources.resource_filename("geemap", "geemap.py"))
+    pkg_dir = str(importlib.resources.files("geemap").joinpath("geemap.py").parent)
     data_dir = os.path.join(pkg_dir, "data")
     template_dir = os.path.join(data_dir, "template")
     csv_file = os.path.join(template_dir, "ee_api_docs.csv")
@@ -5123,9 +5124,8 @@ def vis_to_qml(ee_class_table, out_qml):
         ee_class_table (str): An Earth Engine class table with triple quotes.
         out_qml (str): File path to the output QGIS Layer Style (.qml).
     """
-    import pkg_resources
 
-    pkg_dir = os.path.dirname(pkg_resources.resource_filename("geemap", "geemap.py"))
+    pkg_dir = str(importlib.resources.files("geemap").joinpath("geemap.py").parent)
     data_dir = os.path.join(pkg_dir, "data")
     template_dir = os.path.join(data_dir, "template")
     qml_template = os.path.join(template_dir, "NLCD.qml")
@@ -5172,9 +5172,7 @@ def create_nlcd_qml(out_qml):
     Args:
         out_qml (str): File path to the output qml.
     """
-    import pkg_resources
-
-    pkg_dir = os.path.dirname(pkg_resources.resource_filename("geemap", "geemap.py"))
+    pkg_dir = str(importlib.resources.files("geemap").joinpath("geemap.py").parent)
     data_dir = os.path.join(pkg_dir, "data")
     template_dir = os.path.join(data_dir, "template")
     qml_template = os.path.join(template_dir, "NLCD.qml")
@@ -7725,6 +7723,7 @@ def extract_values_to_points(
         "MAXIMUM": ee.Reducer.max(),
         "MEDIAN": ee.Reducer.median(),
         "MINIMUM": ee.Reducer.min(),
+        "MODE": ee.Reducer.mode(),
         "STD": ee.Reducer.stdDev(),
         "MIN_MAX": ee.Reducer.minMax(),
         "SUM": ee.Reducer.sum(),
@@ -10005,9 +10004,7 @@ def get_census_dict(reset=False):
     Returns:
         dict: A dictionary of Census data.
     """
-    import pkg_resources
-
-    pkg_dir = os.path.dirname(pkg_resources.resource_filename("geemap", "geemap.py"))
+    pkg_dir = str(importlib.resources.files("geemap").joinpath("geemap.py").parent)
     census_data = os.path.join(pkg_dir, "data/census_data.json")
 
     if reset:
@@ -13722,10 +13719,9 @@ def create_legend(
         str: The HTML code of the legend.
     """
 
-    import pkg_resources
     from .legends import builtin_legends
 
-    pkg_dir = os.path.dirname(pkg_resources.resource_filename("geemap", "geemap.py"))
+    pkg_dir = str(importlib.resources.files("geemap").joinpath("geemap.py").parent)
     legend_template = os.path.join(pkg_dir, "data/template/legend_style.html")
 
     if draggable:
@@ -14601,36 +14597,10 @@ def tms_to_geotiff(
 
         SESSION = requests.Session()
 
-    xyz_tiles = {
-        "OpenStreetMap": {
-            "url": "https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png",
-            "attribution": "OpenStreetMap",
-            "name": "OpenStreetMap",
-        },
-        "ROADMAP": {
-            "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}",
-            "attribution": "Esri",
-            "name": "Esri.WorldStreetMap",
-        },
-        "SATELLITE": {
-            "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-            "attribution": "Esri",
-            "name": "Esri.WorldImagery",
-        },
-        "TERRAIN": {
-            "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Topo_Map/MapServer/tile/{z}/{y}/{x}",
-            "attribution": "Esri",
-            "name": "Esri.WorldTopoMap",
-        },
-        "HYBRID": {
-            "url": "https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}",
-            "attribution": "Esri",
-            "name": "Esri.WorldImagery",
-        },
-    }
+    from .basemaps import XYZ_TILES
 
-    if isinstance(source, str) and source.upper() in xyz_tiles:
-        source = xyz_tiles[source.upper()]["url"]
+    if isinstance(source, str) and source.upper() in XYZ_TILES:
+        source = XYZ_TILES[source.upper()]["url"]
     elif isinstance(source, str) and source.startswith("http"):
         pass
     else:

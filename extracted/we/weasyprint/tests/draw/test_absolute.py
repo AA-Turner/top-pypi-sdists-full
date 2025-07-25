@@ -827,7 +827,7 @@ def test_absolute_image_background(assert_pixels):
 
 @assert_no_logs
 def test_absolute_in_absolute_break(assert_pixels):
-    # Test regression: https://github.com/Kozea/WeasyPrint/issues/2134
+    # Regression test for #2134.
     assert_pixels('''
         BBBB
         BBBB
@@ -874,3 +874,40 @@ def test_absolute_in_absolute_break(assert_pixels):
         </div>
         <br><br><br><br><br><br><br>
     ''')
+
+
+@assert_no_logs
+@pytest.mark.parametrize('position, display', (
+    ('absolute', 'grid'),
+    ('absolute', 'flex'),
+    ('relative', 'grid'),
+    ('relative', 'flex'),
+))
+def test_absolute_alternative_layout(assert_pixels, position, display):
+    # Regression test for #2450.
+    assert_pixels('''
+        ______
+        _RRRR_
+        _RBBR_
+        _RBBR_
+        _RRRR_
+        ______
+    ''', '''
+        <style>
+          @page {
+            size: 6px;
+          }
+          div {
+            background: blue;
+            position: %s;
+            display: %s;
+            top: 1px;
+            left: 1px;
+            border: 1px solid red;
+            font: 2px weasyprint;
+            color: transparent;
+            width: 2px;
+          }
+        </style>
+        <div>a</div>
+    ''' % (position, display))

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: google-cloud-spanner
-Version: 3.55.0
+Version: 3.56.0
 Summary: Google Cloud Spanner API client library
 Home-page: https://github.com/googleapis/python-spanner
 Author: Google LLC
@@ -39,6 +39,18 @@ Requires-Dist: google-cloud-monitoring>=2.16.0; extra == "tracing"
 Requires-Dist: mmh3>=4.1.0; extra == "tracing"
 Provides-Extra: libcst
 Requires-Dist: libcst>=0.2.5; extra == "libcst"
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: platform
+Dynamic: provides-extra
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 Python Client for Cloud Spanner
 ===============================

@@ -95,7 +95,7 @@ MonitorRemoteResourceTypeType = Literal[
 ]
 MonitorStatusType = Literal["ACTIVE", "DELETING", "ERROR", "INACTIVE", "PENDING"]
 QueryStatusType = Literal["CANCELED", "FAILED", "QUEUED", "RUNNING", "SUCCEEDED"]
-ScopeStatusType = Literal["FAILED", "IN_PROGRESS", "SUCCEEDED"]
+ScopeStatusType = Literal["DEACTIVATED", "DEACTIVATING", "FAILED", "IN_PROGRESS", "SUCCEEDED"]
 TargetTypeType = Literal["ACCOUNT"]
 WorkloadInsightsMetricType = Literal["DATA_TRANSFERRED", "RETRANSMISSIONS", "TIMEOUTS"]
 NetworkFlowMonitorServiceName = Literal["networkflowmonitor"]
@@ -142,6 +142,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -374,6 +376,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -434,6 +437,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

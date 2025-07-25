@@ -1,7 +1,7 @@
 r'''
 # `aws_bedrockagent_flow`
 
-Refer to the Terraform Registry for docs: [`aws_bedrockagent_flow`](https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow).
+Refer to the Terraform Registry for docs: [`aws_bedrockagent_flow`](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class BedrockagentFlow(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.bedrockagentFlow.BedrockagentFlow",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow aws_bedrockagent_flow}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow aws_bedrockagent_flow}.'''
 
     def __init__(
         self,
@@ -67,18 +67,18 @@ class BedrockagentFlow(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow aws_bedrockagent_flow} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow aws_bedrockagent_flow} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#execution_role_arn BedrockagentFlow#execution_role_arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
-        :param customer_encryption_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#customer_encryption_key_arn BedrockagentFlow#customer_encryption_key_arn}.
-        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#definition BedrockagentFlow#definition}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#description BedrockagentFlow#description}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#region BedrockagentFlow#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#tags BedrockagentFlow#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#timeouts BedrockagentFlow#timeouts}
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#execution_role_arn BedrockagentFlow#execution_role_arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
+        :param customer_encryption_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#customer_encryption_key_arn BedrockagentFlow#customer_encryption_key_arn}.
+        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#definition BedrockagentFlow#definition}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#description BedrockagentFlow#description}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#region BedrockagentFlow#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#tags BedrockagentFlow#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#timeouts BedrockagentFlow#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -124,7 +124,7 @@ class BedrockagentFlow(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the BedrockagentFlow to import.
-        :param import_from_id: The id of the existing BedrockagentFlow that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing BedrockagentFlow that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the BedrockagentFlow to import is found.
         '''
         if __debug__:
@@ -157,9 +157,9 @@ class BedrockagentFlow(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#create BedrockagentFlow#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#delete BedrockagentFlow#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#update BedrockagentFlow#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#create BedrockagentFlow#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#delete BedrockagentFlow#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#update BedrockagentFlow#update}
         '''
         value = BedrockagentFlowTimeouts(create=create, delete=delete, update=update)
 
@@ -413,14 +413,14 @@ class BedrockagentFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#execution_role_arn BedrockagentFlow#execution_role_arn}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
-        :param customer_encryption_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#customer_encryption_key_arn BedrockagentFlow#customer_encryption_key_arn}.
-        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#definition BedrockagentFlow#definition}
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#description BedrockagentFlow#description}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#region BedrockagentFlow#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#tags BedrockagentFlow#tags}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#timeouts BedrockagentFlow#timeouts}
+        :param execution_role_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#execution_role_arn BedrockagentFlow#execution_role_arn}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
+        :param customer_encryption_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#customer_encryption_key_arn BedrockagentFlow#customer_encryption_key_arn}.
+        :param definition: definition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#definition BedrockagentFlow#definition}
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#description BedrockagentFlow#description}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#region BedrockagentFlow#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#tags BedrockagentFlow#tags}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#timeouts BedrockagentFlow#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -540,21 +540,21 @@ class BedrockagentFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def execution_role_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#execution_role_arn BedrockagentFlow#execution_role_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#execution_role_arn BedrockagentFlow#execution_role_arn}.'''
         result = self._values.get("execution_role_arn")
         assert result is not None, "Required property 'execution_role_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def customer_encryption_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#customer_encryption_key_arn BedrockagentFlow#customer_encryption_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#customer_encryption_key_arn BedrockagentFlow#customer_encryption_key_arn}.'''
         result = self._values.get("customer_encryption_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -564,14 +564,14 @@ class BedrockagentFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinition"]]]:
         '''definition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#definition BedrockagentFlow#definition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#definition BedrockagentFlow#definition}
         '''
         result = self._values.get("definition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinition"]]], result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#description BedrockagentFlow#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#description BedrockagentFlow#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -579,14 +579,14 @@ class BedrockagentFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#region BedrockagentFlow#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#region BedrockagentFlow#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#tags BedrockagentFlow#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#tags BedrockagentFlow#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -594,7 +594,7 @@ class BedrockagentFlowConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["BedrockagentFlowTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#timeouts BedrockagentFlow#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#timeouts BedrockagentFlow#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["BedrockagentFlowTimeouts"], result)
@@ -624,8 +624,8 @@ class BedrockagentFlowDefinition:
         node_attribute: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNode", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param connection: connection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#connection BedrockagentFlow#connection}
-        :param node_attribute: node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#node BedrockagentFlow#node}
+        :param connection: connection block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#connection BedrockagentFlow#connection}
+        :param node_attribute: node block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#node BedrockagentFlow#node}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6371ffe80c99b4243b25672fa95003ce125c28b3f0bffa0611d6052453672d36)
@@ -643,7 +643,7 @@ class BedrockagentFlowDefinition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionConnection"]]]:
         '''connection block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#connection BedrockagentFlow#connection}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#connection BedrockagentFlow#connection}
         '''
         result = self._values.get("connection")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionConnection"]]], result)
@@ -654,7 +654,7 @@ class BedrockagentFlowDefinition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNode"]]]:
         '''node block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#node BedrockagentFlow#node}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#node BedrockagentFlow#node}
         '''
         result = self._values.get("node_attribute")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNode"]]], result)
@@ -693,11 +693,11 @@ class BedrockagentFlowDefinitionConnection:
         configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionConnectionConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
-        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#source BedrockagentFlow#source}.
-        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#target BedrockagentFlow#target}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#configuration BedrockagentFlow#configuration}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
+        :param source: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#source BedrockagentFlow#source}.
+        :param target: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#target BedrockagentFlow#target}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#configuration BedrockagentFlow#configuration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a028c9b43a39d3c547416ffc87910d00f81bd9577470096570ef3f1467e839f4)
@@ -717,28 +717,28 @@ class BedrockagentFlowDefinitionConnection:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def source(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#source BedrockagentFlow#source}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#source BedrockagentFlow#source}.'''
         result = self._values.get("source")
         assert result is not None, "Required property 'source' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#target BedrockagentFlow#target}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#target BedrockagentFlow#target}.'''
         result = self._values.get("target")
         assert result is not None, "Required property 'target' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -749,7 +749,7 @@ class BedrockagentFlowDefinitionConnection:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionConnectionConfiguration"]]]:
         '''configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#configuration BedrockagentFlow#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#configuration BedrockagentFlow#configuration}
         '''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionConnectionConfiguration"]]], result)
@@ -779,8 +779,8 @@ class BedrockagentFlowDefinitionConnectionConfiguration:
         data: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionConnectionConfigurationData", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param conditional: conditional block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#conditional BedrockagentFlow#conditional}
-        :param data: data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#data BedrockagentFlow#data}
+        :param conditional: conditional block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#conditional BedrockagentFlow#conditional}
+        :param data: data block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#data BedrockagentFlow#data}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__77aa0f063ceabf806d371c7f88a3982aa3f7a0f7cb5391269d8768070c54ad85)
@@ -798,7 +798,7 @@ class BedrockagentFlowDefinitionConnectionConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionConnectionConfigurationConditional"]]]:
         '''conditional block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#conditional BedrockagentFlow#conditional}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#conditional BedrockagentFlow#conditional}
         '''
         result = self._values.get("conditional")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionConnectionConfigurationConditional"]]], result)
@@ -809,7 +809,7 @@ class BedrockagentFlowDefinitionConnectionConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionConnectionConfigurationData"]]]:
         '''data block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#data BedrockagentFlow#data}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#data BedrockagentFlow#data}
         '''
         result = self._values.get("data")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionConnectionConfigurationData"]]], result)
@@ -834,7 +834,7 @@ class BedrockagentFlowDefinitionConnectionConfiguration:
 class BedrockagentFlowDefinitionConnectionConfigurationConditional:
     def __init__(self, *, condition: builtins.str) -> None:
         '''
-        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#condition BedrockagentFlow#condition}.
+        :param condition: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#condition BedrockagentFlow#condition}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1982beccda4a6af44926e18250c7d97c1339c6e758886f49cb66edea2ae483f0)
@@ -845,7 +845,7 @@ class BedrockagentFlowDefinitionConnectionConfigurationConditional:
 
     @builtins.property
     def condition(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#condition BedrockagentFlow#condition}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#condition BedrockagentFlow#condition}.'''
         result = self._values.get("condition")
         assert result is not None, "Required property 'condition' is missing"
         return typing.cast(builtins.str, result)
@@ -1029,8 +1029,8 @@ class BedrockagentFlowDefinitionConnectionConfigurationData:
         target_input: builtins.str,
     ) -> None:
         '''
-        :param source_output: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#source_output BedrockagentFlow#source_output}.
-        :param target_input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#target_input BedrockagentFlow#target_input}.
+        :param source_output: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#source_output BedrockagentFlow#source_output}.
+        :param target_input: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#target_input BedrockagentFlow#target_input}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__46965c5f83ba588fb46b66a6ef6f91a4bd83ee7fff41aca5e68ea2a62b972379)
@@ -1043,14 +1043,14 @@ class BedrockagentFlowDefinitionConnectionConfigurationData:
 
     @builtins.property
     def source_output(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#source_output BedrockagentFlow#source_output}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#source_output BedrockagentFlow#source_output}.'''
         result = self._values.get("source_output")
         assert result is not None, "Required property 'source_output' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def target_input(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#target_input BedrockagentFlow#target_input}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#target_input BedrockagentFlow#target_input}.'''
         result = self._values.get("target_input")
         assert result is not None, "Required property 'target_input' is missing"
         return typing.cast(builtins.str, result)
@@ -1781,11 +1781,11 @@ class BedrockagentFlowDefinitionNode:
         output: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeOutput", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
-        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#configuration BedrockagentFlow#configuration}
-        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#input BedrockagentFlow#input}
-        :param output: output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#output BedrockagentFlow#output}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
+        :param configuration: configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#configuration BedrockagentFlow#configuration}
+        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#input BedrockagentFlow#input}
+        :param output: output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#output BedrockagentFlow#output}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e121b191b7fea2aad36ed04b54de661911ba547692242ab300cf21183618042c)
@@ -1807,14 +1807,14 @@ class BedrockagentFlowDefinitionNode:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -1825,7 +1825,7 @@ class BedrockagentFlowDefinitionNode:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfiguration"]]]:
         '''configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#configuration BedrockagentFlow#configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#configuration BedrockagentFlow#configuration}
         '''
         result = self._values.get("configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfiguration"]]], result)
@@ -1836,7 +1836,7 @@ class BedrockagentFlowDefinitionNode:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeInput"]]]:
         '''input block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#input BedrockagentFlow#input}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#input BedrockagentFlow#input}
         '''
         result = self._values.get("input")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeInput"]]], result)
@@ -1847,7 +1847,7 @@ class BedrockagentFlowDefinitionNode:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeOutput"]]]:
         '''output block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#output BedrockagentFlow#output}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#output BedrockagentFlow#output}
         '''
         result = self._values.get("output")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeOutput"]]], result)
@@ -1902,19 +1902,19 @@ class BedrockagentFlowDefinitionNodeConfiguration:
         storage: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationStorage", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param agent: agent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#agent BedrockagentFlow#agent}
-        :param collector: collector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#collector BedrockagentFlow#collector}
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#condition BedrockagentFlow#condition}
-        :param inline_code: inline_code block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#inline_code BedrockagentFlow#inline_code}
-        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#input BedrockagentFlow#input}
-        :param iterator: iterator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#iterator BedrockagentFlow#iterator}
-        :param knowledge_base: knowledge_base block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#knowledge_base BedrockagentFlow#knowledge_base}
-        :param lambda_function: lambda_function block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#lambda_function BedrockagentFlow#lambda_function}
-        :param lex: lex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#lex BedrockagentFlow#lex}
-        :param output: output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#output BedrockagentFlow#output}
-        :param prompt: prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#prompt BedrockagentFlow#prompt}
-        :param retrieval: retrieval block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#retrieval BedrockagentFlow#retrieval}
-        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#storage BedrockagentFlow#storage}
+        :param agent: agent block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#agent BedrockagentFlow#agent}
+        :param collector: collector block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#collector BedrockagentFlow#collector}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#condition BedrockagentFlow#condition}
+        :param inline_code: inline_code block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#inline_code BedrockagentFlow#inline_code}
+        :param input: input block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#input BedrockagentFlow#input}
+        :param iterator: iterator block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#iterator BedrockagentFlow#iterator}
+        :param knowledge_base: knowledge_base block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#knowledge_base BedrockagentFlow#knowledge_base}
+        :param lambda_function: lambda_function block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#lambda_function BedrockagentFlow#lambda_function}
+        :param lex: lex block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#lex BedrockagentFlow#lex}
+        :param output: output block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#output BedrockagentFlow#output}
+        :param prompt: prompt block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#prompt BedrockagentFlow#prompt}
+        :param retrieval: retrieval block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#retrieval BedrockagentFlow#retrieval}
+        :param storage: storage block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#storage BedrockagentFlow#storage}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0b31e5fc9f478021b3a89a45e36f3f3202e53af778d63610e1fd3b20edff2a6d)
@@ -1965,7 +1965,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationAgent"]]]:
         '''agent block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#agent BedrockagentFlow#agent}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#agent BedrockagentFlow#agent}
         '''
         result = self._values.get("agent")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationAgent"]]], result)
@@ -1976,7 +1976,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationCollector"]]]:
         '''collector block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#collector BedrockagentFlow#collector}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#collector BedrockagentFlow#collector}
         '''
         result = self._values.get("collector")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationCollector"]]], result)
@@ -1987,7 +1987,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationCondition"]]]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#condition BedrockagentFlow#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#condition BedrockagentFlow#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationCondition"]]], result)
@@ -1998,7 +1998,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationInlineCode"]]]:
         '''inline_code block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#inline_code BedrockagentFlow#inline_code}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#inline_code BedrockagentFlow#inline_code}
         '''
         result = self._values.get("inline_code")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationInlineCode"]]], result)
@@ -2009,7 +2009,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationInput"]]]:
         '''input block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#input BedrockagentFlow#input}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#input BedrockagentFlow#input}
         '''
         result = self._values.get("input")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationInput"]]], result)
@@ -2020,7 +2020,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationIterator"]]]:
         '''iterator block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#iterator BedrockagentFlow#iterator}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#iterator BedrockagentFlow#iterator}
         '''
         result = self._values.get("iterator")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationIterator"]]], result)
@@ -2031,7 +2031,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationKnowledgeBase"]]]:
         '''knowledge_base block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#knowledge_base BedrockagentFlow#knowledge_base}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#knowledge_base BedrockagentFlow#knowledge_base}
         '''
         result = self._values.get("knowledge_base")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationKnowledgeBase"]]], result)
@@ -2042,7 +2042,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationLambdaFunction"]]]:
         '''lambda_function block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#lambda_function BedrockagentFlow#lambda_function}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#lambda_function BedrockagentFlow#lambda_function}
         '''
         result = self._values.get("lambda_function")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationLambdaFunction"]]], result)
@@ -2053,7 +2053,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationLex"]]]:
         '''lex block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#lex BedrockagentFlow#lex}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#lex BedrockagentFlow#lex}
         '''
         result = self._values.get("lex")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationLex"]]], result)
@@ -2064,7 +2064,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationOutput"]]]:
         '''output block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#output BedrockagentFlow#output}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#output BedrockagentFlow#output}
         '''
         result = self._values.get("output")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationOutput"]]], result)
@@ -2075,7 +2075,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPrompt"]]]:
         '''prompt block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#prompt BedrockagentFlow#prompt}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#prompt BedrockagentFlow#prompt}
         '''
         result = self._values.get("prompt")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPrompt"]]], result)
@@ -2086,7 +2086,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationRetrieval"]]]:
         '''retrieval block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#retrieval BedrockagentFlow#retrieval}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#retrieval BedrockagentFlow#retrieval}
         '''
         result = self._values.get("retrieval")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationRetrieval"]]], result)
@@ -2097,7 +2097,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationStorage"]]]:
         '''storage block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#storage BedrockagentFlow#storage}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#storage BedrockagentFlow#storage}
         '''
         result = self._values.get("storage")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationStorage"]]], result)
@@ -2122,7 +2122,7 @@ class BedrockagentFlowDefinitionNodeConfiguration:
 class BedrockagentFlowDefinitionNodeConfigurationAgent:
     def __init__(self, *, agent_alias_arn: builtins.str) -> None:
         '''
-        :param agent_alias_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#agent_alias_arn BedrockagentFlow#agent_alias_arn}.
+        :param agent_alias_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#agent_alias_arn BedrockagentFlow#agent_alias_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__cc6aac1f749e2794505ef77f4c47c1bf5204df1dc8aab6462db120fbe07323cf)
@@ -2133,7 +2133,7 @@ class BedrockagentFlowDefinitionNodeConfigurationAgent:
 
     @builtins.property
     def agent_alias_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#agent_alias_arn BedrockagentFlow#agent_alias_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#agent_alias_arn BedrockagentFlow#agent_alias_arn}.'''
         result = self._values.get("agent_alias_arn")
         assert result is not None, "Required property 'agent_alias_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -2474,7 +2474,7 @@ class BedrockagentFlowDefinitionNodeConfigurationCondition:
         condition: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationConditionCondition", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#condition BedrockagentFlow#condition}
+        :param condition: condition block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#condition BedrockagentFlow#condition}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__1b454a11644e78f58b4db3cc0b67223627dda0a750f08278a6ac89b874e2b9b5)
@@ -2489,7 +2489,7 @@ class BedrockagentFlowDefinitionNodeConfigurationCondition:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationConditionCondition"]]]:
         '''condition block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#condition BedrockagentFlow#condition}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#condition BedrockagentFlow#condition}
         '''
         result = self._values.get("condition")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationConditionCondition"]]], result)
@@ -2519,8 +2519,8 @@ class BedrockagentFlowDefinitionNodeConfigurationConditionCondition:
         expression: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#expression BedrockagentFlow#expression}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#expression BedrockagentFlow#expression}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__287639ebab0dadafa8a4a9fb16da6e4846a68e86c1d469c011a1a85f42e1fbd6)
@@ -2534,14 +2534,14 @@ class BedrockagentFlowDefinitionNodeConfigurationConditionCondition:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def expression(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#expression BedrockagentFlow#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#expression BedrockagentFlow#expression}.'''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -2908,8 +2908,8 @@ class BedrockagentFlowDefinitionNodeConfigurationConditionOutputReference(
 class BedrockagentFlowDefinitionNodeConfigurationInlineCode:
     def __init__(self, *, code: builtins.str, language: builtins.str) -> None:
         '''
-        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#code BedrockagentFlow#code}.
-        :param language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#language BedrockagentFlow#language}.
+        :param code: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#code BedrockagentFlow#code}.
+        :param language: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#language BedrockagentFlow#language}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__0f29566b817ebd47e3a5ad978d8e7768637cda8846222d2ea3d957c226fbfeba)
@@ -2922,14 +2922,14 @@ class BedrockagentFlowDefinitionNodeConfigurationInlineCode:
 
     @builtins.property
     def code(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#code BedrockagentFlow#code}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#code BedrockagentFlow#code}.'''
         result = self._values.get("code")
         assert result is not None, "Required property 'code' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def language(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#language BedrockagentFlow#language}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#language BedrockagentFlow#language}.'''
         result = self._values.get("language")
         assert result is not None, "Required property 'language' is missing"
         return typing.cast(builtins.str, result)
@@ -3455,11 +3455,11 @@ class BedrockagentFlowDefinitionNodeConfigurationKnowledgeBase:
         number_of_results: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param knowledge_base_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#knowledge_base_id BedrockagentFlow#knowledge_base_id}.
-        :param model_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#model_id BedrockagentFlow#model_id}.
-        :param guardrail_configuration: guardrail_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#guardrail_configuration BedrockagentFlow#guardrail_configuration}
-        :param inference_configuration: inference_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#inference_configuration BedrockagentFlow#inference_configuration}
-        :param number_of_results: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#number_of_results BedrockagentFlow#number_of_results}.
+        :param knowledge_base_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#knowledge_base_id BedrockagentFlow#knowledge_base_id}.
+        :param model_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#model_id BedrockagentFlow#model_id}.
+        :param guardrail_configuration: guardrail_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#guardrail_configuration BedrockagentFlow#guardrail_configuration}
+        :param inference_configuration: inference_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#inference_configuration BedrockagentFlow#inference_configuration}
+        :param number_of_results: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#number_of_results BedrockagentFlow#number_of_results}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__55a24f1039d8033448648d9daa1be0787debc02e7dd7328e42bbef6b5e37c177)
@@ -3481,14 +3481,14 @@ class BedrockagentFlowDefinitionNodeConfigurationKnowledgeBase:
 
     @builtins.property
     def knowledge_base_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#knowledge_base_id BedrockagentFlow#knowledge_base_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#knowledge_base_id BedrockagentFlow#knowledge_base_id}.'''
         result = self._values.get("knowledge_base_id")
         assert result is not None, "Required property 'knowledge_base_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def model_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#model_id BedrockagentFlow#model_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#model_id BedrockagentFlow#model_id}.'''
         result = self._values.get("model_id")
         assert result is not None, "Required property 'model_id' is missing"
         return typing.cast(builtins.str, result)
@@ -3499,7 +3499,7 @@ class BedrockagentFlowDefinitionNodeConfigurationKnowledgeBase:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseGuardrailConfiguration"]]]:
         '''guardrail_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#guardrail_configuration BedrockagentFlow#guardrail_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#guardrail_configuration BedrockagentFlow#guardrail_configuration}
         '''
         result = self._values.get("guardrail_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseGuardrailConfiguration"]]], result)
@@ -3510,14 +3510,14 @@ class BedrockagentFlowDefinitionNodeConfigurationKnowledgeBase:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseInferenceConfiguration"]]]:
         '''inference_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#inference_configuration BedrockagentFlow#inference_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#inference_configuration BedrockagentFlow#inference_configuration}
         '''
         result = self._values.get("inference_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseInferenceConfiguration"]]], result)
 
     @builtins.property
     def number_of_results(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#number_of_results BedrockagentFlow#number_of_results}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#number_of_results BedrockagentFlow#number_of_results}.'''
         result = self._values.get("number_of_results")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -3549,8 +3549,8 @@ class BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseGuardrailConfigura
         guardrail_version: builtins.str,
     ) -> None:
         '''
-        :param guardrail_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#guardrail_identifier BedrockagentFlow#guardrail_identifier}.
-        :param guardrail_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#guardrail_version BedrockagentFlow#guardrail_version}.
+        :param guardrail_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#guardrail_identifier BedrockagentFlow#guardrail_identifier}.
+        :param guardrail_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#guardrail_version BedrockagentFlow#guardrail_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e8b5c10a0a0eb012bea5270aa35858b02989868ca0d8c5ebb725ac823be00e9b)
@@ -3563,14 +3563,14 @@ class BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseGuardrailConfigura
 
     @builtins.property
     def guardrail_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#guardrail_identifier BedrockagentFlow#guardrail_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#guardrail_identifier BedrockagentFlow#guardrail_identifier}.'''
         result = self._values.get("guardrail_identifier")
         assert result is not None, "Required property 'guardrail_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def guardrail_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#guardrail_version BedrockagentFlow#guardrail_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#guardrail_version BedrockagentFlow#guardrail_version}.'''
         result = self._values.get("guardrail_version")
         assert result is not None, "Required property 'guardrail_version' is missing"
         return typing.cast(builtins.str, result)
@@ -3770,7 +3770,7 @@ class BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseInferenceConfigura
         text: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseInferenceConfigurationText", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}
+        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6446ceb7d9f64c29dd58ea224a272a1e2f903395884fa7ff97ecb990ffdc5a95)
@@ -3785,7 +3785,7 @@ class BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseInferenceConfigura
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseInferenceConfigurationText"]]]:
         '''text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseInferenceConfigurationText"]]], result)
@@ -3990,10 +3990,10 @@ class BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseInferenceConfigura
         top_p: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#max_tokens BedrockagentFlow#max_tokens}.
-        :param stop_sequences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#stop_sequences BedrockagentFlow#stop_sequences}.
-        :param temperature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#temperature BedrockagentFlow#temperature}.
-        :param top_p: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#top_p BedrockagentFlow#top_p}.
+        :param max_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#max_tokens BedrockagentFlow#max_tokens}.
+        :param stop_sequences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#stop_sequences BedrockagentFlow#stop_sequences}.
+        :param temperature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#temperature BedrockagentFlow#temperature}.
+        :param top_p: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#top_p BedrockagentFlow#top_p}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__526b5b5dc57f75872ce63dfaf068b0591981482fc56cd73d7c60c4333b3426ea)
@@ -4013,25 +4013,25 @@ class BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseInferenceConfigura
 
     @builtins.property
     def max_tokens(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#max_tokens BedrockagentFlow#max_tokens}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#max_tokens BedrockagentFlow#max_tokens}.'''
         result = self._values.get("max_tokens")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def stop_sequences(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#stop_sequences BedrockagentFlow#stop_sequences}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#stop_sequences BedrockagentFlow#stop_sequences}.'''
         result = self._values.get("stop_sequences")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def temperature(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#temperature BedrockagentFlow#temperature}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#temperature BedrockagentFlow#temperature}.'''
         result = self._values.get("temperature")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def top_p(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#top_p BedrockagentFlow#top_p}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#top_p BedrockagentFlow#top_p}.'''
         result = self._values.get("top_p")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -4530,7 +4530,7 @@ class BedrockagentFlowDefinitionNodeConfigurationKnowledgeBaseOutputReference(
 class BedrockagentFlowDefinitionNodeConfigurationLambdaFunction:
     def __init__(self, *, lambda_arn: builtins.str) -> None:
         '''
-        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#lambda_arn BedrockagentFlow#lambda_arn}.
+        :param lambda_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#lambda_arn BedrockagentFlow#lambda_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__768696e65c31a8f0ec6ced584697f1fb6f14006adbb6785534e7ec671195a408)
@@ -4541,7 +4541,7 @@ class BedrockagentFlowDefinitionNodeConfigurationLambdaFunction:
 
     @builtins.property
     def lambda_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#lambda_arn BedrockagentFlow#lambda_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#lambda_arn BedrockagentFlow#lambda_arn}.'''
         result = self._values.get("lambda_arn")
         assert result is not None, "Required property 'lambda_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -4720,8 +4720,8 @@ class BedrockagentFlowDefinitionNodeConfigurationLambdaFunctionOutputReference(
 class BedrockagentFlowDefinitionNodeConfigurationLex:
     def __init__(self, *, bot_alias_arn: builtins.str, locale_id: builtins.str) -> None:
         '''
-        :param bot_alias_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#bot_alias_arn BedrockagentFlow#bot_alias_arn}.
-        :param locale_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#locale_id BedrockagentFlow#locale_id}.
+        :param bot_alias_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#bot_alias_arn BedrockagentFlow#bot_alias_arn}.
+        :param locale_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#locale_id BedrockagentFlow#locale_id}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__befed940c8a3e07dfdb549cb215463ca180b46f6ac430e252af654cc7f3dc0f6)
@@ -4734,14 +4734,14 @@ class BedrockagentFlowDefinitionNodeConfigurationLex:
 
     @builtins.property
     def bot_alias_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#bot_alias_arn BedrockagentFlow#bot_alias_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#bot_alias_arn BedrockagentFlow#bot_alias_arn}.'''
         result = self._values.get("bot_alias_arn")
         assert result is not None, "Required property 'bot_alias_arn' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def locale_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#locale_id BedrockagentFlow#locale_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#locale_id BedrockagentFlow#locale_id}.'''
         result = self._values.get("locale_id")
         assert result is not None, "Required property 'locale_id' is missing"
         return typing.cast(builtins.str, result)
@@ -5621,8 +5621,8 @@ class BedrockagentFlowDefinitionNodeConfigurationPrompt:
         source_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param guardrail_configuration: guardrail_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#guardrail_configuration BedrockagentFlow#guardrail_configuration}
-        :param source_configuration: source_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#source_configuration BedrockagentFlow#source_configuration}
+        :param guardrail_configuration: guardrail_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#guardrail_configuration BedrockagentFlow#guardrail_configuration}
+        :param source_configuration: source_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#source_configuration BedrockagentFlow#source_configuration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__fba9eb02a06c895ba8221c743fcd881a67049bfb3b880b5706c5b830b10c6c71)
@@ -5640,7 +5640,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPrompt:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptGuardrailConfiguration"]]]:
         '''guardrail_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#guardrail_configuration BedrockagentFlow#guardrail_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#guardrail_configuration BedrockagentFlow#guardrail_configuration}
         '''
         result = self._values.get("guardrail_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptGuardrailConfiguration"]]], result)
@@ -5651,7 +5651,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPrompt:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfiguration"]]]:
         '''source_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#source_configuration BedrockagentFlow#source_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#source_configuration BedrockagentFlow#source_configuration}
         '''
         result = self._values.get("source_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfiguration"]]], result)
@@ -5684,8 +5684,8 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptGuardrailConfiguration:
         guardrail_version: builtins.str,
     ) -> None:
         '''
-        :param guardrail_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#guardrail_identifier BedrockagentFlow#guardrail_identifier}.
-        :param guardrail_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#guardrail_version BedrockagentFlow#guardrail_version}.
+        :param guardrail_identifier: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#guardrail_identifier BedrockagentFlow#guardrail_identifier}.
+        :param guardrail_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#guardrail_version BedrockagentFlow#guardrail_version}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__02d2bce76bc09ca07126b302fdb2066f9d26e48b7662ed0df63606d7744a344b)
@@ -5698,14 +5698,14 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptGuardrailConfiguration:
 
     @builtins.property
     def guardrail_identifier(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#guardrail_identifier BedrockagentFlow#guardrail_identifier}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#guardrail_identifier BedrockagentFlow#guardrail_identifier}.'''
         result = self._values.get("guardrail_identifier")
         assert result is not None, "Required property 'guardrail_identifier' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def guardrail_version(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#guardrail_version BedrockagentFlow#guardrail_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#guardrail_version BedrockagentFlow#guardrail_version}.'''
         result = self._values.get("guardrail_version")
         assert result is not None, "Required property 'guardrail_version' is missing"
         return typing.cast(builtins.str, result)
@@ -6105,8 +6105,8 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfiguration:
         resource: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationResource", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param inline: inline block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#inline BedrockagentFlow#inline}
-        :param resource: resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#resource BedrockagentFlow#resource}
+        :param inline: inline block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#inline BedrockagentFlow#inline}
+        :param resource: resource block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#resource BedrockagentFlow#resource}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8110af997286d0b2894e462218835ffae71dcebddefc2b27a787404db84df467)
@@ -6124,7 +6124,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline"]]]:
         '''inline block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#inline BedrockagentFlow#inline}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#inline BedrockagentFlow#inline}
         '''
         result = self._values.get("inline")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline"]]], result)
@@ -6135,7 +6135,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationResource"]]]:
         '''resource block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#resource BedrockagentFlow#resource}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#resource BedrockagentFlow#resource}
         '''
         result = self._values.get("resource")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationResource"]]], result)
@@ -6174,11 +6174,11 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
         template_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param model_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#model_id BedrockagentFlow#model_id}.
-        :param template_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#template_type BedrockagentFlow#template_type}.
-        :param additional_model_request_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#additional_model_request_fields BedrockagentFlow#additional_model_request_fields}.
-        :param inference_configuration: inference_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#inference_configuration BedrockagentFlow#inference_configuration}
-        :param template_configuration: template_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#template_configuration BedrockagentFlow#template_configuration}
+        :param model_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#model_id BedrockagentFlow#model_id}.
+        :param template_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#template_type BedrockagentFlow#template_type}.
+        :param additional_model_request_fields: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#additional_model_request_fields BedrockagentFlow#additional_model_request_fields}.
+        :param inference_configuration: inference_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#inference_configuration BedrockagentFlow#inference_configuration}
+        :param template_configuration: template_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#template_configuration BedrockagentFlow#template_configuration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e4966e1664ae95337a028145e59e0cf514139cd3eced7f2f0a68a525781ebaed)
@@ -6200,21 +6200,21 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 
     @builtins.property
     def model_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#model_id BedrockagentFlow#model_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#model_id BedrockagentFlow#model_id}.'''
         result = self._values.get("model_id")
         assert result is not None, "Required property 'model_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def template_type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#template_type BedrockagentFlow#template_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#template_type BedrockagentFlow#template_type}.'''
         result = self._values.get("template_type")
         assert result is not None, "Required property 'template_type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def additional_model_request_fields(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#additional_model_request_fields BedrockagentFlow#additional_model_request_fields}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#additional_model_request_fields BedrockagentFlow#additional_model_request_fields}.'''
         result = self._values.get("additional_model_request_fields")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -6224,7 +6224,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineInferenceConfiguration"]]]:
         '''inference_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#inference_configuration BedrockagentFlow#inference_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#inference_configuration BedrockagentFlow#inference_configuration}
         '''
         result = self._values.get("inference_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineInferenceConfiguration"]]], result)
@@ -6235,7 +6235,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfiguration"]]]:
         '''template_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#template_configuration BedrockagentFlow#template_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#template_configuration BedrockagentFlow#template_configuration}
         '''
         result = self._values.get("template_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfiguration"]]], result)
@@ -6264,7 +6264,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
         text: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineInferenceConfigurationText", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}
+        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e409be40706b48885aca20fa29e6f94553b3d6e5a634dea85e223f90c88fbe6f)
@@ -6279,7 +6279,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineInferenceConfigurationText"]]]:
         '''text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineInferenceConfigurationText"]]], result)
@@ -6484,10 +6484,10 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
         top_p: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param max_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#max_tokens BedrockagentFlow#max_tokens}.
-        :param stop_sequences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#stop_sequences BedrockagentFlow#stop_sequences}.
-        :param temperature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#temperature BedrockagentFlow#temperature}.
-        :param top_p: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#top_p BedrockagentFlow#top_p}.
+        :param max_tokens: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#max_tokens BedrockagentFlow#max_tokens}.
+        :param stop_sequences: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#stop_sequences BedrockagentFlow#stop_sequences}.
+        :param temperature: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#temperature BedrockagentFlow#temperature}.
+        :param top_p: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#top_p BedrockagentFlow#top_p}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e3481f964477a43036518638aa3fb768c96f2e1b9f9b4fe0b3f91173c89f5890)
@@ -6507,25 +6507,25 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 
     @builtins.property
     def max_tokens(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#max_tokens BedrockagentFlow#max_tokens}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#max_tokens BedrockagentFlow#max_tokens}.'''
         result = self._values.get("max_tokens")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def stop_sequences(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#stop_sequences BedrockagentFlow#stop_sequences}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#stop_sequences BedrockagentFlow#stop_sequences}.'''
         result = self._values.get("stop_sequences")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
     @builtins.property
     def temperature(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#temperature BedrockagentFlow#temperature}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#temperature BedrockagentFlow#temperature}.'''
         result = self._values.get("temperature")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def top_p(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#top_p BedrockagentFlow#top_p}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#top_p BedrockagentFlow#top_p}.'''
         result = self._values.get("top_p")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -7029,8 +7029,8 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
         text: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationText", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param chat: chat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#chat BedrockagentFlow#chat}
-        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}
+        :param chat: chat block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#chat BedrockagentFlow#chat}
+        :param text: text block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d6206f26cb37b66e49d4103bb4079cdb0cfc847747afdb09a149c5a5f9039d0)
@@ -7048,7 +7048,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChat"]]]:
         '''chat block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#chat BedrockagentFlow#chat}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#chat BedrockagentFlow#chat}
         '''
         result = self._values.get("chat")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChat"]]], result)
@@ -7059,7 +7059,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationText"]]]:
         '''text block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}
         '''
         result = self._values.get("text")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationText"]]], result)
@@ -7096,10 +7096,10 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
         tool_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param input_variable: input_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#input_variable BedrockagentFlow#input_variable}
-        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#message BedrockagentFlow#message}
-        :param system_attribute: system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#system BedrockagentFlow#system}
-        :param tool_configuration: tool_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#tool_configuration BedrockagentFlow#tool_configuration}
+        :param input_variable: input_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#input_variable BedrockagentFlow#input_variable}
+        :param message: message block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#message BedrockagentFlow#message}
+        :param system_attribute: system block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#system BedrockagentFlow#system}
+        :param tool_configuration: tool_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#tool_configuration BedrockagentFlow#tool_configuration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__a7d185efbd42961338241245a0baf06f6d9c752f879996f9cda03f97c8302ec5)
@@ -7123,7 +7123,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatInputVariable"]]]:
         '''input_variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#input_variable BedrockagentFlow#input_variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#input_variable BedrockagentFlow#input_variable}
         '''
         result = self._values.get("input_variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatInputVariable"]]], result)
@@ -7134,7 +7134,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatMessage"]]]:
         '''message block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#message BedrockagentFlow#message}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#message BedrockagentFlow#message}
         '''
         result = self._values.get("message")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatMessage"]]], result)
@@ -7145,7 +7145,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatSystem"]]]:
         '''system block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#system BedrockagentFlow#system}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#system BedrockagentFlow#system}
         '''
         result = self._values.get("system_attribute")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatSystem"]]], result)
@@ -7156,7 +7156,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfiguration"]]]:
         '''tool_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#tool_configuration BedrockagentFlow#tool_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#tool_configuration BedrockagentFlow#tool_configuration}
         '''
         result = self._values.get("tool_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfiguration"]]], result)
@@ -7181,7 +7181,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatInputVariable:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9cebd49f9b6d1d022d64feaf25c22e94efcdffab497426a910382a8877b0f354)
@@ -7192,7 +7192,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -7469,8 +7469,8 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
         content: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatMessageContent", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#role BedrockagentFlow#role}.
-        :param content: content block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#content BedrockagentFlow#content}
+        :param role: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#role BedrockagentFlow#role}.
+        :param content: content block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#content BedrockagentFlow#content}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__afc1ac354ae944a4f7297dfb4ba2ff34628e4621aa7a151d944a4a39bd43bc8f)
@@ -7484,7 +7484,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 
     @builtins.property
     def role(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#role BedrockagentFlow#role}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#role BedrockagentFlow#role}.'''
         result = self._values.get("role")
         assert result is not None, "Required property 'role' is missing"
         return typing.cast(builtins.str, result)
@@ -7495,7 +7495,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatMessageContent"]]]:
         '''content block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#content BedrockagentFlow#content}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#content BedrockagentFlow#content}
         '''
         result = self._values.get("content")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatMessageContent"]]], result)
@@ -7525,8 +7525,8 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}.
+        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5794eb8a99cd1ae905f139e9ae10386a952fdfe8b2abeadf805b8476b7d4b145)
@@ -7544,14 +7544,14 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatMessageContentCachePoint"]]]:
         '''cache_point block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
         '''
         result = self._values.get("cache_point")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatMessageContentCachePoint"]]], result)
 
     @builtins.property
     def text(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}.'''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -7575,7 +7575,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatMessageContentCachePoint:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5ff19440999c05ba8de49bb535b9afba443f91dae7ce83a23d7e2e6ccb51d9b2)
@@ -7586,7 +7586,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -8312,8 +8312,8 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
         text: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}.
+        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__ba515f24b542b669dd7d3657c1a50be27641ce2d6400adcacc545e3c86a2dd74)
@@ -8331,14 +8331,14 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatSystemCachePoint"]]]:
         '''cache_point block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
         '''
         result = self._values.get("cache_point")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatSystemCachePoint"]]], result)
 
     @builtins.property
     def text(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}.'''
         result = self._values.get("text")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -8362,7 +8362,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatSystemCachePoint:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f8964c00e9f4e60b9c561336e88671676b7613b2d7c6f9b79f58c99f8765c9b7)
@@ -8373,7 +8373,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -8746,8 +8746,8 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
         tool_choice: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolChoice", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param tool: tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#tool BedrockagentFlow#tool}
-        :param tool_choice: tool_choice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#tool_choice BedrockagentFlow#tool_choice}
+        :param tool: tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#tool BedrockagentFlow#tool}
+        :param tool_choice: tool_choice block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#tool_choice BedrockagentFlow#tool_choice}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__7fc51f786e9444dd9ec2a35ae70d798941202e2a8eaeaeb5e42ec8ed25816685)
@@ -8765,7 +8765,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationTool"]]]:
         '''tool block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#tool BedrockagentFlow#tool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#tool BedrockagentFlow#tool}
         '''
         result = self._values.get("tool")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationTool"]]], result)
@@ -8776,7 +8776,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolChoice"]]]:
         '''tool_choice block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#tool_choice BedrockagentFlow#tool_choice}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#tool_choice BedrockagentFlow#tool_choice}
         '''
         result = self._values.get("tool_choice")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolChoice"]]], result)
@@ -9005,8 +9005,8 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
         tool_spec: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolToolSpec", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
-        :param tool_spec: tool_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#tool_spec BedrockagentFlow#tool_spec}
+        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
+        :param tool_spec: tool_spec block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#tool_spec BedrockagentFlow#tool_spec}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6d0ec8d75015765a4a4ebe3518ac038eed16b596721d1f4e46d307fd5ccd667b)
@@ -9024,7 +9024,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolCachePoint"]]]:
         '''cache_point block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
         '''
         result = self._values.get("cache_point")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolCachePoint"]]], result)
@@ -9035,7 +9035,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolToolSpec"]]]:
         '''tool_spec block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#tool_spec BedrockagentFlow#tool_spec}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#tool_spec BedrockagentFlow#tool_spec}
         '''
         result = self._values.get("tool_spec")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolToolSpec"]]], result)
@@ -9060,7 +9060,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolCachePoint:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__95c4de132af1e107e5f59a3f77fcd665ebb9365b232c0b64743a4229b5ca251c)
@@ -9071,7 +9071,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -9256,9 +9256,9 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
         tool: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolChoiceTool", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param any: any block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#any BedrockagentFlow#any}
-        :param auto: auto block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#auto BedrockagentFlow#auto}
-        :param tool: tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#tool BedrockagentFlow#tool}
+        :param any: any block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#any BedrockagentFlow#any}
+        :param auto: auto block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#auto BedrockagentFlow#auto}
+        :param tool: tool block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#tool BedrockagentFlow#tool}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__e47a58246cb873dd951a78d8b74667c8f4f1be46dadf574a4993a8a356bf5a4f)
@@ -9279,7 +9279,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolChoiceAny"]]]:
         '''any block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#any BedrockagentFlow#any}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#any BedrockagentFlow#any}
         '''
         result = self._values.get("any")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolChoiceAny"]]], result)
@@ -9290,7 +9290,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolChoiceAuto"]]]:
         '''auto block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#auto BedrockagentFlow#auto}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#auto BedrockagentFlow#auto}
         '''
         result = self._values.get("auto")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolChoiceAuto"]]], result)
@@ -9301,7 +9301,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolChoiceTool"]]]:
         '''tool block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#tool BedrockagentFlow#tool}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#tool BedrockagentFlow#tool}
         '''
         result = self._values.get("tool")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolChoiceTool"]]], result)
@@ -9872,7 +9872,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolChoiceTool:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__3c7317fdd314fcde5b09c612ec5f5d34aa82ac199b58ac826803333409747acf)
@@ -9883,7 +9883,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -10271,9 +10271,9 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
         input_schema: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolToolSpecInputSchema", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#description BedrockagentFlow#description}.
-        :param input_schema: input_schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#input_schema BedrockagentFlow#input_schema}
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#description BedrockagentFlow#description}.
+        :param input_schema: input_schema block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#input_schema BedrockagentFlow#input_schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2db46e22a55ab65c06dfce66121b3702f1ede025230ebedd88ec1e879e220b0e)
@@ -10290,14 +10290,14 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#description BedrockagentFlow#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#description BedrockagentFlow#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10307,7 +10307,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolToolSpecInputSchema"]]]:
         '''input_schema block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#input_schema BedrockagentFlow#input_schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#input_schema BedrockagentFlow#input_schema}
         '''
         result = self._values.get("input_schema")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolToolSpecInputSchema"]]], result)
@@ -10332,7 +10332,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationChatToolConfigurationToolToolSpecInputSchema:
     def __init__(self, *, json: typing.Optional[builtins.str] = None) -> None:
         '''
-        :param json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#json BedrockagentFlow#json}.
+        :param json: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#json BedrockagentFlow#json}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__236bc0a78a63a1c06344d7c78cea1df7e82e00d8cedd2b4b82d535bdff6818cd)
@@ -10343,7 +10343,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 
     @builtins.property
     def json(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#json BedrockagentFlow#json}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#json BedrockagentFlow#json}.'''
         result = self._values.get("json")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -10940,9 +10940,9 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
         input_variable: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationTextInputVariable", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}.
-        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
-        :param input_variable: input_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#input_variable BedrockagentFlow#input_variable}
+        :param text: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}.
+        :param cache_point: cache_point block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
+        :param input_variable: input_variable block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#input_variable BedrockagentFlow#input_variable}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__aa8da4494ad494d7253e32c802c58e58a68e579ca4ed53451268ef7539c06e3e)
@@ -10959,7 +10959,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 
     @builtins.property
     def text(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#text BedrockagentFlow#text}.'''
         result = self._values.get("text")
         assert result is not None, "Required property 'text' is missing"
         return typing.cast(builtins.str, result)
@@ -10970,7 +10970,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationTextCachePoint"]]]:
         '''cache_point block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#cache_point BedrockagentFlow#cache_point}
         '''
         result = self._values.get("cache_point")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationTextCachePoint"]]], result)
@@ -10981,7 +10981,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationTextInputVariable"]]]:
         '''input_variable block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#input_variable BedrockagentFlow#input_variable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#input_variable BedrockagentFlow#input_variable}
         '''
         result = self._values.get("input_variable")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationTextInputVariable"]]], result)
@@ -11006,7 +11006,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationTextCachePoint:
     def __init__(self, *, type: builtins.str) -> None:
         '''
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25009fd1eb2518754fc38b52c870bab65197faba217193e51c03b025ac2c3199)
@@ -11017,7 +11017,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -11196,7 +11196,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInlineTemplateConfigurationTextInputVariable:
     def __init__(self, *, name: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__591bbc23b22d7289e3f1a6fa6f5aa6622f441a55e7af980f8717b11515832408)
@@ -11207,7 +11207,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationInline
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
@@ -11801,7 +11801,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationOutput
 class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationResource:
     def __init__(self, *, resource_arn: builtins.str) -> None:
         '''
-        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#resource_arn BedrockagentFlow#resource_arn}.
+        :param resource_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#resource_arn BedrockagentFlow#resource_arn}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__14fb6c379381a77c27526a710837f9c9517b27cdd72368620ca6b1bafbb2e830)
@@ -11812,7 +11812,7 @@ class BedrockagentFlowDefinitionNodeConfigurationPromptSourceConfigurationResour
 
     @builtins.property
     def resource_arn(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#resource_arn BedrockagentFlow#resource_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#resource_arn BedrockagentFlow#resource_arn}.'''
         result = self._values.get("resource_arn")
         assert result is not None, "Required property 'resource_arn' is missing"
         return typing.cast(builtins.str, result)
@@ -11995,7 +11995,7 @@ class BedrockagentFlowDefinitionNodeConfigurationRetrieval:
         service_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationRetrievalServiceConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param service_configuration: service_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#service_configuration BedrockagentFlow#service_configuration}
+        :param service_configuration: service_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#service_configuration BedrockagentFlow#service_configuration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__85172b37379325660ec56665f363bf6e53e1da011c932e65d6786e2fbf22cc29)
@@ -12010,7 +12010,7 @@ class BedrockagentFlowDefinitionNodeConfigurationRetrieval:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationRetrievalServiceConfiguration"]]]:
         '''service_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#service_configuration BedrockagentFlow#service_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#service_configuration BedrockagentFlow#service_configuration}
         '''
         result = self._values.get("service_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationRetrievalServiceConfiguration"]]], result)
@@ -12207,7 +12207,7 @@ class BedrockagentFlowDefinitionNodeConfigurationRetrievalServiceConfiguration:
         s3: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationRetrievalServiceConfigurationS3", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#s3 BedrockagentFlow#s3}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#s3 BedrockagentFlow#s3}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__33e5d60f5364b17fa773c2574a9ec8c67fb8815eae29efb6c873e83bfd08cc4e)
@@ -12222,7 +12222,7 @@ class BedrockagentFlowDefinitionNodeConfigurationRetrievalServiceConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationRetrievalServiceConfigurationS3"]]]:
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#s3 BedrockagentFlow#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#s3 BedrockagentFlow#s3}
         '''
         result = self._values.get("s3")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationRetrievalServiceConfigurationS3"]]], result)
@@ -12415,7 +12415,7 @@ class BedrockagentFlowDefinitionNodeConfigurationRetrievalServiceConfigurationOu
 class BedrockagentFlowDefinitionNodeConfigurationRetrievalServiceConfigurationS3:
     def __init__(self, *, bucket_name: builtins.str) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#bucket_name BedrockagentFlow#bucket_name}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#bucket_name BedrockagentFlow#bucket_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__b9a2d050188361a69f89980b02cd30620cd0057a9473c2737798245264bfe7ac)
@@ -12426,7 +12426,7 @@ class BedrockagentFlowDefinitionNodeConfigurationRetrievalServiceConfigurationS3
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#bucket_name BedrockagentFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#bucket_name BedrockagentFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
@@ -12609,7 +12609,7 @@ class BedrockagentFlowDefinitionNodeConfigurationStorage:
         service_configuration: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationStorageServiceConfiguration", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param service_configuration: service_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#service_configuration BedrockagentFlow#service_configuration}
+        :param service_configuration: service_configuration block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#service_configuration BedrockagentFlow#service_configuration}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__d9ebaf67a67fa711572be34f1d3387e5e856a69b6155476fcce886ef062a8e98)
@@ -12624,7 +12624,7 @@ class BedrockagentFlowDefinitionNodeConfigurationStorage:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationStorageServiceConfiguration"]]]:
         '''service_configuration block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#service_configuration BedrockagentFlow#service_configuration}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#service_configuration BedrockagentFlow#service_configuration}
         '''
         result = self._values.get("service_configuration")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationStorageServiceConfiguration"]]], result)
@@ -12821,7 +12821,7 @@ class BedrockagentFlowDefinitionNodeConfigurationStorageServiceConfiguration:
         s3: typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.Sequence[typing.Union["BedrockagentFlowDefinitionNodeConfigurationStorageServiceConfigurationS3", typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
         '''
-        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#s3 BedrockagentFlow#s3}
+        :param s3: s3 block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#s3 BedrockagentFlow#s3}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__abc81c1242202171c7f4ea37d0289ccbd364358e5d9bccdb33d3f7e1afc4e7ff)
@@ -12836,7 +12836,7 @@ class BedrockagentFlowDefinitionNodeConfigurationStorageServiceConfiguration:
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationStorageServiceConfigurationS3"]]]:
         '''s3 block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#s3 BedrockagentFlow#s3}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#s3 BedrockagentFlow#s3}
         '''
         result = self._values.get("s3")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["BedrockagentFlowDefinitionNodeConfigurationStorageServiceConfigurationS3"]]], result)
@@ -13029,7 +13029,7 @@ class BedrockagentFlowDefinitionNodeConfigurationStorageServiceConfigurationOutp
 class BedrockagentFlowDefinitionNodeConfigurationStorageServiceConfigurationS3:
     def __init__(self, *, bucket_name: builtins.str) -> None:
         '''
-        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#bucket_name BedrockagentFlow#bucket_name}.
+        :param bucket_name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#bucket_name BedrockagentFlow#bucket_name}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c98132d6c08a31159265a1cd2c1664267790c2d0619ef5fa55616c9d2ebde2d8)
@@ -13040,7 +13040,7 @@ class BedrockagentFlowDefinitionNodeConfigurationStorageServiceConfigurationS3:
 
     @builtins.property
     def bucket_name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#bucket_name BedrockagentFlow#bucket_name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#bucket_name BedrockagentFlow#bucket_name}.'''
         result = self._values.get("bucket_name")
         assert result is not None, "Required property 'bucket_name' is missing"
         return typing.cast(builtins.str, result)
@@ -13231,10 +13231,10 @@ class BedrockagentFlowDefinitionNodeInput:
         category: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#expression BedrockagentFlow#expression}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
-        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#category BedrockagentFlow#category}.
+        :param expression: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#expression BedrockagentFlow#expression}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
+        :param category: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#category BedrockagentFlow#category}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__bbf534e930c7d88df92acbc7ef5c06482313efcc6ac19508c94dc4298600bb5a)
@@ -13252,28 +13252,28 @@ class BedrockagentFlowDefinitionNodeInput:
 
     @builtins.property
     def expression(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#expression BedrockagentFlow#expression}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#expression BedrockagentFlow#expression}.'''
         result = self._values.get("expression")
         assert result is not None, "Required property 'expression' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def category(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#category BedrockagentFlow#category}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#category BedrockagentFlow#category}.'''
         result = self._values.get("category")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -13599,8 +13599,8 @@ class BedrockagentFlowDefinitionNodeList(
 class BedrockagentFlowDefinitionNodeOutput:
     def __init__(self, *, name: builtins.str, type: builtins.str) -> None:
         '''
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
-        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.
+        :param type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__30bec327118f8bb2e9ff3498daf9dc523bde00b0114bc552fd1a25bdd893a177)
@@ -13613,14 +13613,14 @@ class BedrockagentFlowDefinitionNodeOutput:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#name BedrockagentFlow#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def type(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#type BedrockagentFlow#type}.'''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
         return typing.cast(builtins.str, result)
@@ -14089,9 +14089,9 @@ class BedrockagentFlowTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#create BedrockagentFlow#create}
-        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#delete BedrockagentFlow#delete}
-        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#update BedrockagentFlow#update}
+        :param create: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#create BedrockagentFlow#create}
+        :param delete: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#delete BedrockagentFlow#delete}
+        :param update: A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#update BedrockagentFlow#update}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__20acdc597c12579f85fe4f4d842970871c25d22b3f706c80c743910aa7915277)
@@ -14110,7 +14110,7 @@ class BedrockagentFlowTimeouts:
     def create(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#create BedrockagentFlow#create}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#create BedrockagentFlow#create}
         '''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14119,7 +14119,7 @@ class BedrockagentFlowTimeouts:
     def delete(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours). Setting a timeout for a Delete operation is only applicable if changes are saved into state before the destroy operation occurs.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#delete BedrockagentFlow#delete}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#delete BedrockagentFlow#delete}
         '''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -14128,7 +14128,7 @@ class BedrockagentFlowTimeouts:
     def update(self) -> typing.Optional[builtins.str]:
         '''A string that can be `parsed as a duration <https://pkg.go.dev/time#ParseDuration>`_ consisting of numbers and unit suffixes, such as "30s" or "2h45m". Valid time units are "s" (seconds), "m" (minutes), "h" (hours).
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/bedrockagent_flow#update BedrockagentFlow#update}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/bedrockagent_flow#update BedrockagentFlow#update}
         '''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)

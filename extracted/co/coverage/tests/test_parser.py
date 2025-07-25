@@ -922,10 +922,14 @@ class ExclusionParserTest(PythonParserTestBase):
                 log_message(msg, a)
                 b = my_function2()
                 # no cover: stop
+                count_this()
+                # no cover: start
+                but_not_this()
+                # no cover: stop
             """, regex)
-        assert parser.lines_matching(regex) == {4, 5, 6, 7}
-        assert parser.raw_statements == {1, 2, 3, 5, 6}
-        assert parser.statements == {1, 2, 3}
+        assert parser.lines_matching(regex) == {4, 5, 6, 7, 9, 10, 11}
+        assert parser.raw_statements == {1, 2, 3, 5, 6, 8, 10}
+        assert parser.statements == {1, 2, 3, 8}
 
     @pytest.mark.skipif(not env.PYBEHAVIOR.match_case, reason="Match-case is new in 3.10")
     def test_multiline_exclusion_block2(self) -> None:
@@ -1171,20 +1175,20 @@ class ParserFileTest(CoverageTest):
         # https://github.com/nedbat/coveragepy/issues/293
 
         self.make_file("normal.py", """\
-            out, err = subprocess.Popen(
-                [sys.executable, '-c', 'pass'],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE).communicate()
+            out, err = some_module.some_function(
+                ["my data", "-c", "pass"],
+                arg1=some_module.NAME,
+                arg2=some_module.OTHER_NAME).function()
             """)
 
         parser = self.parse_file("normal.py")
         assert parser.statements == {1}
 
         self.make_file("abrupt.py", """\
-            out, err = subprocess.Popen(
-                [sys.executable, '-c', 'pass'],
-                stdout=subprocess.PIPE,
-                stderr=subprocess.PIPE).communicate()""")   # no final newline.
+            out, err = some_module.some_function(
+                ["my data", "-c", "pass"],
+                arg1=some_module.NAME,
+                arg2=some_module.OTHER_NAME).function()""")   # no final newline.
 
         # Double-check that some test helper wasn't being helpful.
         with open("abrupt.py", encoding="utf-8") as f:

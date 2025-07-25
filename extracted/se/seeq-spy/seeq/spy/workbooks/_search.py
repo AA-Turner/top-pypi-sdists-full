@@ -7,10 +7,10 @@ from dataclasses import dataclass, field
 from datetime import timedelta
 from typing import Callable, Dict, List, Optional
 
+from seeq.sdk import *
+
 import numpy as np
 import pandas as pd
-
-from seeq.sdk import *
 from seeq.spy import _common
 from seeq.spy import _login
 from seeq.spy._errors import *
@@ -84,7 +84,7 @@ def search(query: dict, *, content_filter: str = 'owner', all_properties: bool =
         Name                Name of the workbook.
         Path                Path to the workbook through the folder hierarchy.
         Description         Description of the workbook.
-        Workbook Type       Either 'Analysis' or 'Topic'.
+        Workbook Type       One of 'Analysis', 'Topic', 'Project', or 'Vantage'
         =================== ===================================================
 
     content_filter : str, default 'owner'
@@ -341,7 +341,7 @@ def _process_content(context: WorkbookSearchContext, content: WorkbenchSearchRes
     absolute_path = parent_path
 
     _type = content.type or np.nan
-    if _type in ['Analysis', 'Topic']:
+    if _type in ['Analysis', 'Topic', 'Vantage']:
         # This is for backward compatibility with .49 and earlier, which used the same type (Workbook) for both
         # Analysis and Topic. Eventually we may want to deprecate "Workbook Type" and fold it into the "Type"
         # property.

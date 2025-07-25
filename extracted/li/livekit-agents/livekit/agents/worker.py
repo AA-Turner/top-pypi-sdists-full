@@ -296,7 +296,7 @@ class Worker(utils.EventEmitter[EventTypes]):
         if len(_InferenceRunner.registered_runners) > 0:
             self._inference_executor = ipc.inference_proc_executor.InferenceProcExecutor(
                 runners=_InferenceRunner.registered_runners,
-                initialize_timeout=30,
+                initialize_timeout=opts.initialize_process_timeout,
                 close_timeout=5,
                 memory_warn_mb=2000,
                 memory_limit_mb=0,  # no limit
@@ -377,7 +377,7 @@ class Worker(utils.EventEmitter[EventTypes]):
         )
 
         if self._opts.multiprocessing_context == "forkserver":
-            plugin_packages = [p.package for p in Plugin.registered_plugins]
+            plugin_packages = [p.package for p in Plugin.registered_plugins] + ["av"]
             logger.info("preloading plugins", extra={"packages": plugin_packages})
             self._mp_ctx.set_forkserver_preload(plugin_packages)
 

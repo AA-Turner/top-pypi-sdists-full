@@ -800,7 +800,7 @@ class CMAParameters(object):
      'c1_sep': ...0.0343279...,
      'cc': 0.171767...,
      'cc_sep': 0.252594...,
-     'cmean': array(1...,
+     'cmean': 1.0,
      'cmu': 0.00921656...,
      'cmu_sep': ...0.0565385...,
      'lam_mirr': 0,
@@ -843,11 +843,11 @@ class CMAParameters(object):
 
         def conedf(df, mu, N):
             """used for computing separable learning rate"""
-            return 1. / (df + 2. * np.sqrt(df) + float(mu) / N)
+            return 1. / float(df + 2. * df**0.5 + float(mu) / N)
 
         def cmudf(df, mu, alphamu):
             """used for computing separable learning rate"""
-            return (alphamu + mu + 1. / mu - 2) / (df + 4 * np.sqrt(df) + mu / 2.)
+            return float((alphamu + mu + 1. / mu - 2) / (df + 4 * df**0.5 + mu / 2.))
 
         sp = self  # mainly for historical reasons
         N = sp.N
@@ -922,7 +922,7 @@ class CMAParameters(object):
         # caveat: sp.c1 is NOT used in the update but for computing cmu
         # c1 given by interfaces.StatisticalModelSampler...parameters() equals to
         #    min((1, lam / 6)) * 2 / ((N + 1.3)**2 + mueff)
-        sp.c1_sep = opts['CMA_rankone'] * ccovfac * conedf(N, mueff, N)
+        sp.c1_sep = float(opts['CMA_rankone'] * ccovfac * conedf(N, mueff, N))
         if 11 < 3:
             sp.c1 = 0.
             print('c1 is zero')
@@ -949,7 +949,7 @@ class CMAParameters(object):
                          # cmu -> 1 for mu -> N**2 * (2 / alphacov)
             if hasattr(opts['vv'], '__getitem__') and 'sweep_ccov' in opts['vv']:
                 sp.cmu = opts['vv']['sweep_ccov']
-            sp.cmu_sep = min(1 - sp.c1_sep, ccovfac * cmudf(N, mueff, rankmu_offset))
+            sp.cmu_sep = float(min(1 - sp.c1_sep, ccovfac * cmudf(N, mueff, rankmu_offset)))
         else:
             sp.cmu = sp.cmu_sep = 0
         if hasattr(opts['vv'], '__getitem__') and 'sweep_ccov1' in opts['vv']:
@@ -983,7 +983,7 @@ class CMAParameters(object):
             # sp.damps = 20 # 1. + 20 * sp.cs**-1  # 1e99 # (1 + 2*max(0,sqrt((mueff-1)/(N+1))-1)) + sp.cs;
             print('damps is %f' % (sp.damps))
 
-        sp.cmean = np.asarray(opts['CMA_cmean'], dtype=float)
+        sp.cmean = float(opts['CMA_cmean'])
         # sp.kappa = 1  # 4-D, lam=16, rank1, kappa < 4 does not influence convergence rate
                         # in larger dim it does, 15-D with defaults, kappa=8 factor 2
         if 11 < 3 and np.any(sp.cmean != 1):

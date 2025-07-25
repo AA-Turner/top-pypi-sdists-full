@@ -1,7 +1,7 @@
 r'''
 # `snowflake_compute_pool`
 
-Refer to the Terraform Registry for docs: [`snowflake_compute_pool`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool).
+Refer to the Terraform Registry for docs: [`snowflake_compute_pool`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ComputePool(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.computePool.ComputePool",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool snowflake_compute_pool}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool snowflake_compute_pool}.'''
 
     def __init__(
         self,
@@ -70,21 +70,21 @@ class ComputePool(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool snowflake_compute_pool} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool snowflake_compute_pool} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param instance_family: Identifies the type of machine you want to provision for the nodes in the compute pool. Valid values are (case-insensitive): ``CPU_X64_XS`` | ``CPU_X64_S`` | ``CPU_X64_M`` | ``CPU_X64_L`` | ``HIGHMEM_X64_S`` | ``HIGHMEM_X64_M`` | ``HIGHMEM_X64_L`` | ``HIGHMEM_X64_SL`` | ``GPU_NV_S`` | ``GPU_NV_M`` | ``GPU_NV_L`` | ``GPU_NV_XS`` | ``GPU_NV_SM`` | ``GPU_NV_2M`` | ``GPU_NV_3M`` | ``GPU_NV_SL``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#instance_family ComputePool#instance_family}
-        :param max_nodes: Specifies the maximum number of nodes for the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#max_nodes ComputePool#max_nodes}
-        :param min_nodes: Specifies the minimum number of nodes for the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#min_nodes ComputePool#min_nodes}
-        :param name: Specifies the identifier for the compute pool; must be unique for the account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#name ComputePool#name}
-        :param auto_resume: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to automatically resume a compute pool when a service or job is submitted to it. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#auto_resume ComputePool#auto_resume}
-        :param auto_suspend_secs: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#auto_suspend_secs ComputePool#auto_suspend_secs}
-        :param comment: Specifies a comment for the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#comment ComputePool#comment}
-        :param for_application: Specifies the Snowflake Native App name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#for_application ComputePool#for_application}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#id ComputePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initially_suspended: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether the compute pool is created initially in the suspended state. This field is used only when creating a compute pool. Changes on this field are ignored after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#initially_suspended ComputePool#initially_suspended}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#timeouts ComputePool#timeouts}
+        :param instance_family: Identifies the type of machine you want to provision for the nodes in the compute pool. Valid values are (case-insensitive): ``CPU_X64_XS`` | ``CPU_X64_S`` | ``CPU_X64_M`` | ``CPU_X64_L`` | ``HIGHMEM_X64_S`` | ``HIGHMEM_X64_M`` | ``HIGHMEM_X64_L`` | ``HIGHMEM_X64_SL`` | ``GPU_NV_S`` | ``GPU_NV_M`` | ``GPU_NV_L`` | ``GPU_NV_XS`` | ``GPU_NV_SM`` | ``GPU_NV_2M`` | ``GPU_NV_3M`` | ``GPU_NV_SL``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#instance_family ComputePool#instance_family}
+        :param max_nodes: Specifies the maximum number of nodes for the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#max_nodes ComputePool#max_nodes}
+        :param min_nodes: Specifies the minimum number of nodes for the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#min_nodes ComputePool#min_nodes}
+        :param name: Specifies the identifier for the compute pool; must be unique for the account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#name ComputePool#name}
+        :param auto_resume: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to automatically resume a compute pool when a service or job is submitted to it. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#auto_resume ComputePool#auto_resume}
+        :param auto_suspend_secs: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#auto_suspend_secs ComputePool#auto_suspend_secs}
+        :param comment: Specifies a comment for the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#comment ComputePool#comment}
+        :param for_application: Specifies the Snowflake Native App name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#for_application ComputePool#for_application}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#id ComputePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initially_suspended: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether the compute pool is created initially in the suspended state. This field is used only when creating a compute pool. Changes on this field are ignored after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#initially_suspended ComputePool#initially_suspended}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#timeouts ComputePool#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -133,7 +133,7 @@ class ComputePool(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ComputePool to import.
-        :param import_from_id: The id of the existing ComputePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ComputePool that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ComputePool to import is found.
         '''
         if __debug__:
@@ -154,10 +154,10 @@ class ComputePool(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#create ComputePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#delete ComputePool#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#read ComputePool#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#update ComputePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#create ComputePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#delete ComputePool#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#read ComputePool#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#update ComputePool#update}.
         '''
         value = ComputePoolTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -459,17 +459,17 @@ class ComputePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param instance_family: Identifies the type of machine you want to provision for the nodes in the compute pool. Valid values are (case-insensitive): ``CPU_X64_XS`` | ``CPU_X64_S`` | ``CPU_X64_M`` | ``CPU_X64_L`` | ``HIGHMEM_X64_S`` | ``HIGHMEM_X64_M`` | ``HIGHMEM_X64_L`` | ``HIGHMEM_X64_SL`` | ``GPU_NV_S`` | ``GPU_NV_M`` | ``GPU_NV_L`` | ``GPU_NV_XS`` | ``GPU_NV_SM`` | ``GPU_NV_2M`` | ``GPU_NV_3M`` | ``GPU_NV_SL``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#instance_family ComputePool#instance_family}
-        :param max_nodes: Specifies the maximum number of nodes for the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#max_nodes ComputePool#max_nodes}
-        :param min_nodes: Specifies the minimum number of nodes for the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#min_nodes ComputePool#min_nodes}
-        :param name: Specifies the identifier for the compute pool; must be unique for the account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#name ComputePool#name}
-        :param auto_resume: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to automatically resume a compute pool when a service or job is submitted to it. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#auto_resume ComputePool#auto_resume}
-        :param auto_suspend_secs: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#auto_suspend_secs ComputePool#auto_suspend_secs}
-        :param comment: Specifies a comment for the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#comment ComputePool#comment}
-        :param for_application: Specifies the Snowflake Native App name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#for_application ComputePool#for_application}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#id ComputePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param initially_suspended: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether the compute pool is created initially in the suspended state. This field is used only when creating a compute pool. Changes on this field are ignored after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#initially_suspended ComputePool#initially_suspended}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#timeouts ComputePool#timeouts}
+        :param instance_family: Identifies the type of machine you want to provision for the nodes in the compute pool. Valid values are (case-insensitive): ``CPU_X64_XS`` | ``CPU_X64_S`` | ``CPU_X64_M`` | ``CPU_X64_L`` | ``HIGHMEM_X64_S`` | ``HIGHMEM_X64_M`` | ``HIGHMEM_X64_L`` | ``HIGHMEM_X64_SL`` | ``GPU_NV_S`` | ``GPU_NV_M`` | ``GPU_NV_L`` | ``GPU_NV_XS`` | ``GPU_NV_SM`` | ``GPU_NV_2M`` | ``GPU_NV_3M`` | ``GPU_NV_SL``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#instance_family ComputePool#instance_family}
+        :param max_nodes: Specifies the maximum number of nodes for the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#max_nodes ComputePool#max_nodes}
+        :param min_nodes: Specifies the minimum number of nodes for the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#min_nodes ComputePool#min_nodes}
+        :param name: Specifies the identifier for the compute pool; must be unique for the account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#name ComputePool#name}
+        :param auto_resume: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether to automatically resume a compute pool when a service or job is submitted to it. Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#auto_resume ComputePool#auto_resume}
+        :param auto_suspend_secs: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#auto_suspend_secs ComputePool#auto_suspend_secs}
+        :param comment: Specifies a comment for the compute pool. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#comment ComputePool#comment}
+        :param for_application: Specifies the Snowflake Native App name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#for_application ComputePool#for_application}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#id ComputePool#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param initially_suspended: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``default``)) Specifies whether the compute pool is created initially in the suspended state. This field is used only when creating a compute pool. Changes on this field are ignored after creation. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#initially_suspended ComputePool#initially_suspended}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#timeouts ComputePool#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -600,7 +600,7 @@ class ComputePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Valid values are (case-insensitive): ``CPU_X64_XS`` | ``CPU_X64_S`` | ``CPU_X64_M`` | ``CPU_X64_L`` | ``HIGHMEM_X64_S`` | ``HIGHMEM_X64_M`` | ``HIGHMEM_X64_L`` | ``HIGHMEM_X64_SL`` | ``GPU_NV_S`` | ``GPU_NV_M`` | ``GPU_NV_L`` | ``GPU_NV_XS`` | ``GPU_NV_SM`` | ``GPU_NV_2M`` | ``GPU_NV_3M`` | ``GPU_NV_SL``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#instance_family ComputePool#instance_family}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#instance_family ComputePool#instance_family}
         '''
         result = self._values.get("instance_family")
         assert result is not None, "Required property 'instance_family' is missing"
@@ -610,7 +610,7 @@ class ComputePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def max_nodes(self) -> jsii.Number:
         '''Specifies the maximum number of nodes for the compute pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#max_nodes ComputePool#max_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#max_nodes ComputePool#max_nodes}
         '''
         result = self._values.get("max_nodes")
         assert result is not None, "Required property 'max_nodes' is missing"
@@ -620,7 +620,7 @@ class ComputePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def min_nodes(self) -> jsii.Number:
         '''Specifies the minimum number of nodes for the compute pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#min_nodes ComputePool#min_nodes}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#min_nodes ComputePool#min_nodes}
         '''
         result = self._values.get("min_nodes")
         assert result is not None, "Required property 'min_nodes' is missing"
@@ -632,7 +632,7 @@ class ComputePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for the account. Due to technical limitations (read more `here <../guides/identifiers_rework_design_decisions#known-limitations-and-identifier-recommendations>`_), avoid using the following characters: ``|``, ``.``, ``"``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#name ComputePool#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#name ComputePool#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -644,7 +644,7 @@ class ComputePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Available options are: "true" or "false". When the value is not set in the configuration the provider will put "default" there which means to use the Snowflake default for this value.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#auto_resume ComputePool#auto_resume}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#auto_resume ComputePool#auto_resume}
         '''
         result = self._values.get("auto_resume")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -653,7 +653,7 @@ class ComputePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_suspend_secs(self) -> typing.Optional[jsii.Number]:
         '''(Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Number of seconds of inactivity after which you want Snowflake to automatically suspend the compute pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#auto_suspend_secs ComputePool#auto_suspend_secs}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#auto_suspend_secs ComputePool#auto_suspend_secs}
         '''
         result = self._values.get("auto_suspend_secs")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -662,7 +662,7 @@ class ComputePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the compute pool.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#comment ComputePool#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#comment ComputePool#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -671,14 +671,14 @@ class ComputePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def for_application(self) -> typing.Optional[builtins.str]:
         '''Specifies the Snowflake Native App name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#for_application ComputePool#for_application}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#for_application ComputePool#for_application}
         '''
         result = self._values.get("for_application")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#id ComputePool#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#id ComputePool#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -692,7 +692,7 @@ class ComputePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This field is used only when creating a compute pool. Changes on this field are ignored after creation.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#initially_suspended ComputePool#initially_suspended}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#initially_suspended ComputePool#initially_suspended}
         '''
         result = self._values.get("initially_suspended")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -701,7 +701,7 @@ class ComputePoolConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["ComputePoolTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#timeouts ComputePool#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#timeouts ComputePool#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["ComputePoolTimeouts"], result)
@@ -1204,10 +1204,10 @@ class ComputePoolTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#create ComputePool#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#delete ComputePool#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#read ComputePool#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#update ComputePool#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#create ComputePool#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#delete ComputePool#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#read ComputePool#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#update ComputePool#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__468925fcc2fbdf0f51942085217d815285593aa67d2b19c8b3105c9c7a53d864)
@@ -1227,25 +1227,25 @@ class ComputePoolTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#create ComputePool#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#create ComputePool#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#delete ComputePool#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#delete ComputePool#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#read ComputePool#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#read ComputePool#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/compute_pool#update ComputePool#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/compute_pool#update ComputePool#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

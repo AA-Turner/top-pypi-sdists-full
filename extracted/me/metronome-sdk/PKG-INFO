@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: metronome-sdk
-Version: 0.1.0b10
+Version: 0.1.0
 Summary: The official Python library for the metronome API
 Project-URL: Homepage, https://github.com/Metronome-Industries/metronome-python
 Project-URL: Repository, https://github.com/Metronome-Industries/metronome-python
@@ -35,10 +35,6 @@ Description-Content-Type: text/markdown
 
 # Metronome Python API library
 
-> [!WARNING]
-> This is prerelease software that is not ready for production use. There may be bugs and
-> there will be breaking changes version to version. Use at your own risk.
-
 <!-- prettier-ignore -->
 [![PyPI version](https://img.shields.io/pypi/v/metronome-sdk.svg?label=pypi%20(stable))](https://pypi.org/project/metronome-sdk/)
 
@@ -54,7 +50,7 @@ The REST API documentation can be found on [docs.metronome.com](https://docs.met
 
 ```sh
 # install from PyPI
-pip install --pre metronome-sdk
+pip install metronome-sdk
 ```
 
 ## Usage
@@ -136,7 +132,7 @@ You can enable this by installing `aiohttp`:
 
 ```sh
 # install from PyPI
-pip install --pre metronome-sdk[aiohttp]
+pip install metronome-sdk[aiohttp]
 ```
 
 Then you can enable it by instantiating the client with `http_client=DefaultAioHttpClient()`:

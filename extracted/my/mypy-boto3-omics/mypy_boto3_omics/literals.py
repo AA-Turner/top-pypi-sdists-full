@@ -95,6 +95,7 @@ __all__ = (
     "ServiceName",
     "ShareResourceTypeType",
     "ShareStatusType",
+    "SourceReferenceTypeType",
     "StorageTypeType",
     "StoreFormatType",
     "StoreStatusType",
@@ -239,6 +240,7 @@ SchemaValueTypeType = Literal["BOOLEAN", "DOUBLE", "FLOAT", "INT", "LONG", "STRI
 SequenceStoreStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 ShareResourceTypeType = Literal["ANNOTATION_STORE", "VARIANT_STORE", "WORKFLOW"]
 ShareStatusType = Literal["ACTIVATING", "ACTIVE", "DELETED", "DELETING", "FAILED", "PENDING"]
+SourceReferenceTypeType = Literal["BRANCH", "COMMIT", "TAG"]
 StorageTypeType = Literal["DYNAMIC", "STATIC"]
 StoreFormatType = Literal["GFF", "TSV", "VCF"]
 StoreStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
@@ -254,7 +256,7 @@ VariantStoreDeletedWaiterName = Literal["variant_store_deleted"]
 VersionStatusType = Literal["ACTIVE", "CREATING", "DELETING", "FAILED", "UPDATING"]
 WorkflowActiveWaiterName = Literal["workflow_active"]
 WorkflowEngineType = Literal["CWL", "NEXTFLOW", "WDL"]
-WorkflowExportType = Literal["DEFINITION"]
+WorkflowExportType = Literal["DEFINITION", "README"]
 WorkflowStatusType = Literal["ACTIVE", "CREATING", "DELETED", "FAILED", "INACTIVE", "UPDATING"]
 WorkflowTypeType = Literal["PRIVATE", "READY2RUN"]
 WorkflowVersionActiveWaiterName = Literal["workflow_version_active"]
@@ -302,6 +304,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -534,6 +538,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -594,6 +599,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

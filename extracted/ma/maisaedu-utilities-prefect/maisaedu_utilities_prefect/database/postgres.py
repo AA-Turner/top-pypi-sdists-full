@@ -124,8 +124,8 @@ def select(conn, str, params=None):
 def execute(conn, str, default_commit=True, params=None):
     cur = conn.cursor()
     try:
-        #if ";" in str:
-        #    raise ValueError("Semicolon detected in SQL statement, which is not allowed.")
+        if ";" in str:
+            raise ValueError("Semicolon detected in SQL statement, which is not allowed.")
         
         cur.execute(str, params)
         if default_commit:
@@ -153,9 +153,9 @@ def execute_vacuum(conn, table_name, full = False):
         cur.close()
         raise error
     
-def detect_sql_injection(input_string):
-    if not input_string or not isinstance(input_string, str):
-        return False 
+def detect_sql_injection(input):
+    if not input or not isinstance(input, str):
+        return input
 
     sql_patterns = [
         r"(--|\#|\/\*)",  # Comments SQL
@@ -167,14 +167,13 @@ def detect_sql_injection(input_string):
         r"(\bEXEC\s*\()",  # Remote execution
     ]
 
-    normalized_string = input_string.lower().strip()
+    normalized_string = input.lower().strip()
 
     for pattern in sql_patterns:
         if re.search(pattern, normalized_string, re.IGNORECASE):
             raise ValueError("SQL Injection detected")
         
-
-    return input_string
+    return input
 
 def detect_sql_injection_in_select_statement(select_statement):
     if not select_statement or not isinstance(select_statement, str):

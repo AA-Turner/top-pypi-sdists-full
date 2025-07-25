@@ -120,6 +120,9 @@ __all__ = (
     "AddEntityOwnerInputTypeDef",
     "AddPolicyGrantInputTypeDef",
     "AddToProjectMemberPoolPolicyGrantDetailTypeDef",
+    "AggregationListItemTypeDef",
+    "AggregationOutputItemTypeDef",
+    "AggregationOutputTypeDef",
     "AssetFilterConfigurationOutputTypeDef",
     "AssetFilterConfigurationTypeDef",
     "AssetFilterConfigurationUnionTypeDef",
@@ -224,6 +227,7 @@ __all__ = (
     "CreateUserProfileInputTypeDef",
     "CreateUserProfileOutputTypeDef",
     "CustomParameterTypeDef",
+    "DataProductItemAdditionalAttributesTypeDef",
     "DataProductItemOutputTypeDef",
     "DataProductItemTypeDef",
     "DataProductItemUnionTypeDef",
@@ -383,7 +387,9 @@ __all__ = (
     "GetTimeSeriesDataPointOutputTypeDef",
     "GetUserProfileInputTypeDef",
     "GetUserProfileOutputTypeDef",
+    "GlossaryItemAdditionalAttributesTypeDef",
     "GlossaryItemTypeDef",
+    "GlossaryTermItemAdditionalAttributesTypeDef",
     "GlossaryTermItemTypeDef",
     "GlueConnectionInputTypeDef",
     "GlueConnectionPatchTypeDef",
@@ -527,6 +533,8 @@ __all__ = (
     "ListingRevisionTypeDef",
     "ListingSummaryItemTypeDef",
     "ListingSummaryTypeDef",
+    "MatchOffsetTypeDef",
+    "MatchRationaleItemTypeDef",
     "MemberDetailsTypeDef",
     "MemberTypeDef",
     "MetadataFormEnforcementDetailOutputTypeDef",
@@ -692,6 +700,7 @@ __all__ = (
     "TermRelationsOutputTypeDef",
     "TermRelationsTypeDef",
     "TermRelationsUnionTypeDef",
+    "TextMatchItemTypeDef",
     "TimeSeriesDataPointFormInputTypeDef",
     "TimeSeriesDataPointFormOutputTypeDef",
     "TimeSeriesDataPointSummaryFormOutputTypeDef",
@@ -774,6 +783,15 @@ class AwsConsoleLinkParametersTypeDef(TypedDict):
 
 class AddToProjectMemberPoolPolicyGrantDetailTypeDef(TypedDict):
     includeChildDomainUnits: NotRequired[bool]
+
+class AggregationListItemTypeDef(TypedDict):
+    attribute: str
+    displayValue: NotRequired[str]
+
+class AggregationOutputItemTypeDef(TypedDict):
+    count: NotRequired[int]
+    displayValue: NotRequired[str]
+    value: NotRequired[str]
 
 class ColumnFilterConfigurationOutputTypeDef(TypedDict):
     includedColumnNames: NotRequired[List[str]]
@@ -1119,24 +1137,6 @@ class DataProductItemTypeDef(TypedDict):
     glossaryTerms: NotRequired[Sequence[str]]
     revision: NotRequired[str]
 
-class DataProductListingItemAdditionalAttributesTypeDef(TypedDict):
-    forms: NotRequired[str]
-
-DataProductResultItemTypeDef = TypedDict(
-    "DataProductResultItemTypeDef",
-    {
-        "domainId": str,
-        "id": str,
-        "name": str,
-        "owningProjectId": str,
-        "createdAt": NotRequired[datetime],
-        "createdBy": NotRequired[str],
-        "description": NotRequired[str],
-        "firstRevisionCreatedAt": NotRequired[datetime],
-        "firstRevisionCreatedBy": NotRequired[str],
-        "glossaryTerms": NotRequired[List[str]],
-    },
-)
 DataProductRevisionTypeDef = TypedDict(
     "DataProductRevisionTypeDef",
     {
@@ -1573,21 +1573,6 @@ GetUserProfileInputTypeDef = TypedDict(
         "type": NotRequired[UserProfileTypeType],
     },
 )
-GlossaryItemTypeDef = TypedDict(
-    "GlossaryItemTypeDef",
-    {
-        "domainId": str,
-        "id": str,
-        "name": str,
-        "owningProjectId": str,
-        "status": GlossaryStatusType,
-        "createdAt": NotRequired[datetime],
-        "createdBy": NotRequired[str],
-        "description": NotRequired[str],
-        "updatedAt": NotRequired[datetime],
-        "updatedBy": NotRequired[str],
-    },
-)
 
 class PhysicalConnectionRequirementsOutputTypeDef(TypedDict):
     availabilityZone: NotRequired[str]
@@ -1959,6 +1944,10 @@ class ListSubscriptionsInputTypeDef(TypedDict):
 
 class ListTagsForResourceRequestTypeDef(TypedDict):
     resourceArn: str
+
+class MatchOffsetTypeDef(TypedDict):
+    endOffset: NotRequired[int]
+    startOffset: NotRequired[int]
 
 class UserDetailsTypeDef(TypedDict):
     userId: str
@@ -2355,21 +2344,15 @@ class AcceptSubscriptionRequestInputTypeDef(TypedDict):
 class ActionParametersTypeDef(TypedDict):
     awsConsoleLink: NotRequired[AwsConsoleLinkParametersTypeDef]
 
+class AggregationOutputTypeDef(TypedDict):
+    attribute: NotRequired[str]
+    displayValue: NotRequired[str]
+    items: NotRequired[List[AggregationOutputItemTypeDef]]
+
 class ListAssetFiltersOutputTypeDef(TypedDict):
     items: List[AssetFilterSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
-
-class AssetItemAdditionalAttributesTypeDef(TypedDict):
-    formsOutput: NotRequired[List[FormOutputTypeDef]]
-    latestTimeSeriesDataPointFormsOutput: NotRequired[
-        List[TimeSeriesDataPointSummaryFormOutputTypeDef]
-    ]
-    readOnlyFormsOutput: NotRequired[List[FormOutputTypeDef]]
-
-class AssetListingItemAdditionalAttributesTypeDef(TypedDict):
-    forms: NotRequired[str]
-    latestTimeSeriesDataPointForms: NotRequired[List[TimeSeriesDataPointSummaryFormOutputTypeDef]]
 
 class ListTimeSeriesDataPointsOutputTypeDef(TypedDict):
     items: List[TimeSeriesDataPointSummaryFormOutputTypeDef]
@@ -2831,23 +2814,6 @@ GetGlossaryTermOutputTypeDef = TypedDict(
         "updatedAt": datetime,
         "updatedBy": str,
         "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-GlossaryTermItemTypeDef = TypedDict(
-    "GlossaryTermItemTypeDef",
-    {
-        "domainId": str,
-        "glossaryId": str,
-        "id": str,
-        "name": str,
-        "status": GlossaryTermStatusType,
-        "createdAt": NotRequired[datetime],
-        "createdBy": NotRequired[str],
-        "longDescription": NotRequired[str],
-        "shortDescription": NotRequired[str],
-        "termRelations": NotRequired[TermRelationsOutputTypeDef],
-        "updatedAt": NotRequired[datetime],
-        "updatedBy": NotRequired[str],
     },
 )
 UpdateGlossaryTermOutputTypeDef = TypedDict(
@@ -3659,6 +3625,11 @@ class ListProjectProfilesOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
+class TextMatchItemTypeDef(TypedDict):
+    attribute: NotRequired[str]
+    matchOffsets: NotRequired[List[MatchOffsetTypeDef]]
+    text: NotRequired[str]
+
 class MemberDetailsTypeDef(TypedDict):
     group: NotRequired[GroupDetailsTypeDef]
     user: NotRequired[UserDetailsTypeDef]
@@ -3914,52 +3885,6 @@ UpdateEnvironmentActionOutputTypeDef = TypedDict(
         "ResponseMetadata": ResponseMetadataTypeDef,
     },
 )
-
-class AssetItemTypeDef(TypedDict):
-    domainId: str
-    identifier: str
-    name: str
-    owningProjectId: str
-    typeIdentifier: str
-    typeRevision: str
-    additionalAttributes: NotRequired[AssetItemAdditionalAttributesTypeDef]
-    createdAt: NotRequired[datetime]
-    createdBy: NotRequired[str]
-    description: NotRequired[str]
-    externalIdentifier: NotRequired[str]
-    firstRevisionCreatedAt: NotRequired[datetime]
-    firstRevisionCreatedBy: NotRequired[str]
-    glossaryTerms: NotRequired[List[str]]
-
-class AssetListingItemTypeDef(TypedDict):
-    additionalAttributes: NotRequired[AssetListingItemAdditionalAttributesTypeDef]
-    createdAt: NotRequired[datetime]
-    description: NotRequired[str]
-    entityId: NotRequired[str]
-    entityRevision: NotRequired[str]
-    entityType: NotRequired[str]
-    glossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
-    listingCreatedBy: NotRequired[str]
-    listingId: NotRequired[str]
-    listingRevision: NotRequired[str]
-    listingUpdatedBy: NotRequired[str]
-    name: NotRequired[str]
-    owningProjectId: NotRequired[str]
-
-class DataProductListingItemTypeDef(TypedDict):
-    additionalAttributes: NotRequired[DataProductListingItemAdditionalAttributesTypeDef]
-    createdAt: NotRequired[datetime]
-    description: NotRequired[str]
-    entityId: NotRequired[str]
-    entityRevision: NotRequired[str]
-    glossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
-    items: NotRequired[List[ListingSummaryItemTypeDef]]
-    listingCreatedBy: NotRequired[str]
-    listingId: NotRequired[str]
-    listingRevision: NotRequired[str]
-    listingUpdatedBy: NotRequired[str]
-    name: NotRequired[str]
-    owningProjectId: NotRequired[str]
 
 class DataProductListingTypeDef(TypedDict):
     createdAt: NotRequired[datetime]
@@ -4367,6 +4292,7 @@ class SearchInputPaginateTypeDef(TypedDict):
 class SearchListingsInputPaginateTypeDef(TypedDict):
     domainIdentifier: str
     additionalAttributes: NotRequired[Sequence[SearchOutputAdditionalAttributeType]]
+    aggregations: NotRequired[Sequence[AggregationListItemTypeDef]]
     filters: NotRequired[FilterClausePaginatorTypeDef]
     searchIn: NotRequired[Sequence[SearchInItemTypeDef]]
     searchText: NotRequired[str]
@@ -4398,6 +4324,7 @@ class SearchInputTypeDef(TypedDict):
 class SearchListingsInputTypeDef(TypedDict):
     domainIdentifier: str
     additionalAttributes: NotRequired[Sequence[SearchOutputAdditionalAttributeType]]
+    aggregations: NotRequired[Sequence[AggregationListItemTypeDef]]
     filters: NotRequired[FilterClauseTypeDef]
     maxResults: NotRequired[int]
     nextToken: NotRequired[str]
@@ -4590,6 +4517,9 @@ class ProvisioningConfigurationTypeDef(TypedDict):
 
 class JobRunDetailsTypeDef(TypedDict):
     lineageRunDetails: NotRequired[LineageRunDetailsTypeDef]
+
+class MatchRationaleItemTypeDef(TypedDict):
+    textMatches: NotRequired[List[TextMatchItemTypeDef]]
 
 class ProjectMemberTypeDef(TypedDict):
     designation: UserDesignationType
@@ -4791,16 +4721,6 @@ class ListEnvironmentActionsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
-class SearchInventoryResultItemTypeDef(TypedDict):
-    assetItem: NotRequired[AssetItemTypeDef]
-    dataProductItem: NotRequired[DataProductResultItemTypeDef]
-    glossaryItem: NotRequired[GlossaryItemTypeDef]
-    glossaryTermItem: NotRequired[GlossaryTermItemTypeDef]
-
-class SearchResultItemTypeDef(TypedDict):
-    assetListing: NotRequired[AssetListingItemTypeDef]
-    dataProductListing: NotRequired[DataProductListingItemTypeDef]
-
 class ListingItemTypeDef(TypedDict):
     assetListing: NotRequired[AssetListingTypeDef]
     dataProductListing: NotRequired[DataProductListingTypeDef]
@@ -4973,6 +4893,32 @@ GetJobRunOutputTypeDef = TypedDict(
     },
 )
 
+class AssetItemAdditionalAttributesTypeDef(TypedDict):
+    formsOutput: NotRequired[List[FormOutputTypeDef]]
+    latestTimeSeriesDataPointFormsOutput: NotRequired[
+        List[TimeSeriesDataPointSummaryFormOutputTypeDef]
+    ]
+    matchRationale: NotRequired[List[MatchRationaleItemTypeDef]]
+    readOnlyFormsOutput: NotRequired[List[FormOutputTypeDef]]
+
+class AssetListingItemAdditionalAttributesTypeDef(TypedDict):
+    forms: NotRequired[str]
+    latestTimeSeriesDataPointForms: NotRequired[List[TimeSeriesDataPointSummaryFormOutputTypeDef]]
+    matchRationale: NotRequired[List[MatchRationaleItemTypeDef]]
+
+class DataProductItemAdditionalAttributesTypeDef(TypedDict):
+    matchRationale: NotRequired[List[MatchRationaleItemTypeDef]]
+
+class DataProductListingItemAdditionalAttributesTypeDef(TypedDict):
+    forms: NotRequired[str]
+    matchRationale: NotRequired[List[MatchRationaleItemTypeDef]]
+
+class GlossaryItemAdditionalAttributesTypeDef(TypedDict):
+    matchRationale: NotRequired[List[MatchRationaleItemTypeDef]]
+
+class GlossaryTermItemAdditionalAttributesTypeDef(TypedDict):
+    matchRationale: NotRequired[List[MatchRationaleItemTypeDef]]
+
 class ListProjectMembershipsOutputTypeDef(TypedDict):
     members: List[ProjectMemberTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5102,18 +5048,6 @@ class DataSourceConfigurationOutputTypeDef(TypedDict):
 
 class SearchUserProfilesOutputTypeDef(TypedDict):
     items: List[UserProfileSummaryTypeDef]
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class SearchOutputTypeDef(TypedDict):
-    items: List[SearchInventoryResultItemTypeDef]
-    totalMatchCount: int
-    ResponseMetadata: ResponseMetadataTypeDef
-    nextToken: NotRequired[str]
-
-class SearchListingsOutputTypeDef(TypedDict):
-    items: List[SearchResultItemTypeDef]
-    totalMatchCount: int
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
 
@@ -5356,6 +5290,104 @@ class PutEnvironmentBlueprintConfigurationInputTypeDef(TypedDict):
     provisioningConfigurations: NotRequired[Sequence[ProvisioningConfigurationUnionTypeDef]]
     provisioningRoleArn: NotRequired[str]
     regionalParameters: NotRequired[Mapping[str, Mapping[str, str]]]
+
+class AssetItemTypeDef(TypedDict):
+    domainId: str
+    identifier: str
+    name: str
+    owningProjectId: str
+    typeIdentifier: str
+    typeRevision: str
+    additionalAttributes: NotRequired[AssetItemAdditionalAttributesTypeDef]
+    createdAt: NotRequired[datetime]
+    createdBy: NotRequired[str]
+    description: NotRequired[str]
+    externalIdentifier: NotRequired[str]
+    firstRevisionCreatedAt: NotRequired[datetime]
+    firstRevisionCreatedBy: NotRequired[str]
+    glossaryTerms: NotRequired[List[str]]
+
+class AssetListingItemTypeDef(TypedDict):
+    additionalAttributes: NotRequired[AssetListingItemAdditionalAttributesTypeDef]
+    createdAt: NotRequired[datetime]
+    description: NotRequired[str]
+    entityId: NotRequired[str]
+    entityRevision: NotRequired[str]
+    entityType: NotRequired[str]
+    glossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
+    listingCreatedBy: NotRequired[str]
+    listingId: NotRequired[str]
+    listingRevision: NotRequired[str]
+    listingUpdatedBy: NotRequired[str]
+    name: NotRequired[str]
+    owningProjectId: NotRequired[str]
+
+DataProductResultItemTypeDef = TypedDict(
+    "DataProductResultItemTypeDef",
+    {
+        "domainId": str,
+        "id": str,
+        "name": str,
+        "owningProjectId": str,
+        "additionalAttributes": NotRequired[DataProductItemAdditionalAttributesTypeDef],
+        "createdAt": NotRequired[datetime],
+        "createdBy": NotRequired[str],
+        "description": NotRequired[str],
+        "firstRevisionCreatedAt": NotRequired[datetime],
+        "firstRevisionCreatedBy": NotRequired[str],
+        "glossaryTerms": NotRequired[List[str]],
+    },
+)
+
+class DataProductListingItemTypeDef(TypedDict):
+    additionalAttributes: NotRequired[DataProductListingItemAdditionalAttributesTypeDef]
+    createdAt: NotRequired[datetime]
+    description: NotRequired[str]
+    entityId: NotRequired[str]
+    entityRevision: NotRequired[str]
+    glossaryTerms: NotRequired[List[DetailedGlossaryTermTypeDef]]
+    items: NotRequired[List[ListingSummaryItemTypeDef]]
+    listingCreatedBy: NotRequired[str]
+    listingId: NotRequired[str]
+    listingRevision: NotRequired[str]
+    listingUpdatedBy: NotRequired[str]
+    name: NotRequired[str]
+    owningProjectId: NotRequired[str]
+
+GlossaryItemTypeDef = TypedDict(
+    "GlossaryItemTypeDef",
+    {
+        "domainId": str,
+        "id": str,
+        "name": str,
+        "owningProjectId": str,
+        "status": GlossaryStatusType,
+        "additionalAttributes": NotRequired[GlossaryItemAdditionalAttributesTypeDef],
+        "createdAt": NotRequired[datetime],
+        "createdBy": NotRequired[str],
+        "description": NotRequired[str],
+        "updatedAt": NotRequired[datetime],
+        "updatedBy": NotRequired[str],
+    },
+)
+GlossaryTermItemTypeDef = TypedDict(
+    "GlossaryTermItemTypeDef",
+    {
+        "domainId": str,
+        "glossaryId": str,
+        "id": str,
+        "name": str,
+        "status": GlossaryTermStatusType,
+        "additionalAttributes": NotRequired[GlossaryTermItemAdditionalAttributesTypeDef],
+        "createdAt": NotRequired[datetime],
+        "createdBy": NotRequired[str],
+        "longDescription": NotRequired[str],
+        "shortDescription": NotRequired[str],
+        "termRelations": NotRequired[TermRelationsOutputTypeDef],
+        "updatedAt": NotRequired[datetime],
+        "updatedBy": NotRequired[str],
+    },
+)
 
 class CreateRuleInputTypeDef(TypedDict):
     action: RuleActionType
@@ -5615,6 +5647,16 @@ class UpdateDataSourceInputTypeDef(TypedDict):
     retainPermissionsOnRevokeFailure: NotRequired[bool]
     schedule: NotRequired[ScheduleConfigurationTypeDef]
 
+class SearchResultItemTypeDef(TypedDict):
+    assetListing: NotRequired[AssetListingItemTypeDef]
+    dataProductListing: NotRequired[DataProductListingItemTypeDef]
+
+class SearchInventoryResultItemTypeDef(TypedDict):
+    assetItem: NotRequired[AssetItemTypeDef]
+    dataProductItem: NotRequired[DataProductResultItemTypeDef]
+    glossaryItem: NotRequired[GlossaryItemTypeDef]
+    glossaryTermItem: NotRequired[GlossaryTermItemTypeDef]
+
 CreateAssetFilterOutputTypeDef = TypedDict(
     "CreateAssetFilterOutputTypeDef",
     {
@@ -5736,6 +5778,19 @@ UpdateConnectionOutputTypeDef = TypedDict(
 
 class GluePropertiesInputTypeDef(TypedDict):
     glueConnectionInput: NotRequired[GlueConnectionInputTypeDef]
+
+class SearchListingsOutputTypeDef(TypedDict):
+    aggregates: List[AggregationOutputTypeDef]
+    items: List[SearchResultItemTypeDef]
+    totalMatchCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
+
+class SearchOutputTypeDef(TypedDict):
+    items: List[SearchInventoryResultItemTypeDef]
+    totalMatchCount: int
+    ResponseMetadata: ResponseMetadataTypeDef
+    nextToken: NotRequired[str]
 
 class CreateAssetFilterInputTypeDef(TypedDict):
     assetIdentifier: str

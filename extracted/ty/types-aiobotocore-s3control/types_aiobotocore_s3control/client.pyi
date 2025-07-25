@@ -1004,8 +1004,7 @@ class S3ControlClient(AioBaseClient):
         self, **kwargs: Unpack[ListTagsForResourceRequestTypeDef]
     ) -> ListTagsForResourceResultTypeDef:
         """
-        This operation allows you to list all the Amazon Web Services resource tags for
-        a specified resource.
+        This operation allows you to list all of the tags for a specified resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3control/client/list_tags_for_resource.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3control/client/#list_tags_for_resource)
@@ -1173,8 +1172,7 @@ class S3ControlClient(AioBaseClient):
 
     async def tag_resource(self, **kwargs: Unpack[TagResourceRequestTypeDef]) -> Dict[str, Any]:
         """
-        Creates a new Amazon Web Services resource tag or updates an existing resource
-        tag.
+        Creates a new user-defined tag or updates an existing tag.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3control/client/tag_resource.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3control/client/#tag_resource)
@@ -1182,8 +1180,7 @@ class S3ControlClient(AioBaseClient):
 
     async def untag_resource(self, **kwargs: Unpack[UntagResourceRequestTypeDef]) -> Dict[str, Any]:
         """
-        This operation removes the specified Amazon Web Services resource tags from an
-        S3 resource.
+        This operation removes the specified user-defined tags from an S3 resource.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/s3control/client/untag_resource.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_s3control/client/#untag_resource)

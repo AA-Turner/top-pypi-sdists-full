@@ -12,9 +12,8 @@ https://github.com/mkurnikov/pytest-mypy-plugins
 """
 
 from collections.abc import Callable, Mapping
-from typing import ClassVar, final
+from typing import ClassVar, TypeAlias, final
 
-from mypy.nodes import SymbolTableNode
 from mypy.plugin import (
     AttributeContext,
     FunctionContext,
@@ -39,22 +38,16 @@ from returns.contrib.mypy._features import (
 # ============
 
 #: Type for a function hook.
-_FunctionCallback = Callable[[FunctionContext], MypyType]
-
-#: Type for a function hook that need a definition node.
-_FunctionDefCallback = Callable[
-    [SymbolTableNode | None],
-    Callable[[FunctionContext], MypyType],
-]
+_FunctionCallback: TypeAlias = Callable[[FunctionContext], MypyType]
 
 #: Type for attribute hook.
-_AttributeCallback = Callable[[AttributeContext], MypyType]
+_AttributeCallback: TypeAlias = Callable[[AttributeContext], MypyType]
 
 #: Type for a method hook.
-_MethodCallback = Callable[[MethodContext], MypyType]
+_MethodCallback: TypeAlias = Callable[[MethodContext], MypyType]
 
 #: Type for a method signature hook.
-_MethodSigCallback = Callable[[MethodSigContext], CallableType]
+_MethodSigCallback: TypeAlias = Callable[[MethodSigContext], CallableType]
 
 
 # Interface
@@ -104,8 +97,14 @@ class _ReturnsPlugin(Plugin):
         self,
         fullname: str,
     ) -> _AttributeCallback | None:
-        """Called for any exiting or ``__getattr__`` aatribute access."""
+        """Called for any exiting or ``__getattr__`` attribute access."""
         if fullname.startswith(_consts.TYPED_KINDN_ACCESS):
+            name_parts = fullname.split('.')
+            attribute_name = name_parts[-1]
+            if attribute_name.startswith('__') and attribute_name.endswith(
+                '__'
+            ):
+                return None
             return kind.attribute_access
         return None
 

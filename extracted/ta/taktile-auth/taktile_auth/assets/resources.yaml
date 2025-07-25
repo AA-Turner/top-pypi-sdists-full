@@ -175,3 +175,9 @@ workspace_management:
   ws_id: wildcard
   env: wildcard
   type: wildcard
+workspace_case_template:
+  # read: can read workspace case templates
+  # write: can create, update and delete case templates
+  org_id: wildcard
+  ws_id: wildcard
+  env: wildcard

@@ -2,6 +2,8 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torch.linalg as LA
+from torch.amp import autocast
+from torch.nn.attention.flex_attention import flex_attention, create_block_mask
 import math
 import warnings
 import opt_einsum
@@ -416,7 +418,7 @@ class SlidingWindowAttention(nn.Module):
     """
     def __init__(self, d_model, n_heads, window_len, dilation=1,
                  attn_sink=False, dropout=0.0, bias=True, batch_first=False,
-                 masked_window=True, device="cpu"):
+                 use_flex_attn=True, device="cpu"):
         super().__init__()
         self.d_model = d_model
         self.n_heads = n_heads
@@ -425,7 +427,7 @@ class SlidingWindowAttention(nn.Module):
         self.dropout = dropout
         self.batch_first = batch_first
         self.d_head = d_model // n_heads
-        self.masked_window = masked_window
+        self.use_flex_attn = use_flex_attn
         self.attn_sink = attn_sink
         self.device = device
         
@@ -437,7 +439,7 @@ class SlidingWindowAttention(nn.Module):
         self.out_proj = nn.Linear(d_model, d_model, bias=bias, device=device)
         
         self._reset_parameters()
-        
+    
     def _reset_parameters(self):
         nn.init.constant_(self.beta, 0.)
         nn.init.xavier_uniform_(self.q_proj.weight)
@@ -488,57 +490,38 @@ class SlidingWindowAttention(nn.Module):
 
         mask = torch.where(allowed, 0.0, float('-inf'))
         return mask
+    
+    @lru_cache(maxsize=2)
+    def causal_windowed_block_mask(self, src_len, tgt_len=None):
+        if tgt_len is None: tgt_len = src_len
+        
+        half_span = self.dilation * (self.window_len - 1)
+        
+        def mask_mod(b, h, q_idx, kv_idx):
+            diff = q_idx - kv_idx
+            return (diff >= 0) & (diff <= half_span) & ((diff % self.dilation) == 0)
 
-    def shift(self, x, shifts, dims, fill_value=None, shift_min_max=None):
-        # dims: (dim_src, dim_shift)
-        # shifts: (S,) tensor of ints
-        dim_src, dim_shift = dims
+        return create_block_mask(mask_mod, B=None, H=None, Q_LEN=src_len, KV_LEN=tgt_len, BLOCK_SIZE=1, device=self.device)
+    
+    @lru_cache(maxsize=2)
+    def symmetric_windowed_block_mask(self, src_len, tgt_len=None):
+        if tgt_len is None: tgt_len = src_len
+        
+        half = self.window_len // 2
+        half_span = self.dilation * half
 
-        # 1) move dims → [S, L, *rest]
-        x2 = x.movedim((dim_src, dim_shift), (0, 1))
-        S, L, *rest = x2.shape
-        # flat_D = x2.numel() // (S * L)
+        def mask_mod(b, h, q_idx, kv_idx):
+            diff = q_idx - kv_idx
+            return diff.abs().le(half_span) & ((diff % self.dilation) == 0)
 
-        if shift_min_max is not None:
-            s_min, s_max = shift_min_max
-        else:
-            if torch.is_tensor(shifts):
-                s_min, s_max = shifts.min(), shifts.max()
-            else:
-                s_min, s_max = min(shifts), max(shifts)
-        s_min, s_max = torch.as_tensor(s_min, device=x.device), torch.as_tensor(s_max, device=x.device)
-        H_neg = torch.clamp(-s_min, min=0)
-        H_pos = torch.clamp( s_max, min=0)
-        ext_L = L + H_neg + H_pos
-
-        # 3) allocate & fill
-        if fill_value is None:
-            padded = x2.new_empty((S, ext_L, *rest))
-        else:
-            padded = x2.new_full((S, ext_L, *rest), fill_value)
-
-        # 4) build destination indices
-        #   pos: (1, L)
-        pos = torch.arange(L, device=x.device).view(1, L)
-        #   shifts: (S,1)
-        sh = shifts.view(S, 1)
-        #   dest: (S, L)
-        dest = pos + sh + H_neg
-
-        # 5) scatter all at once
-        x_flat = x2.reshape(S, L, -1)
-        dest_exp = dest.view(S, L, 1).expand(x_flat.shape)
-        padded.reshape(S, ext_L, -1).scatter_(1, dest_exp, x_flat)
-
-        # 6) slice & move dims back
-        out2 = padded[:, H_neg : H_neg + L]
-        return out2.movedim((0,1), dims)
+        return create_block_mask(mask_mod,  B=None, H=None, Q_LEN=src_len, KV_LEN=tgt_len, BLOCK_SIZE=1, device=self.device)
     
     def forward(self, x, rope=None, causal=True):
         if self.batch_first:
             x = x.transpose(0, 1)
         
         src_len, bsz, d_model = x.shape
+        tgt_len = src_len
         
         q = self.q_proj(x)  # (src_len, batch_size, d_model)
         k = self.k_proj(x)  # (src_len, batch_size, d_model)
@@ -560,9 +543,9 @@ class SlidingWindowAttention(nn.Module):
         
         beta = torch.exp(self.beta).reshape(self.n_heads, 1, 1).repeat(bsz, 1, 1)
         # beta = F.softplus(self.beta).reshape(self.n_heads, 1, 1).repeat(bsz, 1, 1)
-        q = q / (math.sqrt(self.d_head) * beta)
+        q = q / (math.sqrt(self.d_head) * beta).to(q.dtype)
         
-        if self.masked_window:
+        if not self.use_flex_attn:
             if causal:
                 attn_mask = self.causal_windowed_mask(src_len, self.window_len, dilation=self.dilation, to_bias=True)  # (1, src_len, src_len)
             else:
@@ -584,50 +567,43 @@ class SlidingWindowAttention(nn.Module):
             attn_output_weights = F.softmax(attn_output_weights, dim=-1)
             attn_output_weights = F.dropout(attn_output_weights, p=self.dropout, training=self.training)
             
-            if self.attn_sink: attn_output_weights = attn_output_weights[..., :-1]
-            
             # Apply attention weights to values
-            attn_output = torch.bmm(attn_output_weights, v)  # (bsz * n_heads, src_len, d_head)
+            attn_output = torch.bmm(attn_output_weights, v)[:, :src_len]  # (bsz * n_heads, src_len, d_head)
+            
+            attn_output = rearrange(attn_output, '(b h) s d -> s b (h d)', h=self.n_heads)
         else:
-            if causal:
-                pad_amount = min(src_len-1, (self.window_len-1) * self.dilation)
-                pad = (0, pad_amount)
-            else:
-                pad_amount = self.dilation * min((src_len - 1) // self.dilation, self.window_len // 2)
-                pad = (pad_amount, pad_amount)
-
-            q = dilated_sliding_window(q, size=src_len, dim=1, stride=self.dilation, dilation=1, pad=pad)
-
-            attn_output_weights = torch.einsum('zbsd, zsd -> zbs', q, k)  # (bsz * n_heads, n_bands, src_len)
-            
-            shifts = torch.arange(-pad[0], pad[1]+1, self.dilation, device=self.device)
-            attn_output_weights = self.shift(attn_output_weights, shifts, shift_min_max=(shifts[0], shifts[-1]), dims=(1, 2), fill_value=float('-inf'))
-            
             if self.attn_sink:
-                sink_weight = torch.zeros((bsz * self.n_heads, 1, src_len), dtype=x.dtype, device=self.device)  # (bsz * n_heads, 1, src_len)
-                attn_output_weights = torch.cat([attn_output_weights, sink_weight], dim=1)  # (bsz * n_heads, n_bands+1, src_len)
+                k = torch.cat([k, torch.zeros((bsz*self.n_heads, 1, self.d_head), dtype=k.dtype, device=k.device)], dim=1)
+                v = torch.cat([v, torch.zeros((bsz*self.n_heads, 1, self.d_head), dtype=v.dtype, device=v.device)], dim=1)
+                tgt_len += 1
             
-            # Convert attention weights to probabilities
-            attn_output_weights = F.softmax(attn_output_weights, dim=1)
-            attn_output_weights = F.dropout(attn_output_weights, p=self.dropout, training=self.training)
+            if causal:
+                block_mask = self.causal_windowed_block_mask(src_len, tgt_len)
+            else:
+                block_mask = self.symmetric_windowed_block_mask(src_len, tgt_len)
             
-            if self.attn_sink: attn_output_weights = attn_output_weights[:, :-1]
+            q = rearrange(q, '(b h) s d -> b h s d', h=self.n_heads).contiguous()
+            k = rearrange(k, '(b h) s d -> b h s d', h=self.n_heads).contiguous()
+            v = rearrange(v, '(b h) s d -> b h s d', h=self.n_heads).contiguous()
             
-            attn_output_weights = self.shift(attn_output_weights, -shifts, shift_min_max=(-shifts[-1], -shifts[0]), dims=(1, 2), fill_value=0.0)
+            attn_device = "cuda" if self.device == "cuda" else "cpu"
             
-            # Apply attention weights to values
-            attn_output = attn_output_weights.unsqueeze(-1) * v.unsqueeze(1)
+            # autocast_dtype = torch.get_autocast_dtype(self.device)
             
-            attn_output = self.shift(attn_output, shifts, shift_min_max=(shifts[0], shifts[-1]), dims=(1, 2), fill_value=0.0)
+            q = q.to(attn_device)#.to(autocast_dtype)
+            k = k.to(attn_device)#.to(autocast_dtype)
+            v = v.to(attn_device)#.to(autocast_dtype)
+
+            block_mask = block_mask.to(attn_device)#.to(autocast_dtype)
+
+            attn_output = flex_attention(q, k, v, block_mask=block_mask, scale=1.0)[:, :, :src_len]
             
-            attn_output = attn_output.sum(dim=1)
+            attn_output = rearrange(attn_output, 'b h s d -> s b (h d)', h=self.n_heads).contiguous().to(self.device)
         
         # Apply final projection
-        attn_output = rearrange(attn_output, '(b h) s d -> s b (h d)', h=self.n_heads)
         attn_output = self.out_proj(attn_output)
         
         # Return in the correct format depending on batch_first
         if self.batch_first:
             return attn_output.transpose(0, 1)
         return attn_output
-

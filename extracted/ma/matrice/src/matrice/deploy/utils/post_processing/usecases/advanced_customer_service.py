@@ -19,7 +19,10 @@ from ..utils import (
     point_in_polygon,
     get_bbox_center,
     calculate_distance,
-    match_results_structure
+    match_results_structure,
+    bbox_smoothing,
+    BBoxSmoothingConfig,
+    BBoxSmoothingTracker,
 )
 
 def assign_person_by_area(detections, customer_areas, staff_areas):
@@ -371,6 +374,37 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
                         "min_hits": {"type": "integer", "minimum": 1, "default": 3},
                         "iou_threshold": {"type": "number", "minimum": 0.0, "maximum": 1.0, "default": 0.3}
                     }
+                },
+                "enable_smoothing": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Enable bounding box smoothing for detections"
+                },
+                "smoothing_algorithm": {
+                    "type": "string",
+                    "enum": ["observability", "kalman"],
+                    "default": "observability"
+                },
+                "smoothing_window_size": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 20
+                },
+                "smoothing_cooldown_frames": {
+                    "type": "integer",
+                    "minimum": 0,
+                    "default": 5
+                },
+                "smoothing_confidence_threshold": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "default": 0.5
+                },
+                "smoothing_confidence_range_factor": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "default": 0.5
                 }
             },
             "required": ["confidence_threshold"],
@@ -440,6 +474,20 @@ class AdvancedCustomerServiceUseCase(BaseProcessor):
             if hasattr(config, 'index_to_category') and config.index_to_category:
                 processed_data = apply_category_mapping(processed_data, config.index_to_category)
                 self.logger.debug("Applied category mapping")
+
+            # --- Smoothing logic ---
+            if getattr(config, "enable_smoothing", False):
+                if not hasattr(self, "smoothing_tracker") or self.smoothing_tracker is None:
+                    smoothing_config = BBoxSmoothingConfig(
+                        smoothing_algorithm=getattr(config, "smoothing_algorithm", "observability"),
+                        window_size=getattr(config, "smoothing_window_size", 20),
+                        cooldown_frames=getattr(config, "smoothing_cooldown_frames", 5),
+                        confidence_threshold=getattr(config, "confidence_threshold", 0.5),
+                        confidence_range_factor=getattr(config, "smoothing_confidence_range_factor", 0.5),
+                        enable_smoothing=True
+                    )
+                    self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+                processed_data = bbox_smoothing(processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
 
             detections = self._extract_detections(processed_data)
             assign_person_by_area(

@@ -29,6 +29,7 @@ __all__ = (
     "ConversionTargetFormatType",
     "FileFormatType",
     "FromFormatType",
+    "LineTerminatorType",
     "ListCapabilitiesPaginatorName",
     "ListPartnershipsPaginatorName",
     "ListProfilesPaginatorName",
@@ -41,7 +42,14 @@ __all__ = (
     "ServiceName",
     "ToFormatType",
     "TransformerJobStatusType",
+    "TransformerJobSucceededWaiterName",
     "TransformerStatusType",
+    "WaiterName",
+    "WrapFormatType",
+    "X12FunctionalAcknowledgmentType",
+    "X12GS05TimeFormatType",
+    "X12SplitByType",
+    "X12TechnicalAcknowledgmentType",
     "X12TransactionSetType",
     "X12VersionType",
 )
@@ -52,6 +60,7 @@ ConversionSourceFormatType = Literal["JSON", "XML"]
 ConversionTargetFormatType = Literal["X12"]
 FileFormatType = Literal["JSON", "NOT_USED", "XML"]
 FromFormatType = Literal["X12"]
+LineTerminatorType = Literal["CR", "CRLF", "LF"]
 ListCapabilitiesPaginatorName = Literal["list_capabilities"]
 ListPartnershipsPaginatorName = Literal["list_partnerships"]
 ListProfilesPaginatorName = Literal["list_profiles"]
@@ -61,7 +70,15 @@ MappingTemplateLanguageType = Literal["JSONATA", "XSLT"]
 MappingTypeType = Literal["JSONATA", "XSLT"]
 ToFormatType = Literal["X12"]
 TransformerJobStatusType = Literal["failed", "running", "succeeded"]
+TransformerJobSucceededWaiterName = Literal["transformer_job_succeeded"]
 TransformerStatusType = Literal["active", "inactive"]
+WrapFormatType = Literal["LINE_LENGTH", "ONE_LINE", "SEGMENT"]
+X12FunctionalAcknowledgmentType = Literal[
+    "DO_NOT_GENERATE", "GENERATE_ALL_SEGMENTS", "GENERATE_WITHOUT_TRANSACTION_SET_RESPONSE_LOOP"
+]
+X12GS05TimeFormatType = Literal["HHMM", "HHMMSS", "HHMMSSDD"]
+X12SplitByType = Literal["NONE", "TRANSACTION"]
+X12TechnicalAcknowledgmentType = Literal["DO_NOT_GENERATE", "GENERATE_ALL_SEGMENTS"]
 X12TransactionSetType = Literal[
     "X12_100",
     "X12_101",
@@ -458,6 +475,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -690,6 +709,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -750,6 +770,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
@@ -840,3 +861,4 @@ ResourceServiceName = Literal[
 PaginatorName = Literal[
     "list_capabilities", "list_partnerships", "list_profiles", "list_transformers"
 ]
+WaiterName = Literal["transformer_job_succeeded"]

@@ -8,7 +8,7 @@ import json
 import os
 import sys
 from pathlib import Path
-from typing import TYPE_CHECKING, Any, Callable, Dict, List, Optional, cast
+from typing import Any, Callable, Dict, List, Optional, cast
 
 if sys.version_info >= (3, 10):
     from types import NoneType
@@ -244,13 +244,7 @@ def _runner(entrypoint: str, template_inputs_list: List) -> Any:
 
         function = validate_call(config=ConfigDict(arbitrary_types_allowed=True))(function)
     else:
-        if TYPE_CHECKING:
-            from pydantic.v1 import validate_arguments
-        else:
-            if _PYDANTIC_VERSION == 1:
-                from pydantic import validate_arguments
-            else:
-                from pydantic.v1 import validate_arguments
+        from pydantic.v1 import validate_arguments
 
         function = validate_arguments(config=dict(smart_union=True, arbitrary_types_allowed=True))(function)
 
@@ -303,3 +297,30 @@ def _run() -> None:
         exit(result.exit_code)
 
     print(serialize(result))
+
+
+def create_module_string(path: Path) -> str:
+    """Create a Python module path from the given path.
+
+    We find the most specific sys.path to create a valid, importable module path to the given path.
+
+    e.g. if sys.path contains "/project" and the file is "/project/workflows/wf_a.py", then the returned string will be
+    "workflows.wf_a"
+
+    If we cannot find a valid sys.path, we simply use the file stem, e.g. for the
+    file "/project/workflows/wf_a.py", return `wf_a`.
+    """
+    path = path.resolve()
+
+    # find the most specific sys.path that contains the given path
+    candidates = []
+    for base in map(lambda p: Path(p).resolve(), sys.path + [os.getcwd()]):
+        if path.is_relative_to(base):
+            candidates.append(base)
+
+    if not candidates:
+        return path.stem
+
+    # use the most specific sys.path to construct a valid module path to import
+    base_path = max(candidates, key=lambda p: len(str(p)))
+    return ".".join(str(path.resolve().relative_to(base_path)).replace(".py", "").split("/"))

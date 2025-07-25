@@ -331,6 +331,7 @@ __all__ = (
     "ResponseMetadataTypeDef",
     "RevokeVpcEndpointAccessRequestTypeDef",
     "S3GlueDataCatalogTypeDef",
+    "S3VectorsEngineTypeDef",
     "SAMLIdpTypeDef",
     "SAMLOptionsInputTypeDef",
     "SAMLOptionsOutputTypeDef",
@@ -385,6 +386,10 @@ __all__ = (
 
 class NaturalLanguageQueryGenerationOptionsInputTypeDef(TypedDict):
     DesiredState: NotRequired[NaturalLanguageQueryGenerationDesiredStateType]
+
+
+class S3VectorsEngineTypeDef(TypedDict):
+    Enabled: NotRequired[bool]
 
 
 class NaturalLanguageQueryGenerationOptionsOutputTypeDef(TypedDict):
@@ -1152,12 +1157,14 @@ class AIMLOptionsInputTypeDef(TypedDict):
     NaturalLanguageQueryGenerationOptions: NotRequired[
         NaturalLanguageQueryGenerationOptionsInputTypeDef
     ]
+    S3VectorsEngine: NotRequired[S3VectorsEngineTypeDef]
 
 
 class AIMLOptionsOutputTypeDef(TypedDict):
     NaturalLanguageQueryGenerationOptions: NotRequired[
         NaturalLanguageQueryGenerationOptionsOutputTypeDef
     ]
+    S3VectorsEngine: NotRequired[S3VectorsEngineTypeDef]
 
 
 class AccessPoliciesStatusTypeDef(TypedDict):

@@ -18,7 +18,6 @@ import time
 from types import ModuleType
 from collections.abc import Iterable
 
-from flaky import flaky
 import pytest
 
 import coverage
@@ -30,7 +29,6 @@ from coverage.misc import import_local_file
 
 from tests import testenv
 from tests.coveragetest import CoverageTest
-from tests.helpers import flaky_method
 
 
 # These libraries aren't always available, we'll skip tests if they aren't.
@@ -222,7 +220,7 @@ class ConcurrencyTest(CoverageTest):
         self.make_file("try_it.py", code)
 
         cmd = f"coverage run --concurrency={concurrency} try_it.py"
-        out = self.run_command(cmd)
+        _, out = self.run_command_status(cmd)
 
         expected_cant_trace = cant_trace_msg(concurrency, the_module)
 
@@ -318,7 +316,8 @@ class ConcurrencyTest(CoverageTest):
             """
         self.try_some_code(BUG_330, "eventlet", eventlet, "0\n")
 
-    @flaky_method(max_runs=3)   # Sometimes a test fails due to inherent randomness. Try more times.
+    # Sometimes a test fails due to inherent randomness. Try more times.
+    @pytest.mark.flaky(max_runs=3)
     def test_threads_with_gevent(self) -> None:
         self.make_file("both.py", """\
             import queue
@@ -342,7 +341,7 @@ class ConcurrencyTest(CoverageTest):
             answer = q.get()
             assert answer == 1
             """)
-        out = self.run_command("coverage run --concurrency=thread,gevent both.py")
+        _, out = self.run_command_status("coverage run --concurrency=thread,gevent both.py")
         if gevent is None:
             assert out == (
                 "Couldn't trace with concurrency=gevent, the module isn't installed.\n"
@@ -452,7 +451,8 @@ def start_method_fixture(request: pytest.FixtureRequest) -> str:
     return start_method
 
 
-#@flaky(max_runs=30)         # Sometimes a test fails due to inherent randomness. Try more times.
+# Sometimes a test fails due to inherent randomness. Try more times.
+#@pytest.mark.flaky(max_runs=30)
 class MultiprocessingTest(CoverageTest):
     """Test support of the multiprocessing module."""
 
@@ -475,7 +475,7 @@ class MultiprocessingTest(CoverageTest):
             """)
 
         cmd = f"coverage run {args} multi.py {start_method}"
-        out = self.run_command(cmd)
+        _, out = self.run_command_status(cmd)
         expected_cant_trace = cant_trace_msg(concurrency, the_module)
 
         if expected_cant_trace is not None:
@@ -591,7 +591,7 @@ class MultiprocessingTest(CoverageTest):
             concurrency = multiprocessing
             _crash = _bootstrap
             """)
-        out = self.run_command("coverage run multi.py")
+        out = self.run_command("coverage run multi.py", status=1)
         assert "Exception during multiprocessing bootstrap init" in out
         assert "RuntimeError: Crashing because called by _bootstrap" in out
 
@@ -705,7 +705,7 @@ def test_thread_safe_save_data(tmp_path: pathlib.Path) -> None:
 
 
 @pytest.mark.skipif(env.WINDOWS, reason="SIGTERM doesn't work the same on Windows")
-@flaky(max_runs=3)          # Sometimes a test fails due to inherent randomness. Try more times.
+@pytest.mark.flaky(max_runs=3)  # Sometimes a test fails due to inherent randomness. Try more times.
 class SigtermTest(CoverageTest):
     """Tests of our handling of SIGTERM."""
 
@@ -770,7 +770,8 @@ class SigtermTest(CoverageTest):
             concurrency = thread
             sigterm = true
             """)
-        out = self.run_command("coverage run handler.py")
+        status, out = self.run_command_status("coverage run handler.py")
+        assert status != 0
         out_lines = out.splitlines()
         assert len(out_lines) in [2, 3]
         assert out_lines[:2] == ["START", "SIGTERM"]

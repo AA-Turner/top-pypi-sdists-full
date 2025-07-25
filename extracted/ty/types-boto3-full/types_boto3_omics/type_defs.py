@@ -53,6 +53,7 @@ from .literals import (
     SequenceStoreStatusType,
     ShareResourceTypeType,
     ShareStatusType,
+    SourceReferenceTypeType,
     StorageTypeType,
     StoreFormatType,
     StoreStatusType,
@@ -60,6 +61,7 @@ from .literals import (
     TaskStatusType,
     VersionStatusType,
     WorkflowEngineType,
+    WorkflowExportType,
     WorkflowStatusType,
     WorkflowTypeType,
 )
@@ -119,6 +121,8 @@ __all__ = (
     "CreateWorkflowResponseTypeDef",
     "CreateWorkflowVersionRequestTypeDef",
     "CreateWorkflowVersionResponseTypeDef",
+    "DefinitionRepositoryDetailsTypeDef",
+    "DefinitionRepositoryTypeDef",
     "DeleteAnnotationStoreRequestTypeDef",
     "DeleteAnnotationStoreResponseTypeDef",
     "DeleteAnnotationStoreVersionsRequestTypeDef",
@@ -318,6 +322,7 @@ __all__ = (
     "SequenceStoreS3AccessTypeDef",
     "ShareDetailsTypeDef",
     "SourceFilesTypeDef",
+    "SourceReferenceTypeDef",
     "SseConfigTypeDef",
     "StartAnnotationImportRequestTypeDef",
     "StartAnnotationImportResponseTypeDef",
@@ -559,6 +564,15 @@ class CreateShareRequestTypeDef(TypedDict):
 class WorkflowParameterTypeDef(TypedDict):
     description: NotRequired[str]
     optional: NotRequired[bool]
+
+
+SourceReferenceTypeDef = TypedDict(
+    "SourceReferenceTypeDef",
+    {
+        "type": SourceReferenceTypeType,
+        "value": str,
+    },
+)
 
 
 class DeleteAnnotationStoreRequestTypeDef(TypedDict):
@@ -883,7 +897,7 @@ GetWorkflowRequestTypeDef = TypedDict(
     {
         "id": str,
         "type": NotRequired[WorkflowTypeType],
-        "export": NotRequired[Sequence[Literal["DEFINITION"]]],
+        "export": NotRequired[Sequence[WorkflowExportType]],
         "workflowOwnerId": NotRequired[str],
     },
 )
@@ -893,7 +907,7 @@ GetWorkflowVersionRequestTypeDef = TypedDict(
         "workflowId": str,
         "versionName": str,
         "type": NotRequired[WorkflowTypeType],
-        "export": NotRequired[Sequence[Literal["DEFINITION"]]],
+        "export": NotRequired[Sequence[WorkflowExportType]],
         "workflowOwnerId": NotRequired[str],
     },
 )
@@ -1294,6 +1308,7 @@ UpdateWorkflowRequestTypeDef = TypedDict(
         "description": NotRequired[str],
         "storageType": NotRequired[StorageTypeType],
         "storageCapacity": NotRequired[int],
+        "readmeMarkdown": NotRequired[str],
     },
 )
 
@@ -1304,6 +1319,7 @@ class UpdateWorkflowVersionRequestTypeDef(TypedDict):
     description: NotRequired[str]
     storageType: NotRequired[StorageTypeType]
     storageCapacity: NotRequired[int]
+    readmeMarkdown: NotRequired[str]
 
 
 class AcceptShareResponseTypeDef(TypedDict):
@@ -1917,89 +1933,19 @@ UpdateSequenceStoreResponseTypeDef = TypedDict(
 )
 
 
-class CreateWorkflowRequestTypeDef(TypedDict):
-    requestId: str
-    name: NotRequired[str]
-    description: NotRequired[str]
-    engine: NotRequired[WorkflowEngineType]
-    definitionZip: NotRequired[BlobTypeDef]
-    definitionUri: NotRequired[str]
-    main: NotRequired[str]
-    parameterTemplate: NotRequired[Mapping[str, WorkflowParameterTypeDef]]
-    storageCapacity: NotRequired[int]
-    tags: NotRequired[Mapping[str, str]]
-    accelerators: NotRequired[Literal["GPU"]]
-    storageType: NotRequired[StorageTypeType]
+class DefinitionRepositoryDetailsTypeDef(TypedDict):
+    connectionArn: NotRequired[str]
+    fullRepositoryId: NotRequired[str]
+    sourceReference: NotRequired[SourceReferenceTypeDef]
+    providerType: NotRequired[str]
+    providerEndpoint: NotRequired[str]
 
 
-class CreateWorkflowVersionRequestTypeDef(TypedDict):
-    workflowId: str
-    versionName: str
-    requestId: str
-    definitionZip: NotRequired[BlobTypeDef]
-    definitionUri: NotRequired[str]
-    accelerators: NotRequired[Literal["GPU"]]
-    description: NotRequired[str]
-    engine: NotRequired[WorkflowEngineType]
-    main: NotRequired[str]
-    parameterTemplate: NotRequired[Mapping[str, WorkflowParameterTypeDef]]
-    storageType: NotRequired[StorageTypeType]
-    storageCapacity: NotRequired[int]
-    tags: NotRequired[Mapping[str, str]]
-    workflowBucketOwnerId: NotRequired[str]
-
-
-GetWorkflowResponseTypeDef = TypedDict(
-    "GetWorkflowResponseTypeDef",
-    {
-        "arn": str,
-        "id": str,
-        "status": WorkflowStatusType,
-        "type": WorkflowTypeType,
-        "name": str,
-        "description": str,
-        "engine": WorkflowEngineType,
-        "definition": str,
-        "main": str,
-        "digest": str,
-        "parameterTemplate": Dict[str, WorkflowParameterTypeDef],
-        "storageCapacity": int,
-        "creationTime": datetime,
-        "statusMessage": str,
-        "tags": Dict[str, str],
-        "metadata": Dict[str, str],
-        "accelerators": Literal["GPU"],
-        "storageType": StorageTypeType,
-        "uuid": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
-GetWorkflowVersionResponseTypeDef = TypedDict(
-    "GetWorkflowVersionResponseTypeDef",
-    {
-        "arn": str,
-        "workflowId": str,
-        "versionName": str,
-        "accelerators": Literal["GPU"],
-        "creationTime": datetime,
-        "description": str,
-        "definition": str,
-        "digest": str,
-        "engine": WorkflowEngineType,
-        "main": str,
-        "metadata": Dict[str, str],
-        "parameterTemplate": Dict[str, WorkflowParameterTypeDef],
-        "status": WorkflowStatusType,
-        "statusMessage": str,
-        "storageType": StorageTypeType,
-        "storageCapacity": int,
-        "type": WorkflowTypeType,
-        "tags": Dict[str, str],
-        "uuid": str,
-        "workflowBucketOwnerId": str,
-        "ResponseMetadata": ResponseMetadataTypeDef,
-    },
-)
+class DefinitionRepositoryTypeDef(TypedDict):
+    connectionArn: str
+    fullRepositoryId: str
+    sourceReference: NotRequired[SourceReferenceTypeDef]
+    excludeFilePatterns: NotRequired[Sequence[str]]
 
 
 class DeleteAnnotationStoreVersionsResponseTypeDef(TypedDict):
@@ -2168,7 +2114,7 @@ GetWorkflowRequestWaitTypeDef = TypedDict(
     {
         "id": str,
         "type": NotRequired[WorkflowTypeType],
-        "export": NotRequired[Sequence[Literal["DEFINITION"]]],
+        "export": NotRequired[Sequence[WorkflowExportType]],
         "workflowOwnerId": NotRequired[str],
         "WaiterConfig": NotRequired[WaiterConfigTypeDef],
     },
@@ -2179,7 +2125,7 @@ GetWorkflowVersionRequestWaitTypeDef = TypedDict(
         "workflowId": str,
         "versionName": str,
         "type": NotRequired[WorkflowTypeType],
-        "export": NotRequired[Sequence[Literal["DEFINITION"]]],
+        "export": NotRequired[Sequence[WorkflowExportType]],
         "workflowOwnerId": NotRequired[str],
         "WaiterConfig": NotRequired[WaiterConfigTypeDef],
     },
@@ -2758,6 +2704,108 @@ class ListVariantStoresResponseTypeDef(TypedDict):
     variantStores: List[VariantStoreItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     nextToken: NotRequired[str]
+
+
+GetWorkflowResponseTypeDef = TypedDict(
+    "GetWorkflowResponseTypeDef",
+    {
+        "arn": str,
+        "id": str,
+        "status": WorkflowStatusType,
+        "type": WorkflowTypeType,
+        "name": str,
+        "description": str,
+        "engine": WorkflowEngineType,
+        "definition": str,
+        "main": str,
+        "digest": str,
+        "parameterTemplate": Dict[str, WorkflowParameterTypeDef],
+        "storageCapacity": int,
+        "creationTime": datetime,
+        "statusMessage": str,
+        "tags": Dict[str, str],
+        "metadata": Dict[str, str],
+        "accelerators": Literal["GPU"],
+        "storageType": StorageTypeType,
+        "uuid": str,
+        "readme": str,
+        "definitionRepositoryDetails": DefinitionRepositoryDetailsTypeDef,
+        "readmePath": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+GetWorkflowVersionResponseTypeDef = TypedDict(
+    "GetWorkflowVersionResponseTypeDef",
+    {
+        "arn": str,
+        "workflowId": str,
+        "versionName": str,
+        "accelerators": Literal["GPU"],
+        "creationTime": datetime,
+        "description": str,
+        "definition": str,
+        "digest": str,
+        "engine": WorkflowEngineType,
+        "main": str,
+        "metadata": Dict[str, str],
+        "parameterTemplate": Dict[str, WorkflowParameterTypeDef],
+        "status": WorkflowStatusType,
+        "statusMessage": str,
+        "storageType": StorageTypeType,
+        "storageCapacity": int,
+        "type": WorkflowTypeType,
+        "tags": Dict[str, str],
+        "uuid": str,
+        "workflowBucketOwnerId": str,
+        "readme": str,
+        "definitionRepositoryDetails": DefinitionRepositoryDetailsTypeDef,
+        "readmePath": str,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
+
+
+class CreateWorkflowRequestTypeDef(TypedDict):
+    requestId: str
+    name: NotRequired[str]
+    description: NotRequired[str]
+    engine: NotRequired[WorkflowEngineType]
+    definitionZip: NotRequired[BlobTypeDef]
+    definitionUri: NotRequired[str]
+    main: NotRequired[str]
+    parameterTemplate: NotRequired[Mapping[str, WorkflowParameterTypeDef]]
+    storageCapacity: NotRequired[int]
+    tags: NotRequired[Mapping[str, str]]
+    accelerators: NotRequired[Literal["GPU"]]
+    storageType: NotRequired[StorageTypeType]
+    readmeMarkdown: NotRequired[str]
+    parameterTemplatePath: NotRequired[str]
+    readmePath: NotRequired[str]
+    definitionRepository: NotRequired[DefinitionRepositoryTypeDef]
+    workflowBucketOwnerId: NotRequired[str]
+    readmeUri: NotRequired[str]
+
+
+class CreateWorkflowVersionRequestTypeDef(TypedDict):
+    workflowId: str
+    versionName: str
+    requestId: str
+    definitionZip: NotRequired[BlobTypeDef]
+    definitionUri: NotRequired[str]
+    accelerators: NotRequired[Literal["GPU"]]
+    description: NotRequired[str]
+    engine: NotRequired[WorkflowEngineType]
+    main: NotRequired[str]
+    parameterTemplate: NotRequired[Mapping[str, WorkflowParameterTypeDef]]
+    storageType: NotRequired[StorageTypeType]
+    storageCapacity: NotRequired[int]
+    tags: NotRequired[Mapping[str, str]]
+    workflowBucketOwnerId: NotRequired[str]
+    readmeMarkdown: NotRequired[str]
+    parameterTemplatePath: NotRequired[str]
+    readmePath: NotRequired[str]
+    definitionRepository: NotRequired[DefinitionRepositoryTypeDef]
+    readmeUri: NotRequired[str]
 
 
 class ReadSetFilesTypeDef(TypedDict):

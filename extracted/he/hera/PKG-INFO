@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: hera
-Version: 5.22.0
+Version: 5.23.0
 Summary: Hera makes Python code easy to orchestrate on Argo Workflows through native Python integrations. It lets you construct and submit your Workflows entirely in Python.
 License: Apache-2.0
 Author: Flaviu Vadan

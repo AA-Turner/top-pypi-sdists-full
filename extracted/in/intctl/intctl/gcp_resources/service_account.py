@@ -3,6 +3,7 @@ import subprocess
 import tempfile
 import base64
 import time
+import json
 import typer
 from typing import List
 from intctl.status import StatusManager
@@ -68,19 +69,60 @@ Please do the following manually:
         "roles/storage.bucketViewer", "roles/aiplatform.admin"
     ]
 
+    # INSERT THIS NEW BLOCK IN ITS PLACE
     failed_roles = []
-
     print("\n🔐 Assigning IAM roles to the service account...")
 
-    for role in roles:
-        with Spinner(f"Assigning role {role}..."):
-            result = run(
-                f"gcloud projects add-iam-policy-binding {project} "
-                f"--member=serviceAccount:{sa_email} --role={role}"
-                f"--condition=None"
-            )
-        if result.returncode != 0:
-            failed_roles.append(role)
+    try:
+        # 1. Get the current IAM policy for the project.
+        with Spinner("Fetching current IAM policy..."):
+            get_policy_result = run(f"gcloud projects get-iam-policy {project} --format=json")
+        if get_policy_result.returncode != 0:
+            raise RuntimeError(f"Failed to fetch IAM policy: {get_policy_result.stderr.strip()}")
+
+        policy = json.loads(get_policy_result.stdout)
+        member = f"serviceAccount:{sa_email}"
+
+        # 2. Find which of the required roles are already assigned.
+        current_roles = set()
+        for binding in policy.get("bindings", []):
+            if member in binding.get("members", []):
+                current_roles.add(binding["role"])
+
+        # 3. Determine which new roles need to be added.
+        roles_to_add = [role for role in roles if role not in current_roles]
+
+        if not roles_to_add:
+            print("✅ All required roles are already assigned.")
+        else:
+            # 4. Add the new roles to the policy object in memory.
+            print(f"🔧 Adding {len(roles_to_add)} new role(s) to the IAM policy...")
+            for role in roles_to_add:
+                policy["bindings"].append({"role": role, "members": [member]})
+
+            # 5. Write the updated policy to a temporary file.
+            fd, policy_file = tempfile.mkstemp(suffix=".json")
+            with os.fdopen(fd, 'w') as f:
+                json.dump(policy, f)
+            
+            # 6. Apply the updated policy in a single, atomic command.
+            with Spinner("Applying updated IAM policy..."):
+                set_policy_result = run(f"gcloud projects set-iam-policy {project} {policy_file}")
+            
+            os.remove(policy_file)
+
+            # 7. If the single command fails, populate failed_roles to trigger the manual check.
+            if set_policy_result.returncode != 0:
+                print(f"❌ Failed to apply the updated IAM policy in a single operation: {set_policy_result.stderr.strip()}")
+                failed_roles = roles_to_add
+            else:
+                print("✅ All new roles assigned successfully.")
+
+    except Exception as e:
+        print(f"\n⚠️ An error occurred during automated role assignment: {e}")
+        # If anything in the `try` block fails, assume all roles might be missing
+        # and populate `failed_roles` to trigger your original manual waiting loop.
+        failed_roles = roles
 
 
     if failed_roles:

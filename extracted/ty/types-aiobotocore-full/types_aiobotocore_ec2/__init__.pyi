@@ -23,6 +23,8 @@ Usage::
         DescribeCapacityBlockExtensionHistoryPaginator,
         DescribeCapacityBlockExtensionOfferingsPaginator,
         DescribeCapacityBlockOfferingsPaginator,
+        DescribeCapacityBlockStatusPaginator,
+        DescribeCapacityBlocksPaginator,
         DescribeCapacityReservationBillingRequestsPaginator,
         DescribeCapacityReservationFleetsPaginator,
         DescribeCapacityReservationsPaginator,
@@ -185,6 +187,8 @@ Usage::
         SearchLocalGatewayRoutesPaginator,
         SearchTransitGatewayMulticastGroupsPaginator,
         SecurityGroupExistsWaiter,
+        SecurityGroupVpcAssociationAssociatedWaiter,
+        SecurityGroupVpcAssociationDisassociatedWaiter,
         ServiceResource,
         SnapshotCompletedWaiter,
         SnapshotImportedWaiter,
@@ -230,6 +234,8 @@ Usage::
     network_interface_available_waiter: NetworkInterfaceAvailableWaiter = client.get_waiter("network_interface_available")
     password_data_available_waiter: PasswordDataAvailableWaiter = client.get_waiter("password_data_available")
     security_group_exists_waiter: SecurityGroupExistsWaiter = client.get_waiter("security_group_exists")
+    security_group_vpc_association_associated_waiter: SecurityGroupVpcAssociationAssociatedWaiter = client.get_waiter("security_group_vpc_association_associated")
+    security_group_vpc_association_disassociated_waiter: SecurityGroupVpcAssociationDisassociatedWaiter = client.get_waiter("security_group_vpc_association_disassociated")
     snapshot_completed_waiter: SnapshotCompletedWaiter = client.get_waiter("snapshot_completed")
     snapshot_imported_waiter: SnapshotImportedWaiter = client.get_waiter("snapshot_imported")
     spot_instance_request_fulfilled_waiter: SpotInstanceRequestFulfilledWaiter = client.get_waiter("spot_instance_request_fulfilled")
@@ -253,6 +259,8 @@ Usage::
     describe_capacity_block_extension_history_paginator: DescribeCapacityBlockExtensionHistoryPaginator = client.get_paginator("describe_capacity_block_extension_history")
     describe_capacity_block_extension_offerings_paginator: DescribeCapacityBlockExtensionOfferingsPaginator = client.get_paginator("describe_capacity_block_extension_offerings")
     describe_capacity_block_offerings_paginator: DescribeCapacityBlockOfferingsPaginator = client.get_paginator("describe_capacity_block_offerings")
+    describe_capacity_block_status_paginator: DescribeCapacityBlockStatusPaginator = client.get_paginator("describe_capacity_block_status")
+    describe_capacity_blocks_paginator: DescribeCapacityBlocksPaginator = client.get_paginator("describe_capacity_blocks")
     describe_capacity_reservation_billing_requests_paginator: DescribeCapacityReservationBillingRequestsPaginator = client.get_paginator("describe_capacity_reservation_billing_requests")
     describe_capacity_reservation_fleets_paginator: DescribeCapacityReservationFleetsPaginator = client.get_paginator("describe_capacity_reservation_fleets")
     describe_capacity_reservations_paginator: DescribeCapacityReservationsPaginator = client.get_paginator("describe_capacity_reservations")
@@ -409,6 +417,8 @@ from .paginator import (
     DescribeCapacityBlockExtensionHistoryPaginator,
     DescribeCapacityBlockExtensionOfferingsPaginator,
     DescribeCapacityBlockOfferingsPaginator,
+    DescribeCapacityBlocksPaginator,
+    DescribeCapacityBlockStatusPaginator,
     DescribeCapacityReservationBillingRequestsPaginator,
     DescribeCapacityReservationFleetsPaginator,
     DescribeCapacityReservationsPaginator,
@@ -576,6 +586,8 @@ from .waiter import (
     NetworkInterfaceAvailableWaiter,
     PasswordDataAvailableWaiter,
     SecurityGroupExistsWaiter,
+    SecurityGroupVpcAssociationAssociatedWaiter,
+    SecurityGroupVpcAssociationDisassociatedWaiter,
     SnapshotCompletedWaiter,
     SnapshotImportedWaiter,
     SpotInstanceRequestFulfilledWaiter,
@@ -616,6 +628,8 @@ __all__ = (
     "DescribeCapacityBlockExtensionHistoryPaginator",
     "DescribeCapacityBlockExtensionOfferingsPaginator",
     "DescribeCapacityBlockOfferingsPaginator",
+    "DescribeCapacityBlockStatusPaginator",
+    "DescribeCapacityBlocksPaginator",
     "DescribeCapacityReservationBillingRequestsPaginator",
     "DescribeCapacityReservationFleetsPaginator",
     "DescribeCapacityReservationsPaginator",
@@ -778,6 +792,8 @@ __all__ = (
     "SearchLocalGatewayRoutesPaginator",
     "SearchTransitGatewayMulticastGroupsPaginator",
     "SecurityGroupExistsWaiter",
+    "SecurityGroupVpcAssociationAssociatedWaiter",
+    "SecurityGroupVpcAssociationDisassociatedWaiter",
     "ServiceResource",
     "SnapshotCompletedWaiter",
     "SnapshotImportedWaiter",

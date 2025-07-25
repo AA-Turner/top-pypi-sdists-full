@@ -86,7 +86,6 @@ setup(
         "Operating System :: OS Independent",
         "Programming Language :: Python",
         "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3.8",
         "Programming Language :: Python :: 3.9",
         "Programming Language :: Python :: 3.10",
         "Programming Language :: Python :: 3.11",
@@ -107,15 +106,14 @@ setup(
     },
     install_requires=[
         "inflection>=0.5.0",
-        "djangorestframework>=3.14",
+        "djangorestframework>=3.15",
         "django>=4.2",
     ],
     extras_require={
-        "django-polymorphic": ["django-polymorphic>=3.0"],
+        "django-polymorphic": ["django-polymorphic>=4.0.0"],
         "django-filter": ["django-filter>=2.4"],
-        "openapi": ["pyyaml>=5.4", "uritemplate>=3.0.1"],
     },
     setup_requires=wheel,
-    python_requires=">=3.8",
+    python_requires=">=3.9",
     zip_safe=False,
 )

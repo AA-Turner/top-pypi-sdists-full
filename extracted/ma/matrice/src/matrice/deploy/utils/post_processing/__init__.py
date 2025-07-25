@@ -113,6 +113,9 @@ from .usecases.windmill_maintenance import WindmillMaintenanceUseCase, WindmillM
 from .usecases.flower_segmentation import FlowerUseCase, FlowerConfig
 from .usecases.leaf import LeafConfig, LeafUseCase
 
+#Put all IMAGE based usecases here
+from .usecases.blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
+
 # Use case implementations
 from .usecases import (
     PeopleCountingUseCase,
@@ -163,6 +166,7 @@ from .usecases import (
     WindmillMaintenanceUseCase,
     CarPartSegmentationUseCase,
     FlowerUseCase,
+    BloodCancerDetectionUseCase,
 )
 
 # Register use cases automatically
@@ -221,6 +225,10 @@ _leaf_disease = LeafDiseaseDetectionUseCase()
 _flower_segmentation = FlowerUseCase()
 _leaf_det = LeafUseCase()
 
+#Put all IMAGE based usecases here
+_blood_cancer_detection = BloodCancerDetectionUseCase()
+
+
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
 registry.register_use_case(_customer_service.category, _customer_service.name, CustomerServiceUseCase)
 registry.register_use_case(_advanced_customer_service.category, _advanced_customer_service.name, AdvancedCustomerServiceUseCase)
@@ -277,6 +285,9 @@ registry.register_use_case(_leaf_disease.category, _leaf_disease.name, LeafDisea
 registry.register_use_case(_flower_segmentation.category, _flower_segmentation.name, FlowerUseCase)
 registry.register_use_case(_parking_det.category, _parking_det.name, ParkingUseCase)
 registry.register_use_case(_leaf_det.category, _leaf_det.name, LeafUseCase)
+
+#Put all IMAGE based usecases here
+registry.register_use_case(_blood_cancer_detection.category, _blood_cancer_detection.name, BloodCancerDetectionUseCase)
 
 # Utility functions - organized by category
 from .utils import (  # noqa: E402
@@ -459,6 +470,9 @@ __all__ = [
     'WindmillMaintenanceConfig',
     'FlowerConfig',
 
+    #Put all IMAGE based usecase CONFIGS here
+    'BloodCancerDetectionConfig',
+
     # Use case classes
     'PeopleCountingUseCase',
     'CustomerServiceUseCase',
@@ -509,7 +523,10 @@ __all__ = [
     'CarPartSegmentationUseCase',
     'LaneDetectionUseCase',
     'WindmillMaintenanceUseCase',
-    'FlowerUseCase'
+    'FlowerUseCase',
+
+    #Put all IMAGE based usecases here
+    'BloodCancerDetectionUseCase',
     
     # Base classes for extension
     'BaseProcessor',

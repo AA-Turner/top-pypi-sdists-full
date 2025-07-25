@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for hashicorp/aws provider version 6.4.0
+# CDKTF prebuilt bindings for hashicorp/aws provider version 6.5.0
 
-This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform aws provider version 1:1. 
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.4.0)
+* [Terraform aws provider](https://registry.terraform.io/providers/hashicorp/aws/6.5.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -423,6 +423,7 @@ __all__ = [
     "cognito_identity_pool_provider_principal_tag",
     "cognito_identity_pool_roles_attachment",
     "cognito_identity_provider",
+    "cognito_log_delivery_configuration",
     "cognito_managed_user_pool_client",
     "cognito_resource_server",
     "cognito_risk_configuration",
@@ -681,6 +682,7 @@ __all__ = [
     "data_aws_ec2_transit_gateway_vpn_attachment",
     "data_aws_ecr_authorization_token",
     "data_aws_ecr_image",
+    "data_aws_ecr_images",
     "data_aws_ecr_lifecycle_policy_document",
     "data_aws_ecr_pull_through_cache_rule",
     "data_aws_ecr_repositories",
@@ -1665,6 +1667,7 @@ __all__ = [
     "network_interface_sg_attachment",
     "networkfirewall_firewall",
     "networkfirewall_firewall_policy",
+    "networkfirewall_firewall_transit_gateway_attachment_accepter",
     "networkfirewall_logging_configuration",
     "networkfirewall_resource_policy",
     "networkfirewall_rule_group",
@@ -1889,6 +1892,7 @@ __all__ = [
     "s3_bucket_inventory",
     "s3_bucket_lifecycle_configuration",
     "s3_bucket_logging",
+    "s3_bucket_metadata_configuration",
     "s3_bucket_metric",
     "s3_bucket_notification",
     "s3_bucket_object",
@@ -2546,6 +2550,7 @@ from . import cognito_identity_pool
 from . import cognito_identity_pool_provider_principal_tag
 from . import cognito_identity_pool_roles_attachment
 from . import cognito_identity_provider
+from . import cognito_log_delivery_configuration
 from . import cognito_managed_user_pool_client
 from . import cognito_resource_server
 from . import cognito_risk_configuration
@@ -2804,6 +2809,7 @@ from . import data_aws_ec2_transit_gateway_vpc_attachments
 from . import data_aws_ec2_transit_gateway_vpn_attachment
 from . import data_aws_ecr_authorization_token
 from . import data_aws_ecr_image
+from . import data_aws_ecr_images
 from . import data_aws_ecr_lifecycle_policy_document
 from . import data_aws_ecr_pull_through_cache_rule
 from . import data_aws_ecr_repositories
@@ -3788,6 +3794,7 @@ from . import network_interface_permission
 from . import network_interface_sg_attachment
 from . import networkfirewall_firewall
 from . import networkfirewall_firewall_policy
+from . import networkfirewall_firewall_transit_gateway_attachment_accepter
 from . import networkfirewall_logging_configuration
 from . import networkfirewall_resource_policy
 from . import networkfirewall_rule_group
@@ -4012,6 +4019,7 @@ from . import s3_bucket_intelligent_tiering_configuration
 from . import s3_bucket_inventory
 from . import s3_bucket_lifecycle_configuration
 from . import s3_bucket_logging
+from . import s3_bucket_metadata_configuration
 from . import s3_bucket_metric
 from . import s3_bucket_notification
 from . import s3_bucket_object

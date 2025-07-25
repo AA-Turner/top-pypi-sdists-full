@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: azure-mgmt-compute
-Version: 34.1.0
+Version: 35.0.0
 Summary: Microsoft Azure Compute Management Client Library for Python
 Home-page: https://github.com/Azure/azure-sdk-for-python
 Author: Microsoft Corporation
@@ -11,24 +11,23 @@ Classifier: Development Status :: 5 - Production/Stable
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: License :: OSI Approved :: MIT License
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: isodate>=0.6.1
 Requires-Dist: typing-extensions>=4.6.0
 Requires-Dist: azure-common>=1.1
-Requires-Dist: azure-mgmt-core>=1.3.2
+Requires-Dist: azure-mgmt-core>=1.5.0
 
 # Microsoft Azure SDK for Python
 
 This is the Microsoft Azure Compute Management Client Library.
-This package has been tested with Python 3.8+.
+This package has been tested with Python 3.9+.
 For a more complete view of Azure libraries, see the [azure sdk python release](https://aka.ms/azsdk/python/all).
 
 ## _Disclaimer_
@@ -39,7 +38,7 @@ _Azure SDK Python packages support for Python 2.7 has ended 01 January 2022. For
 
 ### Prerequisites
 
-- Python 3.8+ is required to use this package.
+- Python 3.9+ is required to use this package.
 - [Azure subscription](https://azure.microsoft.com/free/)
 
 ### Install the package
@@ -51,7 +50,7 @@ pip install azure-identity
 
 ### Authentication
 
-By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configure of following environment variables.
+By default, [Azure Active Directory](https://aka.ms/awps/aad) token authentication depends on correct configuration of the following environment variables.
 
 - `AZURE_CLIENT_ID` for Azure client ID.
 - `AZURE_TENANT_ID` for Azure tenant ID.
@@ -89,6 +88,58 @@ section of the project.
 
 
 # Release History
+
+## 35.0.0 (2025-07-21)
+
+### Features Added
+
+  - Model AccessUri has a new parameter security_metadata_access_sas
+  - Model AvailabilitySet has a new parameter system_data
+  - Model CapacityReservation has a new parameter system_data
+  - Model CapacityReservationGroup has a new parameter system_data
+  - Model CreationData has a new parameter instant_access_duration_minutes
+  - Model CreationData has a new parameter security_metadata_uri
+  - Model DedicatedHost has a new parameter system_data
+  - Model DedicatedHostGroup has a new parameter system_data
+  - Model DedicatedHostSizeListResult has a new parameter next_link
+  - Model Disk has a new parameter availability_policy
+  - Model Disk has a new parameter system_data
+  - Model DiskAccess has a new parameter system_data
+  - Model DiskEncryptionSet has a new parameter system_data
+  - Model DiskRestorePoint has a new parameter system_data
+  - Model DiskUpdate has a new parameter availability_policy
+  - Model Image has a new parameter system_data
+  - Model PrivateEndpointConnection has a new parameter system_data
+  - Model ProximityPlacementGroup has a new parameter system_data
+  - Model ProxyResource has a new parameter system_data
+  - Model Resource has a new parameter system_data
+  - Model RestorePoint has a new parameter system_data
+  - Model RestorePointCollection has a new parameter system_data
+  - Model RollingUpgradeStatusInfo has a new parameter system_data
+  - Model Snapshot has a new parameter snapshot_access_state
+  - Model Snapshot has a new parameter system_data
+  - Model SnapshotUpdate has a new parameter snapshot_access_state
+  - Model SshPublicKeyResource has a new parameter system_data
+  - Model SupportedCapabilities has a new parameter supported_security_option
+  - Model SystemData has a new parameter created_by
+  - Model SystemData has a new parameter created_by_type
+  - Model SystemData has a new parameter last_modified_by
+  - Model SystemData has a new parameter last_modified_by_type
+  - Model VirtualMachine has a new parameter system_data
+  - Model VirtualMachineExtension has a new parameter system_data
+  - Model VirtualMachineExtensionImage has a new parameter system_data
+  - Model VirtualMachineRunCommand has a new parameter system_data
+  - Model VirtualMachineScaleSet has a new parameter system_data
+  - Model VirtualMachineScaleSetVM has a new parameter system_data
+  - Model VirtualMachineSizeListResult has a new parameter next_link
+
+### Breaking Changes
+
+  - Model Resource no longer has parameter location
+  - Model Resource no longer has parameter tags
+  - Parameter location of model VirtualMachineExtension is now required
+  - Parameter value of model PrivateEndpointConnectionListResult is now required
+  - Parameter value of model RestorePointCollectionListResult is now required
 
 ## 34.1.0 (2025-03-24)
 

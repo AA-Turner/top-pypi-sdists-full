@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sdmetrics
-Version: 0.21.0
+Version: 0.22.0
 Summary: Metrics for Synthetic Data Generation Projects
 Author-email: MIT Data To AI Lab <dailabmit@gmail.com>
 License: MIT license
@@ -75,7 +75,6 @@ Requires-Dist: twine>=1.10.0; extra == "dev"
 Requires-Dist: wheel>=0.30.0; extra == "dev"
 Requires-Dist: packaging<25,>=20; extra == "dev"
 Requires-Dist: coverage<8,>=4.5.12; extra == "dev"
-Requires-Dist: tox<5,>=2.9.1; extra == "dev"
 Dynamic: license-file
 
 <div align="center">

@@ -1,15 +1,18 @@
 import subprocess
 import secrets
 import string
+from intctl.status import StatusManager
+from .utils import Spinner
 from typing import Dict
+import time
 
-# --- Helper Function (copied from original for consistency) ---
-def run(cmd: str) -> subprocess.CompletedProcess:
-    """Executes a shell command and returns the result."""
-    return subprocess.run(cmd, shell=True, capture_output=True, text=True)
+def run(cmd: str, input: str = None) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        cmd, shell=True, input=input, capture_output=True, text=True
+    )
 
 # --- Core Logic for Gitea Secret Management ---
-def setup_gitea_secrets(cfg: Dict[str, str]):
+def setup_gitea_secrets(cfg: Dict[str, str], status: StatusManager):
     """
     Checks for Gitea credentials in Google Secret Manager.
     If they don't exist, it generates them and stores them securely.
@@ -74,7 +77,7 @@ def setup_gitea_secrets(cfg: Dict[str, str]):
 
 # In your setup_gitea_secrets.py or a similar setup script
 
-def create_gitea_internal_secret(cfg: Dict[str, str], length: int = 64):
+def create_gitea_internal_secret(cfg: Dict[str, str], status: StatusManager):
     """Creates a long, random secret for internal app use, like Gitea's SECRET_KEY."""
     project = cfg["project_id"]
     org = cfg["organization_uuid"]
@@ -91,6 +94,7 @@ def create_gitea_internal_secret(cfg: Dict[str, str], length: int = 64):
     # If it doesn't exist, create it.
     print(f"🔐 Secret not found. Generating new random value for '{full_secret_name}'...")
     # Generate a URL-safe random string
+    length = 64
     random_value = secrets.token_urlsafe(length)
 
     create_secret_cmd = (
@@ -107,7 +111,7 @@ def create_gitea_internal_secret(cfg: Dict[str, str], length: int = 64):
         print(f"✅ Stored new random value in secret: {full_secret_name}")
         
 
-def create_gitea_values_secret(cfg: dict):
+def create_gitea_values_secret(cfg: dict, status: StatusManager):
     """
     Fetches all dynamic values from GCP and packages them into a single K8s Secret.
     """
@@ -157,11 +161,7 @@ def create_gitea_values_secret(cfg: dict):
     print(f"🎉 Successfully created/updated Secret '{secret_name}'.")
     
 
-import time
-import shlex
-from subprocess import run  # assuming you’re using subprocess.run elsewhere
-
-def synchronize_gitea_api_token(cfg: dict) -> None:
+def synchronize_gitea_api_token(cfg: dict, status: StatusManager) -> None:
     """
     Generate a *raw* Gitea API token inside the running pod and save it
     to Google Secret Manager (idempotent).
@@ -176,10 +176,7 @@ def synchronize_gitea_api_token(cfg: dict) -> None:
     # ------------------------------------------------------------------ #
     # 1. Skip everything if the secret already exists
     # ------------------------------------------------------------------ #
-    if run(
-        shlex.split(f"gcloud secrets describe {api_token_secret_name} --project {project_id}"),
-        capture_output=True,
-    ).returncode == 0:
+    if run(f"gcloud secrets describe {api_token_secret_name} --project={project_id}").returncode == 0:
         print(f"✅ Secret “{api_token_secret_name}” already present – nothing to do.")
         return
 
@@ -188,68 +185,70 @@ def synchronize_gitea_api_token(cfg: dict) -> None:
     # ------------------------------------------------------------------ #
     print("⏳ Waiting for a Gitea pod to be running…")
     pod_name = ""
-    for attempt in range(12):                 # 12 × 10 s → 120 s max
+    for attempt in range(32):                 # 12 × 10 s → 120 s max
         proc = run(
-            shlex.split(
-                "kubectl get pods -n intellithing "
-                "-l app=gitea --field-selector=status.phase=Running "
-                "-o jsonpath={.items[0].metadata.name}"
-            ),
-            capture_output=True, text=True
+            "kubectl get pods -n intellithing "
+            "-l app=gitea --field-selector=status.phase=Running "
+            "-o jsonpath={.items[0].metadata.name}"
         )
         if proc.returncode == 0 and proc.stdout.strip():
             pod_name = proc.stdout.strip()
             print(f"✅ Found pod: {pod_name}")
             break
-        time.sleep(10)
+
+        time.sleep(40)
         print(f"  ↻ still waiting… ({attempt + 1}/12)")
 
     if not pod_name:
         raise RuntimeError("❌ Timed out waiting for a running Gitea pod")
 
+
     # ------------------------------------------------------------------ #
     # 3. Generate a *raw* token inside that pod
     # ------------------------------------------------------------------ #
     gitea_admin_user = "gitea_admin"
-    token_name       = f"custom-api-layer-token-{int(time.time())}" 
+    token_name = f"custom-api-layer-token-{int(time.time())}"
 
     generate_token_cmd = (
         "gitea admin user generate-access-token "
-        f"--username {shlex.quote(gitea_admin_user)} "
-        f"--token-name {shlex.quote(token_name)} "
+        f"--username '{gitea_admin_user}' "
+        f"--token-name '{token_name}' "
         "--scopes all "
-        "--raw "                               
+        "--raw "
         "--config /etc/gitea/app.ini"
     )
 
     exec_cmd = (
-        f"kubectl exec {pod_name} -n intellithing -c gitea -- "
-        f"{generate_token_cmd}"
+        f"kubectl exec {pod_name} -n intellithing -c gitea -- {generate_token_cmd}"
     )
-    proc = run(shlex.split(exec_cmd), capture_output=True, text=True)
+
+    proc = run(exec_cmd)
+
     if proc.returncode != 0 or not proc.stdout.strip():
         raise RuntimeError(
             f"❌ kubectl exec failed:\nSTDERR: {proc.stderr.strip()}"
         )
 
-    raw_token = proc.stdout.strip()           # already the real token
+    raw_token = proc.stdout.strip()
     print("✅ Raw token generated inside pod.")
+
 
     # ------------------------------------------------------------------ #
     # 4. Store the token in Secret Manager (create once)
     # ------------------------------------------------------------------ #
-    store_proc = run(
-        shlex.split(
-            f"echo -n {shlex.quote(raw_token)} | "
-            f"gcloud secrets create {api_token_secret_name} "
-            f"--data-file=- --replication-policy=automatic "
-            f"--project {project_id}"
-        ),
-        shell=True, capture_output=True, text=True
+    store_cmd = (
+        f"echo -n '{raw_token}' | "
+        f"gcloud secrets create {api_token_secret_name} "
+        f"--data-file=- --replication-policy=automatic "
+        f"--project={project_id}"
     )
+
+    store_proc = run(store_cmd)
+
     if store_proc.returncode != 0:
         raise RuntimeError(
             f"❌ Failed to store token:\nSTDERR: {store_proc.stderr.strip()}"
         )
 
     print(f"🎉 Token stored in Secret Manager as “{api_token_secret_name}”.")
+

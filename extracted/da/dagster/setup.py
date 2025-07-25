@@ -78,7 +78,7 @@ setup(
     ],
     packages=find_packages(exclude=["dagster_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<=3.13.3",
+    python_requires=">=3.9,<3.14",
     install_requires=[
         # cli
         "click>=5.0,<8.2",
@@ -112,8 +112,8 @@ setup(
         "universal_pathlib>=0.2.0; python_version>='3.12'",
         "rich",
         "filelock",
-        "dagster-pipes==1.11.2",
-        "dagster-shared==1.11.2",
+        "dagster-pipes==1.11.3",
+        "dagster-shared==1.11.3",
         "antlr4-python3-runtime",
     ],
     extras_require={

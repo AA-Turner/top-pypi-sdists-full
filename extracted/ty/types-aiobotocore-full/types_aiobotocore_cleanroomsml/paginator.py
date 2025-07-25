@@ -25,6 +25,7 @@ Usage::
         ListConfiguredModelAlgorithmsPaginator,
         ListMLInputChannelsPaginator,
         ListTrainedModelInferenceJobsPaginator,
+        ListTrainedModelVersionsPaginator,
         ListTrainedModelsPaginator,
         ListTrainingDatasetsPaginator,
     )
@@ -46,6 +47,7 @@ Usage::
         list_configured_model_algorithms_paginator: ListConfiguredModelAlgorithmsPaginator = client.get_paginator("list_configured_model_algorithms")
         list_ml_input_channels_paginator: ListMLInputChannelsPaginator = client.get_paginator("list_ml_input_channels")
         list_trained_model_inference_jobs_paginator: ListTrainedModelInferenceJobsPaginator = client.get_paginator("list_trained_model_inference_jobs")
+        list_trained_model_versions_paginator: ListTrainedModelVersionsPaginator = client.get_paginator("list_trained_model_versions")
         list_trained_models_paginator: ListTrainedModelsPaginator = client.get_paginator("list_trained_models")
         list_training_datasets_paginator: ListTrainingDatasetsPaginator = client.get_paginator("list_training_datasets")
     ```
@@ -87,6 +89,8 @@ from .type_defs import (
     ListTrainedModelInferenceJobsResponseTypeDef,
     ListTrainedModelsRequestPaginateTypeDef,
     ListTrainedModelsResponseTypeDef,
+    ListTrainedModelVersionsRequestPaginateTypeDef,
+    ListTrainedModelVersionsResponseTypeDef,
     ListTrainingDatasetsRequestPaginateTypeDef,
     ListTrainingDatasetsResponseTypeDef,
 )
@@ -111,6 +115,7 @@ __all__ = (
     "ListConfiguredModelAlgorithmsPaginator",
     "ListMLInputChannelsPaginator",
     "ListTrainedModelInferenceJobsPaginator",
+    "ListTrainedModelVersionsPaginator",
     "ListTrainedModelsPaginator",
     "ListTrainingDatasetsPaginator",
 )
@@ -417,6 +422,27 @@ class ListTrainedModelInferenceJobsPaginator(_ListTrainedModelInferenceJobsPagin
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanroomsml/paginator/ListTrainedModelInferenceJobs.html#CleanRoomsML.Paginator.ListTrainedModelInferenceJobs.paginate)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanroomsml/paginators/#listtrainedmodelinferencejobspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _ListTrainedModelVersionsPaginatorBase = AioPaginator[ListTrainedModelVersionsResponseTypeDef]
+else:
+    _ListTrainedModelVersionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class ListTrainedModelVersionsPaginator(_ListTrainedModelVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanroomsml/paginator/ListTrainedModelVersions.html#CleanRoomsML.Paginator.ListTrainedModelVersions)
+    [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanroomsml/paginators/#listtrainedmodelversionspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListTrainedModelVersionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListTrainedModelVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/cleanroomsml/paginator/ListTrainedModelVersions.html#CleanRoomsML.Paginator.ListTrainedModelVersions.paginate)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_cleanroomsml/paginators/#listtrainedmodelversionspaginator)
         """
 
 

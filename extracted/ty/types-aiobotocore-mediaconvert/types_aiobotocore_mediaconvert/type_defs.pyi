@@ -24,6 +24,7 @@ from .literals import (
     AacAudioDescriptionBroadcasterMixType,
     AacCodecProfileType,
     AacCodingModeType,
+    AacLoudnessMeasurementModeType,
     AacRateControlModeType,
     AacRawFormatType,
     AacSpecificationType,
@@ -796,10 +797,13 @@ class AacSettingsTypeDef(TypedDict):
     Bitrate: NotRequired[int]
     CodecProfile: NotRequired[AacCodecProfileType]
     CodingMode: NotRequired[AacCodingModeType]
+    LoudnessMeasurementMode: NotRequired[AacLoudnessMeasurementModeType]
+    RapInterval: NotRequired[int]
     RateControlMode: NotRequired[AacRateControlModeType]
     RawFormat: NotRequired[AacRawFormatType]
     SampleRate: NotRequired[int]
     Specification: NotRequired[AacSpecificationType]
+    TargetLoudnessRange: NotRequired[int]
     VbrQuality: NotRequired[AacVbrQualityType]
 
 class Ac3SettingsTypeDef(TypedDict):

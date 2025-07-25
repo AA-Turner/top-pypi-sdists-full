@@ -172,6 +172,17 @@ async def wait_run(request: ApiRequest):
     """Create a run, wait for the output."""
     thread_id = request.path_params["thread_id"]
     payload = await request.json(RunCreateStateful)
+
+    # Ensure stream_mode always includes "values" and "updates" while respecting other modes
+    user_stream_mode = payload.get("stream_mode", ["values"])
+    if isinstance(user_stream_mode, str):
+        user_stream_mode = [user_stream_mode]
+
+    # Always include "values" and "updates" if not already present
+    required_modes = {"values", "updates"}
+    final_stream_mode = list(set(user_stream_mode) | required_modes)
+    payload["stream_mode"] = final_stream_mode
+
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid6()
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
@@ -206,6 +217,9 @@ async def wait_run(request: ApiRequest):
         ) as stream:
             async for mode, chunk, _ in stream:
                 if mode == b"values":
+                    vchunk = chunk
+                elif mode == b"updates" and b"__interrupt__" in chunk:
+                    # Include the interrupt message in the values
                     vchunk = chunk
                 elif mode == b"error":
                     vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})
@@ -252,6 +266,17 @@ async def wait_run(request: ApiRequest):
 async def wait_run_stateless(request: ApiRequest):
     """Create a stateless run, wait for the output."""
     payload = await request.json(RunCreateStateless)
+
+    # Ensure stream_mode always includes "values" and "updates" while respecting other modes
+    user_stream_mode = payload.get("stream_mode", ["values"])
+    if isinstance(user_stream_mode, str):
+        user_stream_mode = [user_stream_mode]
+
+    # Always include "values" and "updates" if not already present
+    required_modes = {"values", "updates"}
+    final_stream_mode = list(set(user_stream_mode) | required_modes)
+    payload["stream_mode"] = final_stream_mode
+
     on_disconnect = payload.get("on_disconnect", "continue")
     run_id = uuid6()
     sub = asyncio.create_task(Runs.Stream.subscribe(run_id))
@@ -287,6 +312,9 @@ async def wait_run_stateless(request: ApiRequest):
         ) as stream:
             async for mode, chunk, _ in stream:
                 if mode == b"values":
+                    vchunk = chunk
+                elif mode == b"updates" and b"__interrupt__" in chunk:
+                    # Include the interrupt message in the values
                     vchunk = chunk
                 elif mode == b"error":
                     vchunk = orjson.dumps({"__error__": orjson.Fragment(chunk)})

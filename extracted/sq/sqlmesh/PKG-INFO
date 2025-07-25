@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqlmesh
-Version: 0.202.1
+Version: 0.203.0
 Summary: Next-generation data transformation framework
 Author-email: "TobikoData Inc." <engineering@tobikodata.com>
 License:                                  Apache License
@@ -234,7 +234,7 @@ Requires-Dist: python-dotenv
 Requires-Dist: requests
 Requires-Dist: rich[jupyter]
 Requires-Dist: ruamel.yaml
-Requires-Dist: sqlglot[rs]~=27.0.0
+Requires-Dist: sqlglot[rs]~=27.3.1
 Requires-Dist: tenacity
 Requires-Dist: time-machine
 Requires-Dist: json-stream
@@ -309,7 +309,7 @@ Provides-Extra: duckdb
 Provides-Extra: gcppostgres
 Requires-Dist: cloud-sql-python-connector[pg8000]>=1.8.0; extra == "gcppostgres"
 Provides-Extra: github
-Requires-Dist: PyGithub~=2.5.0; extra == "github"
+Requires-Dist: PyGithub>=2.6.0; extra == "github"
 Provides-Extra: llm
 Requires-Dist: langchain; extra == "llm"
 Requires-Dist: openai; extra == "llm"

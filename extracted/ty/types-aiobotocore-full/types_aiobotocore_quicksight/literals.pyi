@@ -919,7 +919,7 @@ SectionPageBreakStatusType = Literal["DISABLED", "ENABLED"]
 SelectAllValueOptionsType = Literal["ALL_VALUES"]
 SelectedFieldOptionsType = Literal["ALL_FIELDS"]
 SelectedTooltipTypeType = Literal["BASIC", "DETAILED"]
-ServiceTypeType = Literal["QBUSINESS", "REDSHIFT"]
+ServiceTypeType = Literal["ATHENA", "QBUSINESS", "REDSHIFT"]
 SharingModelType = Literal["ACCOUNT", "NAMESPACE"]
 SheetContentTypeType = Literal["INTERACTIVE", "PAGINATED"]
 SheetControlDateTimePickerTypeType = Literal["DATE_RANGE", "SINGLE_VALUED"]
@@ -1101,6 +1101,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -1333,6 +1335,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -1393,6 +1396,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

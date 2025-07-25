@@ -9228,7 +9228,7 @@ class CfnDomain(
             :param environment_id: The ID of the environment that Amazon SageMaker Unified Studio associates with the domain.
             :param project_id: The ID of the Amazon SageMaker Unified Studio project that corresponds to the domain.
             :param project_s3_path: The location where Amazon S3 stores temporary execution data and other artifacts for the project that corresponds to the domain.
-            :param single_sign_on_application_arn: The ARN of the DataZone application managed by SageMaker Unified Studio in the AWS IAM Identity Center.
+            :param single_sign_on_application_arn: The ARN of the application managed by SageMaker AI and SageMaker Unified Studio in the AWS IAM Identity Center.
             :param studio_web_portal_access: Sets whether you can access the domain in Amazon SageMaker Studio:. - **ENABLED** - You can access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it in both studio interfaces. - **DISABLED** - You can't access the domain in Amazon SageMaker Studio. If you migrate the domain to Amazon SageMaker Unified Studio, you can access it only in that studio interface. To migrate a domain to Amazon SageMaker Unified Studio, you specify the UnifiedStudioSettings data type when you use the UpdateDomain action.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html
@@ -9339,7 +9339,7 @@ class CfnDomain(
 
         @builtins.property
         def single_sign_on_application_arn(self) -> typing.Optional[builtins.str]:
-            '''The ARN of the DataZone application managed by SageMaker Unified Studio in the AWS IAM Identity Center.
+            '''The ARN of the application managed by SageMaker AI and SageMaker Unified Studio in the AWS IAM Identity Center.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-sagemaker-domain-unifiedstudiosettings.html#cfn-sagemaker-domain-unifiedstudiosettings-singlesignonapplicationarn
             '''
@@ -27090,7 +27090,7 @@ class CfnModelCard(
             user_profile_arn: typing.Optional[builtins.str] = None,
             user_profile_name: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''Information about the user who created or modified an experiment, trial, trial component, lineage group, project, or model card.
+            '''Information about the user who created or modified a SageMaker resource.
 
             :param domain_id: The domain associated with the user. Default: - "UnsetValue"
             :param user_profile_arn: The Amazon Resource Name (ARN) of the user's profile. Default: - "UnsetValue"

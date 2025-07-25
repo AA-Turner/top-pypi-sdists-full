@@ -6414,7 +6414,9 @@ class CfnStackSet(
             enabled: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
             retain_stacks_on_account_removal: typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]] = None,
         ) -> None:
-            '''[ ``Service-managed`` permissions] Describes whether StackSets automatically deploys to AWS Organizations accounts that are added to a target organizational unit (OU).
+            '''Describes whether StackSets automatically deploys to AWS Organizations accounts that are added to a target organization or organizational unit (OU).
+
+            For more information, see `Enable or disable automatic deployments for StackSets in AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-manage-auto-deployment.html>`_ in the *AWS CloudFormation User Guide* .
 
             :param enabled: If set to ``true`` , StackSets automatically deploys additional stack instances to AWS Organizations accounts that are added to a target organization or organizational unit (OU) in the specified Regions. If an account is removed from a target organization or OU, StackSets deletes stack instances from the account in the specified Regions.
             :param retain_stacks_on_account_removal: If set to ``true`` , stack resources are retained when an account is removed from a target organization or OU. If set to ``false`` , stack resources are deleted. Specify only if ``Enabled`` is set to ``True`` .
@@ -6499,11 +6501,20 @@ class CfnStackSet(
             accounts_url: typing.Optional[builtins.str] = None,
             organizational_unit_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''The AWS ``OrganizationalUnitIds`` or ``Accounts`` for which to create stack instances in the specified Regions.
+            '''The AWS Organizations accounts or AWS accounts to deploy stacks to in the specified Regions.
 
-            :param account_filter_type: Limit deployment targets to individual accounts or include additional accounts with provided OUs. The following is a list of possible values for the ``AccountFilterType`` operation. - ``INTERSECTION`` : StackSet deploys to the accounts specified in the ``Accounts`` parameter. - ``DIFFERENCE`` : StackSet deploys to the OU, excluding the accounts specified in the ``Accounts`` parameter. - ``UNION`` StackSet deploys to the OU, and the accounts specified in the ``Accounts`` parameter. ``UNION`` is not supported for create operations when using StackSet as a resource.
+            When deploying to AWS Organizations accounts with ``SERVICE_MANAGED`` permissions:
+
+            - You must specify the ``OrganizationalUnitIds`` property.
+            - If you specify organizational units (OUs) for ``OrganizationalUnitIds`` and use either the ``Accounts`` or ``AccountsUrl`` property, you must also specify the ``AccountFilterType`` property.
+
+            When deploying to AWS accounts with ``SELF_MANAGED`` permissions:
+
+            - You must specify either the ``Accounts`` or ``AccountsUrl`` property, but not both.
+
+            :param account_filter_type: Refines which accounts to deploy stacks to by specifying how to use the ``Accounts`` and ``OrganizationalUnitIds`` properties together. The following values determine how CloudFormation selects target accounts: - ``INTERSECTION`` : StackSet deploys to the accounts specified in the ``Accounts`` property. - ``DIFFERENCE`` : StackSet deploys to the OU, excluding the accounts specified in the ``Accounts`` property. - ``UNION`` : StackSet deploys to the OU, and the accounts specified in the ``Accounts`` property. ``UNION`` is not supported for create operations when using StackSet as a resource or the ``CreateStackInstances`` API.
             :param accounts: The account IDs of the AWS accounts . If you have many account numbers, you can provide those accounts using the ``AccountsUrl`` property instead. *Pattern* : ``^[0-9]{12}$``
-            :param accounts_url: The Amazon S3 URL path to a file that contains a list of AWS account IDs. The file format must be either ``.csv`` or ``.txt`` , and the data can be comma-separated or new-line-separated. There is currently a 10MB limit for the data (approximately 800,000 accounts).
+            :param accounts_url: The Amazon S3 URL path to a file that contains a list of AWS account IDs. The file format must be either ``.csv`` or ``.txt`` , and the data can be comma-separated or new-line-separated. There is currently a 10MB limit for the data (approximately 800,000 accounts). This property serves the same purpose as ``Accounts`` but allows you to specify a large number of accounts.
             :param organizational_unit_ids: The organization root ID or organizational unit (OU) IDs. *Pattern* : ``^(ou-[a-z0-9]{4,32}-[a-z0-9]{8,32}|r-[a-z0-9]{4,32})$``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-deploymenttargets.html
@@ -6540,13 +6551,13 @@ class CfnStackSet(
 
         @builtins.property
         def account_filter_type(self) -> typing.Optional[builtins.str]:
-            '''Limit deployment targets to individual accounts or include additional accounts with provided OUs.
+            '''Refines which accounts to deploy stacks to by specifying how to use the ``Accounts`` and ``OrganizationalUnitIds`` properties together.
 
-            The following is a list of possible values for the ``AccountFilterType`` operation.
+            The following values determine how CloudFormation selects target accounts:
 
-            - ``INTERSECTION`` : StackSet deploys to the accounts specified in the ``Accounts`` parameter.
-            - ``DIFFERENCE`` : StackSet deploys to the OU, excluding the accounts specified in the ``Accounts`` parameter.
-            - ``UNION`` StackSet deploys to the OU, and the accounts specified in the ``Accounts`` parameter. ``UNION`` is not supported for create operations when using StackSet as a resource.
+            - ``INTERSECTION`` : StackSet deploys to the accounts specified in the ``Accounts`` property.
+            - ``DIFFERENCE`` : StackSet deploys to the OU, excluding the accounts specified in the ``Accounts`` property.
+            - ``UNION`` : StackSet deploys to the OU, and the accounts specified in the ``Accounts`` property. ``UNION`` is not supported for create operations when using StackSet as a resource or the ``CreateStackInstances`` API.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-deploymenttargets.html#cfn-cloudformation-stackset-deploymenttargets-accountfiltertype
             '''
@@ -6571,6 +6582,8 @@ class CfnStackSet(
             '''The Amazon S3 URL path to a file that contains a list of AWS account IDs.
 
             The file format must be either ``.csv`` or ``.txt`` , and the data can be comma-separated or new-line-separated. There is currently a 10MB limit for the data (approximately 800,000 accounts).
+
+            This property serves the same purpose as ``Accounts`` but allows you to specify a large number of accounts.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-deploymenttargets.html#cfn-cloudformation-stackset-deploymenttargets-accountsurl
             '''
@@ -6612,7 +6625,7 @@ class CfnStackSet(
         ) -> None:
             '''Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations.
 
-            :param active: When ``true`` , StackSets performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, StackSets starts queued operations in request order. .. epigraph:: If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting. You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet. When ``false`` (default), StackSets performs one operation at a time in request order.
+            :param active: When ``true`` , CloudFormation performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, CloudFormation starts queued operations in request order. .. epigraph:: If there are already running or queued operations, CloudFormation queues all incoming operations even if they are non-conflicting. You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet. When ``false`` (default), StackSets performs one operation at a time in request order.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-managedexecution.html
             :exampleMetadata: fixture=_generated
@@ -6638,12 +6651,12 @@ class CfnStackSet(
         def active(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''When ``true`` , StackSets performs non-conflicting operations concurrently and queues conflicting operations.
+            '''When ``true`` , CloudFormation performs non-conflicting operations concurrently and queues conflicting operations.
 
-            After conflicting operations finish, StackSets starts queued operations in request order.
+            After conflicting operations finish, CloudFormation starts queued operations in request order.
             .. epigraph::
 
-               If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting.
+               If there are already running or queued operations, CloudFormation queues all incoming operations even if they are non-conflicting.
 
                You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet.
 
@@ -6943,7 +6956,7 @@ class CfnStackSet(
         ) -> None:
             '''Stack instances in some specific accounts and Regions.
 
-            :param deployment_targets: The AWS ``OrganizationalUnitIds`` or ``Accounts`` for which to create stack instances in the specified Regions.
+            :param deployment_targets: The AWS Organizations accounts or AWS accounts to deploy stacks to in the specified Regions.
             :param regions: The names of one or more Regions where you want to create stack instances using the specified AWS accounts .
             :param parameter_overrides: A list of StackSet parameters whose values you want to override in the selected stack instances.
 
@@ -6988,7 +7001,7 @@ class CfnStackSet(
         def deployment_targets(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, "CfnStackSet.DeploymentTargetsProperty"]:
-            '''The AWS ``OrganizationalUnitIds`` or ``Accounts`` for which to create stack instances in the specified Regions.
+            '''The AWS Organizations accounts or AWS accounts to deploy stacks to in the specified Regions.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-stackinstances.html#cfn-cloudformation-stackset-stackinstances-deploymenttargets
             '''

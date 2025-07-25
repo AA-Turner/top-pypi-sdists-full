@@ -13,7 +13,6 @@ from urllib.parse import unquote
 
 import pandas as pd
 import pytz as tz
-
 from seeq.base import util
 from seeq.sdk import *
 from seeq.spy import _common, _login, _datalab
@@ -233,16 +232,17 @@ def schedule_df(session: Session, jobs_df: pd.DataFrame = None, spread: Optional
         indexed_cron_expressions = _spread_over_period(indexed_cron_expressions, spread)
     next_trigger_map = validate_and_get_next_trigger(session, [cron for idx, cron in indexed_cron_expressions])
     datalab_base_url, project_id, file_path = retrieve_notebook_path(session, datalab_notebook_url)
+
+    if file_path != _login.encode_str_if_necessary(file_path):
+        raise SPyRuntimeError(f'Notebook path "{file_path}" is not compatible with scheduling. '
+                              f'Please limit file and folder names to only include ASCII characters.')
+
     # Even though the following verify method immediately calls retrieve_notebook_path again, it is convenient to have
     # the passed URL for the error message, so we don't call it with the resulting tuple.  The verification is done
     # separately so that retrieve_notebook_path can be reused for cases where existence of the URL is not required,
     # and so that an appropriate error message will be provided before attempting the contents API if the URL is bad.
     if datalab_notebook_url:
         _verify_existing_and_accessible(session, datalab_notebook_url)
-
-    if file_path != _login.encode_str_if_necessary(file_path):
-        raise SPyRuntimeError(f'Notebook path "{file_path}" is not compatible with scheduling. '
-                              f'Please limit file and folder names to only include ASCII characters.')
 
     try:
         user_identity = _login.find_user(session, user) if user is not None else None

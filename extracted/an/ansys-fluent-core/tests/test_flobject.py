@@ -525,6 +525,7 @@ def test_list_object():
 def test_command():
     r = flobject.get_root(Proxy())
     r.g_1.r_1 = 2.4
+    r.c_1._setattr("_version", FluentVersion.v261)
     r.c_1()
     assert r.g_1.r_1() == 2.4 + 2.3
     r.c_1(a_2=False)
@@ -879,7 +880,7 @@ def test_settings_wild_card_access(new_solver_session) -> None:
         solver.setup.boundary_conditions.velocity_inlet["inlet-1"]
     assert (
         msg.value.args[0] == "'velocity_inlet' has no attribute 'inlet-1'.\n"
-        "The most similar names are: inlet1, inlet2."
+        "The most similar names are: inlet1, inlet2"
     )
 
 
@@ -902,7 +903,7 @@ def test_settings_matching_names(new_solver_session) -> None:
 
     assert (
         msg.value.args[0] == "'model' has no attribute 'k_epsilon'.\n"
-        "The most similar names are: k-epsilon."
+        "The most similar names are: k-epsilon"
     )
 
 
@@ -1284,4 +1285,99 @@ def test_bc_set_state_performance(static_mixer_settings_session, monkeypatch):
             "inlet1"
         ].momentum.velocity_magnitude.value()
         == 11.0
+    )
+
+
+@pytest.mark.fluent_version(">=25.1")
+def test_get_completer_info(static_mixer_settings_session):
+    solver = static_mixer_settings_session
+    # group
+    completer_info = solver.settings.file.get_completer_info()
+    assert {
+        "batch_options",
+        "beta_settings",
+        "child_names",
+        "get_active_child_names",
+        "is_active",
+        "python_name",
+        "read_case",
+    } < set([x[0] for x in completer_info])
+    # command
+    completer_info = solver.settings.file.read_case.get_completer_info()
+    assert {"argument_names", "file_name", "is_active", "python_path"} < set(
+        [x[0] for x in completer_info]
+    )
+    # parameter
+    completer_info = solver.settings.file.read_case.file_name.get_completer_info()
+    assert {"default_value", "is_active", "python_name", "set_state"} < set(
+        [x[0] for x in completer_info]
+    )
+    # named-object
+    completer_info = (
+        solver.settings.setup.boundary_conditions.velocity_inlet.get_completer_info()
+    )
+    assert {
+        "command_names",
+        "get_object_names",
+        "is_active",
+        "list",
+        "python_name",
+    } < set([x[0] for x in completer_info])
+
+
+@pytest.mark.fluent_version(">=25.2")
+def test_concatenation_of_named_objects(mixing_elbow_case_data_session):
+    solver = mixing_elbow_case_data_session
+
+    assert list(solver.settings.setup.boundary_conditions.velocity_inlet) == [
+        "hot-inlet",
+        "cold-inlet",
+    ]
+    assert list(solver.settings.setup.boundary_conditions.wall) == [
+        "wall-inlet",
+        "wall-elbow",
+    ]
+
+    concatenated_named_objects = (
+        solver.settings.setup.boundary_conditions.velocity_inlet
+        + solver.settings.setup.boundary_conditions.wall
+    )
+    assert list(concatenated_named_objects) == [
+        "hot-inlet",
+        "cold-inlet",
+        "wall-inlet",
+        "wall-elbow",
+    ]
+
+    assert list(concatenated_named_objects()) == list(
+        solver.settings.setup.boundary_conditions.velocity_inlet()
+    ) + list(solver.settings.setup.boundary_conditions.wall())
+
+    assert concatenated_named_objects.items() == list(
+        solver.settings.setup.boundary_conditions.velocity_inlet.items()
+    ) + list(solver.settings.setup.boundary_conditions.wall.items())
+
+    with pytest.raises(TypeError):
+        (
+            solver.settings.setup.boundary_conditions.velocity_inlet
+            + solver.settings.setup.boundary_conditions.wall["wall-inlet"]
+        )
+
+    chained_named_objects = (
+        solver.settings.setup.boundary_conditions.velocity_inlet
+        + solver.settings.setup.boundary_conditions.wall
+        + solver.settings.setup.boundary_conditions.pressure_outlet
+    )
+
+    assert list(chained_named_objects) == [
+        "hot-inlet",
+        "cold-inlet",
+        "wall-inlet",
+        "wall-elbow",
+        "outlet",
+    ]
+
+    assert (
+        list(solver.settings.setup.boundary_conditions.pressure_outlet.items())[0]
+        in chained_named_objects.items()
     )

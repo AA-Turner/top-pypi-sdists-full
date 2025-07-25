@@ -447,6 +447,7 @@ __all__ = (
     "S3DataSourceConfigurationTypeDef",
     "S3IdentifierTypeDef",
     "S3LocationTypeDef",
+    "S3VectorsConfigurationTypeDef",
     "SalesforceCrawlerConfigurationOutputTypeDef",
     "SalesforceCrawlerConfigurationTypeDef",
     "SalesforceDataSourceConfigurationOutputTypeDef",
@@ -1456,6 +1457,12 @@ RedshiftServerlessAuthConfigurationTypeDef = TypedDict(
 
 class RetrievalFlowNodeS3ConfigurationTypeDef(TypedDict):
     bucketName: str
+
+
+class S3VectorsConfigurationTypeDef(TypedDict):
+    indexArn: NotRequired[str]
+    indexName: NotRequired[str]
+    vectorBucketArn: NotRequired[str]
 
 
 class SalesforceSourceConfigurationTypeDef(TypedDict):
@@ -2674,6 +2681,7 @@ StorageConfigurationTypeDef = TypedDict(
         "pineconeConfiguration": NotRequired[PineconeConfigurationTypeDef],
         "rdsConfiguration": NotRequired[RdsConfigurationTypeDef],
         "redisEnterpriseCloudConfiguration": NotRequired[RedisEnterpriseCloudConfigurationTypeDef],
+        "s3VectorsConfiguration": NotRequired[S3VectorsConfigurationTypeDef],
     },
 )
 RedshiftQueryEngineConfigurationTypeDef = TypedDict(

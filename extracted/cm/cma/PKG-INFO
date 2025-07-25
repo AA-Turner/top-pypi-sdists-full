@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: cma
-Version: 4.2.0
+Version: 4.3.0
 Summary: CMA-ES, Covariance Matrix Adaptation Evolution Strategy for non-linear numerical optimization in Python
 Author: Youhei Akimoto, Petr Baudis
 Author-email: Nikolaus Hansen <authors_firstname.lastname@inria.fr>
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3
 Classifier: Topic :: Scientific/Engineering
 Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
 Classifier: Topic :: Scientific/Engineering :: Mathematics
-Description-Content-Type: text/plain
+Description-Content-Type: text/x-rst
 License-File: LICENSE
 Requires-Dist: numpy
 Provides-Extra: plotting
@@ -39,7 +39,7 @@ A stochastic numerical optimization algorithm for difficult (non-convex,
 ill-conditioned, multi-modal, rugged, noisy) optimization problems in
 continuous search spaces, implemented in Python.
 
-Typical domain of application are bound-constrained or unconstrained
+Typical domain of application are unconstrained or bound-constrained
 objective functions with:
 
 * search space dimension between, say, 5 and (a few) 100,
@@ -48,9 +48,10 @@ objective functions with:
   get satisfactory solutions,
 * non-separable, ill-conditioned, or rugged/multi-modal landscapes.
 
+More recently nonlinear constraints handling is available too.
 The CMA-ES is quite reliable, however for small budgets (fewer function
 evaluations than, say, 100 times dimension) or in very small dimensions
-better (i.e. faster) methods are available.
+faster methods are available.
 
 The ``pycma`` module provides two independent implementations of the 
 CMA-ES algorithm in the classes ``cma.CMAEvolutionStrategy`` and 
@@ -182,4 +183,4 @@ Dependencies
 
 Use ``pip install numpy`` etc. for installation. The `cma.purecma` submodule can be used without any dependencies installed.
 
-License: BSD
+License: BSD-3-Clause

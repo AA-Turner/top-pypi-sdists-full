@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "AccessRequestStatusType",
+    "AccessTypeType",
     "AssociationComplianceSeverityType",
     "AssociationExecutionFilterKeyType",
     "AssociationExecutionTargetsFilterKeyType",
@@ -181,6 +182,7 @@ __all__ = (
 
 
 AccessRequestStatusType = Literal["Approved", "Expired", "Pending", "Rejected", "Revoked"]
+AccessTypeType = Literal["JustInTime", "Standard"]
 AssociationComplianceSeverityType = Literal["CRITICAL", "HIGH", "LOW", "MEDIUM", "UNSPECIFIED"]
 AssociationExecutionFilterKeyType = Literal["CreatedTime", "ExecutionId", "Status"]
 AssociationExecutionTargetsFilterKeyType = Literal["ResourceId", "ResourceType", "Status"]
@@ -578,7 +580,7 @@ ResourceTypeForTaggingType = Literal[
 ResourceTypeType = Literal["EC2Instance", "ManagedInstance"]
 ReviewStatusType = Literal["APPROVED", "NOT_REVIEWED", "PENDING", "REJECTED"]
 SessionFilterKeyType = Literal[
-    "InvokedAfter", "InvokedBefore", "Owner", "SessionId", "Status", "Target"
+    "AccessType", "InvokedAfter", "InvokedBefore", "Owner", "SessionId", "Status", "Target"
 ]
 SessionStateType = Literal["Active", "History"]
 SessionStatusType = Literal[
@@ -642,6 +644,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -874,6 +878,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -934,6 +939,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

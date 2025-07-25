@@ -1,6 +1,10 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
 [project]
 name = "geemap"
-version = "0.35.3"
+version = "0.36.0"
 description = "A Python package for interactive mapping using Google Earth Engine and ipyleaflet"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -22,6 +26,7 @@ classifiers = [
     "Programming Language :: Python :: 3.13",
 ]
 dependencies = [
+    "anywidget",
     "bqplot",
     "colour",
     "earthengine-api>=1.0.0",
@@ -42,9 +47,12 @@ dependencies = [
     "scooby",
 ]
 
+[project.scripts]
+geemap = "geemap.cli:main"
+
 [project.optional-dependencies]
 all = [
-    "geemap[ai,backends,extra,lidar,raster,sql,apps,vector,workshop,maplibre]",
+    "geemap[ai,backends,dev,extra,lidar,raster,sql,apps,vector,workshop,maplibre]",
 ]
 ai = [
     "google-api-core",
@@ -59,6 +67,10 @@ ai = [
 backends = [
     "keplergl",
     "pydeck",
+]
+dev = [
+    "watchfiles",
+    "jupyterlab",
 ]
 extra = [
     "ee_extra>=0.0.15",
@@ -118,32 +130,27 @@ workshop = [
     "gdown",
 ]
 maplibre = [
-        "geopandas",
-        "h3",
-        "ipyvuetify",
-        "localtileserver",
-        "mapclassify",
-        "maplibre",
-        "pmtiles",
-        "rioxarray",
-        "xarray",
-    ]
-
-[project.entry-points."console_scripts"]
-geemap = "geemap.cli:main"
+    "geopandas",
+    "h3",
+    "ipyvuetify",
+    "localtileserver",
+    "mapclassify",
+    "maplibre",
+    "pmtiles",
+    "rioxarray",
+    "xarray",
+]
 
 [tool]
-[tool.setuptools.packages.find]
-include = ["geemap*"]
+[tool.hatch.build.targets.sdist]
+packages = ["geemap"]
 exclude = ["docs*"]
-
 
 [tool.distutils.bdist_wheel]
 universal = true
 
-
 [tool.bumpversion]
-current_version = "0.35.3"
+current_version = "0.36.0"
 commit = true
 tag = true
 
@@ -163,10 +170,34 @@ exclude = [
 ]
 max-line-length = 88
 
+[tool.hatch.envs.default]
+features = ["dev"]
+
+[tool.hatch.build]
+only-packages = true
+artifacts = ["geemap/static/*"]
+
+[tool.hatch.build.hooks.jupyter-builder]
+build-function = "hatch_jupyter_builder.npm_builder"
+ensured-targets = [
+    "geemap/static/container.js",
+    "geemap/static/inspector.js",
+    "geemap/static/layer_editor.js",
+    "geemap/static/layer_manager_row.js",
+    "geemap/static/layer_manager.js",
+]
+skip-if-exists = [
+    "geemap/static/container.js",
+    "geemap/static/inspector.js",
+    "geemap/static/layer_editor.js",
+    "geemap/static/layer_manager_row.js",
+    "geemap/static/layer_manager.js",
+]
+dependencies = ["hatch-jupyter-builder>=0.5.0"]
+
+[tool.hatch.build.hooks.jupyter-builder.build-kwargs]
+npm = "npm"
+build_cmd = "build"
 
 [project.urls]
 Homepage = "https://github.com/gee-community/geemap"
-
-[build-system]
-requires = ["setuptools>=64", "setuptools_scm>=8"]
-build-backend = "setuptools.build_meta"

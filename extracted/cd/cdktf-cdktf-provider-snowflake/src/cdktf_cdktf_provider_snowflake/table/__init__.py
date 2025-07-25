@@ -1,7 +1,7 @@
 r'''
 # `snowflake_table`
 
-Refer to the Terraform Registry for docs: [`snowflake_table`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table).
+Refer to the Terraform Registry for docs: [`snowflake_table`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class Table(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.table.Table",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table snowflake_table}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table snowflake_table}.'''
 
     def __init__(
         self,
@@ -71,22 +71,22 @@ class Table(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table snowflake_table} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table snowflake_table} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#column Table#column}
-        :param database: The database in which to create the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#database Table#database}
-        :param name: Specifies the identifier for the table; must be unique for the database and schema in which the table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#name Table#name}
-        :param schema: The schema in which to create the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#schema Table#schema}
-        :param change_tracking: (Default: ``false``) Specifies whether to enable change tracking on the table. Default false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#change_tracking Table#change_tracking}
-        :param cluster_by: A list of one or more table columns/expressions to be used as clustering key(s) for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#cluster_by Table#cluster_by}
-        :param comment: Specifies a comment for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#comment Table#comment}
-        :param data_retention_time_in_days: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the retention period for the table so that Time Travel actions (SELECT, CLONE, UNDROP) can be performed on historical data in the table. If you wish to inherit the parent schema setting then pass in the schema attribute to this argument or do not fill this parameter at all; the default value for this field is -1, which is a fallback to use Snowflake default - in this case the schema value Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#data_retention_time_in_days Table#data_retention_time_in_days}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#id Table#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param primary_key: primary_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#primary_key Table#primary_key}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#tag Table#tag}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#timeouts Table#timeouts}
+        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#column Table#column}
+        :param database: The database in which to create the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#database Table#database}
+        :param name: Specifies the identifier for the table; must be unique for the database and schema in which the table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#name Table#name}
+        :param schema: The schema in which to create the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#schema Table#schema}
+        :param change_tracking: (Default: ``false``) Specifies whether to enable change tracking on the table. Default false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#change_tracking Table#change_tracking}
+        :param cluster_by: A list of one or more table columns/expressions to be used as clustering key(s) for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#cluster_by Table#cluster_by}
+        :param comment: Specifies a comment for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#comment Table#comment}
+        :param data_retention_time_in_days: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the retention period for the table so that Time Travel actions (SELECT, CLONE, UNDROP) can be performed on historical data in the table. If you wish to inherit the parent schema setting then pass in the schema attribute to this argument or do not fill this parameter at all; the default value for this field is -1, which is a fallback to use Snowflake default - in this case the schema value Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#data_retention_time_in_days Table#data_retention_time_in_days}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#id Table#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param primary_key: primary_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#primary_key Table#primary_key}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#tag Table#tag}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#timeouts Table#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -136,7 +136,7 @@ class Table(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the Table to import.
-        :param import_from_id: The id of the existing Table that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing Table that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the Table to import is found.
         '''
         if __debug__:
@@ -168,8 +168,8 @@ class Table(
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param keys: Columns to use in primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#keys Table#keys}
-        :param name: Name of constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#name Table#name}
+        :param keys: Columns to use in primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#keys Table#keys}
+        :param name: Name of constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#name Table#name}
         '''
         value = TablePrimaryKey(keys=keys, name=name)
 
@@ -198,10 +198,10 @@ class Table(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#create Table#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#delete Table#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#read Table#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#update Table#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#create Table#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#delete Table#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#read Table#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#update Table#update}.
         '''
         value = TableTimeouts(create=create, delete=delete, read=read, update=update)
 
@@ -480,14 +480,14 @@ class TableColumn:
         nullable: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     ) -> None:
         '''
-        :param name: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#name Table#name}
-        :param type: Column type, e.g. VARIANT. For a full list of column types, see `Summary of Data Types <https://docs.snowflake.com/en/sql-reference/intro-summary-data-types>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#type Table#type}
-        :param collate: (Default: ``) Column collation, e.g. utf8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#collate Table#collate}
-        :param comment: (Default: ``) Column comment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#comment Table#comment}
-        :param default: default block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#default Table#default}
-        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#identity Table#identity}
-        :param masking_policy: (Default: ``) Masking policy to apply on column. It has to be a fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#masking_policy Table#masking_policy}
-        :param nullable: (Default: ``true``) Whether this column can contain null values. **Note**: Depending on your Snowflake version, the default value will not suffice if this column is used in a primary key constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#nullable Table#nullable}
+        :param name: Column name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#name Table#name}
+        :param type: Column type, e.g. VARIANT. For a full list of column types, see `Summary of Data Types <https://docs.snowflake.com/en/sql-reference/intro-summary-data-types>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#type Table#type}
+        :param collate: (Default: ``) Column collation, e.g. utf8. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#collate Table#collate}
+        :param comment: (Default: ``) Column comment. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#comment Table#comment}
+        :param default: default block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#default Table#default}
+        :param identity: identity block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#identity Table#identity}
+        :param masking_policy: (Default: ``) Masking policy to apply on column. It has to be a fully qualified name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#masking_policy Table#masking_policy}
+        :param nullable: (Default: ``true``) Whether this column can contain null values. **Note**: Depending on your Snowflake version, the default value will not suffice if this column is used in a primary key constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#nullable Table#nullable}
         '''
         if isinstance(default, dict):
             default = TableColumnDefault(**default)
@@ -524,7 +524,7 @@ class TableColumn:
     def name(self) -> builtins.str:
         '''Column name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#name Table#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#name Table#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -534,7 +534,7 @@ class TableColumn:
     def type(self) -> builtins.str:
         '''Column type, e.g. VARIANT. For a full list of column types, see `Summary of Data Types <https://docs.snowflake.com/en/sql-reference/intro-summary-data-types>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#type Table#type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#type Table#type}
         '''
         result = self._values.get("type")
         assert result is not None, "Required property 'type' is missing"
@@ -544,7 +544,7 @@ class TableColumn:
     def collate(self) -> typing.Optional[builtins.str]:
         '''(Default: ``) Column collation, e.g. utf8.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#collate Table#collate}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#collate Table#collate}
         '''
         result = self._values.get("collate")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -553,7 +553,7 @@ class TableColumn:
     def comment(self) -> typing.Optional[builtins.str]:
         '''(Default: ``) Column comment.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#comment Table#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#comment Table#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -562,7 +562,7 @@ class TableColumn:
     def default(self) -> typing.Optional["TableColumnDefault"]:
         '''default block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#default Table#default}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#default Table#default}
         '''
         result = self._values.get("default")
         return typing.cast(typing.Optional["TableColumnDefault"], result)
@@ -571,7 +571,7 @@ class TableColumn:
     def identity(self) -> typing.Optional["TableColumnIdentity"]:
         '''identity block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#identity Table#identity}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#identity Table#identity}
         '''
         result = self._values.get("identity")
         return typing.cast(typing.Optional["TableColumnIdentity"], result)
@@ -580,7 +580,7 @@ class TableColumn:
     def masking_policy(self) -> typing.Optional[builtins.str]:
         '''(Default: ``) Masking policy to apply on column. It has to be a fully qualified name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#masking_policy Table#masking_policy}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#masking_policy Table#masking_policy}
         '''
         result = self._values.get("masking_policy")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -593,7 +593,7 @@ class TableColumn:
 
         **Note**: Depending on your Snowflake version, the default value will not suffice if this column is used in a primary key constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#nullable Table#nullable}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#nullable Table#nullable}
         '''
         result = self._values.get("nullable")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -628,9 +628,9 @@ class TableColumnDefault:
         sequence: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param constant: The default constant value for the column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#constant Table#constant}
-        :param expression: The default expression value for the column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#expression Table#expression}
-        :param sequence: The default sequence to use for the column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#sequence Table#sequence}
+        :param constant: The default constant value for the column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#constant Table#constant}
+        :param expression: The default expression value for the column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#expression Table#expression}
+        :param sequence: The default sequence to use for the column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#sequence Table#sequence}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__8f228c533337613ba577647df9836f23d1e17c64cecf1e3b40248703bdfa8362)
@@ -649,7 +649,7 @@ class TableColumnDefault:
     def constant(self) -> typing.Optional[builtins.str]:
         '''The default constant value for the column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#constant Table#constant}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#constant Table#constant}
         '''
         result = self._values.get("constant")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -658,7 +658,7 @@ class TableColumnDefault:
     def expression(self) -> typing.Optional[builtins.str]:
         '''The default expression value for the column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#expression Table#expression}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#expression Table#expression}
         '''
         result = self._values.get("expression")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -667,7 +667,7 @@ class TableColumnDefault:
     def sequence(self) -> typing.Optional[builtins.str]:
         '''The default sequence to use for the column.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#sequence Table#sequence}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#sequence Table#sequence}
         '''
         result = self._values.get("sequence")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -793,8 +793,8 @@ class TableColumnIdentity:
         step_num: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param start_num: (Default: ``1``) The number to start incrementing at. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#start_num Table#start_num}
-        :param step_num: (Default: ``1``) Step size to increment by. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#step_num Table#step_num}
+        :param start_num: (Default: ``1``) The number to start incrementing at. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#start_num Table#start_num}
+        :param step_num: (Default: ``1``) Step size to increment by. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#step_num Table#step_num}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5d69646ba613dad1f329becefb3324fd5cb6d5666b29162a84c7a28be76fce2a)
@@ -810,7 +810,7 @@ class TableColumnIdentity:
     def start_num(self) -> typing.Optional[jsii.Number]:
         '''(Default: ``1``) The number to start incrementing at.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#start_num Table#start_num}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#start_num Table#start_num}
         '''
         result = self._values.get("start_num")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -819,7 +819,7 @@ class TableColumnIdentity:
     def step_num(self) -> typing.Optional[jsii.Number]:
         '''(Default: ``1``) Step size to increment by.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#step_num Table#step_num}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#step_num Table#step_num}
         '''
         result = self._values.get("step_num")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1036,9 +1036,9 @@ class TableColumnOutputReference(
         sequence: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param constant: The default constant value for the column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#constant Table#constant}
-        :param expression: The default expression value for the column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#expression Table#expression}
-        :param sequence: The default sequence to use for the column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#sequence Table#sequence}
+        :param constant: The default constant value for the column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#constant Table#constant}
+        :param expression: The default expression value for the column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#expression Table#expression}
+        :param sequence: The default sequence to use for the column. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#sequence Table#sequence}
         '''
         value = TableColumnDefault(
             constant=constant, expression=expression, sequence=sequence
@@ -1054,8 +1054,8 @@ class TableColumnOutputReference(
         step_num: typing.Optional[jsii.Number] = None,
     ) -> None:
         '''
-        :param start_num: (Default: ``1``) The number to start incrementing at. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#start_num Table#start_num}
-        :param step_num: (Default: ``1``) Step size to increment by. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#step_num Table#step_num}
+        :param start_num: (Default: ``1``) The number to start incrementing at. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#start_num Table#start_num}
+        :param step_num: (Default: ``1``) Step size to increment by. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#step_num Table#step_num}
         '''
         value = TableColumnIdentity(start_num=start_num, step_num=step_num)
 
@@ -1292,18 +1292,18 @@ class TableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#column Table#column}
-        :param database: The database in which to create the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#database Table#database}
-        :param name: Specifies the identifier for the table; must be unique for the database and schema in which the table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#name Table#name}
-        :param schema: The schema in which to create the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#schema Table#schema}
-        :param change_tracking: (Default: ``false``) Specifies whether to enable change tracking on the table. Default false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#change_tracking Table#change_tracking}
-        :param cluster_by: A list of one or more table columns/expressions to be used as clustering key(s) for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#cluster_by Table#cluster_by}
-        :param comment: Specifies a comment for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#comment Table#comment}
-        :param data_retention_time_in_days: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the retention period for the table so that Time Travel actions (SELECT, CLONE, UNDROP) can be performed on historical data in the table. If you wish to inherit the parent schema setting then pass in the schema attribute to this argument or do not fill this parameter at all; the default value for this field is -1, which is a fallback to use Snowflake default - in this case the schema value Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#data_retention_time_in_days Table#data_retention_time_in_days}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#id Table#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param primary_key: primary_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#primary_key Table#primary_key}
-        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#tag Table#tag}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#timeouts Table#timeouts}
+        :param column: column block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#column Table#column}
+        :param database: The database in which to create the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#database Table#database}
+        :param name: Specifies the identifier for the table; must be unique for the database and schema in which the table is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#name Table#name}
+        :param schema: The schema in which to create the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#schema Table#schema}
+        :param change_tracking: (Default: ``false``) Specifies whether to enable change tracking on the table. Default false. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#change_tracking Table#change_tracking}
+        :param cluster_by: A list of one or more table columns/expressions to be used as clustering key(s) for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#cluster_by Table#cluster_by}
+        :param comment: Specifies a comment for the table. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#comment Table#comment}
+        :param data_retention_time_in_days: (Default: fallback to Snowflake default - uses special value that cannot be set in the configuration manually (``-1``)) Specifies the retention period for the table so that Time Travel actions (SELECT, CLONE, UNDROP) can be performed on historical data in the table. If you wish to inherit the parent schema setting then pass in the schema attribute to this argument or do not fill this parameter at all; the default value for this field is -1, which is a fallback to use Snowflake default - in this case the schema value Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#data_retention_time_in_days Table#data_retention_time_in_days}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#id Table#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param primary_key: primary_key block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#primary_key Table#primary_key}
+        :param tag: tag block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#tag Table#tag}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#timeouts Table#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -1439,7 +1439,7 @@ class TableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List[TableColumn]]:
         '''column block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#column Table#column}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#column Table#column}
         '''
         result = self._values.get("column")
         assert result is not None, "Required property 'column' is missing"
@@ -1449,7 +1449,7 @@ class TableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database(self) -> builtins.str:
         '''The database in which to create the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#database Table#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#database Table#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -1461,7 +1461,7 @@ class TableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for the database and schema in which the table is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#name Table#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#name Table#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1471,7 +1471,7 @@ class TableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema(self) -> builtins.str:
         '''The schema in which to create the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#schema Table#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#schema Table#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -1483,7 +1483,7 @@ class TableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``false``) Specifies whether to enable change tracking on the table. Default false.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#change_tracking Table#change_tracking}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#change_tracking Table#change_tracking}
         '''
         result = self._values.get("change_tracking")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1492,7 +1492,7 @@ class TableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def cluster_by(self) -> typing.Optional[typing.List[builtins.str]]:
         '''A list of one or more table columns/expressions to be used as clustering key(s) for the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#cluster_by Table#cluster_by}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#cluster_by Table#cluster_by}
         '''
         result = self._values.get("cluster_by")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -1501,7 +1501,7 @@ class TableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Specifies a comment for the table.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#comment Table#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#comment Table#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1512,14 +1512,14 @@ class TableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         If you wish to inherit the parent schema setting then pass in the schema attribute to this argument or do not fill this parameter at all; the default value for this field is -1, which is a fallback to use Snowflake default - in this case the schema value
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#data_retention_time_in_days Table#data_retention_time_in_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#data_retention_time_in_days Table#data_retention_time_in_days}
         '''
         result = self._values.get("data_retention_time_in_days")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#id Table#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#id Table#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -1531,7 +1531,7 @@ class TableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def primary_key(self) -> typing.Optional["TablePrimaryKey"]:
         '''primary_key block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#primary_key Table#primary_key}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#primary_key Table#primary_key}
         '''
         result = self._values.get("primary_key")
         return typing.cast(typing.Optional["TablePrimaryKey"], result)
@@ -1542,7 +1542,7 @@ class TableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TableTag"]]]:
         '''tag block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#tag Table#tag}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#tag Table#tag}
         '''
         result = self._values.get("tag")
         return typing.cast(typing.Optional[typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["TableTag"]]], result)
@@ -1551,7 +1551,7 @@ class TableConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["TableTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#timeouts Table#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#timeouts Table#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["TableTimeouts"], result)
@@ -1581,8 +1581,8 @@ class TablePrimaryKey:
         name: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param keys: Columns to use in primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#keys Table#keys}
-        :param name: Name of constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#name Table#name}
+        :param keys: Columns to use in primary key. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#keys Table#keys}
+        :param name: Name of constraint. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#name Table#name}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__5b83d277a71158a0b7d1b68db84f581f7a9a3a26606538c9a94becf6a0b597b0)
@@ -1598,7 +1598,7 @@ class TablePrimaryKey:
     def keys(self) -> typing.List[builtins.str]:
         '''Columns to use in primary key.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#keys Table#keys}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#keys Table#keys}
         '''
         result = self._values.get("keys")
         assert result is not None, "Required property 'keys' is missing"
@@ -1608,7 +1608,7 @@ class TablePrimaryKey:
     def name(self) -> typing.Optional[builtins.str]:
         '''Name of constraint.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#name Table#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#name Table#name}
         '''
         result = self._values.get("name")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1716,10 +1716,10 @@ class TableTag:
         schema: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param name: Tag name, e.g. department. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#name Table#name}
-        :param value: Tag value, e.g. marketing_info. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#value Table#value}
-        :param database: Name of the database that the tag was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#database Table#database}
-        :param schema: Name of the schema that the tag was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#schema Table#schema}
+        :param name: Tag name, e.g. department. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#name Table#name}
+        :param value: Tag value, e.g. marketing_info. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#value Table#value}
+        :param database: Name of the database that the tag was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#database Table#database}
+        :param schema: Name of the schema that the tag was created in. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#schema Table#schema}
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__25936c5c9190c8854badeb92b6a010e3675185446908c41550a6d447cea808c0)
@@ -1740,7 +1740,7 @@ class TableTag:
     def name(self) -> builtins.str:
         '''Tag name, e.g. department.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#name Table#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#name Table#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -1750,7 +1750,7 @@ class TableTag:
     def value(self) -> builtins.str:
         '''Tag value, e.g. marketing_info.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#value Table#value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#value Table#value}
         '''
         result = self._values.get("value")
         assert result is not None, "Required property 'value' is missing"
@@ -1760,7 +1760,7 @@ class TableTag:
     def database(self) -> typing.Optional[builtins.str]:
         '''Name of the database that the tag was created in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#database Table#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#database Table#database}
         '''
         result = self._values.get("database")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -1769,7 +1769,7 @@ class TableTag:
     def schema(self) -> typing.Optional[builtins.str]:
         '''Name of the schema that the tag was created in.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#schema Table#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#schema Table#schema}
         '''
         result = self._values.get("schema")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -2016,10 +2016,10 @@ class TableTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#create Table#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#delete Table#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#read Table#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#update Table#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#create Table#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#delete Table#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#read Table#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#update Table#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__2314e63c5561395f8114208e707db5eb2ab9e7d9a704b36513e39a5a1fee2ef2)
@@ -2039,25 +2039,25 @@ class TableTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#create Table#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#create Table#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#delete Table#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#delete Table#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#read Table#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#read Table#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/table#update Table#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/table#update Table#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

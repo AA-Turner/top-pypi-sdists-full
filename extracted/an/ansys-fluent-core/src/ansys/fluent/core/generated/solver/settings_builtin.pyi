@@ -2044,3 +2044,25 @@ class Calculate(
     type(settings_root_222.solution.run_calculation.calculate),
 ): ...
 
+class Iterate(
+    type(settings_root_261.solution.run_calculation.iterate),
+    type(settings_root_252.solution.run_calculation.iterate),
+    type(settings_root_251.solution.run_calculation.iterate),
+    type(settings_root_242.solution.run_calculation.iterate),
+    type(settings_root_241.solution.run_calculation.iterate),
+    type(settings_root_232.solution.run_calculation.iterate),
+    type(settings_root_231.solution.run_calculation.iterate),
+    type(settings_root_222.solution.run_calculation.iterate),
+): ...
+
+class DualTimeIterate(
+    type(settings_root_261.solution.run_calculation.dual_time_iterate),
+    type(settings_root_252.solution.run_calculation.dual_time_iterate),
+    type(settings_root_251.solution.run_calculation.dual_time_iterate),
+    type(settings_root_242.solution.run_calculation.dual_time_iterate),
+    type(settings_root_241.solution.run_calculation.dual_time_iterate),
+    type(settings_root_232.solution.run_calculation.dual_time_iterate),
+    type(settings_root_231.solution.run_calculation.dual_time_iterate),
+    type(settings_root_222.solution.run_calculation.dual_time_iterate),
+): ...
+

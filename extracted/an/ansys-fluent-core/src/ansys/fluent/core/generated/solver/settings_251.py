@@ -10,6 +10,7 @@ from ansys.fluent.core.solver.flobject import (
     _InputFile,
     _OutputFile,
     _InOutFile,
+    _FlStringConstant,
 )
 
 SHASH = "498056b05fb9bec5f6cb2c74f08103229db1ca4a65fbda88fd8d1fdca0be0cc7"
@@ -89713,6 +89714,14 @@ class transient_post_processing(Group):
         compute_and_clip_range=compute_and_clip_range,
     )
 
+class switch_to_meshing_mode(Command):
+    """
+    Switch to meshing mode (Beta feature).
+    """
+    _version = '251'
+    fluent_name = 'switch-to-meshing-mode'
+    _python_name = 'switch_to_meshing_mode'
+
 class root(Group):
     """
     'root' object.
@@ -89721,6 +89730,7 @@ class root(Group):
     fluent_name = ''
     _python_name = 'root'
     child_names = ['file', 'mesh', 'server', 'setup', 'solution', 'results', 'design', 'parametric_studies', 'current_parametric_study', 'parameters', 'parallel', 'transient_post_processing']
+    command_names = ['switch_to_meshing_mode']
     _child_classes = dict(
         file=file,
         mesh=mesh,
@@ -89734,5 +89744,6 @@ class root(Group):
         parameters=parameters,
         parallel=parallel,
         transient_post_processing=transient_post_processing,
+        switch_to_meshing_mode=switch_to_meshing_mode,
     )
 

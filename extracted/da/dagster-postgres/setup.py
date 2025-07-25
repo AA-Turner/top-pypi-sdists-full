@@ -38,7 +38,7 @@ setup(
         ]
     },
     include_package_data=True,
-    python_requires=">=3.9,<=3.13.3",
-    install_requires=["dagster==1.11.2", "psycopg2-binary"],
+    python_requires=">=3.9,<3.14",
+    install_requires=["dagster==1.11.3", "psycopg2-binary"],
     zip_safe=False,
 )

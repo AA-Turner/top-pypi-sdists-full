@@ -622,6 +622,7 @@ class Bucket(AIOBoto3ServiceResource):
     objects: BucketObjectsCollection
     creation_date: Awaitable[datetime]
     bucket_region: Awaitable[str]
+    bucket_arn: Awaitable[str]
     meta: S3ResourceMeta  # type: ignore[override]
 
     async def get_available_subresources(self) -> Sequence[str]:

@@ -1,5 +1,4 @@
-"""The maplibregl module provides the Map class for creating interactive maps using the maplibre.ipywidget module.
-"""
+"""The maplibregl module provides the Map class for creating interactive maps using the maplibre.ipywidget module."""
 
 import os
 import requests
@@ -2468,12 +2467,10 @@ class Map(MapWidget):
         Returns:
             None
         """
-        import pkg_resources
+        import importlib.resources
         from .legends import builtin_legends
 
-        pkg_dir = os.path.dirname(
-            pkg_resources.resource_filename("geemap", "geemap.py")
-        )
+        pkg_dir = str(importlib.resources.files("geemap").joinpath("geemap.py").parent)
         legend_template = os.path.join(pkg_dir, "data/template/legend.html")
 
         if not os.path.exists(legend_template):

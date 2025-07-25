@@ -835,6 +835,30 @@ def test_columns_padding():
 
 
 @assert_no_logs
+def test_columns_bottom_margin():
+    page, = render_pages('''
+      <style>
+        div { columns: 2; column-gap: 1px }
+        body { margin: 0; font: 2px / 1 weasyprint }
+        p { margin-bottom: 1em }
+        @page { margin: 0; size: 5px 7px; font-size: 1px }
+      </style>
+      <div><p>a b c</p></div>
+    ''')
+    html, = page.children
+    body, = html.children
+    div, = body.children
+    column1, column2 = div.children
+    p, = column1.children
+    line1, line2 = p.children
+    assert line1.children[0].text == 'a'
+    assert line2.children[0].text == 'b'
+    p, = column2.children
+    line1, = p.children
+    assert line1.children[0].text == 'c'
+
+
+@assert_no_logs
 def test_columns_relative():
     page, = render_pages('''
       <style>
@@ -865,7 +889,7 @@ def test_columns_relative():
 
 @assert_no_logs
 def test_columns_regression_1():
-    # Regression test #1 for https://github.com/Kozea/WeasyPrint/issues/659
+    # Regression test for #659.
     page1, page2, page3 = render_pages('''
       <style>
         @page {margin: 0; width: 100px; height: 100px}
@@ -909,7 +933,7 @@ def test_columns_regression_1():
 
 @assert_no_logs
 def test_columns_regression_2():
-    # Regression test #2 for https://github.com/Kozea/WeasyPrint/issues/659
+    # Regression test for #659.
     page1, page2 = render_pages('''
       <style>
         @page {margin: 0; width: 100px; height: 100px}
@@ -950,7 +974,7 @@ def test_columns_regression_2():
 
 @assert_no_logs
 def test_columns_regression_3():
-    # Regression test #3 for https://github.com/Kozea/WeasyPrint/issues/659
+    # Regression test for #659.
     page, = render_pages('''
       <style>
         @page {margin: 0; width: 100px; height: 100px}
@@ -980,7 +1004,7 @@ def test_columns_regression_3():
 
 @assert_no_logs
 def test_columns_regression_4():
-    # Regression test for https://github.com/Kozea/WeasyPrint/issues/897
+    # Regression test for #897.
     page, = render_pages('''
       <div style="position:absolute">
         <div style="column-count:2">
@@ -1000,7 +1024,7 @@ def test_columns_regression_4():
 
 @assert_no_logs
 def test_columns_regression_5():
-    # Regression test for https://github.com/Kozea/WeasyPrint/issues/1191
+    # Regression test for #1191.
     render_pages('''
       <style>
         @page {width: 100px; height: 100px}
@@ -1021,7 +1045,7 @@ def test_columns_regression_5():
 
 @assert_no_logs
 def test_columns_regression_6():
-    # Regression test for https://github.com/Kozea/WeasyPrint/issues/2103
+    # Regression test for #2103.
     render_pages('''
       <style>
         @page {width: 100px; height: 100px}

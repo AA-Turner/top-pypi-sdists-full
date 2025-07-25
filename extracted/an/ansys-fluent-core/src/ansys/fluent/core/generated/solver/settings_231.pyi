@@ -10,45 +10,53 @@ from ansys.fluent.core.solver.flobject import (
     _InputFile,
     _OutputFile,
     _InOutFile,
+    _FlStringConstant,
 )
 
-from typing import Any
+from typing import Any, Final
 
 class single_precision_coordinates(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class binary_legacy_files(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cff_files(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class async_optimize(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class write_pdat(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class confirm_overwrite(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_auto_creation_of_scp_file(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sc_def_file_settings(Group):
     _version: str
     fluent_name: str
@@ -68,6 +76,7 @@ class sc_def_file_settings(Group):
                 'overwrite' child.
         """
     return_type: str
+
 class settings(Group):
     _version: str
     fluent_name: str
@@ -83,6 +92,7 @@ class settings(Group):
                 'set_filetype' child.
         """
     return_type: str
+
 class export(Group):
     _version: str
     fluent_name: str
@@ -201,11 +211,13 @@ class export(Group):
                 'htc_on_walls' child.
         """
     return_type: str
+
 class create_zones_from_ccl(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class import_(Group):
     _version: str
     fluent_name: str
@@ -231,6 +243,7 @@ class import_(Group):
                 'file_name' child.
         """
     return_type: str
+
 class parametric_project(Group):
     _version: str
     fluent_name: str
@@ -290,6 +303,7 @@ class parametric_project(Group):
                 'archive_name' child.
         """
     return_type: str
+
 class file(Group):
     _version: str
     fluent_name: str
@@ -373,91 +387,109 @@ class file(Group):
         'write' command.
         """
     return_type: str
+
 class refinement_criteria(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coarsening_criteria(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class manual_refinement_criteria(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class manual_coarsening_criteria(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class anisotropic_boundary_zones(StringList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cell_zones(StringList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dynamic_adaption_frequency(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class verbosity(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class encapsulate_children(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class maximum_refinement_level(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class minimum_cell_quality(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class maximum_cell_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class additional_refinement_layers(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class anisotropic_adaption(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class minimum_edge_length(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class anisotropic_split_ratio(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class overset_adapt_dead_cells(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set(Group):
     _version: str
     fluent_name: str
@@ -487,6 +519,7 @@ class set(Group):
                 'enable' child.
         """
     return_type: str
+
 class profile(Group):
     _version: str
     fluent_name: str
@@ -509,11 +542,13 @@ class profile(Group):
         Clear adaption profiling counters.
         """
     return_type: str
+
 class free_hierarchy(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class multi_layer_refinement(Group):
     _version: str
     fluent_name: str
@@ -536,11 +571,13 @@ class multi_layer_refinement(Group):
         Specify parameters for multiple boundary layer refinement.
         """
     return_type: str
+
 class reconstruct_geometry(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class geometry(Group):
     _version: str
     fluent_name: str
@@ -548,6 +585,7 @@ class geometry(Group):
     child_names: list[str]
     reconstruct_geometry: reconstruct_geometry
     return_type: str
+
 class adapt(Group):
     _version: str
     fluent_name: str
@@ -576,31 +614,37 @@ class adapt(Group):
         List the number of cells marked for refinement/coarsening.
         """
     return_type: str
+
 class check_before_solve(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class check_verbosity(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enhanced_orthogonal_quality(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class matching_tolerance(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class show_periodic_shadow_zones(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reorder(Group):
     _version: str
     fluent_name: str
@@ -619,16 +663,19 @@ class reorder(Group):
         Reorder zones by partition, type, and id.
         """
     return_type: str
+
 class allow_repair_at_boundaries(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class include_local_polyhedra_conversion_in_repair(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class repair_improve(Group):
     _version: str
     fluent_name: str
@@ -674,6 +721,7 @@ class repair_improve(Group):
                 'repair' child.
         """
     return_type: str
+
 class surface_mesh(Group):
     _version: str
     fluent_name: str
@@ -704,21 +752,25 @@ class surface_mesh(Group):
                 'unit' child.
         """
     return_type: str
+
 class migrate_and_reorder(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class preserve_boundary_layer(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class preserve_interior_zones(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class options(Group):
     _version: str
     fluent_name: str
@@ -728,6 +780,7 @@ class options(Group):
     preserve_boundary_layer: preserve_boundary_layer
     preserve_interior_zones: preserve_interior_zones
     return_type: str
+
 class polyhedra(Group):
     _version: str
     fluent_name: str
@@ -753,6 +806,7 @@ class polyhedra(Group):
         'convert_skewed_cells' command.
         """
     return_type: str
+
 class mesh(Group):
     _version: str
     fluent_name: str
@@ -863,6 +917,7 @@ class mesh(Group):
                 'offset' child.
         """
     return_type: str
+
 class web_server(Group):
     _version: str
     fluent_name: str
@@ -877,6 +932,7 @@ class web_server(Group):
         'stop' command.
         """
     return_type: str
+
 class server(Group):
     _version: str
     fluent_name: str
@@ -884,26 +940,31 @@ class server(Group):
     child_names: list[str]
     web_server: web_server
     return_type: str
+
 class type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class two_dim_space(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class velocity_formulation(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solver(Group):
     _version: str
     fluent_name: str
@@ -914,21 +975,25 @@ class solver(Group):
     velocity_formulation: velocity_formulation
     time: time
     return_type: str
+
 class adjust_solver_defaults_based_on_setup(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_2(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class components(RealVector):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class gravity(Group):
     _version: str
     fluent_name: str
@@ -937,6 +1002,7 @@ class gravity(Group):
     enable: enable_2
     components: components
     return_type: str
+
 class general(Group):
     _version: str
     fluent_name: str
@@ -946,31 +1012,37 @@ class general(Group):
     adjust_solver_defaults_based_on_setup: adjust_solver_defaults_based_on_setup
     gravity: gravity
     return_type: str
+
 class enable_expert_view(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class contour_plotting_option(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class option(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class update_sources_every_flow_iteration(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class iteration_interval(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interaction(Group):
     _version: str
     fluent_name: str
@@ -980,31 +1052,37 @@ class interaction(Group):
     update_sources_every_flow_iteration: update_sources_every_flow_iteration
     iteration_interval: iteration_interval
     return_type: str
+
 class option_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class create_particles_every_particle_step(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_time_step(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class n_time_steps(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class clear_particles_from_domain(Command):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class unsteady_tracking(Group):
     _version: str
     fluent_name: str
@@ -1016,6 +1094,7 @@ class unsteady_tracking(Group):
     n_time_steps: n_time_steps
     clear_particles_from_domain: clear_particles_from_domain
     return_type: str
+
 class general_settings(Group):
     _version: str
     fluent_name: str
@@ -1025,41 +1104,49 @@ class general_settings(Group):
     interaction: interaction
     unsteady_tracking: unsteady_tracking
     return_type: str
+
 class particle_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class material(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reference_frame(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class number_of_streams(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class option_2(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cone_type(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class inject_as_film(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class injection_type(Group):
     _version: str
     fluent_name: str
@@ -1069,26 +1156,31 @@ class injection_type(Group):
     cone_type: cone_type
     inject_as_film: inject_as_film
     return_type: str
+
 class continuous_phase(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_rough_wall_treatment(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class option_3(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ddpm_phase(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class volume_displacement(Group):
     _version: str
     fluent_name: str
@@ -1097,6 +1189,7 @@ class volume_displacement(Group):
     option: option_3
     ddpm_phase: ddpm_phase
     return_type: str
+
 class interaction_1(Group):
     _version: str
     fluent_name: str
@@ -1106,21 +1199,25 @@ class interaction_1(Group):
     enable_rough_wall_treatment: enable_rough_wall_treatment
     volume_displacement: volume_displacement
     return_type: str
+
 class const_number_in_parcel(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class const_parcel_mass(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class const_parcel_diameter(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class parcel_method(Group):
     _version: str
     fluent_name: str
@@ -1131,11 +1228,13 @@ class parcel_method(Group):
     const_parcel_mass: const_parcel_mass
     const_parcel_diameter: const_parcel_diameter
     return_type: str
+
 class time_delay(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class particle_reinjector(Group):
     _version: str
     fluent_name: str
@@ -1144,16 +1243,19 @@ class particle_reinjector(Group):
     enable: enable
     time_delay: time_delay
     return_type: str
+
 class shape_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cunningham_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class particle_drag(Group):
     _version: str
     fluent_name: str
@@ -1163,16 +1265,19 @@ class particle_drag(Group):
     shape_factor: shape_factor
     cunningham_factor: cunningham_factor
     return_type: str
+
 class drag_law(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lift_law(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class particle_rotation(Group):
     _version: str
     fluent_name: str
@@ -1182,16 +1287,19 @@ class particle_rotation(Group):
     drag_law: drag_law
     lift_law: lift_law
     return_type: str
+
 class const_htc(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class const_nu(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class heat_transfer(Group):
     _version: str
     fluent_name: str
@@ -1201,61 +1309,73 @@ class heat_transfer(Group):
     const_htc: const_htc
     const_nu: const_nu
     return_type: str
+
 class law_1(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class law_2(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class law_3(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class law_4(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class law_5(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class law_6(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class law_7(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class law_8(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class law_9(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class law_10(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class switch(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class custom_laws(Group):
     _version: str
     fluent_name: str
@@ -1273,21 +1393,25 @@ class custom_laws(Group):
     law_10: law_10
     switch: switch
     return_type: str
+
 class random_eddy_lifetime(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class number_of_tries(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_scale_constant(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turbulent_dispersion(Group):
     _version: str
     fluent_name: str
@@ -1298,96 +1422,115 @@ class turbulent_dispersion(Group):
     number_of_tries: number_of_tries
     time_scale_constant: time_scale_constant
     return_type: str
+
 class constant_y0(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class number_of_child_droplets(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class constant_b1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class constant_b0(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class constant_cl(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class constant_ctau(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class constant_crt(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class critical_weber_number(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class core_b1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class constant_xi(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class target_number_in_parcel(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class constant_c0(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class column_drag_coeff(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ligament_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class jet_diameter(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class constant_k1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class constant_k2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class constant_tb(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class droplet_breakup(Group):
     _version: str
     fluent_name: str
@@ -1413,6 +1556,7 @@ class droplet_breakup(Group):
     constant_k2: constant_k2
     constant_tb: constant_tb
     return_type: str
+
 class physical_models_1(Group):
     _version: str
     fluent_name: str
@@ -1425,56 +1569,67 @@ class physical_models_1(Group):
     turbulent_dispersion: turbulent_dispersion
     droplet_breakup: droplet_breakup
     return_type: str
+
 class x(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class x_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class z(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class z_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class azimuthal_start_angle(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class azimuthal_stop_angle(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class injection_surfaces(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class random_surface_inj(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class location(Group):
     _version: str
     fluent_name: str
@@ -1491,6 +1646,7 @@ class location(Group):
     injection_surfaces: injection_surfaces
     random_surface_inj: random_surface_inj
     return_type: str
+
 class r(Group):
     _version: str
     fluent_name: str
@@ -1500,6 +1656,7 @@ class r(Group):
     y: y
     z: z
     return_type: str
+
 class u(Group):
     _version: str
     fluent_name: str
@@ -1509,6 +1666,7 @@ class u(Group):
     y: y
     z: z
     return_type: str
+
 class matrix(Group):
     _version: str
     fluent_name: str
@@ -1517,41 +1675,49 @@ class matrix(Group):
     r: r
     u: u
     return_type: str
+
 class half_angle(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dispersion_angle(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class inner_radius(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class outer_radius(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class x_axis(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_axis(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class z_axis(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cone_settings(Group):
     _version: str
     fluent_name: str
@@ -1565,51 +1731,61 @@ class cone_settings(Group):
     y_axis: y_axis
     z_axis: z_axis
     return_type: str
+
 class x_velocity(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class x_velocity_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_velocity(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_velocity_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class z_velocity(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class z_velocity_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class magnitude(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class swirl_fraction(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_face_normal_direction(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class velocity(Group):
     _version: str
     fluent_name: str
@@ -1625,6 +1801,7 @@ class velocity(Group):
     swirl_fraction: swirl_fraction
     use_face_normal_direction: use_face_normal_direction
     return_type: str
+
 class angular_velocity(Group):
     _version: str
     fluent_name: str
@@ -1638,26 +1815,31 @@ class angular_velocity(Group):
     z_2: z_2
     magnitude: magnitude
     return_type: str
+
 class flow_rate_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class flow_rate_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class total_flow_rate(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scale_by_area(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class flow_rate(Group):
     _version: str
     fluent_name: str
@@ -1668,16 +1850,19 @@ class flow_rate(Group):
     total_flow_rate: total_flow_rate
     scale_by_area: scale_by_area
     return_type: str
+
 class start_time(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class stop_time(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class times(Group):
     _version: str
     fluent_name: str
@@ -1686,41 +1871,49 @@ class times(Group):
     start_time: start_time
     stop_time: stop_time
     return_type: str
+
 class diameter_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class diameter_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_diam(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_diam(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mean_diam(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class spread(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class number_of_diameters(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rosin_rammler_settings(Group):
     _version: str
     fluent_name: str
@@ -1732,36 +1925,43 @@ class rosin_rammler_settings(Group):
     spread: spread
     number_of_diameters: number_of_diameters
     return_type: str
+
 class table_name(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class column_with_diameters(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class column_with_number_fractions(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class column_with_mass_fractions(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class accumulated_number_fraction(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class accumulated_mass_fraction(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tabulated_size_settings(Group):
     _version: str
     fluent_name: str
@@ -1774,6 +1974,7 @@ class tabulated_size_settings(Group):
     accumulated_number_fraction: accumulated_number_fraction
     accumulated_mass_fraction: accumulated_mass_fraction
     return_type: str
+
 class diameter(Group):
     _version: str
     fluent_name: str
@@ -1785,16 +1986,19 @@ class diameter(Group):
     rosin_rammler_settings: rosin_rammler_settings
     tabulated_size_settings: tabulated_size_settings
     return_type: str
+
 class temperature(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class temperature_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class initial_props(Group):
     _version: str
     fluent_name: str
@@ -1811,6 +2015,7 @@ class initial_props(Group):
     temperature: temperature
     temperature_2: temperature_2
     return_type: str
+
 class injections_child(Group):
     _version: str
     fluent_name: str
@@ -1827,37 +2032,44 @@ class injections_child(Group):
     physical_models: physical_models_1
     initial_props: initial_props
     return_type: str
+
 class injections(NamedObject[injections_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: injections_child
     return_type: str
+
 class enable_node_based_averaging(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class average_source_terms(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class average_every_step(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class kernel(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class gaussian_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class averaging_kernel(Group):
     _version: str
     fluent_name: str
@@ -1866,6 +2078,7 @@ class averaging_kernel(Group):
     kernel: kernel
     gaussian_factor: gaussian_factor
     return_type: str
+
 class averaging(Group):
     _version: str
     fluent_name: str
@@ -1876,21 +2089,25 @@ class averaging(Group):
     average_every_step: average_every_step
     averaging_kernel: averaging_kernel
     return_type: str
+
 class keep_linearized_source_terms_constant(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class linearize_source_terms(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class linearized_source_terms_limiter(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class linearization(Group):
     _version: str
     fluent_name: str
@@ -1900,26 +2117,31 @@ class linearization(Group):
     linearize_source_terms: linearize_source_terms
     linearized_source_terms_limiter: linearized_source_terms_limiter
     return_type: str
+
 class implicit_momentum_coupling(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class implicit_source_term_coupling(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class linear_growth_of_dpm_source_terms(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reset_sources_at_timestep(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class source_terms(Group):
     _version: str
     fluent_name: str
@@ -1931,36 +2153,43 @@ class source_terms(Group):
     linear_growth_of_dpm_source_terms: linear_growth_of_dpm_source_terms
     reset_sources_at_timestep: reset_sources_at_timestep
     return_type: str
+
 class scheme(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class low_order_scheme(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class high_order_scheme(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class option_4(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_number_of_refinements(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tolerance(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class accuracy_control(Group):
     _version: str
     fluent_name: str
@@ -1970,6 +2199,7 @@ class accuracy_control(Group):
     max_number_of_refinements: max_number_of_refinements
     tolerance: tolerance
     return_type: str
+
 class tracking_1(Group):
     _version: str
     fluent_name: str
@@ -1980,6 +2210,7 @@ class tracking_1(Group):
     high_order_scheme: high_order_scheme
     accuracy_control: accuracy_control
     return_type: str
+
 class numerics(Group):
     _version: str
     fluent_name: str
@@ -1989,21 +2220,25 @@ class numerics(Group):
     source_terms: source_terms
     tracking: tracking_1
     return_type: str
+
 class option_5(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class parallel_verbosity_level(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class crossover_tolerance(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class expert_options(Group):
     _version: str
     fluent_name: str
@@ -2012,16 +2247,19 @@ class expert_options(Group):
     parallel_verbosity_level: parallel_verbosity_level
     crossover_tolerance: crossover_tolerance
     return_type: str
+
 class option_6(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class partitioning_method_for_dpm_domain(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_domain(Group):
     _version: str
     fluent_name: str
@@ -2030,11 +2268,13 @@ class dpm_domain(Group):
     option: option_6
     partitioning_method_for_dpm_domain: partitioning_method_for_dpm_domain
     return_type: str
+
 class ordered_accumulation(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class hybrid_options(Group):
     _version: str
     fluent_name: str
@@ -2043,6 +2283,7 @@ class hybrid_options(Group):
     dpm_domain: dpm_domain
     ordered_accumulation: ordered_accumulation
     return_type: str
+
 class parallel_1(Group):
     _version: str
     fluent_name: str
@@ -2052,11 +2293,13 @@ class parallel_1(Group):
     expert_options: expert_options
     hybrid_options: hybrid_options
     return_type: str
+
 class option_7(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pressure_gradient_force(Group):
     _version: str
     fluent_name: str
@@ -2064,16 +2307,19 @@ class pressure_gradient_force(Group):
     child_names: list[str]
     option: option_7
     return_type: str
+
 class option_8(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class virtual_mass_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class virtual_mass_force(Group):
     _version: str
     fluent_name: str
@@ -2082,26 +2328,31 @@ class virtual_mass_force(Group):
     option: option_8
     virtual_mass_factor: virtual_mass_factor
     return_type: str
+
 class option_9(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_vf_allowed_for_blocking(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_drag_scaling(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_source_term_scaling(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class volume_displacement_1(Group):
     _version: str
     fluent_name: str
@@ -2112,31 +2363,37 @@ class volume_displacement_1(Group):
     enable_drag_scaling: enable_drag_scaling
     enable_source_term_scaling: enable_source_term_scaling
     return_type: str
+
 class include_convective_heat_transfer(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class include_lwf_particles_in_dpm_concentration(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class remove_limiter(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class report_leidenfrost_temperature(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_offset_above_film_boiling_temperature(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wall_film_temperature_limiter(Group):
     _version: str
     fluent_name: str
@@ -2146,6 +2403,7 @@ class wall_film_temperature_limiter(Group):
     report_leidenfrost_temperature: report_leidenfrost_temperature
     set_offset_above_film_boiling_temperature: set_offset_above_film_boiling_temperature
     return_type: str
+
 class wall_film(Group):
     _version: str
     fluent_name: str
@@ -2155,6 +2413,7 @@ class wall_film(Group):
     include_lwf_particles_in_dpm_concentration: include_lwf_particles_in_dpm_concentration
     wall_film_temperature_limiter: wall_film_temperature_limiter
     return_type: str
+
 class physical_models(Group):
     _version: str
     fluent_name: str
@@ -2165,31 +2424,37 @@ class physical_models(Group):
     volume_displacement: volume_displacement_1
     wall_film: wall_film
     return_type: str
+
 class enable_high_res_tracking(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class re_randomize_every_iteration(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class re_randomize_every_timestep(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tracking_statistics_format(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class verbosity_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class expert_options_1(Group):
     _version: str
     fluent_name: str
@@ -2200,41 +2465,49 @@ class expert_options_1(Group):
     tracking_statistics_format: tracking_statistics_format
     verbosity: verbosity_1
     return_type: str
+
 class always_use_face_centroid_with_periodics(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interpolate_flow_cp(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interpolate_flow_density(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interpolate_flow_solution_gradients(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interpolate_flow_viscosity(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interpolate_temperature(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class zero_nodal_velocities_on_walls(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interpolation(Group):
     _version: str
     fluent_name: str
@@ -2247,46 +2520,55 @@ class interpolation(Group):
     interpolate_temperature: interpolate_temperature
     zero_nodal_velocities_on_walls: zero_nodal_velocities_on_walls
     return_type: str
+
 class boundary_layer_tracking(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class check_subtet_validity(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_automatic_intersection_tolerance(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_barycentric_intersection(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enhanced_cell_relocation_method(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class load_legacy_particles(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class overset_relocation_robustness_level(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_legacy_particle_location_method(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class particle_relocation(Group):
     _version: str
     fluent_name: str
@@ -2297,21 +2579,25 @@ class particle_relocation(Group):
     overset_relocation_robustness_level: overset_relocation_robustness_level
     use_legacy_particle_location_method: use_legacy_particle_location_method
     return_type: str
+
 class remove_stuck_particles(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_barycentric_sampling(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_quad_face_centroid(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class high_res_tracking_options(Group):
     _version: str
     fluent_name: str
@@ -2328,26 +2614,31 @@ class high_res_tracking_options(Group):
     use_barycentric_sampling: use_barycentric_sampling
     use_quad_face_centroid: use_quad_face_centroid
     return_type: str
+
 class control_by(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_number_of_steps(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class length_scale(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class step_length_factor(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tracking_parameters(Group):
     _version: str
     fluent_name: str
@@ -2358,11 +2649,13 @@ class tracking_parameters(Group):
     length_scale: length_scale
     step_length_factor: step_length_factor
     return_type: str
+
 class track_in_absolute_frame(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tracking(Group):
     _version: str
     fluent_name: str
@@ -2374,71 +2667,85 @@ class tracking(Group):
     tracking_parameters: tracking_parameters
     track_in_absolute_frame: track_in_absolute_frame
     return_type: str
+
 class body_force_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class collision_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_time_step_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class erosion_accretion_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_regime_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interpolation_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class impingement_model_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class output_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scalar_update_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class source_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class splashing_distribution_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class number_of_scalars(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class maximum_udf_species(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class user_defined_functions(Group):
     _version: str
     fluent_name: str
@@ -2458,6 +2765,7 @@ class user_defined_functions(Group):
     number_of_scalars: number_of_scalars
     maximum_udf_species: maximum_udf_species
     return_type: str
+
 class discrete_phase(Group):
     _version: str
     fluent_name: str
@@ -2472,31 +2780,37 @@ class discrete_phase(Group):
     tracking: tracking
     user_defined_functions: user_defined_functions
     return_type: str
+
 class enabled(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class viscous_dissipation(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pressure_work(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class kinetic_energy(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class inlet_diffusion(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class energy(Group):
     _version: str
     fluent_name: str
@@ -2508,41 +2822,49 @@ class energy(Group):
     kinetic_energy: kinetic_energy
     inlet_diffusion: inlet_diffusion
     return_type: str
+
 class models_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vaporization_pressure(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class non_condensable_gas(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class liquid_surface_tension(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class bubble_number_density(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class number_of_phases(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class number_of_eulerian_discrete_phases(IntegerList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class multiphase(Group):
     _version: str
     fluent_name: str
@@ -2556,51 +2878,61 @@ class multiphase(Group):
     number_of_phases: number_of_phases
     number_of_eulerian_discrete_phases: number_of_eulerian_discrete_phases
     return_type: str
+
 class model(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class viscous_heating(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class low_pressure_boundary_slip(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class curvature_correction(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class corner_flow_correction(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class production_kato_launder(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turb_buoyancy_effects(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class kw_buoyancy_effects(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_geko(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class options_1(Group):
     _version: str
     fluent_name: str
@@ -2615,36 +2947,43 @@ class options_1(Group):
     kw_buoyancy_effects: kw_buoyancy_effects
     enable_geko: enable_geko
     return_type: str
+
 class spalart_allmaras_production(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class k_epsilon_model(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class k_omega_model(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class kw_low_re_correction(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class kw_shear_correction(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turb_compressibility(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class k_omega_options(Group):
     _version: str
     fluent_name: str
@@ -2654,16 +2993,19 @@ class k_omega_options(Group):
     kw_shear_correction: kw_shear_correction
     turb_compressibility: turb_compressibility
     return_type: str
+
 class differential_viscosity_model(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class swirl_dominated_flow(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rng_options(Group):
     _version: str
     fluent_name: str
@@ -2672,26 +3014,31 @@ class rng_options(Group):
     differential_viscosity_model: differential_viscosity_model
     swirl_dominated_flow: swirl_dominated_flow
     return_type: str
+
 class wall_function_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class law_of_the_wall(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pressure_gradient_effects(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class thermal_effects(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enhanced_wall_treatment_options(Group):
     _version: str
     fluent_name: str
@@ -2700,11 +3047,13 @@ class enhanced_wall_treatment_options(Group):
     pressure_gradient_effects: pressure_gradient_effects
     thermal_effects: thermal_effects
     return_type: str
+
 class wall_omega_treatment(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class near_wall_treatment(Group):
     _version: str
     fluent_name: str
@@ -2715,36 +3064,43 @@ class near_wall_treatment(Group):
     enhanced_wall_treatment_options: enhanced_wall_treatment_options
     wall_omega_treatment: wall_omega_treatment
     return_type: str
+
 class reynolds_stress_model(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class subgrid_scale_model(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dynamic_stress(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dynamic_energy_flux(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dynamic_scalar_flux(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class subgrid_dynamic_fvar(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class les_model_options(Group):
     _version: str
     fluent_name: str
@@ -2755,16 +3111,19 @@ class les_model_options(Group):
     dynamic_scalar_flux: dynamic_scalar_flux
     subgrid_dynamic_fvar: subgrid_dynamic_fvar
     return_type: str
+
 class solve_tke(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wall_echo(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reynolds_stress_options(Group):
     _version: str
     fluent_name: str
@@ -2773,21 +3132,25 @@ class reynolds_stress_options(Group):
     solve_tke: solve_tke
     wall_echo: wall_echo
     return_type: str
+
 class rans_model(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class all_len_modified(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class des_limiter_option(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class des_options(Group):
     _version: str
     fluent_name: str
@@ -2796,26 +3159,31 @@ class des_options(Group):
     all_len_modified: all_len_modified
     des_limiter_option: des_limiter_option
     return_type: str
+
 class transition_module(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class f_length(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class re_theta_c(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class re_theta_t(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class user_defined_transition(Group):
     _version: str
     fluent_name: str
@@ -2825,16 +3193,19 @@ class user_defined_transition(Group):
     re_theta_c: re_theta_c
     re_theta_t: re_theta_t
     return_type: str
+
 class dispersion_force_in_momentum(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dispersion_in_relative_velocity(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class multiphase_options(Group):
     _version: str
     fluent_name: str
@@ -2843,21 +3214,25 @@ class multiphase_options(Group):
     dispersion_force_in_momentum: dispersion_force_in_momentum
     dispersion_in_relative_velocity: dispersion_in_relative_velocity
     return_type: str
+
 class turbulence_multiphase_models(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rsm_multiphase_models(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class subgrid_turbulence_contribution_aiad(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class multiphase_turbulence(Group):
     _version: str
     fluent_name: str
@@ -2868,31 +3243,37 @@ class multiphase_turbulence(Group):
     rsm_multiphase_models: rsm_multiphase_models
     subgrid_turbulence_contribution_aiad: subgrid_turbulence_contribution_aiad
     return_type: str
+
 class low_re_ke(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class low_re_ke_index(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class kato_launder_model(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_prod_limiter(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class clip_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class production_limiter(Group):
     _version: str
     fluent_name: str
@@ -2901,36 +3282,43 @@ class production_limiter(Group):
     enable_prod_limiter: enable_prod_limiter
     clip_factor: clip_factor
     return_type: str
+
 class kw_vorticity_based_production(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class kw_add_sas(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class kw_add_des(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turb_add_sbes_sdes(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sbes_sdes_hybrid_model_optn(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class user_defined_fcn_for_sbes(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sbes_sdes_hybrid_model(Group):
     _version: str
     fluent_name: str
@@ -2939,31 +3327,37 @@ class sbes_sdes_hybrid_model(Group):
     sbes_sdes_hybrid_model_optn: sbes_sdes_hybrid_model_optn
     user_defined_fcn_for_sbes: user_defined_fcn_for_sbes
     return_type: str
+
 class sbes_update_interval_k_omega(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sbes_sgs_option(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sbes_les_subgrid_dynamic_fvar(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_turb_damping(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turb_damping_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turbulence_damping(Group):
     _version: str
     fluent_name: str
@@ -2972,36 +3366,43 @@ class turbulence_damping(Group):
     enable_turb_damping: enable_turb_damping
     turb_damping_factor: turb_damping_factor
     return_type: str
+
 class rke_cmu_rotation_term(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turb_non_newtonian(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class non_newtonian_modification(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turb_pk_compressible(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class thermal_p_function(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class restore_sst_v61(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turbulence_expert(Group):
     _version: str
     fluent_name: str
@@ -3027,41 +3428,49 @@ class turbulence_expert(Group):
     thermal_p_function: thermal_p_function
     restore_sst_v61: restore_sst_v61
     return_type: str
+
 class wall_distance_free(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cjet(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class creal(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cnw_sub(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cjet_aux(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cbf_lam(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cbf_tur(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class geko_options(Group):
     _version: str
     fluent_name: str
@@ -3080,81 +3489,97 @@ class geko_options(Group):
         Set GEKO options to default.
         """
     return_type: str
+
 class crossflow_transition(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class critical_reynolds_number_correlation(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class clambda_scale(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class capg_hightu(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cfpg_hightu(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class capg_lowtu(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cfpg_lowtu(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ctu_hightu(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ctu_lowtu(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rec_max(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rec_c1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rec_c2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cbubble_c1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cbubble_c2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rv1_switch(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class transition_model_options(Group):
     _version: str
     fluent_name: str
@@ -3176,21 +3601,25 @@ class transition_model_options(Group):
     cbubble_c2: cbubble_c2
     rv1_switch: rv1_switch
     return_type: str
+
 class enable_roughness_correlation(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class roughness_correlation_fcn(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class geometric_roughness_ht_val(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class transition_sst_option(Group):
     _version: str
     fluent_name: str
@@ -3200,57 +3629,68 @@ class transition_sst_option(Group):
     roughness_correlation_fcn: roughness_correlation_fcn
     geometric_roughness_ht_val: geometric_roughness_ht_val
     return_type: str
+
 class subgrid_scale_turb_visc(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turb_visc_func_mf_child(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turb_visc_func_mf(NamedObject[turb_visc_func_mf_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: turb_visc_func_mf_child
     return_type: str
+
 class turb_visc_func(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tke_prandtl(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tdr_prandtl(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sdr_prandtl(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class energy_prandtl(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wall_prandtl(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turbulent_schmidt(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class user_defined(Group):
     _version: str
     fluent_name: str
@@ -3266,16 +3706,19 @@ class user_defined(Group):
     wall_prandtl: wall_prandtl
     turbulent_schmidt: turbulent_schmidt
     return_type: str
+
 class sa_enhanced_wall_treatment(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sa_damping(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class viscous(Group):
     _version: str
     fluent_name: str
@@ -3306,21 +3749,25 @@ class viscous(Group):
     sa_enhanced_wall_treatment: sa_enhanced_wall_treatment
     sa_damping: sa_damping
     return_type: str
+
 class enable_3(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ray_points_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beam_vector(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beams_child(Group):
     _version: str
     fluent_name: str
@@ -3331,6 +3778,7 @@ class beams_child(Group):
     ray_points_count: ray_points_count
     beam_vector: beam_vector
     return_type: str
+
 class beams(NamedObject[beams_child]):
     _version: str
     fluent_name: str
@@ -3370,11 +3818,13 @@ class beams(NamedObject[beams_child]):
         """
     child_object_type: beams_child
     return_type: str
+
 class reset_statistics(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class statistics(Group):
     _version: str
     fluent_name: str
@@ -3387,26 +3837,31 @@ class statistics(Group):
         'statistics_controls' command.
         """
     return_type: str
+
 class sampling_iterations(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class index_of_refraction(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class report_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class verbosity_2(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class optics(Group):
     _version: str
     fluent_name: str
@@ -3420,36 +3875,43 @@ class optics(Group):
     report: report_1
     verbosity: verbosity_2
     return_type: str
+
 class enable_4(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mode(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class number_of_blades(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tip_radius(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class root_radius(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rotor_speed(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class basic_info(Group):
     _version: str
     fluent_name: str
@@ -3460,21 +3922,25 @@ class basic_info(Group):
     root_radius: root_radius
     rotor_speed: rotor_speed
     return_type: str
+
 class disk_origin_x(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class disk_origin_y(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class disk_origin_z(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class disk_origin(Group):
     _version: str
     fluent_name: str
@@ -3484,36 +3950,43 @@ class disk_origin(Group):
     disk_origin_y: disk_origin_y
     disk_origin_z: disk_origin_z
     return_type: str
+
 class terminology(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class disk_normal_x(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class disk_normal_y(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class disk_normal_z(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class disk_pitch_angle(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class disk_bank_angle(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class disk_orientation(Group):
     _version: str
     fluent_name: str
@@ -3526,16 +3999,19 @@ class disk_orientation(Group):
     disk_pitch_angle: disk_pitch_angle
     disk_bank_angle: disk_bank_angle
     return_type: str
+
 class embedded_face_zone(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class floating_surface(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class disk_id(Group):
     _version: str
     fluent_name: str
@@ -3544,21 +4020,25 @@ class disk_id(Group):
     embedded_face_zone: embedded_face_zone
     floating_surface: floating_surface
     return_type: str
+
 class blade_pitch_collective(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class blade_pitch_cyclic_sin(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class blade_pitch_cyclic_cos(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class blade_pitch_angles(Group):
     _version: str
     fluent_name: str
@@ -3568,21 +4048,25 @@ class blade_pitch_angles(Group):
     blade_pitch_cyclic_sin: blade_pitch_cyclic_sin
     blade_pitch_cyclic_cos: blade_pitch_cyclic_cos
     return_type: str
+
 class blade_flapping_cone(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class blade_flapping_cyclic_sin(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class blade_flapping_cyclic_cos(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class blade_flap_angles(Group):
     _version: str
     fluent_name: str
@@ -3592,21 +4076,25 @@ class blade_flap_angles(Group):
     blade_flapping_cyclic_sin: blade_flapping_cyclic_sin
     blade_flapping_cyclic_cos: blade_flapping_cyclic_cos
     return_type: str
+
 class model_tip_loss(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tip_loss_limit(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class prandtl_tuning_coefficient(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tip_loss(Group):
     _version: str
     fluent_name: str
@@ -3616,6 +4104,7 @@ class tip_loss(Group):
     tip_loss_limit: tip_loss_limit
     prandtl_tuning_coefficient: prandtl_tuning_coefficient
     return_type: str
+
 class general_1(Group):
     _version: str
     fluent_name: str
@@ -3629,26 +4118,31 @@ class general_1(Group):
     blade_flap_angles: blade_flap_angles
     tip_loss: tip_loss
     return_type: str
+
 class radius_ratio(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class chord(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class twist(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class airfoil_data_file(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class geometry_1_child(Group):
     _version: str
     fluent_name: str
@@ -3659,42 +4153,50 @@ class geometry_1_child(Group):
     twist: twist
     airfoil_data_file: airfoil_data_file
     return_type: str
+
 class geometry_1(NamedObject[geometry_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: geometry_1_child
     return_type: str
+
 class trim_option(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class update_frequency(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class damping_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class thrust_coefficient(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class x_moment_coefficient(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_moment_coefficient(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class trimming(Group):
     _version: str
     fluent_name: str
@@ -3707,6 +4209,7 @@ class trimming(Group):
     x_moment_coefficient: x_moment_coefficient
     y_moment_coefficient: y_moment_coefficient
     return_type: str
+
 class disk_child(Group):
     _version: str
     fluent_name: str
@@ -3716,12 +4219,14 @@ class disk_child(Group):
     geometry: geometry_1
     trimming: trimming
     return_type: str
+
 class disk(NamedObject[disk_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: disk_child
     return_type: str
+
 class virtual_blade_model(Group):
     _version: str
     fluent_name: str
@@ -3731,6 +4236,7 @@ class virtual_blade_model(Group):
     mode: mode
     disk: disk
     return_type: str
+
 class models(Group):
     _version: str
     fluent_name: str
@@ -3743,11 +4249,13 @@ class models(Group):
     optics: optics
     virtual_blade_model: virtual_blade_model
     return_type: str
+
 class database_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class database(Group):
     _version: str
     fluent_name: str
@@ -3791,56 +4299,67 @@ class database(Group):
                 'name' child.
         """
     return_type: str
+
 class option_10(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class nist_fluid(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lookup_table(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pressure_points(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pressure_minimum(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pressure_maximum(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class temperature_points(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class temperature_minimum(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class temperature_maximum(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class saturation_points(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class real_gas_nist(Group):
     _version: str
     fluent_name: str
@@ -3856,41 +4375,49 @@ class real_gas_nist(Group):
     temperature_maximum: temperature_maximum
     saturation_points: saturation_points
     return_type: str
+
 class value(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reference_pressure(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reference_density(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reference_bulk_modulus(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class density_exponent(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class maximum_density_ratio(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class minimum_density_ratio(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class compressible_liquid(Group):
     _version: str
     fluent_name: str
@@ -3903,37 +4430,44 @@ class compressible_liquid(Group):
     maximum_density_ratio: maximum_density_ratio
     minimum_density_ratio: minimum_density_ratio
     return_type: str
+
 class piecewise_linear_child(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class piecewise_linear(ListObject[piecewise_linear_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: piecewise_linear_child
     return_type: str
+
 class minimum(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class maximum(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class number_of_coefficients(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coefficients(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class piecewise_polynomial_child(Group):
     _version: str
     fluent_name: str
@@ -3944,12 +4478,14 @@ class piecewise_polynomial_child(Group):
     number_of_coefficients: number_of_coefficients
     coefficients: coefficients
     return_type: str
+
 class piecewise_polynomial(ListObject[piecewise_polynomial_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: piecewise_polynomial_child
     return_type: str
+
 class polynomial(Group):
     _version: str
     fluent_name: str
@@ -3958,21 +4494,25 @@ class polynomial(Group):
     number_of_coefficients: number_of_coefficients
     coefficients: coefficients
     return_type: str
+
 class expression(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class user_defined_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rgp_table(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class density(Group):
     _version: str
     fluent_name: str
@@ -3989,26 +4529,31 @@ class density(Group):
     user_defined_function: user_defined_function
     rgp_table: rgp_table
     return_type: str
+
 class b(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reference_viscosity(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reference_temperature_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class temperature_exponent(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class power_law(Group):
     _version: str
     fluent_name: str
@@ -4020,16 +4565,19 @@ class power_law(Group):
     reference_temperature: reference_temperature_1
     temperature_exponent: temperature_exponent
     return_type: str
+
 class a(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class c(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class blottner_curve_fit(Group):
     _version: str
     fluent_name: str
@@ -4039,21 +4587,25 @@ class blottner_curve_fit(Group):
     b: b
     c: c
     return_type: str
+
 class c1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class c2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class effective_temperature(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sutherland(Group):
     _version: str
     fluent_name: str
@@ -4066,26 +4618,31 @@ class sutherland(Group):
     reference_temperature: reference_temperature_1
     effective_temperature: effective_temperature
     return_type: str
+
 class zero_shear_viscosity(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class power_law_index(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_constant(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class activation_energy(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cross(Group):
     _version: str
     fluent_name: str
@@ -4098,21 +4655,25 @@ class cross(Group):
     reference_temperature: reference_temperature_1
     activation_energy: activation_energy
     return_type: str
+
 class consistency_index(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class yield_stress_threshold(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class critical_shear_rate(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class herschel_bulkley(Group):
     _version: str
     fluent_name: str
@@ -4126,11 +4687,13 @@ class herschel_bulkley(Group):
     reference_temperature: reference_temperature_1
     activation_energy: activation_energy
     return_type: str
+
 class infinite_shear_viscosity(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class carreau(Group):
     _version: str
     fluent_name: str
@@ -4144,16 +4707,19 @@ class carreau(Group):
     reference_temperature: reference_temperature_1
     activation_energy: activation_energy
     return_type: str
+
 class minimum_viscosity(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class maximum_viscosity(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class non_newtonian_power_law(Group):
     _version: str
     fluent_name: str
@@ -4167,6 +4733,7 @@ class non_newtonian_power_law(Group):
     reference_temperature: reference_temperature_1
     activation_energy: activation_energy
     return_type: str
+
 class viscosity(Group):
     _version: str
     fluent_name: str
@@ -4189,6 +4756,7 @@ class viscosity(Group):
     rgp_table: rgp_table
     real_gas_nist: real_gas_nist
     return_type: str
+
 class nasa_9_piecewise_polynomial_child(Group):
     _version: str
     fluent_name: str
@@ -4199,12 +4767,14 @@ class nasa_9_piecewise_polynomial_child(Group):
     number_of_coefficients: number_of_coefficients
     coefficients: coefficients
     return_type: str
+
 class nasa_9_piecewise_polynomial(ListObject[nasa_9_piecewise_polynomial_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: nasa_9_piecewise_polynomial_child
     return_type: str
+
 class specific_heat(Group):
     _version: str
     fluent_name: str
@@ -4220,6 +4790,7 @@ class specific_heat(Group):
     rgp_table: rgp_table
     real_gas_nist: real_gas_nist
     return_type: str
+
 class thermal_conductivity(Group):
     _version: str
     fluent_name: str
@@ -4235,6 +4806,7 @@ class thermal_conductivity(Group):
     rgp_table: rgp_table
     real_gas_nist: real_gas_nist
     return_type: str
+
 class molecular_weight(Group):
     _version: str
     fluent_name: str
@@ -4244,11 +4816,13 @@ class molecular_weight(Group):
     value: value
     rgp_table: rgp_table
     return_type: str
+
 class combustion_mixture(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class premix_laminar_speed(Group):
     _version: str
     fluent_name: str
@@ -4259,6 +4833,7 @@ class premix_laminar_speed(Group):
     user_defined_function: user_defined_function
     combustion_mixture: combustion_mixture
     return_type: str
+
 class premix_critical_strain(Group):
     _version: str
     fluent_name: str
@@ -4268,6 +4843,7 @@ class premix_critical_strain(Group):
     value: value
     user_defined_function: user_defined_function
     return_type: str
+
 class premix_unburnt_temp(Group):
     _version: str
     fluent_name: str
@@ -4276,6 +4852,7 @@ class premix_unburnt_temp(Group):
     option: option_10
     value: value
     return_type: str
+
 class premix_unburnt_density(Group):
     _version: str
     fluent_name: str
@@ -4284,6 +4861,7 @@ class premix_unburnt_density(Group):
     option: option_10
     value: value
     return_type: str
+
 class premix_heat_trans_coeff(Group):
     _version: str
     fluent_name: str
@@ -4292,6 +4870,7 @@ class premix_heat_trans_coeff(Group):
     option: option_10
     value: value
     return_type: str
+
 class premix_heat_of_comb(Group):
     _version: str
     fluent_name: str
@@ -4300,6 +4879,7 @@ class premix_heat_of_comb(Group):
     option: option_10
     value: value
     return_type: str
+
 class premix_unburnt_fuel_mf(Group):
     _version: str
     fluent_name: str
@@ -4309,6 +4889,7 @@ class premix_unburnt_fuel_mf(Group):
     value: value
     user_defined_function: user_defined_function
     return_type: str
+
 class premix_adiabatic_temp(Group):
     _version: str
     fluent_name: str
@@ -4318,6 +4899,7 @@ class premix_adiabatic_temp(Group):
     value: value
     user_defined_function: user_defined_function
     return_type: str
+
 class therm_exp_coeff(Group):
     _version: str
     fluent_name: str
@@ -4326,36 +4908,43 @@ class therm_exp_coeff(Group):
     option: option_10
     value: value
     return_type: str
+
 class vibrational_temperature_mode_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vibrational_degeneracy_mode_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vibrational_temperature_mode_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vibrational_degeneracy_mode_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vibrational_temperature_mode_3(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vibrational_degeneracy_mode_3(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vibrational_modes(Group):
     _version: str
     fluent_name: str
@@ -4368,6 +4957,7 @@ class vibrational_modes(Group):
     vibrational_temperature_mode_3: vibrational_temperature_mode_3
     vibrational_degeneracy_mode_3: vibrational_degeneracy_mode_3
     return_type: str
+
 class characteristic_vibrational_temperature(Group):
     _version: str
     fluent_name: str
@@ -4377,11 +4967,13 @@ class characteristic_vibrational_temperature(Group):
     vibrational_modes: vibrational_modes
     value: value
     return_type: str
+
 class gray_band_coefficients(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class absorption_coefficient(Group):
     _version: str
     fluent_name: str
@@ -4396,6 +4988,7 @@ class absorption_coefficient(Group):
     gray_band_coefficients: gray_band_coefficients
     user_defined_function: user_defined_function
     return_type: str
+
 class melting_heat(Group):
     _version: str
     fluent_name: str
@@ -4404,6 +4997,7 @@ class melting_heat(Group):
     option: option_10
     value: value
     return_type: str
+
 class tsolidus(Group):
     _version: str
     fluent_name: str
@@ -4412,6 +5006,7 @@ class tsolidus(Group):
     option: option_10
     value: value
     return_type: str
+
 class tliqidus(Group):
     _version: str
     fluent_name: str
@@ -4420,6 +5015,7 @@ class tliqidus(Group):
     option: option_10
     value: value
     return_type: str
+
 class liquidus_slope(Group):
     _version: str
     fluent_name: str
@@ -4428,6 +5024,7 @@ class liquidus_slope(Group):
     option: option_10
     value: value
     return_type: str
+
 class partition_coeff(Group):
     _version: str
     fluent_name: str
@@ -4440,6 +5037,7 @@ class partition_coeff(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class eutectic_mf(Group):
     _version: str
     fluent_name: str
@@ -4448,6 +5046,7 @@ class eutectic_mf(Group):
     option: option_10
     value: value
     return_type: str
+
 class solid_diffusion(Group):
     _version: str
     fluent_name: str
@@ -4456,6 +5055,7 @@ class solid_diffusion(Group):
     option: option_10
     value: value
     return_type: str
+
 class solut_exp_coeff(Group):
     _version: str
     fluent_name: str
@@ -4464,6 +5064,7 @@ class solut_exp_coeff(Group):
     option: option_10
     value: value
     return_type: str
+
 class scattering_coefficient(Group):
     _version: str
     fluent_name: str
@@ -4477,16 +5078,19 @@ class scattering_coefficient(Group):
     expression: expression
     user_defined_function: user_defined_function
     return_type: str
+
 class forward_scattering_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class asymmetry_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class delta_eddington(Group):
     _version: str
     fluent_name: str
@@ -4495,6 +5099,7 @@ class delta_eddington(Group):
     forward_scattering_factor: forward_scattering_factor
     asymmetry_factor: asymmetry_factor
     return_type: str
+
 class scattering_phase_function(Group):
     _version: str
     fluent_name: str
@@ -4505,6 +5110,7 @@ class scattering_phase_function(Group):
     delta_eddington: delta_eddington
     user_defined_function: user_defined_function
     return_type: str
+
 class refractive_index(Group):
     _version: str
     fluent_name: str
@@ -4514,6 +5120,7 @@ class refractive_index(Group):
     value: value
     gray_band_coefficients: gray_band_coefficients
     return_type: str
+
 class formation_entropy(Group):
     _version: str
     fluent_name: str
@@ -4522,6 +5129,7 @@ class formation_entropy(Group):
     option: option_10
     value: value
     return_type: str
+
 class formation_enthalpy(Group):
     _version: str
     fluent_name: str
@@ -4530,6 +5138,7 @@ class formation_enthalpy(Group):
     option: option_10
     value: value
     return_type: str
+
 class reference_temperature(Group):
     _version: str
     fluent_name: str
@@ -4538,6 +5147,7 @@ class reference_temperature(Group):
     option: option_10
     value: value
     return_type: str
+
 class lennard_jones_length(Group):
     _version: str
     fluent_name: str
@@ -4546,6 +5156,7 @@ class lennard_jones_length(Group):
     option: option_10
     value: value
     return_type: str
+
 class lennard_jones_energy(Group):
     _version: str
     fluent_name: str
@@ -4554,6 +5165,7 @@ class lennard_jones_energy(Group):
     option: option_10
     value: value
     return_type: str
+
 class thermal_accom_coefficient(Group):
     _version: str
     fluent_name: str
@@ -4562,6 +5174,7 @@ class thermal_accom_coefficient(Group):
     option: option_10
     value: value
     return_type: str
+
 class velocity_accom_coefficient(Group):
     _version: str
     fluent_name: str
@@ -4570,6 +5183,7 @@ class velocity_accom_coefficient(Group):
     option: option_10
     value: value
     return_type: str
+
 class degrees_of_freedom(Group):
     _version: str
     fluent_name: str
@@ -4578,11 +5192,13 @@ class degrees_of_freedom(Group):
     option: option_10
     value: value
     return_type: str
+
 class matrix_component(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class diffusivity(Group):
     _version: str
     fluent_name: str
@@ -4595,6 +5211,7 @@ class diffusivity(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class anisotropic(Group):
     _version: str
     fluent_name: str
@@ -4603,16 +5220,19 @@ class anisotropic(Group):
     matrix_component: matrix_component
     diffusivity: diffusivity
     return_type: str
+
 class direction_0(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class direction_1(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class diffusivity_0(Group):
     _version: str
     fluent_name: str
@@ -4625,6 +5245,7 @@ class diffusivity_0(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class diffusivity_1(Group):
     _version: str
     fluent_name: str
@@ -4637,6 +5258,7 @@ class diffusivity_1(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class diffusivity_2(Group):
     _version: str
     fluent_name: str
@@ -4649,6 +5271,7 @@ class diffusivity_2(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class orthotropic(Group):
     _version: str
     fluent_name: str
@@ -4660,16 +5283,19 @@ class orthotropic(Group):
     diffusivity_1: diffusivity_1
     diffusivity_2: diffusivity_2
     return_type: str
+
 class axis_origin(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class axis_direction(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class radial_diffusivity(Group):
     _version: str
     fluent_name: str
@@ -4682,6 +5308,7 @@ class radial_diffusivity(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class tangential_diffusivity(Group):
     _version: str
     fluent_name: str
@@ -4694,6 +5321,7 @@ class tangential_diffusivity(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class axial_diffusivity(Group):
     _version: str
     fluent_name: str
@@ -4706,6 +5334,7 @@ class axial_diffusivity(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class cyl_orthotropic(Group):
     _version: str
     fluent_name: str
@@ -4717,6 +5346,7 @@ class cyl_orthotropic(Group):
     tangential_diffusivity: tangential_diffusivity
     axial_diffusivity: axial_diffusivity
     return_type: str
+
 class uds_diffusivities_child(Group):
     _version: str
     fluent_name: str
@@ -4731,12 +5361,14 @@ class uds_diffusivities_child(Group):
     orthotropic: orthotropic
     cyl_orthotropic: cyl_orthotropic
     return_type: str
+
 class uds_diffusivities(NamedObject[uds_diffusivities_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: uds_diffusivities_child
     return_type: str
+
 class uds_diffusivity(Group):
     _version: str
     fluent_name: str
@@ -4746,6 +5378,7 @@ class uds_diffusivity(Group):
     uds_diffusivities: uds_diffusivities
     user_defined_function: user_defined_function
     return_type: str
+
 class electric_conductivity(Group):
     _version: str
     fluent_name: str
@@ -4759,6 +5392,7 @@ class electric_conductivity(Group):
     expression: expression
     user_defined_function: user_defined_function
     return_type: str
+
 class dual_electric_conductivity(Group):
     _version: str
     fluent_name: str
@@ -4772,6 +5406,7 @@ class dual_electric_conductivity(Group):
     expression: expression
     user_defined_function: user_defined_function
     return_type: str
+
 class lithium_diffusivity(Group):
     _version: str
     fluent_name: str
@@ -4785,6 +5420,7 @@ class lithium_diffusivity(Group):
     expression: expression
     user_defined_function: user_defined_function
     return_type: str
+
 class magnetic_permeability(Group):
     _version: str
     fluent_name: str
@@ -4793,6 +5429,7 @@ class magnetic_permeability(Group):
     option: option_10
     value: value
     return_type: str
+
 class speed_of_sound(Group):
     _version: str
     fluent_name: str
@@ -4806,6 +5443,7 @@ class speed_of_sound(Group):
     expression: expression
     user_defined_function: user_defined_function
     return_type: str
+
 class critical_temperature(Group):
     _version: str
     fluent_name: str
@@ -4814,6 +5452,7 @@ class critical_temperature(Group):
     option: option_10
     value: value
     return_type: str
+
 class critical_pressure(Group):
     _version: str
     fluent_name: str
@@ -4822,6 +5461,7 @@ class critical_pressure(Group):
     option: option_10
     value: value
     return_type: str
+
 class critical_volume(Group):
     _version: str
     fluent_name: str
@@ -4830,6 +5470,7 @@ class critical_volume(Group):
     option: option_10
     value: value
     return_type: str
+
 class acentric_factor(Group):
     _version: str
     fluent_name: str
@@ -4838,6 +5479,7 @@ class acentric_factor(Group):
     option: option_10
     value: value
     return_type: str
+
 class latent_heat(Group):
     _version: str
     fluent_name: str
@@ -4846,6 +5488,7 @@ class latent_heat(Group):
     option: option_10
     value: value
     return_type: str
+
 class saturation_pressure(Group):
     _version: str
     fluent_name: str
@@ -4859,6 +5502,7 @@ class saturation_pressure(Group):
     expression: expression
     user_defined_function: user_defined_function
     return_type: str
+
 class vaporization_temperature(Group):
     _version: str
     fluent_name: str
@@ -4868,6 +5512,7 @@ class vaporization_temperature(Group):
     value: value
     user_defined_function: user_defined_function
     return_type: str
+
 class charge(Group):
     _version: str
     fluent_name: str
@@ -4876,6 +5521,7 @@ class charge(Group):
     option: option_10
     value: value
     return_type: str
+
 class fluid_child(Group):
     _version: str
     fluent_name: str
@@ -4931,12 +5577,14 @@ class fluid_child(Group):
     vaporization_temperature: vaporization_temperature
     charge: charge
     return_type: str
+
 class fluid(NamedObject[fluid_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: fluid_child
     return_type: str
+
 class density_1(Group):
     _version: str
     fluent_name: str
@@ -4946,6 +5594,7 @@ class density_1(Group):
     user_defined_function: user_defined_function
     value: value
     return_type: str
+
 class specific_heat_1(Group):
     _version: str
     fluent_name: str
@@ -4959,6 +5608,7 @@ class specific_heat_1(Group):
     polynomial: polynomial
     nasa_9_piecewise_polynomial: nasa_9_piecewise_polynomial
     return_type: str
+
 class planar_conductivity(Group):
     _version: str
     fluent_name: str
@@ -4971,6 +5621,7 @@ class planar_conductivity(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class transverse_conductivity(Group):
     _version: str
     fluent_name: str
@@ -4983,6 +5634,7 @@ class transverse_conductivity(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class biaxial(Group):
     _version: str
     fluent_name: str
@@ -4991,6 +5643,7 @@ class biaxial(Group):
     planar_conductivity: planar_conductivity
     transverse_conductivity: transverse_conductivity
     return_type: str
+
 class radial_conductivity(Group):
     _version: str
     fluent_name: str
@@ -5003,6 +5656,7 @@ class radial_conductivity(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class tangential_conductivity(Group):
     _version: str
     fluent_name: str
@@ -5015,6 +5669,7 @@ class tangential_conductivity(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class axial_conductivity(Group):
     _version: str
     fluent_name: str
@@ -5027,6 +5682,7 @@ class axial_conductivity(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class cyl_orthotropic_1(Group):
     _version: str
     fluent_name: str
@@ -5038,6 +5694,7 @@ class cyl_orthotropic_1(Group):
     tangential_conductivity: tangential_conductivity
     axial_conductivity: axial_conductivity
     return_type: str
+
 class conductivity_0(Group):
     _version: str
     fluent_name: str
@@ -5050,6 +5707,7 @@ class conductivity_0(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class conductivity_1(Group):
     _version: str
     fluent_name: str
@@ -5062,6 +5720,7 @@ class conductivity_1(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class conductivity_2(Group):
     _version: str
     fluent_name: str
@@ -5074,6 +5733,7 @@ class conductivity_2(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class orthotropic_1(Group):
     _version: str
     fluent_name: str
@@ -5085,16 +5745,19 @@ class orthotropic_1(Group):
     conductivity_1: conductivity_1
     conductivity_2: conductivity_2
     return_type: str
+
 class principal_axes(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class principal_values(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class conductivity(Group):
     _version: str
     fluent_name: str
@@ -5107,6 +5770,7 @@ class conductivity(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class principal_axes_values(Group):
     _version: str
     fluent_name: str
@@ -5116,6 +5780,7 @@ class principal_axes_values(Group):
     principal_values: principal_values
     conductivity: conductivity
     return_type: str
+
 class anisotropic_1(Group):
     _version: str
     fluent_name: str
@@ -5124,6 +5789,7 @@ class anisotropic_1(Group):
     matrix_component: matrix_component
     conductivity: conductivity
     return_type: str
+
 class thermal_conductivity_1(Group):
     _version: str
     fluent_name: str
@@ -5142,6 +5808,7 @@ class thermal_conductivity_1(Group):
     anisotropic: anisotropic_1
     user_defined_function: user_defined_function
     return_type: str
+
 class atomic_number(Group):
     _version: str
     fluent_name: str
@@ -5150,6 +5817,7 @@ class atomic_number(Group):
     option: option_10
     value: value
     return_type: str
+
 class scattering_coefficient_1(Group):
     _version: str
     fluent_name: str
@@ -5164,6 +5832,7 @@ class scattering_coefficient_1(Group):
     gray_band_coefficients: gray_band_coefficients
     user_defined_function: user_defined_function
     return_type: str
+
 class uds_diffusivity_1(Group):
     _version: str
     fluent_name: str
@@ -5174,6 +5843,7 @@ class uds_diffusivity_1(Group):
     uds_diffusivities: uds_diffusivities
     user_defined_function: user_defined_function
     return_type: str
+
 class youngs_modulus_0(Group):
     _version: str
     fluent_name: str
@@ -5182,6 +5852,7 @@ class youngs_modulus_0(Group):
     option: option_10
     value: value
     return_type: str
+
 class youngs_modulus_1(Group):
     _version: str
     fluent_name: str
@@ -5190,6 +5861,7 @@ class youngs_modulus_1(Group):
     option: option_10
     value: value
     return_type: str
+
 class youngs_modulus_2(Group):
     _version: str
     fluent_name: str
@@ -5198,6 +5870,7 @@ class youngs_modulus_2(Group):
     option: option_10
     value: value
     return_type: str
+
 class shear_modulus_01(Group):
     _version: str
     fluent_name: str
@@ -5206,6 +5879,7 @@ class shear_modulus_01(Group):
     option: option_10
     value: value
     return_type: str
+
 class shear_modulus_12(Group):
     _version: str
     fluent_name: str
@@ -5214,6 +5888,7 @@ class shear_modulus_12(Group):
     option: option_10
     value: value
     return_type: str
+
 class shear_modulus_02(Group):
     _version: str
     fluent_name: str
@@ -5222,6 +5897,7 @@ class shear_modulus_02(Group):
     option: option_10
     value: value
     return_type: str
+
 class orthotropic_structure_ym(Group):
     _version: str
     fluent_name: str
@@ -5236,6 +5912,7 @@ class orthotropic_structure_ym(Group):
     shear_modulus_12: shear_modulus_12
     shear_modulus_02: shear_modulus_02
     return_type: str
+
 class struct_youngs_modulus(Group):
     _version: str
     fluent_name: str
@@ -5245,6 +5922,7 @@ class struct_youngs_modulus(Group):
     value: value
     orthotropic_structure_ym: orthotropic_structure_ym
     return_type: str
+
 class poisson_ratio_01(Group):
     _version: str
     fluent_name: str
@@ -5253,6 +5931,7 @@ class poisson_ratio_01(Group):
     option: option_10
     value: value
     return_type: str
+
 class poisson_ratio_12(Group):
     _version: str
     fluent_name: str
@@ -5261,6 +5940,7 @@ class poisson_ratio_12(Group):
     option: option_10
     value: value
     return_type: str
+
 class poisson_ratio_02(Group):
     _version: str
     fluent_name: str
@@ -5269,6 +5949,7 @@ class poisson_ratio_02(Group):
     option: option_10
     value: value
     return_type: str
+
 class orthotropic_structure_nu(Group):
     _version: str
     fluent_name: str
@@ -5278,6 +5959,7 @@ class orthotropic_structure_nu(Group):
     poisson_ratio_12: poisson_ratio_12
     poisson_ratio_02: poisson_ratio_02
     return_type: str
+
 class struct_poisson_ratio(Group):
     _version: str
     fluent_name: str
@@ -5287,6 +5969,7 @@ class struct_poisson_ratio(Group):
     value: value
     orthotropic_structure_nu: orthotropic_structure_nu
     return_type: str
+
 class struct_start_temperature(Group):
     _version: str
     fluent_name: str
@@ -5295,6 +5978,7 @@ class struct_start_temperature(Group):
     option: option_10
     value: value
     return_type: str
+
 class thermal_expansion_0(Group):
     _version: str
     fluent_name: str
@@ -5303,6 +5987,7 @@ class thermal_expansion_0(Group):
     option: option_10
     value: value
     return_type: str
+
 class thermal_expansion_1(Group):
     _version: str
     fluent_name: str
@@ -5311,6 +5996,7 @@ class thermal_expansion_1(Group):
     option: option_10
     value: value
     return_type: str
+
 class thermal_expansion_2(Group):
     _version: str
     fluent_name: str
@@ -5319,6 +6005,7 @@ class thermal_expansion_2(Group):
     option: option_10
     value: value
     return_type: str
+
 class orthotropic_structure_te(Group):
     _version: str
     fluent_name: str
@@ -5328,6 +6015,7 @@ class orthotropic_structure_te(Group):
     thermal_expansion_1: thermal_expansion_1
     thermal_expansion_2: thermal_expansion_2
     return_type: str
+
 class struct_thermal_expansion(Group):
     _version: str
     fluent_name: str
@@ -5337,6 +6025,7 @@ class struct_thermal_expansion(Group):
     value: value
     orthotropic_structure_te: orthotropic_structure_te
     return_type: str
+
 class struct_damping_alpha(Group):
     _version: str
     fluent_name: str
@@ -5345,6 +6034,7 @@ class struct_damping_alpha(Group):
     option: option_10
     value: value
     return_type: str
+
 class struct_damping_beta(Group):
     _version: str
     fluent_name: str
@@ -5353,6 +6043,7 @@ class struct_damping_beta(Group):
     option: option_10
     value: value
     return_type: str
+
 class solid_child(Group):
     _version: str
     fluent_name: str
@@ -5378,22 +6069,26 @@ class solid_child(Group):
     struct_damping_alpha: struct_damping_alpha
     struct_damping_beta: struct_damping_beta
     return_type: str
+
 class solid(NamedObject[solid_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: solid_child
     return_type: str
+
 class composition_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class species_fractions(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class real_gas_nist_mixture(Group):
     _version: str
     fluent_name: str
@@ -5409,6 +6104,7 @@ class real_gas_nist_mixture(Group):
     temperature_minimum: temperature_minimum
     temperature_maximum: temperature_maximum
     return_type: str
+
 class density_2(Group):
     _version: str
     fluent_name: str
@@ -5418,6 +6114,7 @@ class density_2(Group):
     real_gas_nist_mixture: real_gas_nist_mixture
     user_defined_function: user_defined_function
     return_type: str
+
 class viscosity_1(Group):
     _version: str
     fluent_name: str
@@ -5434,6 +6131,7 @@ class viscosity_1(Group):
     user_defined_function: user_defined_function
     real_gas_nist_mixture: real_gas_nist_mixture
     return_type: str
+
 class specific_heat_2(Group):
     _version: str
     fluent_name: str
@@ -5448,6 +6146,7 @@ class specific_heat_2(Group):
     real_gas_nist_mixture: real_gas_nist_mixture
     user_defined_function: user_defined_function
     return_type: str
+
 class thermal_conductivity_2(Group):
     _version: str
     fluent_name: str
@@ -5462,6 +6161,7 @@ class thermal_conductivity_2(Group):
     user_defined_function: user_defined_function
     real_gas_nist_mixture: real_gas_nist_mixture
     return_type: str
+
 class premix_laminar_thickness(Group):
     _version: str
     fluent_name: str
@@ -5471,6 +6171,7 @@ class premix_laminar_thickness(Group):
     value: value
     user_defined_function: user_defined_function
     return_type: str
+
 class premix_unburnt_temp_1(Group):
     _version: str
     fluent_name: str
@@ -5479,6 +6180,7 @@ class premix_unburnt_temp_1(Group):
     option: option_10
     user_defined_function: user_defined_function
     return_type: str
+
 class premix_unburnt_cp(Group):
     _version: str
     fluent_name: str
@@ -5487,6 +6189,7 @@ class premix_unburnt_cp(Group):
     option: option_10
     user_defined_function: user_defined_function
     return_type: str
+
 class premix_unburnt_density_1(Group):
     _version: str
     fluent_name: str
@@ -5495,6 +6198,7 @@ class premix_unburnt_density_1(Group):
     option: option_10
     user_defined_function: user_defined_function
     return_type: str
+
 class premix_heat_trans_coeff_1(Group):
     _version: str
     fluent_name: str
@@ -5503,11 +6207,13 @@ class premix_heat_trans_coeff_1(Group):
     option: option_10
     user_defined_function: user_defined_function
     return_type: str
+
 class path_length(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class absorption_coefficient_1(Group):
     _version: str
     fluent_name: str
@@ -5523,16 +6229,19 @@ class absorption_coefficient_1(Group):
     gray_band_coefficients: gray_band_coefficients
     user_defined_function: user_defined_function
     return_type: str
+
 class lewis_number(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mass_diffusivity_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class species_diffusivity_child(Group):
     _version: str
     fluent_name: str
@@ -5542,12 +6251,14 @@ class species_diffusivity_child(Group):
     value: value
     polynomial: polynomial
     return_type: str
+
 class species_diffusivity(NamedObject[species_diffusivity_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: species_diffusivity_child
     return_type: str
+
 class multicomponent_child_child(Group):
     _version: str
     fluent_name: str
@@ -5557,18 +6268,21 @@ class multicomponent_child_child(Group):
     value: value
     polynomial: polynomial
     return_type: str
+
 class multicomponent_child(NamedObject[multicomponent_child_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: multicomponent_child_child
     return_type: str
+
 class multicomponent(NamedObject[multicomponent_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: multicomponent_child
     return_type: str
+
 class mass_diffusivity(Group):
     _version: str
     fluent_name: str
@@ -5581,6 +6295,7 @@ class mass_diffusivity(Group):
     multicomponent: multicomponent
     user_defined_function: user_defined_function
     return_type: str
+
 class species(Group):
     _version: str
     fluent_name: str
@@ -5588,6 +6303,7 @@ class species(Group):
     child_names: list[str]
     option: option_10
     return_type: str
+
 class reactions(Group):
     _version: str
     fluent_name: str
@@ -5595,6 +6311,7 @@ class reactions(Group):
     child_names: list[str]
     option: option_10
     return_type: str
+
 class reaction_mechs(Group):
     _version: str
     fluent_name: str
@@ -5602,6 +6319,7 @@ class reaction_mechs(Group):
     child_names: list[str]
     option: option_10
     return_type: str
+
 class thermal_diffusivity(Group):
     _version: str
     fluent_name: str
@@ -5611,6 +6329,7 @@ class thermal_diffusivity(Group):
     species_diffusivity: species_diffusivity
     user_defined_function: user_defined_function
     return_type: str
+
 class tmelt(Group):
     _version: str
     fluent_name: str
@@ -5620,6 +6339,7 @@ class tmelt(Group):
     value: value
     user_defined_function: user_defined_function
     return_type: str
+
 class eutectic_temp(Group):
     _version: str
     fluent_name: str
@@ -5628,16 +6348,19 @@ class eutectic_temp(Group):
     option: option_10
     value: value
     return_type: str
+
 class diffusion_collision_integral(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class viscosity_collision_integral(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class neutral_involved_interaction(Group):
     _version: str
     fluent_name: str
@@ -5646,11 +6369,13 @@ class neutral_involved_interaction(Group):
     diffusion_collision_integral: diffusion_collision_integral
     viscosity_collision_integral: viscosity_collision_integral
     return_type: str
+
 class charged_particle_interaction(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cross_section_multicomponent_child_child(Group):
     _version: str
     fluent_name: str
@@ -5660,18 +6385,21 @@ class cross_section_multicomponent_child_child(Group):
     neutral_involved_interaction: neutral_involved_interaction
     charged_particle_interaction: charged_particle_interaction
     return_type: str
+
 class cross_section_multicomponent_child(NamedObject[cross_section_multicomponent_child_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: cross_section_multicomponent_child_child
     return_type: str
+
 class cross_section_multicomponent(NamedObject[cross_section_multicomponent_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: cross_section_multicomponent_child
     return_type: str
+
 class collision_cross_section(Group):
     _version: str
     fluent_name: str
@@ -5680,6 +6408,7 @@ class collision_cross_section(Group):
     option: option_10
     cross_section_multicomponent: cross_section_multicomponent
     return_type: str
+
 class mixture_species_child(Group):
     _version: str
     fluent_name: str
@@ -5735,12 +6464,14 @@ class mixture_species_child(Group):
     vaporization_temperature: vaporization_temperature
     charge: charge
     return_type: str
+
 class mixture_species(NamedObject[mixture_species_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: mixture_species_child
     return_type: str
+
 class mixture_child(Group):
     _version: str
     fluent_name: str
@@ -5782,12 +6513,14 @@ class mixture_child(Group):
     collision_cross_section: collision_cross_section
     mixture_species: mixture_species
     return_type: str
+
 class mixture(NamedObject[mixture_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: mixture_child
     return_type: str
+
 class density_3(Group):
     _version: str
     fluent_name: str
@@ -5801,6 +6534,7 @@ class density_3(Group):
     compressible_liquid: compressible_liquid
     user_defined_function: user_defined_function
     return_type: str
+
 class specific_heat_3(Group):
     _version: str
     fluent_name: str
@@ -5814,6 +6548,7 @@ class specific_heat_3(Group):
     nasa_9_piecewise_polynomial: nasa_9_piecewise_polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class thermal_conductivity_3(Group):
     _version: str
     fluent_name: str
@@ -5822,6 +6557,7 @@ class thermal_conductivity_3(Group):
     option: option_10
     value: value
     return_type: str
+
 class thermophoretic_co(Group):
     _version: str
     fluent_name: str
@@ -5834,6 +6570,7 @@ class thermophoretic_co(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class scattering_factor(Group):
     _version: str
     fluent_name: str
@@ -5843,6 +6580,7 @@ class scattering_factor(Group):
     value: value
     user_defined_function: user_defined_function
     return_type: str
+
 class emissivity(Group):
     _version: str
     fluent_name: str
@@ -5852,6 +6590,7 @@ class emissivity(Group):
     value: value
     user_defined_function: user_defined_function
     return_type: str
+
 class viscosity_2(Group):
     _version: str
     fluent_name: str
@@ -5864,6 +6603,7 @@ class viscosity_2(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class dpm_surften(Group):
     _version: str
     fluent_name: str
@@ -5876,6 +6616,7 @@ class dpm_surften(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class electric_conductivity_1(Group):
     _version: str
     fluent_name: str
@@ -5888,6 +6629,7 @@ class electric_conductivity_1(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class dual_electric_conductivity_1(Group):
     _version: str
     fluent_name: str
@@ -5900,6 +6642,7 @@ class dual_electric_conductivity_1(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class charge_density(Group):
     _version: str
     fluent_name: str
@@ -5909,6 +6652,7 @@ class charge_density(Group):
     value: value
     user_defined_function: user_defined_function
     return_type: str
+
 class inert_particle_child(Group):
     _version: str
     fluent_name: str
@@ -5927,17 +6671,20 @@ class inert_particle_child(Group):
     magnetic_permeability: magnetic_permeability
     charge_density: charge_density
     return_type: str
+
 class inert_particle(NamedObject[inert_particle_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: inert_particle_child
     return_type: str
+
 class use_vapor_species_heat_capacity(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class diffusion_controlled(Group):
     _version: str
     fluent_name: str
@@ -5945,11 +6692,13 @@ class diffusion_controlled(Group):
     child_names: list[str]
     use_vapor_species_heat_capacity: use_vapor_species_heat_capacity
     return_type: str
+
 class variable_lewis_number(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class convection_diffusion_controlled(Group):
     _version: str
     fluent_name: str
@@ -5958,6 +6707,7 @@ class convection_diffusion_controlled(Group):
     variable_lewis_number: variable_lewis_number
     use_vapor_species_heat_capacity: use_vapor_species_heat_capacity
     return_type: str
+
 class vaporization_model(Group):
     _version: str
     fluent_name: str
@@ -5967,11 +6717,13 @@ class vaporization_model(Group):
     diffusion_controlled: diffusion_controlled
     convection_diffusion_controlled: convection_diffusion_controlled
     return_type: str
+
 class pre_exponential_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class single_rate(Group):
     _version: str
     fluent_name: str
@@ -5980,6 +6732,7 @@ class single_rate(Group):
     pre_exponential_factor: pre_exponential_factor
     activation_energy: activation_energy
     return_type: str
+
 class particle_thermolysis_rate(Group):
     _version: str
     fluent_name: str
@@ -5988,6 +6741,7 @@ class particle_thermolysis_rate(Group):
     pre_exponential_factor: pre_exponential_factor
     activation_energy: activation_energy
     return_type: str
+
 class film_thermolysis_rate(Group):
     _version: str
     fluent_name: str
@@ -5996,6 +6750,7 @@ class film_thermolysis_rate(Group):
     pre_exponential_factor: pre_exponential_factor
     activation_energy: activation_energy
     return_type: str
+
 class secondary_rate(Group):
     _version: str
     fluent_name: str
@@ -6004,6 +6759,7 @@ class secondary_rate(Group):
     particle_thermolysis_rate: particle_thermolysis_rate
     film_thermolysis_rate: film_thermolysis_rate
     return_type: str
+
 class thermolysis_model(Group):
     _version: str
     fluent_name: str
@@ -6014,6 +6770,7 @@ class thermolysis_model(Group):
     secondary_rate: secondary_rate
     value: value
     return_type: str
+
 class latent_heat_1(Group):
     _version: str
     fluent_name: str
@@ -6023,6 +6780,7 @@ class latent_heat_1(Group):
     value: value
     user_defined_function: user_defined_function
     return_type: str
+
 class volatile_fraction(Group):
     _version: str
     fluent_name: str
@@ -6031,6 +6789,7 @@ class volatile_fraction(Group):
     option: option_10
     value: value
     return_type: str
+
 class heat_of_pyrolysis(Group):
     _version: str
     fluent_name: str
@@ -6039,11 +6798,13 @@ class heat_of_pyrolysis(Group):
     option: option_10
     value: value
     return_type: str
+
 class averaging_coefficient(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class binary_diffusivity_1(Group):
     _version: str
     fluent_name: str
@@ -6056,6 +6817,7 @@ class binary_diffusivity_1(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class film_averaged(Group):
     _version: str
     fluent_name: str
@@ -6064,6 +6826,7 @@ class film_averaged(Group):
     averaging_coefficient: averaging_coefficient
     binary_diffusivity: binary_diffusivity_1
     return_type: str
+
 class binary_diffusivity(Group):
     _version: str
     fluent_name: str
@@ -6077,6 +6840,7 @@ class binary_diffusivity(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class diffusivity_reference_pressure(Group):
     _version: str
     fluent_name: str
@@ -6085,6 +6849,7 @@ class diffusivity_reference_pressure(Group):
     option: option_10
     value: value
     return_type: str
+
 class averaging_coefficient_t(Group):
     _version: str
     fluent_name: str
@@ -6093,6 +6858,7 @@ class averaging_coefficient_t(Group):
     option: option_10
     value: value
     return_type: str
+
 class averaging_coefficient_y(Group):
     _version: str
     fluent_name: str
@@ -6101,6 +6867,7 @@ class averaging_coefficient_y(Group):
     option: option_10
     value: value
     return_type: str
+
 class vapor_pressure(Group):
     _version: str
     fluent_name: str
@@ -6114,6 +6881,7 @@ class vapor_pressure(Group):
     rgp_table: rgp_table
     user_defined_function: user_defined_function
     return_type: str
+
 class molecular_weight_1(Group):
     _version: str
     fluent_name: str
@@ -6122,6 +6890,7 @@ class molecular_weight_1(Group):
     option: option_10
     value: value
     return_type: str
+
 class boiling_point(Group):
     _version: str
     fluent_name: str
@@ -6131,6 +6900,7 @@ class boiling_point(Group):
     value: value
     user_defined_function: user_defined_function
     return_type: str
+
 class scattering_factor_1(Group):
     _version: str
     fluent_name: str
@@ -6143,6 +6913,7 @@ class scattering_factor_1(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class emissivity_1(Group):
     _version: str
     fluent_name: str
@@ -6155,6 +6926,7 @@ class emissivity_1(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class dpm_surften_1(Group):
     _version: str
     fluent_name: str
@@ -6168,6 +6940,7 @@ class dpm_surften_1(Group):
     rgp_table: rgp_table
     user_defined_function: user_defined_function
     return_type: str
+
 class droplet_particle_child(Group):
     _version: str
     fluent_name: str
@@ -6199,12 +6972,14 @@ class droplet_particle_child(Group):
     magnetic_permeability: magnetic_permeability
     charge_density: charge_density
     return_type: str
+
 class droplet_particle(NamedObject[droplet_particle_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: droplet_particle_child
     return_type: str
+
 class density_4(Group):
     _version: str
     fluent_name: str
@@ -6217,6 +6992,7 @@ class density_4(Group):
     polynomial: polynomial
     user_defined_function: user_defined_function
     return_type: str
+
 class combustible_fraction(Group):
     _version: str
     fluent_name: str
@@ -6225,6 +7001,7 @@ class combustible_fraction(Group):
     option: option_10
     value: value
     return_type: str
+
 class swelling_coefficient(Group):
     _version: str
     fluent_name: str
@@ -6234,6 +7011,7 @@ class swelling_coefficient(Group):
     value: value
     user_defined_function: user_defined_function
     return_type: str
+
 class burn_stoichiometry(Group):
     _version: str
     fluent_name: str
@@ -6242,6 +7020,7 @@ class burn_stoichiometry(Group):
     option: option_10
     value: value
     return_type: str
+
 class burn_hreact(Group):
     _version: str
     fluent_name: str
@@ -6250,6 +7029,7 @@ class burn_hreact(Group):
     option: option_10
     value: value
     return_type: str
+
 class burn_hreact_fraction(Group):
     _version: str
     fluent_name: str
@@ -6258,11 +7038,13 @@ class burn_hreact_fraction(Group):
     option: option_10
     value: value
     return_type: str
+
 class weighting_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class first_rate(Group):
     _version: str
     fluent_name: str
@@ -6272,6 +7054,7 @@ class first_rate(Group):
     activation_energy: activation_energy
     weighting_factor: weighting_factor
     return_type: str
+
 class second_rate(Group):
     _version: str
     fluent_name: str
@@ -6281,6 +7064,7 @@ class second_rate(Group):
     activation_energy: activation_energy
     weighting_factor: weighting_factor
     return_type: str
+
 class two_competing_rates(Group):
     _version: str
     fluent_name: str
@@ -6289,31 +7073,37 @@ class two_competing_rates(Group):
     first_rate: first_rate
     second_rate: second_rate
     return_type: str
+
 class initial_fraction_of_bridges_in_coal_lattice(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class initial_fraction_of_char_bridges(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lattice_coordination_number(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cluster_molecular_weight(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class side_chain_molecular_weight(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cpd_model(Group):
     _version: str
     fluent_name: str
@@ -6325,6 +7115,7 @@ class cpd_model(Group):
     cluster_molecular_weight: cluster_molecular_weight
     side_chain_molecular_weight: side_chain_molecular_weight
     return_type: str
+
 class devolatilization_model(Group):
     _version: str
     fluent_name: str
@@ -6336,16 +7127,19 @@ class devolatilization_model(Group):
     two_competing_rates: two_competing_rates
     cpd_model: cpd_model
     return_type: str
+
 class char_intrinsic_reactivity(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class carbon_content_percentage(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cbk(Group):
     _version: str
     fluent_name: str
@@ -6355,11 +7149,13 @@ class cbk(Group):
     char_intrinsic_reactivity: char_intrinsic_reactivity
     carbon_content_percentage: carbon_content_percentage
     return_type: str
+
 class diffusion_rate_constant(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class kinetics_diffusion_limited(Group):
     _version: str
     fluent_name: str
@@ -6369,31 +7165,37 @@ class kinetics_diffusion_limited(Group):
     pre_exponential_factor: pre_exponential_factor
     activation_energy: activation_energy
     return_type: str
+
 class char_porosity(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mean_pore_radius(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class specific_internal_surface_area(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tortuosity(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class burning_mode(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class intrinsic_model(Group):
     _version: str
     fluent_name: str
@@ -6408,16 +7210,19 @@ class intrinsic_model(Group):
     tortuosity: tortuosity
     burning_mode: burning_mode
     return_type: str
+
 class composition_dependent_specific_heat(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class composition_dependent_density(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class multiple_surface_reactions(Group):
     _version: str
     fluent_name: str
@@ -6426,6 +7231,7 @@ class multiple_surface_reactions(Group):
     composition_dependent_specific_heat: composition_dependent_specific_heat
     composition_dependent_density: composition_dependent_density
     return_type: str
+
 class combustion_model(Group):
     _version: str
     fluent_name: str
@@ -6437,6 +7243,7 @@ class combustion_model(Group):
     intrinsic_model: intrinsic_model
     multiple_surface_reactions: multiple_surface_reactions
     return_type: str
+
 class combusting_particle_child(Group):
     _version: str
     fluent_name: str
@@ -6461,12 +7268,14 @@ class combusting_particle_child(Group):
     scattering_factor: scattering_factor_1
     emissivity: emissivity_1
     return_type: str
+
 class combusting_particle(NamedObject[combusting_particle_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: combusting_particle_child
     return_type: str
+
 class density_5(Group):
     _version: str
     fluent_name: str
@@ -6477,6 +7286,7 @@ class density_5(Group):
     user_defined_function: user_defined_function
     value: value
     return_type: str
+
 class specific_heat_4(Group):
     _version: str
     fluent_name: str
@@ -6486,6 +7296,7 @@ class specific_heat_4(Group):
     user_defined_function: user_defined_function
     value: value
     return_type: str
+
 class vp_equilib(Group):
     _version: str
     fluent_name: str
@@ -6494,6 +7305,7 @@ class vp_equilib(Group):
     option: option_10
     user_defined_function: user_defined_function
     return_type: str
+
 class emissivity_2(Group):
     _version: str
     fluent_name: str
@@ -6501,6 +7313,7 @@ class emissivity_2(Group):
     child_names: list[str]
     option: option_10
     return_type: str
+
 class scattering_factor_2(Group):
     _version: str
     fluent_name: str
@@ -6508,6 +7321,7 @@ class scattering_factor_2(Group):
     child_names: list[str]
     option: option_10
     return_type: str
+
 class reaction_model(Group):
     _version: str
     fluent_name: str
@@ -6515,6 +7329,7 @@ class reaction_model(Group):
     child_names: list[str]
     option: option_10
     return_type: str
+
 class mixture_species_1_child(Group):
     _version: str
     fluent_name: str
@@ -6546,12 +7361,14 @@ class mixture_species_1_child(Group):
     magnetic_permeability: magnetic_permeability
     charge_density: charge_density
     return_type: str
+
 class mixture_species_1(NamedObject[mixture_species_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: mixture_species_1_child
     return_type: str
+
 class particle_mixture_child(Group):
     _version: str
     fluent_name: str
@@ -6573,12 +7390,14 @@ class particle_mixture_child(Group):
     reaction_model: reaction_model
     mixture_species: mixture_species_1
     return_type: str
+
 class particle_mixture(NamedObject[particle_mixture_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: particle_mixture_child
     return_type: str
+
 class materials(Group):
     _version: str
     fluent_name: str
@@ -6607,31 +7426,37 @@ class materials(Group):
                 'name' child.
         """
     return_type: str
+
 class material_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sources(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class profile_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class field_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class udf(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class source_terms_1_child_child(Group):
     _version: str
     fluent_name: str
@@ -6643,28 +7468,33 @@ class source_terms_1_child_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class source_terms_1_child(ListObject[source_terms_1_child_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: source_terms_1_child_child
     return_type: str
+
 class source_terms_1(NamedObject[source_terms_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: source_terms_1_child
     return_type: str
+
 class fixed(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cylindrical_fixed_var(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fixes_child(Group):
     _version: str
     fluent_name: str
@@ -6676,22 +7506,26 @@ class fixes_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class fixes(NamedObject[fixes_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: fixes_child
     return_type: str
+
 class motion_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class relative_to_thread(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class omega(Group):
     _version: str
     fluent_name: str
@@ -6703,6 +7537,7 @@ class omega(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class axis_origin_1_child(Group):
     _version: str
     fluent_name: str
@@ -6714,12 +7549,14 @@ class axis_origin_1_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class axis_origin_1(ListObject[axis_origin_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: axis_origin_1_child
     return_type: str
+
 class axis_direction_1_child(Group):
     _version: str
     fluent_name: str
@@ -6731,27 +7568,32 @@ class axis_direction_1_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class axis_direction_1(ListObject[axis_direction_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: axis_direction_1_child
     return_type: str
+
 class udf_zmotion_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mrf_motion(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mrf_relative_to_thread(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mrf_omega(Group):
     _version: str
     fluent_name: str
@@ -6763,6 +7605,7 @@ class mrf_omega(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class reference_frame_velocity_child(Group):
     _version: str
     fluent_name: str
@@ -6774,12 +7617,14 @@ class reference_frame_velocity_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class reference_frame_velocity(ListObject[reference_frame_velocity_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: reference_frame_velocity_child
     return_type: str
+
 class reference_frame_axis_origin_child(Group):
     _version: str
     fluent_name: str
@@ -6791,12 +7636,14 @@ class reference_frame_axis_origin_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class reference_frame_axis_origin(ListObject[reference_frame_axis_origin_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: reference_frame_axis_origin_child
     return_type: str
+
 class reference_frame_axis_direction_child(Group):
     _version: str
     fluent_name: str
@@ -6808,32 +7655,38 @@ class reference_frame_axis_direction_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class reference_frame_axis_direction(ListObject[reference_frame_axis_direction_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: reference_frame_axis_direction_child
     return_type: str
+
 class mrf_udf_zmotion_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mgrid_enable_transient(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mgrid_motion(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mgrid_relative_to_thread(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mgrid_omega(Group):
     _version: str
     fluent_name: str
@@ -6845,6 +7698,7 @@ class mgrid_omega(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class moving_mesh_velocity_child(Group):
     _version: str
     fluent_name: str
@@ -6856,12 +7710,14 @@ class moving_mesh_velocity_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class moving_mesh_velocity(ListObject[moving_mesh_velocity_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: moving_mesh_velocity_child
     return_type: str
+
 class moving_mesh_axis_origin_child(Group):
     _version: str
     fluent_name: str
@@ -6873,12 +7729,14 @@ class moving_mesh_axis_origin_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class moving_mesh_axis_origin(ListObject[moving_mesh_axis_origin_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: moving_mesh_axis_origin_child
     return_type: str
+
 class moving_mesh_axis_direction_child(Group):
     _version: str
     fluent_name: str
@@ -6890,27 +7748,32 @@ class moving_mesh_axis_direction_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class moving_mesh_axis_direction(ListObject[moving_mesh_axis_direction_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: moving_mesh_axis_direction_child
     return_type: str
+
 class mgrid_udf_zmotion_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solid_motion(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solid_relative_to_thread(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solid_omega(Group):
     _version: str
     fluent_name: str
@@ -6922,6 +7785,7 @@ class solid_omega(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class solid_motion_velocity_child(Group):
     _version: str
     fluent_name: str
@@ -6933,12 +7797,14 @@ class solid_motion_velocity_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class solid_motion_velocity(ListObject[solid_motion_velocity_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: solid_motion_velocity_child
     return_type: str
+
 class solid_motion_axis_origin_child(Group):
     _version: str
     fluent_name: str
@@ -6950,12 +7816,14 @@ class solid_motion_axis_origin_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class solid_motion_axis_origin(ListObject[solid_motion_axis_origin_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: solid_motion_axis_origin_child
     return_type: str
+
 class solid_motion_axis_direction_child(Group):
     _version: str
     fluent_name: str
@@ -6967,102 +7835,122 @@ class solid_motion_axis_direction_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class solid_motion_axis_direction(ListObject[solid_motion_axis_direction_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: solid_motion_axis_direction_child
     return_type: str
+
 class solid_udf_zmotion_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class radiating(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class les_embedded(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class contact_property(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class active_wetsteam_zone(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vapor_phase_realgas(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class laminar(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class laminar_mut_zero(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class les_embedded_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class les_embedded_mom_scheme(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class les_embedded_c_wale(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class les_embedded_c_smag(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class glass(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class porous(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class conical(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dir_spec_cond(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cursys(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cursys_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class direction_1_x(Group):
     _version: str
     fluent_name: str
@@ -7074,6 +7962,7 @@ class direction_1_x(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class direction_1_y(Group):
     _version: str
     fluent_name: str
@@ -7085,6 +7974,7 @@ class direction_1_y(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class direction_1_z(Group):
     _version: str
     fluent_name: str
@@ -7096,6 +7986,7 @@ class direction_1_z(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class direction_2_x(Group):
     _version: str
     fluent_name: str
@@ -7107,6 +7998,7 @@ class direction_2_x(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class direction_2_y(Group):
     _version: str
     fluent_name: str
@@ -7118,6 +8010,7 @@ class direction_2_y(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class direction_2_z(Group):
     _version: str
     fluent_name: str
@@ -7129,46 +8022,55 @@ class direction_2_z(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class cone_axis_x(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cone_axis_y(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cone_axis_z(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cone_axis_pt_x(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cone_axis_pt_y(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cone_axis_pt_z(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cone_angle(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rel_vel_resistance(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class porous_r_1(Group):
     _version: str
     fluent_name: str
@@ -7180,6 +8082,7 @@ class porous_r_1(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class porous_r_2(Group):
     _version: str
     fluent_name: str
@@ -7191,6 +8094,7 @@ class porous_r_2(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class porous_r_3(Group):
     _version: str
     fluent_name: str
@@ -7202,11 +8106,13 @@ class porous_r_3(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class alt_inertial_form(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class porous_c_1(Group):
     _version: str
     fluent_name: str
@@ -7218,6 +8124,7 @@ class porous_c_1(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class porous_c_2(Group):
     _version: str
     fluent_name: str
@@ -7229,6 +8136,7 @@ class porous_c_2(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class porous_c_3(Group):
     _version: str
     fluent_name: str
@@ -7240,16 +8148,19 @@ class porous_c_3(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class c0(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class c1_1(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class porosity(Group):
     _version: str
     fluent_name: str
@@ -7261,41 +8172,49 @@ class porosity(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class method_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class number_of_coeff(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class function_of(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coefficients_1(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class constant(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class minimum_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class maximum_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class piecewise_polynomial_1_child(Group):
     _version: str
     fluent_name: str
@@ -7306,12 +8225,14 @@ class piecewise_polynomial_1_child(Group):
     number_of_coeff: number_of_coeff
     coefficients: coefficients_1
     return_type: str
+
 class piecewise_polynomial_1(ListObject[piecewise_polynomial_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: piecewise_polynomial_1_child
     return_type: str
+
 class viscosity_ratio(Group):
     _version: str
     fluent_name: str
@@ -7325,81 +8246,97 @@ class viscosity_ratio(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class none(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class corey(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class stone_1(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class stone_2(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rel_perm_limit_p1(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rel_perm_limit_p2(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ref_perm_p1(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class exp_p1(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class res_sat_p1(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ref_perm_p2(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class exp_p2(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class res_sat_p2(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ref_perm_p3(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class exp_p3(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class res_sat_p3(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class capillary_pressure(Group):
     _version: str
     fluent_name: str
@@ -7413,121 +8350,145 @@ class capillary_pressure(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class max_capillary_pressure(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class van_genuchten_pg(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class van_genuchten_ng(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class skjaeveland_nw_pc_coef(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class skjaeveland_nw_pc_pwr(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class skjaeveland_wet_pc_coef(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class skjaeveland_wet_pc_pwr(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class brooks_corey_pe(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class brooks_corey_ng(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class leverett_con_ang(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rel_perm_tabular_p1(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rel_perm_table_p1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rel_perm_satw_p1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rel_perm_rp_p1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rel_perm_tabular_p2(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rel_perm_table_p2(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rel_perm_satw_p2(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rel_perm_rp_p2(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wetting_phase(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class non_wetting_phase(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class equib_thermal(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class non_equib_thermal(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solid_material(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class area_density(Group):
     _version: str
     fluent_name: str
@@ -7539,6 +8500,7 @@ class area_density(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class heat_transfer_coeff(Group):
     _version: str
     fluent_name: str
@@ -7550,256 +8512,307 @@ class heat_transfer_coeff(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class fanzone(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_zone_list(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_thickness(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_hub_rad(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_tip_rad(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_x_origin(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_y_origin(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_z_origin(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_rot_dir(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_opert_angvel(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_inflection_point(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class limit_flow_fan(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_flow_rate(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_flow_rate(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tan_source_term(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rad_source_term(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class axial_source_term(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_axial_source_method(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_pre_jump(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_curve_fit(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_poly_order(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_ini_flow(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_test_angvel(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_test_temp(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reaction_mechs_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class react(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class surface_volume_ratio(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class electrolyte(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mp_compressive_beta_max(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mp_boiling_zone(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class numerical_beach(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_id(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_multi_dir(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_damp_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_inlet_bndr(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_fs_level(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_bottom_level(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_dir_ni(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_dir_nj(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_dir_nk(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_damp_len_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_wave_len(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_len_factor(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_start_point(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_end_point(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ni(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class nj(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class nk(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class xe(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class len(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_dir_list_child(Group):
     _version: str
     fluent_name: str
@@ -7811,87 +8824,104 @@ class beach_dir_list_child(Group):
     xe: xe
     len: len
     return_type: str
+
 class beach_dir_list(ListObject[beach_dir_list_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: beach_dir_list_child
     return_type: str
+
 class beach_damp_relative(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_damp_resist_lin(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class beach_damp_resist(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class porous_structure(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class structure_material(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class anisotropic_spe_diff(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class spe_diff_xx(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class spe_diff_xy(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class spe_diff_xz(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class spe_diff_yx(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class spe_diff_yy(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class spe_diff_yz(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class spe_diff_zx(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class spe_diff_zy(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class spe_diff_zz(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_child(Group):
     _version: str
     fluent_name: str
@@ -8076,12 +9106,14 @@ class phase_child(Group):
     spe_diff_zy: spe_diff_zy
     spe_diff_zz: spe_diff_zz
     return_type: str
+
 class phase(NamedObject[phase_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_child
     return_type: str
+
 class fluid_1_child(Group):
     _version: str
     fluent_name: str
@@ -8267,47 +9299,56 @@ class fluid_1_child(Group):
     spe_diff_zy: spe_diff_zy
     spe_diff_zz: spe_diff_zz
     return_type: str
+
 class fluid_1(NamedObject[fluid_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: fluid_1_child
     return_type: str
+
 class pcb_model(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ecad_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class choice(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rows(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class columns(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ref_frame(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pwr_names(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pcb_zone_info(Group):
     _version: str
     fluent_name: str
@@ -8320,6 +9361,7 @@ class pcb_zone_info(Group):
     ref_frame: ref_frame
     pwr_names: pwr_names
     return_type: str
+
 class phase_1_child(Group):
     _version: str
     fluent_name: str
@@ -8369,12 +9411,14 @@ class phase_1_child(Group):
     pcb_model: pcb_model
     pcb_zone_info: pcb_zone_info
     return_type: str
+
 class phase_1(NamedObject[phase_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_1_child
     return_type: str
+
 class solid_1_child(Group):
     _version: str
     fluent_name: str
@@ -8425,12 +9469,14 @@ class solid_1_child(Group):
     pcb_model: pcb_model
     pcb_zone_info: pcb_zone_info
     return_type: str
+
 class solid_1(NamedObject[solid_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: solid_1_child
     return_type: str
+
 class cell_zone_conditions(Group):
     _version: str
     fluent_name: str
@@ -8483,41 +9529,49 @@ class cell_zone_conditions(Group):
                 'overwrite' child.
         """
     return_type: str
+
 class geom_disable(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class geom_dir_spec(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class geom_dir_x(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class geom_dir_y(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class geom_dir_z(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class geom_levels(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class geom_bgthread(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_2_child(Group):
     _version: str
     fluent_name: str
@@ -8531,12 +9585,14 @@ class phase_2_child(Group):
     geom_levels: geom_levels
     geom_bgthread: geom_bgthread
     return_type: str
+
 class phase_2(NamedObject[phase_2_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_2_child
     return_type: str
+
 class axis_child(Group):
     _version: str
     fluent_name: str
@@ -8551,12 +9607,14 @@ class axis_child(Group):
     geom_levels: geom_levels
     geom_bgthread: geom_bgthread
     return_type: str
+
 class axis(NamedObject[axis_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: axis_child
     return_type: str
+
 class degassing_child(Group):
     _version: str
     fluent_name: str
@@ -8571,42 +9629,50 @@ class degassing_child(Group):
     geom_levels: geom_levels
     geom_bgthread: geom_bgthread
     return_type: str
+
 class degassing(NamedObject[degassing_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: degassing_child
     return_type: str
+
 class open_channel(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class outlet_number(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pressure_spec_method(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class press_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class frame_of_reference(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ht_local(Group):
     _version: str
     fluent_name: str
@@ -8618,6 +9684,7 @@ class ht_local(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class gauge_pressure(Group):
     _version: str
     fluent_name: str
@@ -8629,11 +9696,13 @@ class gauge_pressure(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class p_profile_multiplier(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ht_bottom(Group):
     _version: str
     fluent_name: str
@@ -8645,11 +9714,13 @@ class ht_bottom(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class den_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class t0(Group):
     _version: str
     fluent_name: str
@@ -8661,16 +9732,19 @@ class t0(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class direction_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coordinate_system(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class flow_direction_child(Group):
     _version: str
     fluent_name: str
@@ -8682,39 +9756,46 @@ class flow_direction_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class flow_direction(ListObject[flow_direction_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: flow_direction_child
     return_type: str
+
 class axis_direction_2_child(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class axis_direction_2(ListObject[axis_direction_2_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: axis_direction_2_child
     return_type: str
+
 class axis_origin_2_child(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class axis_origin_2(ListObject[axis_origin_2_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: axis_origin_2_child
     return_type: str
+
 class ke_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class nut(Group):
     _version: str
     fluent_name: str
@@ -8726,6 +9807,7 @@ class nut(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class kl(Group):
     _version: str
     fluent_name: str
@@ -8737,6 +9819,7 @@ class kl(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class intermit(Group):
     _version: str
     fluent_name: str
@@ -8748,6 +9831,7 @@ class intermit(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class k(Group):
     _version: str
     fluent_name: str
@@ -8759,6 +9843,7 @@ class k(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class e(Group):
     _version: str
     fluent_name: str
@@ -8770,6 +9855,7 @@ class e(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class o(Group):
     _version: str
     fluent_name: str
@@ -8781,6 +9867,7 @@ class o(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class v2(Group):
     _version: str
     fluent_name: str
@@ -8792,26 +9879,31 @@ class v2(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class turb_intensity(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turb_length_scale(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turb_hydraulic_diam(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turb_viscosity_ratio(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turb_viscosity_ratio_profile(Group):
     _version: str
     fluent_name: str
@@ -8823,11 +9915,13 @@ class turb_viscosity_ratio_profile(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class rst_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class uu(Group):
     _version: str
     fluent_name: str
@@ -8839,6 +9933,7 @@ class uu(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class vv(Group):
     _version: str
     fluent_name: str
@@ -8850,6 +9945,7 @@ class vv(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class ww(Group):
     _version: str
     fluent_name: str
@@ -8861,6 +9957,7 @@ class ww(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class uv(Group):
     _version: str
     fluent_name: str
@@ -8872,6 +9969,7 @@ class uv(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class vw(Group):
     _version: str
     fluent_name: str
@@ -8883,6 +9981,7 @@ class vw(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class uw(Group):
     _version: str
     fluent_name: str
@@ -8894,11 +9993,13 @@ class uw(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class ksgs_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ksgs(Group):
     _version: str
     fluent_name: str
@@ -8910,16 +10011,19 @@ class ksgs(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class sgs_turb_intensity(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class radiation_bc(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class radial_direction_child(Group):
     _version: str
     fluent_name: str
@@ -8931,22 +10035,26 @@ class radial_direction_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class radial_direction(ListObject[radial_direction_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: radial_direction_child
     return_type: str
+
 class coll_dtheta(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coll_dphi(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class band_q_irrad_child(Group):
     _version: str
     fluent_name: str
@@ -8958,12 +10066,14 @@ class band_q_irrad_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class band_q_irrad(NamedObject[band_q_irrad_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: band_q_irrad_child
     return_type: str
+
 class band_q_irrad_diffuse_child(Group):
     _version: str
     fluent_name: str
@@ -8975,37 +10085,44 @@ class band_q_irrad_diffuse_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class band_q_irrad_diffuse(NamedObject[band_q_irrad_diffuse_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: band_q_irrad_diffuse_child
     return_type: str
+
 class parallel_collimated_beam(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solar_direction(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solar_irradiation(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class t_b_b_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class t_b_b(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class in_emiss(Group):
     _version: str
     fluent_name: str
@@ -9017,6 +10134,7 @@ class in_emiss(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class fmean(Group):
     _version: str
     fluent_name: str
@@ -9028,6 +10146,7 @@ class fmean(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class fmean2(Group):
     _version: str
     fluent_name: str
@@ -9039,6 +10158,7 @@ class fmean2(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class fvar(Group):
     _version: str
     fluent_name: str
@@ -9050,6 +10170,7 @@ class fvar(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class fvar2(Group):
     _version: str
     fluent_name: str
@@ -9061,6 +10182,7 @@ class fvar2(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class granular_temperature(Group):
     _version: str
     fluent_name: str
@@ -9072,6 +10194,7 @@ class granular_temperature(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class iac(Group):
     _version: str
     fluent_name: str
@@ -9083,6 +10206,7 @@ class iac(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class lsfun(Group):
     _version: str
     fluent_name: str
@@ -9094,11 +10218,13 @@ class lsfun(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class vof_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class volume_fraction(Group):
     _version: str
     fluent_name: str
@@ -9110,11 +10236,13 @@ class volume_fraction(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class species_in_mole_fractions(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mf_child(Group):
     _version: str
     fluent_name: str
@@ -9126,17 +10254,20 @@ class mf_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class mf(NamedObject[mf_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: mf_child
     return_type: str
+
 class elec_potential_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class potential_value(Group):
     _version: str
     fluent_name: str
@@ -9148,11 +10279,13 @@ class potential_value(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class dual_potential_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dual_potential_value(Group):
     _version: str
     fluent_name: str
@@ -9164,11 +10297,13 @@ class dual_potential_value(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class x_displacement_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class x_displacement_value(Group):
     _version: str
     fluent_name: str
@@ -9180,11 +10315,13 @@ class x_displacement_value(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class y_displacement_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_displacement_value(Group):
     _version: str
     fluent_name: str
@@ -9196,11 +10333,13 @@ class y_displacement_value(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class z_displacement_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class z_displacement_value(Group):
     _version: str
     fluent_name: str
@@ -9212,6 +10351,7 @@ class z_displacement_value(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class prob_mode_1(Group):
     _version: str
     fluent_name: str
@@ -9223,6 +10363,7 @@ class prob_mode_1(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class prob_mode_2(Group):
     _version: str
     fluent_name: str
@@ -9234,6 +10375,7 @@ class prob_mode_2(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class prob_mode_3(Group):
     _version: str
     fluent_name: str
@@ -9245,6 +10387,7 @@ class prob_mode_3(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class premixc(Group):
     _version: str
     fluent_name: str
@@ -9256,6 +10399,7 @@ class premixc(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class premixc_var(Group):
     _version: str
     fluent_name: str
@@ -9267,6 +10411,7 @@ class premixc_var(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class ecfm_sigma(Group):
     _version: str
     fluent_name: str
@@ -9278,6 +10423,7 @@ class ecfm_sigma(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class inert(Group):
     _version: str
     fluent_name: str
@@ -9289,6 +10435,7 @@ class inert(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_no(Group):
     _version: str
     fluent_name: str
@@ -9300,6 +10447,7 @@ class pollut_no(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_hcn(Group):
     _version: str
     fluent_name: str
@@ -9311,6 +10459,7 @@ class pollut_hcn(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_nh3(Group):
     _version: str
     fluent_name: str
@@ -9322,6 +10471,7 @@ class pollut_nh3(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_n2o(Group):
     _version: str
     fluent_name: str
@@ -9333,6 +10483,7 @@ class pollut_n2o(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_urea(Group):
     _version: str
     fluent_name: str
@@ -9344,6 +10495,7 @@ class pollut_urea(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_hnco(Group):
     _version: str
     fluent_name: str
@@ -9355,6 +10507,7 @@ class pollut_hnco(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_nco(Group):
     _version: str
     fluent_name: str
@@ -9366,6 +10519,7 @@ class pollut_nco(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_so2(Group):
     _version: str
     fluent_name: str
@@ -9377,6 +10531,7 @@ class pollut_so2(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_h2s(Group):
     _version: str
     fluent_name: str
@@ -9388,6 +10543,7 @@ class pollut_h2s(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_so3(Group):
     _version: str
     fluent_name: str
@@ -9399,6 +10555,7 @@ class pollut_so3(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_sh(Group):
     _version: str
     fluent_name: str
@@ -9410,6 +10567,7 @@ class pollut_sh(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_so(Group):
     _version: str
     fluent_name: str
@@ -9421,6 +10579,7 @@ class pollut_so(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_soot(Group):
     _version: str
     fluent_name: str
@@ -9432,6 +10591,7 @@ class pollut_soot(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_nuclei(Group):
     _version: str
     fluent_name: str
@@ -9443,6 +10603,7 @@ class pollut_nuclei(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_ctar(Group):
     _version: str
     fluent_name: str
@@ -9454,6 +10615,7 @@ class pollut_ctar(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_hg(Group):
     _version: str
     fluent_name: str
@@ -9465,6 +10627,7 @@ class pollut_hg(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_hgcl2(Group):
     _version: str
     fluent_name: str
@@ -9476,6 +10639,7 @@ class pollut_hgcl2(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_hcl(Group):
     _version: str
     fluent_name: str
@@ -9487,6 +10651,7 @@ class pollut_hcl(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_hgo(Group):
     _version: str
     fluent_name: str
@@ -9498,6 +10663,7 @@ class pollut_hgo(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_cl(Group):
     _version: str
     fluent_name: str
@@ -9509,6 +10675,7 @@ class pollut_cl(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_cl2(Group):
     _version: str
     fluent_name: str
@@ -9520,6 +10687,7 @@ class pollut_cl2(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_hgcl(Group):
     _version: str
     fluent_name: str
@@ -9531,6 +10699,7 @@ class pollut_hgcl(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pollut_hocl(Group):
     _version: str
     fluent_name: str
@@ -9542,6 +10711,7 @@ class pollut_hocl(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class tss_scalar_child(Group):
     _version: str
     fluent_name: str
@@ -9553,28 +10723,33 @@ class tss_scalar_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class tss_scalar(NamedObject[tss_scalar_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: tss_scalar_child
     return_type: str
+
 class fensapice_flow_bc_subtype(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class uds_bc_child(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class uds_bc(NamedObject[uds_bc_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: uds_bc_child
     return_type: str
+
 class uds_child(Group):
     _version: str
     fluent_name: str
@@ -9586,23 +10761,27 @@ class uds_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class uds(NamedObject[uds_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: uds_child
     return_type: str
+
 class pb_disc_bc_child(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pb_disc_bc(NamedObject[pb_disc_bc_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: pb_disc_bc_child
     return_type: str
+
 class pb_disc_child(Group):
     _version: str
     fluent_name: str
@@ -9614,23 +10793,27 @@ class pb_disc_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pb_disc(NamedObject[pb_disc_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: pb_disc_child
     return_type: str
+
 class pb_qmom_bc_child(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pb_qmom_bc(NamedObject[pb_qmom_bc_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: pb_qmom_bc_child
     return_type: str
+
 class pb_qmom_child(Group):
     _version: str
     fluent_name: str
@@ -9642,23 +10825,27 @@ class pb_qmom_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pb_qmom(NamedObject[pb_qmom_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: pb_qmom_child
     return_type: str
+
 class pb_smm_bc_child(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pb_smm_bc(NamedObject[pb_smm_bc_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: pb_smm_bc_child
     return_type: str
+
 class pb_smm_child(Group):
     _version: str
     fluent_name: str
@@ -9670,23 +10857,27 @@ class pb_smm_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pb_smm(NamedObject[pb_smm_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: pb_smm_child
     return_type: str
+
 class pb_dqmom_bc_child(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pb_dqmom_bc(NamedObject[pb_dqmom_bc_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: pb_dqmom_bc_child
     return_type: str
+
 class pb_dqmom_child(Group):
     _version: str
     fluent_name: str
@@ -9698,67 +10889,80 @@ class pb_dqmom_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pb_dqmom(NamedObject[pb_dqmom_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: pb_dqmom_child
     return_type: str
+
 class dpm_bc_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_collision_partner(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reinj_inj(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_udf(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mixing_plane_thread(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ac_options(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class p_backflow_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class p_backflow_spec_gen(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class impedance_0(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pole(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class amplitude(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class impedance_1_child(Group):
     _version: str
     fluent_name: str
@@ -9767,32 +10971,38 @@ class impedance_1_child(Group):
     pole: pole
     amplitude: amplitude
     return_type: str
+
 class impedance_1(ListObject[impedance_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: impedance_1_child
     return_type: str
+
 class pole_real(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pole_imag(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class amplitude_real(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class amplitude_imag(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class impedance_2_child(Group):
     _version: str
     fluent_name: str
@@ -9803,12 +11013,14 @@ class impedance_2_child(Group):
     amplitude_real: amplitude_real
     amplitude_imag: amplitude_imag
     return_type: str
+
 class impedance_2(ListObject[impedance_2_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: impedance_2_child
     return_type: str
+
 class ac_wave(Group):
     _version: str
     fluent_name: str
@@ -9820,31 +11032,37 @@ class ac_wave(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class prevent_reverse_flow(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class radial(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class avg_press_spec(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class press_averaging_method(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class targeted_mf_boundary(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class targeted_mf(Group):
     _version: str
     fluent_name: str
@@ -9856,6 +11074,7 @@ class targeted_mf(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class targeted_mf_pmax(Group):
     _version: str
     fluent_name: str
@@ -9867,6 +11086,7 @@ class targeted_mf_pmax(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class targeted_mf_pmin(Group):
     _version: str
     fluent_name: str
@@ -9878,11 +11098,13 @@ class targeted_mf_pmin(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class gen_nrbc_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wsf(Group):
     _version: str
     fluent_name: str
@@ -9894,6 +11116,7 @@ class wsf(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class wsb(Group):
     _version: str
     fluent_name: str
@@ -9905,6 +11128,7 @@ class wsb(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class wsn(Group):
     _version: str
     fluent_name: str
@@ -9916,21 +11140,25 @@ class wsn(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class solar_fluxes(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solar_shining_factor(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class radiating_s2s_surface(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class a_1(Group):
     _version: str
     fluent_name: str
@@ -9944,6 +11172,7 @@ class a_1(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class strength(Group):
     _version: str
     fluent_name: str
@@ -9955,11 +11184,13 @@ class strength(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class new_fan_definition(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_3_child(Group):
     _version: str
     fluent_name: str
@@ -10118,12 +11349,14 @@ class phase_3_child(Group):
     strength: strength
     new_fan_definition: new_fan_definition
     return_type: str
+
 class phase_3(NamedObject[phase_3_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_3_child
     return_type: str
+
 class exhaust_fan_child(Group):
     _version: str
     fluent_name: str
@@ -10283,27 +11516,32 @@ class exhaust_fan_child(Group):
     strength: strength
     new_fan_definition: new_fan_definition
     return_type: str
+
 class exhaust_fan(NamedObject[exhaust_fan_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: exhaust_fan_child
     return_type: str
+
 class porous_jump_turb_wall_treatment(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dir(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class average_dp(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class c_1(Group):
     _version: str
     fluent_name: str
@@ -10317,26 +11555,31 @@ class c_1(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class limit_range(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class v_min(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class v_max(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class profile_dp(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dp_profile(Group):
     _version: str
     fluent_name: str
@@ -10348,31 +11591,37 @@ class dp_profile(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class swirl_model(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_vr(RealList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fr(RealList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class hub(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class profile_vt(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vt_profile(Group):
     _version: str
     fluent_name: str
@@ -10384,11 +11633,13 @@ class vt_profile(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class profile_vr(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vr_profile(Group):
     _version: str
     fluent_name: str
@@ -10400,11 +11651,13 @@ class vr_profile(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class swirl_factor(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_4_child(Group):
     _version: str
     fluent_name: str
@@ -10444,12 +11697,14 @@ class phase_4_child(Group):
     dpm_bc_udf: dpm_bc_udf
     new_fan_definition: new_fan_definition
     return_type: str
+
 class phase_4(NamedObject[phase_4_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_4_child
     return_type: str
+
 class fan_child(Group):
     _version: str
     fluent_name: str
@@ -10490,12 +11745,14 @@ class fan_child(Group):
     dpm_bc_udf: dpm_bc_udf
     new_fan_definition: new_fan_definition
     return_type: str
+
 class fan(NamedObject[fan_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: fan_child
     return_type: str
+
 class geometry_2_child(Group):
     _version: str
     fluent_name: str
@@ -10510,17 +11767,20 @@ class geometry_2_child(Group):
     geom_levels: geom_levels
     geom_bgthread: geom_bgthread
     return_type: str
+
 class geometry_2(NamedObject[geometry_2_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: geometry_2_child
     return_type: str
+
 class inlet_number(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class gauge_total_pressure(Group):
     _version: str
     fluent_name: str
@@ -10532,11 +11792,13 @@ class gauge_total_pressure(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class flow_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ht_total(Group):
     _version: str
     fluent_name: str
@@ -10548,6 +11810,7 @@ class ht_total(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class vmag(Group):
     _version: str
     fluent_name: str
@@ -10559,6 +11822,7 @@ class vmag(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class direction_vector_child(Group):
     _version: str
     fluent_name: str
@@ -10570,182 +11834,218 @@ class direction_vector_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class direction_vector(ListObject[direction_vector_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: direction_vector_child
     return_type: str
+
 class les_spec_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rfg_number_of_modes(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vm_number_of_vortices(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vm_streamwise_fluct(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vm_mass_conservation(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class stg_scale_limiter_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class stg_ti_limiter(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class stg_tvr_limiter(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class stg_dw_limiter(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class volumetric_synthetic_turbulence_generator(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class volumetric_synthetic_turbulence_generator_option(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class volumetric_synthetic_turbulence_generator_option_thickness(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class equ_required(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_bccustom(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_lwc(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_dtemp(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_ddiam(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_dv(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_dx(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_dy(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_dz(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_dpm_surface_injection(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_dpm_inj_nstream(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_icc(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_ctemp(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_cdiam(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_cv(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_cx(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_cy(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_cz(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_vrh(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_vrh_1(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_vc(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class les_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class b_1(Group):
     _version: str
     fluent_name: str
@@ -10759,6 +12059,7 @@ class b_1(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class phase_5_child(Group):
     _version: str
     fluent_name: str
@@ -10941,12 +12242,14 @@ class phase_5_child(Group):
     b: b_1
     strength: strength
     return_type: str
+
 class phase_5(NamedObject[phase_5_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_5_child
     return_type: str
+
 class inlet_vent_child(Group):
     _version: str
     fluent_name: str
@@ -11130,28 +12433,33 @@ class inlet_vent_child(Group):
     b: b_1
     strength: strength
     return_type: str
+
 class inlet_vent(NamedObject[inlet_vent_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: inlet_vent_child
     return_type: str
+
 class fan_omega(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_origin_child(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fan_origin(ListObject[fan_origin_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: fan_origin_child
     return_type: str
+
 class phase_6_child(Group):
     _version: str
     fluent_name: str
@@ -11339,12 +12647,14 @@ class phase_6_child(Group):
     strength: strength
     new_fan_definition: new_fan_definition
     return_type: str
+
 class phase_6(NamedObject[phase_6_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_6_child
     return_type: str
+
 class intake_fan_child(Group):
     _version: str
     fluent_name: str
@@ -11533,17 +12843,20 @@ class intake_fan_child(Group):
     strength: strength
     new_fan_definition: new_fan_definition
     return_type: str
+
 class intake_fan(NamedObject[intake_fan_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: intake_fan_child
     return_type: str
+
 class non_overlap_zone_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_7_child(Group):
     _version: str
     fluent_name: str
@@ -11558,12 +12871,14 @@ class phase_7_child(Group):
     geom_bgthread: geom_bgthread
     non_overlap_zone_name: non_overlap_zone_name
     return_type: str
+
 class phase_7(NamedObject[phase_7_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_7_child
     return_type: str
+
 class interface_child(Group):
     _version: str
     fluent_name: str
@@ -11579,17 +12894,20 @@ class interface_child(Group):
     geom_bgthread: geom_bgthread
     non_overlap_zone_name: non_overlap_zone_name
     return_type: str
+
 class interface(NamedObject[interface_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: interface_child
     return_type: str
+
 class is_not_a_rans_les_interface(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_8_child(Group):
     _version: str
     fluent_name: str
@@ -11597,12 +12915,14 @@ class phase_8_child(Group):
     child_names: list[str]
     is_not_a_rans_les_interface: is_not_a_rans_les_interface
     return_type: str
+
 class phase_8(NamedObject[phase_8_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_8_child
     return_type: str
+
 class interior_child(Group):
     _version: str
     fluent_name: str
@@ -11611,12 +12931,14 @@ class interior_child(Group):
     phase: phase_8
     is_not_a_rans_les_interface: is_not_a_rans_les_interface
     return_type: str
+
 class interior(NamedObject[interior_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: interior_child
     return_type: str
+
 class mass_flow(Group):
     _version: str
     fluent_name: str
@@ -11628,6 +12950,7 @@ class mass_flow(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class ec_mass_flow(Group):
     _version: str
     fluent_name: str
@@ -11639,6 +12962,7 @@ class ec_mass_flow(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class mass_flux(Group):
     _version: str
     fluent_name: str
@@ -11650,36 +12974,43 @@ class mass_flux(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class mass_flux_ave(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tref(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pref(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class upstream_torque(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class upstream_t_enthalpy(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class slip_velocity(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class velocity_ratio(Group):
     _version: str
     fluent_name: str
@@ -11691,6 +13022,7 @@ class velocity_ratio(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class volume_frac(Group):
     _version: str
     fluent_name: str
@@ -11702,6 +13034,7 @@ class volume_frac(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class phase_9_child(Group):
     _version: str
     fluent_name: str
@@ -11877,12 +13210,14 @@ class phase_9_child(Group):
     impedance_2: impedance_2
     ac_wave: ac_wave
     return_type: str
+
 class phase_9(NamedObject[phase_9_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_9_child
     return_type: str
+
 class mass_flow_inlet_child(Group):
     _version: str
     fluent_name: str
@@ -12059,12 +13394,14 @@ class mass_flow_inlet_child(Group):
     impedance_2: impedance_2
     ac_wave: ac_wave
     return_type: str
+
 class mass_flow_inlet(NamedObject[mass_flow_inlet_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: mass_flow_inlet_child
     return_type: str
+
 class mass_flow_outlet_child(Group):
     _version: str
     fluent_name: str
@@ -12241,23 +13578,27 @@ class mass_flow_outlet_child(Group):
     impedance_2: impedance_2
     ac_wave: ac_wave
     return_type: str
+
 class mass_flow_outlet(NamedObject[mass_flow_outlet_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: mass_flow_outlet_child
     return_type: str
+
 class phase_10_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_10(NamedObject[phase_10_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_10_child
     return_type: str
+
 class network_child(Group):
     _version: str
     fluent_name: str
@@ -12265,17 +13606,20 @@ class network_child(Group):
     child_names: list[str]
     phase: phase_10
     return_type: str
+
 class network(NamedObject[network_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: network_child
     return_type: str
+
 class thermal_bc(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class temperature_1(Group):
     _version: str
     fluent_name: str
@@ -12287,6 +13631,7 @@ class temperature_1(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class q(Group):
     _version: str
     fluent_name: str
@@ -12298,6 +13643,7 @@ class q(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class phase_11_child(Group):
     _version: str
     fluent_name: str
@@ -12307,12 +13653,14 @@ class phase_11_child(Group):
     temperature: temperature_1
     q: q
     return_type: str
+
 class phase_11(NamedObject[phase_11_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_11_child
     return_type: str
+
 class network_end_child(Group):
     _version: str
     fluent_name: str
@@ -12323,17 +13671,20 @@ class network_end_child(Group):
     temperature: temperature_1
     q: q
     return_type: str
+
 class network_end(NamedObject[network_end_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: network_end_child
     return_type: str
+
 class flowrate_frac(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_12_child(Group):
     _version: str
     fluent_name: str
@@ -12378,12 +13729,14 @@ class phase_12_child(Group):
     solar_shining_factor: solar_shining_factor
     radiating_s2s_surface: radiating_s2s_surface
     return_type: str
+
 class phase_12(NamedObject[phase_12_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_12_child
     return_type: str
+
 class outflow_child(Group):
     _version: str
     fluent_name: str
@@ -12429,12 +13782,14 @@ class outflow_child(Group):
     solar_shining_factor: solar_shining_factor
     radiating_s2s_surface: radiating_s2s_surface
     return_type: str
+
 class outflow(NamedObject[outflow_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: outflow_child
     return_type: str
+
 class phase_13_child(Group):
     _version: str
     fluent_name: str
@@ -12592,12 +13947,14 @@ class phase_13_child(Group):
     b: b_1
     strength: strength
     return_type: str
+
 class phase_13(NamedObject[phase_13_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_13_child
     return_type: str
+
 class outlet_vent_child(Group):
     _version: str
     fluent_name: str
@@ -12756,12 +14113,14 @@ class outlet_vent_child(Group):
     b: b_1
     strength: strength
     return_type: str
+
 class outlet_vent(NamedObject[outlet_vent_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: outlet_vent_child
     return_type: str
+
 class overset_child(Group):
     _version: str
     fluent_name: str
@@ -12776,72 +14135,86 @@ class overset_child(Group):
     geom_levels: geom_levels
     geom_bgthread: geom_bgthread
     return_type: str
+
 class overset(NamedObject[overset_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: overset_child
     return_type: str
+
 class angular(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class p_jump(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ai(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class aj(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ak(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class x_origin(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_origin(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class z_origin(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class shift_x(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class shift_y(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class shift_z(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class per_angle(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_14_child(Group):
     _version: str
     fluent_name: str
@@ -12867,12 +14240,14 @@ class phase_14_child(Group):
     shift_z: shift_z
     per_angle: per_angle
     return_type: str
+
 class phase_14(NamedObject[phase_14_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_14_child
     return_type: str
+
 class periodic_child(Group):
     _version: str
     fluent_name: str
@@ -12899,32 +14274,38 @@ class periodic_child(Group):
     shift_z: shift_z
     per_angle: per_angle
     return_type: str
+
 class periodic(NamedObject[periodic_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: periodic_child
     return_type: str
+
 class alpha(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dm(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class c2_1(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class thermal_ctk(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class v_absp(Group):
     _version: str
     fluent_name: str
@@ -12936,6 +14317,7 @@ class v_absp(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class ir_absp(Group):
     _version: str
     fluent_name: str
@@ -12947,6 +14329,7 @@ class ir_absp(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class ir_trans(Group):
     _version: str
     fluent_name: str
@@ -12958,6 +14341,7 @@ class ir_trans(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class v_trans(Group):
     _version: str
     fluent_name: str
@@ -12969,16 +14353,19 @@ class v_trans(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class jump_adhesion(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class adhesion_constrained(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class adhesion_angle_child(Group):
     _version: str
     fluent_name: str
@@ -12990,12 +14377,14 @@ class adhesion_angle_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class adhesion_angle(NamedObject[adhesion_angle_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: adhesion_angle_child
     return_type: str
+
 class phase_15_child(Group):
     _version: str
     fluent_name: str
@@ -13033,12 +14422,14 @@ class phase_15_child(Group):
     z_displacement_type: z_displacement_type
     z_displacement_value: z_displacement_value
     return_type: str
+
 class phase_15(NamedObject[phase_15_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_15_child
     return_type: str
+
 class porous_jump_child(Group):
     _version: str
     fluent_name: str
@@ -13077,12 +14468,14 @@ class porous_jump_child(Group):
     z_displacement_type: z_displacement_type
     z_displacement_value: z_displacement_value
     return_type: str
+
 class porous_jump(NamedObject[porous_jump_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: porous_jump_child
     return_type: str
+
 class m(Group):
     _version: str
     fluent_name: str
@@ -13094,6 +14487,7 @@ class m(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class t(Group):
     _version: str
     fluent_name: str
@@ -13105,11 +14499,13 @@ class t(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class non_equil_boundary(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tve(Group):
     _version: str
     fluent_name: str
@@ -13121,6 +14517,7 @@ class tve(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class ni_1(Group):
     _version: str
     fluent_name: str
@@ -13132,6 +14529,7 @@ class ni_1(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class nj_1(Group):
     _version: str
     fluent_name: str
@@ -13143,6 +14541,7 @@ class nj_1(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class nk_1(Group):
     _version: str
     fluent_name: str
@@ -13154,6 +14553,7 @@ class nk_1(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class phase_16_child(Group):
     _version: str
     fluent_name: str
@@ -13286,12 +14686,14 @@ class phase_16_child(Group):
     solar_shining_factor: solar_shining_factor
     radiating_s2s_surface: radiating_s2s_surface
     return_type: str
+
 class phase_16(NamedObject[phase_16_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_16_child
     return_type: str
+
 class pressure_far_field_child(Group):
     _version: str
     fluent_name: str
@@ -13425,12 +14827,14 @@ class pressure_far_field_child(Group):
     solar_shining_factor: solar_shining_factor
     radiating_s2s_surface: radiating_s2s_surface
     return_type: str
+
 class pressure_far_field(NamedObject[pressure_far_field_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: pressure_far_field_child
     return_type: str
+
 class phase_17_child(Group):
     _version: str
     fluent_name: str
@@ -13611,12 +15015,14 @@ class phase_17_child(Group):
     ac_wave: ac_wave
     les_spec: les_spec
     return_type: str
+
 class phase_17(NamedObject[phase_17_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_17_child
     return_type: str
+
 class pressure_inlet_child(Group):
     _version: str
     fluent_name: str
@@ -13798,12 +15204,14 @@ class pressure_inlet_child(Group):
     ac_wave: ac_wave
     les_spec: les_spec
     return_type: str
+
 class pressure_inlet(NamedObject[pressure_inlet_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: pressure_inlet_child
     return_type: str
+
 class phase_18_child(Group):
     _version: str
     fluent_name: str
@@ -13959,12 +15367,14 @@ class phase_18_child(Group):
     solar_shining_factor: solar_shining_factor
     radiating_s2s_surface: radiating_s2s_surface
     return_type: str
+
 class phase_18(NamedObject[phase_18_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_18_child
     return_type: str
+
 class pressure_outlet_child(Group):
     _version: str
     fluent_name: str
@@ -14121,12 +15531,14 @@ class pressure_outlet_child(Group):
     solar_shining_factor: solar_shining_factor
     radiating_s2s_surface: radiating_s2s_surface
     return_type: str
+
 class pressure_outlet(NamedObject[pressure_outlet_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: pressure_outlet_child
     return_type: str
+
 class kc(Group):
     _version: str
     fluent_name: str
@@ -14140,6 +15552,7 @@ class kc(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class hc(Group):
     _version: str
     fluent_name: str
@@ -14153,16 +15566,19 @@ class hc(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class t_1(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class q_1(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_19_child(Group):
     _version: str
     fluent_name: str
@@ -14186,12 +15602,14 @@ class phase_19_child(Group):
     dpm_bc_udf: dpm_bc_udf
     strength: strength
     return_type: str
+
 class phase_19(NamedObject[phase_19_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_19_child
     return_type: str
+
 class radiator_child(Group):
     _version: str
     fluent_name: str
@@ -14216,22 +15634,26 @@ class radiator_child(Group):
     dpm_bc_udf: dpm_bc_udf
     strength: strength
     return_type: str
+
 class radiator(NamedObject[radiator_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: radiator_child
     return_type: str
+
 class vm_nvortices(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class les_embedded_fluctuations(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_20_child(Group):
     _version: str
     fluent_name: str
@@ -14249,12 +15671,14 @@ class phase_20_child(Group):
     vm_nvortices: vm_nvortices
     les_embedded_fluctuations: les_embedded_fluctuations
     return_type: str
+
 class phase_20(NamedObject[phase_20_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_20_child
     return_type: str
+
 class rans_les_interface_child(Group):
     _version: str
     fluent_name: str
@@ -14273,12 +15697,14 @@ class rans_les_interface_child(Group):
     vm_nvortices: vm_nvortices
     les_embedded_fluctuations: les_embedded_fluctuations
     return_type: str
+
 class rans_les_interface(NamedObject[rans_les_interface_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: rans_les_interface_child
     return_type: str
+
 class pid(Group):
     _version: str
     fluent_name: str
@@ -14292,11 +15718,13 @@ class pid(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class temperature_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class temperature_rise(Group):
     _version: str
     fluent_name: str
@@ -14308,6 +15736,7 @@ class temperature_rise(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class heat_source(Group):
     _version: str
     fluent_name: str
@@ -14319,11 +15748,13 @@ class heat_source(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class tinf(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mass_flow_multiplier_child(Group):
     _version: str
     fluent_name: str
@@ -14335,12 +15766,14 @@ class mass_flow_multiplier_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class mass_flow_multiplier(NamedObject[mass_flow_multiplier_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: mass_flow_multiplier_child
     return_type: str
+
 class phase_21_child(Group):
     _version: str
     fluent_name: str
@@ -14390,12 +15823,14 @@ class phase_21_child(Group):
     solar_fluxes: solar_fluxes
     solar_shining_factor: solar_shining_factor
     return_type: str
+
 class phase_21(NamedObject[phase_21_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_21_child
     return_type: str
+
 class recirculation_inlet_child(Group):
     _version: str
     fluent_name: str
@@ -14446,12 +15881,14 @@ class recirculation_inlet_child(Group):
     solar_fluxes: solar_fluxes
     solar_shining_factor: solar_shining_factor
     return_type: str
+
 class recirculation_inlet(NamedObject[recirculation_inlet_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: recirculation_inlet_child
     return_type: str
+
 class phase_22_child(Group):
     _version: str
     fluent_name: str
@@ -14470,12 +15907,14 @@ class phase_22_child(Group):
     solar_fluxes: solar_fluxes
     solar_shining_factor: solar_shining_factor
     return_type: str
+
 class phase_22(NamedObject[phase_22_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_22_child
     return_type: str
+
 class recirculation_outlet_child(Group):
     _version: str
     fluent_name: str
@@ -14495,12 +15934,14 @@ class recirculation_outlet_child(Group):
     solar_fluxes: solar_fluxes
     solar_shining_factor: solar_shining_factor
     return_type: str
+
 class recirculation_outlet(NamedObject[recirculation_outlet_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: recirculation_outlet_child
     return_type: str
+
 class shadow_child(Group):
     _version: str
     fluent_name: str
@@ -14515,12 +15956,14 @@ class shadow_child(Group):
     geom_levels: geom_levels
     geom_bgthread: geom_bgthread
     return_type: str
+
 class shadow(NamedObject[shadow_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: shadow_child
     return_type: str
+
 class symmetry_child(Group):
     _version: str
     fluent_name: str
@@ -14535,32 +15978,38 @@ class symmetry_child(Group):
     geom_levels: geom_levels
     geom_bgthread: geom_bgthread
     return_type: str
+
 class symmetry(NamedObject[symmetry_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: symmetry_child
     return_type: str
+
 class open_channel_wave_bc(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ocw_vel_segregated(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class velocity_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wave_velocity_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class avg_flow_velocity(Group):
     _version: str
     fluent_name: str
@@ -14572,11 +16021,13 @@ class avg_flow_velocity(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class ocw_ship_vel_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ocw_ship_vmag(Group):
     _version: str
     fluent_name: str
@@ -14588,6 +16039,7 @@ class ocw_ship_vmag(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class moving_object_direction_child(Group):
     _version: str
     fluent_name: str
@@ -14599,17 +16051,20 @@ class moving_object_direction_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class moving_object_direction(ListObject[moving_object_direction_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: moving_object_direction_child
     return_type: str
+
 class ocw_sp_vel_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ocw_sp_vmag(Group):
     _version: str
     fluent_name: str
@@ -14621,6 +16076,7 @@ class ocw_sp_vmag(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class secondary_phase_direction_child(Group):
     _version: str
     fluent_name: str
@@ -14632,27 +16088,32 @@ class secondary_phase_direction_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class secondary_phase_direction(ListObject[secondary_phase_direction_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: secondary_phase_direction_child
     return_type: str
+
 class ocw_pp_vel_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ocw_pp_ref_ht(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ocw_pp_power_coeff(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ocw_pp_vmag(Group):
     _version: str
     fluent_name: str
@@ -14664,6 +16125,7 @@ class ocw_pp_vmag(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class ocw_pp_vmag_ref(Group):
     _version: str
     fluent_name: str
@@ -14675,6 +16137,7 @@ class ocw_pp_vmag_ref(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class primary_phase_direction_child(Group):
     _version: str
     fluent_name: str
@@ -14686,12 +16149,14 @@ class primary_phase_direction_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class primary_phase_direction(ListObject[primary_phase_direction_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: primary_phase_direction_child
     return_type: str
+
 class initial_gauge_pressure(Group):
     _version: str
     fluent_name: str
@@ -14703,6 +16168,7 @@ class initial_gauge_pressure(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class velocity_1_child(Group):
     _version: str
     fluent_name: str
@@ -14714,27 +16180,32 @@ class velocity_1_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class velocity_1(ListObject[velocity_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: velocity_1_child
     return_type: str
+
 class omega_swirl(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wave_bc_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wave_dir_spec(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reference_direction_child(Group):
     _version: str
     fluent_name: str
@@ -14746,22 +16217,26 @@ class reference_direction_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class reference_direction(ListObject[reference_direction_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: reference_direction_child
     return_type: str
+
 class wave_modeling_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class theory(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wave_ht(Group):
     _version: str
     fluent_name: str
@@ -14773,6 +16248,7 @@ class wave_ht(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class wave_len(Group):
     _version: str
     fluent_name: str
@@ -14784,6 +16260,7 @@ class wave_len(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class phase_diff(Group):
     _version: str
     fluent_name: str
@@ -14795,6 +16272,7 @@ class phase_diff(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class heading_angle(Group):
     _version: str
     fluent_name: str
@@ -14806,6 +16284,7 @@ class heading_angle(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class wave_list_child(Group):
     _version: str
     fluent_name: str
@@ -14817,12 +16296,14 @@ class wave_list_child(Group):
     phase_diff: phase_diff
     heading_angle: heading_angle
     return_type: str
+
 class wave_list(ListObject[wave_list_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: wave_list_child
     return_type: str
+
 class offset_1(Group):
     _version: str
     fluent_name: str
@@ -14834,6 +16315,7 @@ class offset_1(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class wave_list_shallow_child(Group):
     _version: str
     fluent_name: str
@@ -14845,22 +16327,26 @@ class wave_list_shallow_child(Group):
     offset: offset_1
     heading_angle: heading_angle
     return_type: str
+
 class wave_list_shallow(ListObject[wave_list_shallow_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: wave_list_shallow_child
     return_type: str
+
 class wave_spect_method_freq(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wave_spect_factor(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wave_spect_sig_wave_ht(Group):
     _version: str
     fluent_name: str
@@ -14872,6 +16358,7 @@ class wave_spect_sig_wave_ht(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class wave_spect_peak_freq(Group):
     _version: str
     fluent_name: str
@@ -14883,6 +16370,7 @@ class wave_spect_peak_freq(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class wave_spect_min_freq(Group):
     _version: str
     fluent_name: str
@@ -14894,6 +16382,7 @@ class wave_spect_min_freq(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class wave_spect_max_freq(Group):
     _version: str
     fluent_name: str
@@ -14905,21 +16394,25 @@ class wave_spect_max_freq(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class wave_spect_freq_components(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wave_spect_method_dir(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wave_spect_s(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wave_spect_mean_angle(Group):
     _version: str
     fluent_name: str
@@ -14931,6 +16424,7 @@ class wave_spect_mean_angle(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class wave_spect_deviation(Group):
     _version: str
     fluent_name: str
@@ -14942,16 +16436,19 @@ class wave_spect_deviation(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class wave_spect_dir_components(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mean_and_std_deviation(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pb_disc_components_child(Group):
     _version: str
     fluent_name: str
@@ -14963,12 +16460,14 @@ class pb_disc_components_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class pb_disc_components(ListObject[pb_disc_components_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: pb_disc_components_child
     return_type: str
+
 class pb_disc_1(Group):
     _version: str
     fluent_name: str
@@ -14977,6 +16476,7 @@ class pb_disc_1(Group):
     mean_and_std_deviation: mean_and_std_deviation
     pb_disc_components: pb_disc_components
     return_type: str
+
 class phase_23_child(Group):
     _version: str
     fluent_name: str
@@ -15185,12 +16685,14 @@ class phase_23_child(Group):
     ac_wave: ac_wave
     les_spec: les_spec
     return_type: str
+
 class phase_23(NamedObject[phase_23_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_23_child
     return_type: str
+
 class velocity_inlet_child(Group):
     _version: str
     fluent_name: str
@@ -15400,17 +16902,20 @@ class velocity_inlet_child(Group):
     ac_wave: ac_wave
     les_spec: les_spec
     return_type: str
+
 class velocity_inlet(NamedObject[velocity_inlet_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: velocity_inlet_child
     return_type: str
+
 class d(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class q_dot(Group):
     _version: str
     fluent_name: str
@@ -15422,6 +16927,7 @@ class q_dot(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class h(Group):
     _version: str
     fluent_name: str
@@ -15433,6 +16939,7 @@ class h(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class tinf_1(Group):
     _version: str
     fluent_name: str
@@ -15444,16 +16951,19 @@ class tinf_1(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class planar_conduction(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class thickness(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class qdot(Group):
     _version: str
     fluent_name: str
@@ -15465,6 +16975,7 @@ class qdot(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class shell_conduction_child(Group):
     _version: str
     fluent_name: str
@@ -15474,12 +16985,14 @@ class shell_conduction_child(Group):
     material: material_1
     qdot: qdot
     return_type: str
+
 class shell_conduction(ListObject[shell_conduction_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: shell_conduction_child
     return_type: str
+
 class thin_wall_child(Group):
     _version: str
     fluent_name: str
@@ -15489,58 +17002,69 @@ class thin_wall_child(Group):
     material: material_1
     qdot: qdot
     return_type: str
+
 class thin_wall(ListObject[thin_wall_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: thin_wall_child
     return_type: str
+
 class motion_bc(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class shear_bc(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rough_bc(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class moving(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class relative(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rotating(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wall_translation_child(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wall_translation(ListObject[wall_translation_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: wall_translation_child
     return_type: str
+
 class components_1(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ex_emiss(Group):
     _version: str
     fluent_name: str
@@ -15552,6 +17076,7 @@ class ex_emiss(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class trad(Group):
     _version: str
     fluent_name: str
@@ -15563,16 +17088,19 @@ class trad(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class int_rad(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class trad_internal(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class area_enhancement_factor(Group):
     _version: str
     fluent_name: str
@@ -15584,26 +17112,31 @@ class area_enhancement_factor(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class rough_option(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rough_nasa(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rough_shin_et_al(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rough_data(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class roughness_height(Group):
     _version: str
     fluent_name: str
@@ -15615,6 +17148,7 @@ class roughness_height(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class roughness_const(Group):
     _version: str
     fluent_name: str
@@ -15626,6 +17160,7 @@ class roughness_const(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class roughness_height_cp(Group):
     _version: str
     fluent_name: str
@@ -15637,6 +17172,7 @@ class roughness_height_cp(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class roughness_const_cp(Group):
     _version: str
     fluent_name: str
@@ -15648,6 +17184,7 @@ class roughness_const_cp(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class roughness_const_nasa(Group):
     _version: str
     fluent_name: str
@@ -15659,6 +17196,7 @@ class roughness_const_nasa(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class roughness_const_shin(Group):
     _version: str
     fluent_name: str
@@ -15670,6 +17208,7 @@ class roughness_const_shin(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class roughness_const_data(Group):
     _version: str
     fluent_name: str
@@ -15681,6 +17220,7 @@ class roughness_const_data(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class variable_roughness(Group):
     _version: str
     fluent_name: str
@@ -15692,31 +17232,37 @@ class variable_roughness(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class free_stream_velocity(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class free_stream_temp(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class characteristic_length(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class free_stream_temp_cp(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class characteristic_length_cp(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class liquid_content(Group):
     _version: str
     fluent_name: str
@@ -15728,6 +17274,7 @@ class liquid_content(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class liquid_content_cp(Group):
     _version: str
     fluent_name: str
@@ -15739,6 +17286,7 @@ class liquid_content_cp(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class droplet_diameter(Group):
     _version: str
     fluent_name: str
@@ -15750,6 +17298,7 @@ class droplet_diameter(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class dpm_bc_norm_coeff(Group):
     _version: str
     fluent_name: str
@@ -15763,6 +17312,7 @@ class dpm_bc_norm_coeff(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class dpm_bc_tang_coeff(Group):
     _version: str
     fluent_name: str
@@ -15776,6 +17326,7 @@ class dpm_bc_tang_coeff(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class dpm_bc_frictn_coeff(Group):
     _version: str
     fluent_name: str
@@ -15789,76 +17340,91 @@ class dpm_bc_frictn_coeff(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class dpm_film_splash_nsamp(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_crit_temp_option(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_critical_temp_factor(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_calibratable_temp(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_impingement_splashing_model(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_upper_deposition_limit_offset(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_deposition_delta_t(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_laplace_number_constant(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_partial_evaporation_ratio(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ra_roughness(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rz_roughness(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rq_roughness(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rsm_roughness(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_generic(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion(Group):
     _version: str
     fluent_name: str
@@ -15872,6 +17438,7 @@ class dpm_bc_erosion(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class dpm_bc_erosion_c(Group):
     _version: str
     fluent_name: str
@@ -15885,6 +17452,7 @@ class dpm_bc_erosion_c(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class dpm_bc_erosion_n(Group):
     _version: str
     fluent_name: str
@@ -15898,252 +17466,302 @@ class dpm_bc_erosion_n(Group):
     piecewise_polynomial: piecewise_polynomial_1
     piecewise_linear: piecewise_linear
     return_type: str
+
 class dpm_bc_erosion_finnie(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_finnie_k(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_finnie_vel_exp(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_finnie_max_erosion_angle(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_mclaury(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_mclaury_a(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_mclaury_vel_exp(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_mclaury_transition_angle(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_mclaury_b(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_mclaury_c(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_mclaury_w(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_mclaury_x(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_mclaury_y(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_oka(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_oka_e90(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_oka_hv(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_oka_n1(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_oka_n2(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_oka_k2(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_oka_k3(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_oka_dref(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_oka_vref(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_dnv(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_dnv_k(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_dnv_n(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_dnv_ductile(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_shear(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_shear_v(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_shear_c(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_shear_packing_limit(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_bc_erosion_shielding(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_wall_heat_exchange(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_film_condensation(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_film_bl_model(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_particle_stripping(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_critical_shear_stress(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_film_separation_model(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_critical_we_number(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_film_separation_angle(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_allow_lwf_to_vof(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_allow_vof_to_lwf(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_initialize_lwf(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_initial_height(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_velocity_child(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_velocity(ListObject[film_velocity_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: film_velocity_child
     return_type: str
+
 class dpm_initial_temperature(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_initial_injection(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_parcel_surface_area_density(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class minimum_number_of_parcels_per_face(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class band_in_emiss_child(Group):
     _version: str
     fluent_name: str
@@ -16155,42 +17773,50 @@ class band_in_emiss_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class band_in_emiss(NamedObject[band_in_emiss_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: band_in_emiss_child
     return_type: str
+
 class mc_bsource_p(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mc_poldfun_p(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class polar_func_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mc_polar_expr(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class polar_real_angle(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class polar_real_intensity(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class polar_pair_list_child(Group):
     _version: str
     fluent_name: str
@@ -16199,17 +17825,20 @@ class polar_pair_list_child(Group):
     polar_real_angle: polar_real_angle
     polar_real_intensity: polar_real_intensity
     return_type: str
+
 class polar_pair_list(ListObject[polar_pair_list_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: polar_pair_list_child
     return_type: str
+
 class pold_pair_list_rad(RealList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class radiation_direction_child(Group):
     _version: str
     fluent_name: str
@@ -16221,33 +17850,39 @@ class radiation_direction_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class radiation_direction(ListObject[radiation_direction_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: radiation_direction_child
     return_type: str
+
 class band_diffuse_frac_child(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class band_diffuse_frac(NamedObject[band_diffuse_frac_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: band_diffuse_frac_child
     return_type: str
+
 class critical_zone(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fpsc(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class v_transmissivity(Group):
     _version: str
     fluent_name: str
@@ -16259,6 +17894,7 @@ class v_transmissivity(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class ir_transmissivity(Group):
     _version: str
     fluent_name: str
@@ -16270,6 +17906,7 @@ class ir_transmissivity(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class v_opq_absorbtivity(Group):
     _version: str
     fluent_name: str
@@ -16281,6 +17918,7 @@ class v_opq_absorbtivity(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class ir_opq_absorbtivity(Group):
     _version: str
     fluent_name: str
@@ -16292,6 +17930,7 @@ class ir_opq_absorbtivity(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class v_st_absorbtivity(Group):
     _version: str
     fluent_name: str
@@ -16303,6 +17942,7 @@ class v_st_absorbtivity(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class ir_st_absorbtivity(Group):
     _version: str
     fluent_name: str
@@ -16314,6 +17954,7 @@ class ir_st_absorbtivity(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class d_st_absorbtivity(Group):
     _version: str
     fluent_name: str
@@ -16325,6 +17966,7 @@ class d_st_absorbtivity(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class d_transmissivity(Group):
     _version: str
     fluent_name: str
@@ -16336,21 +17978,25 @@ class d_transmissivity(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class fsi_interface(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class partially_catalytic(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class partially_catalytic_material(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class partially_catalytic_recombination_coefficient_o(Group):
     _version: str
     fluent_name: str
@@ -16362,6 +18008,7 @@ class partially_catalytic_recombination_coefficient_o(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class partially_catalytic_recombination_coefficient_n(Group):
     _version: str
     fluent_name: str
@@ -16373,22 +18020,26 @@ class partially_catalytic_recombination_coefficient_n(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class partially_catalytic_recombination_model(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class species_spec_child(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class species_spec(NamedObject[species_spec_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: species_spec_child
     return_type: str
+
 class elec_potential_jump(Group):
     _version: str
     fluent_name: str
@@ -16400,6 +18051,7 @@ class elec_potential_jump(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class elec_potential_resistance(Group):
     _version: str
     fluent_name: str
@@ -16411,26 +18063,31 @@ class elec_potential_resistance(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class echem_reaction(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class elec_potential_mechs(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class faradaic_heat(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class li_ion_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class li_ion_value(Group):
     _version: str
     fluent_name: str
@@ -16442,6 +18099,7 @@ class li_ion_value(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class per_dispx(Group):
     _version: str
     fluent_name: str
@@ -16453,6 +18111,7 @@ class per_dispx(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class per_dispy(Group):
     _version: str
     fluent_name: str
@@ -16464,6 +18123,7 @@ class per_dispy(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class per_dispz(Group):
     _version: str
     fluent_name: str
@@ -16475,6 +18135,7 @@ class per_dispz(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class per_imagx(Group):
     _version: str
     fluent_name: str
@@ -16486,6 +18147,7 @@ class per_imagx(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class per_imagy(Group):
     _version: str
     fluent_name: str
@@ -16497,6 +18159,7 @@ class per_imagy(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class per_imagz(Group):
     _version: str
     fluent_name: str
@@ -16508,6 +18171,7 @@ class per_imagz(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class freq(Group):
     _version: str
     fluent_name: str
@@ -16519,6 +18183,7 @@ class freq(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class amp(Group):
     _version: str
     fluent_name: str
@@ -16530,11 +18195,13 @@ class amp(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class nodal_diam(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pass_number(Group):
     _version: str
     fluent_name: str
@@ -16546,36 +18213,43 @@ class pass_number(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class fwd(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class aero(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cmplx(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class norm(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class method_2(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class gtemp_bc(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class g_temperature(Group):
     _version: str
     fluent_name: str
@@ -16587,6 +18261,7 @@ class g_temperature(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class g_qflux(Group):
     _version: str
     fluent_name: str
@@ -16598,38 +18273,45 @@ class g_qflux(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class wall_restitution_coeff(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rotation_axis_origin_child(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rotation_axis_origin(ListObject[rotation_axis_origin_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: rotation_axis_origin_child
     return_type: str
+
 class rotation_axis_direction_child(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rotation_axis_direction(ListObject[rotation_axis_direction_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: rotation_axis_direction_child
     return_type: str
+
 class specified_shear(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class shear_stress_child(Group):
     _version: str
     fluent_name: str
@@ -16641,27 +18323,32 @@ class shear_stress_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class shear_stress(ListObject[shear_stress_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: shear_stress_child
     return_type: str
+
 class fslip(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class eslip(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class surf_tens_grad(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class contact_resistance(Group):
     _version: str
     fluent_name: str
@@ -16673,46 +18360,55 @@ class contact_resistance(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class surf_washcoat_factor(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class initial_deposition_height(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solid_species_density(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ablation_select_model(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ablation_vielle_a(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ablation_vielle_n(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ablation_flux(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ablation_surfacerxn_density(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ablation_species_mf_child(Group):
     _version: str
     fluent_name: str
@@ -16724,42 +18420,50 @@ class ablation_species_mf_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class ablation_species_mf(NamedObject[ablation_species_mf_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: ablation_species_mf_child
     return_type: str
+
 class specular_coeff(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mom_accom_coef(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class therm_accom_coef(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class eve_accom_coef(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_wall(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_wall_bc(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_height(Group):
     _version: str
     fluent_name: str
@@ -16771,6 +18475,7 @@ class film_height(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class flux_momentum_child(Group):
     _version: str
     fluent_name: str
@@ -16782,22 +18487,26 @@ class flux_momentum_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class flux_momentum(ListObject[flux_momentum_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: flux_momentum_child
     return_type: str
+
 class film_relative_vel(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_bc_imp_press(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_temperature(Group):
     _version: str
     fluent_name: str
@@ -16809,6 +18518,7 @@ class film_temperature(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class film_scalar(Group):
     _version: str
     fluent_name: str
@@ -16820,11 +18530,13 @@ class film_scalar(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class film_source(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_h_src(Group):
     _version: str
     fluent_name: str
@@ -16836,6 +18548,7 @@ class film_h_src(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class momentum_source_child(Group):
     _version: str
     fluent_name: str
@@ -16847,12 +18560,14 @@ class momentum_source_child(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class momentum_source(ListObject[momentum_source_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: momentum_source_child
     return_type: str
+
 class film_t_src(Group):
     _version: str
     fluent_name: str
@@ -16864,6 +18579,7 @@ class film_t_src(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class film_s_src(Group):
     _version: str
     fluent_name: str
@@ -16875,26 +18591,31 @@ class film_s_src(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class film_phase_change(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_phase_change_model(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_cond_const(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_vapo_const(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_cond_rate(Group):
     _version: str
     fluent_name: str
@@ -16906,6 +18627,7 @@ class film_cond_rate(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class film_vapo_rate(Group):
     _version: str
     fluent_name: str
@@ -16917,71 +18639,85 @@ class film_vapo_rate(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class film_momentum_coupling(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_splash_wall(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_boundary_separation(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_impinge_model(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_splash_nparc(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_crit_temp_factor(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_roughness_ra(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_roughness_rz(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_upper_deposition_limit_offset(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_deposition_delta_t(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_laplace_number_constant(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_partial_evap_ratio(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_contact_angle(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_contact_angle_mean(Group):
     _version: str
     fluent_name: str
@@ -16993,46 +18729,55 @@ class film_contact_angle_mean(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class film_contact_angle_rstd(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_contact_angle_beta(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_vof_coupling_high(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_vof_trans_high(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_vof_trans_high_relax(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_vof_coupling_low(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_vof_trans_low(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class film_vof_trans_low_relax(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class caf(Group):
     _version: str
     fluent_name: str
@@ -17044,41 +18789,49 @@ class caf(Group):
     field_name: field_name
     udf: udf
     return_type: str
+
 class thermal_stabilization(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scale_factor(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class stab_method(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_ice_icing_mode(Integer, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_ice_hflux(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_ice_hflux_1(Real, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fensapice_drop_vwet(Boolean, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_24_child(Group):
     _version: str
     fluent_name: str
@@ -17361,12 +19114,14 @@ class phase_24_child(Group):
     fensapice_ice_hflux_1: fensapice_ice_hflux_1
     fensapice_drop_vwet: fensapice_drop_vwet
     return_type: str
+
 class phase_24(NamedObject[phase_24_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_24_child
     return_type: str
+
 class wall_child(Group):
     _version: str
     fluent_name: str
@@ -17650,12 +19405,14 @@ class wall_child(Group):
     fensapice_ice_hflux_1: fensapice_ice_hflux_1
     fensapice_drop_vwet: fensapice_drop_vwet
     return_type: str
+
 class wall(NamedObject[wall_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: wall_child
     return_type: str
+
 class boundary_conditions(Group):
     _version: str
     fluent_name: str
@@ -17730,61 +19487,73 @@ class boundary_conditions(Group):
                 'face_zone_id' child.
         """
     return_type: str
+
 class area(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class depth(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class density_6(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enthalpy(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class length(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pressure(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class temperature_3(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class yplus(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class velocity_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class viscosity_3(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class zone(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reference_values(Group):
     _version: str
     fluent_name: str
@@ -17811,41 +19580,49 @@ class reference_values(Group):
         'list_val' command.
         """
     return_type: str
+
 class definition(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class description(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class parameterid(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class parametername(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class unit_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class input_parameter(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class output_parameter(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class named_expressions_child(Group):
     _version: str
     fluent_name: str
@@ -17865,12 +19642,14 @@ class named_expressions_child(Group):
         'get_value' query.
         """
     return_type: str
+
 class named_expressions(NamedObject[named_expressions_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: named_expressions_child
     return_type: str
+
 class setup(Group):
     _version: str
     fluent_name: str
@@ -17884,16 +19663,19 @@ class setup(Group):
     reference_values: reference_values
     named_expressions: named_expressions
     return_type: str
+
 class under_relaxation_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class explicit_relaxation_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class expert(Group):
     _version: str
     fluent_name: str
@@ -17902,16 +19684,19 @@ class expert(Group):
     under_relaxation_factor: under_relaxation_factor
     explicit_relaxation_factor: explicit_relaxation_factor
     return_type: str
+
 class relative_convergence_criterion(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_iter_per_timestep_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class acoustics_wave_eqn_controls(Group):
     _version: str
     fluent_name: str
@@ -17921,26 +19706,31 @@ class acoustics_wave_eqn_controls(Group):
     relative_convergence_criterion: relative_convergence_criterion
     max_iter_per_timestep_count: max_iter_per_timestep_count
     return_type: str
+
 class cycle_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class termination_criteria(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class residual_reduction_tolerance(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class stabilization(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mg_controls_child(Group):
     _version: str
     fluent_name: str
@@ -17952,27 +19742,32 @@ class mg_controls_child(Group):
     method: method_1
     stabilization: stabilization
     return_type: str
+
 class mg_controls(NamedObject[mg_controls_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: mg_controls_child
     return_type: str
+
 class pre_sweeps(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class post_sweeps(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_cycle(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fixed_cycle_parameters(Group):
     _version: str
     fluent_name: str
@@ -17982,31 +19777,37 @@ class fixed_cycle_parameters(Group):
     post_sweeps: post_sweeps
     max_cycle: max_cycle
     return_type: str
+
 class max_coarse_levels(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coarsen_by_interval(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class conservative_coarsening(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class aggressive_coarsening(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class laplace_coarsening(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coarsening_parameters(Group):
     _version: str
     fluent_name: str
@@ -18018,11 +19819,13 @@ class coarsening_parameters(Group):
     aggressive_coarsening: aggressive_coarsening
     laplace_coarsening: laplace_coarsening
     return_type: str
+
 class smoother_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scalar_parameters(Group):
     _version: str
     fluent_name: str
@@ -18032,21 +19835,25 @@ class scalar_parameters(Group):
     coarsening_parameters: coarsening_parameters
     smoother_type: smoother_type
     return_type: str
+
 class pre_sweeps_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class post_sweeps_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_cycle_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fixed_cycle_parameters_1(Group):
     _version: str
     fluent_name: str
@@ -18056,21 +19863,25 @@ class fixed_cycle_parameters_1(Group):
     post_sweeps: post_sweeps_1
     max_cycle: max_cycle_1
     return_type: str
+
 class max_coarse_levels_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coarsen_by_interval_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class aggressive_coarsening_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coarsening_parameters_1(Group):
     _version: str
     fluent_name: str
@@ -18082,11 +19893,13 @@ class coarsening_parameters_1(Group):
     aggressive_coarsening: aggressive_coarsening_1
     laplace_coarsening: laplace_coarsening
     return_type: str
+
 class smoother_type_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coupled_parameters(Group):
     _version: str
     fluent_name: str
@@ -18096,16 +19909,19 @@ class coupled_parameters(Group):
     coarsening_parameters: coarsening_parameters_1
     smoother_type: smoother_type_1
     return_type: str
+
 class max_fine_relaxations(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_coarse_relaxations(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class flexible_cycle_parameters(Group):
     _version: str
     fluent_name: str
@@ -18114,11 +19930,13 @@ class flexible_cycle_parameters(Group):
     max_fine_relaxations: max_fine_relaxations
     max_coarse_relaxations: max_coarse_relaxations
     return_type: str
+
 class verbosity_3(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class options_2(Group):
     _version: str
     fluent_name: str
@@ -18126,6 +19944,7 @@ class options_2(Group):
     child_names: list[str]
     verbosity: verbosity_3
     return_type: str
+
 class amg_controls(Group):
     _version: str
     fluent_name: str
@@ -18136,16 +19955,19 @@ class amg_controls(Group):
     flexible_cycle_parameters: flexible_cycle_parameters
     options: options_2
     return_type: str
+
 class pre_sweeps_2(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class post_sweeps_2(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fixed_cycle_parameters_2(Group):
     _version: str
     fluent_name: str
@@ -18154,16 +19976,19 @@ class fixed_cycle_parameters_2(Group):
     pre_sweeps: pre_sweeps_2
     post_sweeps: post_sweeps_2
     return_type: str
+
 class max_coarse_levels_2(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coarsen_by_interval_2(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coarsening_parameters_2(Group):
     _version: str
     fluent_name: str
@@ -18172,26 +19997,31 @@ class coarsening_parameters_2(Group):
     max_coarse_levels: max_coarse_levels_2
     coarsen_by_interval: coarsen_by_interval_2
     return_type: str
+
 class courant_number_reduction(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class correction_reduction(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class correction_smoothing(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class species_correction_reduction(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class relaxation_factor_1(Group):
     _version: str
     fluent_name: str
@@ -18202,6 +20032,7 @@ class relaxation_factor_1(Group):
     correction_smoothing: correction_smoothing
     species_correction_reduction: species_correction_reduction
     return_type: str
+
 class fas_mg_controls(Group):
     _version: str
     fluent_name: str
@@ -18212,46 +20043,55 @@ class fas_mg_controls(Group):
     relaxation_factor: relaxation_factor_1
     options: options_2
     return_type: str
+
 class enable_gpu(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class term_criterion(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solver_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_num_cycle(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coarsen_by_size(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pre_sweep(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class post_sweep(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class smoother(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class amg_gpgpu_options_child(Group):
     _version: str
     fluent_name: str
@@ -18266,12 +20106,14 @@ class amg_gpgpu_options_child(Group):
     post_sweep: post_sweep
     smoother: smoother
     return_type: str
+
 class amg_gpgpu_options(NamedObject[amg_gpgpu_options_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: amg_gpgpu_options_child
     return_type: str
+
 class multi_grid(Group):
     _version: str
     fluent_name: str
@@ -18282,21 +20124,25 @@ class multi_grid(Group):
     fas_mg_controls: fas_mg_controls
     amg_gpgpu_options: amg_gpgpu_options
     return_type: str
+
 class coefficient(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class update_dissipation(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class update_viscous(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class multi_stage_child(Group):
     _version: str
     fluent_name: str
@@ -18306,27 +20152,32 @@ class multi_stage_child(Group):
     update_dissipation: update_dissipation
     update_viscous: update_viscous
     return_type: str
+
 class multi_stage(ListObject[multi_stage_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: multi_stage_child
     return_type: str
+
 class limiter_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cell_to_limiting(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class limiter_filter(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class spatial_discretization_limiter(Group):
     _version: str
     fluent_name: str
@@ -18336,21 +20187,25 @@ class spatial_discretization_limiter(Group):
     cell_to_limiting: cell_to_limiting
     limiter_filter: limiter_filter
     return_type: str
+
 class enable_pseudo_time_method(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pseudo_time_scale_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class implicit_under_relaxation_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class local_dt_child(Group):
     _version: str
     fluent_name: str
@@ -18360,12 +20215,14 @@ class local_dt_child(Group):
     pseudo_time_scale_factor: pseudo_time_scale_factor
     implicit_under_relaxation_factor: implicit_under_relaxation_factor
     return_type: str
+
 class local_dt(NamedObject[local_dt_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: local_dt_child
     return_type: str
+
 class global_dt_child(Group):
     _version: str
     fluent_name: str
@@ -18375,12 +20232,14 @@ class global_dt_child(Group):
     pseudo_time_scale_factor: pseudo_time_scale_factor
     implicit_under_relaxation_factor: implicit_under_relaxation_factor
     return_type: str
+
 class global_dt(NamedObject[global_dt_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: global_dt_child
     return_type: str
+
 class pseudo_time_method_usage(Group):
     _version: str
     fluent_name: str
@@ -18389,6 +20248,7 @@ class pseudo_time_method_usage(Group):
     local_dt: local_dt
     global_dt: global_dt
     return_type: str
+
 class expert_1(Group):
     _version: str
     fluent_name: str
@@ -18397,16 +20257,19 @@ class expert_1(Group):
     spatial_discretization_limiter: spatial_discretization_limiter
     pseudo_time_method_usage: pseudo_time_method_usage
     return_type: str
+
 class two_stage(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class default_multi_stage(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class runge_kutta(Group):
     _version: str
     fluent_name: str
@@ -18415,6 +20278,7 @@ class runge_kutta(Group):
     two_stage: two_stage
     default_multi_stage: default_multi_stage
     return_type: str
+
 class fast_transient_settings(Group):
     _version: str
     fluent_name: str
@@ -18422,32 +20286,38 @@ class fast_transient_settings(Group):
     child_names: list[str]
     runge_kutta: runge_kutta
     return_type: str
+
 class relaxation_method(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class correction_tolerance_child(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class correction_tolerance(NamedObject[correction_tolerance_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: correction_tolerance_child
     return_type: str
+
 class flux(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class gradient(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class anisotropic_solid_heat_transfer(Group):
     _version: str
     fluent_name: str
@@ -18456,6 +20326,7 @@ class anisotropic_solid_heat_transfer(Group):
     flux: flux
     gradient: gradient
     return_type: str
+
 class advanced(Group):
     _version: str
     fluent_name: str
@@ -18469,41 +20340,49 @@ class advanced(Group):
     correction_tolerance: correction_tolerance
     anisotropic_solid_heat_transfer: anisotropic_solid_heat_transfer
     return_type: str
+
 class solution_stabilization(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class verbosity_4(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class iter_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solution_stabilization_persistence(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class persistence_fixed_time_steps(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class persistence_fixed_duration(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class extrapolation_method(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class parameters_1(Group):
     _version: str
     fluent_name: str
@@ -18515,41 +20394,49 @@ class parameters_1(Group):
     persistence_fixed_duration: persistence_fixed_duration
     extrapolation_method: extrapolation_method
     return_type: str
+
 class first_to_second_order_blending(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class first_to_second_order_blending_list(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scheme_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class flow_skew_diffusion_exclude(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scalars_skew_diffusion_exclude(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rhie_chow_flux_specify(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rhie_chow_method(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class spatial(Group):
     _version: str
     fluent_name: str
@@ -18563,26 +20450,31 @@ class spatial(Group):
     rhie_chow_flux_specify: rhie_chow_flux_specify
     rhie_chow_method: rhie_chow_method
     return_type: str
+
 class transient_parameters_specify(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class transient_scheme(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_scale_modification_method(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_scale_modification_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class transient(Group):
     _version: str
     fluent_name: str
@@ -18593,31 +20485,37 @@ class transient(Group):
     time_scale_modification_method: time_scale_modification_method
     time_scale_modification_factor: time_scale_modification_factor
     return_type: str
+
 class enforce_laplace_coarsening(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class increase_pre_sweeps(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pre_sweeps_3(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class specify_coarsening_rate(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coarsen_rate(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class amg(Group):
     _version: str
     fluent_name: str
@@ -18629,26 +20527,31 @@ class amg(Group):
     specify_coarsening_rate: specify_coarsening_rate
     coarsen_rate: coarsen_rate
     return_type: str
+
 class model_ramping(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ramp_flow(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ramp_turbulence(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ramp_scalars(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class models_2(Group):
     _version: str
     fluent_name: str
@@ -18659,26 +20562,31 @@ class models_2(Group):
     ramp_turbulence: ramp_turbulence
     ramp_scalars: ramp_scalars
     return_type: str
+
 class pv_coupling_controls(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pv_coupling_method(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class gradient_controls(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class specify_gradient_method(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class methods_1(Group):
     _version: str
     fluent_name: str
@@ -18689,16 +20597,19 @@ class methods_1(Group):
     gradient_controls: gradient_controls
     specify_gradient_method: specify_gradient_method
     return_type: str
+
 class compute_statistics(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class statistics_level(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class miscellaneous(Group):
     _version: str
     fluent_name: str
@@ -18707,6 +20618,7 @@ class miscellaneous(Group):
     compute_statistics: compute_statistics
     statistics_level: statistics_level
     return_type: str
+
 class contact_solution_controls(Group):
     _version: str
     fluent_name: str
@@ -18727,112 +20639,134 @@ class contact_solution_controls(Group):
         Set contact solution stabilization to default.
         """
     return_type: str
+
 class courant_number(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class equations_child(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class equations(NamedObject[equations_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: equations_child
     return_type: str
+
 class min_pressure(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_pressure(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_temperature(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_temperature(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_tke(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_lam_tke(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_des_tke(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_epsilon(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_des_epsilon(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_v2f_tke(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_v2f_epsilon(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_vel_var_scale(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_elliptic_relax_func(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_omega(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_des_omega(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_turb_visc_ratio(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class positivity_rate(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_vol_frac_for_matrix_sol(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class limits(Group):
     _version: str
     fluent_name: str
@@ -18857,51 +20791,61 @@ class limits(Group):
     positivity_rate: positivity_rate
     min_vol_frac_for_matrix_sol: min_vol_frac_for_matrix_sol
     return_type: str
+
 class skewness_correction_itr_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class neighbor_correction_itr_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class skewness_neighbor_coupling(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vof_correction_itr_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class explicit_momentum_under_relaxation(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class explicit_pressure_under_relaxation(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class flow_courant_number(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class volume_fraction_courant_number(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class explicit_volume_fraction_under_relaxation(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class p_v_controls(Group):
     _version: str
     fluent_name: str
@@ -18917,17 +20861,20 @@ class p_v_controls(Group):
     volume_fraction_courant_number: volume_fraction_courant_number
     explicit_volume_fraction_under_relaxation: explicit_volume_fraction_under_relaxation
     return_type: str
+
 class relaxation_factor_child(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class relaxation_factor(NamedObject[relaxation_factor_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: relaxation_factor_child
     return_type: str
+
 class set_controls_to_default(Group):
     _version: str
     fluent_name: str
@@ -18966,39 +20913,46 @@ class set_controls_to_default(Group):
         'reset_pseudo_time_method_scale_factors' command.
         """
     return_type: str
+
 class under_relaxation_child(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class under_relaxation(NamedObject[under_relaxation_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: under_relaxation_child
     return_type: str
+
 class local_dt_dualts_relax_child(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class local_dt_dualts_relax(NamedObject[local_dt_dualts_relax_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: local_dt_dualts_relax_child
     return_type: str
+
 class global_dt_pseudo_relax_child(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class global_dt_pseudo_relax(NamedObject[global_dt_pseudo_relax_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: global_dt_pseudo_relax_child
     return_type: str
+
 class pseudo_time_explicit_relaxation_factor(Group):
     _version: str
     fluent_name: str
@@ -19007,21 +20961,25 @@ class pseudo_time_explicit_relaxation_factor(Group):
     local_dt_dualts_relax: local_dt_dualts_relax
     global_dt_pseudo_relax: global_dt_pseudo_relax
     return_type: str
+
 class pseudo_time_courant_number(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pseudo_time_step_method_solid_zone(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_step_size_scale_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pseudo_time_method_local_time_step(Group):
     _version: str
     fluent_name: str
@@ -19031,6 +20989,7 @@ class pseudo_time_method_local_time_step(Group):
     pseudo_time_step_method_solid_zone: pseudo_time_step_method_solid_zone
     time_step_size_scale_factor: time_step_size_scale_factor
     return_type: str
+
 class controls(Group):
     _version: str
     fluent_name: str
@@ -19049,21 +21008,25 @@ class controls(Group):
     pseudo_time_explicit_relaxation_factor: pseudo_time_explicit_relaxation_factor
     pseudo_time_method_local_time_step: pseudo_time_method_local_time_step
     return_type: str
+
 class accelerated_non_iterative_time_marching(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class convergence_acceleration_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class casm_cutoff_multiplier(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class convergence_acceleration_for_stretched_meshes(Group):
     _version: str
     fluent_name: str
@@ -19072,57 +21035,68 @@ class convergence_acceleration_for_stretched_meshes(Group):
     convergence_acceleration_type: convergence_acceleration_type
     casm_cutoff_multiplier: casm_cutoff_multiplier
     return_type: str
+
 class discretization_scheme_child(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class discretization_scheme(NamedObject[discretization_scheme_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: discretization_scheme_child
     return_type: str
+
 class reactions_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reaction_source_term_relaxation_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class implicit_bodyforce_treatment(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class physical_velocity_formulation(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class disable_rhie_chow_flux(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class presto_pressure_scheme(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class first_to_second_order_blending_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class alternate_diffusion_for_porous_region_solids(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class numerics_pbns(Group):
     _version: str
     fluent_name: str
@@ -19136,11 +21110,13 @@ class numerics_pbns(Group):
     first_to_second_order_blending: first_to_second_order_blending_1
     alternate_diffusion_for_porous_region_solids: alternate_diffusion_for_porous_region_solids
     return_type: str
+
 class first_to_second_order_blending_dbns(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class numerics_dbns(Group):
     _version: str
     fluent_name: str
@@ -19148,6 +21124,7 @@ class numerics_dbns(Group):
     child_names: list[str]
     first_to_second_order_blending_dbns: first_to_second_order_blending_dbns
     return_type: str
+
 class expert_2(Group):
     _version: str
     fluent_name: str
@@ -19158,11 +21135,13 @@ class expert_2(Group):
     numerics_pbns: numerics_pbns
     numerics_dbns: numerics_dbns
     return_type: str
+
 class flux_type_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dbns_cases(Group):
     _version: str
     fluent_name: str
@@ -19170,16 +21149,19 @@ class dbns_cases(Group):
     child_names: list[str]
     flux_type: flux_type_1
     return_type: str
+
 class flux_auto_select(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class flux_type_2(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pbns_cases(Group):
     _version: str
     fluent_name: str
@@ -19188,6 +21170,7 @@ class pbns_cases(Group):
     flux_auto_select: flux_auto_select
     flux_type: flux_type_2
     return_type: str
+
 class flux_type(Group):
     _version: str
     fluent_name: str
@@ -19196,36 +21179,43 @@ class flux_type(Group):
     dbns_cases: dbns_cases
     pbns_cases: pbns_cases
     return_type: str
+
 class frozen_flux(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class gradient_scheme(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_5(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class relaxation_factor_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class select_variables(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class relaxation_options(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class options_3(Group):
     _version: str
     fluent_name: str
@@ -19235,6 +21225,7 @@ class options_3(Group):
     select_variables: select_variables
     relaxation_options: relaxation_options
     return_type: str
+
 class high_order_term_relaxation(Group):
     _version: str
     fluent_name: str
@@ -19243,16 +21234,19 @@ class high_order_term_relaxation(Group):
     enable: enable_5
     options: options_3
     return_type: str
+
 class relative_permeability(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class capillary_pressure_as_diffusion(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class porous_media(Group):
     _version: str
     fluent_name: str
@@ -19261,21 +21255,25 @@ class porous_media(Group):
     relative_permeability: relative_permeability
     capillary_pressure_as_diffusion: capillary_pressure_as_diffusion
     return_type: str
+
 class enhanced_numerics(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class alternate_bc_formulation(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class analytical_thermodynamic_derivatives(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class compressible_flow(Group):
     _version: str
     fluent_name: str
@@ -19285,16 +21283,19 @@ class compressible_flow(Group):
     alternate_bc_formulation: alternate_bc_formulation
     analytical_thermodynamic_derivatives: analytical_thermodynamic_derivatives
     return_type: str
+
 class thin_film(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class liquid_vof_factor(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class boiling_parameters(Group):
     _version: str
     fluent_name: str
@@ -19303,66 +21304,79 @@ class boiling_parameters(Group):
     thin_film: thin_film
     liquid_vof_factor: liquid_vof_factor
     return_type: str
+
 class viscosity_averaging(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turb_visc_based_damping(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class density_func_expo(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class density_ratio_cutoff(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class n_smooth_for_interfacial_regims(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sm_relax_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class viscous_func_options(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class density_func_options(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class exponent_smoothing_func(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class exponent_density_func(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class boundry_treatment(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class near_wall_treatment_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interfacial_artificial_viscosity(Group):
     _version: str
     fluent_name: str
@@ -19377,6 +21391,7 @@ class interfacial_artificial_viscosity(Group):
     boundry_treatment: boundry_treatment
     near_wall_treatment: near_wall_treatment_1
     return_type: str
+
 class viscous_flow(Group):
     _version: str
     fluent_name: str
@@ -19388,41 +21403,49 @@ class viscous_flow(Group):
     density_ratio_cutoff: density_ratio_cutoff
     interfacial_artificial_viscosity: interfacial_artificial_viscosity
     return_type: str
+
 class schnerr_evap_coeff(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class schnerr_cond_coeff(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_vapor_pressure_ratio(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_vapor_pressure(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class display_clipped_pressure(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turbulent_diffusion(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class old_treatment_for_turbulent_diffusion(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cavitation(Group):
     _version: str
     fluent_name: str
@@ -19436,36 +21459,43 @@ class cavitation(Group):
     turbulent_diffusion: turbulent_diffusion
     old_treatment_for_turbulent_diffusion: old_treatment_for_turbulent_diffusion
     return_type: str
+
 class vof_from_min_limit(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vof_from_max_limit(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vof_to_min_limit(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vof_to_max_limit(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ia_norm_min_limit(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_rel_humidity(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class evaporation_condensation(Group):
     _version: str
     fluent_name: str
@@ -19478,21 +21508,25 @@ class evaporation_condensation(Group):
     ia_norm_min_limit: ia_norm_min_limit
     max_rel_humidity: max_rel_humidity
     return_type: str
+
 class heat_flux_relaxation_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class show_expert_options(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class two_resistance_boiling_framework(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class boiling(Group):
     _version: str
     fluent_name: str
@@ -19502,16 +21536,19 @@ class boiling(Group):
     show_expert_options: show_expert_options
     two_resistance_boiling_framework: two_resistance_boiling_framework
     return_type: str
+
 class vof_min_seeding(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ia_grad_sym(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class area_density_1(Group):
     _version: str
     fluent_name: str
@@ -19520,11 +21557,13 @@ class area_density_1(Group):
     vof_min_seeding: vof_min_seeding
     ia_grad_sym: ia_grad_sym
     return_type: str
+
 class alternative_energy_treatment(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class heat_mass_transfer(Group):
     _version: str
     fluent_name: str
@@ -19536,51 +21575,61 @@ class heat_mass_transfer(Group):
     area_density: area_density_1
     alternative_energy_treatment: alternative_energy_treatment
     return_type: str
+
 class smoothed_density_stabilization_method(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class num_of_density_smoothing(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class false_time_step_linearization(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_6(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dt_init_limit(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dt_max(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dt_factor_min(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dt_factor_max(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_velocity_ratio(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class auto_dt_advanced_controls(Group):
     _version: str
     fluent_name: str
@@ -19593,6 +21642,7 @@ class auto_dt_advanced_controls(Group):
     dt_factor_max: dt_factor_max
     max_velocity_ratio: max_velocity_ratio
     return_type: str
+
 class pseudo_transient(Group):
     _version: str
     fluent_name: str
@@ -19603,16 +21653,19 @@ class pseudo_transient(Group):
     false_time_step_linearization: false_time_step_linearization
     auto_dt_advanced_controls: auto_dt_advanced_controls
     return_type: str
+
 class buoyancy_force_linearization(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class blended_treatment_for_buoyancy_forces(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coupled_vof(Group):
     _version: str
     fluent_name: str
@@ -19621,11 +21674,13 @@ class coupled_vof(Group):
     buoyancy_force_linearization: buoyancy_force_linearization
     blended_treatment_for_buoyancy_forces: blended_treatment_for_buoyancy_forces
     return_type: str
+
 class low_order_rhie_chow(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rhie_chow_flux(Group):
     _version: str
     fluent_name: str
@@ -19633,11 +21688,13 @@ class rhie_chow_flux(Group):
     child_names: list[str]
     low_order_rhie_chow: low_order_rhie_chow
     return_type: str
+
 class limit_pressure_correction_gradient(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class skewness_correction(Group):
     _version: str
     fluent_name: str
@@ -19645,6 +21702,7 @@ class skewness_correction(Group):
     child_names: list[str]
     limit_pressure_correction_gradient: limit_pressure_correction_gradient
     return_type: str
+
 class p_v_coupling_1(Group):
     _version: str
     fluent_name: str
@@ -19654,21 +21712,25 @@ class p_v_coupling_1(Group):
     rhie_chow_flux: rhie_chow_flux
     skewness_correction: skewness_correction
     return_type: str
+
 class outer_iterations(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class initial_time_steps(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class initial_outer_iter(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class initial_outer_iterations(Group):
     _version: str
     fluent_name: str
@@ -19677,31 +21739,37 @@ class initial_outer_iterations(Group):
     initial_time_steps: initial_time_steps
     initial_outer_iter: initial_outer_iter
     return_type: str
+
 class enable_instability_detector(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_cfl_limit(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_cfl_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_velocity_limit(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class unstable_event_outer_iterations(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class instability_detector(Group):
     _version: str
     fluent_name: str
@@ -19713,6 +21781,7 @@ class instability_detector(Group):
     set_velocity_limit: set_velocity_limit
     unstable_event_outer_iterations: unstable_event_outer_iterations
     return_type: str
+
 class hybrid_nita(Group):
     _version: str
     fluent_name: str
@@ -19722,16 +21791,19 @@ class hybrid_nita(Group):
     initial_outer_iterations: initial_outer_iterations
     instability_detector: instability_detector
     return_type: str
+
 class solve_flow_last(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solve_exp_vof_at_end(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class equation_order(Group):
     _version: str
     fluent_name: str
@@ -19740,21 +21812,25 @@ class equation_order(Group):
     solve_flow_last: solve_flow_last
     solve_exp_vof_at_end: solve_exp_vof_at_end
     return_type: str
+
 class enable_dynamic_strength(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_dynamic_strength_exponent(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_maximum_dynamic_strength(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class anti_diffusion(Group):
     _version: str
     fluent_name: str
@@ -19764,6 +21840,7 @@ class anti_diffusion(Group):
     set_dynamic_strength_exponent: set_dynamic_strength_exponent
     set_maximum_dynamic_strength: set_maximum_dynamic_strength
     return_type: str
+
 class advanced_stability_controls(Group):
     _version: str
     fluent_name: str
@@ -19775,26 +21852,31 @@ class advanced_stability_controls(Group):
     equation_order: equation_order
     anti_diffusion: anti_diffusion
     return_type: str
+
 class recommended_defaults_for_existing_cases(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class old_default_of_operating_density_method(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class old_default_of_volume_fraction_smoothing(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class old_variant_of_pesto_for_cases_using_structured_mesh(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class revert_to_pre_r20_1_default_settings(Group):
     _version: str
     fluent_name: str
@@ -19804,6 +21886,7 @@ class revert_to_pre_r20_1_default_settings(Group):
     old_default_of_volume_fraction_smoothing: old_default_of_volume_fraction_smoothing
     old_variant_of_pesto_for_cases_using_structured_mesh: old_variant_of_pesto_for_cases_using_structured_mesh
     return_type: str
+
 class default_controls(Group):
     _version: str
     fluent_name: str
@@ -19812,21 +21895,25 @@ class default_controls(Group):
     recommended_defaults_for_existing_cases: recommended_defaults_for_existing_cases
     revert_to_pre_r20_1_default_settings: revert_to_pre_r20_1_default_settings
     return_type: str
+
 class pressure_corr_grad(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class face_pressure_calculation_method(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class exclude_transient_term_in_face_pressure_calc(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class face_pressure_options(Group):
     _version: str
     fluent_name: str
@@ -19836,6 +21923,7 @@ class face_pressure_options(Group):
     face_pressure_calculation_method: face_pressure_calculation_method
     exclude_transient_term_in_face_pressure_calc: exclude_transient_term_in_face_pressure_calc
     return_type: str
+
 class face_pressure_controls(Group):
     _version: str
     fluent_name: str
@@ -19843,26 +21931,31 @@ class face_pressure_controls(Group):
     child_names: list[str]
     face_pressure_options: face_pressure_options
     return_type: str
+
 class execute_settings_optimization(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class execute_advanced_stabilization(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class blended_compressive_scheme(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pseudo_time_stabilization(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class additional_stabilization_controls(Group):
     _version: str
     fluent_name: str
@@ -19871,26 +21964,31 @@ class additional_stabilization_controls(Group):
     blended_compressive_scheme: blended_compressive_scheme
     pseudo_time_stabilization: pseudo_time_stabilization
     return_type: str
+
 class execute_additional_stability_controls(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_velocity_limiting(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_vol_mag(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vol_frac_cutoff(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_velocity_and_vof_cutoffs_child(Group):
     _version: str
     fluent_name: str
@@ -19899,38 +21997,45 @@ class set_velocity_and_vof_cutoffs_child(Group):
     max_vol_mag: max_vol_mag
     vol_frac_cutoff: vol_frac_cutoff
     return_type: str
+
 class set_velocity_and_vof_cutoffs(NamedObject[set_velocity_and_vof_cutoffs_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: set_velocity_and_vof_cutoffs_child
     return_type: str
+
 class set_damping_strengths_child(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_damping_strengths(NamedObject[set_damping_strengths_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: set_damping_strengths_child
     return_type: str
+
 class set_velocity_cutoff(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_damping_strength(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class verbosity_5(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class velocity_limiting_treatment(Group):
     _version: str
     fluent_name: str
@@ -19943,6 +22048,7 @@ class velocity_limiting_treatment(Group):
     set_damping_strength: set_damping_strength
     verbosity: verbosity_5
     return_type: str
+
 class solution_stabilization_1(Group):
     _version: str
     fluent_name: str
@@ -19954,6 +22060,7 @@ class solution_stabilization_1(Group):
     execute_additional_stability_controls: execute_additional_stability_controls
     velocity_limiting_treatment: velocity_limiting_treatment
     return_type: str
+
 class multiphase_numerics(Group):
     _version: str
     fluent_name: str
@@ -19969,16 +22076,19 @@ class multiphase_numerics(Group):
     face_pressure_controls: face_pressure_controls
     solution_stabilization: solution_stabilization_1
     return_type: str
+
 class nb_gradient(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class nb_gradient_dbns(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class nb_gradient_boundary_option(Group):
     _version: str
     fluent_name: str
@@ -19987,26 +22097,31 @@ class nb_gradient_boundary_option(Group):
     nb_gradient: nb_gradient
     nb_gradient_dbns: nb_gradient_dbns
     return_type: str
+
 class set_verbosity(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class skewness_neighbor_coupling_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_7(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class options_4(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class multi_phase_setting(Group):
     _version: str
     fluent_name: str
@@ -20015,11 +22130,13 @@ class multi_phase_setting(Group):
     enable: enable_7
     options: options_4
     return_type: str
+
 class single_phase_setting(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class hybrid_nita_settings(Group):
     _version: str
     fluent_name: str
@@ -20028,6 +22145,7 @@ class hybrid_nita_settings(Group):
     multi_phase_setting: multi_phase_setting
     single_phase_setting: single_phase_setting
     return_type: str
+
 class nita_expert_controls(Group):
     _version: str
     fluent_name: str
@@ -20037,36 +22155,43 @@ class nita_expert_controls(Group):
     skewness_neighbor_coupling: skewness_neighbor_coupling_1
     hybrid_nita_settings: hybrid_nita_settings
     return_type: str
+
 class nita(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class high_order_pressure(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interpolation_method(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class orphan_cell_treatment(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mass_flux_correction_method(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class hybrid_mode_selection(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class expert_3(Group):
     _version: str
     fluent_name: str
@@ -20075,6 +22200,7 @@ class expert_3(Group):
     mass_flux_correction_method: mass_flux_correction_method
     hybrid_mode_selection: hybrid_mode_selection
     return_type: str
+
 class overset_1(Group):
     _version: str
     fluent_name: str
@@ -20085,21 +22211,25 @@ class overset_1(Group):
     orphan_cell_treatment: orphan_cell_treatment
     expert: expert_3
     return_type: str
+
 class flow_scheme(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coupled_form(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solve_n_phase(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class p_v_coupling(Group):
     _version: str
     fluent_name: str
@@ -20109,32 +22239,38 @@ class p_v_coupling(Group):
     coupled_form: coupled_form
     solve_n_phase: solve_n_phase
     return_type: str
+
 class phase_based_vof_discretization_child(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_based_vof_discretization(NamedObject[phase_based_vof_discretization_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: phase_based_vof_discretization_child
     return_type: str
+
 class reduced_rank_extrapolation(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class subspace_size(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class skip_iter_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reduced_rank_extrapolation_options(Group):
     _version: str
     fluent_name: str
@@ -20143,16 +22279,19 @@ class reduced_rank_extrapolation_options(Group):
     subspace_size: subspace_size
     skip_iter_count: skip_iter_count
     return_type: str
+
 class residual_smoothing_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class residual_smoothing_iter_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class residual_smoothing(Group):
     _version: str
     fluent_name: str
@@ -20161,51 +22300,61 @@ class residual_smoothing(Group):
     residual_smoothing_factor: residual_smoothing_factor
     residual_smoothing_iter_count: residual_smoothing_iter_count
     return_type: str
+
 class unsteady_1st_order(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class unsteady_2nd_order(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class unsteady_2nd_order_bounded(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class unsteady_global_time(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class high_order_rc(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class high_order_rc_hybrid_treatment(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class force_treatment_of_unsteady_rc(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class unstructured_var_presto_scheme(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class new_framework_for_vof_specific_node_based_treatment(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vof_numerics(Group):
     _version: str
     fluent_name: str
@@ -20217,11 +22366,13 @@ class vof_numerics(Group):
     unstructured_var_presto_scheme: unstructured_var_presto_scheme
     new_framework_for_vof_specific_node_based_treatment: new_framework_for_vof_specific_node_based_treatment
     return_type: str
+
 class turbulence_options(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class warped_face_gradient_correction(Group):
     _version: str
     fluent_name: str
@@ -20241,21 +22392,25 @@ class warped_face_gradient_correction(Group):
                 'gradient_correction_mode' child.
         """
     return_type: str
+
 class coupled_solver(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class segregated_solver(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class density_based_solver(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class formulation(Group):
     _version: str
     fluent_name: str
@@ -20265,16 +22420,19 @@ class formulation(Group):
     segregated_solver: segregated_solver
     density_based_solver: density_based_solver
     return_type: str
+
 class relaxation_method_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class casm_cutoff_multiplier_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class convergence_acceleration_for_stretched_meshes_1(Group):
     _version: str
     fluent_name: str
@@ -20283,6 +22441,7 @@ class convergence_acceleration_for_stretched_meshes_1(Group):
     convergence_acceleration_type: convergence_acceleration_type
     casm_cutoff_multiplier: casm_cutoff_multiplier_1
     return_type: str
+
 class pseudo_time_method(Group):
     _version: str
     fluent_name: str
@@ -20308,6 +22467,7 @@ class pseudo_time_method(Group):
                 'maximum_allowed_effctive_relaxation' child.
         """
     return_type: str
+
 class methods(Group):
     _version: str
     fluent_name: str
@@ -20344,36 +22504,43 @@ class methods(Group):
         Set solution methods to default values.
         """
     return_type: str
+
 class zone_ids(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class retain_instantaneous_values(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class old_props(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class zone_names(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class average_over(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class per_zone(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mesh_1_child(Group):
     _version: str
     fluent_name: str
@@ -20387,62 +22554,74 @@ class mesh_1_child(Group):
     average_over: average_over
     per_zone: per_zone
     return_type: str
+
 class mesh_1(NamedObject[mesh_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: mesh_1_child
     return_type: str
+
 class report_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class custom_vector(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class field(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class surfaces(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class geometry_3(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class physics(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_26(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class per_surface(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class surface_names(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class surface_ids(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class surface_1_child(Group):
     _version: str
     fluent_name: str
@@ -20462,17 +22641,20 @@ class surface_1_child(Group):
     surface_names: surface_names
     surface_ids: surface_ids
     return_type: str
+
 class surface_1(NamedObject[surface_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: surface_1_child
     return_type: str
+
 class expr_list(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class volume_child(Group):
     _version: str
     fluent_name: str
@@ -20491,37 +22673,44 @@ class volume_child(Group):
     expr_list: expr_list
     zone_list: zone_list
     return_type: str
+
 class volume(NamedObject[volume_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: volume_child
     return_type: str
+
 class scaled(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class thread_names(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class thread_ids(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reference_frame_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class force_vector(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class force_child(Group):
     _version: str
     fluent_name: str
@@ -20540,12 +22729,14 @@ class force_child(Group):
     reference_frame: reference_frame_1
     force_vector: force_vector
     return_type: str
+
 class force(NamedObject[force_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: force_child
     return_type: str
+
 class lift_child(Group):
     _version: str
     fluent_name: str
@@ -20564,12 +22755,14 @@ class lift_child(Group):
     reference_frame: reference_frame_1
     force_vector: force_vector
     return_type: str
+
 class lift(NamedObject[lift_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: lift_child
     return_type: str
+
 class drag_child(Group):
     _version: str
     fluent_name: str
@@ -20588,22 +22781,26 @@ class drag_child(Group):
     reference_frame: reference_frame_1
     force_vector: force_vector
     return_type: str
+
 class drag(NamedObject[drag_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: drag_child
     return_type: str
+
 class mom_axis(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mom_center(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class moment_child(Group):
     _version: str
     fluent_name: str
@@ -20621,12 +22818,14 @@ class moment_child(Group):
     mom_axis: mom_axis
     mom_center: mom_center
     return_type: str
+
 class moment(NamedObject[moment_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: moment_child
     return_type: str
+
 class flux_1_child(Group):
     _version: str
     fluent_name: str
@@ -20643,77 +22842,92 @@ class flux_1_child(Group):
     zone_names: zone_names
     zone_ids: zone_ids
     return_type: str
+
 class flux_1(NamedObject[flux_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: flux_1_child
     return_type: str
+
 class user_specified_origin_and_axis(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class origin_1(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class axis_1(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mass_criterion(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class boundary_zones_names(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class boundary_zones_1(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class inj_mass_rate_last_tstp(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class inj_mass_rate_last_flow(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class inj_mass_rate_prev_mass(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class inj_mass_rate_prev_time(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class show_unsteady_rate(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class per_injection(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class injection_list(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class injection_child(Group):
     _version: str
     fluent_name: str
@@ -20738,22 +22952,26 @@ class injection_child(Group):
     per_injection: per_injection
     injection_list: injection_list
     return_type: str
+
 class injection(NamedObject[injection_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: injection_child
     return_type: str
+
 class input_params(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class function_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class user_defined_1_child(Group):
     _version: str
     fluent_name: str
@@ -20765,32 +22983,38 @@ class user_defined_1_child(Group):
     average_over: average_over
     old_props: old_props
     return_type: str
+
 class user_defined_1(NamedObject[user_defined_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: user_defined_1_child
     return_type: str
+
 class realcomponent(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class nodal_diameters(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class normalization(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class integrate_over(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class aeromechanics_child(Group):
     _version: str
     fluent_name: str
@@ -20807,12 +23031,14 @@ class aeromechanics_child(Group):
     thread_names: thread_names
     thread_ids: thread_ids
     return_type: str
+
 class aeromechanics(NamedObject[aeromechanics_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: aeromechanics_child
     return_type: str
+
 class icing_child(Group):
     _version: str
     fluent_name: str
@@ -20821,27 +23047,32 @@ class icing_child(Group):
     report_type: report_type
     old_props: old_props
     return_type: str
+
 class icing(NamedObject[icing_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: icing_child
     return_type: str
+
 class list_valid_report_names(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class define(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class expr_value(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class expression_1_child(Group):
     _version: str
     fluent_name: str
@@ -20853,12 +23084,14 @@ class expression_1_child(Group):
     average_over: average_over
     old_props: old_props
     return_type: str
+
 class expression_1(NamedObject[expression_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: expression_1_child
     return_type: str
+
 class single_val_expression_child(Group):
     _version: str
     fluent_name: str
@@ -20870,23 +23103,27 @@ class single_val_expression_child(Group):
     average_over: average_over
     old_props: old_props
     return_type: str
+
 class single_val_expression(NamedObject[single_val_expression_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: single_val_expression_child
     return_type: str
+
 class custom_child(Group):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class custom(NamedObject[custom_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: custom_child
     return_type: str
+
 class report_definitions(Group):
     _version: str
     fluent_name: str
@@ -20921,51 +23158,61 @@ class report_definitions(Group):
         'list' command.
         """
     return_type: str
+
 class file_name_2(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class frequency(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class flow_frequency(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class itr_index(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class run_index(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class frequency_of(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class print_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class active(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class write_instantaneous_values(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class report_files_child(Group):
     _version: str
     fluent_name: str
@@ -20984,37 +23231,44 @@ class report_files_child(Group):
     active: active
     write_instantaneous_values: write_instantaneous_values
     return_type: str
+
 class report_files(NamedObject[report_files_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: report_files_child
     return_type: str
+
 class plot_window(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class title(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class x_label(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_label(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class plot_instantaneous_values(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class report_plots_child(Group):
     _version: str
     fluent_name: str
@@ -21034,52 +23288,62 @@ class report_plots_child(Group):
     active: active
     plot_instantaneous_values: plot_instantaneous_values
     return_type: str
+
 class report_plots(NamedObject[report_plots_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: report_plots_child
     return_type: str
+
 class previous_values_to_consider(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class initial_values_to_ignore(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class iteration_at_creation_or_edit(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class stop_criterion(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class report_defs_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class plot(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cov(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class previous_values(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class convergence_reports_child(Group):
     _version: str
     fluent_name: str
@@ -21099,27 +23363,32 @@ class convergence_reports_child(Group):
     x_label: x_label
     previous_values: previous_values
     return_type: str
+
 class convergence_reports(NamedObject[convergence_reports_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: convergence_reports_child
     return_type: str
+
 class frequency_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class condition(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class check_for(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class convergence_conditions(Group):
     _version: str
     fluent_name: str
@@ -21130,6 +23399,7 @@ class convergence_conditions(Group):
     condition: condition
     check_for: check_for
     return_type: str
+
 class monitor(Group):
     _version: str
     fluent_name: str
@@ -21139,31 +23409,37 @@ class monitor(Group):
     report_plots: report_plots
     convergence_conditions: convergence_conditions
     return_type: str
+
 class python_name_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_point(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_point(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class inside(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class create_volume_surface(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class hexahedron(Group):
     _version: str
     fluent_name: str
@@ -21174,16 +23450,19 @@ class hexahedron(Group):
     inside: inside
     create_volume_surface: create_volume_surface
     return_type: str
+
 class center(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class radius(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sphere(Group):
     _version: str
     fluent_name: str
@@ -21194,16 +23473,19 @@ class sphere(Group):
     inside: inside
     create_volume_surface: create_volume_surface
     return_type: str
+
 class axis_begin(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class axis_end(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cylinder(Group):
     _version: str
     fluent_name: str
@@ -21215,26 +23497,31 @@ class cylinder(Group):
     inside: inside
     create_volume_surface: create_volume_surface
     return_type: str
+
 class cell_distance(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class normal_distance(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class boundary_volume(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class volume_growth(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class volume_distance(Group):
     _version: str
     fluent_name: str
@@ -21243,6 +23530,7 @@ class volume_distance(Group):
     boundary_volume: boundary_volume
     volume_growth: volume_growth
     return_type: str
+
 class distance_option(Group):
     _version: str
     fluent_name: str
@@ -21253,11 +23541,13 @@ class distance_option(Group):
     normal_distance: normal_distance
     volume_distance: volume_distance
     return_type: str
+
 class boundary_list(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class boundary(Group):
     _version: str
     fluent_name: str
@@ -21267,26 +23557,31 @@ class boundary(Group):
     boundary_list: boundary_list
     create_volume_surface: create_volume_surface
     return_type: str
+
 class limiters(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_max(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class value1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class value2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class in_range(Group):
     _version: str
     fluent_name: str
@@ -21295,6 +23590,7 @@ class in_range(Group):
     value1: value1
     value2: value2
     return_type: str
+
 class except_in_range(Group):
     _version: str
     fluent_name: str
@@ -21303,36 +23599,43 @@ class except_in_range(Group):
     value1: value1
     value2: value2
     return_type: str
+
 class top_value_cells(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class low_value_cells(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class less_than(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class more_than(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lower(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class upper(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class between_std_dev(Group):
     _version: str
     fluent_name: str
@@ -21341,6 +23644,7 @@ class between_std_dev(Group):
     lower: lower
     upper: upper
     return_type: str
+
 class outside_std_dev(Group):
     _version: str
     fluent_name: str
@@ -21349,16 +23653,19 @@ class outside_std_dev(Group):
     lower: lower
     upper: upper
     return_type: str
+
 class less_than_std_dev(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class more_than_std_dev(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class option_11(Group):
     _version: str
     fluent_name: str
@@ -21377,31 +23684,37 @@ class option_11(Group):
     less_than_std_dev: less_than_std_dev
     more_than_std_dev: more_than_std_dev
     return_type: str
+
 class none_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scale_by_global_average(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scale_by_zone_average(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scale_by_global_maximum(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scale_by_zone_maximum(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scaling(Group):
     _version: str
     fluent_name: str
@@ -21414,21 +23727,25 @@ class scaling(Group):
     scale_by_global_maximum: scale_by_global_maximum
     scale_by_zone_maximum: scale_by_zone_maximum
     return_type: str
+
 class gradient_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class curvature(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class hessian(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class derivative(Group):
     _version: str
     fluent_name: str
@@ -21440,11 +23757,13 @@ class derivative(Group):
     curvature: curvature
     hessian: hessian
     return_type: str
+
 class size_ratio(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class field_value(Group):
     _version: str
     fluent_name: str
@@ -21457,16 +23776,19 @@ class field_value(Group):
     size_ratio: size_ratio
     create_volume_surface: create_volume_surface
     return_type: str
+
 class equation_for_residual(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class threshold(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class residual(Group):
     _version: str
     fluent_name: str
@@ -21475,16 +23797,19 @@ class residual(Group):
     equation_for_residual: equation_for_residual
     threshold: threshold
     return_type: str
+
 class volume_magnitude(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class volume_change(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class volume_1(Group):
     _version: str
     fluent_name: str
@@ -21494,16 +23819,19 @@ class volume_1(Group):
     volume_magnitude: volume_magnitude
     volume_change: volume_change
     return_type: str
+
 class yplus_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ystar(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class option_12(Group):
     _version: str
     fluent_name: str
@@ -21513,26 +23841,31 @@ class option_12(Group):
     yplus: yplus_1
     ystar: ystar
     return_type: str
+
 class min_allowed(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_allowed(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wall_zones(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class phase_27(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class yplus_star(Group):
     _version: str
     fluent_name: str
@@ -21544,6 +23877,7 @@ class yplus_star(Group):
     wall_zones: wall_zones
     phase: phase_27
     return_type: str
+
 class yplus_ystar(Group):
     _version: str
     fluent_name: str
@@ -21555,6 +23889,7 @@ class yplus_ystar(Group):
     wall_zones: wall_zones
     phase: phase_27
     return_type: str
+
 class type_2(Group):
     _version: str
     fluent_name: str
@@ -21572,41 +23907,49 @@ class type_2(Group):
     yplus_star: yplus_star
     yplus_ystar: yplus_ystar
     return_type: str
+
 class draw_mesh(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class filled(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class marker(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class marker_symbol(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class marker_size(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wireframe(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class color(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class display_options(Group):
     _version: str
     fluent_name: str
@@ -21620,6 +23963,7 @@ class display_options(Group):
     wireframe: wireframe
     color: color
     return_type: str
+
 class cell_registers_child(Group):
     _version: str
     fluent_name: str
@@ -21630,32 +23974,38 @@ class cell_registers_child(Group):
     type: type_2
     display_options: display_options
     return_type: str
+
 class cell_registers(NamedObject[cell_registers_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: cell_registers_child
     return_type: str
+
 class fmg_initialize(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enabled_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turbulent_intensity(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turbulent_viscosity_ratio(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class localized_turb_init(Group):
     _version: str
     fluent_name: str
@@ -21665,26 +24015,31 @@ class localized_turb_init(Group):
     turbulent_intensity: turbulent_intensity
     turbulent_viscosity_ratio: turbulent_viscosity_ratio
     return_type: str
+
 class reference_frame_2(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class viscous_terms(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class species_reactions(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_turbulent_viscosity_ratio(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fmg_options(Group):
     _version: str
     fluent_name: str
@@ -21694,31 +24049,37 @@ class fmg_options(Group):
     species_reactions: species_reactions
     set_turbulent_viscosity_ratio: set_turbulent_viscosity_ratio
     return_type: str
+
 class iter_count_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class explicit_urf(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class initial_pressure(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class external_aero(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class const_velocity(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class general_settings_1(Group):
     _version: str
     fluent_name: str
@@ -21731,16 +24092,19 @@ class general_settings_1(Group):
     external_aero: external_aero
     const_velocity: const_velocity
     return_type: str
+
 class averaged_turbulent_parameters(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class viscosity_ratio_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class turbulent_setting(Group):
     _version: str
     fluent_name: str
@@ -21750,28 +24114,33 @@ class turbulent_setting(Group):
     turbulent_intensity: turbulent_intensity
     viscosity_ratio: viscosity_ratio_1
     return_type: str
+
 class user_specified_species(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class species_1_child_child(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class species_1_child(NamedObject[species_1_child_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: species_1_child_child
     return_type: str
+
 class species_1(NamedObject[species_1_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: species_1_child
     return_type: str
+
 class species_setting(Group):
     _version: str
     fluent_name: str
@@ -21780,6 +24149,7 @@ class species_setting(Group):
     user_specified_species: user_specified_species
     species: species_1
     return_type: str
+
 class hybrid_init_options(Group):
     _version: str
     fluent_name: str
@@ -21789,21 +24159,25 @@ class hybrid_init_options(Group):
     turbulent_setting: turbulent_setting
     species_setting: species_setting
     return_type: str
+
 class patch_reconstructed_interface(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_volumetric_smoothing(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class smoothing_relaxation_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vof_smooth_options(Group):
     _version: str
     fluent_name: str
@@ -21818,6 +24192,7 @@ class vof_smooth_options(Group):
         Execute volumetric smoothing for volume fraction.
         """
     return_type: str
+
 class patch(Group):
     _version: str
     fluent_name: str
@@ -21849,32 +24224,38 @@ class patch(Group):
                 'value' child.
         """
     return_type: str
+
 class set_defaults_child(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_defaults(NamedObject[set_defaults_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: set_defaults_child
     return_type: str
+
 class boundary_thread(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class flat_init(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wavy_surface_init(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class open_channel_auto_init(Group):
     _version: str
     fluent_name: str
@@ -21884,16 +24265,19 @@ class open_channel_auto_init(Group):
     flat_init: flat_init
     wavy_surface_init: wavy_surface_init
     return_type: str
+
 class fmg_courant_number(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_fmg_verbose(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fmg_initialization(Group):
     _version: str
     fluent_name: str
@@ -21907,11 +24291,13 @@ class fmg_initialization(Group):
         'customize_fmg_initialization' command.
         """
     return_type: str
+
 class initialization_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class initialization(Group):
     _version: str
     fluent_name: str
@@ -21977,6 +24363,7 @@ class initialization(Group):
         'levelset_auto_init' command.
         """
     return_type: str
+
 class execute_commands(Group):
     _version: str
     fluent_name: str
@@ -22007,41 +24394,49 @@ class execute_commands(Group):
         Import execute-commands from a TSV file.
         """
     return_type: str
+
 class animate_on(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class flow_time_frequency(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class storage_type(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class storage_dir(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class window_id(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class view(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_raytracing(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solution_animations_child(Group):
     _version: str
     fluent_name: str
@@ -22063,6 +24458,7 @@ class solution_animations_child(Group):
         'display' command.
         """
     return_type: str
+
 class solution_animations(NamedObject[solution_animations_child]):
     _version: str
     fluent_name: str
@@ -22108,31 +24504,37 @@ class solution_animations(NamedObject[solution_animations_child]):
         """
     child_object_type: solution_animations_child
     return_type: str
+
 class name_2(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class register(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class option_13(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class iterations(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_steps(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class frequency_2(Group):
     _version: str
     fluent_name: str
@@ -22142,16 +24544,19 @@ class frequency_2(Group):
     iterations: iterations
     time_steps: time_steps
     return_type: str
+
 class active_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class verbosity_6(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_1(Group):
     _version: str
     fluent_name: str
@@ -22163,6 +24568,7 @@ class set_1(Group):
     active: active_1
     verbosity: verbosity_6
     return_type: str
+
 class poor_mesh_numerics(Group):
     _version: str
     fluent_name: str
@@ -22175,6 +24581,7 @@ class poor_mesh_numerics(Group):
         List the properties of a definition for automatic poor mesh numerics.
         """
     return_type: str
+
 class calculation_activity(Group):
     _version: str
     fluent_name: str
@@ -22247,51 +24654,61 @@ class calculation_activity(Group):
         Continue execution of the automatic initialization and case modification strategy defined at present.
         """
     return_type: str
+
 class enabled_2(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class user_defined_timestep(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class error_tolerance(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_end(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_time_step(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_time_step(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_step_change_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_step_change_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fixed_time_step_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class adaptive_time_stepping(Group):
     _version: str
     fluent_name: str
@@ -22307,31 +24724,37 @@ class adaptive_time_stepping(Group):
     max_step_change_factor: max_step_change_factor
     fixed_time_step_count: fixed_time_step_count
     return_type: str
+
 class enalbled(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class desired_cfl(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class initial_time_step(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_fixed_time_step(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class update_interval_time_step_size(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cfl_based_adaptive_time_stepping(Group):
     _version: str
     fluent_name: str
@@ -22349,61 +24772,73 @@ class cfl_based_adaptive_time_stepping(Group):
     min_step_change_factor: min_step_change_factor
     max_step_change_factor: max_step_change_factor
     return_type: str
+
 class data_sampling_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sampling_interval(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class statistics_shear_stress(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class statistics_heat_flux(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wall_statistics(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class force_statistics(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_statistics_dpm(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class species_list(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class statistics_mixture_fraction(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class statistics_reaction_progress(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class save_cff_unsteady_statistics(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class data_sampling(Group):
     _version: str
     fluent_name: str
@@ -22426,101 +24861,121 @@ class data_sampling(Group):
         'setup_unsteady_statistics' command.
         """
     return_type: str
+
 class specified_time_step(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class incremental_time(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_iter_per_time_step(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_step_count_2(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class total_time_step_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class total_time(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_step_size(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solution_status(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class extrapolate_vars(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_flow_time(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class control_time_step_size_variation(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_average_cfl(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cfl_type(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class courant_number_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class initial_time_step_size(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fixed_time_step_size(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_time_step_size(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_time_step_size(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class update_interval(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cfl_based_time_stepping(Group):
     _version: str
     fluent_name: str
@@ -22535,11 +24990,13 @@ class cfl_based_time_stepping(Group):
     max_step_change_factor: max_step_change_factor
     update_interval: update_interval
     return_type: str
+
 class error_tolerance_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class error_based_time_stepping(Group):
     _version: str
     fluent_name: str
@@ -22554,26 +25011,31 @@ class error_based_time_stepping(Group):
     max_step_change_factor: max_step_change_factor
     update_interval: update_interval
     return_type: str
+
 class undo_timestep(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class predict_next(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rotating_mesh_flow_predictor(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class global_courant_number(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mp_specific_time_stepping(Group):
     _version: str
     fluent_name: str
@@ -22589,36 +25051,43 @@ class mp_specific_time_stepping(Group):
     max_step_change_factor: max_step_change_factor
     update_interval: update_interval
     return_type: str
+
 class udf_hook(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fixed_periodic_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fixed_periodic_type(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fixed_periodic_type_value(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class times_step_periods(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class total_period_run(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fixed_periodic(Group):
     _version: str
     fluent_name: str
@@ -22630,21 +25099,25 @@ class fixed_periodic(Group):
     times_step_periods: times_step_periods
     total_period_run: total_period_run
     return_type: str
+
 class duration_specification_method(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class moving_mesh_constraint(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class mesh_courant_number(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class moving_mesh_cfl_constraint(Group):
     _version: str
     fluent_name: str
@@ -22653,31 +25126,37 @@ class moving_mesh_cfl_constraint(Group):
     moving_mesh_constraint: moving_mesh_constraint
     mesh_courant_number: mesh_courant_number
     return_type: str
+
 class physics_based_constraint(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class viscous_scale(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class gravity_scale(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class surface_tension_scale(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class acoustic_scale(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_scale_options(Group):
     _version: str
     fluent_name: str
@@ -22688,11 +25167,13 @@ class time_scale_options(Group):
     surface_tension_scale: surface_tension_scale
     acoustic_scale: acoustic_scale
     return_type: str
+
 class verbosity_7(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class multiphase_specific_time_constraints(Group):
     _version: str
     fluent_name: str
@@ -22703,21 +25184,25 @@ class multiphase_specific_time_constraints(Group):
     time_scale_options: time_scale_options
     verbosity: verbosity_7
     return_type: str
+
 class enable_solid_time_step(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class choose_auto_time_stepping(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_step_size_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solid_time_step_size(Group):
     _version: str
     fluent_name: str
@@ -22727,22 +25212,26 @@ class solid_time_step_size(Group):
     choose_auto_time_stepping: choose_auto_time_stepping
     time_step_size: time_step_size_1
     return_type: str
+
 class time_step_size_for_acoustic_export(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class extrapolate_eqn_vars_child(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class extrapolate_eqn_vars(NamedObject[extrapolate_eqn_vars_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: extrapolate_eqn_vars_child
     return_type: str
+
 class transient_controls(Group):
     _version: str
     fluent_name: str
@@ -22777,51 +25266,61 @@ class transient_controls(Group):
     time_step_size_for_acoustic_export: time_step_size_for_acoustic_export
     extrapolate_eqn_vars: extrapolate_eqn_vars
     return_type: str
+
 class verbosity_8(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_step_method_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pseudo_time_step_size(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class length_scale_methods(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_step_size_scale_factor_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class length_scale_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class auto_time_size_calc_solid_zone(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_solid_scale_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_step_size_for_solid_zone(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_step_method(Group):
     _version: str
     fluent_name: str
@@ -22836,6 +25335,7 @@ class time_step_method(Group):
     time_solid_scale_factor: time_solid_scale_factor
     time_step_size_for_solid_zone: time_step_size_for_solid_zone
     return_type: str
+
 class pseudo_time_settings(Group):
     _version: str
     fluent_name: str
@@ -22844,6 +25344,7 @@ class pseudo_time_settings(Group):
     verbosity: verbosity_8
     time_step_method: time_step_method
     return_type: str
+
 class data_sampling_options(Group):
     _version: str
     fluent_name: str
@@ -22863,26 +25364,31 @@ class data_sampling_options(Group):
         List dataset.
         """
     return_type: str
+
 class iter_count_2(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reporting_interval(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class residual_verbosity(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_step_count_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class run_calculation(Group):
     _version: str
     fluent_name: str
@@ -22950,6 +25456,7 @@ class run_calculation(Group):
         'iterating' query.
         """
     return_type: str
+
 class solution(Group):
     _version: str
     fluent_name: str
@@ -22964,31 +25471,37 @@ class solution(Group):
     calculation_activity: calculation_activity
     run_calculation: run_calculation
     return_type: str
+
 class boundary_values(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class contour_lines(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class node_values(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class surfaces_list(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class global_range(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class auto_range_on(Group):
     _version: str
     fluent_name: str
@@ -22996,11 +25509,13 @@ class auto_range_on(Group):
     child_names: list[str]
     global_range: global_range
     return_type: str
+
 class clip_to_range(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class auto_range_off(Group):
     _version: str
     fluent_name: str
@@ -23010,6 +25525,7 @@ class auto_range_off(Group):
     minimum: minimum_1
     maximum: maximum_1
     return_type: str
+
 class range_option(Group):
     _version: str
     fluent_name: str
@@ -23019,16 +25535,19 @@ class range_option(Group):
     auto_range_on: auto_range_on
     auto_range_off: auto_range_off
     return_type: str
+
 class smooth(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class banded(Group):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coloring(Group):
     _version: str
     fluent_name: str
@@ -23038,66 +25557,79 @@ class coloring(Group):
     smooth: smooth
     banded: banded
     return_type: str
+
 class visible(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class size(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class log_scale(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class format(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class user_skip(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class show_all(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class position(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class font_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class font_automatic(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class font_size(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class length_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class width(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class color_map(Group):
     _version: str
     fluent_name: str
@@ -23117,26 +25649,31 @@ class color_map(Group):
     length: length_1
     width: width
     return_type: str
+
 class mesh_object(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class display_state_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class deformation(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class deformation_scale(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class contour_child(Group):
     _version: str
     fluent_name: str
@@ -23166,6 +25703,7 @@ class contour_child(Group):
         'display' command.
         """
     return_type: str
+
 class contour(NamedObject[contour_child]):
     _version: str
     fluent_name: str
@@ -23211,36 +25749,43 @@ class contour(NamedObject[contour_child]):
         """
     child_object_type: contour_child
     return_type: str
+
 class nodes(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class edges(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class faces(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class partitions(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class overset_2(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class gap(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class options_5(Group):
     _version: str
     fluent_name: str
@@ -23253,16 +25798,19 @@ class options_5(Group):
     overset: overset_2
     gap: gap
     return_type: str
+
 class all(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class feature_angle(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class feature(Group):
     _version: str
     fluent_name: str
@@ -23270,11 +25818,13 @@ class feature(Group):
     child_names: list[str]
     feature_angle: feature_angle
     return_type: str
+
 class outline(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class edge_type(Group):
     _version: str
     fluent_name: str
@@ -23285,31 +25835,37 @@ class edge_type(Group):
     feature: feature
     outline: outline
     return_type: str
+
 class shrink_factor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class type_3(Group):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class id(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class normal(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class partition(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class automatic(Group):
     _version: str
     fluent_name: str
@@ -23321,26 +25877,31 @@ class automatic(Group):
     normal: normal
     partition: partition
     return_type: str
+
 class faces_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class edges_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class nodes_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class material_color(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class manual(Group):
     _version: str
     fluent_name: str
@@ -23351,6 +25912,7 @@ class manual(Group):
     nodes: nodes_1
     material_color: material_color
     return_type: str
+
 class coloring_1(Group):
     _version: str
     fluent_name: str
@@ -23360,6 +25922,7 @@ class coloring_1(Group):
     automatic: automatic
     manual: manual
     return_type: str
+
 class mesh_2_child(Group):
     _version: str
     fluent_name: str
@@ -23381,6 +25944,7 @@ class mesh_2_child(Group):
         'display' command.
         """
     return_type: str
+
 class mesh_2(NamedObject[mesh_2_child]):
     _version: str
     fluent_name: str
@@ -23426,21 +25990,25 @@ class mesh_2(NamedObject[mesh_2_child]):
         """
     child_object_type: mesh_2_child
     return_type: str
+
 class vector_field(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class auto_scale(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scale_f(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scale_1(Group):
     _version: str
     fluent_name: str
@@ -23449,46 +26017,55 @@ class scale_1(Group):
     auto_scale: auto_scale
     scale_f: scale_f
     return_type: str
+
 class style(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class skip(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class in_plane(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fixed_length(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class x_comp(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_comp(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class z_comp(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scale_head(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vector_opt(Group):
     _version: str
     fluent_name: str
@@ -23502,6 +26079,7 @@ class vector_opt(Group):
     scale_head: scale_head
     color: color
     return_type: str
+
 class vector_child(Group):
     _version: str
     fluent_name: str
@@ -23529,6 +26107,7 @@ class vector_child(Group):
         'display' command.
         """
     return_type: str
+
 class vector(NamedObject[vector_child]):
     _version: str
     fluent_name: str
@@ -23574,31 +26153,37 @@ class vector(NamedObject[vector_child]):
         """
     child_object_type: vector_child
     return_type: str
+
 class uid(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class oil_flow(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reverse(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class node_values_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class relative_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class options_6(Group):
     _version: str
     fluent_name: str
@@ -23609,21 +26194,25 @@ class options_6(Group):
     node_values: node_values_1
     relative: relative_1
     return_type: str
+
 class auto_range(Group):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class min_value(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_value(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class clip_to_range_1(Group):
     _version: str
     fluent_name: str
@@ -23632,6 +26221,7 @@ class clip_to_range_1(Group):
     min_value: min_value
     max_value: max_value
     return_type: str
+
 class range(Group):
     _version: str
     fluent_name: str
@@ -23641,36 +26231,43 @@ class range(Group):
     auto_range: auto_range
     clip_to_range: clip_to_range_1
     return_type: str
+
 class line_width(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class arrow_space(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class arrow_scale(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sphere_size(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sphere_lod(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scalefactor(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ribbon(Group):
     _version: str
     fluent_name: str
@@ -23679,6 +26276,7 @@ class ribbon(Group):
     field: field
     scalefactor: scalefactor
     return_type: str
+
 class style_attribute(Group):
     _version: str
     fluent_name: str
@@ -23694,16 +26292,19 @@ class style_attribute(Group):
     radius: radius
     ribbon: ribbon
     return_type: str
+
 class step_size(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class tolerance_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class accuracy_control_1(Group):
     _version: str
     fluent_name: str
@@ -23713,11 +26314,13 @@ class accuracy_control_1(Group):
     step_size: step_size
     tolerance: tolerance_1
     return_type: str
+
 class x_axis_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class plot_2(Group):
     _version: str
     fluent_name: str
@@ -23726,51 +26329,61 @@ class plot_2(Group):
     x_axis_function: x_axis_function
     enabled: enabled_2
     return_type: str
+
 class step(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coarsen(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class onzone(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class onphysics(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class velocity_domain(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class x_format(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class x_axis_precision(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_format(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_axis_precision(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class numbers(Group):
     _version: str
     fluent_name: str
@@ -23781,36 +26394,43 @@ class numbers(Group):
     y_format: y_format
     y_axis_precision: y_axis_precision
     return_type: str
+
 class draw_major_rules(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class major_rule_weight(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class major_rule_line_color(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class draw_minor_rules(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class minor_rule_weight(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class minor_rule_line_color(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class x_axis_1(Group):
     _version: str
     fluent_name: str
@@ -23823,6 +26443,7 @@ class x_axis_1(Group):
     minor_rule_weight: minor_rule_weight
     minor_rule_line_color: minor_rule_line_color
     return_type: str
+
 class y_axis_1(Group):
     _version: str
     fluent_name: str
@@ -23835,6 +26456,7 @@ class y_axis_1(Group):
     minor_rule_weight: minor_rule_weight
     minor_rule_line_color: minor_rule_line_color
     return_type: str
+
 class rules(Group):
     _version: str
     fluent_name: str
@@ -23843,16 +26465,19 @@ class rules(Group):
     x_axis: x_axis_1
     y_axis: y_axis_1
     return_type: str
+
 class x_axis_2(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_axis_2(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class log_scale_1(Group):
     _version: str
     fluent_name: str
@@ -23861,26 +26486,31 @@ class log_scale_1(Group):
     x_axis: x_axis_2
     y_axis: y_axis_2
     return_type: str
+
 class x_axis_min(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class x_axis_max(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_axis_min(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_axis_max(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class auto_scale_1(Group):
     _version: str
     fluent_name: str
@@ -23893,16 +26523,19 @@ class auto_scale_1(Group):
     y_axis_min: y_axis_min
     y_axis_max: y_axis_max
     return_type: str
+
 class x_axis_3(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_axis_3(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class labels(Group):
     _version: str
     fluent_name: str
@@ -23911,6 +26544,7 @@ class labels(Group):
     x_axis: x_axis_3
     y_axis: y_axis_3
     return_type: str
+
 class axes(Group):
     _version: str
     fluent_name: str
@@ -23922,16 +26556,19 @@ class axes(Group):
     auto_scale: auto_scale_1
     labels: labels
     return_type: str
+
 class pattern(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class weight(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lines_child(Group):
     _version: str
     fluent_name: str
@@ -23941,22 +26578,26 @@ class lines_child(Group):
     weight: weight
     color: color
     return_type: str
+
 class lines(ListObject[lines_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: lines_child
     return_type: str
+
 class symbol(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class size_1(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class markers_child(Group):
     _version: str
     fluent_name: str
@@ -23966,12 +26607,14 @@ class markers_child(Group):
     size: size_1
     color: color
     return_type: str
+
 class markers(ListObject[markers_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: markers_child
     return_type: str
+
 class curves(Group):
     _version: str
     fluent_name: str
@@ -23980,6 +26623,7 @@ class curves(Group):
     lines: lines
     markers: markers
     return_type: str
+
 class pathline_child(Group):
     _version: str
     fluent_name: str
@@ -24015,6 +26659,7 @@ class pathline_child(Group):
         'display' command.
         """
     return_type: str
+
 class pathline(NamedObject[pathline_child]):
     _version: str
     fluent_name: str
@@ -24060,6 +26705,7 @@ class pathline(NamedObject[pathline_child]):
         """
     child_object_type: pathline_child
     return_type: str
+
 class options_7(Group):
     _version: str
     fluent_name: str
@@ -24067,16 +26713,19 @@ class options_7(Group):
     child_names: list[str]
     node_values: node_values_1
     return_type: str
+
 class inside_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class outside(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class options_8(Group):
     _version: str
     fluent_name: str
@@ -24086,16 +26735,19 @@ class options_8(Group):
     inside: inside_1
     outside: outside
     return_type: str
+
 class filter_minimum(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class filter_maximum(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class filter_settings(Group):
     _version: str
     fluent_name: str
@@ -24107,6 +26759,7 @@ class filter_settings(Group):
     filter_minimum: filter_minimum
     filter_maximum: filter_maximum
     return_type: str
+
 class ribbon_settings(Group):
     _version: str
     fluent_name: str
@@ -24115,11 +26768,13 @@ class ribbon_settings(Group):
     field: field
     scalefactor: scalefactor
     return_type: str
+
 class scale_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class constant_1(Group):
     _version: str
     fluent_name: str
@@ -24127,11 +26782,13 @@ class constant_1(Group):
     child_names: list[str]
     diameter: diameter_1
     return_type: str
+
 class size_by(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class variable_1(Group):
     _version: str
     fluent_name: str
@@ -24140,6 +26797,7 @@ class variable_1(Group):
     size_by: size_by
     range: range
     return_type: str
+
 class options_9(Group):
     _version: str
     fluent_name: str
@@ -24149,6 +26807,7 @@ class options_9(Group):
     constant: constant_1
     variable: variable_1
     return_type: str
+
 class sphere_settings(Group):
     _version: str
     fluent_name: str
@@ -24158,6 +26817,7 @@ class sphere_settings(Group):
     sphere_lod: sphere_lod
     options: options_9
     return_type: str
+
 class style_attribute_1(Group):
     _version: str
     fluent_name: str
@@ -24174,16 +26834,19 @@ class style_attribute_1(Group):
     ribbon_settings: ribbon_settings
     sphere_settings: sphere_settings
     return_type: str
+
 class constant_length(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class variable_length(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vector_length(Group):
     _version: str
     fluent_name: str
@@ -24193,6 +26856,7 @@ class vector_length(Group):
     constant_length: constant_length
     variable_length: variable_length
     return_type: str
+
 class constant_color(Group):
     _version: str
     fluent_name: str
@@ -24201,16 +26865,19 @@ class constant_color(Group):
     enabled: enabled_2
     color: color
     return_type: str
+
 class vector_of(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class length_to_head_ratio(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class vector_settings(Group):
     _version: str
     fluent_name: str
@@ -24223,11 +26890,13 @@ class vector_settings(Group):
     scale: scale_2
     length_to_head_ratio: length_to_head_ratio
     return_type: str
+
 class stream_id(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class track_single_particle_stream(Group):
     _version: str
     fluent_name: str
@@ -24236,26 +26905,31 @@ class track_single_particle_stream(Group):
     enabled: enabled_2
     stream_id: stream_id
     return_type: str
+
 class injections_list(StringList, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class free_stream_particles(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wall_film_particles(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class track_pdf_particles(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class particle_track_child(Group):
     _version: str
     fluent_name: str
@@ -24289,6 +26963,7 @@ class particle_track_child(Group):
         'display' command.
         """
     return_type: str
+
 class particle_track(NamedObject[particle_track_child]):
     _version: str
     fluent_name: str
@@ -24334,76 +27009,91 @@ class particle_track(NamedObject[particle_track_child]):
         """
     child_object_type: particle_track_child
     return_type: str
+
 class lic_color_by_field(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lic_color(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lic_oriented(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lic_normalize(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lic_pixel_interpolation(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lic_max_steps(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class texture_spacing(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class texture_size(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lic_intensity_factor(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lic_image_filter(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lic_intensity_alpha(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lic_fast(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class gray_scale(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class image_to_display(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lic_child(Group):
     _version: str
     fluent_name: str
@@ -24439,6 +27129,7 @@ class lic_child(Group):
         'display' command.
         """
     return_type: str
+
 class lic(NamedObject[lic_child]):
     _version: str
     fluent_name: str
@@ -24484,6 +27175,7 @@ class lic(NamedObject[lic_child]):
         """
     child_object_type: lic_child
     return_type: str
+
 class olic_child(Group):
     _version: str
     fluent_name: str
@@ -24519,6 +27211,7 @@ class olic_child(Group):
         'display' command.
         """
     return_type: str
+
 class olic(NamedObject[olic_child]):
     _version: str
     fluent_name: str
@@ -24564,66 +27257,79 @@ class olic(NamedObject[olic_child]):
         """
     child_object_type: olic_child
     return_type: str
+
 class auto_scale_2(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class clip_to_range_2(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class surfaces_2(StringList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class filled_contours(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class global_range_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class line_contours(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class log_scale_2(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class n_contour(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class node_values_2(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class render_mesh(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class banded_coloring(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class number_of_bands(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coloring_2(Group):
     _version: str
     fluent_name: str
@@ -24632,6 +27338,7 @@ class coloring_2(Group):
     banded_coloring: banded_coloring
     number_of_bands: number_of_bands
     return_type: str
+
 class contours(Group):
     _version: str
     fluent_name: str
@@ -24649,46 +27356,55 @@ class contours(Group):
     render_mesh: render_mesh
     coloring: coloring_2
     return_type: str
+
 class display_3(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class history_filename(Filename):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class report_default_variables(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class track_single_particle_stream_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class arrow_scale_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class arrow_space_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class coarsen_factor(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class line_width_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class particle_tracks(Group):
     _version: str
     fluent_name: str
@@ -24703,31 +27419,37 @@ class particle_tracks(Group):
     coarsen_factor: coarsen_factor
     line_width: line_width_1
     return_type: str
+
 class background(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class color_by_type(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class foreground(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class only_list_case_boundaries(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_inherent_material_color(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class by_type(Group):
     _version: str
     fluent_name: str
@@ -24746,11 +27468,13 @@ class by_type(Group):
                 'reset_color' child.
         """
     return_type: str
+
 class use_inherent_material_color_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class by_surface(Group):
     _version: str
     fluent_name: str
@@ -24776,91 +27500,109 @@ class by_surface(Group):
         List the surfaces by its material.
         """
     return_type: str
+
 class far_field_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class inlet_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interior_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class internal_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class outlet_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class overset_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class periodic_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class rans_les_interface_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class symmetry_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class axis_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class free_surface_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class traction_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class wall_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interface_faces(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class surface_2(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class skip_label(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class automatic_skip(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class colors(Group):
     _version: str
     fluent_name: str
@@ -24898,21 +27640,25 @@ class colors(Group):
         List available colors.
         """
     return_type: str
+
 class headlight_setting(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lights_on(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lighting_interpolation(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lights(Group):
     _version: str
     fluent_name: str
@@ -24931,31 +27677,37 @@ class lights(Group):
         'set_light' command.
         """
     return_type: str
+
 class color_mode(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class hardcopy_format(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class hardcopy_options(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class window_dump_cmd(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class post_format(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class driver_options(Group):
     _version: str
     fluent_name: str
@@ -24971,46 +27723,55 @@ class driver_options(Group):
         'current_driver' command.
         """
     return_type: str
+
 class invert_background(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class landscape(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class x_resolution(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_resolution(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpi(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_window_resolution(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class standard_resolution(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class jpeg_hardcopy_quality(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class picture(Group):
     _version: str
     fluent_name: str
@@ -25040,6 +27801,7 @@ class picture(Group):
         'list_color_mode' command.
         """
     return_type: str
+
 class camera(Group):
     _version: str
     fluent_name: str
@@ -25146,71 +27908,85 @@ class camera(Group):
                 'factor' child.
         """
     return_type: str
+
 class front_faces_transparent(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class projection_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class axes_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ruler(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class boundary_marker(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class anti_aliasing(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class reflections(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class static_shadows(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dynamic_shadows(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class grid_plane(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class headlights(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class lighting(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class view_name(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class display_states_child(Group):
     _version: str
     fluent_name: str
@@ -25231,6 +28007,7 @@ class display_states_child(Group):
     lighting: lighting
     view_name: view_name
     return_type: str
+
 class display_states(NamedObject[display_states_child]):
     _version: str
     fluent_name: str
@@ -25284,6 +28061,7 @@ class display_states(NamedObject[display_states_child]):
         """
     child_object_type: display_states_child
     return_type: str
+
 class views(Group):
     _version: str
     fluent_name: str
@@ -25360,41 +28138,49 @@ class views(Group):
                 'view_list' child.
         """
     return_type: str
+
 class border(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class bottom(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class clear_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class left(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class right_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class top(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class visible_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class axes_2(Group):
     _version: str
     fluent_name: str
@@ -25408,36 +28194,43 @@ class axes_2(Group):
     top: top
     visible: visible_1
     return_type: str
+
 class border_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class bottom_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class left_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class right_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class top_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class visible_2(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class main(Group):
     _version: str
     fluent_name: str
@@ -25450,56 +28243,67 @@ class main(Group):
     top: top_1
     visible: visible_2
     return_type: str
+
 class border_2(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class bottom_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class clear_2(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class format_1(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class font_size_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class left_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class margin(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class right_3(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class top_2(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class visible_3(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scale_3(Group):
     _version: str
     fluent_name: str
@@ -25516,61 +28320,73 @@ class scale_3(Group):
     top: top_2
     visible: visible_3
     return_type: str
+
 class application(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class border_3(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class bottom_3(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class clear_3(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class company(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class date(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class left_3(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class right_4(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class top_3(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class visible_4(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class alignment(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class text(Group):
     _version: str
     fluent_name: str
@@ -25588,41 +28404,49 @@ class text(Group):
     visible: visible_4
     alignment: alignment
     return_type: str
+
 class background_1(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class color_filter(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class foreground_1(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class on(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class width_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class height_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class margin_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pixel_size(Group):
     _version: str
     fluent_name: str
@@ -25632,6 +28456,7 @@ class pixel_size(Group):
     height: height_1
     margin: margin_1
     return_type: str
+
 class video(Group):
     _version: str
     fluent_name: str
@@ -25643,36 +28468,43 @@ class video(Group):
     on: on
     pixel_size: pixel_size
     return_type: str
+
 class border_4(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class bottom_4(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class left_4(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class right_5(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class top_4(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class visible_5(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class xy(Group):
     _version: str
     fluent_name: str
@@ -25685,21 +28517,25 @@ class xy(Group):
     top: top_4
     visible: visible_5
     return_type: str
+
 class logo(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class ruler_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class logo_color(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class windows(Group):
     _version: str
     fluent_name: str
@@ -25727,6 +28563,7 @@ class windows(Group):
                 'height' child.
         """
     return_type: str
+
 class graphics(Group):
     _version: str
     fluent_name: str
@@ -25747,41 +28584,49 @@ class graphics(Group):
     views: views
     windows: windows
     return_type: str
+
 class temporary(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class transparency(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class colormap_position(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class colormap_left(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class colormap_bottom(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class colormap_width(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class colormap_height(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class graphics_objects_child(Group):
     _version: str
     fluent_name: str
@@ -25795,6 +28640,7 @@ class graphics_objects_child(Group):
     colormap_width: colormap_width
     colormap_height: colormap_height
     return_type: str
+
 class graphics_objects(NamedObject[graphics_objects_child]):
     _version: str
     fluent_name: str
@@ -25806,6 +28652,7 @@ class graphics_objects(NamedObject[graphics_objects_child]):
         """
     child_object_type: graphics_objects_child
     return_type: str
+
 class scene_child(Group):
     _version: str
     fluent_name: str
@@ -25822,6 +28669,7 @@ class scene_child(Group):
         'display' command.
         """
     return_type: str
+
 class scene(NamedObject[scene_child]):
     _version: str
     fluent_name: str
@@ -25867,61 +28715,73 @@ class scene(NamedObject[scene_child]):
         """
     child_object_type: scene_child
     return_type: str
+
 class methods_2(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class point_vector(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class point_normal(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class compute_from_view_plane(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class surface_aligned_normal(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class p0(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class p1(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class p2(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class bounded(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sample_point(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class edges_2(IntegerList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class plane_surface_child(Group):
     _version: str
     fluent_name: str
@@ -25942,12 +28802,14 @@ class plane_surface_child(Group):
     sample_point: sample_point
     edges: edges_2
     return_type: str
+
 class plane_surface(NamedObject[plane_surface_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: plane_surface_child
     return_type: str
+
 class surfaces_1(Group):
     _version: str
     fluent_name: str
@@ -25955,21 +28817,25 @@ class surfaces_1(Group):
     child_names: list[str]
     plane_surface: plane_surface
     return_type: str
+
 class start_frame(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class end_frame(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class increment(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_custom_frames(Group):
     _version: str
     fluent_name: str
@@ -25979,76 +28845,91 @@ class set_custom_frames(Group):
     end_frame: end_frame
     increment: increment
     return_type: str
+
 class fps(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class format_2(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class quality_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class name_4(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_original_resolution(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class scale_4(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_standard_resolution(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class width_2(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class height_2(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class bitrate_scale(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class enable_h264(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class bitrate(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class compression_method(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class keyframe(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class advance_quality(Group):
     _version: str
     fluent_name: str
@@ -26060,6 +28941,7 @@ class advance_quality(Group):
     compression_method: compression_method
     keyframe: keyframe
     return_type: str
+
 class video_1(Group):
     _version: str
     fluent_name: str
@@ -26076,6 +28958,7 @@ class video_1(Group):
     height: height_2
     advance_quality: advance_quality
     return_type: str
+
 class playback(Group):
     _version: str
     fluent_name: str
@@ -26118,6 +29001,7 @@ class playback(Group):
                 Yes: "Stored View", no: "Different View".
         """
     return_type: str
+
 class animations(Group):
     _version: str
     fluent_name: str
@@ -26125,16 +29009,19 @@ class animations(Group):
     child_names: list[str]
     playback: playback
     return_type: str
+
 class position_on_x_axis(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class position_on_y_axis(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class options_10(Group):
     _version: str
     fluent_name: str
@@ -26144,21 +29031,25 @@ class options_10(Group):
     position_on_x_axis: position_on_x_axis
     position_on_y_axis: position_on_y_axis
     return_type: str
+
 class x_component(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class y_component(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class z_component(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class direction_vector_2(Group):
     _version: str
     fluent_name: str
@@ -26168,11 +29059,13 @@ class direction_vector_2(Group):
     y_component: y_component
     z_component: z_component
     return_type: str
+
 class default(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class curve_length(Group):
     _version: str
     fluent_name: str
@@ -26182,6 +29075,7 @@ class curve_length(Group):
     default: default
     reverse: reverse
     return_type: str
+
 class plot_direction(Group):
     _version: str
     fluent_name: str
@@ -26191,11 +29085,13 @@ class plot_direction(Group):
     direction_vector: direction_vector_2
     curve_length: curve_length
     return_type: str
+
 class y_axis_function(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class xy_plot_child(Group):
     _version: str
     fluent_name: str
@@ -26219,6 +29115,7 @@ class xy_plot_child(Group):
         'display' command.
         """
     return_type: str
+
 class xy_plot(NamedObject[xy_plot_child]):
     _version: str
     fluent_name: str
@@ -26264,6 +29161,7 @@ class xy_plot(NamedObject[xy_plot_child]):
         """
     child_object_type: xy_plot_child
     return_type: str
+
 class plot_1(Group):
     _version: str
     fluent_name: str
@@ -26271,6 +29169,7 @@ class plot_1(Group):
     child_names: list[str]
     xy_plot: xy_plot
     return_type: str
+
 class simulation_reports(Group):
     _version: str
     fluent_name: str
@@ -26392,51 +29291,61 @@ class simulation_reports(Group):
                 'file_name_path' child.
         """
     return_type: str
+
 class auto_range_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class correlation(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class cumulation_curve(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class diameter_statistics(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class histogram_mode(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class percentage(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class variable_3(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class logarithmic(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class weighting(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class histogram_options(Group):
     _version: str
     fluent_name: str
@@ -26452,21 +29361,25 @@ class histogram_options(Group):
     logarithmic: logarithmic
     weighting: weighting
     return_type: str
+
 class minimum_val(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class maximum_val(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class division_val(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class histogram_parameters(Group):
     _version: str
     fluent_name: str
@@ -26476,6 +29389,7 @@ class histogram_parameters(Group):
     maximum_val: maximum_val
     division_val: division_val
     return_type: str
+
 class plot_write_sample(Group):
     _version: str
     fluent_name: str
@@ -26490,16 +29404,19 @@ class plot_write_sample(Group):
         'write_sample' command.
         """
     return_type: str
+
 class use_weighting(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class make_steady_from_unsteady_file(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class setup_reduction(Group):
     _version: str
     fluent_name: str
@@ -26581,6 +29498,7 @@ class setup_reduction(Group):
         List all user inputs for the sample picked for data reduction.
         """
     return_type: str
+
 class reduction(Group):
     _version: str
     fluent_name: str
@@ -26613,16 +29531,19 @@ class reduction(Group):
                 'overwrite' child.
         """
     return_type: str
+
 class select_sample(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class plotting_grid_interval_size(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_sample_contour_plots(Group):
     _version: str
     fluent_name: str
@@ -26636,6 +29557,7 @@ class dpm_sample_contour_plots(Group):
         'prepare_expressions' command.
         """
     return_type: str
+
 class histogram(Group):
     _version: str
     fluent_name: str
@@ -26676,16 +29598,19 @@ class histogram(Group):
                 The name of a sample file to be loaded.
         """
     return_type: str
+
 class user_defined_functions_1(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sort_sample_files(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class sample_trajectories(Group):
     _version: str
     fluent_name: str
@@ -26699,6 +29624,7 @@ class sample_trajectories(Group):
         'sample' command.
         """
     return_type: str
+
 class discrete_phase_1(Group):
     _version: str
     fluent_name: str
@@ -26740,6 +29666,7 @@ class discrete_phase_1(Group):
                 'reset_dpm_summaries' child.
         """
     return_type: str
+
 class fluxes(Group):
     _version: str
     fluent_name: str
@@ -26914,6 +29841,7 @@ class fluxes(Group):
                 'overwrite' child.
         """
     return_type: str
+
 class flow(Group):
     _version: str
     fluent_name: str
@@ -26932,6 +29860,7 @@ class flow(Group):
         'uds_flow' command.
         """
     return_type: str
+
 class modified_setting_options(Group):
     _version: str
     fluent_name: str
@@ -26958,6 +29887,7 @@ class modified_setting_options(Group):
                 'overwrite' child.
         """
     return_type: str
+
 class population_balance(Group):
     _version: str
     fluent_name: str
@@ -26987,6 +29917,7 @@ class population_balance(Group):
         'number_density' command.
         """
     return_type: str
+
 class heat_exchange(Group):
     _version: str
     fluent_name: str
@@ -27013,6 +29944,7 @@ class heat_exchange(Group):
         'specific_heat' command.
         """
     return_type: str
+
 class system(Group):
     _version: str
     fluent_name: str
@@ -27035,6 +29967,7 @@ class system(Group):
         Time usage information.
         """
     return_type: str
+
 class print_write_histogram(Group):
     _version: str
     fluent_name: str
@@ -27091,6 +30024,7 @@ class print_write_histogram(Group):
                 'overwrite' child.
         """
     return_type: str
+
 class report(Group):
     _version: str
     fluent_name: str
@@ -27171,6 +30105,7 @@ class report(Group):
         'volume_integrals' command.
         """
     return_type: str
+
 class results(Group):
     _version: str
     fluent_name: str
@@ -27183,26 +30118,31 @@ class results(Group):
     plot: plot_1
     report: report
     return_type: str
+
 class input_parameters(Map):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class output_parameters(Map):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class write_data_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class capture_simulation_report_data_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class design_points_child(Group):
     _version: str
     fluent_name: str
@@ -27213,6 +30153,7 @@ class design_points_child(Group):
     write_data: write_data_1
     capture_simulation_report_data: capture_simulation_report_data_1
     return_type: str
+
 class design_points(NamedObject[design_points_child]):
     _version: str
     fluent_name: str
@@ -27288,11 +30229,13 @@ class design_points(NamedObject[design_points_child]):
         """
     child_object_type: design_points_child
     return_type: str
+
 class current_design_point(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class parametric_studies_child(Group):
     _version: str
     fluent_name: str
@@ -27301,6 +30244,7 @@ class parametric_studies_child(Group):
     design_points: design_points
     current_design_point: current_design_point
     return_type: str
+
 class parametric_studies(NamedObject[parametric_studies_child]):
     _version: str
     fluent_name: str
@@ -27359,21 +30303,25 @@ class parametric_studies(NamedObject[parametric_studies_child]):
         """
     child_object_type: parametric_studies_child
     return_type: str
+
 class current_parametric_study(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class thread_number_method(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fixed_thread_number(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class thread_number_control(Group):
     _version: str
     fluent_name: str
@@ -27382,26 +30330,31 @@ class thread_number_control(Group):
     thread_number_method: thread_number_method
     fixed_thread_number: fixed_thread_number
     return_type: str
+
 class check_verbosity_1(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class across_zones(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class load_vector(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class pre_test(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class auto(Group):
     _version: str
     fluent_name: str
@@ -27422,26 +30375,31 @@ class auto(Group):
                 'file_partition_method' child.
         """
     return_type: str
+
 class cell_function_1(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class load_distribution(RealList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class merge_small_regions(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_merge_iterations(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class merge(Group):
     _version: str
     fluent_name: str
@@ -27450,32 +30408,38 @@ class merge(Group):
     merge_small_regions: merge_small_regions
     max_merge_iterations: max_merge_iterations
     return_type: str
+
 class partition_origin_vector_child(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class partition_origin_vector(ListObject[partition_origin_vector_child]):
     _version: str
     fluent_name: str
     _python_name: str
     child_object_type: partition_origin_vector_child
     return_type: str
+
 class pre_test_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class smooth_partitioning(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class max_smoothing_iterations(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class smooth_1(Group):
     _version: str
     fluent_name: str
@@ -27484,16 +30448,19 @@ class smooth_1(Group):
     smooth_partitioning: smooth_partitioning
     max_smoothing_iterations: max_smoothing_iterations
     return_type: str
+
 class print_verbosity(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_4(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class laplace_smoothing(Group):
     _version: str
     fluent_name: str
@@ -27502,16 +30469,19 @@ class laplace_smoothing(Group):
     enabled: enabled_2
     set: set_4
     return_type: str
+
 class nfaces_as_weights_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class user_defined_value(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class nfaces_as_weights(Group):
     _version: str
     fluent_name: str
@@ -27521,21 +30491,25 @@ class nfaces_as_weights(Group):
     user_defined_value: user_defined_value
     value: value
     return_type: str
+
 class face_area_as_weights(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_layering(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class base_face_zone_for_partitioning(IntegerList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class layering(Group):
     _version: str
     fluent_name: str
@@ -27544,16 +30518,19 @@ class layering(Group):
     use_layering: use_layering
     base_face_zone_for_partitioning: base_face_zone_for_partitioning
     return_type: str
+
 class use(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class use_user_define_value(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class solid_thread_weight(Group):
     _version: str
     fluent_name: str
@@ -27563,16 +30540,19 @@ class solid_thread_weight(Group):
     use_user_define_value: use_user_define_value
     value: value
     return_type: str
+
 class use_enhancement(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class aspect_ratio_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class stretched_mesh_enhancement(Group):
     _version: str
     fluent_name: str
@@ -27581,16 +30561,19 @@ class stretched_mesh_enhancement(Group):
     use_enhancement: use_enhancement
     aspect_ratio: aspect_ratio_1
     return_type: str
+
 class user_defined_2(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class hybrid_optimization(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class particle_weight(Group):
     _version: str
     fluent_name: str
@@ -27601,6 +30584,7 @@ class particle_weight(Group):
     value: value
     hybrid_optimization: hybrid_optimization
     return_type: str
+
 class vof_free_surface_weight(Group):
     _version: str
     fluent_name: str
@@ -27610,6 +30594,7 @@ class vof_free_surface_weight(Group):
     user_defined: user_defined_2
     value: value
     return_type: str
+
 class isat_weight(Group):
     _version: str
     fluent_name: str
@@ -27619,26 +30604,31 @@ class isat_weight(Group):
     user_defined: user_defined_2
     value: value
     return_type: str
+
 class fluid_solid_rebalance_after_read_case(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class model_weighted_partition(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class load_balancing(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interval(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dpm_load_balancing(Group):
     _version: str
     fluent_name: str
@@ -27648,6 +30638,7 @@ class dpm_load_balancing(Group):
     threshold: threshold
     interval: interval
     return_type: str
+
 class set_3(Group):
     _version: str
     fluent_name: str
@@ -27692,6 +30683,7 @@ class set_3(Group):
         Enable all optimization.
         """
     return_type: str
+
 class partition_1(Group):
     _version: str
     fluent_name: str
@@ -27763,26 +30755,31 @@ class partition_1(Group):
         Use stored partitioning.
         """
     return_type: str
+
 class partition_mask(IntegerList):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class verbosity_9(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class time_out(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class fast_io(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_2(Group):
     _version: str
     fluent_name: str
@@ -27793,11 +30790,13 @@ class set_2(Group):
     time_out: time_out
     fast_io: fast_io
     return_type: str
+
 class use_multi_physics(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class physical_models_2(Group):
     _version: str
     fluent_name: str
@@ -27807,11 +30806,13 @@ class physical_models_2(Group):
     threshold: threshold
     interval: interval
     return_type: str
+
 class auto_1(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class dynamic_mesh(Group):
     _version: str
     fluent_name: str
@@ -27822,6 +30823,7 @@ class dynamic_mesh(Group):
     threshold: threshold
     interval: interval
     return_type: str
+
 class mesh_adaption(Group):
     _version: str
     fluent_name: str
@@ -27830,6 +30832,7 @@ class mesh_adaption(Group):
     use: use
     threshold: threshold
     return_type: str
+
 class load_balance(Group):
     _version: str
     fluent_name: str
@@ -27839,26 +30842,31 @@ class load_balance(Group):
     dynamic_mesh: dynamic_mesh
     mesh_adaption: mesh_adaption
     return_type: str
+
 class enabled_3(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class iter_per_coupling_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class method_4(String, AllowedValuesMixin):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class interval_1(Real):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class single_session_coupling(Group):
     _version: str
     fluent_name: str
@@ -27869,6 +30877,7 @@ class single_session_coupling(Group):
     interval: interval_1
     frequency: frequency_1
     return_type: str
+
 class two_session_coupling(Group):
     _version: str
     fluent_name: str
@@ -27878,6 +30887,7 @@ class two_session_coupling(Group):
     type: type_1
     frequency: frequency_1
     return_type: str
+
 class coupling(Group):
     _version: str
     fluent_name: str
@@ -27887,16 +30897,19 @@ class coupling(Group):
     single_session_coupling: single_session_coupling
     two_session_coupling: two_session_coupling
     return_type: str
+
 class process_count(Integer):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class host_name(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class helper_session_setup(Group):
     _version: str
     fluent_name: str
@@ -27905,11 +30918,13 @@ class helper_session_setup(Group):
     process_count: process_count
     host_name: host_name
     return_type: str
+
 class helper_session(Boolean):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class set_5(Group):
     _version: str
     fluent_name: str
@@ -27919,6 +30934,7 @@ class set_5(Group):
     helper_session_setup: helper_session_setup
     helper_session: helper_session
     return_type: str
+
 class conjugate_heat_transfer(Group):
     _version: str
     fluent_name: str
@@ -27927,6 +30943,7 @@ class conjugate_heat_transfer(Group):
     enabled: enabled_3
     set: set_5
     return_type: str
+
 class solve(Group):
     _version: str
     fluent_name: str
@@ -27963,6 +30980,7 @@ class solve(Group):
                 'iter_per_time_step_count' child.
         """
     return_type: str
+
 class multidomain(Group):
     _version: str
     fluent_name: str
@@ -27971,11 +30989,13 @@ class multidomain(Group):
     conjugate_heat_transfer: conjugate_heat_transfer
     solve: solve
     return_type: str
+
 class shell_script_path(String):
     _version: str
     fluent_name: str
     _python_name: str
     return_type: str
+
 class network_1(Group):
     _version: str
     fluent_name: str
@@ -28028,6 +31048,7 @@ class network_1(Group):
                 'host_file' child.
         """
     return_type: str
+
 class timer(Group):
     _version: str
     fluent_name: str
@@ -28042,6 +31063,7 @@ class timer(Group):
         Reset domain timers.
         """
     return_type: str
+
 class parallel(Group):
     _version: str
     fluent_name: str
@@ -28078,6 +31100,7 @@ class parallel(Group):
         Show network bandwidth.
         """
     return_type: str
+
 class root(Group):
     _version: str
     fluent_name: str
@@ -28094,3 +31117,4 @@ class root(Group):
     parallel: parallel
     report: report
     return_type: str
+

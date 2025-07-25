@@ -24,7 +24,7 @@ class OcppDataTests(unittest.TestCase):
             os.remove(path)
 
     def tearDown(self):
-        gw.sql.close_connection(all=True)
+        gw.sql.close_db(all=True)
         if self.old_cfg is not None:
             self.sql_mod._db_configs["ocpp"] = self.old_cfg
         else:
@@ -35,7 +35,7 @@ class OcppDataTests(unittest.TestCase):
         ocpp_data.DBFILE = self.old_db
 
     def test_basic_record_cycle(self):
-        ocpp_data.record_transaction_start("A", 1, 100)
+        ocpp_data.record_transaction_start("A", 1, 100, vin="VIN123", validator="test")
         ocpp_data.record_meter_value("A", 1, 105, "Energy.Active.Import.Register", 500, "Wh")
         ocpp_data.record_transaction_stop("A", 1, 110, meter_stop=550)
         rows = list(ocpp_data.iter_transactions("A"))
@@ -52,7 +52,7 @@ class OcppDataTests(unittest.TestCase):
             " status TEXT, error_code TEXT, info TEXT\n)",
             connection=conn,
         )
-        gw.sql.close_connection(self.DB, project="ocpp", sql_engine=ocpp_data.ENGINE)
+        gw.sql.close_db(self.DB, project="ocpp", sql_engine=ocpp_data.ENGINE)
         ocpp_data.set_connection_status("B", True)
         ocpp_data.record_last_msg("B", 123)
         conn = gw.sql.open_db(project="ocpp")

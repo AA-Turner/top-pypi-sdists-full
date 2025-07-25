@@ -29,6 +29,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    CreateHubContentPresignedUrlsPaginator,
     ListActionsPaginator,
     ListAlgorithmsPaginator,
     ListAliasesPaginator,
@@ -90,6 +91,7 @@ from .paginator import (
     ListPipelineExecutionStepsPaginator,
     ListPipelineParametersForExecutionPaginator,
     ListPipelinesPaginator,
+    ListPipelineVersionsPaginator,
     ListProcessingJobsPaginator,
     ListResourceCatalogsPaginator,
     ListSpacesPaginator,
@@ -164,6 +166,8 @@ from .type_defs import (
     CreateFeatureGroupResponseTypeDef,
     CreateFlowDefinitionRequestTypeDef,
     CreateFlowDefinitionResponseTypeDef,
+    CreateHubContentPresignedUrlsRequestTypeDef,
+    CreateHubContentPresignedUrlsResponseTypeDef,
     CreateHubContentReferenceRequestTypeDef,
     CreateHubContentReferenceResponseTypeDef,
     CreateHubRequestTypeDef,
@@ -593,6 +597,8 @@ from .type_defs import (
     ListPipelineParametersForExecutionResponseTypeDef,
     ListPipelinesRequestTypeDef,
     ListPipelinesResponseTypeDef,
+    ListPipelineVersionsRequestTypeDef,
+    ListPipelineVersionsResponseTypeDef,
     ListProcessingJobsRequestTypeDef,
     ListProcessingJobsResponseTypeDef,
     ListProjectsInputTypeDef,
@@ -653,6 +659,8 @@ from .type_defs import (
     StartNotebookInstanceInputTypeDef,
     StartPipelineExecutionRequestTypeDef,
     StartPipelineExecutionResponseTypeDef,
+    StartSessionRequestTypeDef,
+    StartSessionResponseTypeDef,
     StopAutoMLJobRequestTypeDef,
     StopCompilationJobRequestTypeDef,
     StopEdgeDeploymentStageRequestTypeDef,
@@ -737,6 +745,8 @@ from .type_defs import (
     UpdatePipelineExecutionResponseTypeDef,
     UpdatePipelineRequestTypeDef,
     UpdatePipelineResponseTypeDef,
+    UpdatePipelineVersionRequestTypeDef,
+    UpdatePipelineVersionResponseTypeDef,
     UpdateProjectInputTypeDef,
     UpdateProjectOutputTypeDef,
     UpdateSpaceRequestTypeDef,
@@ -1127,6 +1137,16 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_hub.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_hub)
+        """
+
+    async def create_hub_content_presigned_urls(
+        self, **kwargs: Unpack[CreateHubContentPresignedUrlsRequestTypeDef]
+    ) -> CreateHubContentPresignedUrlsResponseTypeDef:
+        """
+        Creates presigned URLs for accessing hub content artifacts.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/create_hub_content_presigned_urls.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#create_hub_content_presigned_urls)
         """
 
     async def create_hub_content_reference(
@@ -3511,6 +3531,16 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_pipeline_parameters_for_execution)
         """
 
+    async def list_pipeline_versions(
+        self, **kwargs: Unpack[ListPipelineVersionsRequestTypeDef]
+    ) -> ListPipelineVersionsResponseTypeDef:
+        """
+        Gets a list of all versions of the pipeline.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/list_pipeline_versions.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#list_pipeline_versions)
+        """
+
     async def list_pipelines(
         self, **kwargs: Unpack[ListPipelinesRequestTypeDef]
     ) -> ListPipelinesResponseTypeDef:
@@ -3846,6 +3876,17 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/start_pipeline_execution.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#start_pipeline_execution)
+        """
+
+    async def start_session(
+        self, **kwargs: Unpack[StartSessionRequestTypeDef]
+    ) -> StartSessionResponseTypeDef:
+        """
+        Initiates a remote connection session between a local integrated development
+        environments (IDEs) and a remote SageMaker space.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/start_session.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#start_session)
         """
 
     async def stop_auto_ml_job(
@@ -4367,6 +4408,16 @@ class SageMakerClient(AioBaseClient):
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#update_pipeline_execution)
         """
 
+    async def update_pipeline_version(
+        self, **kwargs: Unpack[UpdatePipelineVersionRequestTypeDef]
+    ) -> UpdatePipelineVersionResponseTypeDef:
+        """
+        Updates a pipeline version.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/update_pipeline_version.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#update_pipeline_version)
+        """
+
     async def update_project(
         self, **kwargs: Unpack[UpdateProjectInputTypeDef]
     ) -> UpdateProjectOutputTypeDef:
@@ -4447,6 +4498,17 @@ class SageMakerClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/update_workteam.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#update_workteam)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["create_hub_content_presigned_urls"]
+    ) -> CreateHubContentPresignedUrlsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]
@@ -5102,6 +5164,17 @@ class SageMakerClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_pipeline_parameters_for_execution"]
     ) -> ListPipelineParametersForExecutionPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_pipeline_versions"]
+    ) -> ListPipelineVersionsPaginator:
         """
         Create a paginator for an operation.
 

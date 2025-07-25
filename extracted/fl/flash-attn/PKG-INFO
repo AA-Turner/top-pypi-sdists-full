@@ -1,6 +1,6 @@
 Metadata-Version: 2.2
 Name: flash_attn
-Version: 2.8.1
+Version: 2.8.2
 Summary: Flash Attention: Fast and Memory-Efficient Exact Attention
 Home-page: https://github.com/Dao-AILab/flash-attention
 Author: Tri Dao

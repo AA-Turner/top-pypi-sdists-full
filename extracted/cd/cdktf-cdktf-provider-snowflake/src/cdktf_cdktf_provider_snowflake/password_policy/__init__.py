@@ -1,7 +1,7 @@
 r'''
 # `snowflake_password_policy`
 
-Refer to the Terraform Registry for docs: [`snowflake_password_policy`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy).
+Refer to the Terraform Registry for docs: [`snowflake_password_policy`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class PasswordPolicy(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.passwordPolicy.PasswordPolicy",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy snowflake_password_policy}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy snowflake_password_policy}.'''
 
     def __init__(
         self,
@@ -78,29 +78,29 @@ class PasswordPolicy(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy snowflake_password_policy} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy snowflake_password_policy} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param database: The database this password policy belongs to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#database PasswordPolicy#database}
-        :param name: Identifier for the password policy; must be unique for your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#name PasswordPolicy#name}
-        :param schema: The schema this password policy belongs to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#schema PasswordPolicy#schema}
-        :param comment: Adds a comment or overwrites an existing comment for the password policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#comment PasswordPolicy#comment}
-        :param history: (Default: ``0``) Specifies the number of the most recent passwords that Snowflake stores. These stored passwords cannot be repeated when a user updates their password value. The current password value does not count towards the history. When you increase the history value, Snowflake saves the previous values. When you decrease the value, Snowflake saves the stored values up to that value that is set. For example, if the history value is 8 and you change the history value to 3, Snowflake stores the most recent 3 passwords and deletes the 5 older password values from the history. Default: 0 Max: 24 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#history PasswordPolicy#history}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#id PasswordPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param if_not_exists: (Default: ``false``) Prevent overwriting a previous password policy with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#if_not_exists PasswordPolicy#if_not_exists}
-        :param lockout_time_mins: (Default: ``15``) Specifies the number of minutes the user account will be locked after exhausting the designated number of password retries (i.e. PASSWORD_MAX_RETRIES). Supported range: 1 to 999, inclusive. Default: 15. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#lockout_time_mins PasswordPolicy#lockout_time_mins}
-        :param max_age_days: (Default: ``90``) Specifies the maximum number of days before the password must be changed. Supported range: 0 to 999, inclusive. A value of zero (i.e. 0) indicates that the password does not need to be changed. Snowflake does not recommend choosing this value for a default account-level password policy or for any user-level policy. Instead, choose a value that meets your internal security guidelines. Default: 90, which means the password must be changed every 90 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#max_age_days PasswordPolicy#max_age_days}
-        :param max_length: (Default: ``256``) Specifies the maximum number of characters the password must contain. This number must be greater than or equal to the sum of PASSWORD_MIN_LENGTH, PASSWORD_MIN_UPPER_CASE_CHARS, and PASSWORD_MIN_LOWER_CASE_CHARS. Supported range: 8 to 256, inclusive. Default: 256 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#max_length PasswordPolicy#max_length}
-        :param max_retries: (Default: ``5``) Specifies the maximum number of attempts to enter a password before being locked out. Supported range: 1 to 10, inclusive. Default: 5 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#max_retries PasswordPolicy#max_retries}
-        :param min_age_days: (Default: ``0``) Specifies the number of days the user must wait before a recently changed password can be changed again. Supported range: 0 to 999, inclusive. Default: 0 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_age_days PasswordPolicy#min_age_days}
-        :param min_length: (Default: ``8``) Specifies the minimum number of characters the password must contain. Supported range: 8 to 256, inclusive. Default: 8 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_length PasswordPolicy#min_length}
-        :param min_lower_case_chars: (Default: ``1``) Specifies the minimum number of lowercase characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_lower_case_chars PasswordPolicy#min_lower_case_chars}
-        :param min_numeric_chars: (Default: ``1``) Specifies the minimum number of numeric characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_numeric_chars PasswordPolicy#min_numeric_chars}
-        :param min_special_chars: (Default: ``1``) Specifies the minimum number of special characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_special_chars PasswordPolicy#min_special_chars}
-        :param min_upper_case_chars: (Default: ``1``) Specifies the minimum number of uppercase characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_upper_case_chars PasswordPolicy#min_upper_case_chars}
-        :param or_replace: (Default: ``false``) Whether to override a previous password policy with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#or_replace PasswordPolicy#or_replace}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#timeouts PasswordPolicy#timeouts}
+        :param database: The database this password policy belongs to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#database PasswordPolicy#database}
+        :param name: Identifier for the password policy; must be unique for your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#name PasswordPolicy#name}
+        :param schema: The schema this password policy belongs to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#schema PasswordPolicy#schema}
+        :param comment: Adds a comment or overwrites an existing comment for the password policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#comment PasswordPolicy#comment}
+        :param history: (Default: ``0``) Specifies the number of the most recent passwords that Snowflake stores. These stored passwords cannot be repeated when a user updates their password value. The current password value does not count towards the history. When you increase the history value, Snowflake saves the previous values. When you decrease the value, Snowflake saves the stored values up to that value that is set. For example, if the history value is 8 and you change the history value to 3, Snowflake stores the most recent 3 passwords and deletes the 5 older password values from the history. Default: 0 Max: 24 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#history PasswordPolicy#history}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#id PasswordPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param if_not_exists: (Default: ``false``) Prevent overwriting a previous password policy with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#if_not_exists PasswordPolicy#if_not_exists}
+        :param lockout_time_mins: (Default: ``15``) Specifies the number of minutes the user account will be locked after exhausting the designated number of password retries (i.e. PASSWORD_MAX_RETRIES). Supported range: 1 to 999, inclusive. Default: 15. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#lockout_time_mins PasswordPolicy#lockout_time_mins}
+        :param max_age_days: (Default: ``90``) Specifies the maximum number of days before the password must be changed. Supported range: 0 to 999, inclusive. A value of zero (i.e. 0) indicates that the password does not need to be changed. Snowflake does not recommend choosing this value for a default account-level password policy or for any user-level policy. Instead, choose a value that meets your internal security guidelines. Default: 90, which means the password must be changed every 90 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#max_age_days PasswordPolicy#max_age_days}
+        :param max_length: (Default: ``256``) Specifies the maximum number of characters the password must contain. This number must be greater than or equal to the sum of PASSWORD_MIN_LENGTH, PASSWORD_MIN_UPPER_CASE_CHARS, and PASSWORD_MIN_LOWER_CASE_CHARS. Supported range: 8 to 256, inclusive. Default: 256 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#max_length PasswordPolicy#max_length}
+        :param max_retries: (Default: ``5``) Specifies the maximum number of attempts to enter a password before being locked out. Supported range: 1 to 10, inclusive. Default: 5 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#max_retries PasswordPolicy#max_retries}
+        :param min_age_days: (Default: ``0``) Specifies the number of days the user must wait before a recently changed password can be changed again. Supported range: 0 to 999, inclusive. Default: 0 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_age_days PasswordPolicy#min_age_days}
+        :param min_length: (Default: ``8``) Specifies the minimum number of characters the password must contain. Supported range: 8 to 256, inclusive. Default: 8 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_length PasswordPolicy#min_length}
+        :param min_lower_case_chars: (Default: ``1``) Specifies the minimum number of lowercase characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_lower_case_chars PasswordPolicy#min_lower_case_chars}
+        :param min_numeric_chars: (Default: ``1``) Specifies the minimum number of numeric characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_numeric_chars PasswordPolicy#min_numeric_chars}
+        :param min_special_chars: (Default: ``1``) Specifies the minimum number of special characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_special_chars PasswordPolicy#min_special_chars}
+        :param min_upper_case_chars: (Default: ``1``) Specifies the minimum number of uppercase characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_upper_case_chars PasswordPolicy#min_upper_case_chars}
+        :param or_replace: (Default: ``false``) Whether to override a previous password policy with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#or_replace PasswordPolicy#or_replace}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#timeouts PasswordPolicy#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -157,7 +157,7 @@ class PasswordPolicy(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the PasswordPolicy to import.
-        :param import_from_id: The id of the existing PasswordPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing PasswordPolicy that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the PasswordPolicy to import is found.
         '''
         if __debug__:
@@ -178,10 +178,10 @@ class PasswordPolicy(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#create PasswordPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#delete PasswordPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#read PasswordPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#update PasswordPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#create PasswordPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#delete PasswordPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#read PasswordPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#update PasswordPolicy#update}.
         '''
         value = PasswordPolicyTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -671,25 +671,25 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param database: The database this password policy belongs to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#database PasswordPolicy#database}
-        :param name: Identifier for the password policy; must be unique for your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#name PasswordPolicy#name}
-        :param schema: The schema this password policy belongs to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#schema PasswordPolicy#schema}
-        :param comment: Adds a comment or overwrites an existing comment for the password policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#comment PasswordPolicy#comment}
-        :param history: (Default: ``0``) Specifies the number of the most recent passwords that Snowflake stores. These stored passwords cannot be repeated when a user updates their password value. The current password value does not count towards the history. When you increase the history value, Snowflake saves the previous values. When you decrease the value, Snowflake saves the stored values up to that value that is set. For example, if the history value is 8 and you change the history value to 3, Snowflake stores the most recent 3 passwords and deletes the 5 older password values from the history. Default: 0 Max: 24 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#history PasswordPolicy#history}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#id PasswordPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param if_not_exists: (Default: ``false``) Prevent overwriting a previous password policy with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#if_not_exists PasswordPolicy#if_not_exists}
-        :param lockout_time_mins: (Default: ``15``) Specifies the number of minutes the user account will be locked after exhausting the designated number of password retries (i.e. PASSWORD_MAX_RETRIES). Supported range: 1 to 999, inclusive. Default: 15. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#lockout_time_mins PasswordPolicy#lockout_time_mins}
-        :param max_age_days: (Default: ``90``) Specifies the maximum number of days before the password must be changed. Supported range: 0 to 999, inclusive. A value of zero (i.e. 0) indicates that the password does not need to be changed. Snowflake does not recommend choosing this value for a default account-level password policy or for any user-level policy. Instead, choose a value that meets your internal security guidelines. Default: 90, which means the password must be changed every 90 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#max_age_days PasswordPolicy#max_age_days}
-        :param max_length: (Default: ``256``) Specifies the maximum number of characters the password must contain. This number must be greater than or equal to the sum of PASSWORD_MIN_LENGTH, PASSWORD_MIN_UPPER_CASE_CHARS, and PASSWORD_MIN_LOWER_CASE_CHARS. Supported range: 8 to 256, inclusive. Default: 256 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#max_length PasswordPolicy#max_length}
-        :param max_retries: (Default: ``5``) Specifies the maximum number of attempts to enter a password before being locked out. Supported range: 1 to 10, inclusive. Default: 5 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#max_retries PasswordPolicy#max_retries}
-        :param min_age_days: (Default: ``0``) Specifies the number of days the user must wait before a recently changed password can be changed again. Supported range: 0 to 999, inclusive. Default: 0 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_age_days PasswordPolicy#min_age_days}
-        :param min_length: (Default: ``8``) Specifies the minimum number of characters the password must contain. Supported range: 8 to 256, inclusive. Default: 8 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_length PasswordPolicy#min_length}
-        :param min_lower_case_chars: (Default: ``1``) Specifies the minimum number of lowercase characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_lower_case_chars PasswordPolicy#min_lower_case_chars}
-        :param min_numeric_chars: (Default: ``1``) Specifies the minimum number of numeric characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_numeric_chars PasswordPolicy#min_numeric_chars}
-        :param min_special_chars: (Default: ``1``) Specifies the minimum number of special characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_special_chars PasswordPolicy#min_special_chars}
-        :param min_upper_case_chars: (Default: ``1``) Specifies the minimum number of uppercase characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_upper_case_chars PasswordPolicy#min_upper_case_chars}
-        :param or_replace: (Default: ``false``) Whether to override a previous password policy with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#or_replace PasswordPolicy#or_replace}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#timeouts PasswordPolicy#timeouts}
+        :param database: The database this password policy belongs to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#database PasswordPolicy#database}
+        :param name: Identifier for the password policy; must be unique for your account. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#name PasswordPolicy#name}
+        :param schema: The schema this password policy belongs to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#schema PasswordPolicy#schema}
+        :param comment: Adds a comment or overwrites an existing comment for the password policy. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#comment PasswordPolicy#comment}
+        :param history: (Default: ``0``) Specifies the number of the most recent passwords that Snowflake stores. These stored passwords cannot be repeated when a user updates their password value. The current password value does not count towards the history. When you increase the history value, Snowflake saves the previous values. When you decrease the value, Snowflake saves the stored values up to that value that is set. For example, if the history value is 8 and you change the history value to 3, Snowflake stores the most recent 3 passwords and deletes the 5 older password values from the history. Default: 0 Max: 24 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#history PasswordPolicy#history}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#id PasswordPolicy#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param if_not_exists: (Default: ``false``) Prevent overwriting a previous password policy with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#if_not_exists PasswordPolicy#if_not_exists}
+        :param lockout_time_mins: (Default: ``15``) Specifies the number of minutes the user account will be locked after exhausting the designated number of password retries (i.e. PASSWORD_MAX_RETRIES). Supported range: 1 to 999, inclusive. Default: 15. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#lockout_time_mins PasswordPolicy#lockout_time_mins}
+        :param max_age_days: (Default: ``90``) Specifies the maximum number of days before the password must be changed. Supported range: 0 to 999, inclusive. A value of zero (i.e. 0) indicates that the password does not need to be changed. Snowflake does not recommend choosing this value for a default account-level password policy or for any user-level policy. Instead, choose a value that meets your internal security guidelines. Default: 90, which means the password must be changed every 90 days. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#max_age_days PasswordPolicy#max_age_days}
+        :param max_length: (Default: ``256``) Specifies the maximum number of characters the password must contain. This number must be greater than or equal to the sum of PASSWORD_MIN_LENGTH, PASSWORD_MIN_UPPER_CASE_CHARS, and PASSWORD_MIN_LOWER_CASE_CHARS. Supported range: 8 to 256, inclusive. Default: 256 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#max_length PasswordPolicy#max_length}
+        :param max_retries: (Default: ``5``) Specifies the maximum number of attempts to enter a password before being locked out. Supported range: 1 to 10, inclusive. Default: 5 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#max_retries PasswordPolicy#max_retries}
+        :param min_age_days: (Default: ``0``) Specifies the number of days the user must wait before a recently changed password can be changed again. Supported range: 0 to 999, inclusive. Default: 0 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_age_days PasswordPolicy#min_age_days}
+        :param min_length: (Default: ``8``) Specifies the minimum number of characters the password must contain. Supported range: 8 to 256, inclusive. Default: 8 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_length PasswordPolicy#min_length}
+        :param min_lower_case_chars: (Default: ``1``) Specifies the minimum number of lowercase characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_lower_case_chars PasswordPolicy#min_lower_case_chars}
+        :param min_numeric_chars: (Default: ``1``) Specifies the minimum number of numeric characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_numeric_chars PasswordPolicy#min_numeric_chars}
+        :param min_special_chars: (Default: ``1``) Specifies the minimum number of special characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_special_chars PasswordPolicy#min_special_chars}
+        :param min_upper_case_chars: (Default: ``1``) Specifies the minimum number of uppercase characters the password must contain. Supported range: 0 to 256, inclusive. Default: 1 Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_upper_case_chars PasswordPolicy#min_upper_case_chars}
+        :param or_replace: (Default: ``false``) Whether to override a previous password policy with the same name. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#or_replace PasswordPolicy#or_replace}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#timeouts PasswordPolicy#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -843,7 +843,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def database(self) -> builtins.str:
         '''The database this password policy belongs to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#database PasswordPolicy#database}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#database PasswordPolicy#database}
         '''
         result = self._values.get("database")
         assert result is not None, "Required property 'database' is missing"
@@ -853,7 +853,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def name(self) -> builtins.str:
         '''Identifier for the password policy; must be unique for your account.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#name PasswordPolicy#name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#name PasswordPolicy#name}
         '''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
@@ -863,7 +863,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def schema(self) -> builtins.str:
         '''The schema this password policy belongs to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#schema PasswordPolicy#schema}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#schema PasswordPolicy#schema}
         '''
         result = self._values.get("schema")
         assert result is not None, "Required property 'schema' is missing"
@@ -873,7 +873,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def comment(self) -> typing.Optional[builtins.str]:
         '''Adds a comment or overwrites an existing comment for the password policy.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#comment PasswordPolicy#comment}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#comment PasswordPolicy#comment}
         '''
         result = self._values.get("comment")
         return typing.cast(typing.Optional[builtins.str], result)
@@ -884,14 +884,14 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         These stored passwords cannot be repeated when a user updates their password value. The current password value does not count towards the history. When you increase the history value, Snowflake saves the previous values. When you decrease the value, Snowflake saves the stored values up to that value that is set. For example, if the history value is 8 and you change the history value to 3, Snowflake stores the most recent 3 passwords and deletes the 5 older password values from the history. Default: 0 Max: 24
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#history PasswordPolicy#history}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#history PasswordPolicy#history}
         '''
         result = self._values.get("history")
         return typing.cast(typing.Optional[jsii.Number], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#id PasswordPolicy#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#id PasswordPolicy#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -905,7 +905,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``false``) Prevent overwriting a previous password policy with the same name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#if_not_exists PasswordPolicy#if_not_exists}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#if_not_exists PasswordPolicy#if_not_exists}
         '''
         result = self._values.get("if_not_exists")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -914,7 +914,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def lockout_time_mins(self) -> typing.Optional[jsii.Number]:
         '''(Default: ``15``) Specifies the number of minutes the user account will be locked after exhausting the designated number of password retries (i.e. PASSWORD_MAX_RETRIES). Supported range: 1 to 999, inclusive. Default: 15.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#lockout_time_mins PasswordPolicy#lockout_time_mins}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#lockout_time_mins PasswordPolicy#lockout_time_mins}
         '''
         result = self._values.get("lockout_time_mins")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -925,7 +925,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Supported range: 0 to 999, inclusive. A value of zero (i.e. 0) indicates that the password does not need to be changed. Snowflake does not recommend choosing this value for a default account-level password policy or for any user-level policy. Instead, choose a value that meets your internal security guidelines. Default: 90, which means the password must be changed every 90 days.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#max_age_days PasswordPolicy#max_age_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#max_age_days PasswordPolicy#max_age_days}
         '''
         result = self._values.get("max_age_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -936,7 +936,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         This number must be greater than or equal to the sum of PASSWORD_MIN_LENGTH, PASSWORD_MIN_UPPER_CASE_CHARS, and PASSWORD_MIN_LOWER_CASE_CHARS. Supported range: 8 to 256, inclusive. Default: 256
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#max_length PasswordPolicy#max_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#max_length PasswordPolicy#max_length}
         '''
         result = self._values.get("max_length")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -947,7 +947,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Supported range: 1 to 10, inclusive. Default: 5
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#max_retries PasswordPolicy#max_retries}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#max_retries PasswordPolicy#max_retries}
         '''
         result = self._values.get("max_retries")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -958,7 +958,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Supported range: 0 to 999, inclusive. Default: 0
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_age_days PasswordPolicy#min_age_days}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_age_days PasswordPolicy#min_age_days}
         '''
         result = self._values.get("min_age_days")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -969,7 +969,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Supported range: 8 to 256, inclusive. Default: 8
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_length PasswordPolicy#min_length}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_length PasswordPolicy#min_length}
         '''
         result = self._values.get("min_length")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -980,7 +980,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Supported range: 0 to 256, inclusive. Default: 1
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_lower_case_chars PasswordPolicy#min_lower_case_chars}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_lower_case_chars PasswordPolicy#min_lower_case_chars}
         '''
         result = self._values.get("min_lower_case_chars")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -991,7 +991,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Supported range: 0 to 256, inclusive. Default: 1
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_numeric_chars PasswordPolicy#min_numeric_chars}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_numeric_chars PasswordPolicy#min_numeric_chars}
         '''
         result = self._values.get("min_numeric_chars")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1002,7 +1002,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Supported range: 0 to 256, inclusive. Default: 1
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_special_chars PasswordPolicy#min_special_chars}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_special_chars PasswordPolicy#min_special_chars}
         '''
         result = self._values.get("min_special_chars")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1013,7 +1013,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Supported range: 0 to 256, inclusive. Default: 1
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#min_upper_case_chars PasswordPolicy#min_upper_case_chars}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#min_upper_case_chars PasswordPolicy#min_upper_case_chars}
         '''
         result = self._values.get("min_upper_case_chars")
         return typing.cast(typing.Optional[jsii.Number], result)
@@ -1024,7 +1024,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``false``) Whether to override a previous password policy with the same name.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#or_replace PasswordPolicy#or_replace}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#or_replace PasswordPolicy#or_replace}
         '''
         result = self._values.get("or_replace")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -1033,7 +1033,7 @@ class PasswordPolicyConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["PasswordPolicyTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#timeouts PasswordPolicy#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#timeouts PasswordPolicy#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["PasswordPolicyTimeouts"], result)
@@ -1070,10 +1070,10 @@ class PasswordPolicyTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#create PasswordPolicy#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#delete PasswordPolicy#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#read PasswordPolicy#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#update PasswordPolicy#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#create PasswordPolicy#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#delete PasswordPolicy#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#read PasswordPolicy#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#update PasswordPolicy#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e484c818ceba382230d3b36893f690aaaced903b2a497ecc5b16b4f5d47ae79)
@@ -1093,25 +1093,25 @@ class PasswordPolicyTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#create PasswordPolicy#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#create PasswordPolicy#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#delete PasswordPolicy#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#delete PasswordPolicy#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#read PasswordPolicy#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#read PasswordPolicy#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/password_policy#update PasswordPolicy#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/password_policy#update PasswordPolicy#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

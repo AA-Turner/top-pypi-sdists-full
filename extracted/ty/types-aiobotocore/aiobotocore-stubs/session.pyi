@@ -56,6 +56,10 @@ from types_aiobotocore_bcm_pricing_calculator.client import (
 from types_aiobotocore_bedrock.client import BedrockClient
 from types_aiobotocore_bedrock_agent.client import AgentsforBedrockClient
 from types_aiobotocore_bedrock_agent_runtime.client import AgentsforBedrockRuntimeClient
+from types_aiobotocore_bedrock_agentcore.client import BedrockAgentCoreDataPlaneFrontingLayerClient
+from types_aiobotocore_bedrock_agentcore_control.client import (
+    BedrockAgentCoreControlPlaneFrontingLayerClient,
+)
 from types_aiobotocore_bedrock_data_automation.client import DataAutomationforBedrockClient
 from types_aiobotocore_bedrock_data_automation_runtime.client import (
     RuntimeforBedrockDataAutomationClient,
@@ -296,6 +300,7 @@ from types_aiobotocore_notifications.client import UserNotificationsClient
 from types_aiobotocore_notificationscontacts.client import UserNotificationsContactsClient
 from types_aiobotocore_oam.client import CloudWatchObservabilityAccessManagerClient
 from types_aiobotocore_observabilityadmin.client import CloudWatchObservabilityAdminServiceClient
+from types_aiobotocore_odb.client import OdbClient
 from types_aiobotocore_omics.client import OmicsClient
 from types_aiobotocore_opensearch.client import OpenSearchServiceClient
 from types_aiobotocore_opensearchserverless.client import OpenSearchServiceServerlessClient
@@ -358,6 +363,7 @@ from types_aiobotocore_s3.client import S3Client
 from types_aiobotocore_s3control.client import S3ControlClient
 from types_aiobotocore_s3outposts.client import S3OutpostsClient
 from types_aiobotocore_s3tables.client import S3TablesClient
+from types_aiobotocore_s3vectors.client import S3VectorsClient
 from types_aiobotocore_sagemaker.client import SageMakerClient
 from types_aiobotocore_sagemaker_a2i_runtime.client import AugmentedAIRuntimeClient
 from types_aiobotocore_sagemaker_edge.client import SagemakerEdgeManagerClient
@@ -1279,6 +1285,44 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[AgentsforBedrockRuntimeClient]:
         """
         Create client for AgentsforBedrockRuntime service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["bedrock-agentcore"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[BedrockAgentCoreDataPlaneFrontingLayerClient]:
+        """
+        Create client for BedrockAgentCoreDataPlaneFrontingLayer service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["bedrock-agentcore-control"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[BedrockAgentCoreControlPlaneFrontingLayerClient]:
+        """
+        Create client for BedrockAgentCoreControlPlaneFrontingLayer service.
         """
 
     @overload  # type: ignore[override]
@@ -5692,6 +5736,25 @@ class AioSession(BotocoreSession):
     @overload  # type: ignore[override]
     def create_client(  # type: ignore[override]
         self,
+        service_name: Literal["odb"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[OdbClient]:
+        """
+        Create client for Odb service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
         service_name: Literal["omics"],
         region_name: str | None = ...,
         api_version: str | None = ...,
@@ -6827,6 +6890,25 @@ class AioSession(BotocoreSession):
     ) -> ClientCreatorContext[S3TablesClient]:
         """
         Create client for S3Tables service.
+        """
+
+    @overload  # type: ignore[override]
+    def create_client(  # type: ignore[override]
+        self,
+        service_name: Literal["s3vectors"],
+        region_name: str | None = ...,
+        api_version: str | None = ...,
+        use_ssl: bool | None = ...,
+        verify: bool | str | None = ...,
+        endpoint_url: str | None = ...,
+        aws_access_key_id: str | None = ...,
+        aws_secret_access_key: str | None = ...,
+        aws_session_token: str | None = ...,
+        config: AioConfig | None = ...,
+        aws_account_id: str | None = ...,
+    ) -> ClientCreatorContext[S3VectorsClient]:
+        """
+        Create client for S3Vectors service.
         """
 
     @overload  # type: ignore[override]

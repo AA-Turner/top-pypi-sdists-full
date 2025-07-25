@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lightrag-hku
-Version: 1.4.3
+Version: 1.4.4
 Summary: LightRAG: Simple and Fast Retrieval-Augmented Generation
 Author: Zirui Guo
 License: MIT
@@ -21,6 +21,8 @@ Requires-Dist: aiohttp
 Requires-Dist: configparser
 Requires-Dist: dotenv
 Requires-Dist: future
+Requires-Dist: nano-vectordb
+Requires-Dist: networkx
 Requires-Dist: numpy
 Requires-Dist: pandas>=2.0.0
 Requires-Dist: pipmaster
@@ -283,12 +285,12 @@ async def main():
     try:
         # Initialize RAG instance
         rag = await initialize_rag()
-        rag.insert("Your text")
+        await rag.ainsert("Your text")
 
         # Perform hybrid search
         mode = "hybrid"
         print(
-          await rag.query(
+          await rag.aquery(
               "What are the top themes in this story?",
               param=QueryParam(mode=mode)
           )

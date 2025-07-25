@@ -17,7 +17,7 @@ This line imports [all common QuantConnect members](https://github.com/QuantConn
 
 setup(
     name="quantconnect-stubs",
-    version="17213",
+    version="17218",
     description="Type stubs for QuantConnect's Lean",
     author="QuantConnect",
     author_email="support@quantconnect.com",
@@ -72,6 +72,7 @@ setup(
         "QuantConnect.Api.Serialization",
         "QuantConnect.Benchmarks",
         "QuantConnect.Brokerages",
+        "QuantConnect.Brokerages.Authentication",
         "QuantConnect.Brokerages.Backtesting",
         "QuantConnect.Brokerages.CrossZero",
         "QuantConnect.Brokerages.LevelOneOrderBook",
@@ -286,6 +287,7 @@ setup(
         "QuantConnect.Api.Serialization": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Benchmarks": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Brokerages": ["*.py", "*.pyi", "py.typed"],
+        "QuantConnect.Brokerages.Authentication": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Brokerages.Backtesting": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Brokerages.CrossZero": ["*.py", "*.pyi", "py.typed"],
         "QuantConnect.Brokerages.LevelOneOrderBook": ["*.py", "*.pyi", "py.typed"],

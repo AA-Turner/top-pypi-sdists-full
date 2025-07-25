@@ -59,14 +59,24 @@ class HotglueBaseSink(Rest):
         return mapping
 
     def init_state(self):
-        self.latest_state = self._state or {"bookmarks": {}, "summary": {}}
+        # get the full target state
+        target_state = self._target._latest_state
+
+        # If there is data for the stream name in target_state use that to initialize the state
+        if target_state:
+            if not self._state and target_state["bookmarks"].get(self.name) and target_state["summary"].get(self.name):
+                self.latest_state = target_state
+        # If not init sink state latest_state
+        if not self.latest_state:
+            self.latest_state = self._state or {"bookmarks": {}, "summary": {}}
 
         if self.name not in self.latest_state["bookmarks"]:
             if not self.latest_state["bookmarks"].get(self.name):
                 self.latest_state["bookmarks"][self.name] = []
 
         if not self.summary_init:
-            self.latest_state["summary"] = {}
+            if not self.latest_state.get("summary"):
+                self.latest_state["summary"] = {}
             if not self.latest_state["summary"].get(self.name):
                 self.latest_state["summary"][self.name] = {"success": 0, "fail": 0, "existing": 0, "updated": 0}
 

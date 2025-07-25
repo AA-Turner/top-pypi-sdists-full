@@ -47,6 +47,7 @@ from .type_defs import (
     GetItemInputTableGetItemTypeDef,
     GetItemOutputTableTypeDef,
     GlobalSecondaryIndexDescriptionTypeDef,
+    GlobalTableWitnessDescriptionTypeDef,
     KeySchemaElementTypeDef,
     LocalSecondaryIndexDescriptionTypeDef,
     OnDemandThroughputTypeDef,
@@ -181,6 +182,7 @@ class Table(AIOBoto3ServiceResource):
     latest_stream_arn: Awaitable[str]
     global_table_version: Awaitable[str]
     replicas: Awaitable[List[ReplicaDescriptionTypeDef]]
+    global_table_witnesses: Awaitable[List[GlobalTableWitnessDescriptionTypeDef]]
     restore_summary: Awaitable[RestoreSummaryTypeDef]
     sse_description: Awaitable[SSEDescriptionTypeDef]
     archival_summary: Awaitable[ArchivalSummaryTypeDef]

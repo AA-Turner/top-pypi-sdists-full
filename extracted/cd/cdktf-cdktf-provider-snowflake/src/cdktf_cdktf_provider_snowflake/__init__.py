@@ -1,7 +1,7 @@
 r'''
-# CDKTF prebuilt bindings for snowflakedb/snowflake provider version 2.3.0
+# CDKTF prebuilt bindings for snowflakedb/snowflake provider version 2.4.0
 
-This repo builds and publishes the [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
+This repo builds and publishes the [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs) bindings for [CDK for Terraform](https://cdk.tf).
 
 ## Available Packages
 
@@ -63,7 +63,7 @@ This project is explicitly not tracking the Terraform snowflake provider version
 These are the upstream dependencies:
 
 * [CDK for Terraform](https://cdk.tf)
-* [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0)
+* [Terraform snowflake provider](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0)
 * [Terraform Engine](https://terraform.io)
 
 If there are breaking changes (backward incompatible) in any of the above, the major version of this project will be bumped.
@@ -140,6 +140,7 @@ __all__ = [
     "compute_pool",
     "cortex_search_service",
     "current_account",
+    "current_organization_account",
     "data_snowflake_account_roles",
     "data_snowflake_accounts",
     "data_snowflake_alerts",
@@ -186,6 +187,7 @@ __all__ = [
     "data_snowflake_tables",
     "data_snowflake_tags",
     "data_snowflake_tasks",
+    "data_snowflake_user_programmatic_access_tokens",
     "data_snowflake_users",
     "data_snowflake_views",
     "data_snowflake_warehouses",
@@ -267,6 +269,7 @@ __all__ = [
     "user",
     "user_authentication_policy_attachment",
     "user_password_policy_attachment",
+    "user_programmatic_access_token",
     "user_public_keys",
     "view",
     "warehouse",
@@ -289,6 +292,7 @@ from . import authentication_policy
 from . import compute_pool
 from . import cortex_search_service
 from . import current_account
+from . import current_organization_account
 from . import data_snowflake_account_roles
 from . import data_snowflake_accounts
 from . import data_snowflake_alerts
@@ -335,6 +339,7 @@ from . import data_snowflake_system_get_snowflake_platform_info
 from . import data_snowflake_tables
 from . import data_snowflake_tags
 from . import data_snowflake_tasks
+from . import data_snowflake_user_programmatic_access_tokens
 from . import data_snowflake_users
 from . import data_snowflake_views
 from . import data_snowflake_warehouses
@@ -416,6 +421,7 @@ from . import task
 from . import user
 from . import user_authentication_policy_attachment
 from . import user_password_policy_attachment
+from . import user_programmatic_access_token
 from . import user_public_keys
 from . import view
 from . import warehouse

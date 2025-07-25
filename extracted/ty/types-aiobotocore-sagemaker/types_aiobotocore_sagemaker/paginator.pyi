@@ -12,6 +12,7 @@ Usage::
 
     from types_aiobotocore_sagemaker.client import SageMakerClient
     from types_aiobotocore_sagemaker.paginator import (
+        CreateHubContentPresignedUrlsPaginator,
         ListActionsPaginator,
         ListAlgorithmsPaginator,
         ListAliasesPaginator,
@@ -72,6 +73,7 @@ Usage::
         ListPipelineExecutionStepsPaginator,
         ListPipelineExecutionsPaginator,
         ListPipelineParametersForExecutionPaginator,
+        ListPipelineVersionsPaginator,
         ListPipelinesPaginator,
         ListProcessingJobsPaginator,
         ListResourceCatalogsPaginator,
@@ -96,6 +98,7 @@ Usage::
     with session.create_client("sagemaker") as client:
         client: SageMakerClient
 
+        create_hub_content_presigned_urls_paginator: CreateHubContentPresignedUrlsPaginator = client.get_paginator("create_hub_content_presigned_urls")
         list_actions_paginator: ListActionsPaginator = client.get_paginator("list_actions")
         list_algorithms_paginator: ListAlgorithmsPaginator = client.get_paginator("list_algorithms")
         list_aliases_paginator: ListAliasesPaginator = client.get_paginator("list_aliases")
@@ -156,6 +159,7 @@ Usage::
         list_pipeline_execution_steps_paginator: ListPipelineExecutionStepsPaginator = client.get_paginator("list_pipeline_execution_steps")
         list_pipeline_executions_paginator: ListPipelineExecutionsPaginator = client.get_paginator("list_pipeline_executions")
         list_pipeline_parameters_for_execution_paginator: ListPipelineParametersForExecutionPaginator = client.get_paginator("list_pipeline_parameters_for_execution")
+        list_pipeline_versions_paginator: ListPipelineVersionsPaginator = client.get_paginator("list_pipeline_versions")
         list_pipelines_paginator: ListPipelinesPaginator = client.get_paginator("list_pipelines")
         list_processing_jobs_paginator: ListProcessingJobsPaginator = client.get_paginator("list_processing_jobs")
         list_resource_catalogs_paginator: ListResourceCatalogsPaginator = client.get_paginator("list_resource_catalogs")
@@ -185,6 +189,8 @@ from typing import TYPE_CHECKING
 from aiobotocore.paginate import AioPageIterator, AioPaginator
 
 from .type_defs import (
+    CreateHubContentPresignedUrlsRequestPaginateTypeDef,
+    CreateHubContentPresignedUrlsResponseTypeDef,
     ListActionsRequestPaginateTypeDef,
     ListActionsResponseTypeDef,
     ListAlgorithmsInputPaginateTypeDef,
@@ -307,6 +313,8 @@ from .type_defs import (
     ListPipelineParametersForExecutionResponseTypeDef,
     ListPipelinesRequestPaginateTypeDef,
     ListPipelinesResponseTypeDef,
+    ListPipelineVersionsRequestPaginateTypeDef,
+    ListPipelineVersionsResponseTypeDef,
     ListProcessingJobsRequestPaginateTypeDef,
     ListProcessingJobsResponseTypeDef,
     ListResourceCatalogsRequestPaginateTypeDef,
@@ -349,6 +357,7 @@ else:
     from typing_extensions import Unpack
 
 __all__ = (
+    "CreateHubContentPresignedUrlsPaginator",
     "ListActionsPaginator",
     "ListAlgorithmsPaginator",
     "ListAliasesPaginator",
@@ -409,6 +418,7 @@ __all__ = (
     "ListPipelineExecutionStepsPaginator",
     "ListPipelineExecutionsPaginator",
     "ListPipelineParametersForExecutionPaginator",
+    "ListPipelineVersionsPaginator",
     "ListPipelinesPaginator",
     "ListProcessingJobsPaginator",
     "ListResourceCatalogsPaginator",
@@ -428,6 +438,26 @@ __all__ = (
     "ListWorkteamsPaginator",
     "SearchPaginator",
 )
+
+if TYPE_CHECKING:
+    _CreateHubContentPresignedUrlsPaginatorBase = AioPaginator[
+        CreateHubContentPresignedUrlsResponseTypeDef
+    ]
+else:
+    _CreateHubContentPresignedUrlsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class CreateHubContentPresignedUrlsPaginator(_CreateHubContentPresignedUrlsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/CreateHubContentPresignedUrls.html#SageMaker.Paginator.CreateHubContentPresignedUrls)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#createhubcontentpresignedurlspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[CreateHubContentPresignedUrlsRequestPaginateTypeDef]
+    ) -> AioPageIterator[CreateHubContentPresignedUrlsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/CreateHubContentPresignedUrls.html#SageMaker.Paginator.CreateHubContentPresignedUrls.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#createhubcontentpresignedurlspaginator)
+        """
 
 if TYPE_CHECKING:
     _ListActionsPaginatorBase = AioPaginator[ListActionsResponseTypeDef]
@@ -1541,6 +1571,24 @@ class ListPipelineParametersForExecutionPaginator(_ListPipelineParametersForExec
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListPipelineParametersForExecution.html#SageMaker.Paginator.ListPipelineParametersForExecution.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listpipelineparametersforexecutionpaginator)
+        """
+
+if TYPE_CHECKING:
+    _ListPipelineVersionsPaginatorBase = AioPaginator[ListPipelineVersionsResponseTypeDef]
+else:
+    _ListPipelineVersionsPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+class ListPipelineVersionsPaginator(_ListPipelineVersionsPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListPipelineVersions.html#SageMaker.Paginator.ListPipelineVersions)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listpipelineversionspaginator)
+    """
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[ListPipelineVersionsRequestPaginateTypeDef]
+    ) -> AioPageIterator[ListPipelineVersionsResponseTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/sagemaker/paginator/ListPipelineVersions.html#SageMaker.Paginator.ListPipelineVersions.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_sagemaker/paginators/#listpipelineversionspaginator)
         """
 
 if TYPE_CHECKING:

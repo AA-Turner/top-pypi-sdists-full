@@ -1787,6 +1787,31 @@ class Annotations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Annotations"):
             check_type(argname="argument scope", value=scope, expected_type=type_hints["scope"])
         return typing.cast("Annotations", jsii.sinvoke(cls, "of", [scope]))
 
+    @jsii.member(jsii_name="acknowledgeInfo")
+    def acknowledge_info(
+        self,
+        id: builtins.str,
+        message: typing.Optional[builtins.str] = None,
+    ) -> None:
+        '''Acknowledge a info. When a info is acknowledged for a scope all infos that match the id will be ignored.
+
+        The acknowledgement will apply to all child scopes
+
+        :param id: - the id of the info message to acknowledge.
+        :param message: optional message to explain the reason for acknowledgement.
+
+        Example::
+
+            # my_construct: Construct
+            
+            Annotations.of(my_construct).acknowledge_info("SomeInfoId", "This info can be ignored because...")
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__71c75ad95e6c491e615a0c0a9cc9bc5b538f2d93e7057612251cfc9592380513)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument message", value=message, expected_type=type_hints["message"])
+        return typing.cast(None, jsii.invoke(self, "acknowledgeInfo", [id, message]))
+
     @jsii.member(jsii_name="acknowledgeWarning")
     def acknowledge_warning(
         self,
@@ -1856,6 +1881,29 @@ class Annotations(metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.Annotations"):
             type_hints = typing.get_type_hints(_typecheckingstub__42febf8c4cbec6748c47fab1f601511d3bc57ef5bc415cb489e10605f242ffa4)
             check_type(argname="argument message", value=message, expected_type=type_hints["message"])
         return typing.cast(None, jsii.invoke(self, "addInfo", [message]))
+
+    @jsii.member(jsii_name="addInfoV2")
+    def add_info_v2(self, id: builtins.str, message: builtins.str) -> None:
+        '''Adds an acknowledgeable info metadata entry to this construct.
+
+        The CLI will display the info when an app is synthesized.
+
+        If the info is acknowledged using ``acknowledgeInfo()``, it will not be shown by the CLI.
+
+        :param id: the unique identifier for the info. This can be used to acknowledge the info
+        :param message: The info message.
+
+        Example::
+
+            # my_construct: Construct
+            
+            Annotations.of(my_construct).add_info_v2("my-library:Construct.someInfo", "Some message explaining the info")
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__843fb7798b96b5a06278ca94ba80d2ae0fb300672c44f21b2ee4d759a04bdba9)
+            check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument message", value=message, expected_type=type_hints["message"])
+        return typing.cast(None, jsii.invoke(self, "addInfoV2", [id, message]))
 
     @jsii.member(jsii_name="addWarning")
     def add_warning(self, message: builtins.str) -> None:
@@ -33997,7 +34045,9 @@ class CfnStackSet(
             enabled: typing.Optional[typing.Union[builtins.bool, IResolvable]] = None,
             retain_stacks_on_account_removal: typing.Optional[typing.Union[builtins.bool, IResolvable]] = None,
         ) -> None:
-            '''[ ``Service-managed`` permissions] Describes whether StackSets automatically deploys to AWS Organizations accounts that are added to a target organizational unit (OU).
+            '''Describes whether StackSets automatically deploys to AWS Organizations accounts that are added to a target organization or organizational unit (OU).
+
+            For more information, see `Enable or disable automatic deployments for StackSets in AWS Organizations <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/stacksets-orgs-manage-auto-deployment.html>`_ in the *AWS CloudFormation User Guide* .
 
             :param enabled: If set to ``true`` , StackSets automatically deploys additional stack instances to AWS Organizations accounts that are added to a target organization or organizational unit (OU) in the specified Regions. If an account is removed from a target organization or OU, StackSets deletes stack instances from the account in the specified Regions.
             :param retain_stacks_on_account_removal: If set to ``true`` , stack resources are retained when an account is removed from a target organization or OU. If set to ``false`` , stack resources are deleted. Specify only if ``Enabled`` is set to ``True`` .
@@ -34080,11 +34130,20 @@ class CfnStackSet(
             accounts_url: typing.Optional[builtins.str] = None,
             organizational_unit_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
         ) -> None:
-            '''The AWS ``OrganizationalUnitIds`` or ``Accounts`` for which to create stack instances in the specified Regions.
+            '''The AWS Organizations accounts or AWS accounts to deploy stacks to in the specified Regions.
 
-            :param account_filter_type: Limit deployment targets to individual accounts or include additional accounts with provided OUs. The following is a list of possible values for the ``AccountFilterType`` operation. - ``INTERSECTION`` : StackSet deploys to the accounts specified in the ``Accounts`` parameter. - ``DIFFERENCE`` : StackSet deploys to the OU, excluding the accounts specified in the ``Accounts`` parameter. - ``UNION`` StackSet deploys to the OU, and the accounts specified in the ``Accounts`` parameter. ``UNION`` is not supported for create operations when using StackSet as a resource.
+            When deploying to AWS Organizations accounts with ``SERVICE_MANAGED`` permissions:
+
+            - You must specify the ``OrganizationalUnitIds`` property.
+            - If you specify organizational units (OUs) for ``OrganizationalUnitIds`` and use either the ``Accounts`` or ``AccountsUrl`` property, you must also specify the ``AccountFilterType`` property.
+
+            When deploying to AWS accounts with ``SELF_MANAGED`` permissions:
+
+            - You must specify either the ``Accounts`` or ``AccountsUrl`` property, but not both.
+
+            :param account_filter_type: Refines which accounts to deploy stacks to by specifying how to use the ``Accounts`` and ``OrganizationalUnitIds`` properties together. The following values determine how CloudFormation selects target accounts: - ``INTERSECTION`` : StackSet deploys to the accounts specified in the ``Accounts`` property. - ``DIFFERENCE`` : StackSet deploys to the OU, excluding the accounts specified in the ``Accounts`` property. - ``UNION`` : StackSet deploys to the OU, and the accounts specified in the ``Accounts`` property. ``UNION`` is not supported for create operations when using StackSet as a resource or the ``CreateStackInstances`` API.
             :param accounts: The account IDs of the AWS accounts . If you have many account numbers, you can provide those accounts using the ``AccountsUrl`` property instead. *Pattern* : ``^[0-9]{12}$``
-            :param accounts_url: The Amazon S3 URL path to a file that contains a list of AWS account IDs. The file format must be either ``.csv`` or ``.txt`` , and the data can be comma-separated or new-line-separated. There is currently a 10MB limit for the data (approximately 800,000 accounts).
+            :param accounts_url: The Amazon S3 URL path to a file that contains a list of AWS account IDs. The file format must be either ``.csv`` or ``.txt`` , and the data can be comma-separated or new-line-separated. There is currently a 10MB limit for the data (approximately 800,000 accounts). This property serves the same purpose as ``Accounts`` but allows you to specify a large number of accounts.
             :param organizational_unit_ids: The organization root ID or organizational unit (OU) IDs. *Pattern* : ``^(ou-[a-z0-9]{4,32}-[a-z0-9]{8,32}|r-[a-z0-9]{4,32})$``
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-deploymenttargets.html
@@ -34121,13 +34180,13 @@ class CfnStackSet(
 
         @builtins.property
         def account_filter_type(self) -> typing.Optional[builtins.str]:
-            '''Limit deployment targets to individual accounts or include additional accounts with provided OUs.
+            '''Refines which accounts to deploy stacks to by specifying how to use the ``Accounts`` and ``OrganizationalUnitIds`` properties together.
 
-            The following is a list of possible values for the ``AccountFilterType`` operation.
+            The following values determine how CloudFormation selects target accounts:
 
-            - ``INTERSECTION`` : StackSet deploys to the accounts specified in the ``Accounts`` parameter.
-            - ``DIFFERENCE`` : StackSet deploys to the OU, excluding the accounts specified in the ``Accounts`` parameter.
-            - ``UNION`` StackSet deploys to the OU, and the accounts specified in the ``Accounts`` parameter. ``UNION`` is not supported for create operations when using StackSet as a resource.
+            - ``INTERSECTION`` : StackSet deploys to the accounts specified in the ``Accounts`` property.
+            - ``DIFFERENCE`` : StackSet deploys to the OU, excluding the accounts specified in the ``Accounts`` property.
+            - ``UNION`` : StackSet deploys to the OU, and the accounts specified in the ``Accounts`` property. ``UNION`` is not supported for create operations when using StackSet as a resource or the ``CreateStackInstances`` API.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-deploymenttargets.html#cfn-cloudformation-stackset-deploymenttargets-accountfiltertype
             '''
@@ -34152,6 +34211,8 @@ class CfnStackSet(
             '''The Amazon S3 URL path to a file that contains a list of AWS account IDs.
 
             The file format must be either ``.csv`` or ``.txt`` , and the data can be comma-separated or new-line-separated. There is currently a 10MB limit for the data (approximately 800,000 accounts).
+
+            This property serves the same purpose as ``Accounts`` but allows you to specify a large number of accounts.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-deploymenttargets.html#cfn-cloudformation-stackset-deploymenttargets-accountsurl
             '''
@@ -34193,7 +34254,7 @@ class CfnStackSet(
         ) -> None:
             '''Describes whether StackSets performs non-conflicting operations concurrently and queues conflicting operations.
 
-            :param active: When ``true`` , StackSets performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, StackSets starts queued operations in request order. .. epigraph:: If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting. You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet. When ``false`` (default), StackSets performs one operation at a time in request order.
+            :param active: When ``true`` , CloudFormation performs non-conflicting operations concurrently and queues conflicting operations. After conflicting operations finish, CloudFormation starts queued operations in request order. .. epigraph:: If there are already running or queued operations, CloudFormation queues all incoming operations even if they are non-conflicting. You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet. When ``false`` (default), StackSets performs one operation at a time in request order.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-managedexecution.html
             :exampleMetadata: fixture=_generated
@@ -34217,12 +34278,12 @@ class CfnStackSet(
 
         @builtins.property
         def active(self) -> typing.Optional[typing.Union[builtins.bool, IResolvable]]:
-            '''When ``true`` , StackSets performs non-conflicting operations concurrently and queues conflicting operations.
+            '''When ``true`` , CloudFormation performs non-conflicting operations concurrently and queues conflicting operations.
 
-            After conflicting operations finish, StackSets starts queued operations in request order.
+            After conflicting operations finish, CloudFormation starts queued operations in request order.
             .. epigraph::
 
-               If there are already running or queued operations, StackSets queues all incoming operations even if they are non-conflicting.
+               If there are already running or queued operations, CloudFormation queues all incoming operations even if they are non-conflicting.
 
                You can't modify your StackSet's execution configuration while there are running or queued operations for that StackSet.
 
@@ -34522,7 +34583,7 @@ class CfnStackSet(
         ) -> None:
             '''Stack instances in some specific accounts and Regions.
 
-            :param deployment_targets: The AWS ``OrganizationalUnitIds`` or ``Accounts`` for which to create stack instances in the specified Regions.
+            :param deployment_targets: The AWS Organizations accounts or AWS accounts to deploy stacks to in the specified Regions.
             :param regions: The names of one or more Regions where you want to create stack instances using the specified AWS accounts .
             :param parameter_overrides: A list of StackSet parameters whose values you want to override in the selected stack instances.
 
@@ -34567,7 +34628,7 @@ class CfnStackSet(
         def deployment_targets(
             self,
         ) -> typing.Union[IResolvable, "CfnStackSet.DeploymentTargetsProperty"]:
-            '''The AWS ``OrganizationalUnitIds`` or ``Accounts`` for which to create stack instances in the specified Regions.
+            '''The AWS Organizations accounts or AWS accounts to deploy stacks to in the specified Regions.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-cloudformation-stackset-stackinstances.html#cfn-cloudformation-stackset-stackinstances-deploymenttargets
             '''
@@ -36445,6 +36506,12 @@ class NestedStack(Stack, metaclass=jsii.JSIIMeta, jsii_type="aws-cdk-lib.NestedS
             check_type(argname="argument name", value=name, expected_type=type_hints["name"])
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         return typing.cast(None, jsii.invoke(self, "setParameter", [name, value]))
+
+    @builtins.property
+    @jsii.member(jsii_name="bundlingRequired")
+    def bundling_required(self) -> builtins.bool:
+        '''Indicates whether the stack requires bundling or not.'''
+        return typing.cast(builtins.bool, jsii.get(self, "bundlingRequired"))
 
     @builtins.property
     @jsii.member(jsii_name="stackId")
@@ -38387,6 +38454,13 @@ def _typecheckingstub__cfddeb4c359528028785fb7ca8a01e86bcda81d53c82cdaef6ad18dd0
     """Type checking stubs"""
     pass
 
+def _typecheckingstub__71c75ad95e6c491e615a0c0a9cc9bc5b538f2d93e7057612251cfc9592380513(
+    id: builtins.str,
+    message: typing.Optional[builtins.str] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
 def _typecheckingstub__58bb467dabbe29a0334a62f44fa1a8a9b59742b9dfac031624ed782055bf0ada(
     id: builtins.str,
     message: typing.Optional[builtins.str] = None,
@@ -38408,6 +38482,13 @@ def _typecheckingstub__9858aa055da72c40f4a88e5f9f9ee8f0faebb6aa694ede90702a9558a
     pass
 
 def _typecheckingstub__42febf8c4cbec6748c47fab1f601511d3bc57ef5bc415cb489e10605f242ffa4(
+    message: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__843fb7798b96b5a06278ca94ba80d2ae0fb300672c44f21b2ee4d759a04bdba9(
+    id: builtins.str,
     message: builtins.str,
 ) -> None:
     """Type checking stubs"""

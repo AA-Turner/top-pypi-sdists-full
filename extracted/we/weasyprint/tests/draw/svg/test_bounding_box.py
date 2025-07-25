@@ -172,7 +172,6 @@ def test_bounding_box_polyline(assert_pixels):
     ''')
 
 
-@pytest.mark.xfail
 @assert_no_logs
 def test_bounding_box_text(assert_pixels):
     assert_pixels('''
@@ -187,12 +186,11 @@ def test_bounding_box_text(assert_pixels):
         <defs>
           <linearGradient id="grad" x1="0" y1="0" x2="1" y2="1"
             gradientUnits="objectBoundingBox">
-            <stop stop-color="blue" offset="55%"></stop>
-            <stop stop-color="red" offset="55%"></stop>
+            <stop stop-color="blue" offset="65%"></stop>
+            <stop stop-color="red" offset="65%"></stop>
           </linearGradient>
         </defs>
-        <text x="0" y="1" font-family="weasyprint" font-size="2"
-              fill="url(#grad)">
+        <text x="0" y="2" font-family="weasyprint" font-size="2" fill="url(#grad)">
           A
         </text>
       </svg>
@@ -326,5 +324,27 @@ def test_svg_empty_size(assert_pixels):
       </style>
       <svg xmlns="http://www.w3.org/2000/svg">
         <rect x="0" y="0" width="3" height="4" fill="blue" />
+      </svg>
+    ''')
+
+
+@assert_no_logs
+def test_bounding_box_use_opacity(assert_pixels):
+    assert_pixels('''
+        sssss
+        sssss
+        sssss
+        sssss
+        sssss
+    ''', '''
+      <style>
+        @page { size: 5px }
+        svg { display: block }
+      </style>
+      <svg width="5px" height="5px" xmlns="http://www.w3.org/2000/svg">
+        <defs>
+          <rect id="rect" x="-10" y="-10" width="5" height="5" fill="red" />
+        </defs>
+        <use href="#rect" opacity="0.5" x="10" y="10" />
       </svg>
     ''')

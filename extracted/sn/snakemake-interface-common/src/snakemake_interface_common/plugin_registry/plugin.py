@@ -130,7 +130,7 @@ class PluginBase(ABC, Generic[TSettingsBase]):
                 for thefield in fields(self.settings_cls)
             ]
 
-    def register_cli_args(self, argparser: "ArgumentParser") -> None:
+    def register_cli_args(self, argparser: "ArgumentParser", plugin_type: str) -> None:
         """Add arguments derived from self.executor_settings to given
         argparser."""
 
@@ -151,7 +151,9 @@ class PluginBase(ABC, Generic[TSettingsBase]):
                     self.name, "Fields of ExecutorSettings must have a default value."
                 )
 
-        settings = argparser.add_argument_group(f"{self.name} plugin settings")
+        settings = argparser.add_argument_group(
+            f"{self.name} {plugin_type} plugin settings"
+        )
 
         for thefield in fields(params):
             prefixed_name = self._get_prefixed_name(thefield.name).replace("-", "_")

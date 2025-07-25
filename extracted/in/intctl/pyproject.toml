@@ -1,6 +1,6 @@
 [project]
 name = "intctl"
-version = "1.0.2"
+version = "1.0.19"
 description = "INTELLITHING Bootstrap CLI for provisioning cloud resources"
 authors = [{ name="INTELLITHING Ltd", email="hello@intellithing.tech" }]
 readme = "README.md"

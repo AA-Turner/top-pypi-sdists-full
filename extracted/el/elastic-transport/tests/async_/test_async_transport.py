@@ -46,17 +46,21 @@ from tests.conftest import AsyncDummyNode
 
 
 @pytest.mark.asyncio
-async def test_async_transport_httpbin(httpbin_node_config):
+async def test_async_transport_httpbin(httpbin_node_config, httpbin):
     t = AsyncTransport([httpbin_node_config], meta_header=False)
     resp, data = await t.perform_request("GET", "/anything?key=value")
 
     assert resp.status == 200
     assert data["method"] == "GET"
-    assert data["url"] == "https://httpbin.org/anything?key=value"
+    assert data["url"] == f"{httpbin.url}/anything?key=value"
     assert data["args"] == {"key": "value"}
 
     data["headers"].pop("X-Amzn-Trace-Id", None)
-    assert data["headers"] == {"User-Agent": DEFAULT_USER_AGENT, "Host": "httpbin.org"}
+    assert data["headers"] == {
+        "User-Agent": DEFAULT_USER_AGENT,
+        "Connection": "keep-alive",
+        "Host": f"{httpbin.host}:{httpbin.port}",
+    }
 
 
 @pytest.mark.skipif(
@@ -389,7 +393,6 @@ async def test_sniff_on_start():
     calls = []
 
     def sniff_callback(*args):
-        nonlocal calls
         calls.append(args)
         return [NodeConfig("http", "localhost", 80)]
 
@@ -416,7 +419,6 @@ async def test_sniff_before_requests():
     calls = []
 
     def sniff_callback(*args):
-        nonlocal calls
         calls.append(args)
         return []
 
@@ -442,7 +444,6 @@ async def test_sniff_on_node_failure():
     calls = []
 
     def sniff_callback(*args):
-        nonlocal calls
         calls.append(args)
         return []
 
@@ -547,7 +548,7 @@ async def test_sniffed_nodes_added_to_pool(async_sniff_callback):
     if async_sniff_callback:
 
         async def sniff_callback(*_):
-            nonlocal loop, sniffed_at
+            nonlocal sniffed_at
             await asyncio.sleep(0.1)
             sniffed_at = loop.time()
             return sniffed_nodes
@@ -555,7 +556,7 @@ async def test_sniffed_nodes_added_to_pool(async_sniff_callback):
     else:
 
         def sniff_callback(*_):
-            nonlocal loop, sniffed_at
+            nonlocal sniffed_at
             time.sleep(0.1)
             sniffed_at = loop.time()
             return sniffed_nodes

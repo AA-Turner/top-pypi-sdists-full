@@ -2545,6 +2545,58 @@ class IDataMonitor(System.IDisposable, metaclass=abc.ABCMeta):
         ...
 
 
+class IMessagingHandler(System.IDisposable, metaclass=abc.ABCMeta):
+    """
+    Messaging System Plugin Interface.
+    Provides a common messaging pattern between desktop and cloud implementations of QuantConnect.
+    """
+
+    @property
+    @abc.abstractmethod
+    def has_subscribers(self) -> bool:
+        """
+        Gets or sets whether this messaging handler has any current subscribers.
+        When set to false, messages won't be sent.
+        """
+        ...
+
+    @has_subscribers.setter
+    def has_subscribers(self, value: bool) -> None:
+        ...
+
+    def initialize(self, initialize_parameters: QuantConnect.Interfaces.MessagingHandlerInitializeParameters) -> None:
+        """
+        Initialize the Messaging System Plugin.
+        
+        :param initialize_parameters: The parameters required for initialization
+        """
+        ...
+
+    def send(self, packet: QuantConnect.Packets.Packet) -> None:
+        """
+        Send any message with a base type of Packet.
+        
+        :param packet: Packet of data to send via the messaging system plugin
+        """
+        ...
+
+    def send_notification(self, notification: QuantConnect.Notifications.Notification) -> None:
+        """
+        Send any notification with a base type of Notification.
+        
+        :param notification: The notification to be sent.
+        """
+        ...
+
+    def set_authentication(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
+        """
+        Set the user communication channel
+        
+        :param job: The job packet
+        """
+        ...
+
+
 class IJobQueueHandler(metaclass=abc.ABCMeta):
     """Task requestor interface with cloud system"""
 
@@ -2556,7 +2608,7 @@ class IJobQueueHandler(metaclass=abc.ABCMeta):
         """
         ...
 
-    def initialize(self, api: QuantConnect.Interfaces.IApi) -> None:
+    def initialize(self, api: QuantConnect.Interfaces.IApi, messaging_handler: QuantConnect.Interfaces.IMessagingHandler) -> None:
         """Initialize the internal state"""
         ...
 
@@ -2841,58 +2893,6 @@ class IDataQueueUniverseProvider(metaclass=abc.ABCMeta):
         :param include_expired: Include expired contracts
         :param security_currency: Expected security currency(if any)
         :returns: Enumerable of Symbols, that are associated with the provided Symbol.
-        """
-        ...
-
-
-class IMessagingHandler(System.IDisposable, metaclass=abc.ABCMeta):
-    """
-    Messaging System Plugin Interface.
-    Provides a common messaging pattern between desktop and cloud implementations of QuantConnect.
-    """
-
-    @property
-    @abc.abstractmethod
-    def has_subscribers(self) -> bool:
-        """
-        Gets or sets whether this messaging handler has any current subscribers.
-        When set to false, messages won't be sent.
-        """
-        ...
-
-    @has_subscribers.setter
-    def has_subscribers(self, value: bool) -> None:
-        ...
-
-    def initialize(self, initialize_parameters: QuantConnect.Interfaces.MessagingHandlerInitializeParameters) -> None:
-        """
-        Initialize the Messaging System Plugin.
-        
-        :param initialize_parameters: The parameters required for initialization
-        """
-        ...
-
-    def send(self, packet: QuantConnect.Packets.Packet) -> None:
-        """
-        Send any message with a base type of Packet.
-        
-        :param packet: Packet of data to send via the messaging system plugin
-        """
-        ...
-
-    def send_notification(self, notification: QuantConnect.Notifications.Notification) -> None:
-        """
-        Send any notification with a base type of Notification.
-        
-        :param notification: The notification to be sent.
-        """
-        ...
-
-    def set_authentication(self, job: QuantConnect.Packets.AlgorithmNodePacket) -> None:
-        """
-        Set the user communication channel
-        
-        :param job: The job packet
         """
         ...
 

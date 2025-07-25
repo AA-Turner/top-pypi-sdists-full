@@ -34,7 +34,7 @@ class JobQueue(System.Object, QuantConnect.Interfaces.IJobQueueHandler):
         """
         ...
 
-    def initialize(self, api: QuantConnect.Interfaces.IApi) -> None:
+    def initialize(self, api: QuantConnect.Interfaces.IApi, messaging_handler: QuantConnect.Interfaces.IMessagingHandler) -> None:
         """Initialize the job queue:"""
         ...
 

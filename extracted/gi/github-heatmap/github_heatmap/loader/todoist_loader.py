@@ -4,10 +4,10 @@ import requests
 from github_heatmap.err import DepNotInstalledError
 from github_heatmap.loader.base_loader import BaseLoader
 
-try:
-    import pandas as pd
-except ImportError:
-    pd = None
+# try:
+#     import pandas as pd
+# except ImportError:
+#     pd = None
 
 
 class TodoistLoader(BaseLoader):
@@ -24,11 +24,12 @@ class TodoistLoader(BaseLoader):
 
     @classmethod
     def try_import_deps(cls):
-        if pd is None:
-            raise DepNotInstalledError(
-                "Todoist dependencies are not installed, "
-                "please use `pip3 install -U 'github_heatmap[todoist]'` to install."
-            ) from None
+        pass
+        # if pd is None:
+        #     raise DepNotInstalledError(
+        #         "Todoist dependencies are not installed, "
+        #         "please use `pip3 install -U 'github_heatmap[todoist]'` to install."
+        #     ) from None
 
     @classmethod
     def add_loader_arguments(cls, parser, optional):

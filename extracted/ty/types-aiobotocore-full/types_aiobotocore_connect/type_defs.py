@@ -213,8 +213,10 @@ __all__ = (
     "CaseSlaConfigurationOutputTypeDef",
     "CaseSlaConfigurationTypeDef",
     "CaseSlaConfigurationUnionTypeDef",
+    "ChatContactMetricsTypeDef",
     "ChatEventTypeDef",
     "ChatMessageTypeDef",
+    "ChatMetricsTypeDef",
     "ChatParticipantRoleConfigTypeDef",
     "ChatStreamingConfigurationTypeDef",
     "ClaimPhoneNumberRequestTypeDef",
@@ -741,6 +743,7 @@ __all__ = (
     "ParticipantCapabilitiesTypeDef",
     "ParticipantDetailsToAddTypeDef",
     "ParticipantDetailsTypeDef",
+    "ParticipantMetricsTypeDef",
     "ParticipantTimerConfigurationTypeDef",
     "ParticipantTimerValueTypeDef",
     "ParticipantTokenCredentialsTypeDef",
@@ -1439,6 +1442,17 @@ class FieldValueUnionOutputTypeDef(TypedDict):
     StringValue: NotRequired[str]
 
 
+class ChatContactMetricsTypeDef(TypedDict):
+    MultiParty: NotRequired[bool]
+    TotalMessages: NotRequired[int]
+    TotalBotMessages: NotRequired[int]
+    TotalBotMessageLengthInChars: NotRequired[int]
+    ConversationCloseTimeInMillis: NotRequired[int]
+    ConversationTurnCount: NotRequired[int]
+    AgentFirstResponseTimestamp: NotRequired[datetime]
+    AgentFirstResponseTimeInMillis: NotRequired[int]
+
+
 ChatEventTypeDef = TypedDict(
     "ChatEventTypeDef",
     {
@@ -1452,6 +1466,18 @@ ChatEventTypeDef = TypedDict(
 class ChatMessageTypeDef(TypedDict):
     ContentType: str
     Content: str
+
+
+class ParticipantMetricsTypeDef(TypedDict):
+    ParticipantId: NotRequired[str]
+    ParticipantType: NotRequired[ParticipantTypeType]
+    ConversationAbandon: NotRequired[bool]
+    MessagesSent: NotRequired[int]
+    NumResponses: NotRequired[int]
+    MessageLengthInChars: NotRequired[int]
+    TotalResponseTimeInMillis: NotRequired[int]
+    MaxResponseTimeInMillis: NotRequired[int]
+    LastMessageTimestamp: NotRequired[datetime]
 
 
 class ChatStreamingConfigurationTypeDef(TypedDict):
@@ -4421,6 +4447,12 @@ class FieldValueOutputTypeDef(TypedDict):
     Value: FieldValueUnionOutputTypeDef
 
 
+class ChatMetricsTypeDef(TypedDict):
+    ChatContactMetrics: NotRequired[ChatContactMetricsTypeDef]
+    AgentMetrics: NotRequired[ParticipantMetricsTypeDef]
+    CustomerMetrics: NotRequired[ParticipantMetricsTypeDef]
+
+
 class StartContactStreamingRequestTypeDef(TypedDict):
     InstanceId: str
     ContactId: str
@@ -7134,6 +7166,7 @@ class ContactTypeDef(TypedDict):
     AnsweringMachineDetectionStatus: NotRequired[AnsweringMachineDetectionStatusType]
     CustomerVoiceActivity: NotRequired[CustomerVoiceActivityTypeDef]
     QualityMetrics: NotRequired[QualityMetricsTypeDef]
+    ChatMetrics: NotRequired[ChatMetricsTypeDef]
     DisconnectDetails: NotRequired[DisconnectDetailsTypeDef]
     AdditionalEmailRecipients: NotRequired[AdditionalEmailRecipientsTypeDef]
     SegmentAttributes: NotRequired[Dict[str, SegmentAttributeValueOutputTypeDef]]

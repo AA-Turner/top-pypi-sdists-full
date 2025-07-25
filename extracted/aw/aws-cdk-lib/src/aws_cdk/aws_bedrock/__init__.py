@@ -12743,9 +12743,11 @@ class CfnFlow(
     )
     class FieldForRerankingProperty:
         def __init__(self, *, field_name: builtins.str) -> None:
-            '''Contains information for a metadata field to include in or exclude from consideration when reranking.
+            '''Specifies a field to be used during the reranking process in a Knowledge Base vector search.
 
-            :param field_name: The name of a metadata field to include in or exclude from consideration when reranking.
+            This structure identifies metadata fields that should be considered when reordering search results to improve relevance.
+
+            :param field_name: The name of the metadata field to be used during the reranking process.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-fieldforreranking.html
             :exampleMetadata: fixture=_generated
@@ -12769,7 +12771,7 @@ class CfnFlow(
 
         @builtins.property
         def field_name(self) -> builtins.str:
-            '''The name of a metadata field to include in or exclude from consideration when reranking.
+            '''The name of the metadata field to be used during the reranking process.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-fieldforreranking.html#cfn-bedrock-flow-fieldforreranking-fieldname
             '''
@@ -15652,10 +15654,12 @@ class CfnFlow(
             selection_mode: builtins.str,
             selective_mode_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''Contains configurations for the metadata to use in reranking.
+            '''Configuration for how metadata should be used during the reranking process in Knowledge Base vector searches.
 
-            :param selection_mode: Specifies whether to consider all metadata when reranking, or only the metadata that you select. If you specify ``SELECTIVE`` , include the ``selectiveModeConfiguration`` field.
-            :param selective_mode_configuration: Contains configurations for the metadata fields to include or exclude when considering reranking.
+            This determines which metadata fields are included or excluded when reordering search results.
+
+            :param selection_mode: The mode for selecting which metadata fields to include in the reranking process. Valid values are ALL (use all available metadata fields) or SELECTIVE (use only specified fields).
+            :param selective_mode_configuration: Configuration for selective mode, which allows you to explicitly include or exclude specific metadata fields during reranking. This is only used when selectionMode is set to SELECTIVE.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-metadataconfigurationforreranking.html
             :exampleMetadata: fixture=_generated
@@ -15692,9 +15696,9 @@ class CfnFlow(
 
         @builtins.property
         def selection_mode(self) -> builtins.str:
-            '''Specifies whether to consider all metadata when reranking, or only the metadata that you select.
+            '''The mode for selecting which metadata fields to include in the reranking process.
 
-            If you specify ``SELECTIVE`` , include the ``selectiveModeConfiguration`` field.
+            Valid values are ALL (use all available metadata fields) or SELECTIVE (use only specified fields).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-metadataconfigurationforreranking.html#cfn-bedrock-flow-metadataconfigurationforreranking-selectionmode
             '''
@@ -15706,7 +15710,9 @@ class CfnFlow(
         def selective_mode_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.RerankingMetadataSelectiveModeConfigurationProperty"]]:
-            '''Contains configurations for the metadata fields to include or exclude when considering reranking.
+            '''Configuration for selective mode, which allows you to explicitly include or exclude specific metadata fields during reranking.
+
+            This is only used when selectionMode is set to SELECTIVE.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-metadataconfigurationforreranking.html#cfn-bedrock-flow-metadataconfigurationforreranking-selectivemodeconfiguration
             '''
@@ -16472,12 +16478,12 @@ class CfnFlow(
             fields_to_exclude: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.FieldForRerankingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             fields_to_include: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.FieldForRerankingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''Contains configurations for the metadata fields to include or exclude when considering reranking.
+            '''Configuration for selectively including or excluding metadata fields during the reranking process.
 
-            If you include the ``fieldsToExclude`` field, the reranker ignores all the metadata fields that you specify. If you include the ``fieldsToInclude`` field, the reranker uses only the metadata fields that you specify and ignores all others. You can include only one of these fields.
+            This allows you to control which metadata attributes are considered when reordering search results.
 
-            :param fields_to_exclude: An array of objects, each of which specifies a metadata field to exclude from consideration when reranking.
-            :param fields_to_include: An array of objects, each of which specifies a metadata field to include in consideration when reranking. The remaining metadata fields are ignored.
+            :param fields_to_exclude: A list of metadata field names to explicitly exclude from the reranking process. All metadata fields except these will be considered when reordering search results. This parameter cannot be used together with fieldsToInclude.
+            :param fields_to_include: A list of metadata field names to explicitly include in the reranking process. Only these fields will be considered when reordering search results. This parameter cannot be used together with fieldsToExclude.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-rerankingmetadataselectivemodeconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -16511,7 +16517,9 @@ class CfnFlow(
         def fields_to_exclude(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.FieldForRerankingProperty"]]]]:
-            '''An array of objects, each of which specifies a metadata field to exclude from consideration when reranking.
+            '''A list of metadata field names to explicitly exclude from the reranking process.
+
+            All metadata fields except these will be considered when reordering search results. This parameter cannot be used together with fieldsToInclude.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-rerankingmetadataselectivemodeconfiguration.html#cfn-bedrock-flow-rerankingmetadataselectivemodeconfiguration-fieldstoexclude
             '''
@@ -16522,9 +16530,9 @@ class CfnFlow(
         def fields_to_include(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlow.FieldForRerankingProperty"]]]]:
-            '''An array of objects, each of which specifies a metadata field to include in consideration when reranking.
+            '''A list of metadata field names to explicitly include in the reranking process.
 
-            The remaining metadata fields are ignored.
+            Only these fields will be considered when reordering search results. This parameter cannot be used together with fieldsToExclude.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-rerankingmetadataselectivemodeconfiguration.html#cfn-bedrock-flow-rerankingmetadataselectivemodeconfiguration-fieldstoinclude
             '''
@@ -17076,11 +17084,13 @@ class CfnFlow(
             metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.MetadataConfigurationForRerankingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             number_of_reranked_results: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''Contains configurations for reranking with an Amazon Bedrock reranker model.
+            '''Configuration for using Amazon Bedrock foundation models to rerank Knowledge Base vector search results.
 
-            :param model_configuration: Contains configurations for the reranker model.
-            :param metadata_configuration: Contains configurations for the metadata to use in reranking.
-            :param number_of_reranked_results: The number of results to return after reranking.
+            This enables more sophisticated relevance ranking using large language models.
+
+            :param model_configuration: Configuration for the Amazon Bedrock foundation model used for reranking. This includes the model ARN and any additional request fields required by the model.
+            :param metadata_configuration: Configuration for how document metadata should be used during the reranking process. This determines which metadata fields are included when reordering search results.
+            :param number_of_reranked_results: The maximum number of results to rerank. This limits how many of the initial vector search results will be processed by the reranking model. A smaller number improves performance but may exclude potentially relevant results.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -17135,7 +17145,9 @@ class CfnFlow(
         def model_configuration(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, "CfnFlow.VectorSearchBedrockRerankingModelConfigurationProperty"]:
-            '''Contains configurations for the reranker model.
+            '''Configuration for the Amazon Bedrock foundation model used for reranking.
+
+            This includes the model ARN and any additional request fields required by the model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingconfiguration.html#cfn-bedrock-flow-vectorsearchbedrockrerankingconfiguration-modelconfiguration
             '''
@@ -17147,7 +17159,9 @@ class CfnFlow(
         def metadata_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.MetadataConfigurationForRerankingProperty"]]:
-            '''Contains configurations for the metadata to use in reranking.
+            '''Configuration for how document metadata should be used during the reranking process.
+
+            This determines which metadata fields are included when reordering search results.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingconfiguration.html#cfn-bedrock-flow-vectorsearchbedrockrerankingconfiguration-metadataconfiguration
             '''
@@ -17156,7 +17170,9 @@ class CfnFlow(
 
         @builtins.property
         def number_of_reranked_results(self) -> typing.Optional[jsii.Number]:
-            '''The number of results to return after reranking.
+            '''The maximum number of results to rerank.
+
+            This limits how many of the initial vector search results will be processed by the reranking model. A smaller number improves performance but may exclude potentially relevant results.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingconfiguration.html#cfn-bedrock-flow-vectorsearchbedrockrerankingconfiguration-numberofrerankedresults
             '''
@@ -17189,10 +17205,12 @@ class CfnFlow(
             model_arn: builtins.str,
             additional_model_request_fields: typing.Any = None,
         ) -> None:
-            '''Contains configurations for an Amazon Bedrock reranker model.
+            '''Configuration for the Amazon Bedrock foundation model used for reranking vector search results.
 
-            :param model_arn: The ARN of the reranker model to use.
-            :param additional_model_request_fields: A JSON object whose keys are request fields for the model and whose values are values for those fields.
+            This specifies which model to use and any additional parameters required by the model.
+
+            :param model_arn: The Amazon Resource Name (ARN) of the foundation model to use for reranking. This model processes the query and search results to determine a more relevant ordering.
+            :param additional_model_request_fields: A list of additional fields to include in the model request during reranking. These fields provide extra context or configuration options specific to the selected foundation model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingmodelconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -17224,7 +17242,9 @@ class CfnFlow(
 
         @builtins.property
         def model_arn(self) -> builtins.str:
-            '''The ARN of the reranker model to use.
+            '''The Amazon Resource Name (ARN) of the foundation model to use for reranking.
+
+            This model processes the query and search results to determine a more relevant ordering.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingmodelconfiguration.html#cfn-bedrock-flow-vectorsearchbedrockrerankingmodelconfiguration-modelarn
             '''
@@ -17234,7 +17254,9 @@ class CfnFlow(
 
         @builtins.property
         def additional_model_request_fields(self) -> typing.Any:
-            '''A JSON object whose keys are request fields for the model and whose values are values for those fields.
+            '''A list of additional fields to include in the model request during reranking.
+
+            These fields provide extra context or configuration options specific to the selected foundation model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchbedrockrerankingmodelconfiguration.html#cfn-bedrock-flow-vectorsearchbedrockrerankingmodelconfiguration-additionalmodelrequestfields
             '''
@@ -17267,10 +17289,12 @@ class CfnFlow(
             type: builtins.str,
             bedrock_reranking_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlow.VectorSearchBedrockRerankingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''Contains configurations for reranking the retrieved results.
+            '''Configuration for reranking vector search results to improve relevance.
 
-            :param type: The type of reranker model.
-            :param bedrock_reranking_configuration: Contains configurations for an Amazon Bedrock reranker model.
+            Reranking applies additional relevance models to reorder the initial vector search results based on more sophisticated criteria.
+
+            :param type: The type of reranking to apply to vector search results. Currently, the only supported value is BEDROCK, which uses Amazon Bedrock foundation models for reranking.
+            :param bedrock_reranking_configuration: Configuration for using Amazon Bedrock foundation models to rerank search results. This is required when the reranking type is set to BEDROCK.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchrerankingconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -17325,7 +17349,9 @@ class CfnFlow(
 
         @builtins.property
         def type(self) -> builtins.str:
-            '''The type of reranker model.
+            '''The type of reranking to apply to vector search results.
+
+            Currently, the only supported value is BEDROCK, which uses Amazon Bedrock foundation models for reranking.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchrerankingconfiguration.html#cfn-bedrock-flow-vectorsearchrerankingconfiguration-type
             '''
@@ -17337,7 +17363,9 @@ class CfnFlow(
         def bedrock_reranking_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlow.VectorSearchBedrockRerankingConfigurationProperty"]]:
-            '''Contains configurations for an Amazon Bedrock reranker model.
+            '''Configuration for using Amazon Bedrock foundation models to rerank search results.
+
+            This is required when the reranking type is set to BEDROCK.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flow-vectorsearchrerankingconfiguration.html#cfn-bedrock-flow-vectorsearchrerankingconfiguration-bedrockrerankingconfiguration
             '''
@@ -18662,9 +18690,11 @@ class CfnFlowVersion(
     )
     class FieldForRerankingProperty:
         def __init__(self, *, field_name: builtins.str) -> None:
-            '''Contains information for a metadata field to include in or exclude from consideration when reranking.
+            '''Specifies a field to be used during the reranking process in a Knowledge Base vector search.
 
-            :param field_name: The name of a metadata field to include in or exclude from consideration when reranking.
+            This structure identifies metadata fields that should be considered when reordering search results to improve relevance.
+
+            :param field_name: The name of the metadata field to be used during the reranking process.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-fieldforreranking.html
             :exampleMetadata: fixture=_generated
@@ -18688,7 +18718,7 @@ class CfnFlowVersion(
 
         @builtins.property
         def field_name(self) -> builtins.str:
-            '''The name of a metadata field to include in or exclude from consideration when reranking.
+            '''The name of the metadata field to be used during the reranking process.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-fieldforreranking.html#cfn-bedrock-flowversion-fieldforreranking-fieldname
             '''
@@ -21476,10 +21506,12 @@ class CfnFlowVersion(
             selection_mode: builtins.str,
             selective_mode_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''Contains configurations for the metadata to use in reranking.
+            '''Configuration for how metadata should be used during the reranking process in Knowledge Base vector searches.
 
-            :param selection_mode: Specifies whether to consider all metadata when reranking, or only the metadata that you select. If you specify ``SELECTIVE`` , include the ``selectiveModeConfiguration`` field.
-            :param selective_mode_configuration: Contains configurations for the metadata fields to include or exclude when considering reranking.
+            This determines which metadata fields are included or excluded when reordering search results.
+
+            :param selection_mode: The mode for selecting which metadata fields to include in the reranking process. Valid values are ALL (use all available metadata fields) or SELECTIVE (use only specified fields).
+            :param selective_mode_configuration: Configuration for selective mode, which allows you to explicitly include or exclude specific metadata fields during reranking. This is only used when selectionMode is set to SELECTIVE.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-metadataconfigurationforreranking.html
             :exampleMetadata: fixture=_generated
@@ -21516,9 +21548,9 @@ class CfnFlowVersion(
 
         @builtins.property
         def selection_mode(self) -> builtins.str:
-            '''Specifies whether to consider all metadata when reranking, or only the metadata that you select.
+            '''The mode for selecting which metadata fields to include in the reranking process.
 
-            If you specify ``SELECTIVE`` , include the ``selectiveModeConfiguration`` field.
+            Valid values are ALL (use all available metadata fields) or SELECTIVE (use only specified fields).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-metadataconfigurationforreranking.html#cfn-bedrock-flowversion-metadataconfigurationforreranking-selectionmode
             '''
@@ -21530,7 +21562,9 @@ class CfnFlowVersion(
         def selective_mode_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.RerankingMetadataSelectiveModeConfigurationProperty"]]:
-            '''Contains configurations for the metadata fields to include or exclude when considering reranking.
+            '''Configuration for selective mode, which allows you to explicitly include or exclude specific metadata fields during reranking.
+
+            This is only used when selectionMode is set to SELECTIVE.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-metadataconfigurationforreranking.html#cfn-bedrock-flowversion-metadataconfigurationforreranking-selectivemodeconfiguration
             '''
@@ -22296,12 +22330,12 @@ class CfnFlowVersion(
             fields_to_exclude: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.FieldForRerankingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
             fields_to_include: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Sequence[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.FieldForRerankingProperty", typing.Dict[builtins.str, typing.Any]]]]]] = None,
         ) -> None:
-            '''Contains configurations for the metadata fields to include or exclude when considering reranking.
+            '''Configuration for selectively including or excluding metadata fields during the reranking process.
 
-            If you include the ``fieldsToExclude`` field, the reranker ignores all the metadata fields that you specify. If you include the ``fieldsToInclude`` field, the reranker uses only the metadata fields that you specify and ignores all others. You can include only one of these fields.
+            This allows you to control which metadata attributes are considered when reordering search results.
 
-            :param fields_to_exclude: An array of objects, each of which specifies a metadata field to exclude from consideration when reranking.
-            :param fields_to_include: An array of objects, each of which specifies a metadata field to include in consideration when reranking. The remaining metadata fields are ignored.
+            :param fields_to_exclude: A list of metadata field names to explicitly exclude from the reranking process. All metadata fields except these will be considered when reordering search results. This parameter cannot be used together with fieldsToInclude.
+            :param fields_to_include: A list of metadata field names to explicitly include in the reranking process. Only these fields will be considered when reordering search results. This parameter cannot be used together with fieldsToExclude.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-rerankingmetadataselectivemodeconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -22335,7 +22369,9 @@ class CfnFlowVersion(
         def fields_to_exclude(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.FieldForRerankingProperty"]]]]:
-            '''An array of objects, each of which specifies a metadata field to exclude from consideration when reranking.
+            '''A list of metadata field names to explicitly exclude from the reranking process.
+
+            All metadata fields except these will be considered when reordering search results. This parameter cannot be used together with fieldsToInclude.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-rerankingmetadataselectivemodeconfiguration.html#cfn-bedrock-flowversion-rerankingmetadataselectivemodeconfiguration-fieldstoexclude
             '''
@@ -22346,9 +22382,9 @@ class CfnFlowVersion(
         def fields_to_include(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.FieldForRerankingProperty"]]]]:
-            '''An array of objects, each of which specifies a metadata field to include in consideration when reranking.
+            '''A list of metadata field names to explicitly include in the reranking process.
 
-            The remaining metadata fields are ignored.
+            Only these fields will be considered when reordering search results. This parameter cannot be used together with fieldsToExclude.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-rerankingmetadataselectivemodeconfiguration.html#cfn-bedrock-flowversion-rerankingmetadataselectivemodeconfiguration-fieldstoinclude
             '''
@@ -22812,11 +22848,13 @@ class CfnFlowVersion(
             metadata_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.MetadataConfigurationForRerankingProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
             number_of_reranked_results: typing.Optional[jsii.Number] = None,
         ) -> None:
-            '''Contains configurations for reranking with an Amazon Bedrock reranker model.
+            '''Configuration for using Amazon Bedrock foundation models to rerank Knowledge Base vector search results.
 
-            :param model_configuration: Contains configurations for the reranker model.
-            :param metadata_configuration: Contains configurations for the metadata to use in reranking.
-            :param number_of_reranked_results: The number of results to return after reranking.
+            This enables more sophisticated relevance ranking using large language models.
+
+            :param model_configuration: Configuration for the Amazon Bedrock foundation model used for reranking. This includes the model ARN and any additional request fields required by the model.
+            :param metadata_configuration: Configuration for how document metadata should be used during the reranking process. This determines which metadata fields are included when reordering search results.
+            :param number_of_reranked_results: The maximum number of results to rerank. This limits how many of the initial vector search results will be processed by the reranking model. A smaller number improves performance but may exclude potentially relevant results.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -22871,7 +22909,9 @@ class CfnFlowVersion(
         def model_configuration(
             self,
         ) -> typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.VectorSearchBedrockRerankingModelConfigurationProperty"]:
-            '''Contains configurations for the reranker model.
+            '''Configuration for the Amazon Bedrock foundation model used for reranking.
+
+            This includes the model ARN and any additional request fields required by the model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration.html#cfn-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration-modelconfiguration
             '''
@@ -22883,7 +22923,9 @@ class CfnFlowVersion(
         def metadata_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.MetadataConfigurationForRerankingProperty"]]:
-            '''Contains configurations for the metadata to use in reranking.
+            '''Configuration for how document metadata should be used during the reranking process.
+
+            This determines which metadata fields are included when reordering search results.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration.html#cfn-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration-metadataconfiguration
             '''
@@ -22892,7 +22934,9 @@ class CfnFlowVersion(
 
         @builtins.property
         def number_of_reranked_results(self) -> typing.Optional[jsii.Number]:
-            '''The number of results to return after reranking.
+            '''The maximum number of results to rerank.
+
+            This limits how many of the initial vector search results will be processed by the reranking model. A smaller number improves performance but may exclude potentially relevant results.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration.html#cfn-bedrock-flowversion-vectorsearchbedrockrerankingconfiguration-numberofrerankedresults
             '''
@@ -22925,10 +22969,12 @@ class CfnFlowVersion(
             model_arn: builtins.str,
             additional_model_request_fields: typing.Any = None,
         ) -> None:
-            '''Contains configurations for an Amazon Bedrock reranker model.
+            '''Configuration for the Amazon Bedrock foundation model used for reranking vector search results.
 
-            :param model_arn: The ARN of the reranker model to use.
-            :param additional_model_request_fields: A JSON object whose keys are request fields for the model and whose values are values for those fields.
+            This specifies which model to use and any additional parameters required by the model.
+
+            :param model_arn: The Amazon Resource Name (ARN) of the foundation model to use for reranking. This model processes the query and search results to determine a more relevant ordering.
+            :param additional_model_request_fields: A list of additional fields to include in the model request during reranking. These fields provide extra context or configuration options specific to the selected foundation model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingmodelconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -22960,7 +23006,9 @@ class CfnFlowVersion(
 
         @builtins.property
         def model_arn(self) -> builtins.str:
-            '''The ARN of the reranker model to use.
+            '''The Amazon Resource Name (ARN) of the foundation model to use for reranking.
+
+            This model processes the query and search results to determine a more relevant ordering.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingmodelconfiguration.html#cfn-bedrock-flowversion-vectorsearchbedrockrerankingmodelconfiguration-modelarn
             '''
@@ -22970,7 +23018,9 @@ class CfnFlowVersion(
 
         @builtins.property
         def additional_model_request_fields(self) -> typing.Any:
-            '''A JSON object whose keys are request fields for the model and whose values are values for those fields.
+            '''A list of additional fields to include in the model request during reranking.
+
+            These fields provide extra context or configuration options specific to the selected foundation model.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchbedrockrerankingmodelconfiguration.html#cfn-bedrock-flowversion-vectorsearchbedrockrerankingmodelconfiguration-additionalmodelrequestfields
             '''
@@ -23003,10 +23053,12 @@ class CfnFlowVersion(
             type: builtins.str,
             bedrock_reranking_configuration: typing.Optional[typing.Union[_IResolvable_da3f097b, typing.Union["CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty", typing.Dict[builtins.str, typing.Any]]]] = None,
         ) -> None:
-            '''Contains configurations for reranking the retrieved results.
+            '''Configuration for reranking vector search results to improve relevance.
 
-            :param type: The type of reranker model.
-            :param bedrock_reranking_configuration: Contains configurations for an Amazon Bedrock reranker model.
+            Reranking applies additional relevance models to reorder the initial vector search results based on more sophisticated criteria.
+
+            :param type: The type of reranking to apply to vector search results. Currently, the only supported value is BEDROCK, which uses Amazon Bedrock foundation models for reranking.
+            :param bedrock_reranking_configuration: Configuration for using Amazon Bedrock foundation models to rerank search results. This is required when the reranking type is set to BEDROCK.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchrerankingconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -23061,7 +23113,9 @@ class CfnFlowVersion(
 
         @builtins.property
         def type(self) -> builtins.str:
-            '''The type of reranker model.
+            '''The type of reranking to apply to vector search results.
+
+            Currently, the only supported value is BEDROCK, which uses Amazon Bedrock foundation models for reranking.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchrerankingconfiguration.html#cfn-bedrock-flowversion-vectorsearchrerankingconfiguration-type
             '''
@@ -23073,7 +23127,9 @@ class CfnFlowVersion(
         def bedrock_reranking_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnFlowVersion.VectorSearchBedrockRerankingConfigurationProperty"]]:
-            '''Contains configurations for an Amazon Bedrock reranker model.
+            '''Configuration for using Amazon Bedrock foundation models to rerank search results.
+
+            This is required when the reranking type is set to BEDROCK.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-flowversion-vectorsearchrerankingconfiguration.html#cfn-bedrock-flowversion-vectorsearchrerankingconfiguration-bedrockrerankingconfiguration
             '''
@@ -32797,7 +32853,7 @@ class CfnPrompt(
 
             :param any: The model must request at least one tool (no text is generated).
             :param auto: (Default). The Model automatically decides if a tool should be called or whether to generate text instead.
-            :param tool: The Model must request the specified tool. Only supported by Anthropic Claude 3 models.
+            :param tool: The Model must request the specified tool. Only supported by Anthropic Claude 3 and Amazon Nova models.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-prompt-toolchoice.html
             :exampleMetadata: fixture=_generated
@@ -32858,7 +32914,7 @@ class CfnPrompt(
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPrompt.SpecificToolChoiceProperty"]]:
             '''The Model must request the specified tool.
 
-            Only supported by Anthropic Claude 3 models.
+            Only supported by Anthropic Claude 3 and Amazon Nova models.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-prompt-toolchoice.html#cfn-bedrock-prompt-toolchoice-tool
             '''
@@ -35119,7 +35175,7 @@ class CfnPromptVersion(
 
             :param any: The model must request at least one tool (no text is generated).
             :param auto: (Default). The Model automatically decides if a tool should be called or whether to generate text instead.
-            :param tool: The Model must request the specified tool. Only supported by Anthropic Claude 3 models.
+            :param tool: The Model must request the specified tool. Only supported by Anthropic Claude 3 and Amazon Nova models.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-promptversion-toolchoice.html
             :exampleMetadata: fixture=_generated
@@ -35180,7 +35236,7 @@ class CfnPromptVersion(
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnPromptVersion.SpecificToolChoiceProperty"]]:
             '''The Model must request the specified tool.
 
-            Only supported by Anthropic Claude 3 models.
+            Only supported by Anthropic Claude 3 and Amazon Nova models.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-bedrock-promptversion-toolchoice.html#cfn-bedrock-promptversion-toolchoice-tool
             '''

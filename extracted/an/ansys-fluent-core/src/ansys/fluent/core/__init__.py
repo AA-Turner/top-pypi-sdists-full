@@ -77,9 +77,9 @@ from ansys.fluent.core.utils import fldoc, get_examples_download_dir
 from ansys.fluent.core.utils.fluent_version import FluentVersion  # noqa: F401
 from ansys.fluent.core.utils.setup_for_fluent import setup_for_fluent  # noqa: F401
 
-__version__ = "0.33.0"
+__version__ = "0.34.0"
 
-_VERSION_INFO = "Build date: June 24, 2025 03:08 UTC ShaID: 9d27ec6"
+_VERSION_INFO = "Build date: July 24, 2025 15:00 UTC ShaID: 7de106f"
 """
 Global variable indicating the version info of the PyFluent package.
 Build timestamp and commit hash are added to this variable during packaging.
@@ -155,7 +155,7 @@ CODEGEN_OUTDIR = os.getenv(
 FLUENT_SHOW_MESH_AFTER_CASE_READ = False
 
 # Whether to write the automatic transcript in Fluent
-FLUENT_AUTOMATIC_TRANSCRIPT = False
+FLUENT_AUTOMATIC_TRANSCRIPT = os.getenv("PYFLUENT_FLUENT_AUTOMATIC_TRANSCRIPT") == "1"
 
 # Whether to interrupt Fluent solver from PyFluent
 SUPPORT_SOLVER_INTERRUPT = False

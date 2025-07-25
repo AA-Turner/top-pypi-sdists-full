@@ -10,7 +10,6 @@ import re
 import sys
 import warnings
 
-from flaky import flaky
 import pytest
 
 import coverage
@@ -167,7 +166,7 @@ class MemoryLeakTest(CoverageTest):
     It may still fail occasionally, especially on PyPy.
 
     """
-    @flaky      # type: ignore[misc]
+    @pytest.mark.flaky
     @pytest.mark.skipif(not testenv.C_TRACER, reason="Only the C tracer has refcounting issues")
     def test_for_leaks(self) -> None:
         # Our original bad memory leak only happened on line numbers > 255, so
@@ -558,7 +557,6 @@ class GettraceTest(CoverageTest):
         )
         assert expected == out
 
-    @pytest.mark.expensive
     @pytest.mark.skipif(env.METACOV, reason="Can't set trace functions during meta-coverage")
     def test_atexit_gettrace(self) -> None:
         # This is not a test of coverage at all, but of our understanding

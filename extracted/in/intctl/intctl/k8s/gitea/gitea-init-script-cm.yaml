@@ -1,0 +1,60 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-init-script
+  namespace: intellithing
+data:
+  gitea-init-script.sh: |
+    #!/bin/sh
+    set -e
+
+    echo "Gitea Init: Assembling app.ini from pre-computed values..."
+
+    # --- Define paths ---
+    VALUES_PATH="/gitea-values"
+    TEMPLATE_PATH="/config-templates/app.ini.tpl"
+    OUTPUT_PATH="/gitea-config/app.ini"
+
+    # --- Read all values from the mounted secret ---
+    DB_HOST=$(cat ${VALUES_PATH}/db.host)
+    DB_NAME=$(cat ${VALUES_PATH}/db.name)
+    DB_USER=$(cat ${VALUES_PATH}/db.user)
+    DB_PASSWORD=$(cat ${VALUES_PATH}/db.password)
+    GITEA_ADMIN_USER=$(cat ${VALUES_PATH}/gitea.admin.user)
+    GITEA_ADMIN_PASSWORD=$(cat ${VALUES_PATH}/gitea.admin.password)
+    SECRET_KEY=$(cat ${VALUES_PATH}/gitea.secret.key)
+
+    # --- Generate the final app.ini ---
+    cp "${TEMPLATE_PATH}" "${OUTPUT_PATH}"
+
+    sed -i "s|__DB_HOST__|${DB_HOST}|g" "${OUTPUT_PATH}"
+    sed -i "s|__DB_NAME__|${DB_NAME}|g" "${OUTPUT_PATH}"
+    sed -i "s|__DB_USER__|${DB_USER}|g" "${OUTPUT_PATH}"
+    sed -i "s|__DB_PASSWORD__|${DB_PASSWORD}|g" "${OUTPUT_PATH}"
+    sed -i "s|__SECRET_KEY__|${SECRET_KEY}|g" "${OUTPUT_PATH}"
+
+    echo "app.ini successfully generated."
+    chmod 664 "${OUTPUT_PATH}"
+    echo "Set permissions on app.ini to 664."
+
+    # --- ADD THIS BLOCK ---
+    echo "Gitea Init: Running database migrations..."
+    gitea migrate --config "${OUTPUT_PATH}"
+
+    echo "Gitea Init: Checking if admin user '${GITEA_ADMIN_USER}' needs to be created..."
+    if ! gitea admin user list --config "${OUTPUT_PATH}" | grep -q " ${GITEA_ADMIN_USER} "; then
+        echo "Gitea Init: Admin user does not exist. Creating..."
+        gitea admin user create \
+          --config "${OUTPUT_PATH}" \
+          --admin \
+          --username "${GITEA_ADMIN_USER}" \
+          --password "${GITEA_ADMIN_PASSWORD}" \
+          --email "admin@example.com" \
+          --must-change-password=false
+        echo "Admin user '${GITEA_ADMIN_USER}' created."
+    else
+        echo "Admin user '${GITEA_ADMIN_USER}' already exists."
+    fi
+
+    
+

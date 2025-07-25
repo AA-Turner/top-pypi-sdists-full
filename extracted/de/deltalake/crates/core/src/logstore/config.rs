@@ -6,10 +6,10 @@
 //!
 //! Specific pieces of configuration must implement the `TryUpdateKey` trait which
 //! defines how to update internal fields based on key-value pairs.
-use std::collections::HashMap;
-
+#[cfg(feature = "cloud")]
 use ::object_store::RetryConfig;
 use object_store::{path::Path, prefix::PrefixStore, ObjectStore};
+use std::collections::HashMap;
 
 use super::storage::LimitConfig;
 use super::{storage::runtime::RuntimeConfig, IORuntime};
@@ -95,6 +95,7 @@ pub struct StorageConfig {
     /// dedicated handle.
     pub runtime: Option<IORuntime>,
 
+    #[cfg(feature = "cloud")]
     pub retry: ::object_store::RetryConfig,
 
     /// Limit configuration.
@@ -166,6 +167,7 @@ where
 
         let remainder = result.unparsed;
 
+        #[cfg(feature = "cloud")]
         let remainder = {
             let result = ParseResult::<RetryConfig>::from_iter(remainder);
             config.retry = result.config;
@@ -216,6 +218,7 @@ impl StorageConfig {
         props.limit = (!result.is_default).then_some(result.config);
         let remainder = result.unparsed;
 
+        #[cfg(feature = "cloud")]
         let remainder = {
             let (retry, remainder): (RetryConfig, _) = try_parse_impl(remainder)?;
             props.retry = retry;
@@ -297,12 +300,13 @@ pub fn str_is_truthy(val: &str) -> bool {
 mod tests {
     use super::*;
     use maplit::hashmap;
-    use object_store::RetryConfig;
     use std::time::Duration;
 
     // Test retry config parsing
+    #[cfg(feature = "cloud")]
     #[test]
     fn test_retry_config_from_options() {
+        use object_store::RetryConfig;
         let options = hashmap! {
             "max_retries".to_string() => "100".to_string() ,
             "retry_timeout".to_string()  => "300s".to_string() ,
@@ -321,8 +325,10 @@ mod tests {
     }
 
     // Test ParseResult functionality
+    #[cfg(feature = "cloud")]
     #[test]
     fn test_parse_result_handling() {
+        use object_store::RetryConfig;
         let options = hashmap! {
             "retry_timeout".to_string() => "300s".to_string(),
             "max_retries".to_string() => "not_a_number".to_string(),
@@ -339,6 +345,7 @@ mod tests {
     }
 
     // Test StorageConfig parsing
+    #[cfg(feature = "cloud")]
     #[test]
     fn test_storage_config_parsing() {
         let options = hashmap! {

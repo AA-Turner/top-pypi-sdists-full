@@ -9,6 +9,10 @@ from typing import List, Optional, Dict, Any, Union
 from collections import defaultdict
 
 import mysql.connector
+from mysql.connector.constants import ClientFlag
+from mysql.connector.cursor import MySQLCursor
+
+from canonmap.services.db_mysql.helpers.bootstrap import run_sql_resource, run_install_udfs_sh
 
 from canonmap.services.db_mysql.adapters.connection import ConnectionManager
 from canonmap.services.db_mysql.adapters.cursor import get_cursor
@@ -63,6 +67,25 @@ class DatabaseManager:
         try:
             self.connection_manager.conn = mysql.connector.connect(**config)
             logger.info(f"Connected to database '{db_name}'")
+            # Bootstrap MySQL transform functions (initialism and double_metaphone)
+            try:
+                run_sql_resource(
+                    sql_filename="create_functions.sql",
+                    mysql_user=self.connection_manager.config.user,
+                    mysql_pass=self.connection_manager.config.password,
+                    mysql_db=db_name,
+                    mysql_host=self.connection_manager.config.host
+                )
+                run_sql_resource(
+                    sql_filename="create_double_metaphone_udf.sql",
+                    mysql_user=self.connection_manager.config.user,
+                    mysql_pass=self.connection_manager.config.password,
+                    mysql_db=db_name,
+                    mysql_host=self.connection_manager.config.host
+                )
+                logger.info("Bootstrapped MySQL transform functions successfully.")
+            except Exception as e:
+                logger.warning(f"Could not bootstrap MySQL transform functions automatically: {e}")
         except mysql.connector.Error as e:
             logger.error(f"Could not connect to database '{db_name}': {e}")
             raise RuntimeError(f"Could not connect to database '{db_name}': {e}") from e
@@ -137,11 +160,15 @@ class DatabaseManager:
         if self.connection_manager.config.database == clean_name:
             self.connection_manager.config.database = None
 
+
+
+
     def generate_schema(
         self,
         schema_name: str,
         fields_to_include: Optional[List[TableField]] = None,
         fields_to_exclude: Optional[List[TableField]] = None,
+        tables_to_include: Optional[List[str]] = None,
         num_examples: int = 10,
         include_helper_fields: bool = False,
         save_dir: str = ".",
@@ -150,13 +177,26 @@ class DatabaseManager:
         conn = self.connection_manager.connect()
         schema = defaultdict(dict)
 
+        # fetch table/column/type info
         with get_cursor(conn) as cursor:
-            cursor.execute(
-                "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA=%s",
-                (self.connection_manager.config.database,)
-            )
+            if tables_to_include:
+                placeholders = ', '.join(['%s'] * len(tables_to_include))
+                cursor.execute(
+                    f"SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE "
+                    f"FROM INFORMATION_SCHEMA.COLUMNS "
+                    f"WHERE TABLE_SCHEMA=%s AND TABLE_NAME IN ({placeholders})",
+                    (self.connection_manager.config.database,) + tuple(tables_to_include)
+                )
+            else:
+                cursor.execute(
+                    "SELECT TABLE_NAME, COLUMN_NAME, DATA_TYPE "
+                    "FROM INFORMATION_SCHEMA.COLUMNS "
+                    "WHERE TABLE_SCHEMA=%s",
+                    (self.connection_manager.config.database,)
+                )
             columns = cursor.fetchall()
 
+        # filter include/exclude sets
         include_set = set((f.table_name, f.field_name) for f in fields_to_include or [])
         exclude_set = set((f.table_name, f.field_name) for f in fields_to_exclude or [])
 
@@ -164,32 +204,96 @@ class DatabaseManager:
         for table, col, typ in columns:
             if not include_helper_fields and col.startswith("__") and col.endswith("__"):
                 continue
-                
+
             if fields_to_include:
                 if (table, col) not in include_set:
                     continue
             elif fields_to_exclude:
                 if (table, col) in exclude_set:
                     continue
+
             filtered_columns.append((table, col, typ))
 
+        # sample data for each field
         with get_cursor(conn) as cursor:
             for table, col, typ in filtered_columns:
-                cursor.execute(
-                    f"SELECT DISTINCT `{col}` FROM `{table}` WHERE `{col}` IS NOT NULL ORDER BY RAND() LIMIT %s",
-                    (num_examples,)
-                )
-                samples = [row[0] for row in cursor.fetchall()]
-                field_info = {
+                samples: List[Any] = []
+
+                # stratified PK-range sampling: 3/4/3 from three equal buckets
+                try:
+                    cursor.execute(
+                        "SELECT COLUMN_NAME, DATA_TYPE FROM INFORMATION_SCHEMA.COLUMNS "
+                        "WHERE TABLE_SCHEMA=%s AND TABLE_NAME=%s AND COLUMN_KEY='PRI'",
+                        (self.connection_manager.config.database, table)
+                    )
+                    pk_info = cursor.fetchone()
+                    if not pk_info or pk_info[1].upper() not in ("INT","BIGINT","SMALLINT","MEDIUMINT","TINYINT"):
+                        raise ValueError("No suitable integer PK")
+
+                    pk_col = pk_info[0]
+                    cursor.execute(f"SELECT MIN(`{pk_col}`), MAX(`{pk_col}`) FROM `{table}`")
+                    min_id, max_id = cursor.fetchone()
+                    import random
+
+                    total = max_id - min_id + 1
+                    size = total // 3
+                    buckets = [
+                        (min_id,           min_id + size - 1, 3),
+                        (min_id + size,    min_id + 2*size - 1, 4),
+                        (min_id + 2*size,  max_id,             3),
+                    ]
+
+                    for start, end, want in buckets:
+                        got = []
+                        trials = 0
+                        while len(got) < want and trials < want * 10:
+                            trials += 1
+                            rand_id = random.randint(start, end)
+                            cursor.execute(
+                                f"SELECT `{col}` FROM `{table}` "
+                                f"WHERE `{pk_col}` >= %s AND `{col}` IS NOT NULL LIMIT 1",
+                                (rand_id,)
+                            )
+                            row = cursor.fetchone()
+                            if row and row[0] not in got:
+                                got.append(row[0])
+                        samples.extend(got)
+                        logger.debug(
+                            f"Bucket {start}–{end}: wanted {want}, got {len(got)} after {trials} trials"
+                        )
+                except Exception:
+                    # fallback reservoir sampling on first 10000 distinct values
+                    cursor.execute(
+                        f"SELECT DISTINCT `{col}` FROM `{table}` "
+                        "WHERE `{col}` IS NOT NULL LIMIT 10000"
+                    )
+                    import random
+                    reservoir: List[Any] = []
+                    for idx, row in enumerate(cursor):
+                        val = row[0]
+                        if idx < num_examples:
+                            reservoir.append(val)
+                        else:
+                            j = random.randint(0, idx)
+                            if j < num_examples:
+                                reservoir[j] = val
+                    samples = reservoir
+                    logger.debug(
+                        f"Used fallback reservoir sampling for {table}.{col} ({len(samples)} samples)"
+                    )
+
+                # assemble field info
+                field_info: Dict[str, Any] = {
                     "data_type": typ,
                     "data": samples
                 }
                 if typ.lower() in DATETIME_TYPES:
                     field_info["datetime_format"] = infer_date_format(samples)
+
                 schema[table][col] = field_info
 
+        # persist schema
         os.makedirs(save_dir, exist_ok=True)
-        
         out_path = os.path.join(save_dir, f"{schema_name}.pkl")
         with open(out_path, "wb") as f:
             pickle.dump(dict(schema), f)
@@ -199,7 +303,6 @@ class DatabaseManager:
             json_dir = os.path.dirname(save_json_version)
             if json_dir:
                 os.makedirs(json_dir, exist_ok=True)
-            
             schema_dict = json.loads(json.dumps(dict(schema), default=str))
             with open(save_json_version, "w", encoding="utf-8") as jf:
                 json.dump(schema_dict, jf, indent=2)
@@ -207,13 +310,14 @@ class DatabaseManager:
 
         return out_path
 
+
     def list_databases(
         self,
         show_fields: bool = False,
         show_system_data: bool = False
     ) -> dict:
         conn = self.connection_manager.connect()
-        schema: dict = {}
+        schema: Dict[str, Any] = {}
 
         with get_cursor(conn) as cursor:
             cursor.execute("SHOW DATABASES")
@@ -228,11 +332,11 @@ class DatabaseManager:
                 tables = [row[0] for row in cursor.fetchall()]
 
                 if show_fields:
-                    table_info: dict = {}
-                    for table in tables:
-                        cursor.execute(f"SHOW COLUMNS FROM `{db}`.`{table}`")
+                    table_info: Dict[str, List[str]] = {}
+                    for tbl in tables:
+                        cursor.execute(f"SHOW COLUMNS FROM `{db}`.`{tbl}`")
                         cols = [col[0] for col in cursor.fetchall()]
-                        table_info[table] = cols
+                        table_info[tbl] = cols
                     schema[db] = table_info
                 else:
                     schema[db] = tables
@@ -242,7 +346,7 @@ class DatabaseManager:
             f"(show_fields={show_fields}, show_system_data={show_system_data})"
         )
         return schema
-    
+
     def execute_query(
         self, 
         sql_query: str, 
@@ -261,27 +365,26 @@ class DatabaseManager:
             Dictionary containing the result data, error (if any), and final SQL
         """
         conn = self.connection_manager.connect()
-        params = []
+        params: List[Any] = []
 
         if limit is not None:
-            # Use regex to find if a LIMIT clause already exists (case-insensitive)
             limit_pattern = re.compile(r'LIMIT\s+(\d+)\s*;?\s*$', re.IGNORECASE)
             match = limit_pattern.search(sql_query)
 
             if match:
                 existing_limit = int(match.group(1))
                 if limit < existing_limit:
-                    # New limit is stricter, so replace the old one
                     sql_query = limit_pattern.sub('LIMIT %s', sql_query)
                     params.append(limit)
-                    logger.info(f"Replacing existing LIMIT {existing_limit} with new, stricter LIMIT {limit}")
+                    logger.info(
+                        f"Replacing existing LIMIT {existing_limit} with new, stricter LIMIT {limit}"
+                    )
                 else:
-                    # Existing limit is stricter or equal, so we respect it and do nothing
-                    logger.info(f"Respecting existing LIMIT {existing_limit} as it is stricter than requested LIMIT {limit}")
+                    logger.info(
+                        f"Respecting existing LIMIT {existing_limit} as it is stricter than requested LIMIT {limit}"
+                    )
             else:
-                # No LIMIT clause found, so append the new one
-                sql_query = sql_query.rstrip().rstrip(";")
-                sql_query += " LIMIT %s"
+                sql_query = sql_query.rstrip().rstrip(";") + " LIMIT %s"
                 params.append(limit)
                 logger.info(f"Appending new LIMIT {limit} to query")
 
@@ -290,25 +393,16 @@ class DatabaseManager:
                 cursor.execute(sql_query, tuple(params))
                 result = cursor.fetchall()
 
-            # For display purposes, create the final SQL with parameter values interpolated.
-            # The actual execution above was done safely with parameterization.
+            # Build a display version of the SQL
             final_sql = sql_query
             if params:
-                # Use a safer approach to handle % characters in LIKE clauses
-                try:
-                    # Replace %s placeholders with actual values for display
-                    temp_sql = sql_query
-                    for param in params:
-                        temp_sql = temp_sql.replace('%s', str(param), 1)
-                    final_sql = temp_sql
-                except Exception as e:
-                    # Fallback to original SQL if formatting fails
-                    final_sql = sql_query
-                    logger.warning(f"Could not format SQL for display: {e}")
-                
-            return {"data": result, "error": None, "final_sql": final_sql}
+                temp_sql = sql_query
+                for param in params:
+                    temp_sql = temp_sql.replace('%s', str(param), 1)
+                final_sql = temp_sql
 
+            return {"data": result, "error": None, "final_sql": final_sql}
         except mysql.connector.Error as e:
             logger.error(f"Error executing query: {e}")
             return {"data": None, "error": str(e), "final_sql": sql_query}
-    
+

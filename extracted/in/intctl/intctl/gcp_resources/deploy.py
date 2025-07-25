@@ -1,6 +1,7 @@
 import base64
 import json
 import os
+import re
 import subprocess
 import time
 from typing import List
@@ -45,7 +46,7 @@ def transfer_and_deploy(cfg: dict, status: StatusManager):
     workspace = cfg["workspace_uuid"]
     target_repo = f"intellithing-{workspace}".lower()
     cluster_name = f"int-{workspace}".lower()
-    images = ["project-manager", "status-manager", "gateway-manager", "gitea"]
+    images = ["project-manager", "status-manager", "gateway-manager", "gitea", "gitea-manager", "mlflow", "tml", "workflow"]
     
 
     # Step 1: Docker auth
@@ -181,7 +182,14 @@ def transfer_and_deploy(cfg: dict, status: StatusManager):
             image_path = f"{repo_base}/{service}:latest"
             tqdm.write(f"☸️ Deploying {service}")
             with open(deploy_yaml, "r") as f:
-                raw_yaml = f.read().replace("__IMAGE_TAG__", image_path)
+                content = f.read()
+                # This regex will capture the indentation before 'image:'
+                raw_yaml = re.sub(
+                    r"^(\s*)image:.*__IMAGE_TAG__.*$",        # capture indentation
+                    r"\1image: {}".format(image_path),         # re-insert same indentation
+                    content,
+                    flags=re.MULTILINE
+                )
                 if service == "gitea":
                     resolved_secret_name = f"gitea-resolved-{workspace}"
                     raw_yaml = raw_yaml.replace("__GITEA_RESOLVED_SECRET_NAME__", resolved_secret_name)

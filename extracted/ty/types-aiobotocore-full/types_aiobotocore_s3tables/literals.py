@@ -36,6 +36,7 @@ __all__ = (
     "SSEAlgorithmType",
     "ServiceName",
     "TableBucketMaintenanceTypeType",
+    "TableBucketTypeType",
     "TableMaintenanceJobTypeType",
     "TableMaintenanceTypeType",
     "TableTypeType",
@@ -51,6 +52,7 @@ MaintenanceStatusType = Literal["disabled", "enabled"]
 OpenTableFormatType = Literal["ICEBERG"]
 SSEAlgorithmType = Literal["AES256", "aws:kms"]
 TableBucketMaintenanceTypeType = Literal["icebergUnreferencedFileRemoval"]
+TableBucketTypeType = Literal["aws", "customer"]
 TableMaintenanceJobTypeType = Literal[
     "icebergCompaction", "icebergSnapshotManagement", "icebergUnreferencedFileRemoval"
 ]
@@ -100,6 +102,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -332,6 +336,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -392,6 +397,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

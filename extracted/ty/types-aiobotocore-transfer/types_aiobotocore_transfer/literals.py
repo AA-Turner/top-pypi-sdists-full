@@ -40,6 +40,7 @@ __all__ = (
     "ExecutionStatusType",
     "HomeDirectoryTypeType",
     "IdentityProviderTypeType",
+    "IpAddressTypeType",
     "ListAccessesPaginatorName",
     "ListAgreementsPaginatorName",
     "ListCertificatesPaginatorName",
@@ -110,6 +111,7 @@ HomeDirectoryTypeType = Literal["LOGICAL", "PATH"]
 IdentityProviderTypeType = Literal[
     "API_GATEWAY", "AWS_DIRECTORY_SERVICE", "AWS_LAMBDA", "SERVICE_MANAGED"
 ]
+IpAddressTypeType = Literal["DUALSTACK", "IPV4"]
 ListAccessesPaginatorName = Literal["list_accesses"]
 ListAgreementsPaginatorName = Literal["list_agreements"]
 ListCertificatesPaginatorName = Literal["list_certificates"]
@@ -189,6 +191,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -421,6 +425,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -481,6 +486,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

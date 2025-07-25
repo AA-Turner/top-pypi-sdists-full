@@ -21,7 +21,7 @@ _clean_platform:
 	@rm -rf __pycache__ */__pycache__ */*/__pycache__ */*/*/__pycache__ */*/*/*/__pycache__ */*/*/*/*/__pycache__
 	@rm -f *.pyc */*.pyc */*/*.pyc */*/*/*.pyc */*/*/*/*.pyc */*/*/*/*/*.pyc
 	@rm -f *.pyo */*.pyo */*/*.pyo */*/*/*.pyo */*/*/*/*.pyo */*/*/*/*/*.pyo
-	@rm -f *$$py.class */*$$py.class */*/*$$py.class */*/*/*$$py.class */*/*/*/*$$py.class */*/*/*/*/*$$py.class
+	@rm -f .DS_Store */.DS_Store */*/.DS_Store */*/*/.DS_Store */*/*/*/.DS_Store
 
 debug_clean:				## Delete various debugging artifacts.
 	@rm -rf /tmp/dis $$COVERAGE_DEBUG_FILE
@@ -58,17 +58,27 @@ else
 	INSTALL := python -m pip install -r
 endif
 
-install:				## Install the developer tools
+install:				## Install the developer tools.
 	$(INSTALL) requirements/dev.pip
 
 
 ##@ Tests and quality checks
 
-.PHONY: lint
+.PHONY: lint mypy precommit quality test
 
 lint:					## Run linters and checkers.
 	tox -q -e lint
 
+mypy:					## Run the type checker.
+	tox -q -e mypy
+
+precommit:				## Run the pre-commit checks.
+	PYTHONWARNDEFAULTENCODING= pre-commit run --all-files
+
+quality: lint mypy precommit		## Run all the quality checks.
+
+test:					## Run the test suite.
+	tox -q -m py
 
 ##@ Metacov: coverage measurement of coverage.py itself
 # See metacov.ini for details.
@@ -97,6 +107,12 @@ metahtml:				## Produce meta-coverage HTML reports.
 
 DOCBIN = .tox/doc/bin
 
+# PYVERSION to use for kitting, based on cibuildwheel's requirements.
+KITVER = py311
+KITBIN = .tox/$(KITVER)/bin
+
+$(KITBIN):
+	tox -q -e $(KITVER) --notest
 
 PIP_COMPILE = uv pip compile -q ${COMPILE_OPTS}
 upgrade: 				## Update the *.pip files with the latest packages satisfying *.in files.
@@ -107,17 +123,18 @@ upgrade_one:				## Update the *.pip files for one package. `make upgrade_one pac
 	$(MAKE) _upgrade COMPILE_OPTS="--upgrade-package $(package)"
 
 _upgrade: export UV_CUSTOM_COMPILE_COMMAND=make upgrade
-_upgrade:
+_upgrade: $(DOCBIN) $(KITBIN)
 	$(PIP_COMPILE) -o requirements/pip.pip requirements/pip.in
 	$(PIP_COMPILE) -o requirements/pytest.pip requirements/pytest.in
-	$(PIP_COMPILE) -o requirements/kit.pip requirements/kit.in
+	$(PIP_COMPILE) -p $(KITBIN)/python3 -o requirements/kit.pip requirements/kit.in
 	$(PIP_COMPILE) -o requirements/tox.pip requirements/tox.in
 	$(PIP_COMPILE) -o requirements/dev.pip requirements/dev.in
 	$(PIP_COMPILE) -o requirements/light-threads.pip requirements/light-threads.in
 	$(PIP_COMPILE) -o requirements/mypy.pip requirements/mypy.in
 	$(PIP_COMPILE) -p $(DOCBIN)/python3 -o doc/requirements.pip doc/requirements.in
+	pre-commit autoupdate
 
-diff_upgrade:				## Summarize the last `make upgrade`
+diff_upgrade:				## Summarize the last `make upgrade`.
 	@# The sort flags sort by the package name first, then by the -/+, and
 	@# sort by version numbers, so we get a summary with lines like this:
 	@#	-bashlex==0.16
@@ -216,7 +233,7 @@ kit_local:
 	# don't go crazy trying to figure out why our new code isn't installing.
 	find ~/Library/Caches/pip/wheels -name 'coverage-*' -delete
 
-build_kits:				## Trigger GitHub to build kits
+build_kits:				## Trigger GitHub to build kits.
 	python ci/trigger_action.py $(REPO_OWNER) build-kits
 
 tag:					#: Make a git tag with the version number (see howto.txt).

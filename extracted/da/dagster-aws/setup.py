@@ -33,10 +33,10 @@ setup(
     ],
     packages=find_packages(exclude=["dagster_aws_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<=3.13.3",
+    python_requires=">=3.9,<3.14",
     install_requires=[
         "boto3",
-        "dagster==1.11.2",
+        "dagster==1.11.3",
         "packaging",
         "requests",
     ],

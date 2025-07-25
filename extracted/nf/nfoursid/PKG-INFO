@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: nfoursid
-Version: 1.0.1
+Version: 1.0.2
 Summary: Implementation of N4SID, Kalman filtering and state-space models
 Home-page: https://github.com/spmvg/nfoursid
 Author: Steven van Gemert
@@ -12,6 +12,10 @@ Classifier: Programming Language :: Python :: 3
 Requires-Python: >=3.7
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: matplotlib>=3.3
+Requires-Dist: numpy>=1.19
+Requires-Dist: pandas>=1.1
+Dynamic: license-file
 
 # NFourSID
 

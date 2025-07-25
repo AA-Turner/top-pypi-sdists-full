@@ -292,7 +292,7 @@ class CompressionTransformer(nn.Module):
 
 class SlidingWindowTransformer(nn.Module):
     def __init__(self, emb_dim, input_dim, output_dim,
-                 n_layers=1, n_heads=1, mlp_dim=None, window_len=64, masked_window=True,
+                 n_layers=1, n_heads=1, mlp_dim=None, window_len=64, use_flex_attn=True,
                  attn_sink=False, dilate=True, dilation_factor=None, dropout=0.0,
                  causal=True, use_embedding=True, weight_tying=False,
                  mlp_bias=True, attn_bias=True,
@@ -329,7 +329,7 @@ class SlidingWindowTransformer(nn.Module):
                     norm1 = nn.RMSNorm(emb_dim, device=device),
                     dropout1 = nn.Dropout(dropout),
                     abs_pos_encoding = nn.Embedding(pos_encoding_max_len, emb_dim, device=device) if pos_encoding == "abs" else None,
-                    attention = SlidingWindowAttention(emb_dim, self.n_heads, window_len=window_len, masked_window=masked_window, attn_sink=attn_sink, dilation=dilation_factor**i if dilate else 1, dropout=dropout, bias=attn_bias, batch_first=True, device=device),
+                    attention = SlidingWindowAttention(emb_dim, self.n_heads, window_len=window_len, use_flex_attn=use_flex_attn, attn_sink=attn_sink, dilation=dilation_factor**i if dilate else 1, dropout=dropout, bias=attn_bias, batch_first=True, device=device),
                     norm2 = nn.RMSNorm(emb_dim, device=device),
                     dropout2 = nn.Dropout(dropout),
                     feedforward = MLP(emb_dim, self.mlp_dim, emb_dim, bias=mlp_bias, device=device),

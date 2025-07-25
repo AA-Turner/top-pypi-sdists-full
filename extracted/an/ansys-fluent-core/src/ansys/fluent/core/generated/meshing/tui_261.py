@@ -40,7 +40,7 @@ class main_menu(TUIMenu):
         """
     class close_fluent(TUIMethod):
         """
-        Exit Fluent Meshing.
+        (ANSYS Fluent in Workbench only) Exits program.
         """
     class print_license_usage(TUIMethod):
         """
@@ -48,7 +48,7 @@ class main_menu(TUIMenu):
         """
     class switch_to_solution_mode(TUIMethod):
         """
-        Switch to solution mode.
+        Enables you to transfer the mesh data from meshing mode to solution mode in ANSYS Fluent. When you use the switch-to-solution-mode command, you will be asked to confirm that you want to switch to solution mode.
         """
 
     class boundary(TUIMenu):
@@ -120,24 +120,23 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class auto_slit_faces(TUIMethod):
             """
-            Automatically slits all embedded boundary face zones.
-            .
+            Slits all boundary faces with cells on both sides (these cells must be in the same cell zone). A displacement can be specified to provide thickness to the boundary.
             """
         class check_boundary_mesh(TUIMethod):
             """
-            Report number of Delaunay violations on surface mesh and unused nodes.
+            Reports the number of Delaunay violations on the triangular surface mesh and the number of isolated nodes.
             """
         class check_duplicate_geom(TUIMethod):
             """
-            Check duplicated face threads in the geometry.
+            Displays the names of the duplicate surfaces and prints maximum and average distance between them.
             """
         class clear_marked_faces(TUIMethod):
             """
-            Clear previously marked faces.
+            Clears marked faces.
             """
         class clear_marked_nodes(TUIMethod):
             """
-            Clear previously marked nodes.
+            Clears nodes that were marked using the mark-duplicate-nodes command.
             """
         class coarsen_boundary_faces(TUIMethod):
             """
@@ -145,79 +144,79 @@ class main_menu(TUIMenu):
             """
         class compute_bounding_box(TUIMethod):
             """
-            Computes bounding box for given zones.
+            Computes the bounding box for the zones specified.
             """
         class count_free_nodes(TUIMethod):
             """
-            Count number of free nodes.
+            Reports the number of boundary nodes associated with edges having only one attached face.
             """
         class count_marked_faces(TUIMethod):
             """
-            Count marked faces.
+            Reports the number of marked faces.
             """
         class count_unused_bound_node(TUIMethod):
             """
-            Count number of unused boundary nodes.
+            Counts the unused boundary nodes in the domain.
             """
         class count_unused_faces(TUIMethod):
             """
-            Count number of unused faces.
+            Lists the number of boundary faces that are not used by any cell.
             """
         class count_unused_nodes(TUIMethod):
             """
-            Count number of unused nodes.
+            Lists the number of boundary nodes that are not used by any cell.
             """
         class create_bounding_box(TUIMethod):
             """
-            Create bounding box for given zones.
+            Creates the bounding box for the specified zones. You can specify the zone type, name, edge length, and the extents of the box, as required. You can also optionally create a geometry object from the bounding box created.
             """
         class create_cylinder(TUIMethod):
             """
-            Create cylinder using two axis end nodes/positions or, three points on the arc defining the cylinder.
+            Creates a cylinder by specifying the axis, radius, and edge length or three arc nodes, the axial delta, the radial gap, and the edge length. You can also specify the prefix for the zone being created, as required. You can also optionally create a geometry object from the cylinder created.
             """
         class create_plane_surface(TUIMethod):
             """
-            Create plane surface.
+            Creates a plane surface by specifying either the axis direction, axial location, and the extents of the surface or three points defining the plane. You can also optionally create a geometry object from the plane surface created.
             """
         class create_revolved_surface(TUIMethod):
             """
-            Create surface by revolving the edge along the vector.
+            Creates a revolved surface by rotating the specified edge through the angle specified. Specify the number of segments, scale factor, and the pivot point and axis of rotation. You can also optionally create a geometry object from the revolved surface created.
             """
         class create_swept_surface(TUIMethod):
             """
-            Create surface by sweeping the edge along the vector.
+            Creates a surface by sweeping the specified edge in the direction specified. You need to specify the distance to sweep through and the number of offsets, as required. You can also optionally create a geometry object from the swept surface created.
             """
         class delete_all_dup_faces(TUIMethod):
             """
-            Delete all duplicate faces on all boundary zones.
+            Searches for faces on all boundary zones that have the same nodes and deletes the duplicates.
             """
         class delete_duplicate_faces(TUIMethod):
             """
-            Delete duplicate faces on specified zones.
+            Searches for faces on a specified zone that have the same nodes and deletes the duplicates.   Duplicate faces may be present if you generated the boundary mesh using a third-party grid generator, or if you have used the slit-boundary-face command to modify the boundary mesh and then merged the nodes.
             """
         class delete_free_edge_faces(TUIMethod):
             """
-            Remove faces with specified number of free edges.
+            Enables you to remove faces with the specified number of free edges from the specified boundary zones.
             """
         class delete_island_faces(TUIMethod):
             """
-            Delete island faces or cavity.
+            Enables you to delete faces in a non-contiguous region of a face zone.
             """
         class delete_unconnected_faces(TUIMethod):
             """
-            Delete unconnected face zones.
+            Enables you to delete the unconnected face-zones.
             """
         class delete_unused_faces(TUIMethod):
             """
-            Delete unused boundary faces.
+            Deletes all the boundary faces that are not used by any cell.
             """
         class delete_unused_nodes(TUIMethod):
             """
-            Delete nodes not belonging to any boundary faces.
+            Deletes the boundary nodes that are not used by any boundary faces.
             """
         class edge_limits(TUIMethod):
             """
-            Print shortest and largest edges on boundary mesh.
+            Prints the length of the shortest and longest edges on the boundary. This information is useful for setting initial mesh parameters and refinement controls.
             """
         class expand_marked_faces_by_rings(TUIMethod):
             """
@@ -225,15 +224,15 @@ class main_menu(TUIMenu):
             """
         class face_distribution(TUIMethod):
             """
-            Show face quality distribution.
+            Reports the distribution of face quality in the text window.
             """
         class face_skewness(TUIMethod):
             """
-            Show worse face skewness.
+            Lists the worst face skewness.
             """
         class fix_mconnected_edges(TUIMethod):
             """
-            Fix multi connected edges.
+            Resolves multi-connected edges/non-manifold configurations in the boundary mesh by deleting fringes and overlaps based on threshold values specified.
             """
         class improve_surface_mesh(TUIMethod):
             """
@@ -242,11 +241,11 @@ class main_menu(TUIMenu):
             """
         class jiggle_boundary_nodes(TUIMethod):
             """
-            Perturb randomly nodal position.
+            Randomly perturbs all boundary nodes based on an input tolerance. Some nodes will be perturbed less than the tolerance value, while others will be perturbed by half of the tolerance value in all three coordinate directions.
             """
         class make_periodic(TUIMethod):
             """
-            Make periodic zone pair.
+            Enables you to make the specified boundaries periodic. You can specify the type of periodicity (rotational or translational), the angle, pivot, and axis of rotation, for rotational periodicity or the translational shift for translational periodicity.   For each of the zones specified, a corresponding periodic shadow boundary zone will be created.
             """
         class mark_bad_quality_faces(TUIMethod):
             """
@@ -254,70 +253,67 @@ class main_menu(TUIMenu):
             """
         class mark_duplicate_nodes(TUIMethod):
             """
-            Mark duplicate nodes.
+            Marks duplicate nodes. The marked nodes will appear in the grid display when nodes are displayed. For a list of duplicate nodes, set the /report/verbosity level to 2 before using the mark-duplicate-nodes command.
             """
         class mark_face_intersection(TUIMethod):
             """
-            Mark face intersection in face zones.
+            Marks intersecting faces. Intersection is detected if the line defined by any two consecutive nodes on a face intersects any face in the current domain. The marked faces will appear in the grid display when faces are displayed. For a list of intersecting faces, set the /report/verbosity level to 2 before using the mark-face-intersection command.
             """
         class mark_face_proximity(TUIMethod):
             """
-            Mark faces that are in proximity.
+            Marks faces that are in proximity to each other.   Face A is considered to be in proximity to face B if any of the nodes on face A are within the calculated proximity distance from face B. The proximity distance is calculated based on the specified relative distance and the sphere radius. The sphere radius is determined by the maximum distance from the centroid of the face to its nodes. The marked faces will appear in the grid display when faces are displayed.   For a list of faces in proximity to each other, set the /report/verbosity level to 2 before using the mark-face-proximity command.
             """
         class mark_faces_in_region(TUIMethod):
             """
-            Mark faces in local region.
+            Marks the faces that are contained in a specified local refinement region.
             """
         class merge_nodes(TUIMethod):
             """
-            Merge duplicate nodes.  If a face has two of
-            its nodes merged, then it is deleted.
+            Merges duplicate nodes.
             """
         class merge_small_face_zones(TUIMethod):
             """
-            Merge face zones having area less than min area with largest zone in its neighbor.
+            Merges the face zones having area less than the minimum area.
             """
         class orient_faces_by_point(TUIMethod):
             """
-            Orient Region based on Material Point.
+            Orients the normals based on the specified material point.
             """
         class print_info(TUIMethod):
             """
-            Print node/face/cell info.
+            Prints information about the grid in the text window.
             """
         class project_face_zone(TUIMethod):
             """
-            Project face zone to a background mesh.
+            Projects nodes on a selected face zone onto a target face zone. Projection can be performed based on normal direction, closest point, or specified direction.
             """
         class recover_periodic_surfaces(TUIMethod):
             """
-            Recover periodic surfaces.
+            Restores the periodic relationship between face zones. You will be prompted for the type (rotational or translational), method (semi-automatic, automatic, or manual, depending on the periodicity type) and for face zones. Periodicity information (angle, pivot point, axis of rotation, or translational shift) are read in with the mesh file.
             """
         class reset_element_type(TUIMethod):
             """
-            Reset the element type (mixed, linear, tri or quad) of a boundary zone.
+            Resets the element type (mixed, tri, or quad) of a boundary zone. If you have separated a mixed (tri and quad) face zone into one tri face zone and one quad face zone, for example, each of these will be identified as a “mixed" zone. Resetting the element type for each of these new zones will identify them as, respectively, a triangular zone and a quadrilateral zone.
             """
         class resolve_face_intersection(TUIMethod):
             """
-            Resolve face intersection in tri-face zones.
+            Resolves self intersection on manifold surface meshes.
             """
         class scale_nodes(TUIMethod):
             """
-            Scale all nodes by the scale factor.
+            Applies a scaling factor to all node coordinates. You can use this command to change the units of the grid.
             """
         class set_periodicity(TUIMethod):
             """
-            Set size field periodicity.
+            Defines the periodicity parameters. You will be prompted for the type of periodicity (rotational or translational). For rotational periodicity, you will be prompted for the angle and axis of rotation parameters. For translational periodicity, you will be prompted for the shift vector components.
             """
         class slit_boundary_face(TUIMethod):
             """
-            Make slit in mesh at boundary face.
-            All faces must have normals oriented in the same direction.
-            .
+            Slits a boundary face zone by duplicating all faces and nodes, except those nodes that are located at the edges of the boundary zone. A displacement can be specified to provide thickness to the boundary. The slit command only works when it is possible to move from face to face using the connectivity provided by the cells.   You should slit the boundary face after you generate the volume mesh so that cells will not be placed inside the gap. There may be some inaccuracies when you graphically display solution data for a mesh with a slit boundary in ANSYS Fluent.
             """
         class smooth_marked_faces(TUIMethod):
             """
-            Smooth Marked faces on threads.
+            Smooths the marked faces.
             """
         class unmark_faces_in_zones(TUIMethod):
             """
@@ -325,16 +321,16 @@ class main_menu(TUIMenu):
             """
         class unmark_selected_faces(TUIMethod):
             """
-            Clear mark on selected faces.
+            Unmarks the marked selected faces.
             """
         class wrapper(TUIMethod):
             """
-            Enter surface wrapper menu.
+            Enters the surface wrapper menu.  This menu is no longer supported, and will be removed in a future release.
             """
 
         class boundary_conditions(TUIMenu):
             """
-            Enter manage boundary conditions menu.
+            Contains options for copying or clearing boundary conditions when a case file is read.
             """
             def __init__(self, service, version, mode, path):
                 self.clear = self.__class__.clear(service, version, mode, path + ["clear"])
@@ -343,20 +339,20 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class clear(TUIMethod):
                 """
-                Clear boundary conditions.
+                Clears the boundary conditions assigned to the specified face zones.
                 """
             class clear_all(TUIMethod):
                 """
-                Clear all boundary conditions.
+                Clears the boundary conditions assigned to all the face zones.
                 """
             class copy(TUIMethod):
                 """
-                Copy boundary conditions.
+                Enables you to copy the boundary conditions from the face zone selected to the face zones specified.
                 """
 
         class feature(TUIMenu):
             """
-            Enter bounday feature menu.
+            Enables you to create and modify features.
             """
             def __init__(self, service, version, mode, path):
                 self.copy_edge_zones = self.__class__.copy_edge_zones(service, version, mode, path + ["copy_edge_zones"])
@@ -381,55 +377,55 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class copy_edge_zones(TUIMethod):
                 """
-                Copy edge zones.
+                Copies the specified edge zone(s) to new edge zone(s).
                 """
             class create_edge_zones(TUIMethod):
                 """
-                Create edge loops of thread based on feature angle.
+                Extracts edge loops for the specified face zone(s) based on the feature method specified. You also need to specify an appropriate value for feature angle when using the fixed-angle method.   The Face Seed approach cannot be used when creating edge loops using text commands.
                 """
             class delete_degenerated_edges(TUIMethod):
                 """
-                Delete from Edge Zones, Edges whose two end nodes are the same.
+                Deletes degenerated edges (edges where the two end nodes are the same) for the edge zone(s) specified.
                 """
             class delete_edge_zones(TUIMethod):
                 """
-                Delete edge zones.
+                Deletes the specified edge zone(s).
                 """
             class edge_size_limits(TUIMethod):
                 """
-                Report edge size limits.
+                Reports the minimum, maximum, and average edge length for the specified edge zone(s) in the console.
                 """
             class group(TUIMethod):
                 """
-                Group face and edge zones together.
+                Associates the specified edge zone(s) with the specified face zone.
                 """
             class intersect_edge_zones(TUIMethod):
                 """
-                Intersect edge zones.
+                Intersects the specified edge loops to create a new edge loop comprising the common edges. You can enable automatic deleting of overlapped edges and specify an appropriate intersection tolerance.
                 """
             class list_edge_zones(TUIMethod):
                 """
-                List edge zones.
+                Lists the name, ID, type, and count for the specified edge zone(s).
                 """
             class merge_edge_zones(TUIMethod):
                 """
-                Merge edge zones.
+                Merges multiple edge loops of the same type into a single loop.
                 """
             class orient_edge_direction(TUIMethod):
                 """
-                Orient edge zone directions.
+                Orients the edges on the loop to point in the same direction.
                 """
             class project_edge_zones(TUIMethod):
                 """
-                Project edge zones on specified face zone.
+                Projects the edges of the specified loop onto the specified face zone using the specified projection method.
                 """
             class remesh_edge_zones(TUIMethod):
                 """
-                Remesh edge zones.
+                Remeshes the specified edge loop(s), modifying the node distribution according to the specified remeshing method, spacing values, and feature angle. You can also enable quadratic reconstruction, if required.
                 """
             class reverse_edge_direction(TUIMethod):
                 """
-                Reverse direction of edge loops.
+                Reverses the direction of the edge loop.
                 """
             class secondary_feature_angle(TUIMethod):
                 """
@@ -437,28 +433,28 @@ class main_menu(TUIMenu):
                 """
             class separate_delete_small_edges(TUIMethod):
                 """
-                Separates and deletes small edges.
+                Separates the edge zones based on the feature angle specified, and then deletes the edges having a count smaller than the minimum count specified.
                 """
             class separate_edge_zones(TUIMethod):
                 """
-                Separate edge zones based on connectivity and feature angle.
+                Separates the specified edge loop based on connectivity and the specified feature angle.
                 """
             class separate_edge_zones_by_seed(TUIMethod):
                 """
-                Separate edge zones by seed.
+                Separates the edge loop based on the seed edge specified. The edge zone separation angle is used to separate the edge zone (default 40).
                 """
             class toggle_edge_type(TUIMethod):
                 """
-                Toggle edge type between boundary and interior.
+                Toggles the edge type between boundary and interior.
                 """
             class ungroup(TUIMethod):
                 """
-                Ungroup previously grouped face and edge zones.
+                Ungroups previously grouped edge zones.
                 """
 
         class improve(TUIMenu):
             """
-            Enter Imporve  boundary face zone menu.
+            Enables you to improve boundary surfaces.
             """
             def __init__(self, service, version, mode, path):
                 self.collapse_bad_faces = self.__class__.collapse_bad_faces(service, version, mode, path + ["collapse_bad_faces"])
@@ -469,30 +465,28 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class collapse_bad_faces(TUIMethod):
                 """
-                Collapse short edge of faces with high aspect ratio.
+                Enables you to collapse the short edge of faces having a high aspect ratio or skewness in the specified face zone(s).
                 """
             class degree_swap(TUIMethod):
                 """
-                Perform swap on boundary mesh based on node degree.
+                Enables you to improve the boundary mesh by swapping edges based on a node degree value other than 6. The node degree is defined as the number of edges connected to the node.
                 """
             class improve(TUIMethod):
                 """
-                Improve skewness of tri boundary face zones.
+                Enables you to improve the boundary surface quality using skewness, size change, aspect ratio, or area as the quality measure.
                 """
             class smooth(TUIMethod):
                 """
-                Smooth  face zones using laplace smoothing.
-                .
+                Enables you to improve the boundary surface using smoothing.
                 """
             class swap(TUIMethod):
                 """
-                Improve surface mesh by swapping face edges
-                where Delaunay violations occur.
+                Enables you to improve the boundary surface using edge swapping.
                 """
 
         class manage(TUIMenu):
             """
-            Enter face zone menu.
+            Contains options for manipulating the boundary zones.
             """
             def __init__(self, service, version, mode, path):
                 self.user_defined_groups = self.__class__.user_defined_groups(service, version, mode, path + ["user_defined_groups"])
@@ -520,11 +514,11 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class auto_delete_nodes(TUIMethod):
                 """
-                Automatically delete unused nodes after deleting faces.
+                Specifies whether or not unused nodes should be deleted when their face zone is deleted.
                 """
             class change_prefix(TUIMethod):
                 """
-                Change the prefix for specified face zones.
+                Enables you to change the prefix for the specified face zones.
                 """
             class change_suffix(TUIMethod):
                 """
@@ -532,80 +526,80 @@ class main_menu(TUIMenu):
                 """
             class copy(TUIMethod):
                 """
-                Copy all nodes and faces of specified face zones.
+                Copies all nodes and faces of the specified face zone(s).
                 """
             class create(TUIMethod):
                 """
-                Create new face zone.
+                Creates a new face zone.
                 """
             class delete(TUIMethod):
                 """
-                Delete face zone, leaving nodes.
+                Deletes the face zone.
                 """
             class flip(TUIMethod):
                 """
-                Flip the orientation of all face normals on the face zone.
+                Reverses the normal direction of the specified boundary zone(s).
                 """
             class id(TUIMethod):
                 """
-                Give zone a new id number.
+                Specifies a new boundary zone ID. If there is a conflict, the change will be ignored.
                 """
             class list(TUIMethod):
                 """
-                List boundary face zones.
+                Prints information about all boundary zones.
                 """
             class merge(TUIMethod):
                 """
-                Merge two or more face zones.
+                Merges face zones.
                 """
             class name(TUIMethod):
                 """
-                Give zone a new name.
+                Gives a face zone a new name.
                 """
             class orient(TUIMethod):
                 """
-                Consistently orient zones.
+                Consistently orients the faces in the specified zones.
                 """
             class origin(TUIMethod):
                 """
-                Set the origin of the mesh coordinates.
+                Specifies a new origin for the mesh, to be used for face zone rotation and for periodic zone creation. The default origin is (0,0,0).
                 """
             class remove_suffix(TUIMethod):
                 """
-                Remove the leftmost ':' and the characters after it in the face zone names.
+                Removes the suffix (characters including and after the leftmost ":") in the face zone names.
                 """
             class rotate(TUIMethod):
                 """
-                Rotate all nodes of specified face zones.
+                Rotates all nodes of the specified face zone(s).
                 """
             class rotate_model(TUIMethod):
                 """
-                Rotate all nodes.
+                Rotates all nodes of the model through the specified angle, based on the specified point and axis of rotation.
                 """
             class scale(TUIMethod):
                 """
-                Scale all nodes of specified face zones.
+                Scales all nodes of the specified face zone(s).
                 """
             class scale_model(TUIMethod):
                 """
-                Scale all nodes.
+                Scales all nodes of the model by multiplying the node coordinates by the specified scale factors (x, y, z).
                 """
             class translate(TUIMethod):
                 """
-                Translate all nodes of specified face zones.
+                Translates all nodes of the specified face zone(s).
                 """
             class translate_model(TUIMethod):
                 """
-                Translate all nodes.
+                Translates all nodes of the model by the specified translation offsets (x, y, z).   The translation offsets are interpreted as absolute numbers in meshing mode. In solution mode, however, the translation offsets are assumed to be distances in the length unit set. This may lead to differences in domain extents reported after translating the mesh in the respective modes.
                 """
             class type(TUIMethod):
                 """
-                Change face zone type.
+                Changes the boundary type of the face zone.   When changing the boundary type of any zone to type interior, ensure that there is a single cell zone across the interior boundary. Retaining multiple cell zones across an interior boundary can cause undesirable results with further tet meshing or smoothing operations.  Also, face zones having no/one neighboring cell zone should not be changed to type interior.  The mesh check will issue a warning if multiple cell zones are maintained across an interior boundary. The boundary type in such cases should be set to internal instead.
                 """
 
             class user_defined_groups(TUIMenu):
                 """
-                Collect boundary zones to form logical groups.
+                Enables you to manipulate user-defined groups.
                 """
                 def __init__(self, service, version, mode, path):
                     self.activate = self.__class__.activate(service, version, mode, path + ["activate"])
@@ -616,28 +610,28 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class activate(TUIMethod):
                     """
-                    Activate a User Defined Group.
+                    Activates the specified user-defined groups.
                     """
                 class create(TUIMethod):
                     """
-                    Create a new User Defined Group.
+                    Creates the user-defined group comprising the specified zones.
                     """
                 class delete(TUIMethod):
                     """
-                    Delete a User Defined Group.
+                    Deletes the specified user-defined group.
                     """
                 class list(TUIMethod):
                     """
-                    List User Defined Groups.
+                    Lists the groups in the console.
                     """
                 class update(TUIMethod):
                     """
-                    Update a User Defined Group.
+                    Enables you to modify an existing group.
                     """
 
         class modify(TUIMenu):
             """
-            Enter boundary modify menu.
+            Contains commands used to modify the boundary mesh.
             """
             def __init__(self, service, version, mode, path):
                 self.analyze_bnd_connectvty = self.__class__.analyze_bnd_connectvty(service, version, mode, path + ["analyze_bnd_connectvty"])
@@ -676,7 +670,7 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class analyze_bnd_connectvty(TUIMethod):
                 """
-                Find and mark free edges/nodes and mutliple-connected edges/nodes.
+                Finds and marks free edges and nodes and multiply-connected edges and nodes. This process is necessary if the boundary mesh has been changed with Scheme functions.
                 """
             class auto_patch_holes(TUIMethod):
                 """
@@ -684,63 +678,63 @@ class main_menu(TUIMenu):
                 """
             class clear_selections(TUIMethod):
                 """
-                Clear all selections.
+                Clears all selections.
                 """
             class clear_skew_faces(TUIMethod):
                 """
-                Clear faces previously marked as skewed.
+                Clears faces that were marked using the mark-skew-face command.
                 """
             class collapse(TUIMethod):
                 """
-                Collapse pairs of nodes or edges or faces.
+                Collapses pairs of nodes, edge(s), or face(s). If a pair of nodes is selected, both the nodes are deleted and a new node is created at the midpoint of the two nodes. If a triangular face is selected, the complete face is collapsed into a single node at the centroid of the face.
                 """
             class create(TUIMethod):
                 """
-                Create either nodes or faces.
+                Creates a boundary face if the selection list contains 3 nodes and an optional zone. If the selection list contains positions, then nodes are created.
                 """
             class create_mid_node(TUIMethod):
                 """
-                Create a node at the midpoint between two selected nodes.
+                Creates a node at the midpoint between two selected nodes.
                 """
             class delete(TUIMethod):
                 """
-                Delete either nodes, faces or zones.
+                Deletes all selected faces and nodes.
                 """
             class delta_move(TUIMethod):
                 """
-                Move nodes to new positions.
+                Moves the selected node by specified magnitude.
                 """
             class deselect_last(TUIMethod):
                 """
-                Deselect last selection.
+                Removes the last selection from the selection list.
                 """
             class hole_feature_angle(TUIMethod):
                 """
-                Angle defining boundary of hole.
+                Specifies the feature angle for consideration of holes in the geometry.
                 """
             class list_selections(TUIMethod):
                 """
-                List selections.
+                Lists all of the selected objects.
                 """
             class local_remesh(TUIMethod):
                 """
-                Remesh locally starting from face seeds.
+                Remeshes marked faces or faces based on selections in the graphics window. Select the faces to be remeshed and specify the sizing source (constant-size, geometry, or size-field), the number of radial layers of faces to be remeshed (rings), the feature angle to be preserved while remeshing the selected faces, and the size for constant size remeshing (if applicable).
                 """
             class mark_skew_face(TUIMethod):
                 """
-                Mark face to skip when reporting worst skew face.
+                Marks faces that should be skipped when the worst skewed face is reported using the Modify Boundary dialog box. This enables you to search for the next skewed face.
                 """
             class merge(TUIMethod):
                 """
-                Merge nodes.
+                Merges pairs of nodes. The first node selected is retained, and the second is the duplicate that is merged.
                 """
             class move(TUIMethod):
                 """
-                Move nodes to new positions.
+                Moves the selected node to the selected position if the selection list contains a node and a position.
                 """
             class next_skew(TUIMethod):
                 """
-                Display the next highest skewed boundary face.
+                Finds the triangular face of nearest lower skewness value than that of the worst skewed face. The face ID, its skewness, the longest edge ID, and the node ID opposite to the longest edge are displayed in the console.
                 """
             class patch_options(TUIMethod):
                 """
@@ -748,68 +742,68 @@ class main_menu(TUIMenu):
                 """
             class rezone(TUIMethod):
                 """
-                Change the zone faces belong to.
+                Moves the selected faces from their current zone into the selected zone, if the selection list contains a zone and one or more faces.
                 """
             class select_entity(TUIMethod):
                 """
-                Select a entity.
+                Adds a cell, face, or node to the selection list by entering the name of the entity.
                 """
             class select_filter(TUIMethod):
                 """
-                Select probe filter.
+                Selects a filter. The possible filters are off, cell, face, edge, node, zone, position, object, and size. If off is chosen, then when a selection is made, it is first checked to see if it is a cell, then a face, an edge, and so on. When the node filter is used, and if a cell or face is selected, the node closest to the selection point is picked. Thus, the nodes do not have to be displayed, to be picked.
                 """
             class select_position(TUIMethod):
                 """
-                Select a position.
+                Adds a position to the selection list by entering the coordinates of the position.
                 """
             class select_probe(TUIMethod):
                 """
-                Select probe function.
+                Selects the probe function. The possible functions are:.
                 """
             class select_visible_entities(TUIMethod):
                 """
-                Set visual selection mode of entities.
+                Enables you to select only visible entities (nodes, edges, faces, zones, objects) when the box select or polygon select options are used. Ensure that the model is zoomed to an appropriate level for correct selection.
                 """
             class select_zone(TUIMethod):
                 """
-                Select a zone.
+                Adds a zone to the selection list by entering the zone name or ID.
                 """
             class show_filter(TUIMethod):
                 """
-                Show current probe filter.
+                Shows the current filter.
                 """
             class show_probe(TUIMethod):
                 """
-                Show current probe function.
+                Shows the current probe function.
                 """
             class skew(TUIMethod):
                 """
-                Display the highest skewed boundary face.
+                Finds the face with the highest (worst) skewness, selects it in the graphics window, and reports its skewness and zone ID in the console window.
                 """
             class skew_report_zone(TUIMethod):
                 """
-                Face zone for which skewness has to be reported.
+                Enables you to select the zone for which you want to report the skewness. You can either specify zone name or zone ID.
                 """
             class smooth(TUIMethod):
                 """
-                Smooth selected nodes.
+                Uses Laplace smoothing to modify the position of the nodes in the selection list. It moves the selected node to a position computed from an average of its node neighbors. The new position is an average of the neighboring node coordinates and is not reprojected to the discrete surface.
                 """
             class split_face(TUIMethod):
                 """
-                Split two selected faces into four.
+                Splits two selected faces into four faces.
                 """
             class swap(TUIMethod):
                 """
-                Swap edges.
+                Swaps boundary edges (of triangular faces) if the selection list contains edges.
                 """
             class undo(TUIMethod):
                 """
-                Undo last modification.
+                Undoes the previous operation. When an operation is performed, the reverse operation is stored on the undo stack. For example, a create operation places a delete on the stack, and a delete adds a create operation.   The undo operation requires that the name of the object exist when the action is undone. If the name does not exist, then the undo will fail. You can undo the last few operations, but if many operations are being performed it is recommended that you also save the mesh periodically.
                 """
 
         class refine(TUIMenu):
             """
-            Enter refine boundary face menu.
+            Discusses the commands used to refine the boundary mesh.
             """
             def __init__(self, service, version, mode, path):
                 self.local_regions = self.__class__.local_regions(service, version, mode, path + ["local_regions"])
@@ -822,32 +816,32 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class auto_refine(TUIMethod):
                 """
-                Automatically refine faces based on proximity with other faces.
+                Automatically refines a face zone based on proximity. The original face zone is treated as a background mesh. Faces are refined by multiple face splitting passes, so that no face is in close proximity to any face in the current domain.
                 """
             class clear(TUIMethod):
                 """
-                Clear the refine flag at the faces.
+                Clears all refinement marks from all boundary faces.
                 """
             class count(TUIMethod):
                 """
-                Count the number of faces flagged on thread(s).
+                Counts the number of faces marked on each boundary zone.
                 """
             class limits(TUIMethod):
                 """
-                List face zone information on number of faces flagged and range of face size.
+                Prints a report of the minimum and maximum size of each specified zone. This report will also tell you how many faces on each zone have been marked for refinement.
                 """
             class mark(TUIMethod):
                 """
-                Mark faces in region for refinement.
+                Marks the faces for refinement.
                 """
             class refine(TUIMethod):
                 """
-                Refine the flagged faces.
+                Refines the marked faces.
                 """
 
             class local_regions(TUIMenu):
                 """
-                Enter the refine-local menu.
+                Enters the local refinement menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.define = self.__class__.define(service, version, mode, path + ["define"])
@@ -857,24 +851,24 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class define(TUIMethod):
                     """
-                    Define a refinement region's parameters.
+                    Defines the refinement region according to the specified parameters.
                     """
                 class delete(TUIMethod):
                     """
-                    Delete a refinement region.
+                    Deletes the specified region.
                     """
                 class init(TUIMethod):
                     """
-                    Delete all current regions and add the default refinement region.
+                    Creates a region encompassing the entire geometry.
                     """
                 class list_all_regions(TUIMethod):
                     """
-                    List all refinement regions.
+                    Lists all the refinement regions in the console.
                     """
 
         class remesh(TUIMenu):
             """
-            Enter remeshing boundary face zone menu.
+            Has a set of commands for remeshing the face zones.
             """
             def __init__(self, service, version, mode, path):
                 self.controls = self.__class__.controls(service, version, mode, path + ["controls"])
@@ -908,83 +902,93 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class clear_marked_faces(TUIMethod):
                 """
-                Clear previously marked faces.
+                Clears the highlighting of the triangles that are marked.
                 """
             class coarsen_and_refine(TUIMethod):
                 """
-                Coarsen and refine face zones according to size function.
+                Remeshes (coarsens/refines) the boundary face zones based on the computed size field. Specify the boundary face zones to be remeshed, the boundary edge zones, feature angle, and corner angle. Additionally, specify whether the current boundary face zones should be replaced by the remeshed face zones after the operation is complete.
                 """
             class create_all_intrst_loops(TUIMethod):
                 """
-                Create edge loop of intersection for all boundary zones in current domain.
+                Creates edge loop of intersection for all boundary zones in current domain.
                 """
             class create_edge_loops(TUIMethod):
                 """
-                Create edge loops of thread based on feature angle.
+                Creates edge loops for a specified face zone, based on feature angle.
                 """
             class create_intersect_loop(TUIMethod):
                 """
-                Create edge loop of intersection.
+                Creates an interior edge loop at the intersection between two adjacent face zones. Edges created in this way will not be remeshed by default.
                 """
             class create_join_loop(TUIMethod):
                 """
-                Create edge loop of overlap region.
+                Creates edge loop on boundary of the region of overlap of two surfaces.
                 """
             class create_stitch_loop(TUIMethod):
                 """
-                Create edge loop of stitch edges.
+                Creates edge loops for connecting two surfaces along their free edges.
                 """
             class delete_overlapped_edges(TUIMethod):
                 """
-                Delete edges that overlapped selected loops.
+                Deletes edges that overlap selected edge loops.
                 """
             class faceted_stitch_zones(TUIMethod):
                 """
-                Stitch free edges on zones.
+                Performs the faceted stitching of zones.
                 """
             class insert_edge_zone(TUIMethod):
                 """
-                Insert edge into face zonoe.
+                Inserts an edge zone into a triangulated boundary face zone.
                 """
             class intersect_all_face_zones(TUIMethod):
                 """
-                Intersect all face zones.
+                Remeshes all the intersecting face zones.   After the intersect operation, remesh is called automatically. To disable the post-remesh operation, use the text command:  /boundary/remesh/controls/intersect/remesh-post-intersection?
+                no.
                 """
             class intersect_face_zones(TUIMethod):
                 """
-                Intersection face zones.
+                Remeshes two intersecting face zones so that they become conformal.   After the intersect operation, remesh is called automatically. To disable the post-remesh operation, use the text command:  /boundary/remesh/controls/intersect/remesh-post-intersection?
+                no.
                 """
             class join_all_face_zones(TUIMethod):
                 """
-                Intersect all face zones.
+                Connects all overlapping face zones using the join operation.   After the join operation, remesh is called automatically. To disable the post-remesh operation, use the text command:  /boundary/remesh/controls/intersect/remesh-post-intersection?
+                no.
                 """
             class join_face_zones(TUIMethod):
                 """
-                Join face zones.
+                Connects two overlapping faces.   After the join operation, remesh is called automatically. To disable the post-remesh operation, use the text command:  /boundary/remesh/controls/intersect/remesh-post-intersection?
+                no.
                 """
             class mark_intersecting_faces(TUIMethod):
                 """
-                Mark faces on zones.
+                Highlights the triangles in the neighborhood of the line of intersection.
                 """
             class mark_join_faces(TUIMethod):
                 """
-                Mark faces on zones.
+                Highlights the triangles in the neighborhood of the join edge loop.
                 """
             class mark_stitch_faces(TUIMethod):
                 """
-                Mark faces on zones.
+                Highlights the triangles in the neighborhood of the stitch edge loop.
                 """
             class remesh_constant_size(TUIMethod):
                 """
-                Retriangulate face zones to constant triangle size while maintaining conformity.
+                Remeshes the specified face zones to a constant triangle size while maintaining conformity with adjacent zones. Specify the boundary face zones to be remeshed, the boundary edge zones, feature angle, corner angle, and the constant size. Additionally, specify whether the current boundary face zones should be replaced by the remeshed face zones after the operation is complete.
                 """
             class remesh_face_zone(TUIMethod):
                 """
-                Retriangulate a face zone.
+                Remeshes a specified face zone by automatically extracting edge loops. If edge loops are present in the current domain (for example, if they were created using the create-edge-loops command), they are used to remesh the specified face zone.
                 """
             class remesh_face_zones_conformally(TUIMethod):
                 """
-                Retriangulate face zones while maintaining conformity.
+                Remeshes face zones using the current size function and keeping a conformal interface between them. If no size function is defined, an error message will be generated.  This command will prompt for:
+                Boundary Face Zones
+                Boundary Edge Zones
+                feature angle – used to determine the minimum angle between features that will be preserved during remeshing
+                corner angle – used to specify the minimum angle between feature edges that will be preserved
+                Replace Face Zone? – (default is Yes) the remeshed face zone(s) will take the name and -id of the original zones, and the original face zone(s) will have “orig” appended to their name. If No, the remeshed face zone(s) will have “retri” added postfix.
+                Periodic face zones cannot be remeshed using this command.
                 """
             class remesh_marked_faces(TUIMethod):
                 """
@@ -992,28 +996,31 @@ class main_menu(TUIMenu):
                 """
             class remesh_overlapping_zones(TUIMethod):
                 """
-                Remeshing overlapping face zones.
+                Remeshes overlapping face zones. The non-overlapping region is remeshed using the edge loops created from the overlapping face zones.
                 """
             class stitch_all_face_zones(TUIMethod):
                 """
-                Intersect all face zones.
+                Connects (stitches) all the face zones along the free edges.   After the stitch operation, remesh is called automatically. To disable the post-remesh operation, use the text command:  /boundary/remesh/controls/intersect/remesh-post-intersection?
+                no.
                 """
             class stitch_face_zones(TUIMethod):
                 """
-                Stitch edges on zones.
+                Connects two surfaces along their free edges.   After the stitch operation, remesh is called automatically. To disable the post-remesh operation, use the text command:  /boundary/remesh/controls/intersect/remesh-post-intersection?
+                no.
                 """
             class stitch_with_preserve_boundary(TUIMethod):
                 """
-                Stitch volume to boundary zone at free faces.
+                Connects (stitches) a zone to another which is connected to an existing volume mesh, while preserving the boundary of the zones connected to the volume mesh. Specify a list of boundary zones to be preserved, a list of the boundary zones to be connected to each of these zones, and the tolerance value.   After the stitch operation, remesh is called automatically. To disable the post-remesh operation, use the text command:  /boundary/remesh/controls/intersect/remesh-post-intersection?
+                no  This command will not work for overlapping or partially overlapping face zones.
                 """
             class triangulate(TUIMethod):
                 """
-                Create triangulation from existing quad face zone.
+                Triangulates quad zones.
                 """
 
             class controls(TUIMenu):
                 """
-                Edge loop tools text menu.
+                Enters the edge loop tools text menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.intersect = self.__class__.intersect(service, version, mode, path + ["intersect"])
@@ -1028,40 +1035,40 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class delete_overlapped(TUIMethod):
                     """
-                    Turn on/off deletion of overlapped edges.
+                    Toggles the deletion of region of overlap of the two surfaces.
                     """
                 class direction(TUIMethod):
                     """
-                    Set direction of edge loop projection.
+                    Specifies the direction of the edge loop projection.
                     """
                 class project_method(TUIMethod):
                     """
-                    Available methods: 0-closest 1-direction.
+                    Specifies the method for projecting edge loops.
                     """
                 class proximity_local_search(TUIMethod):
                     """
-                    Include selected face for proximity calculation.
+                    Includes the selected face for proximity calculation.
                     """
                 class quadratic_recon(TUIMethod):
                     """
-                    Turn on/off quadratic reconstruction of edge loops.
+                    Enables/disables quadratic reconstruction of edge loops.
                     """
                 class remesh_method(TUIMethod):
                     """
-                    Available methods: 1-constant 2-arithmetic 3-geometric.
+                    Specifies the method to be used for the node distribution on the edge loop.
                     """
                 class spacing(TUIMethod):
                     """
-                    Set first and last edge spacing.
+                    Sets the node spacing for the edge loop.
                     """
                 class tolerance(TUIMethod):
                     """
-                    Set intersection tolerance (absolute unit).
+                    Sets the tolerance for determining if two edges intersect.
                     """
 
                 class intersect(TUIMenu):
                     """
-                    Enter the intersect control menu.
+                    Enters the intersect control menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.absolute_tolerance = self.__class__.absolute_tolerance(service, version, mode, path + ["absolute_tolerance"])
@@ -1080,60 +1087,60 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class absolute_tolerance(TUIMethod):
                         """
-                        Turn on/off absolute tolerance.
+                        Enables you to switch between the use of absolute and relative tolerance. By default, the relative tolerance value is used.
                         """
                     class delete_overlap(TUIMethod):
                         """
-                        Turn on/off deletion of overlapped region.
+                        Enables/disables the deletion of overlapped edges. It toggles the automatic deletion of region of overlap of the two surfaces. This option is used by while remeshing overlapping zones and retriangulating prisms. By default, this option is enabled.
                         """
                     class feature_angle(TUIMethod):
                         """
-                        Angle used to determine angle feature edges.
+                        Specifies the minimum feature angle that should be considered while retriangulating the boundary zones. All the edges in the zone having feature angle greater than the specified feature angle are retained. This option is useful for preserving the shape of the intersecting boundary zones. The default value of feature angle is 40, however, a value in the range of 10–50 degrees is recommended. A large value may distort the shape of the intersecting boundary zones.
                         """
                     class ignore_parallel_faces(TUIMethod):
                         """
-                        Turn on/off ignore parallel faces.
+                        Default is yes. If there are close-to-parallel faces, set to no to separate the zones and avoid creating an intersection loop.
                         """
                     class join_match_angle(TUIMethod):
                         """
-                        Max allowable angle between normals of faces to join.
+                        Specifies the allowed maximum angle between the normals of the two overlapping surfaces to be joined. This parameter is used to control the size of the join region.
                         """
                     class join_project_angle(TUIMethod):
                         """
-                        Max allowable angle between face normal and project direction for join.
+                        Specifies the allowed maximum angle between the face normal and the project direction for the overlapping surfaces to be joined. This parameter is used to control the size of the join region.
                         """
                     class refine_region(TUIMethod):
                         """
-                        Turn on/off refinement of intersection region.
+                        Enables you to refine the regions that are modified during the intersect operations. It toggles the refinement of the intersecting regions after performing any of the intersection operation.   This operation improves the quality of the resulting mesh, however, this option is disabled by default.
                         """
                     class remesh_post_intersection(TUIMethod):
                         """
-                        Remesh after intersection.
+                        Used to enable or disable automatic post-remesh operation after any connect operation (join, intersect, or stitch).
                         """
                     class retri_improve(TUIMethod):
                         """
-                        Turn on/off mesh improvement.
+                        Enables you to improve the mesh. After performing any intersection operation, the slivers are removed along the curve of intersection, Laplace smoothing is performed, and followed by the edge swapping. Laplace smoothing is also performed for insert-edge-zone, remesh-overlapped-zones, and prism-retriangulation options. Smoothing is performed again. The smooth-swap operations can be controlled by changing the various defaults such as swapping iterations, smoothing iterations, etc.
                         """
                     class separate(TUIMethod):
                         """
-                        Turn on/off separation of intersection region.
+                        Enables the automatic separation of intersected zones.
                         """
                     class stitch_preserve(TUIMethod):
                         """
-                        Turn on/off stitch preserve first zone shape.
+                        Indicates that shape of the first zone specified is to be preserved. This option is enabled by default.
                         """
                     class tolerance(TUIMethod):
                         """
-                        Intersection tolerance.
+                        Specifies the tolerance value for the intersect operations.
                         """
                     class within_tolerance(TUIMethod):
                         """
-                        Turn on/off tolerant intersection.
+                        Performs the intersection operation only within the specified tolerance value. It is useful only for the Intersect option.
                         """
 
             class size_functions(TUIMenu):
                 """
-                Enable specification of size functions.
+                Enters the size functions menu where you can define size functions for controlling mesh size distribution.
                 """
                 def __init__(self, service, version, mode, path):
                     self.contours = self.__class__.contours(service, version, mode, path + ["contours"])
@@ -1156,27 +1163,27 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class compute(TUIMethod):
                     """
-                    Compute Size-functions.
+                    Computes the size field based on the defined parameters.
                     """
                 class create(TUIMethod):
                     """
-                    Add size function.
+                    Defines the size function based on the specified parameters.
                     """
                 class create_defaults(TUIMethod):
                     """
-                    Creates default curvature & proximty size functions acting on all faces and edges.
+                    Creates default size functions based on face and edge curvature and proximity.
                     """
                 class delete(TUIMethod):
                     """
-                    Delete Size Functions.
+                    Deletes the specified size function or the current size field.
                     """
                 class delete_all(TUIMethod):
                     """
-                    Delete All Size Functions.
+                    Deletes all the defined size functions.
                     """
                 class disable_periodicity_filter(TUIMethod):
                     """
-                    Disable size field periodicity.
+                    Removes periodicity from the size field.
                     """
                 class enable_periodicity_filter(TUIMethod):
                     """
@@ -1184,7 +1191,7 @@ class main_menu(TUIMenu):
                     """
                 class list(TUIMethod):
                     """
-                    List all Size function parameters.
+                    Lists all the defined size functions and the parameter values defined.
                     """
                 class list_periodicity_filter(TUIMethod):
                     """
@@ -1192,32 +1199,32 @@ class main_menu(TUIMenu):
                     """
                 class reset_global_controls(TUIMethod):
                     """
-                    Reset controls for global controls.
+                    Resets the global controls to their default values.
                     """
                 class set_global_controls(TUIMethod):
                     """
-                    Set controls for global controls.
+                    Sets the values for the global minimum and maximum size, and the growth rate.
                     """
                 class set_prox_gap_tolerance(TUIMethod):
                     """
-                    Set proximity min gap tolerance relative to global min-size.
+                    Sets the tolerance relative to minimum size to take gaps into account. Gaps whose thickness is less than the global minimum size multiplied by this factor will not be regarded as a proximity gap.
                     """
                 class set_scaling_filter(TUIMethod):
                     """
-                    Set scaling filter on size field.
+                    Specifies the scale factor, and minimum and maximum size values to filter the size output from the size field.
                     """
                 class triangulate_quad_faces(TUIMethod):
                     """
-                    Replace non-triangular face zones with triangulated face zones during size field computation.
+                    Identifies the zones comprising non-triangular elements and uses a triangulated copy of these zones for computing the size functions.
                     """
                 class use_cad_imported_curvature(TUIMethod):
                     """
-                    Use curvature data imported from CAD.
+                    Enables/disables curvature data from the nodes of the CAD facets.
                     """
 
                 class contours(TUIMenu):
                     """
-                    Menu to contour of size field.
+                    Contains options for displaying contours of size functions.
                     """
                     def __init__(self, service, version, mode, path):
                         self.set = self.__class__.set(service, version, mode, path + ["set"])
@@ -1225,7 +1232,7 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class draw(TUIMethod):
                         """
-                        Draw size field contour on face zones.
+                        Displays contours in the graphics window. Compute the size field using /size-functions/compute or read in a size field file prior to displaying the contours of size.
                         """
 
                     class set(TUIMenu):
@@ -1237,7 +1244,7 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class refine_facets(TUIMethod):
                             """
-                            Option to refine facets virtually? for better contour resolution.
+                            Enables you to specify smaller facets if the original are too large. Default is no.
                             """
 
                 class controls(TUIMenu):
@@ -1259,7 +1266,7 @@ class main_menu(TUIMenu):
 
         class separate(TUIMenu):
             """
-            Enter separate boundary face menu.
+            Contains options for separating face zones.
             """
             def __init__(self, service, version, mode, path):
                 self.local_regions = self.__class__.local_regions(service, version, mode, path + ["local_regions"])
@@ -1274,40 +1281,40 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class mark_faces_in_region(TUIMethod):
                 """
-                Mark faces in local region.
+                Marks the faces that are contained in a specified local refinement region.
                 """
             class sep_face_zone_by_angle(TUIMethod):
                 """
-                Move faces to a new zone based on significant angle.
+                Separates a boundary face zone based on significant angle.
                 """
             class sep_face_zone_by_cnbor(TUIMethod):
                 """
-                Move faces to a new zone based on cell neighbors.
+                Separates a boundary/interior face zone based on its cell neighbors.
                 """
             class sep_face_zone_by_mark(TUIMethod):
                 """
-                Move faces marked to new zone.
+                Separates a boundary face zone by moving marked faces to a new zone.
                 """
             class sep_face_zone_by_region(TUIMethod):
                 """
-                Move non-contiguous faces or faces separated by an intersecting wall to a new zone.
+                Separates a boundary face zone based on contiguous regions.
                 """
             class sep_face_zone_by_seed(TUIMethod):
                 """
-                Move faces connected to seed whose angle satisfies given angle constraint.
+                Separates a boundary face zone by defining a seed face on the surface.
                 """
             class sep_face_zone_by_seed_angle(TUIMethod):
                 """
-                Move faces connected to seed whose normal fall within the specified cone.
+                Separates faces connected to the seed face, whose normal fall within the specified cone.
                 """
             class sep_face_zone_by_shape(TUIMethod):
                 """
-                Move faces based on face shape.
+                Separates a boundary face zone based on the shape of the faces (triangular or quadrilateral).
                 """
 
             class local_regions(TUIMenu):
                 """
-                Enter the separate-local menu.
+                Enters the local refinement menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.define = self.__class__.define(service, version, mode, path + ["define"])
@@ -1317,19 +1324,19 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class define(TUIMethod):
                     """
-                    Define a refinement region's parameters.
+                    Enables you to define the local region.
                     """
                 class delete(TUIMethod):
                     """
-                    Delete a refinement region.
+                    Deletes the specified local region.
                     """
                 class init(TUIMethod):
                     """
-                    Delete all current regions and add the default refinement region.
+                    Creates a region encompassing the entire geometry.
                     """
                 class list_all_regions(TUIMethod):
                     """
-                    List all refinement regions.
+                    Lists all the local regions defined.
                     """
 
         class shell_boundary_layer(TUIMenu):
@@ -1391,23 +1398,23 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class add_prefix(TUIMethod):
             """
-            Add Prefix to CAD entity.
+            Enables you to add a prefix to the selected entities. Specify the path for the entities and the prefix to be added.
             """
         class add_to_object(TUIMethod):
             """
-            Add CAD assemblies to existing object.
+            Enables you to add the selected CAD entities to an existing object. Specify the path for the entities to be added and select the object to be modified.
             """
         class create_objects(TUIMethod):
             """
-            Create Objects from CAD assemblies.
+            Enables you to create new geometry/mesh objects for the selected entities. Specify the path for the entities and if required, choose to create one object per CAD entity selected and/or retain the CAD zone granularity for object creation. By default, a single object will be created for all entities selected and the CAD zone granularity will not be retained. Specify the object name (if applicable), object type (geom or mesh), and cell zone type (dead, fluid, or solid).
             """
         class delete_cad_assemblies(TUIMethod):
             """
-            Delete CAD Assemblies.
+            Deletes all the CAD assemblies data.
             """
         class draw(TUIMethod):
             """
-            Draw CAD assemblies.
+            Displays the selected CAD entities.
             """
         class extract_edges_zones(TUIMethod):
             """
@@ -1415,20 +1422,20 @@ class main_menu(TUIMenu):
             """
         class rename(TUIMethod):
             """
-            Rename CAD entity.
+            Enables you to rename the selected entities. Specify the path for the entities and the new name. For multiple entities, the specified name will be used, with a suitable index as suffix. For example, specifying a new name wall will result in entities wall.1, wall.2, etc.
             """
         class replace_object(TUIMethod):
             """
-            Replace CAD assemblies in existing object.
+            Enables you to replace an object with the selected CAD entities. Specify the path for the entities to be added and select the object to be modified.
             """
         class update_cad_assemblies(TUIMethod):
             """
-            Update CAD assemblies.
+            Reimports the selected CAD entities using new parameters specified in the update-options/ menu.
             """
 
         class draw_options(TUIMenu):
             """
-            CAD draw options.
+            Contains additional options for displaying CAD entities.
             """
             def __init__(self, service, version, mode, path):
                 self.add_to_graphics = self.__class__.add_to_graphics(service, version, mode, path + ["add_to_graphics"])
@@ -1437,20 +1444,20 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add_to_graphics(TUIMethod):
                 """
-                Add CAD entity to graphics.
+                Adds the selected entities to the display in the graphics window.
                 """
             class draw_unlabelled_zones(TUIMethod):
                 """
-                Import edge zones for update.
+                Displays the unlabeled zones for the selected entities in the graphics window.
                 """
             class remove_from_graphics(TUIMethod):
                 """
-                Set one object per body, face or object.
+                Removes the selected entities from the display in the graphics window.
                 """
 
         class labels(TUIMenu):
             """
-            CAD label options.
+            Contains options for displaying and managing labels.
             """
             def __init__(self, service, version, mode, path):
                 self.add_to_graphics = self.__class__.add_to_graphics(service, version, mode, path + ["add_to_graphics"])
@@ -1461,28 +1468,28 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add_to_graphics(TUIMethod):
                 """
-                Add Labels to graphics.
+                Adds the selected labels to the display in the graphics window.
                 """
             class delete(TUIMethod):
                 """
-                Delete Labels.
+                Deletes the selected labels.
                 """
             class draw(TUIMethod):
                 """
-                Draw Labels.
+                Displays the selected labels.
                 """
             class remove_from_graphics(TUIMethod):
                 """
-                Remove Labels from graphics.
+                Removes the selected labels from the display in the graphics window.
                 """
             class rename(TUIMethod):
                 """
-                Rename Labels.
+                Enables you to rename the selected labels. Specify the path for the labels and the new name. For multiple selections, the specified name will be used, with a suitable index as suffix. For example, specifying a new label name wall will result in entities wall.1, wall.2, etc.
                 """
 
         class manage_state(TUIMenu):
             """
-            States for CAD assemblies.
+            Contains options for setting the CAD entity state.
             """
             def __init__(self, service, version, mode, path):
                 self.suppress = self.__class__.suppress(service, version, mode, path + ["suppress"])
@@ -1491,20 +1498,20 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class suppress(TUIMethod):
                 """
-                Suppress CAD assemblies.
+                Suppresses the selected CAD entities.
                 """
             class unlock(TUIMethod):
                 """
-                Unlock CAD assemblies.
+                Unlocks the selected CAD entities.
                 """
             class unsuppress(TUIMethod):
                 """
-                Unsuppress CAD assemblies.
+                Unsuppresses the selected CAD entities.
                 """
 
         class update_options(TUIMenu):
             """
-            Settings for CAD update.
+            Contains options for updating the CAD entities on reimport.
             """
             def __init__(self, service, version, mode, path):
                 self.import_edge_zones = self.__class__.import_edge_zones(service, version, mode, path + ["import_edge_zones"])
@@ -1514,19 +1521,19 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class import_edge_zones(TUIMethod):
                 """
-                Import edge zones for update.
+                Enables you to import edge zones from the CAD entities on reimport. Specify an appropriate value for feature angle.
                 """
             class one_object_per(TUIMethod):
                 """
-                Set one leaf entity per body, part or file.
+                Enables you to change the CAD object granularity on reimport.
                 """
             class one_zone_per(TUIMethod):
                 """
-                Set one object per body, face or object.
+                Enables you to change the CAD zone granularity on reimport.
                 """
             class tessellation(TUIMethod):
                 """
-                Set tessellation controls for cad import.
+                Enables you to control the tessellation (faceting) during reimport. You can select either cad-faceting or cfd-surface-mesh.   CAD faceting enables you to control the tessellation based on the CAD faceting tolerance and maximum facet size specified.   CFD Surface Mesh enables you to use a size field file during reimport. If you enter yes, specify the size field file to be read. If you do not want to use a size field file, you can obtain conformal faceting based on the underlying curve and surface curvature (using the minimum and maximum facet sizes, and the facet curvature normal angle specified) and edge proximity (using the cells per gap specified). You can also save the size field in a file (size field is computed based on the specified parameters; that is, Min Size, Max Size, Curvature Normal Angle, Cells Per Gap).
                 """
 
     class diagnostics(TUIMenu):
@@ -1560,7 +1567,7 @@ class main_menu(TUIMenu):
 
         class face_connectivity(TUIMenu):
             """
-            Diagnose-face-connectivity.
+            Contains options for fixing problems with face connectivity on the specified object face zones or boundary face zones.
             """
             def __init__(self, service, version, mode, path):
                 self.add_label_to_small_neighbors = self.__class__.add_label_to_small_neighbors(service, version, mode, path + ["add_label_to_small_neighbors"])
@@ -1579,71 +1586,51 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add_label_to_small_neighbors(TUIMethod):
                 """
-                Change small connected islands label to input.
+                Separates island object face zones from all connected neighbors and merges them to the connected neighboring face zone label based on minimum face count specified.
                 """
             class fix_deviations(TUIMethod):
                 """
-                Fix deviations
-                by imprinting edges for given set of face and edge zones or zones of each object individually.
+                Fixes deviations in the wrapped surface mesh by imprinting edges on the wrapped face zones. Specify the number of imprint iterations and aggressive imprint iterations to be performed.
                 """
             class fix_duplicate_faces(TUIMethod):
                 """
-                Fix duplicate faces
-                by deleting duplicate faces of given face zone list or all face zones of given objects.
+                Removes duplicate faces.
                 """
             class fix_free_faces(TUIMethod):
                 """
-                Fix free faces using
-                merge-nodes - Individually on each object or on given face zone list
-                stitch - Individually on each object or on given face zone list
-                delete-free-edge-faces - Of given face zone list or all face zones of given objects
-                delete-fringes - Of given face zone list or all face zones of given objects
-                delete-skewed-faces - Of given face zone list or all face zones of given objects.
+                Removes free faces by the method selected. The methods available are:.
                 """
             class fix_invalid_normals(TUIMethod):
                 """
-                Fix invalid normals
-                by smoothing invalid normals from given face zone list or all face zones of given objects.
+                Fixes invalid normals by smoothing.  Zone-specific or scoped prism settings should be applied prior to using this command.
                 """
             class fix_islands(TUIMethod):
                 """
-                Fix spikes
-                by removing islands from given face zone list or all face zones of given objects.
+                Deletes groups of island faces based on the absolute face count specified.
                 """
             class fix_multi_faces(TUIMethod):
                 """
-                Fix milti faces using
-                delete-fringes - Of given face zone list or all face zones of given objects
-                delete-overlaps - Of given face zone list or all face zones of given objects
-                disconnect - Given face zone list or all face zones of given objects
-                all-above - on given face zone list or all face zones of given objects.
+                Fixes multiply connected faces by a combination of deleting face fringes, overlapping faces, and disconnected faces. Specify the maximum number of fringe faces, overlapping faces, and multiply connected edges, respectively.
                 """
             class fix_point_contacts(TUIMethod):
                 """
-                Fix point contacts
-                by removing point contacts from given face zone list or all face zones of given objects.
+                Fixes non-manifold configurations by removing point contacts.
                 """
             class fix_self_intersections(TUIMethod):
                 """
-                Fix self intersections
-                fix-self-intersections - Of given face zone list or all face zones of given objects
-                fix-folded-faces - Smooth folded faces of given face zone list or all face zones of given objects.
+                Fixes self intersecting or folded faces. For fixing folded faces by smoothing, specify whether features should be imprinted.
                 """
             class fix_slivers(TUIMethod):
                 """
-                Fix Slivers
-                by collapsing slivers from given face zone list or all face zones of given objects.
+                Fixes faces based on skewness and height criteria. Height is the perpendicular distance between the longest edge of the triangle and the opposite node.
                 """
             class fix_spikes(TUIMethod):
                 """
-                Fix spikes
-                by smoothing spikes from given face zone list or all face zones of given objects.
+                Fixes spiked faces based on the spike angle specified.
                 """
             class fix_steps(TUIMethod):
                 """
-                Fix steps
-                smooth - Steps from given face zone list or all face zones of given objects
-                collapse - Steps from given face zone list or all face zones of given objects.
+                Fixes step configurations by smoothing or collapsing faces based on the angle and step width specified.
                 """
             class remove_label_from_small_islands(TUIMethod):
                 """
@@ -1652,7 +1639,7 @@ class main_menu(TUIMenu):
 
         class quality(TUIMenu):
             """
-            Diagnose-face-quality.
+            Contains options for fixing problems related to surface mesh quality on the specified object face zones or boundary face zones.
             """
             def __init__(self, service, version, mode, path):
                 self.collapse = self.__class__.collapse(service, version, mode, path + ["collapse"])
@@ -1662,20 +1649,19 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class collapse(TUIMethod):
                 """
-                Collapse faces from given face zone list or all face zones of given objects.
+                Collapses bad quality faces based on area or skewness. For collapsing based on face area, specify the maximum face area and relative maximum area. For collapsing based on face skewness, specify the minimum skewness and feature angle. Additionally, specify the number of iterations and whether the boundary should be preserved.
                 """
             class delaunay_swap(TUIMethod):
                 """
-                Delaunay swap the faces given face zone list or all face zones of given objects.
+                Improves the surface mesh by swapping based on the minimum skewness value and feature angle specified. Additionally, specify the number of iterations and whether the boundary should be preserved.
                 """
             class general_improve(TUIMethod):
                 """
-                General Improve
-                on  given face zone list or all face zones of given objects.
+                Improves the surface mesh based on aspect ratio, size change, or skewness. Specify the minimum quality value, feature angle, number of iterations, and whether the boundary should be preserved.
                 """
             class smooth(TUIMethod):
                 """
-                Smooth individually on each object or on given face zone list.
+                Improves the surface mesh by smoothing. Specify the number of smoothing iterations and whether the boundary should be preserved.
                 """
 
     class display(TUIMenu):
@@ -1711,63 +1697,63 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class all_grid(TUIMethod):
             """
-            Display grid zones according to parameters in set-grid.
+            Displays the grid according to the currently set parameters.
             """
         class annotate(TUIMethod):
             """
-            Add a text annotation string to the active graphics window.
+            Adds annotation text to a graphics window. It will prompt you for a string to use as the annotation text, and then a dialog box will prompt you to select a screen location using the mouse-probe button on your mouse.
             """
         class boundary_cells(TUIMethod):
             """
-            Display boundary cells on the specified face zones.
+            Displays boundary cells attached to the specified face zones.
             """
         class boundary_grid(TUIMethod):
             """
-            Display boundary zones on the specified face zones.
+            Displays only boundary zones according to the currently set parameters.
             """
         class center_view_on(TUIMethod):
             """
-            Set camera target to be center (centroid) of grid node/face/cell.
+            Sets the camera target to be the center (centroid) of an entity.
             """
         class clear(TUIMethod):
             """
-            Clear active graphics window.
+            Clears the active graphics window. This option is useful when you redo an overlay.
             """
         class clear_annotation(TUIMethod):
             """
-            Delete annotation text.
+            Removes all annotations and attachment lines from the active graphics window.
             """
         class draw_cells_using_faces(TUIMethod):
             """
-            Draw cells using selected faces.
+            Draws cells that are neighbors for the selected faces.
             """
         class draw_cells_using_nodes(TUIMethod):
             """
-            Draw cells using selected nodes.
+            Draws cells that are connected to the selected nodes.
             """
         class draw_face_zones_using_entities(TUIMethod):
             """
-            Draw face zone connected to node.
+            Draws cells that are connected to the selected entities.
             """
         class draw_zones(TUIMethod):
             """
-            Draw the specified zones using the default grid parameters.
+            Draws the boundary/cell zones using the zone ID specified as input.
             """
         class redisplay(TUIMethod):
             """
-            Re-display grid.
+            Redraws the grid in the graphics window.
             """
         class save_picture(TUIMethod):
             """
-            Generate a "hardcopy" of the active window.
+            Saves a picture file of the active graphics window.
             """
         class set_list_tree_separator(TUIMethod):
             """
-            Set the separator character for list tree.
+            Sets the separator character to be used to determine the common prefix for items listed in the selection lists, when the tree view is used.
             """
         class show_hide_clipping_plane_triad(TUIMethod):
             """
-            Show/Hide clipping plane triad.
+            S.
             """
         class update_layout(TUIMethod):
             """
@@ -1775,7 +1761,7 @@ class main_menu(TUIMenu):
             """
         class views(TUIMethod):
             """
-            Enter the view menu.
+            Enters the view window options menu.
             """
 
         class advanced_rendering(TUIMenu):
@@ -1812,7 +1798,7 @@ class main_menu(TUIMenu):
 
         class display_states(TUIMenu):
             """
-            Enter the display state menu.
+            Enter the display states menu.
             """
             def __init__(self, service, version, mode, path):
                 self.apply = self.__class__.apply(service, version, mode, path + ["apply"])
@@ -1827,11 +1813,11 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class apply(TUIMethod):
                 """
-                Apply a display state to the active window.
+                Apply a display state to the active graphics window.
                 """
             class copy(TUIMethod):
                 """
-                Create a new display state with settings copied from an existing display state.
+                Copy the settings of an existing display state to another existing display state.
                 """
             class create(TUIMethod):
                 """
@@ -1843,28 +1829,28 @@ class main_menu(TUIMenu):
                 """
             class edit(TUIMethod):
                 """
-                Edit a particular display state setting.
+                Edit a display state. Enter quit (or a substring, such as q or qui) to exit the editing loop.
                 """
             class list(TUIMethod):
                 """
-                Print the names of the available display states to the console.
+                Print the names of the existing display states to the console.
                 """
             class read(TUIMethod):
                 """
-                Read display states from a file.
+                Read in display states from a file.
                 """
             class use_active(TUIMethod):
                 """
-                Update an existing display state's settings to match those of the active graphics window.
+                Save the display state settings of the active graphics window to an existing display state. This command is not available when the active window is displaying a 2D plot.
                 """
             class write(TUIMethod):
                 """
-                Write display states to a file.
+                Write one or more of the saved display states to a file.
                 """
 
         class objects(TUIMenu):
             """
-            Enter the objects menu.
+            Contains commands for displaying objects.
             """
             def __init__(self, service, version, mode, path):
                 self.display_neighborhood = self.__class__.display_neighborhood(service, version, mode, path + ["display_neighborhood"])
@@ -1881,52 +1867,52 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class display_neighborhood(TUIMethod):
                 """
-                Displays neighboring objects also.
+                Displays the objects that are in the neighborhood of the selected object. The neighboring objects have to be in contact, or intersecting the selected object.
                 """
             class display_similar_area(TUIMethod):
                 """
-                Shows all similar surface area objects.
+                Displays the objects with similar area to the selected object area.
                 """
             class explode(TUIMethod):
                 """
-                Explode all displayed objects.
+                Explodes the objects in the geometry. (This command is valid only when the geometry is an assembled mode.).
                 """
             class hide_objects(TUIMethod):
                 """
-                Hide selected objects from view.
+                Hides the selected objects in the display.
                 """
             class implode(TUIMethod):
                 """
-                Implode all displayed objects.
+                Implodes or assembles the objects in the geometry. (This command is available only when the geometry is an exploded mode.).
                 """
             class isolate_objects(TUIMethod):
                 """
-                Hide selected objects from view.
+                Displays only the selected objects.
                 """
             class make_transparent(TUIMethod):
                 """
-                Toggle Transparent view based on object selection.
+                Makes the geometry transparent so that internal objects are visible. This command works as a toggle undoing the transparency of the previously selected objects.
                 """
             class select_all_visible(TUIMethod):
                 """
-                Probe select all visible objects.
+                Selects all the visible objects in the graphics window.
                 """
             class show_all(TUIMethod):
                 """
-                Show all displayed objects.
+                Unhides all the objects in the geometry and displays them.
                 """
             class toggle_color_mode(TUIMethod):
                 """
-                Toggles color mode between color by objects/threads.
+                Toggles the colors of the geometry. In one mode geometry is colored object-wise while in the other mode it is colored zone-wise.
                 """
             class toggle_color_palette(TUIMethod):
                 """
-                Toggle between default and classic color palettes.
+                Toggles the color palette of the geometry.
                 """
 
         class set(TUIMenu):
             """
-            Menu to set display parameters.
+            Enables you to enter the set menu to set the display parameters.
             """
             def __init__(self, service, version, mode, path):
                 self.colors = self.__class__.colors(service, version, mode, path + ["colors"])
@@ -1950,11 +1936,11 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class edges(TUIMethod):
                 """
-                Turn on/off display of face/cell edges.
+                Enables/disables the display of face/cell edges.
                 """
             class filled_grid(TUIMethod):
                 """
-                Turn on/off filled grid option.
+                Enables/disables the filled grid option. When a grid is not filled, only its outline is drawn.
                 """
             class highlight_tree_selection(TUIMethod):
                 """
@@ -1962,15 +1948,15 @@ class main_menu(TUIMenu):
                 """
             class line_weight(TUIMethod):
                 """
-                Set the window's line-weight factor.
+                Sets the line width factor for the window.
                 """
             class native_display_defaults(TUIMethod):
                 """
-                Apply display settings recommended for native display.
+                Resets graphics window parameters to optimal settings for a local display.   Used after setting parameters for a remote display with remote-display-defaults.
                 """
             class overlays(TUIMethod):
                 """
-                Turn on/off overlays.
+                Turns overlays on and off.
                 """
             class quick_moves_algorithm(TUIMethod):
                 """
@@ -1978,32 +1964,32 @@ class main_menu(TUIMenu):
                 """
             class re_render(TUIMethod):
                 """
-                Re-render current window after modifying variables in set menu.
+                Re-renders the current window after modifying the variables in the set menu.
                 """
             class remote_display_defaults(TUIMethod):
                 """
-                Apply display settings recommended for remote display.
+                Adjusts graphics window parameters to optimal settings for a remote display.   Restore parameters for local display using native-display-defaults.
                 """
             class reset_graphics(TUIMethod):
                 """
-                Reset the graphics system.
+                Resets the graphics system.
                 """
             class shrink_factor(TUIMethod):
                 """
-                Set grid shrink factor.
+                Sets shrinkage of both faces and cells. A value of zero indicates no shrinkage, while a value of one would shrink the face or cell to a point.
                 """
             class title(TUIMethod):
                 """
-                Set problem title.
+                Sets the problem title.
                 """
             class windows(TUIMethod):
                 """
-                Window options menu.
+                Enters the windows options menu, which contains commands that enable you to customize the relative positions of sub-windows inside the active graphics window.
                 """
 
             class colors(TUIMenu):
                 """
-                Color options menu.
+                Enables you to enter the colors options menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.by_surface = self.__class__.by_surface(service, version, mode, path + ["by_surface"])
@@ -2041,15 +2027,15 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class automatic_skip(TUIMethod):
                     """
-                    Determine whether to skip labels in the colopmap scale automatically.
+                    Specify whether the number of colormap labels is determined automatically. The default is yes.
                     """
                 class axis_faces(TUIMethod):
                     """
-                    Set the color of axisymmetric faces.
+                    Sets the color of axisymmetric faces.
                     """
                 class background(TUIMethod):
                     """
-                    Set the background (window) color.
+                    Sets the background (window) color.
                     """
                 class color_by(TUIMethod):
                     """
@@ -2057,23 +2043,23 @@ class main_menu(TUIMenu):
                     """
                 class color_by_type(TUIMethod):
                     """
-                    Determine whether to color meshes by type or by surface (ID).
+                    Enables you to specify that the entities should be colored by their type or ID.
                     """
                 class far_field_faces(TUIMethod):
                     """
-                    Set the color of far field faces.
+                    Sets the color of far field faces.
                     """
                 class foreground(TUIMethod):
                     """
-                    Set the foreground (text and window frame) color.
+                    Sets the foreground (text and window frame) color.
                     """
                 class free_surface_faces(TUIMethod):
                     """
-                    Set the color of free-surface faces.
+                    Sets the color of free surface faces.
                     """
                 class graphics_color_theme(TUIMethod):
                     """
-                    Enter the graphics color theme menu.
+                    Sets the color theme for the graphics window. The color options (black, white, gray-gradient, or workbench) are for the background display, but changing the theme also changes the default colors for items that display in the graphics windows, like faces and edges.
                     """
                 class grid_inlet(TUIMethod):
                     """
@@ -2085,79 +2071,79 @@ class main_menu(TUIMenu):
                     """
                 class highlight_color(TUIMethod):
                     """
-                    Set highlight color.
+                    Sets the highlight color.
                     """
                 class inlet_faces(TUIMethod):
                     """
-                    Set the color of inlet faces.
+                    Sets the color of the inlet faces.
                     """
                 class interface_faces(TUIMethod):
                     """
-                    Set the color of mesh Interfaces.
+                    Sets the color of grid interface faces.
                     """
                 class interior_faces(TUIMethod):
                     """
-                    Set the color of interior faces.
+                    Sets the color of the interior faces.
                     """
                 class internal_faces(TUIMethod):
                     """
-                    Set the color of internal interface faces.
+                    Sets the color of the internal interface faces.
                     """
                 class list(TUIMethod):
                     """
-                    List available colors.
+                    Lists the colors available for the selected zone type.
                     """
                 class outlet_faces(TUIMethod):
                     """
-                    Set the color of outlet faces.
+                    Sets the color of the outlet faces.
                     """
                 class overset_faces(TUIMethod):
                     """
-                    Set the color of overset faces.
+                    Sets the color of the overset faces.
                     """
                 class periodic_faces(TUIMethod):
                     """
-                    Set the color of periodic faces.
+                    Sets the color of periodic faces.
                     """
                 class rans_les_interface_faces(TUIMethod):
                     """
-                    Set the color of RANS/LES interface faces.
+                    Sets the color of RANS/LES interface faces.
                     """
                 class reset_colors(TUIMethod):
                     """
-                    Reset individual mesh surface colors to the defaults.
+                    Resets the individual grid surface colors to the defaults.
                     """
                 class reset_user_colors(TUIMethod):
                     """
-                    Reset all user colors.
+                    Resets individual grid surface colors to the defaults.
                     """
                 class show_user_colors(TUIMethod):
                     """
-                    List currently defined user colors.
+                    Lists the current defined user colors.
                     """
                 class skip_label(TUIMethod):
                     """
-                    Set the number of labels to be skipped in the colopmap scale.
+                    Sets the number of labels to be skipped in the colormap scale.
                     """
                 class surface(TUIMethod):
                     """
-                    Set the color of surfaces.
+                    Sets the color of surfaces.
                     """
                 class symmetry_faces(TUIMethod):
                     """
-                    Set the color of symmetric faces.
+                    Sets the color of symmetric faces.
                     """
                 class traction_faces(TUIMethod):
                     """
-                    Set the color of traction faces.
+                    Sets the color for traction faces.
                     """
                 class user_color(TUIMethod):
                     """
-                    Explicitly set color of display zone.
+                    Enables you to change the color for the specified zone.
                     """
                 class wall_faces(TUIMethod):
                     """
-                    Set the color of wall faces.
+                    Sets color for wall faces.
                     """
 
                 class by_surface(TUIMenu):
@@ -2494,7 +2480,7 @@ class main_menu(TUIMenu):
 
             class lights(TUIMenu):
                 """
-                Lights menu.
+                Enters the lights menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.headlight_on = self.__class__.headlight_on(service, version, mode, path + ["headlight_on"])
@@ -2505,28 +2491,28 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class headlight_on(TUIMethod):
                     """
-                    Turn the light that moves with the camera on or off.
+                    Turns the light that moves with the camera on or off. This is controlled automatically by default.
                     """
                 class lighting_interpolation(TUIMethod):
                     """
-                    Set lighting interpolation method.
+                    Sets the lighting interpolation method to be used. You can choose automatic, flat, gouraud, or phong. "Automatic" automatically picks the best lighting method for the display in the graphics window. Flat is the most basic method, and the others are more sophisticated and provide smoother gradations of color.
                     """
                 class lights_on(TUIMethod):
                     """
-                    Turn all active lighting on/off.
+                    Enables/disables the display of all lights.
                     """
                 class set_ambient_color(TUIMethod):
                     """
-                    Set the ambient light color for the scene.
+                    Sets the ambient color for the scene. The ambient color is the background light color in scene.
                     """
                 class set_light(TUIMethod):
                     """
-                    Add or modify a directional, colored light.
+                    Adds or modifies a directional, colored light.
                     """
 
             class picture(TUIMenu):
                 """
-                Hardcopy options menu.
+                Saves a hardcopy file of the active graphics window.
                 """
                 def __init__(self, service, version, mode, path):
                     self.color_mode = self.__class__.color_mode(service, version, mode, path + ["color_mode"])
@@ -2545,11 +2531,11 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class dpi(TUIMethod):
                     """
-                    Set the DPI for EPS and Postscript files, specifies the resolution in dots per inch (DPI) instead of setting the width and height.
+                    Specifies the resolution in dots per inch for EPS and PostScript files.
                     """
                 class invert_background(TUIMethod):
                     """
-                    Use a white background when the picture is saved.
+                    Enables/disables the exchange of foreground/background colors for hardcopy files.
                     """
                 class invert_normals_for_avz(TUIMethod):
                     """
@@ -2557,15 +2543,15 @@ class main_menu(TUIMenu):
                     """
                 class jpeg_hardcopy_quality(TUIMethod):
                     """
-                    To set jpeg hardcopy quality.
+                    Controls the size and quality of how JPEG files are saved based on a scale of 0-100, with zero being low quality small files and 100 being high quality larger files.
                     """
                 class landscape(TUIMethod):
                     """
-                    Plot hardcopies in landscape or portrait orientation.
+                    Toggles between landscape or portrait orientation.
                     """
                 class preview(TUIMethod):
                     """
-                    Display a preview image of a hardcopy.
+                    Applies the settings of the color-mode, invert-background, and landscape options to the currently active graphics window to preview the appearance of printed hardcopies.
                     """
                 class raytracer_image(TUIMethod):
                     """
@@ -2577,20 +2563,20 @@ class main_menu(TUIMenu):
                     """
                 class use_window_resolution(TUIMethod):
                     """
-                    Use the currently active window's resolution for hardcopy (ignores the x-resolution and y-resolution in this case).
+                    Disables/enables the use of the current graphics window resolution when saving an image of the graphics window. If disabled, the resolution will be as specified for x-resolution and y-resolution.
                     """
                 class x_resolution(TUIMethod):
                     """
-                    Set the width of raster-formatted images in pixels (0 implies current window size).
+                    Sets the width of the raster format images in pixels (0 implies that the hardcopy should use the same resolution as the active graphics window).
                     """
                 class y_resolution(TUIMethod):
                     """
-                    Set the height of raster-formatted images in pixels (0 implies current window size).
+                    Sets the height of the raster format images in pixels (0 implies that the hardcopy should use the same resolution as the active graphics window).
                     """
 
                 class color_mode(TUIMenu):
                     """
-                    Enter the hardcopy color mode menu.
+                    Contains the available color modes.
                     """
                     def __init__(self, service, version, mode, path):
                         self.color = self.__class__.color(service, version, mode, path + ["color"])
@@ -2600,24 +2586,24 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class color(TUIMethod):
                         """
-                        Plot hardcopies in color.
+                        Selects full color and plots the hardcopy in color.
                         """
                     class gray_scale(TUIMethod):
                         """
-                        Convert color to grayscale for hardcopy.
+                        Selects gray scale (that is, various shades of gray) and converts color to gray-scale for hardcopy.
                         """
                     class list(TUIMethod):
                         """
-                        Display the current hardcopy color mode.
+                        Displays the current hardcopy color mode.
                         """
                     class mono_chrome(TUIMethod):
                         """
-                        Convert color to monochrome (black and white) for hardcopy.
+                        Selects color to monochrome (black and white) for hardcopy.
                         """
 
                 class driver(TUIMenu):
                     """
-                    Enter the set hardcopy driver menu.
+                    Contains the available hardcopy formats.
                     """
                     def __init__(self, service, version, mode, path):
                         self.post_format = self.__class__.post_format(service, version, mode, path + ["post_format"])
@@ -2642,55 +2628,47 @@ class main_menu(TUIMenu):
                         """
                     class dump_window(TUIMethod):
                         """
-                        Set the command used to dump the graphics window to a file.
+                        Sets the command to dump a graphics window to a file.
                         """
                     class eps(TUIMethod):
                         """
-                        Produce encapsulated PostScript (EPS) output for hardcopies.
+                        Sets the Encapsulated PostScript format.
                         """
                     class glb(TUIMethod):
                         """
-                        Use GLB output for hardcopies.
+                        Produces GLB output for hardcopies.
                         """
                     class hsf(TUIMethod):
                         """
-                        Use HSF output for hardcopies.
+                        Produces HOOPS Visualize Stream Format (HSF) output for  hardcopies.
                         """
                     class jpeg(TUIMethod):
                         """
-                        Produce JPEG output for hardcopies.
+                        Sets the JPEG image format.
                         """
                     class list(TUIMethod):
                         """
-                        List the current hardcopy driver.
+                        Displays the current hardcopy format.
                         """
                     class options(TUIMethod):
                         """
-                        Set the hardcopy options. Available options are:
-                        "no gamma correction", disables gamma correction of colors,
-                        "physical size = (width,height)", where width and height
-                        are the actual measurements of the printable area of the page
-                        in centimeters.
-                        "subscreen = (left,right,bottom,top)", where left,right,
-                        bottom, and top are numbers in [-1,1] describing a subwindow on
-                        the page in which to place the hardcopy.
-                        The options may be combined by separating them with commas.
+                        Enables you to set hardcopy options, such as landscape orientation, pen speed, and physical size. The options may be entered on one line if you separate them with commas.
                         """
                     class png(TUIMethod):
                         """
-                        Use PNG output for hardcopies.
+                        Sets the PNG image format.
                         """
                     class post_script(TUIMethod):
                         """
-                        Produce PostScript output for hardcopies.
+                        Sets the PostScript format.
                         """
                     class ppm(TUIMethod):
                         """
-                        Produce PPM output for hardcopies.
+                        Sets the PPM format.
                         """
                     class tiff(TUIMethod):
                         """
-                        Use TIFF output for hardcopies.
+                        Sets the TIFF format.
                         """
                     class usd(TUIMethod):
                         """
@@ -2698,12 +2676,12 @@ class main_menu(TUIMenu):
                         """
                     class vrml(TUIMethod):
                         """
-                        Use VRML output for hardcopies.
+                        Sets the VRML format.
                         """
 
                     class post_format(TUIMenu):
                         """
-                        Enter the PostScript driver format menu.
+                        Contains commands for setting the PostScript driver format and save files in PS files that can be printed quickly.
                         """
                         def __init__(self, service, version, mode, path):
                             self.fast_raster = self.__class__.fast_raster(service, version, mode, path + ["fast_raster"])
@@ -2713,24 +2691,24 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class fast_raster(TUIMethod):
                             """
-                            Use the new raster format.
+                            Enables a raster file that may be larger than the standard raster file, but will print much more quickly.
                             """
                         class raster(TUIMethod):
                             """
-                            Use the original raster format.
+                            Enables the standard raster file.
                             """
                         class rle_raster(TUIMethod):
                             """
-                            Use the run-length encoded raster format.
+                            Enables a run-length encoded raster file that will be about the same size as the standard raster file, but will print slightly more quickly. This is the default file type.
                             """
                         class vector(TUIMethod):
                             """
-                            Use vector format.
+                            Enables the standard vector file.
                             """
 
             class rendering_options(TUIMenu):
                 """
-                Rendering options menu.
+                Contains the commands that enable you to set options that determine how the scene is rendered.
                 """
                 def __init__(self, service, version, mode, path):
                     self.animation_option = self.__class__.animation_option(service, version, mode, path + ["animation_option"])
@@ -2752,31 +2730,31 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class animation_option(TUIMethod):
                     """
-                    Using Wireframe / All option during animation.
+                    Enables you to specify the animation option as appropriate.
                     """
                 class auto_spin(TUIMethod):
                     """
-                    Enable/disable mouse view rotations to continue to spin the display after the button is released.
+                    Enables mouse view rotations to continue to spin the display after the button is released.
                     """
                 class color_map_alignment(TUIMethod):
                     """
-                    Set the color bar alignment.
+                    Sets the color bar alignment.
                     """
                 class device_info(TUIMethod):
                     """
-                    List information for the graphics device.
+                    Prints out information about your graphics driver.
                     """
                 class double_buffering(TUIMethod):
                     """
-                    Enable/disable double-buffering.
+                    Enables or disables double buffering. Double buffering dramatically reduces screen flicker during graphics updates. If your display hardware does not support double buffering and you turn this option on, double buffering will be done in software. Software double buffering uses extra memory.
                     """
                 class driver(TUIMethod):
                     """
-                    Change the current graphics driver.
+                    Changes the current graphics driver. When enabling graphics display, you have various options: for Linux, the available drivers include opengl and x11; for Windows, the available drivers include opengl, dx11 (for DirectX 11), and msw (for Microsoft Windows). You can also disable the graphics display window by entering null. For a comprehensive list of the drivers available to you, press the Enter key at the driver> prompt.  For any session that displays graphics in a graphics window and/or saves picture files, having the driver set to x11, msw, or null will cause the rendering / saving speed to be significantly slower.
                     """
                 class face_displacement(TUIMethod):
                     """
-                    Set face displacement value in Z-buffer units along the Camera Z-axis.
+                    Sets the face displacement (in Z-buffer units along the camera Z-axis) for the displayed geometry when both faces and edges are displayed simultaneously.
                     """
                 class front_faces_transparent(TUIMethod):
                     """
@@ -2784,27 +2762,27 @@ class main_menu(TUIMenu):
                     """
                 class help_text_color(TUIMethod):
                     """
-                    Set the color of screen help text.
+                    Sets the color of the help text on the screen. You can select black, default, or white.
                     """
                 class hidden_line_method(TUIMethod):
                     """
-                    Specify the method to perform hidden line rendering.
+                    Specifies the method to perform hidden line rendering. This command will appear only when hidden-lines? is true.
                     """
                 class hidden_lines(TUIMethod):
                     """
-                    Enable/disable hidden line removal.
+                    Turns hidden line removal on or off. This command is available only when the color scheme is set to classic.  This command (only available when Graphics Color Theme is set to Black) is deprecated and will be removed at a future release.
                     """
                 class hidden_surface_method(TUIMethod):
                     """
-                    Specify the method to perform hidden line and hidden surface rendering.
+                    Enables you to choose from among the hidden surface removal methods that are supported. These options (listed below) are display hardware dependent.
                     """
                 class hidden_surfaces(TUIMethod):
                     """
-                    Enable/disable hidden surface removal.
+                    Enables/disables the display of hidden surfaces.
                     """
                 class set_rendering_options(TUIMethod):
                     """
-                    Set the rendering options.
+                    Sets the rendering options.
                     """
                 class show_colormap(TUIMethod):
                     """
@@ -2812,12 +2790,12 @@ class main_menu(TUIMenu):
                     """
                 class surface_edge_visibility(TUIMethod):
                     """
-                    Set edge visibility flags for surfaces.
+                    Controls whether or not the mesh edges are drawn.
                     """
 
             class styles(TUIMenu):
                 """
-                Display style menu.
+                Contains commands for setting the display style for the different types of nodes and faces that can be displayed.
                 """
                 def __init__(self, service, version, mode, path):
                     self.dummy = self.__class__.dummy(service, version, mode, path + ["dummy"])
@@ -2829,7 +2807,7 @@ class main_menu(TUIMenu):
 
         class set_grid(TUIMenu):
             """
-            Enter the set-grid menu.
+            Contains options controlling the display of the grid.
             """
             def __init__(self, service, version, mode, path):
                 self.all_cells = self.__class__.all_cells(service, version, mode, path + ["all_cells"])
@@ -2862,116 +2840,116 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class all_cells(TUIMethod):
                 """
-                Draw all elements in cell zones.
+                Enables/disables the display of all cells.
                 """
             class all_faces(TUIMethod):
                 """
-                Draw all elements in face zones.
+                Enables/disables the display of all faces.
                 """
             class all_nodes(TUIMethod):
                 """
-                Draw all elements in node zones.
+                Enables/disables the display of all nodes.
                 """
             class cell_quality(TUIMethod):
                 """
-                Draw cells only in specified quality range.
+                Sets the lower and upper bounds of quality for cells to be displayed. Only cells with a quality measure value (for example, skewness) within the specified range will be displayed.
                 """
             class default(TUIMethod):
                 """
-                Reset all display variables to their default value.
+                Resets the grid display parameters to their default values.
                 """
             class face_quality(TUIMethod):
                 """
-                Draw faces only in specified quality range.
+                Sets the lower and upper bounds of quality for faces to be displayed. Only faces with a quality measure value (for example, skewness) within the specified range will be displayed.
                 """
             class free(TUIMethod):
                 """
-                Draw free elements.
+                Enables/disables the drawing of faces/nodes that have no neighboring face on at least one edge.
                 """
             class label_alignment(TUIMethod):
                 """
-                Set label alignment; chose from "^v<>\\*".
+                Sets the alignment of labels that appear in the graphics window. By default, the label is centered on the node, cell, and so on, to which the label refers. You can specify \\*,ˆ, v, <, > for center, top, bottom, left, or right. You can also combine symbols—for example, "\\*v" for bottom center.
                 """
             class label_font(TUIMethod):
                 """
-                Set label font.
+                Sets the label font. By default, all labels appear in “sans serif" font. Some other choices are roman, typewriter, and stroked.
                 """
             class label_scale(TUIMethod):
                 """
-                Set label scale.
+                Scales the size of the label.
                 """
             class labels(TUIMethod):
                 """
-                Turn on/off labeling.
+                Enables/disables the display of labels.
                 """
             class left_handed(TUIMethod):
                 """
-                Draw left-handed elements.
+                Enables/disables the display of left-handed faces.
                 """
             class list(TUIMethod):
                 """
-                List display variables.
+                Lists all the grid display settings.
                 """
             class marked(TUIMethod):
                 """
-                Draw marked elements.
+                Enables/disables the display of marked nodes.
                 """
             class multi(TUIMethod):
                 """
-                Draw multiply-connected elements.
+                Enables/disables the display of those faces/nodes that have more than one neighboring face on an edge.
                 """
             class neighborhood(TUIMethod):
                 """
-                Set display bounds to draw entities in the neighborhood of a entity.
+                Sets the x, y, and z range to be within a specified neighborhood of a specified grid object.
                 """
             class node_size(TUIMethod):
                 """
-                Set node symbol scaling factor.
+                Sets the node symbol scaling factor.
                 """
             class node_symbol(TUIMethod):
                 """
-                Set node symbol.
+                Specifies the node symbol.
                 """
             class normal_scale(TUIMethod):
                 """
-                Face normal scale.
+                Sets the scale factor for face normals.
                 """
             class normals(TUIMethod):
                 """
-                Turn on/off face normals.
+                Enables/disables the display of face normals.
                 """
             class refine(TUIMethod):
                 """
-                Draw refine marked elements.
+                Enables/disables the display of those faces that have been marked for refinement.
                 """
             class tagged(TUIMethod):
                 """
-                Draw tagged elements.
+                Enables/disables the display of tagged nodes.
                 """
             class unmeshed(TUIMethod):
                 """
-                Draw unmeshed elements.
+                Enables/disables the display of nodes and faces that have not been meshed.
                 """
             class unused(TUIMethod):
                 """
-                Draw unused nodes.
+                Enables/disables the display of unused nodes.
                 """
             class x_range(TUIMethod):
                 """
-                Draw only entities with x coordinates in specified range.
+                Limits the display of grid objects to the specified x-range.
                 """
             class y_range(TUIMethod):
                 """
-                Draw only entities with y coordinates in specified range.
+                Limits the display of grid objects to the specified y-range.
                 """
             class z_range(TUIMethod):
                 """
-                Draw only entities with z coordinates in specified range.
+                Limits the display of grid objects to the specified z-range.
                 """
 
         class update_scene(TUIMenu):
             """
-            Enter the scene options menu.
+            Contains commands that enable you to update the scene description.
             """
             def __init__(self, service, version, mode, path):
                 self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
@@ -2987,48 +2965,48 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class delete(TUIMethod):
                 """
-                Delete selected geometries.
+                Deletes the geometry selected using the select-geometry command.
                 """
             class display(TUIMethod):
                 """
-                Display selected geometries.
+                Displays the geometry selected using the select-geometry command.
                 """
             class draw_frame(TUIMethod):
                 """
-                Enable/disable drawing of the bounding frame.
+                Enables/disables the drawing of the bounding frame.
                 """
             class iso_sweep(TUIMethod):
                 """
-                Change iso-sweep values.
+                Changes iso-sweep values.
                 """
             class overlays(TUIMethod):
                 """
-                Enable/disable the overlays option.
+                Enables/disables the overlays option.
                 """
             class pathline(TUIMethod):
                 """
-                Change pathline attributes.
+                Changes pathline attributes.
                 """
             class select_geometry(TUIMethod):
                 """
-                Select geometry to be updated.
+                Enables you to select the geometry to be updated.
                 """
             class set_frame(TUIMethod):
                 """
-                Change frame options.
+                Enables you to change the frame options.
                 """
             class time(TUIMethod):
                 """
-                Change time-step value.
+                Changes time-step value.
                 """
             class transform(TUIMethod):
                 """
-                Apply transformation matrix on selected geometries.
+                Enables you to apply the transformation matrix to the geometry selected using the select-geometry command.
                 """
 
         class xy_plot(TUIMenu):
             """
-            Enter X-Y plot menu.
+            Enters the XY plot menu.
             """
             def __init__(self, service, version, mode, path):
                 self.cell_distribution = self.__class__.cell_distribution(service, version, mode, path + ["cell_distribution"])
@@ -3038,24 +3016,24 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class cell_distribution(TUIMethod):
                 """
-                Display chart of distribution of cell quality.
+                Plots a histogram of cell quality.
                 """
             class face_distribution(TUIMethod):
                 """
-                Display chart of distribution of face quality.
+                Plots a histogram of face quality.
                 """
             class file(TUIMethod):
                 """
-                Over-plot data from file.
+                Enables you to choose a file from which to create an xy plot.
                 """
             class set(TUIMethod):
                 """
-                Set histogram plot parameters.
+                Enters the set window options menu.
                 """
 
         class zones(TUIMenu):
             """
-            Enter the zones menu.
+            Contains commands for displaying zones.
             """
             def __init__(self, service, version, mode, path):
                 self.display_neighborhood = self.__class__.display_neighborhood(service, version, mode, path + ["display_neighborhood"])
@@ -3070,39 +3048,39 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class display_neighborhood(TUIMethod):
                 """
-                Displays neighboring objects also.
+                Displays the zones that are in the neighborhood of the selected zones. The neighboring zones have to be in contact, or intersecting the selected zone.
                 """
             class display_similar_area(TUIMethod):
                 """
-                Shows all similar surface area objects.
+                Displays the zones with similar area to the selected zone area.
                 """
             class hide_zones(TUIMethod):
                 """
-                Hide selected objects from view.
+                Hides the selected zones in the display.
                 """
             class isolate_zones(TUIMethod):
                 """
-                Hide selected objects from view.
+                Displays only the selected zones.
                 """
             class make_transparent(TUIMethod):
                 """
-                Toggle Transparent view based on object selection.
+                Makes the geometry transparent so that internal zones are visible. This command works as a toggle undoing the transparency of the previously selected zones.
                 """
             class select_all_visible(TUIMethod):
                 """
-                Probe select all visible objects.
+                Selects all the visible zones in the graphics window.
                 """
             class show_all(TUIMethod):
                 """
-                Show all displayed objects.
+                Unhides all the zones in the geometry and displays them.
                 """
             class toggle_color_mode(TUIMethod):
                 """
-                Toggles color mode between color by objects/threads.
+                Toggles the colors of the geometry. In one mode geometry is colored object-wise while in the other mode it is colored zone-wise.
                 """
             class toggle_color_palette(TUIMethod):
                 """
-                Toggle between default and classic color palettes.
+                Toggles the color palette of the geometry.
                 """
 
     class file(TUIMenu):
@@ -3151,31 +3129,31 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class append_mesh(TUIMethod):
             """
-            Append a new mesh to the existing mesh.
+            Enables you to append the mesh files. This command is available only after a mesh file has been read in.
             """
         class append_meshes_by_tmerge(TUIMethod):
             """
-            Append mesh files, or the meshes from case files.
+            Enables you to append the mesh files using the tmerge utility. This command is available only after a mesh file has been read in.
             """
         class cff_files(TUIMethod):
             """
-            Indicate whether to write Ansys common fluids format (CFF) files or legacy case files.
+            Answering yes will set the Common Fluids Format (CFF) as the default file format for reading and writing case/data files.
             """
         class confirm_overwrite(TUIMethod):
             """
-            Indicate whether or not to confirm attempts to overwrite existing files.
+            Controls whether attempts to overwrite existing files require confirmation.  If you do not want ANSYS Fluent to ask you for confirmation before it overwrites existing files, you can enter the file/confirm-overwrite? text command and answer no.
             """
         class file_format(TUIMethod):
             """
-            Indicate whether to write formatted or unformatted files.
+            Enables/disables the writing of binary files.
             """
         class filter_list(TUIMethod):
             """
-            List all filter names.
+            Lists the names of the converters that are used to change foreign mesh (while importing mesh files from third-party packages) files.
             """
         class filter_options(TUIMethod):
             """
-            Change filter extension and/or its arguments.
+            Enables you to change the extension (such as .cas, .msh, .neu) and arguments used with a specified filter.   For example, if you saved the PATRAN files with a .NEU extension instead of .neu, you can substitute or add .NEU to the extension list. For some filters, one of the arguments will be the dimensionality of the grid.   When you use the filter-options command for such a filter, you will see a default dimensionality argument of -d a. The dimension will automatically be determined, so you need not substitute 2 or 3 for a.
             """
         class hdf_files(TUIMethod):
             """
@@ -3183,27 +3161,27 @@ class main_menu(TUIMenu):
             """
         class load_act_tool(TUIMethod):
             """
-            Load ACT Start Page.
+            Loads the Ansys ACT tool.
             """
         class read_boundary_mesh(TUIMethod):
             """
-            Read the boundary mesh from either a mesh or case file.
+            Enables you to read a boundary mesh. If the boundary mesh is contained in two or more separate files, you can read them in together and assemble the complete boundary mesh.   This option is also convenient if you want to reuse the boundary mesh from a file containing a large volume mesh.   The naming of face zones can be controlled by Named Selections defined in Ansys Workbench. For details on exporting faceted geometry from Ansys Workbench, refer to the Ansys Workbench Help.
             """
         class read_case(TUIMethod):
             """
-            Read a case file.
+            Enables you to read the mesh contained in a case file.   Cell hierarchy in case files adapted in the solution mode will be lost when they are read in the meshing mode.  Case files containing polyhedral cells can also be read in the meshing mode of Fluent. You can display the polyhedral mesh, perform certain mesh manipulation operations, check the mesh quality, and so on.
             """
         class read_domains(TUIMethod):
             """
-            Read TGrid domains from a file.
+            Enables you to read domain files.   Each mesh file written by Fluent has a domain section. A domain file is the domain section of the mesh file and is written as a separate file. It contains a list of node, face, and cell zone IDs that make up each domain in the mesh.   If a domain that is being read already exists in the mesh, a warning message is displayed. Fluent verifies if the zones defining the domains exist in the mesh. If not, it will display a warning message.
             """
         class read_journal(TUIMethod):
             """
-            Start a main-menu that takes its input from a file.
+            Enables you to read a journal file into the program.   The read-journal command always loads the file in the main (that is, top-level) menu, regardless of where you are in the menu hierarchy when you invoke it.
             """
         class read_mesh(TUIMethod):
             """
-            Read a mesh file, or the mesh from a case file.
+            Enables you to read a mesh file. You can also use this command to read a Fluent mesh file created with GAMBIT, or to read the mesh available in a Fluent case file.   Reading a case file as a mesh file will result in loss of boundary condition data as the mesh file does not contain any information on boundary conditions.  Case files containing polyhedral cells can also be read in the meshing mode of Fluent. You can display the polyhedral mesh, perform certain mesh manipulation operations, check the mesh quality, and so on. Important:  You cannot read meshes from solvers that have been adapted using hanging nodes. To read one of these meshes in the meshing mode in Fluent, coarsen the mesh within the solver until you have recovered the original unadapted grid.   The naming of face zones can be controlled by Named Selections defined in Ansys Workbench. For details on exporting faceted geometry from Ansys Workbench, refer to the Ansys Workbench Help.
             """
         class read_mesh_vars(TUIMethod):
             """
@@ -3211,67 +3189,67 @@ class main_menu(TUIMenu):
             """
         class read_meshes_by_tmerge(TUIMethod):
             """
-            Read mesh files, or the meshes from case files.
+            Uses the tmerge utility to read the mesh contained in two or more separate files. It enables you to read the mesh files together and helps assemble the complete mesh.
             """
         class read_multi_bound_mesh(TUIMethod):
             """
-            Read multiple boundary meshes.
+            Enables you to read multiple boundary mesh files into the meshing mode.
             """
         class read_multiple_mesh(TUIMethod):
             """
-            Read multiple mesh files, or the meshes from multiple case files.
+            Enables you to read in two or more files together and have the complete mesh assembled for you, if the mesh files are contained in two or more separate files.   For example, if you are going to create a hybrid mesh by reading in a triangular boundary mesh and a volume mesh consisting of hexahedral cells, you can read both files at the same time using this command.
             """
         class read_options(TUIMethod):
             """
-            Set read options.
+            Enables you to set the following options for reading mesh files:.
             """
         class read_size_field(TUIMethod):
             """
-            Read TGrid Size-field from a file.
+            Enables you to read in a size field file.  If you read a size-field file after scaling the model, ensure that the size-field file is appropriate for the scaled model (size-field vertices should match the scaled model).
             """
         class set_idle_timeout(TUIMethod):
             """
-            Set the idle timeout.
+            Allows you to set an idle timeout so that an idle ANSYS Fluent session will automatically save and close after the specified time.
             """
         class set_tui_version(TUIMethod):
             """
-            Set the version of the TUI commands.
+            Allows you to improve backwards compatibility for journal files. This command hides any new TUI prompts that are added at a future release of ANSYS Fluent and reverts to the arguments of the release that you specify using the command (within two full releases of the current release). The command is automatically added to a journal file as soon as you start the recording. See  for details.
             """
         class show_configuration(TUIMethod):
             """
-            Display current release and version information.
+            Displays the current release and version information.
             """
         class start_journal(TUIMethod):
             """
-            Start recording all input in a file.
+            Starts recording all input and writes it to a file. The current Fluent version is automatically recorded in the journal file. Note that commands entered using paths from older versions of Fluent will be upgraded to their current path in the journal file. See .
             """
         class start_transcript(TUIMethod):
             """
-            Start recording input and output in a file.
+            Starts recording input and output in a file. A transcript file contains a complete record of all standard input to and output from Fluent (usually all keyboard and user interface input and all screen output).Start the transcription process with the file/start-transcript command, and end it with the file/stop-transcript command (or by exiting the program).
             """
         class stop_journal(TUIMethod):
             """
-            Stop recording input and close journal file.
+            Stops recording input and closes the journal file.
             """
         class stop_transcript(TUIMethod):
             """
-            Stop recording input and output and close transcript file.
+            Stops recording input and output, and closes the transcript file.
             """
         class write_boundaries(TUIMethod):
             """
-            Write the mesh file of selected boundary face zones.
+            Enables you to write the specified boundaries into a mesh file.   This is useful for large cases where you may want to mesh different parts of the mesh separately and then merge them together. This enables you to avoid frequent switching between domains for such cases. You can write out selected boundaries to a mesh file and then create the volume mesh for the part in a separate session. You can then read the saved mesh into the previous session and merge the part with the rest of the mesh.
             """
         class write_case(TUIMethod):
             """
-            Write the mesh to a case file.
+            Enables you to write a case file that can be read by Fluent.   You should delete dead zones in the mesh before writing the mesh or case file for Fluent.
             """
         class write_domains(TUIMethod):
             """
-            Write all (except global) domains of the mesh into a file.
+            Enables you to write all the mesh domains (except global) into a file that can be read.
             """
         class write_mesh(TUIMethod):
             """
-            Write a mesh file.
+            Enables you to write a mesh file.   You should delete dead zones in the mesh before writing the mesh or case file for Fluent.
             """
         class write_mesh_vars(TUIMethod):
             """
@@ -3279,11 +3257,11 @@ class main_menu(TUIMenu):
             """
         class write_options(TUIMethod):
             """
-            Set write options.
+            Allows you to enable or disable the enforce mesh topology option for writing mesh/case files.   This option is enabled by default; where it will orient the face zones consistently when the mesh file is written. If necessary, the zones will be separated, such that each boundary face zone has at most two cell zones as neighbors, one on either side. Also, internal face zones will be inserted between neighboring cell zones that are connected by interior faces.
             """
         class write_size_field(TUIMethod):
             """
-            Write TGrid Size-field into a file.
+            Enables you to write a size field file.
             """
 
         class checkpoint(TUIMenu):
@@ -3315,7 +3293,7 @@ class main_menu(TUIMenu):
 
         class export(TUIMenu):
             """
-            Export surface and volume meshes to non-native formats.
+            Exports case and data information.
             """
             def __init__(self, service, version, mode, path):
                 self.ansys = self.__class__.ansys(service, version, mode, path + ["ansys"])
@@ -3334,7 +3312,7 @@ class main_menu(TUIMenu):
                 """
             class nastran(TUIMethod):
                 """
-                Write a NASTRAN mesh file.
+                Writes a NASTRAN file.
                 """
             class patran(TUIMethod):
                 """
@@ -3687,6 +3665,7 @@ class main_menu(TUIMenu):
             Enter to create new project, open project, save and archive project.
             """
             def __init__(self, service, version, mode, path):
+                self.simulation = self.__class__.simulation(service, version, mode, path + ["simulation"])
                 self.archive = self.__class__.archive(service, version, mode, path + ["archive"])
                 self.new = self.__class__.new(service, version, mode, path + ["new"])
                 self.open = self.__class__.open(service, version, mode, path + ["open"])
@@ -3719,6 +3698,51 @@ class main_menu(TUIMenu):
                 Save As Copy.
                 """
 
+            class simulation(TUIMenu):
+                """
+                Enter to create, duplicate, or delete a simulation.
+                """
+                def __init__(self, service, version, mode, path):
+                    self.run = self.__class__.run(service, version, mode, path + ["run"])
+                    self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                    self.new_simulation = self.__class__.new_simulation(service, version, mode, path + ["new_simulation"])
+                    self.set_as_current = self.__class__.set_as_current(service, version, mode, path + ["set_as_current"])
+                    super().__init__(service, version, mode, path)
+                class delete(TUIMethod):
+                    """
+                    Delete A Simulation.
+                    """
+                class new_simulation(TUIMethod):
+                    """
+                    Create New Simulation.
+                    """
+                class set_as_current(TUIMethod):
+                    """
+                    Set the Current Simulation.
+                    """
+
+                class run(TUIMenu):
+                    """
+                    Enter to create, duplicate, or delete a run.
+                    """
+                    def __init__(self, service, version, mode, path):
+                        self.delete = self.__class__.delete(service, version, mode, path + ["delete"])
+                        self.new_run = self.__class__.new_run(service, version, mode, path + ["new_run"])
+                        self.set_as_current = self.__class__.set_as_current(service, version, mode, path + ["set_as_current"])
+                        super().__init__(service, version, mode, path)
+                    class delete(TUIMethod):
+                        """
+                        Delete A Run.
+                        """
+                    class new_run(TUIMethod):
+                        """
+                        Create a New Run.
+                        """
+                    class set_as_current(TUIMethod):
+                        """
+                        Set the Current Run.
+                        """
+
     class material_point(TUIMenu):
         """
         Manage material points.
@@ -3731,19 +3755,19 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class create_material_point(TUIMethod):
             """
-            Add a material point.
+            Enables the definition of a material point. Specify the fluid zone name and the location to define the material point.
             """
         class delete_all_material_points(TUIMethod):
             """
-            Delete all material points.
+            Enables the deletion of all defined material points.
             """
         class delete_material_point(TUIMethod):
             """
-            Delete a material point.
+            Deletes the specified material point.
             """
         class list_material_points(TUIMethod):
             """
-            List material points.
+            Lists all the defined material points.
             """
 
     class mesh(TUIMenu):
@@ -3798,7 +3822,7 @@ class main_menu(TUIMenu):
             """
         class auto_mesh(TUIMethod):
             """
-            Automatically executes initialization and refinement of mesh.
+            Enables you to generate the volume mesh automatically. Specify a mesh object name for object-based auto mesh; if no name is given, face zone based auto mesh is performed. Specify the mesh elements to be used when prompted. Specify whether to merge the cells into a single zone or keep the cell zones separate. For face zone based meshing, specify whether automatically identify the domain to be meshed based on the topology information.
             """
         class auto_mesh_multiple_objects(TUIMethod):
             """
@@ -3806,23 +3830,23 @@ class main_menu(TUIMenu):
             """
         class auto_prefix_cell_zones(TUIMethod):
             """
-            Prefix cell zones with user defined name.
+            Enables you to specify a prefix for cell zones created during the auto mesh procedure.   The auto-prefix-cell-zones command is not relevant for object-based meshing, where the cell zone names are generated based on the material points and the objects used to generate the mesh object.
             """
         class check_mesh(TUIMethod):
             """
-            Check mesh for topological errors.
+            Checks the mesh for topological errors.
             """
         class check_quality(TUIMethod):
             """
-            Check mesh quality.
+            Enables you to ensure that the mesh quality is appropriate before transferring the mesh to the solution mode.
             """
         class check_quality_level(TUIMethod):
             """
-            Check mesh quality level.
+            Enables you to report additional quality metrics when set to 1.  In addition to the orthogonal quality and Fluent aspect ratio, additional metrics such as cell squish and skewness will be reported when the check-quality-level is set to 1.
             """
         class clear_mesh(TUIMethod):
             """
-            Clear internal mesh, leaving boundary faces.
+            Enables you to generate a new mesh by deleting the internal mesh and leaving only the boundary faces and nodes.
             """
         class clear_undo_stack(TUIMethod):
             """
@@ -3834,7 +3858,7 @@ class main_menu(TUIMenu):
             """
         class create_heat_exchanger(TUIMethod):
             """
-            Create heat exchanger zones using four points and 3 intervals.
+            Creates the heat exchanger mesh. You need to specify the method for selecting the Location coordinates (by Position or Nodes), the location coordinates, the parameters for setting up mesh density (by Interval or Size), and the number of intervals (sizes) between points (nodes) 1–2, 1–3, 1–4. Also specify the object/zone name prefix and enable creating the mesh object, if required.
             """
         class deactivate_lean_datastructures(TUIMethod):
             """
@@ -3842,21 +3866,15 @@ class main_menu(TUIMenu):
             """
         class laplace_smooth_nodes(TUIMethod):
             """
-            Laplace smooth nodes.
+            Applies a Laplacian smoothing operator to the mesh nodes. This command can be used for smoothing of all cell types, including prismatic cells.
             """
         class list_mesh_parameter(TUIMethod):
             """
-            Show all mesh parameters.
+            Shows all mesh parameters.
             """
         class prepare_for_solve(TUIMethod):
             """
-            Performs the following cleanup operations.
-            - Delete dead zones.
-            - Delete geom and wrap objects.
-            - Delete all edge zones.
-            - Delete unused faces.
-            - Delete unused nodes.
-            .
+            Prepares the mesh for solving in solution mode by performing a cleanup operation after the volume mesh has been generated. Operations such as deleting dead zones, deleting geometry objects, deleting edge zones, deleting unused faces and nodes are performed during this operation.
             """
         class prime_meshing(TUIMethod):
             """
@@ -3864,35 +3882,35 @@ class main_menu(TUIMenu):
             """
         class repair_face_handedness(TUIMethod):
             """
-            Reverse face node orientation.
+            Reverses face node orientation.
             """
         class reset_mesh(TUIMethod):
             """
-            Clear entire mesh.
+            Clears the entire mesh.
             """
         class reset_mesh_parameter(TUIMethod):
             """
-            Reset all parameters to their default values.
+            Resets all parameters to their default value.
             """
         class selective_mesh_check(TUIMethod):
             """
-            Selective mesh check.
+            Performs a customized mesh check on specific zones rather than all zones.
             """
         class zone_names_clean_up(TUIMethod):
             """
-            Cleanup face and cell zone names.
+            S.
             """
 
         class auto_mesh_controls(TUIMenu):
             """
-            Automesh controls.
+            Enters the auto-mesh-controls submenu.
             """
             def __init__(self, service, version, mode, path):
                 self.backup_object = self.__class__.backup_object(service, version, mode, path + ["backup_object"])
                 super().__init__(service, version, mode, path)
             class backup_object(TUIMethod):
                 """
-                Option to create a back up for object.
+                Enables creation of a backup of the surface mesh before volume meshing starts. This option is enabled by default.
                 """
 
         class cartesian(TUIMenu):
@@ -3909,7 +3927,7 @@ class main_menu(TUIMenu):
 
         class cavity(TUIMenu):
             """
-            Enter cavity menu.
+            Enters the cavity menu.
             """
             def __init__(self, service, version, mode, path):
                 self.add_zones = self.__class__.add_zones(service, version, mode, path + ["add_zones"])
@@ -3923,23 +3941,23 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add_zones(TUIMethod):
                 """
-                Create a cavity for remeshing.
+                Enables you to create a cavity for adding new zones to the existing volume mesh.
                 """
             class create_hexcore_cavity_by_region(TUIMethod):
                 """
-                Create a cavity in hexcore mesh for remeshing.
+                Creates the cavity in the hexcore mesh based on the zones and bounding box extents specified. The create-hexcore-cavity-by-region option is no longer supported and will be removed at a future release.
                 """
             class create_hexcore_cavity_by_scale(TUIMethod):
                 """
-                Create a cavity in hexcore mesh for remeshing by scale.
+                Creates the cavity in the hexcore mesh based on the zones and scale specified. The create-hexcore-cavity-by-scale option is no longer supported and will be removed at a future release.
                 """
             class merge_cavity(TUIMethod):
                 """
-                Merge a cavity domain with a domain.
+                Enables you to merge the specified cavity domain with the parent domain.  During the merging operation, the cavity cell zones merges with the zones in the parent domain. The wall boundaries extracted from the interior zones will be converted to  interior type and merged with the corresponding zones in the parent domain.
                 """
             class region(TUIMethod):
                 """
-                Create a cavity for remeshing.
+                Enables you to create a cavity to modify the existing volume mesh in the specified region.
                 """
             class remesh_hexcore_cavity(TUIMethod):
                 """
@@ -3947,16 +3965,16 @@ class main_menu(TUIMenu):
                 """
             class remove_zones(TUIMethod):
                 """
-                Create a cavity for remeshing.
+                Enables you to create a cavity for removing zones from the existing volume mesh.
                 """
             class replace_zones(TUIMethod):
                 """
-                Create a cavity for remeshing.
+                Enables you to create a cavity for removing a set of zones from an existing volume mesh and replacing them with new set of zones.
                 """
 
         class cell_zone_conditions(TUIMenu):
             """
-            Enter manage cell zone conditions menu.
+            Contains options for copying or clearing cell zone conditions when a case file is read.
             """
             def __init__(self, service, version, mode, path):
                 self.clear = self.__class__.clear(service, version, mode, path + ["clear"])
@@ -3965,20 +3983,20 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class clear(TUIMethod):
                 """
-                Clear cell zone conditions.
+                Clears the cell zone conditions assigned to the specified zones.
                 """
             class clear_all(TUIMethod):
                 """
-                Clear all cell zone conditions.
+                Clears the cell conditions assigned to all the zones.
                 """
             class copy(TUIMethod):
                 """
-                Copy cell zone conditions.
+                Enables you to copy the cell zone conditions from the zone selected to the zones specified.
                 """
 
         class domains(TUIMenu):
             """
-            Enter domains menu.
+            Enters the domain menu.
             """
             def __init__(self, service, version, mode, path):
                 self.activate = self.__class__.activate(service, version, mode, path + ["activate"])
@@ -3991,43 +4009,36 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class activate(TUIMethod):
                 """
-                Activate the domain for subsequent meshing operations.
-                .
+                Activates the specified domain for meshing or reporting operations.
                 """
             class create(TUIMethod):
                 """
-                Create a new domain by specifying the boundary face zones.
-                .
+                Creates a new domain based on the specified boundary face zones. Ensure valid boundary zones are specified; specifying invalid zones will generate an error.
                 """
             class create_by_cell_zone(TUIMethod):
                 """
-                Create new domain using cell zones.
-                .
+                Creates a new domain based on the specified cell zone.
                 """
             class create_by_point(TUIMethod):
                 """
-                Create new domain using material point.
-                .
+                Creates a new domain based on the specified   The create-by-point option works only for cases with no overlapping face zones.
                 """
             class delete(TUIMethod):
                 """
-                Delete the specified domain.
-                .
+                Deletes the specified domain.
                 """
             class draw(TUIMethod):
                 """
-                Draw the boundary face zones of the domain.
-                .
+                Displays the boundary face zones of the specified domain.
                 """
             class print(TUIMethod):
                 """
-                Print domain content.
-                .
+                Prints the information for the specified domain.
                 """
 
         class hexcore(TUIMenu):
             """
-            Enter the hexcore menu.
+            Enters the hexcore menu.
             """
             def __init__(self, service, version, mode, path):
                 self.controls = self.__class__.controls(service, version, mode, path + ["controls"])
@@ -4037,16 +4048,16 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class create(TUIMethod):
                 """
-                Create hexcore mesh from boundary zone list.
+                Enables you to create the hexcore mesh according to the specified parameters.
                 """
             class merge_tets_to_pyramids(TUIMethod):
                 """
-                Merge tets into pyramids.
+                Enables the merge-tets-to-pyramids command to reduce the total cell count.  If skip-tet-refinement is enabled, pairs of tets will be merged into pyramids. Hexcore count is unaffected.
                 """
 
             class controls(TUIMenu):
                 """
-                Enter hexcore controls menu.
+                Enters the hexcore controls menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.outer_domain_params = self.__class__.outer_domain_params(service, version, mode, path + ["outer_domain_params"])
@@ -4078,19 +4089,19 @@ class main_menu(TUIMenu):
                     """
                 class buffer_layers(TUIMethod):
                     """
-                    Number of addition cells to mark for subdivision.
+                    Sets the number of addition cells to mark for subdivision.
                     """
                 class compute_max_cell_length(TUIMethod):
                     """
-                    Compute maximum cell length.
+                    Computes the maximum cell length for the hexcore mesh.
                     """
                 class define_hexcore_extents(TUIMethod):
                     """
-                    Enables sspecificaton of hexcore outer domain parameters.
+                    Enables you to extend the hexcore mesh to specified domain extents and/or selected planar boundaries. When enabled, the outer-domain-params sub-menu will be available.
                     """
                 class delete_dead_zones(TUIMethod):
                     """
-                    Delete dead zones after hexcore creation.
+                    Toggles the automatic deleting of the dead zones.
                     """
                 class island_thresholds(TUIMethod):
                     """
@@ -4102,11 +4113,11 @@ class main_menu(TUIMenu):
                     """
                 class maximum_cell_length(TUIMethod):
                     """
-                    Maximum cell length.
+                    Sets the maximum cell length for the hex cells in the domain.
                     """
                 class maximum_initial_cells(TUIMethod):
                     """
-                    Maximum number of initial Cartesian cells.
+                    Specifies the maximum number of cells in the initial Cartesian mesh.
                     """
                 class maximum_subdivisions(TUIMethod):
                     """
@@ -4118,11 +4129,12 @@ class main_menu(TUIMenu):
                     """
                 class non_fluid_type(TUIMethod):
                     """
-                    Set non fluid type for cell zones.
+                    Selects the default non-fluid cell zone type. After the mesh is initialized, any non-fluid zones will be set to this type. If the mesh includes multiple regions (for example, the problem for which you are creating the mesh includes a fluid zone and one or more solid zones), and you plan to refine all of them using the same refinement parameters, modify the Non-Fluid Type
+                    before generating the hexcore mesh.  For zone-based meshing, if any cell zone has at least one boundary zone type as inlet, it will automatically be set to fluid type. For object based meshing, volume region type is used to determine the cell zone type.
                     """
                 class octree_hexcore(TUIMethod):
                     """
-                    Create hexcore using size-function driven octree.
+                    Speeds up hexahedral core generation by enabling the octree technique for hexcore mesh generation. This option is disabled by default.   Body-of-influence sizing may be used for refinement.  This option does not support hexcore generation up to boundaries.
                     """
                 class only_hexcore(TUIMethod):
                     """
@@ -4130,19 +4142,19 @@ class main_menu(TUIMenu):
                     """
                 class peel_layers(TUIMethod):
                     """
-                    Number of hexcore cells to peel back from boundary.
+                    Specifies the distance for the hexcore interface to peel-back from the boundary. The default value is 0. The higher the value of peel layer, the bigger the distance between the hexcore interface and the boundary.
                     """
                 class print_region_based_sizing(TUIMethod):
                     """
-                    Print region based sizings.
+                    Displays local sizing settings (max cell length and growth rate) for specified region(s).
                     """
                 class set_region_based_sizing(TUIMethod):
                     """
-                    Set region based sizings.
+                    Allows you to specify local sizing settings (max cell length and growth rate) for specified region(s).
                     """
                 class skip_tet_refinement(TUIMethod):
                     """
-                    Skip tethedral refinement in transition cell generation.
+                    Enables you to omit the tetrahedral refinement phase for reducing total cell count (default is no). Hex cell count is unaffected.
                     """
                 class smooth_interface(TUIMethod):
                     """
@@ -4159,7 +4171,7 @@ class main_menu(TUIMenu):
 
                 class outer_domain_params(TUIMenu):
                     """
-                    Define outer domain parameters.
+                    Contains options for defining the outer domain parameters. This sub-menu is available only when define-hexcore-extents? is enabled.
                     """
                     def __init__(self, service, version, mode, path):
                         self.auto_align = self.__class__.auto_align(service, version, mode, path + ["auto_align"])
@@ -4174,44 +4186,44 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class auto_align(TUIMethod):
                         """
-                        Enable auto-align?.
+                        Enables you to axis-align non-aligned planar boundaries to which hexcore mesh is to be generated. This option is available only when the specify-boundaries? option is enabled and the boundaries are specified.
                         """
                     class auto_align_boundaries(TUIMethod):
                         """
-                        Auto-align selected boundaries.
+                        Aligns the boundary zones specified (using the boundaries command) with the tolerance specified \ (using the auto-align-tolerance command) when auto-align? is enabled.
                         """
                     class auto_align_tolerance(TUIMethod):
                         """
-                        Set auto-align-tolerance.
+                        Specifies the tolerance for aligning boundary zones when auto-align? is enabled.
                         """
                     class boundaries(TUIMethod):
                         """
-                        Set box-aligned zones which  have to be removed from hexcore meshing.
+                        Specifies the boundaries to which the hexcore mesh is to be generated when the specify-boundaries? option is enabled. After specifying the boundaries, the auto-align?, delete-old-face-zones?, and list options will also be available.
                         """
                     class coordinates(TUIMethod):
                         """
-                        Secifiy coordinates of outer box.
+                        Specifies the extents (min and max coordinates) of the hexcore outer box. This command is available when the specify-coordinates? option is enabled.
                         """
                     class delete_old_face_zones(TUIMethod):
                         """
-                        Delete replaced old tri face zones.
+                        Enables you to delete the original tri face zones that have been replaced during the hexcore meshing process. This option is available only when the specify-boundaries? option is enabled and the boundaries are specified.
                         """
                     class list(TUIMethod):
                         """
-                        List the face zones selected for hexcore up to boundaries.
+                        Lists the boundaries to which the hexcore mesh is to be generated. This option is available only when the specify-boundaries? option is enabled and the boundaries are specified.
                         """
                     class specify_boundaries(TUIMethod):
                         """
-                        Set parameters to get hex mesh to boundary(s).
+                        Enables you to specify selected boundaries to which the hexcore mesh is to be generated using the boundaries command.
                         """
                     class specify_coordinates(TUIMethod):
                         """
-                        Enables specification of coordinates of hexcore outer box.
+                        Enables you to specify the extents of the hexcore outer box using the coordinates command.
                         """
 
             class local_regions(TUIMenu):
                 """
-                Enter the hexcore refine-local menu.
+                Enters the hexcore local refinement region sub-menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.activate = self.__class__.activate(service, version, mode, path + ["activate"])
@@ -4225,23 +4237,23 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class activate(TUIMethod):
                     """
-                    Activate regions for hexcore refinement.
+                    Enables you to activate the specified local regions for refinement.
                     """
                 class deactivate(TUIMethod):
                     """
-                    Activate regions for hexcore refinement.
+                    Enables you to deactivate the specified local regions for refinement.
                     """
                 class define(TUIMethod):
                     """
-                    Define a refinement region's parameters.
+                    Defines the local region according to the specified parameters.
                     """
                 class delete(TUIMethod):
                     """
-                    Delete a refinement region.
+                    Deletes the specified refinement region.
                     """
                 class ideal_hex_vol(TUIMethod):
                     """
-                    Ideal hex volume for given edge length.
+                    Reports the ideal hex volume for the given edge length.
                     """
                 class ideal_quad_area(TUIMethod):
                     """
@@ -4249,16 +4261,16 @@ class main_menu(TUIMenu):
                     """
                 class init(TUIMethod):
                     """
-                    Delete all current regions and add the default refinement region.
+                    Creates a default region encompassing the entire geometry.
                     """
                 class list_all_regions(TUIMethod):
                     """
-                    List all refinement regions.
+                    Lists the defined and active regions in the console.
                     """
 
         class manage(TUIMenu):
             """
-            Enter cell zone menu.
+            Enters the manage cell zones menu.
             """
             def __init__(self, service, version, mode, path):
                 self.active_list = self.__class__.active_list(service, version, mode, path + ["active_list"])
@@ -4287,19 +4299,19 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class active_list(TUIMethod):
                 """
-                List active cell zones.
+                Lists all active zones.
                 """
             class adjacent_face_zones(TUIMethod):
                 """
-                List all face zones referring the specified cell zone.
+                Lists all face zones that refer to the specified cell zone.
                 """
             class auto_set_active(TUIMethod):
                 """
-                Set active zones based on prescribed points.
+                Sets the active zones based on points that are defined in an external file. For each zone you want to activate, you need to specify the coordinates of a point in the zone, the zone type (for example, fluid), and (optionally) a new name. A sample file is shown below:.
                 """
             class change_prefix(TUIMethod):
                 """
-                Change the prefix for specified face zones.
+                Enables you to change the prefix for the cell zone.
                 """
             class change_suffix(TUIMethod):
                 """
@@ -4307,80 +4319,80 @@ class main_menu(TUIMenu):
                 """
             class copy(TUIMethod):
                 """
-                Copy the zone.
+                Copies all nodes and faces of specified cell zones.
                 """
             class delete(TUIMethod):
                 """
-                Delete cell zone.
+                Deletes a cell zone, along with its associated nodes and faces. When deleting cell zones that contain poly cells, you will be warned that the original mesh needs to be deleted and the original faces restored prior to remeshing the volumetric region.
                 """
             class get_material_point(TUIMethod):
                 """
-                Returns material point coordinates for all regions of a cell zone.
+                Prints the coordinates of the material point for the specified cell zone.  If the cell zone is non-contiguous, the get-material-point  command will print a list of material points, one for each contiguous region.
                 """
             class id(TUIMethod):
                 """
-                Give zone a new id number.
+                Specifies a new cell zone ID. If a conflict is detected, the change will be ignored.
                 """
             class list(TUIMethod):
                 """
-                List all cell zones.
+                Prints information on all cell zones.
                 """
             class merge(TUIMethod):
                 """
-                Merge two or more cell zones.
+                Merges two or more cell zones.  For object-based merge, the selected zones must be in the same volumetric region. If  not, you will have to merge the volumetric regions first using /objects/volumetric-regions/merge. If the volumetric regions  cannot be merged because they are not contiguous, you will have to delete the object(s)  only before merging the cell zones.
                 """
             class merge_dead_zones(TUIMethod):
                 """
-                Merge dead zones.
+                Enables you to merge dead zones having a cell count lower than the specified threshold value, with the adjacent cell zone. The result of the merge operation is determined by the type of the adjacent cell zone and the shared face area. The priority for merging with the adjacent cell zone based on type is fluid > solid > dead (that is, merging with an adjacent fluid zone takes priority over merging with an adjacent solid zone, which in turn takes priority over merging with a dead zone). Also, if the adjacent zones are of the same type (for example, fluid), the zone will be merged with the zone having the largest shared face area.
                 """
             class name(TUIMethod):
                 """
-                Give zone a new name.
+                Enables you to rename a cell zone.
                 """
             class origin(TUIMethod):
                 """
-                Set the origin of the mesh coordinates.
+                Specifies a new origin for the mesh, to be used for cell zone rotation. The default origin is (0,0,0).
                 """
             class revolve_face_zone(TUIMethod):
                 """
-                Generate cells by revolving a face thread.
+                Generates cells by revolving a face thread.
                 """
             class rotate(TUIMethod):
                 """
-                Rotate all nodes of specified cell zones.
+                Rotates all nodes of specified cell zones by a specified angle.
                 """
             class rotate_model(TUIMethod):
                 """
-                Rotate all nodes.
+                Rotates all nodes of the model by a specified angle.
                 """
             class scale(TUIMethod):
                 """
-                Scale all nodes of specified cell zones.
+                Scales all nodes of specified cell zones by a specified factor.
                 """
             class scale_model(TUIMethod):
                 """
-                Scale all nodes.
+                Scales all nodes of the model by a specified factor.
                 """
             class set_active(TUIMethod):
                 """
-                Refine/swap/display only cells in these cell zones.
+                Sets the specified cell zones to be active.
                 """
             class translate(TUIMethod):
                 """
-                Translate all nodes of specified cell zones.
+                Translates all nodes of specified cell zones by a specified vector.
                 """
             class translate_model(TUIMethod):
                 """
-                Translate all nodes.
+                Translates all nodes of the model by a specified vector.
                 """
             class type(TUIMethod):
                 """
-                Change cell zone type.
+                Changes the type and name of a cell zone.
                 """
 
         class modify(TUIMenu):
             """
-            Enter the mesh modify menu.
+            Enters the mesh modify menu.
             """
             def __init__(self, service, version, mode, path):
                 self.auto_improve_warp = self.__class__.auto_improve_warp(service, version, mode, path + ["auto_improve_warp"])
@@ -4401,15 +4413,15 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class auto_improve_warp(TUIMethod):
                 """
-                Improve the warp of the faces by node movement.
+                Enables you to improve face warp by node movement. Specify the appropriate cell zones and boundary zones, the maximum warp, the number of iterations per face to be improved, and the number of iterations of the automatic node movement procedure (default, 4).
                 """
             class auto_node_move(TUIMethod):
                 """
-                Improve the quality of the mesh by node movement.
+                Enables you to improve the mesh quality by node movement. Specify the appropriate cell zones and boundary zones, the quality limit based on the quality measure selected, dihedral angle, the number of iterations per node to be moved and the number of iterations of the automatic node movement procedure (default, 1). You can also choose to restrict the movement of boundary nodes along the surface.
                 """
             class clear_selections(TUIMethod):
                 """
-                Clear all selections.
+                Clears all items from the selection list.
                 """
             class delete_isolated_cells(TUIMethod):
                 """
@@ -4417,52 +4429,52 @@ class main_menu(TUIMenu):
                 """
             class deselect_last(TUIMethod):
                 """
-                Deselect last selection.
+                Deselects the last item you selected using the select-entity command.
                 """
             class extract_unused_nodes(TUIMethod):
                 """
-                Extract all unused nodes into a separate interior node zone.
+                Places all unused nodes in a separate interior node zone.
                 """
             class list_selections(TUIMethod):
                 """
-                List selections.
+                Lists all items in the selection list.
                 """
             class list_skewed_cells(TUIMethod):
                 """
-                List cells between skewness limits.
+                Lists cells with skewness in a specified range.
                 """
             class mesh_node(TUIMethod):
                 """
-                Introduce new node into existing mesh.
+                Attempts to introduce a new node into the existing mesh.
                 """
             class mesh_nodes_on_zone(TUIMethod):
                 """
-                Insert nodes associated with node or face thread into volume mesh.  If a face thread is specified, the faces are deleted before the nodes are introduced into the mesh.
+                Inserts nodes associated with node or face zone into the volume mesh.
                 """
             class neighborhood_skew(TUIMethod):
                 """
-                Report max skew of all cells using node.
+                Reports the maximum skewness of cells using the specified node.
                 """
             class refine_cell(TUIMethod):
                 """
-                Refine cells in probe list with node near centroid.
+                Attempts to refine the cells in the probe list by introducing a node nears its centroid. This technique is useful for removing very flat cells near the boundary when boundary sliver removal is not possible. After refining the cell, you should smooth the mesh.
                 """
             class repair_negative_volume_cells(TUIMethod):
                 """
-                Improves negative volume cells by node movement.
+                Repairs negative volume cells by moving nodes. Specify the appropriate boundary zones, the number of iterations per node to be moved, dihedral angle, whether to restrict the movement of boundary nodes along the surface, and the number of iterations of the automatic node movement procedure (default, 1).
                 """
             class select_entity(TUIMethod):
                 """
-                Select a entity.
+                Adds an entity (face, node, cell, etc.) to the selection list.
                 """
             class smooth_node(TUIMethod):
                 """
-                Laplace smooth nodes in probe list.
+                Applies Laplace smoothing to the nodes in the selection list.
                 """
 
         class non_conformals(TUIMenu):
             """
-            Enter the non conformals controls menu.
+            Enters the non-conformals menu.
             """
             def __init__(self, service, version, mode, path):
                 self.controls = self.__class__.controls(service, version, mode, path + ["controls"])
@@ -4471,16 +4483,16 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class create(TUIMethod):
                 """
-                Create layer of non conformals on one or more face zones.
+                Creates the non-conformal interface on the specified face zones using the specified retriangulation method.
                 """
             class separate(TUIMethod):
                 """
-                Separate non-conformal interfaces between cell zones.
+                Enables you to separate the face zones comprising the non-conformal interface between the cell zones specified. Specify the cell zones where the interface is non-conformal, an appropriate gap distance, and the critical angle to be used for separating the face zones. You can also choose to orient the boundary face zones after separation and additionally write a journal file for the separation operation.   If you choose to write a journal file when using the /mesh/non-conformals/separate command to separate the mesh  interface zones, you can read the journal file to create the mesh interface automatically  in solution mode.
                 """
 
             class controls(TUIMenu):
                 """
-                Enter the non conformals controls menu.
+                Enters the non-conformals controls menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.enable = self.__class__.enable(service, version, mode, path + ["enable"])
@@ -4488,16 +4500,16 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class enable(TUIMethod):
                     """
-                    Enable creation of non conformal interface. The quads will be split into tris.
+                    Toggles the creation of a non-conformal interface.
                     """
                 class retri_method(TUIMethod):
                     """
-                    Enable triangulation of non-conformal interfaces instead of quad splitting.
+                    Specifies the method to be used for retriangulating the quad faces on the non-conformal zones.
                     """
 
         class poly(TUIMenu):
             """
-            Enter the poly menu.
+            Enters the polyhedral mesh generation menu.
             """
             def __init__(self, service, version, mode, path):
                 self.controls = self.__class__.controls(service, version, mode, path + ["controls"])
@@ -4509,24 +4521,24 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class collapse(TUIMethod):
                 """
-                Collapse short edges and small faces.
+                Merge nodes to remove short edges and small faces. The decision threshold uses  edge size ratio, face size ratio, and (face)  area fraction.
                 """
             class improve(TUIMethod):
                 """
-                Smooth poly mesh.
+                Allows you to improve the polyhedral mesh quality based on the  quality-method.
                 """
             class quality_method(TUIMethod):
                 """
-                Set poly quality method.
+                Asks you to choose from internal-default,  orthoskew or squish quality measure for mesh improvement.
                 """
             class remesh(TUIMethod):
                 """
-                Remesh local region.
+                Improves the quality in a local region based on the minimum skewness threshold.
                 """
 
             class controls(TUIMenu):
                 """
-                Poly controls.
+                Enters the controls menu for setting poly parameters.
                 """
                 def __init__(self, service, version, mode, path):
                     self.prism = self.__class__.prism(service, version, mode, path + ["prism"])
@@ -4543,39 +4555,39 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class cell_sizing(TUIMethod):
                     """
-                    Allow cell volume distribution to be determined based on boundary.
+                    Sets cell volume distribution function as geometric, linear, or size-field.
                     """
                 class edge_size_ratio(TUIMethod):
                     """
-                    Size ratio tolerance of two connected edges.
+                    Sets the threshold for the size ratio of two connected edges. Recommended range is 20 to 200.
                     """
                 class face_size_ratio(TUIMethod):
                     """
-                    Size ratio tolerance of two faces in one cell.
+                    Sets the threshold for the size ratio of two faces on one cell. Recommended range is 100 to 300.
                     """
                 class feature_angle(TUIMethod):
                     """
-                    Feature angle.
+                    Sets the minimum threshold that should be preserved as a feature.
                     """
                 class improve(TUIMethod):
                     """
-                    Improve the poly mesh by smoothing?.
+                    Enables poly mesh improvement by smoothing based on the smooth-controls.
                     """
                 class merge_skew(TUIMethod):
                     """
-                    Merge minimum skewness.
+                    Sets the minimum skewness threshold for cell merge.
                     """
                 class non_fluid_type(TUIMethod):
                     """
-                    Select the default non-fluid cell zone type.
+                    Selects the default type for non-fluid zones.
                     """
                 class remesh_skew(TUIMethod):
                     """
-                    Remesh target skewness.
+                    Sets the target skewness when remeshing.
                     """
                 class sliver_cell_area_fraction(TUIMethod):
                     """
-                    Fraction tolerance between face area and cell surface area.
+                    Sets the threshold for the area of a single face to the cell surface area. Recommended range is 0.00001 to 0.001.
                     """
 
                 class prism(TUIMenu):
@@ -4602,7 +4614,7 @@ class main_menu(TUIMenu):
 
                 class smooth_controls(TUIMenu):
                     """
-                    Poly smooth controls.
+                    Enters the menu for setting smoothing parameters for poly mesh.
                     """
                     def __init__(self, service, version, mode, path):
                         self.centroid_smooth_iterations = self.__class__.centroid_smooth_iterations(service, version, mode, path + ["centroid_smooth_iterations"])
@@ -4616,40 +4628,40 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class centroid_smooth_iterations(TUIMethod):
                         """
-                        Centroid smoothing iterations.
+                        Sets the number of passes for tet-cell centroid smoothing during the poly mesh generation phase.
                         """
                     class edge_smooth_iterations(TUIMethod):
                         """
-                        Edge smoothing iterations.
+                        Sets the number of passes for tet-cell edge smoothing during the poly mesh generation phase.
                         """
                     class laplace_smooth_iterations(TUIMethod):
                         """
-                        Laplace smoothing iterations.
+                        Sets the number of passes for tet-cell Laplace smoothing during the poly mesh generation phase.
                         """
                     class smooth_attempts(TUIMethod):
                         """
-                        Smooth attempts.
+                        Sets the maximum number of movements for a single node during poly mesh smoothing.
                         """
                     class smooth_boundary(TUIMethod):
                         """
-                        Smooth boundary as part of cell smoothing.
+                        Enables boundary smoothing as part of poly cell smoothing. Default is no.
                         """
                     class smooth_iterations(TUIMethod):
                         """
-                        Smooth iterations.
+                        Sets the number of improvement passes over the full poly mesh.
                         """
                     class smooth_on_layer(TUIMethod):
                         """
-                        Smooth poly-prism nodes on layer.
+                        Constrains movement of nodes to maintain layering during poly mesh smoothing.
                         """
                     class smooth_skew(TUIMethod):
                         """
-                        Smooth minimum skewness.
+                        Sets the minimum skewness threshold for poly mesh smoothing.
                         """
 
             class local_regions(TUIMenu):
                 """
-                Enter the refine-local menu.
+                Enters the local refinement menu.  Poly meshing follows tet meshing. These commands behave like the equivalent commands under /mesh/tet/local-regions/.
                 """
                 def __init__(self, service, version, mode, path):
                     self.activate = self.__class__.activate(service, version, mode, path + ["activate"])
@@ -4664,19 +4676,19 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class activate(TUIMethod):
                     """
-                    Activate regions for tet refinement.
+                    Activates the specified regions for refinement.
                     """
                 class deactivate(TUIMethod):
                     """
-                    Activate regions for tet refinement.
+                    Deactivates the specified regions for refinement.
                     """
                 class define(TUIMethod):
                     """
-                    Define a refinement region's parameters.
+                    Defines the refinement region according to the specified parameters.
                     """
                 class delete(TUIMethod):
                     """
-                    Delete a refinement region.
+                    Deletes the specified refinement region.
                     """
                 class ideal_area(TUIMethod):
                     """
@@ -4684,24 +4696,24 @@ class main_menu(TUIMenu):
                     """
                 class ideal_vol(TUIMethod):
                     """
-                    Ideal tet volume for given edge length.
+                    Reports the volume of an ideal tetrahedron for the edge length specified.
                     """
                 class init(TUIMethod):
                     """
-                    Delete all current regions and add the default refinement region.
+                    Defines the default refinement region encompassing the entire geometry.
                     """
                 class list_all_regions(TUIMethod):
                     """
-                    List all refinement regions.
+                    Lists all refinement region parameters and the activated regions in the console.
                     """
                 class refine(TUIMethod):
                     """
-                    Refine live cells inside region based on refinement parameters.
+                    Refines the active cells inside the selected region based on the specified refinement parameters.
                     """
 
         class poly_hexcore(TUIMenu):
             """
-            Enter the poly-hexcore menu.
+            Enters the menu for poly-hexcore mesh.
             """
             def __init__(self, service, version, mode, path):
                 self.controls = self.__class__.controls(service, version, mode, path + ["controls"])
@@ -4709,7 +4721,7 @@ class main_menu(TUIMenu):
 
             class controls(TUIMenu):
                 """
-                Enter poly-hexcore controls menu.
+                Enters the menu for setting parameters for poly-hexcore mesh.
                 """
                 def __init__(self, service, version, mode, path):
                     self.avoid_1_by_8_cell_jump_in_hexcore = self.__class__.avoid_1_by_8_cell_jump_in_hexcore(service, version, mode, path + ["avoid_1_by_8_cell_jump_in_hexcore"])
@@ -4723,11 +4735,11 @@ class main_menu(TUIMenu):
                     """
                 class mark_core_region_cell_type_as_hex(TUIMethod):
                     """
-                    Mark-core-region-cell-type-as-hex?.
+                    Determines whether or not to apply hexahedra cells in the core region of the mesh. The default value is yes.
                     """
                 class only_polyhedra_for_selected_regions(TUIMethod):
                     """
-                    Only-polyhedra-for-selected-regions.
+                    Determines if polyhedra cells are to be applied to the selected regions.
                     """
                 class poly_cell_sizing_method(TUIMethod):
                     """
@@ -4736,7 +4748,7 @@ class main_menu(TUIMenu):
 
         class prism(TUIMenu):
             """
-            Enter the scoped prisms menu.
+            Enters the prism menu.
             """
             def __init__(self, service, version, mode, path):
                 self.controls = self.__class__.controls(service, version, mode, path + ["controls"])
@@ -4753,19 +4765,19 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class create(TUIMethod):
                 """
-                Create prism layers on one or more face zones.
+                Creates prism layers on one or more boundary face zones based on the offset method, growth method, number of layers, and rate specified.
                 """
             class list_parameters(TUIMethod):
                 """
-                Show all prism mesh parameters.
+                Shows all prism mesh parameters.
                 """
             class mark_ignore_faces(TUIMethod):
                 """
-                Mark prism base faces which will be ignored.
+                Enables you to mark the faces to be ignored during prism meshing.
                 """
             class mark_nonmanifold_nodes(TUIMethod):
                 """
-                Mark prism base nodes which have invalid manifold around them.
+                Enables you to mark the non-manifold prism base nodes. A list of the non-manifold nodes will be printed in the console. The faces connected to the non-manifold nodes will also be marked. You can use this command after specifying zone-specific prism settings, prior to generating the prisms to verify that non-manifold configurations do not exist.
                 """
             class mark_proximity_faces(TUIMethod):
                 """
@@ -4773,16 +4785,16 @@ class main_menu(TUIMenu):
                 """
             class quality_method(TUIMethod):
                 """
-                Set prism quality method.
+                Specifies the quality method used during prism generation.
                 """
             class reset_parameters(TUIMethod):
                 """
-                Reset Prism Parameters.
+                Resets all prism parameters.
                 """
 
             class controls(TUIMenu):
                 """
-                Prism Controls.
+                Enters the prism controls menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.adjacent_zone = self.__class__.adjacent_zone(service, version, mode, path + ["adjacent_zone"])
@@ -4808,8 +4820,7 @@ class main_menu(TUIMenu):
                     """
                 class check_quality(TUIMethod):
                     """
-                    Check the volume, skewness, and handedness
-                    of each new cell and face?.
+                    Enables/disables the checking of volume, skewness, and handedness of each new cell and face.
                     """
                 class grow_individually(TUIMethod):
                     """
@@ -4817,11 +4828,11 @@ class main_menu(TUIMenu):
                     """
                 class merge_ignored_threads(TUIMethod):
                     """
-                    Automatically merge all ignored zones related to a base thread into one thread?.
+                    Enables you to automatically merge all ignored zones related to a base thread into a single thread. This option is enabled by default. When this option is disabled, more than one ignored thread will be generated per base thread. However, various zones can be created by ignoring this option. They are:.
                     """
                 class remove_invalid_layer(TUIMethod):
                     """
-                    Remove the last layer if it fails in the quality check.
+                    Removes the last prism layer if it fails in the quality check.
                     """
                 class set_overset_prism_controls(TUIMethod):
                     """
@@ -4829,16 +4840,16 @@ class main_menu(TUIMenu):
                     """
                 class set_post_mesh_controls(TUIMethod):
                     """
-                    Set controls specific to growing prisms post volume mesh.
+                    Sets controls specific to growing prisms post volume mesh generation.
                     """
                 class split(TUIMethod):
                     """
-                    Split prism cells after prism mesh is done.
+                    Enables you to set parameters for splitting the prism layers after the initial prism layers are generated, to generate the total number of layers required. Specify the number of divisions per layer.
                     """
 
                 class adjacent_zone(TUIMenu):
                     """
-                    Prism Adjacent Zone Controls.
+                    Enters the prism adjacent zone controls menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.project = self.__class__.project(service, version, mode, path + ["project"])
@@ -4857,9 +4868,7 @@ class main_menu(TUIMenu):
                         """
                     class project_adjacent_angle(TUIMethod):
                         """
-                        Outer edges of advancing layers are projected to
-                        adjacent planar zones whose angles relative to the growth direction are
-                        less than or equal to this angle.
+                        Determines whether or not to project to an adjacent zone. If a zone shares outer nodes with any of the zones from which the layers are being grown (the “base zones”), its angle with respect to the growth direction is compared with this value. If the angle is less than or equal to this value, then the zone will be projected to. The default value is 75 degrees. See  for details.
                         """
                     class project_converged(TUIMethod):
                         """
@@ -4883,7 +4892,7 @@ class main_menu(TUIMenu):
                         """
                     class side_feature_angle(TUIMethod):
                         """
-                        This angle (degrees) is used for computing feature normals (more flexible than retriangulation-feature-angle).
+                        Specifies the angle used for computing the feature normals.
                         """
                     class side_topology_align_angle(TUIMethod):
                         """
@@ -4892,7 +4901,7 @@ class main_menu(TUIMenu):
 
                 class improve(TUIMenu):
                     """
-                    Prism Smoothing Controls.
+                    Enters the prism smoothing controls menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.check_allowable_skew = self.__class__.check_allowable_skew(service, version, mode, path + ["check_allowable_skew"])
@@ -4926,7 +4935,7 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class check_allowable_skew(TUIMethod):
                         """
-                        Check skewness for cap every layer?.
+                        Enables you to check the skewness of the prism cap for every layer.
                         """
                     class check_size(TUIMethod):
                         """
@@ -4934,7 +4943,7 @@ class main_menu(TUIMenu):
                         """
                     class corner_height_weight(TUIMethod):
                         """
-                        Improve cell quality/shape by adjusting heights at large corners?.
+                        When enabled, the offset height at corners with large angles (for example, 270º) is reduced to give a smoother prism cap.
                         """
                     class edge_smooth(TUIMethod):
                         """
@@ -4951,13 +4960,11 @@ class main_menu(TUIMenu):
                         """
                     class edge_swap_base_angle(TUIMethod):
                         """
-                        Skewness-driven edge swapping is only allowed between base faces whose normals
-                        are within this angle.
+                        Specifies the maximum allowable angle between the normals of the base faces for skewness-driven edge swapping.
                         """
                     class edge_swap_cap_angle(TUIMethod):
                         """
-                        Skewness-driven edge swapping is only allowed between cap faces whose normals
-                        are within this angle.
+                        Specifies the maximum allowable angle between the normals of the cap faces for skewness-driven edge swapping.
                         """
                     class face_smooth(TUIMethod):
                         """
@@ -4981,7 +4988,7 @@ class main_menu(TUIMenu):
                         """
                     class improve_warp(TUIMethod):
                         """
-                        Perform node movement to improve warp of quad face?.
+                        Enables or disables improving of face warp during prism generation. This option is disabled by default.
                         """
                     class layer_by_layer_smoothing(TUIMethod):
                         """
@@ -4989,17 +4996,15 @@ class main_menu(TUIMenu):
                         """
                     class left_hand_check(TUIMethod):
                         """
-                        Check for left handedness of faces
-                        (0 - no check, 1 - only cap faces, 2 - faces of all cells in current layer).
+                        Controls checking for left-handedness of faces. The default setting of 0 implies face handedness will not be checked. A value of 1 implies only cap faces will be checked, while 2 implies faces of all cells in current layer will be checked.
                         """
                     class max_allowable_cap_skew(TUIMethod):
                         """
-                        Layer growth is stopped if any cap face has
-                        skewness > this value (after all smoothing).
+                        Specifies the maximum skewness allowed for a prism cap face. If the skewness of a cap face exceeds this value, the meshing process will stop and a warning indicates that the skewness for that layer is too high.
                         """
                     class max_allowable_cell_skew(TUIMethod):
                         """
-                        Cell quality criteria for smoothing and quality checking.
+                        Specifies the cell quality criteria for smoothing and quality checking.
                         """
                     class node_smooth(TUIMethod):
                         """
@@ -5040,7 +5045,7 @@ class main_menu(TUIMenu):
                         """
                     class smooth_improve_prism_cells(TUIMethod):
                         """
-                        Smooth and improve prism cells.
+                        Enables you to set the parameters for improving the prism cells after the required prism layers are created. You can select optimized smoothing (smooth), node movement (improve), or a combination of both to improve the quality. Specify the quality measure to be used, the cell quality threshold, the number of improvement iterations, and the minimum improvement required.
                         """
                     class swap_smooth_skew(TUIMethod):
                         """
@@ -5049,7 +5054,7 @@ class main_menu(TUIMenu):
 
                 class morph(TUIMenu):
                     """
-                    Morpher Controls.
+                    Enters the prism morphing controls menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.improve_threshold = self.__class__.improve_threshold(service, version, mode, path + ["improve_threshold"])
@@ -5058,20 +5063,20 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class improve_threshold(TUIMethod):
                         """
-                        Quality threshold used during the morpher improve operation.
+                        Specifies the quality threshold used for improving the quality during the morphing operation.
                         """
                     class morphing_convergence_limit(TUIMethod):
                         """
-                        Relative convergence criterion of the iterative linear solver .
+                        Specifies the convergence limit for the morphing operation. The morpher uses an iterative solver. It is assumed to have converged when the relative residual is less than this number.
                         """
                     class morphing_frequency(TUIMethod):
                         """
-                        Number of layers created between each morphing call.
+                        Specifies the frequency of the morphing operation. The number specified denotes the number of prism layers after which the morpher is applied to the remainder of the mesh (for example, a value of 5 indicates that the morpher is applied to the mesh after every 5 prism layers grown).
                         """
 
                 class normal(TUIMenu):
                     """
-                    Prism Normal Controls.
+                    Enters the prism normal controls menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.bisect_angle = self.__class__.bisect_angle(service, version, mode, path + ["bisect_angle"])
@@ -5091,12 +5096,11 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class bisect_angle(TUIMethod):
                         """
-                        Advancement vectors are forced onto bisecting planes
-                        in sharp corners with angles less than this.
+                        Is required for growing prisms out of sharp interior corners. When the value of this angle is set, the normals are automatically projected onto the plane bisecting the angle between faces having an interior angle less than this angle.
                         """
                     class compute_normal(TUIMethod):
                         """
-                        Compute normal for the given face zone.
+                        Computes the normal for the specified face zone.
                         """
                     class converge_locally(TUIMethod):
                         """
@@ -5106,19 +5110,19 @@ class main_menu(TUIMenu):
                         """
                     class direction_method(TUIMethod):
                         """
-                        Grow layers normal to surfaces or along a specified direction vector?.
+                        Specifies whether the prism layers should be grown normal to surfaces or along a specified direction vector.
                         """
                     class direction_vector(TUIMethod):
                         """
-                        Direction vector for prism extrusion.
+                        Specifies the direction vector for prism extrusion when the uniform method is selected for direction-method.
                         """
                     class ignore_invalid_normals(TUIMethod):
                         """
-                        Ignore nodes which have very poor normals.
+                        Enables you to ignore nodes that have poor normals.
                         """
                     class max_angle_change(TUIMethod):
                         """
-                        Smoothing changes in advancement vectors are constrained by this angle.
+                        Specifies the maximum angle by which the normal direction at a node can change during smoothing.
                         """
                     class normal_method(TUIMethod):
                         """
@@ -5126,12 +5130,11 @@ class main_menu(TUIMenu):
                         """
                     class orient_mesh_object_face_normals(TUIMethod):
                         """
-                        Orient Face Normals Of Mesh Object.
+                        Enables you to orient the face normals for mesh object boundary zones. Specify the mesh object, region or material point as appropriate, and specify whether walls, baffles or both comprising the prism base zones are to be separated and oriented.
                         """
                     class orthogonal_layers(TUIMethod):
                         """
-                        Number of layers to preserve orthogonality.
-                        All smoothing is deferred until after these layers.
+                        Specifies the number of layers to preserve orthogonality. All smoothing is deferred until after these layers.
                         """
                     class smooth(TUIMethod):
                         """
@@ -5153,7 +5156,7 @@ class main_menu(TUIMenu):
 
                 class offset(TUIMenu):
                     """
-                    Prism Offset Controls.
+                    Enters the prism offset controls menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.first_aspect_ratio_min = self.__class__.first_aspect_ratio_min(service, version, mode, path + ["first_aspect_ratio_min"])
@@ -5164,11 +5167,11 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class first_aspect_ratio_min(TUIMethod):
                         """
-                        Minimum base-length-over-height for prism cells.
+                        Specifies the minimum first aspect ratio (ratio of prism base length to prism layer height) for the prism cells.
                         """
                     class min_aspect_ratio(TUIMethod):
                         """
-                        Minimum base-length-over-height for prism cells.
+                        Specifies the minimum aspect ratio (ratio of prism base length to prism layer height) for the prism cells.
                         """
                     class smooth(TUIMethod):
                         """
@@ -5185,19 +5188,19 @@ class main_menu(TUIMenu):
 
                 class post_ignore(TUIMenu):
                     """
-                    Prism Post Ignore Controls.
+                    Contains options for setting the parameters for removing poor quality prism cells after the required prism layers are created.
                     """
                     def __init__(self, service, version, mode, path):
                         self.post_remove_cells = self.__class__.post_remove_cells(service, version, mode, path + ["post_remove_cells"])
                         super().__init__(service, version, mode, path)
                     class post_remove_cells(TUIMethod):
                         """
-                        Post remove bad prism cells.
+                        Enables you to set the parameters for removing poor quality prism cells after the required prism layers are created. You can remove cells based on quality, intersection, interior warp, and feature edges. Specify options for removing additional cells in regions of high aspect ratio and feature angle, the number of cell rings to be removed around the marked cells, and options for smoothing the prism boundary and prism side height.
                         """
 
                 class proximity(TUIMenu):
                     """
-                    Prism Proximity Controls.
+                    Enters the prism proximity controls menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.allow_ignore = self.__class__.allow_ignore(service, version, mode, path + ["allow_ignore"])
@@ -5210,27 +5213,27 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class allow_ignore(TUIMethod):
                         """
-                        Ignore nodes where shrink factor can't be maintained.
+                        Enables you to ignore nodes where the specified maximum shrink factor cannot be maintained.
                         """
                     class allow_shrinkage(TUIMethod):
                         """
-                        Allow shrinkage while growing each layer.
+                        Enables shrinkage while growing prism layers.
                         """
                     class gap_factor(TUIMethod):
                         """
-                        Gap rate to determine the space in proximity region.
+                        Controls the gap between the intersecting prisms layers in the proximity region with respect to the cell size of the prisms.
                         """
                     class keep_first_layer_offsets(TUIMethod):
                         """
-                        Fix first layer offsets while performing proximity detection?.
+                        Enables you to retain first layer offsets while performing proximity detection.
                         """
                     class max_aspect_ratio(TUIMethod):
                         """
-                        Minimum offset to fall back to avoid degenerate cells.
+                        Specifies the maximum allowable cell aspect ratio to determine the limit for the shrinkage of prism layers. This option is available only when the allow-ignore? option is disabled.
                         """
                     class max_shrink_factor(TUIMethod):
                         """
-                        Shrink factor to determine the maximum shrinkage of prism layer.
+                        Specifies the shrink factor determining the maximum shrinkage of the prism layers. This option is available only when the allow-ignore? option is enabled.
                         """
                     class smoothing_rate(TUIMethod):
                         """
@@ -5239,7 +5242,7 @@ class main_menu(TUIMenu):
 
                 class zone_specific_growth(TUIMenu):
                     """
-                    Prism Growth Controls.
+                    Enters the prism growth controls menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.apply_growth = self.__class__.apply_growth(service, version, mode, path + ["apply_growth"])
@@ -5248,20 +5251,20 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class apply_growth(TUIMethod):
                         """
-                        Apply prism growth on individual zones.
+                        Applies the zone-specific growth parameters specified.
                         """
                     class clear_growth(TUIMethod):
                         """
-                        Clear zone specific growth on individual zones.
+                        Clears the zone-specific growth specified.
                         """
                     class list_growth(TUIMethod):
                         """
-                        List zone specific growth on applied zones.
+                        Lists the zone-specific growth parameters specified for individual zones in the console.
                         """
 
             class improve(TUIMenu):
                 """
-                Prism Improve Menu.
+                Enters the prism improve menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.improve_prism_cells = self.__class__.improve_prism_cells(service, version, mode, path + ["improve_prism_cells"])
@@ -5273,32 +5276,32 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class improve_prism_cells(TUIMethod):
                     """
-                    Smoothing cells by collecting rings of cells around them.
+                    Collects and smooths cells in layers around poor quality cells. Cells with quality worse than the specified threshold value will be identified, and the nodes of the cells surrounding the poor quality cells will be moved to improve quality.
                     """
                 class smooth_brute_force(TUIMethod):
                     """
-                    Brute Force smooth cell if cell skewness is still higher after regular smoothing.
+                    Forcibly smooths cells if cell skewness is still high after regular smoothing.
                     """
                 class smooth_cell_rings(TUIMethod):
                     """
-                    No. of Cell rings around the skewed cell used by improve-prism-cells.
+                    Specifies the number of cell rings around the skewed cell used by improve-prism-cells.
                     """
                 class smooth_improve_prism_cells(TUIMethod):
                     """
-                    Combination of smooth and improve prism cells.
+                    Uses a combination of node movement and optimized smoothing to improve the quality. This command is a combination of the smooth-prism-cells and improve-prism-cells commands. The cell aspect ratio will also be maintained based on the value specified for max-aspect-ratio.
                     """
                 class smooth_prism_cells(TUIMethod):
                     """
-                    Optimization based smoothing.
+                    Enables optimization based smoothing of prism cells. The nodes of cells with quality worse than the specified threshold value will be moved to improve quality. The cell aspect ratio will also be maintained based on the value specified for max-aspect-ratio.
                     """
                 class smooth_sliver_skew(TUIMethod):
                     """
-                    Prism Cells above this skewness will be smoothed.
+                    Specifies the skewness above which prism cells will be smoothed.
                     """
 
             class post_ignore(TUIMenu):
                 """
-                Prism Post-Ignore Menu.
+                Contains the following options for ignoring prism cells:.
                 """
                 def __init__(self, service, version, mode, path):
                     self.create_cavity = self.__class__.create_cavity(service, version, mode, path + ["create_cavity"])
@@ -5308,36 +5311,36 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class create_cavity(TUIMethod):
                     """
-                    Post tet cell quality ignore.
+                    Creates a cavity in regions where prism quality is adequate, but the quality of adjacent tetrahedra is poor. The cavity is created based on the tetrahedral cell zone, the quality measure and the corresponding threshold value, and the additional number of cell rings specified. You can create a cavity comprising only tetrahedral cells or optionally include prism cells in the cavity created. When prism cells are also included in the cavity, you can specify whether the non-conformal interface is to be created.
                     """
                 class mark_cavity_prism_cap(TUIMethod):
                     """
-                    Mark post-ignore tet cell cavity prism cap faces.
+                    Marks the prism cap faces and tetrahedral cell faces bounding the cavity to be created in regions where prism quality is adequate, but the quality of adjacent tetrahedra is poor. Specify the tetrahedral cell zone, the quality measure and the corresponding threshold value to be used, and the additional number of cell rings based on which the cavity will be created.
                     """
                 class mark_prism_cap(TUIMethod):
                     """
-                    Post mark cell quality ignore cap.
+                    Marks the prism cap faces for ignoring prism cells in regions of poor quality cells and sharp corners. Specify the prism cell zone and the basis for ignoring prism cells and the relevant parameters. The prism cells can be ignored based on quality, intersection, (both enabled by default), warp, and features (both disabled by default). Specify the quality measure and threshold value to be used for ignoring cells based on quality and (if applicable) the feature edges for ignoring cells based on features. Additionally, specify whether cells are to be marked in regions of high aspect ratio and based on feature angle, and the additional number of cell rings based on which prism cells will be removed.
                     """
                 class post_remove_cells(TUIMethod):
                     """
-                    Post cell quality ignore.
+                    Enables you to remove prism cells in layers around poor quality cells and sharp corners. Specify the prism cell zone, the basis for ignoring prism cells (quality, intersection, warp, features) and the relevant parameters. Specify the number of cell rings to be removed around the marked cells. Cells will be marked for removal in regions of sharp corners based on quality, intersection, warp, and features (as applicable) and then extended based on the number of cell rings specified. Additional cells will be marked for removal in regions of high aspect ratio and based on feature angle (if applicable) around the exposed prism side. The boundary will be smoothed at feature corners after the prism cells have been removed. The prism-side faces exposed by the removal of the prism cells will be collected in a zone named prism-side-#, while for a zone wall-n, the faces corresponding to the ignored prism cells will be collected in a zone named wall-n:ignore. You can also optionally smooth the prism side nodes from the base node to the cap node to create better triangles for the non-conformal interface.
                     """
 
             class split(TUIMenu):
                 """
-                Prism Post-Split Menu.
+                Contains options for splitting the prism layers after the initial prism layers are generated, to generate the total number of layers required.
                 """
                 def __init__(self, service, version, mode, path):
                     self.split = self.__class__.split(service, version, mode, path + ["split"])
                     super().__init__(service, version, mode, path)
                 class split(TUIMethod):
                     """
-                    Split prism layer cells.
+                    Enables you to split the prism layers after the initial prism layers are generated, to generate the total number of layers required. Specify the prism cell zones to be split and the number of divisions per layer. You can also choose to use the existing growth rate (default) or specify the growth rate to be used while splitting the prism layers.
                     """
 
         class pyramid(TUIMenu):
             """
-            Enter the pyramid controls menu.
+            Enters the pyramid menu.
             """
             def __init__(self, service, version, mode, path):
                 self.controls = self.__class__.controls(service, version, mode, path + ["controls"])
@@ -5345,12 +5348,12 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class create(TUIMethod):
                 """
-                Create layer of pyramids on quad face zone.
+                Creates a layer of pyramids on the quad face zone.
                 """
 
             class controls(TUIMenu):
                 """
-                Enter the pyramid controls menu.
+                Enters the pyramid controls menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.neighbor_angle = self.__class__.neighbor_angle(service, version, mode, path + ["neighbor_angle"])
@@ -5360,24 +5363,24 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class neighbor_angle(TUIMethod):
                     """
-                    Dihedral angle threshold used to limit which neighboring faces are considered in the creation of pyramids.
+                    Sets the threshold dihedral angle used to limit the neighboring faces considered for pyramid creation. For example, if the value is set to 110° and the angle between a given quadrilateral face and a neighboring triangular face is greater than 110°, the resulting pyramid will not include the triangular face.
                     """
                 class offset_factor(TUIMethod):
                     """
-                    Factor of pyramid height used to randomly adjust the height of the pyramids during pyramid creation. Default is 0.
+                    Specifies the fraction of the computed pyramid height (offset) by which the pyramid heights will be randomly adjusted. The default value is 0, indicating that all pyramids will have the exact height computed. A value of 0.1, for example, will limit each adjustment to ±10percentage of the computed height.
                     """
                 class offset_scaling(TUIMethod):
                     """
-                    The node created to produce a pyramid from a face is positioned along a vector emanating from the face centroid in the direction of the face's normal.  This factor scales the distance along this vector, unity represents an equilateral pyramid.
+                    Specifies the scaling, to be used to determine the height of the pyramid.
                     """
                 class vertex_method(TUIMethod):
                     """
-                    Method by which offset distances are determined.
+                    Specifies the method by which the location of the new vertex of the pyramid will be determined. The skewness method is used by default.
                     """
 
         class rapid_octree(TUIMenu):
             """
-            Enter the octree menu.
+            Enters the rapid octree menu, which provides text commands for using the Rapid Octree mesher.
             """
             def __init__(self, service, version, mode, path):
                 self.advanced_meshing_options = self.__class__.advanced_meshing_options(service, version, mode, path + ["advanced_meshing_options"])
@@ -5411,15 +5414,15 @@ class main_menu(TUIMenu):
                 """
             class boundary_treatment(TUIMethod):
                 """
-                Choose the boundary treatment option (0: Projection , 1: Snapping).
+                Selects the boundary treatment option. Enter 0 for the Boundary Projection treatment or 1 for the Cartesian Snapping treatment.
                 """
             class bounding_box(TUIMethod):
                 """
-                Define/Modify the bounding box around the geometry.
+                Defines/modifies the bounding box around the geometry.
                 """
             class create(TUIMethod):
                 """
-                Create rapid octree mesh.
+                Creates a mesh using the Rapid Octree mesher.
                 """
             class create_stair_step_mesh(TUIMethod):
                 """
@@ -5431,7 +5434,7 @@ class main_menu(TUIMenu):
                 """
             class distribute_geometry(TUIMethod):
                 """
-                Distributes input geometry across partitions to reduce memory requirements.
+                Enables/disables the distribution of the input geometry across partitions / compute nodes, so that it is not copied to each process. This reduces the memory requirements of the mesh generation significantly, especially for geometries with a high number of triangles. Note that this geometric distribution is enabled by default and is automatically deactivated if the geometry is not fully enclosed by the defined bounding box.
                 """
             class dry_run(TUIMethod):
                 """
@@ -5447,7 +5450,7 @@ class main_menu(TUIMenu):
                 """
             class flow_volume(TUIMethod):
                 """
-                Specify the volume to be filled by the mesh.
+                Specifies the volume to be filled by the mesh.
                 """
             class improve_geometry_resolution(TUIMethod):
                 """
@@ -5463,7 +5466,7 @@ class main_menu(TUIMenu):
                 """
             class reset_bounding_box(TUIMethod):
                 """
-                Redefine the bounding box extends to encompass the currently selected geoemtry.
+                Redefines the bounding box extents to encompass all of the surfaces of the currently selected geometry, and updates the base length scale used in the mesh generation process.
                 """
             class resolve_geometry(TUIMethod):
                 """
@@ -5471,11 +5474,11 @@ class main_menu(TUIMenu):
                 """
             class undo_last_meshing_operation(TUIMethod):
                 """
-                Attempt to undo the last meshing operation.
+                Attempts to restore the object state (including its surfaces) as it was prior to the meshing operation performed by the Rapid Octree mesher.
                 """
             class verbosity(TUIMethod):
                 """
-                Set rapid octree verbosity.
+                Sets the verbosity of the messages printed by the Rapid Octree mesher.
                 """
             class volume_specification(TUIMethod):
                 """
@@ -5603,7 +5606,7 @@ class main_menu(TUIMenu):
 
             class geometry(TUIMenu):
                 """
-                Specify input for Rapid-Octree like material points, mesh objects, etc.
+                Allows you to apply the Rapid Octree mesher to a defined mesh object or geometry object rather than all available surface zones. Note that using a mesh object with multiple volumetric regions allows you to generate multiple disconnected cell zones that can be coupled by a non-conformal mesh interface in the solution mode; all other input objects result in the creation of a single volume / cell zone.
                 """
                 def __init__(self, service, version, mode, path):
                     self.bounding_box = self.__class__.bounding_box(service, version, mode, path + ["bounding_box"])
@@ -5640,7 +5643,7 @@ class main_menu(TUIMenu):
 
             class mesh_sizing(TUIMenu):
                 """
-                Define cell sizes.
+                Enters the mesh sizing menu, which allows you to define the cell sizes.
                 """
                 def __init__(self, service, version, mode, path):
                     self.curvature_refinement_options = self.__class__.curvature_refinement_options(service, version, mode, path + ["curvature_refinement_options"])
@@ -5693,7 +5696,7 @@ class main_menu(TUIMenu):
                     """
                 class max_cell_size(TUIMethod):
                     """
-                    Set maximum cell size in octree mesh.
+                    Sets the maximum cell size in the octree mesh.
                     """
                 class mesh_coarsening_exponent(TUIMethod):
                     """
@@ -5732,20 +5735,20 @@ class main_menu(TUIMenu):
                         """
                     class maximum_angle_threshold(TUIMethod):
                         """
-                        Sets the maximum angle between two facets for angular refinements (e.g. to exclude sharp corners).
+                        Sets the maximum angle between two facets for angular refinements (e.g., to exclude sharp corners).
                         """
                     class minimum_angle_threshold(TUIMethod):
                         """
-                        Sets the minimum angle between two facets for angular refinements (e.g. to prevent spurious refinements).
+                        Sets the minimum angle between two facets for angular refinements (e.g., to prevent spurious refinements).
                         """
                     class switched_criterion_threshold(TUIMethod):
                         """
-                        Specify the angular value to switch between "facets-normal-angle" and "arc-estimate" in the "switched" cirterion.
+                        Specify the angular value to switch between "facets-normal-angle" and "arc-estimate" in the "switched" criterion.
                         """
 
             class refinement_regions(TUIMenu):
                 """
-                Enter the rapid octree refinement region menu.
+                Enters the rapid octree refinement region menu, which allows you to manage the refinement regions.
                 """
                 def __init__(self, service, version, mode, path):
                     self.add = self.__class__.add(service, version, mode, path + ["add"])
@@ -5756,11 +5759,11 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class add(TUIMethod):
                     """
-                    Add a new refinement region definition.
+                    Adds a refinement region to the domain.
                     """
                 class delete(TUIMethod):
                     """
-                    Delete a refinement region definition.
+                    Deletes a refinement region.
                     """
                 class edit(TUIMethod):
                     """
@@ -5768,7 +5771,7 @@ class main_menu(TUIMenu):
                     """
                 class list(TUIMethod):
                     """
-                    List all refinement region definitions.
+                    Lists all of the refinement regions.
                     """
                 class list_properties(TUIMethod):
                     """
@@ -5777,7 +5780,7 @@ class main_menu(TUIMenu):
 
         class scoped_prisms(TUIMenu):
             """
-            Manage scoped prisms.
+            Contains options for creating scoped prism controls for mesh objects.
             """
             def __init__(self, service, version, mode, path):
                 self.create = self.__class__.create(service, version, mode, path + ["create"])
@@ -5795,23 +5798,23 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class create(TUIMethod):
                 """
-                Create new scoped prism.
+                Creates a new scoped prism control based on the parameters and scope specified. Specify the name, offset method, first height or aspect ratio, number of layers, and rate or last percent. Select the mesh object and set the scope  (fluid-regions, named-regions, or  solid-regions). Specify the zones to grow prisms  (all-zones, only-walls,  selected-face-zones, or selected-labels, or solid-fluid-interface). When  named-regions and/or selected-face-zones or selected-labels are selected, specify the volume and/or boundary scope. If interior baffle zones are selected, retain the option to grow prisms on both sides of the baffles or disable it to grow prisms on one side.
                 """
             class delete(TUIMethod):
                 """
-                Delete scoped prisms.
+                Deletes the specified scoped prism control.
                 """
             class growth_options(TUIMethod):
                 """
-                Set scoped prisms growth options.
+                Enables you to specify scoped prism growth options. Select Fix First  Height if required, and specify the gap factor, maximum aspect ratio, prism quality method, and the threshold quality value for stair stepping.
                 """
             class list(TUIMethod):
                 """
-                List all scoped prisms parameters.
+                Lists all the defined scoped prism controls.
                 """
             class modify(TUIMethod):
                 """
-                Modify scoped prisms.
+                Modifies the specified control based on the parameters specified.
                 """
             class poly_keep_nlayer_prism_characteristics(TUIMethod):
                 """
@@ -5819,15 +5822,15 @@ class main_menu(TUIMenu):
                 """
             class read(TUIMethod):
                 """
-                Read scoped prisms from a file.
+                Reads in the specified scoped prism control file (\\*.pzmcontrol).
                 """
             class set_advanced_controls(TUIMethod):
                 """
-                Set scoped boundary layer controls.
+                Used to specify various controls for scoped prisms. Prompts include setting iterations for normal based prisms, smoothing, prism improvement, automatic node movement, and warp improvement. Prompts also include checks for stair-step interactions, as well as proximity, quality, and the exposure of quad quality. Automatic stair-stepping occurs during prism generation based on the proximity and quality limits. You can intentionally avoid stair-stepping by setting the last three prompts (proximity, quality, and the exposure of quad quality) to no, although you may also retain some poor quality cells.
                 """
             class set_no_imprint_zones(TUIMethod):
                 """
-                Set zones which should not be imprinted during prism generation.
+                Used to specify face zones that should not be imprinted during prism generation.
                 """
             class set_overset_prism_controls(TUIMethod):
                 """
@@ -5839,7 +5842,7 @@ class main_menu(TUIMenu):
                 """
             class write(TUIMethod):
                 """
-                Write scoped prisms to a file.
+                Writes the scoped prism controls to a prism control file (\\*.pzmcontrol). Specify the scoped prism file name.
                 """
 
         class scoped_thin_volume(TUIMenu):
@@ -5871,7 +5874,7 @@ class main_menu(TUIMenu):
 
         class separate(TUIMenu):
             """
-            Separate cells by various user defined methods.
+            Separates cells by various user-defined methods.
             """
             def __init__(self, service, version, mode, path):
                 self.local_regions = self.__class__.local_regions(service, version, mode, path + ["local_regions"])
@@ -5887,27 +5890,27 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class separate_cell_by_face(TUIMethod):
                 """
-                Separate prism cell with source faces.
+                Separates cells that are connected to a specified face zone into another cell zone. This separation method applies only to prism cells.
                 """
             class separate_cell_by_mark(TUIMethod):
                 """
-                Separate cell by marks.
+                Separates cells within a specified local region into another cell zone.
                 """
             class separate_cell_by_region(TUIMethod):
                 """
-                Separate cell by region.
+                Separates contiguous regions within a cell zone into separate cell zones.
                 """
             class separate_cell_by_shape(TUIMethod):
                 """
-                Separate cell thread by cell shape.
+                Separates cells with different shapes (pyramids, tetrahedra, etc.) into separate cell zones.
                 """
             class separate_cell_by_size(TUIMethod):
                 """
-                Separate cell thread by cell size.
+                Separates cells based on the specified minimum and maximum cell sizes.
                 """
             class separate_cell_by_skew(TUIMethod):
                 """
-                Separate cell thread by cell skewness.
+                Separates cells based on the specified cell skewness.
                 """
             class separate_prisms_from_hex(TUIMethod):
                 """
@@ -5915,7 +5918,7 @@ class main_menu(TUIMenu):
                 """
             class separate_prisms_from_poly(TUIMethod):
                 """
-                Separate poly-prism cells from poly.
+                Separates the poly-prism cells from the poly cells within your mesh. Available only when the report/enhanced-orthogonal-quality? flag is set to  yes, and is only supported for the .h5 format.
                 """
             class separate_wedge_prisms(TUIMethod):
                 """
@@ -5924,7 +5927,7 @@ class main_menu(TUIMenu):
 
             class local_regions(TUIMenu):
                 """
-                Enter the refine-local menu.
+                Enters the local refinement menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.define = self.__class__.define(service, version, mode, path + ["define"])
@@ -5934,24 +5937,24 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class define(TUIMethod):
                     """
-                    Define a refinement region's parameters.
+                    Enables you to define the parameters for the refinement region.
                     """
                 class delete(TUIMethod):
                     """
-                    Delete a refinement region.
+                    Enables you to delete a refinement region.
                     """
                 class init(TUIMethod):
                     """
-                    Delete all current regions and add the default refinement region.
+                    Deletes all current regions and adds the default refinement region.
                     """
                 class list_all_regions(TUIMethod):
                     """
-                    List all refinement regions.
+                    Lists all the refinement regions.
                     """
 
         class tet(TUIMenu):
             """
-            Enter the triangulation menu.
+            Enters the tetrahedral mesh menu.
             """
             def __init__(self, service, version, mode, path):
                 self.controls = self.__class__.controls(service, version, mode, path + ["controls"])
@@ -5968,15 +5971,15 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class delete_virtual_cells(TUIMethod):
                 """
-                Delete virtual face/dead cells left by activating keep-virtual-entities?.
+                Deletes virtual cells created due to the use of the  keep-virtual-entities? option.
                 """
             class init(TUIMethod):
                 """
-                Tet mesh initialization.
+                Generates the initial Delaunay mesh by meshing the boundary nodes.
                 """
             class init_refine(TUIMethod):
                 """
-                Tet initialization and refinement of mesh.
+                Generates the tetrahedral mesh.
                 """
             class mesh_object(TUIMethod):
                 """
@@ -5984,15 +5987,15 @@ class main_menu(TUIMenu):
                 """
             class preserve_cell_zone(TUIMethod):
                 """
-                Preserve cell zone.
+                Allows you to specify the cell zones to be preserved during the meshing process.
                 """
             class refine(TUIMethod):
                 """
-                Tet mesh refinement.
+                Refines the initialized mesh.
                 """
             class trace_path_between_cells(TUIMethod):
                 """
-                Trace path between two cell.
+                Detects holes in the geometry by tracing the path between the two specified cells.
                 """
             class un_preserve_cell_zone(TUIMethod):
                 """
@@ -6001,7 +6004,7 @@ class main_menu(TUIMenu):
 
             class controls(TUIMenu):
                 """
-                Tet controls.
+                Enters the tet controls menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.adv_front_method = self.__class__.adv_front_method(service, version, mode, path + ["adv_front_method"])
@@ -6028,7 +6031,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class cell_sizing(TUIMethod):
                     """
-                    Allow cell volume distribution to be determined based on boundary.
+                    Specifies the cell sizing function for refinement. You can select geometric, linear, none, or size-field as appropriate.
                     """
                 class clear_zone_growth_rate(TUIMethod):
                     """
@@ -6036,27 +6039,27 @@ class main_menu(TUIMenu):
                     """
                 class compute_max_cell_volume(TUIMethod):
                     """
-                    Computes max cell size.
+                    Computes the maximum cell volume for the current mesh.
                     """
                 class delete_dead_zones(TUIMethod):
                     """
-                    Automatically delete dead face and cell zones?.
+                    Specifies the maximum allowable cell volume.
                     """
                 class delete_unused_nodes(TUIMethod):
                     """
-                    Automatically delete unused nodes?.
+                    Toggles the deleting of unused nodes during mesh initialization.  The delete-unused-nodes? option is no longer supported and will be removed at a future release.
                     """
                 class improve_surface_mesh(TUIMethod):
                     """
-                    Automatically improve surface mesh?.
+                    Enables you to improve the surface mesh by swapping face edges where Delaunay violations occur. The improve-surface-mesh? option is no longer supported and will be removed at a future release.
                     """
                 class max_cell_length(TUIMethod):
                     """
-                    Set max-cell-length.
+                    Specifies the maximum allowable cell length.
                     """
                 class max_cell_volume(TUIMethod):
                     """
-                    Set max-cell-volume.
+                    Specifies the maximum allowable cell volume.
                     """
                 class merge_free_nodes(TUIMethod):
                     """
@@ -6064,19 +6067,19 @@ class main_menu(TUIMenu):
                     """
                 class non_fluid_type(TUIMethod):
                     """
-                    Select the default non-fluid cell zone type.
+                    Selects the non-fluid cell zone type. After the mesh is initialized, any non-fluid zones will be set to this type. If the mesh includes multiple regions (for example, the problem for which you are creating the mesh includes a fluid zone and one or more solid zones), and you plan to refine all of them using the same refinement parameters, modify the non-fluid type before generating the mesh.  For zone-based meshing, if any cell zone has at least one boundary zone type as inlet, it will automatically be set to fluid type. For object based meshing, volume region type is used to determine the cell zone type.
                     """
                 class print_region_based_sizing(TUIMethod):
                     """
-                    Print region based sizings.
+                    Displays local sizing settings (max cell length) for specified region(s).
                     """
                 class refine_method(TUIMethod):
                     """
-                    Define refinement method.
+                    Enables you to select the refinement method. You can select either skewness-based refinement or the advancing front method.  The skewness-based refinement option is no longer supported and will be removed at a future release.
                     """
                 class set_region_based_sizing(TUIMethod):
                     """
-                    Set region based sizings.
+                    Allows you to specify local sizing settings (max cell length) for specified region(s).
                     """
                 class set_zone_growth_rate(TUIMethod):
                     """
@@ -6084,16 +6087,16 @@ class main_menu(TUIMenu):
                     """
                 class skewness_method(TUIMethod):
                     """
-                    Skewness refinement controls.
+                    Enters the skewness refinement controls menu.
                     """
                 class use_max_cell_size(TUIMethod):
                     """
-                    Use max cell size for objects in auto-mesh and do not recompute it based on the object being meshed.
+                    Enables you to use the maximum cell size specified instead of recomputing the value based on the objects, when the volume mesh is generated. This option is disabled by default.
                     """
 
                 class adv_front_method(TUIMenu):
                     """
-                    Advancing front refinement controls.
+                    Enters the advancing front refinement controls menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.skew_improve = self.__class__.skew_improve(service, version, mode, path + ["skew_improve"])
@@ -6103,20 +6106,20 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class first_improve_params(TUIMethod):
                         """
-                        Define refine front improve parameters.
+                        Defines the refining front improvement parameters for the advancing front method.
                         """
                     class refine_parameters(TUIMethod):
                         """
-                        Define refine parameters.
+                        Defines the cell zone improvement parameters for the advancing front method.
                         """
                     class second_improve_params(TUIMethod):
                         """
-                        Define cell zone improve parameters.
+                        Defines the cell zone improvement parameters for the advancing front method.
                         """
 
                     class skew_improve(TUIMenu):
                         """
-                        Refine improve controls.
+                        Enters the refine improve controls menu.
                         """
                         def __init__(self, service, version, mode, path):
                             self.attempts = self.__class__.attempts(service, version, mode, path + ["attempts"])
@@ -6129,31 +6132,31 @@ class main_menu(TUIMenu):
                             super().__init__(service, version, mode, path)
                         class attempts(TUIMethod):
                             """
-                            Refine improve attempts.
+                            Specifies the number of overall improvement attempts for the advancing front  method.
                             """
                         class boundary_sliver_skew(TUIMethod):
                             """
-                            Refine improve boundary sliver skew.
+                            Specifies the boundary sliver skewness for the advancing front method. This  parameter is used for removing sliver cells along the boundary.
                             """
                         class iterations(TUIMethod):
                             """
-                            Refine improve iterations.
+                            Specifies the number of improvement iterations in each attempt for the  advancing front method.
                             """
                         class sliver_skew(TUIMethod):
                             """
-                            Refine improve sliver skew.
+                            Specifies the sliver skewness for the advancing front method. This parameter  is used for removing sliver cells in the interior.
                             """
                         class target(TUIMethod):
                             """
-                            Activate target skew refinement.
+                            Enables you to enable targeted skewness-based refinement for the advancing  front method. This option enables you to improve the mesh until the targeted  skewness value is achieved.
                             """
                         class target_low_skew(TUIMethod):
                             """
-                            Refine improve target low skew.
+                            Specifies the targeted skewness threshold above which cells will be improved.  The improve operation will attempt to improve cells with skewness above the target-low-skew value specified, but there will be no  attempt to reduce the skewness below the specified value. A limited set of improve  operations will be used as compared to the operations required for the target-skew value-based improvement. The value specified  could be approximately 0.1 lower than the target-skew  value.
                             """
                         class target_skew(TUIMethod):
                             """
-                            Refine improve target skew.
+                            Specifies the targeted skewness during improvement for the advancing front  method.
                             """
 
                 class advanced(TUIMenu):
@@ -6220,7 +6223,7 @@ class main_menu(TUIMenu):
 
                 class improve_mesh(TUIMenu):
                     """
-                    Improve mesh controls.
+                    Enters the improve mesh controls menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.improve = self.__class__.improve(service, version, mode, path + ["improve"])
@@ -6230,24 +6233,24 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class improve(TUIMethod):
                         """
-                        Automatically improve mesh.
+                        Automatically improves the mesh.
                         """
                     class laplace_smooth(TUIMethod):
                         """
-                        Laplace smooth parameters.
+                        Enables you to specify the Laplace smoothing parameters.
                         """
                     class skewness_smooth(TUIMethod):
                         """
-                        Skewness smooth parametersx.
+                        Enables you to specify the skewness smooth parameters.
                         """
                     class swap(TUIMethod):
                         """
-                        Face swap parameters.
+                        Enables you to specify the face swap parameters.
                         """
 
                 class remove_slivers(TUIMenu):
                     """
-                    Sliver remove controls.
+                    Enters the sliver remove controls menu.
                     """
                     def __init__(self, service, version, mode, path):
                         self.angle = self.__class__.angle(service, version, mode, path + ["angle"])
@@ -6260,31 +6263,31 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class angle(TUIMethod):
                         """
-                        Max dihedral angle defining a valid boundary sliver.
+                        Specifies the maximum dihedral angle for considering the cell to be a sliver.
                         """
                     class attempts(TUIMethod):
                         """
-                        Sliver remove attempts.
+                        Specifies the number of attempts overall to remove slivers.
                         """
                     class iterations(TUIMethod):
                         """
-                        Sliver remove iterations.
+                        Specifies the number of iterations to be performed for the specific sliver removal operation.
                         """
                     class low_skew(TUIMethod):
                         """
-                        Remove sliver low skew.
+                        Specifies the targeted skewness threshold above which cells will be improved. The improve operation will attempt to improve cells with skewness above the low-skew value specified, but there will be no attempt to reduce the skewness below the specified value. A limited set of improve operations will be used as compared to the operations required for the skew value-based improvement.
                         """
                     class method(TUIMethod):
                         """
-                        Sliver remove method.
+                        Enables you to select the method for sliver removal. The default method used is the fast method. The fast and the aggressive methods use the same controls and give similar results for good quality surface meshes. In case of poor surface meshes, the aggressive method will typically succeed in improving the mesh to a greater extent, but it may be slower than the fast method.
                         """
                     class remove(TUIMethod):
                         """
-                        Automatically remove slivers.
+                        Enables/disables the automatic removal of slivers.
                         """
                     class skew(TUIMethod):
                         """
-                        Remove sliver skew.
+                        Specifies the skewness threshold for sliver removal.
                         """
 
                 class tet_improve(TUIMenu):
@@ -6316,7 +6319,7 @@ class main_menu(TUIMenu):
 
             class improve(TUIMenu):
                 """
-                Enter the Tet improve menu.
+                Enters the tet improve menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.collapse_slivers = self.__class__.collapse_slivers(service, version, mode, path + ["collapse_slivers"])
@@ -6332,50 +6335,48 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class collapse_slivers(TUIMethod):
                     """
-                    Remove skewed cells by edge collapse.
+                    Attempts to collapse the nodes of a skewed sliver cell on any one of its neighbors.
                     """
                 class improve_cells(TUIMethod):
                     """
-                    Improve skewed cells.
+                    Improves skewed tetrahedral cells.
                     """
                 class refine_boundary_slivers(TUIMethod):
                     """
-                    Refine boundary slivers by edge-split.
+                    Attempts to increase the volume of boundary slivers to create a valid tet cell. Tetrahedra having one or two faces on the boundary are identified and then the appropriate edge split. The split node is then smoothed such that the volume of the tetrahedron increases, thereby creating a valid tet cell.
                     """
                 class refine_slivers(TUIMethod):
                     """
-                    Refine sliver cells by introducing
-                    node near centroid.
+                    Attempts to remove the sliver by placing a node at or near the centroid of the sliver cell. Swapping and smoothing are performed to improve the skewness. You can also specify whether boundary cells are to be refined. Refining the boundary cells may enable you to carry out further improvement options such as smoothing, swapping, and collapsing slivers.
                     """
                 class skew_smooth_nodes(TUIMethod):
                     """
-                    Smooth node locations.
+                    Applies skewness-based smoothing to nodes on the tetrahedral cell zones to improve the mesh quality.
                     """
                 class sliver_boundary_swap(TUIMethod):
                     """
-                    Remove boundary slivers by moving the boundary
-                    to exclude the cells from the zone.
+                    Removes boundary slivers by moving the boundary to exclude the cells from the zone.
                     """
                 class smooth_boundary_sliver(TUIMethod):
                     """
-                    Smooth skewed cells with all nodes on the boundary.
+                    Smooths nodes on sliver cells having all four nodes on the boundary until the skewness value is less than the specified value. The default values for the skewness threshold, minimum dihedral angle between boundary faces, and feature angle are 0.985, 10, and 30, respectively.
                     """
                 class smooth_interior_sliver(TUIMethod):
                     """
-                    Smooth skewed cells with some interior node.
+                    Smooths non-boundary nodes on sliver cells having skewness greater than the specified threshold value. The default value for the skewness threshold is 0.985.
                     """
                 class smooth_nodes(TUIMethod):
                     """
-                    Smooth node locations.
+                    Enables you to apply either Laplacian or variational smoothing to nodes on the tetrahedral cell zones to improve the mesh quality.
                     """
                 class swap_faces(TUIMethod):
                     """
-                    Perform interior face swapping to improve cell skewness.
+                    Performs interior face swapping to improve cell skewness.
                     """
 
             class local_regions(TUIMenu):
                 """
-                Enter the refine-local menu.
+                Enters the local refinement menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.activate = self.__class__.activate(service, version, mode, path + ["activate"])
@@ -6390,19 +6391,19 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class activate(TUIMethod):
                     """
-                    Activate regions for tet refinement.
+                    Activates the specified regions for refinement.
                     """
                 class deactivate(TUIMethod):
                     """
-                    Activate regions for tet refinement.
+                    Deactivates the specified regions for refinement.
                     """
                 class define(TUIMethod):
                     """
-                    Define a refinement region's parameters.
+                    Defines the refinement region according to the specified parameters.
                     """
                 class delete(TUIMethod):
                     """
-                    Delete a refinement region.
+                    Deletes the specified refinement region.
                     """
                 class ideal_area(TUIMethod):
                     """
@@ -6410,31 +6411,31 @@ class main_menu(TUIMenu):
                     """
                 class ideal_vol(TUIMethod):
                     """
-                    Ideal tet volume for given edge length.
+                    Reports the volume of an ideal tetrahedron for the edge length specified.
                     """
                 class init(TUIMethod):
                     """
-                    Delete all current regions and add the default refinement region.
+                    Defines the default refinement region encompassing the entire geometry.
                     """
                 class list_all_regions(TUIMethod):
                     """
-                    List all refinement regions.
+                    Lists all refinement region parameters and the activated regions in the console.
                     """
                 class refine(TUIMethod):
                     """
-                    Refine live cells inside region based on refinement parameters.
+                    Refines the active cells inside the selected region based on the specified refinement parameters.
                     """
 
         class thin_volume_mesh(TUIMenu):
             """
-            Enter the thin volume mesh controls menu.
+            Creates a sweep-like mesh for a body occupying a thin gap. You define source and target boundary faces zones (the source face normal should point to the target). The source face mesh may be triangles or quads.
             """
             def __init__(self, service, version, mode, path):
                 self.create = self.__class__.create(service, version, mode, path + ["create"])
                 super().__init__(service, version, mode, path)
             class create(TUIMethod):
                 """
-                Create thin volume mesh on one or more face zones.
+                Initiates the dialog box to specify source and target faces and specify the following parameters.
                 """
 
     class objects(TUIMenu):
@@ -6490,7 +6491,7 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class change_object_type(TUIMethod):
             """
-            Change object type.
+            Allows you to change the object type (geom, or mesh).
             """
         class change_prefix(TUIMethod):
             """
@@ -6502,7 +6503,7 @@ class main_menu(TUIMenu):
             """
         class check_mesh(TUIMethod):
             """
-            Check mesh.
+            Checks the mesh on the specified objects for connectivity and orientation of faces. The domain extents, volume statistics, and face area statistics will be reported along with the results of other checks on the mesh.
             """
         class clear_backup(TUIMethod):
             """
@@ -6510,128 +6511,128 @@ class main_menu(TUIMenu):
             """
         class create(TUIMethod):
             """
-            Create an object with closed face zones.
+            Creates the object based on the priority, cell zone type, face zone(s), edge zone(s), and object type specified. You can specify the object name or retain the default blank entry to have the object name generated automatically.
             """
         class create_and_activate_domain(TUIMethod):
             """
-            Create and activate domain with all face zones of Objects.
+            Creates and activates the domain comprising the face zone(s) from the object(s) specified.
             """
         class create_groups(TUIMethod):
             """
-            Create a face and edge zone group from Objects.
+            Creates a face group and an edge group comprising the face zone(s) and edge zone(s) included in the specified object(s), respectively.
             """
         class create_intersection_loops(TUIMethod):
             """
-            Create intersection loops for face zones of objects.
+            Allows you to create intersection loops for objects.
             """
         class create_multiple(TUIMethod):
             """
-            Create multiple objects one for each face zone passed.
+            Creates multiple objects by creating an object per face zone specified. The objects will be named automatically based on the prefix and priority specified.
             """
         class delete(TUIMethod):
             """
-            Delete Objects.
+            Deletes the specified object(s).
             """
         class delete_all(TUIMethod):
             """
-            Delete all objects.
+            Deletes all the defined objects.
             """
         class delete_all_geom(TUIMethod):
             """
-            Delete all objects of type geom.
+            Deletes all the defined geom objects.
             """
         class delete_unreferenced_faces_and_edges(TUIMethod):
             """
-            Delete unreferenced faces and edges.
+            Deletes all the faces and edges that are not included in any defined objects.
             """
         class extract_edges(TUIMethod):
             """
-            Extract edges for the Objects.
+            Extracts the edge zone(s) from the face zone(s) included in the specified object(s), based on the edge-feature-angle value specified (/objects/set/set-edge-feature-angle).
             """
         class improve_feature_capture(TUIMethod):
             """
-            Imprint edges of object on to faces of object.
+            Enables you to imprint the edges comprising the object on to the object face zones to improve feature capture for mesh objects. You can specify the number of imprinting iterations to be performed.  The geometry objects used to create the mesh objects should be available when the improve-feature-capture command is invoked. Additionally, the face zones comprising the objects should be of type other than geometry.
             """
         class improve_object_quality(TUIMethod):
             """
-            Improve mesh objects quality.
+            Enables you to improve the surface mesh quality for mesh objects. Select the mesh objects and the method for improving the surface mesh. The smooth-and-improve method improves the mesh by a combination of smoothing, swapping, and surface mesh improvement operations. Object normals are correctly oriented and island faces are also deleted. You can optionally coarsen the surface mesh by specifying a suitable coarsening factor. Additional imprinting operations can be done to improve feature capture on the surface mesh. The surface-remesh method improves the mesh by remeshing based on the current size field. Object normals are correctly oriented and island faces are also deleted.
             """
         class list(TUIMethod):
             """
-            Print existing objects.
+            Lists details such as cell zone type, priority, object type, comprising face and edge zones, and object reference point for all the defined objects.
             """
         class merge(TUIMethod):
             """
-            Merge volume objects.
+            Merges the specified objects into a single object.
             """
         class merge_edges(TUIMethod):
             """
-            Merge edges of Objects.
+            Merges all the edge zones in an object into a single edge zone.  If the object is composed of edge zones of different types (boundary and interior), the edge zones of the same type (boundary or interior) will be merged into a single edge zone.
             """
         class merge_nodes(TUIMethod):
             """
-            Merge nodes of an object.
+            Merges the free nodes at the object level based on the specified tolerance or using a tolerance that is a specified percentage of shortest connected edge length.
             """
         class merge_voids(TUIMethod):
             """
-            Merge voids/packets.
+            Allows you to merge voids in the mesh object after the sewing operation.
             """
         class merge_walls(TUIMethod):
             """
-            Merge walls of Objects.
+            Merges all the face zones of type wall in an object into a single face zone.
             """
         class rename_cell_zone_boundaries_using_labels(TUIMethod):
             """
-            Rename cell zone boundaries using the label names.
+            Renames the boundaries of the cell zones based on the existing face zone labels. This allows for the cell zone boundaries in solution mode to have names corresponding to the face zone labels in meshing mode.   This command will not work if you read in a volume mesh generated in a version prior to release 16.2. In such cases, regenerate the volume mesh before using the command.
             """
         class rename_object(TUIMethod):
             """
-            Rename object name.
+            Allows you to rename a specified geometry or mesh object with another specified name.
             """
         class rename_object_zones(TUIMethod):
             """
-            Rename zones of the objects based on the object name.
+            Renames the face and edge zones comprising the object based on the object name. You can also specify the separator to be used.
             """
         class restore_faces(TUIMethod):
             """
-            Restore object boundaries.
+            Restores the mesh object surface mesh from the backup created. The current mesh object face zones and cell zones will be deleted.  If the object backup is disabled (/mesh/auto-mesh-controls/backup-object no), you will not be able to restore the surface mesh using this command.  There may be a difference in the initial volume mesh generated for an object and that generated after restoring the object surface mesh due to differences in the order of zones/entities processed during volume meshing.
             """
         class rotate(TUIMethod):
             """
-            Rotate objects.
+            Rotates the object(s) based on the angle of rotation, pivot point, and axis of rotation specified.
             """
         class scale(TUIMethod):
             """
-            Scale objects.
+            Scales the object(s) based on the scale factors specified.
             """
         class separate_faces_by_angle(TUIMethod):
             """
-            Separate faces of object.
+            Separates the face zone(s) comprising the object based on the angle specified.
             """
         class separate_faces_by_seed(TUIMethod):
             """
-            Separate faces of all object based on given face seed and angle.
+            Separates the face zone(s) comprising the object based on the seed face specified.
             """
         class sew(TUIMethod):
             """
-            Enter the sew operation menu.
+            Contains options related to the object sewing operation. This menu is no longer supported, and will be removed in a future release.
             """
         class summary(TUIMethod):
             """
-            List summary by object name or geom/mesh group.
+            Allows you to obtain a summary of a specified geometry or mesh object, or obtain a summary of all geometry or mesh objects.
             """
         class translate(TUIMethod):
             """
-            Translate objects.
+            Translates the object(s) based on the translation offsets specified.
             """
         class update(TUIMethod):
             """
-            Remove invalid/deleted zones from object's face/edge list.
+            Allows you to update the objects defined when the face and/or edge zone(s) comprising the object have been deleted.
             """
 
         class cad_association(TUIMenu):
             """
-            Objects association with CAD entities.
+            Contains options for modifying the selected objects based on the associated CAD entities and attaching/detaching the CAD entities from the objects. This menu is available when the CAD Assemblies tree is created during CAD import.
             """
             def __init__(self, service, version, mode, path):
                 self.attach_cad = self.__class__.attach_cad(service, version, mode, path + ["attach_cad"])
@@ -6645,40 +6646,40 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class attach_cad(TUIMethod):
                 """
-                Attach Object association.
+                Attaches CAD entities to the selected geometry/mesh objects. Select the geometry/mesh objects and specify the path for the CAD entities to be associated with the objects. The selected geometry/mesh objects will be associated with the CAD entities which will then be locked.
                 """
             class detach_all_objects(TUIMethod):
                 """
-                Detach all Objects from CAD association.
+                Detaches all the CAD objects associated with the geometry/mesh objects. Specify the type of objects (geom or mesh) to be detached. All association will be removed and the geometry/mesh objects will be independent of changes to the CAD entities.
                 """
             class detach_objects(TUIMethod):
                 """
-                Detach Objects from CAD association.
+                Detaches the CAD objects associated with the specified geometry/mesh objects. All association will be removed and the selected geometry/mesh objects will be independent of changes to the CAD entities.
                 """
             class query_object_association(TUIMethod):
                 """
-                Query Object associations.
+                Returns a list of the CAD entities associated with the objects selected.
                 """
             class restore_cad(TUIMethod):
                 """
-                Restore Object associations.
+                Restores the geometry/mesh objects from the associated CAD objects.
                 """
             class unlock_cad(TUIMethod):
                 """
-                Unlock Object associations.
+                Unlocks the CAD objects associated with the selected geometry/mesh objects.
                 """
             class update_all_objects(TUIMethod):
                 """
-                Update all Objects from CAD association.
+                Updates all geometry/mesh objects based on changes to the associated CAD objects. Specify the type of objects (geom or mesh) to be updated.
                 """
             class update_objects(TUIMethod):
                 """
-                Update Objects from CAD association.
+                Updates the specified geometry/mesh objects based on changes to the associated CAD objects.
                 """
 
         class create_new_mesh_object(TUIMenu):
             """
-            Create new mesh objects br wrap or remesh.
+            Contains options for creating a new mesh object by wrapping or remeshing existing objects.
             """
             def __init__(self, service, version, mode, path):
                 self.remesh = self.__class__.remesh(service, version, mode, path + ["remesh"])
@@ -6686,11 +6687,11 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class remesh(TUIMethod):
                 """
-                Remesh objects.
+                Creates a new mesh object by remeshing geometry objects individually or collectively.
                 """
             class wrap(TUIMethod):
                 """
-                Wrap objects.
+                Creates a new mesh object by wrapping the specified objects individually or collectively.
                 """
 
         class deprecated(TUIMenu):
@@ -6792,7 +6793,7 @@ class main_menu(TUIMenu):
 
         class join_intersect(TUIMenu):
             """
-            Join, intersect and build regions in a mesh object.
+            Contains options for connecting overlapping and intersecting face zones.
             """
             def __init__(self, service, version, mode, path):
                 self.controls = self.__class__.controls(service, version, mode, path + ["controls"])
@@ -6809,43 +6810,43 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add_objects_to_mesh_object(TUIMethod):
                 """
-                Add mesh and wrap objects to a mesh object.
+                Allows you to specify one or more mesh objects to be added to an existing mesh object.
                 """
             class change_region_type(TUIMethod):
                 """
-                Change type of region.
+                Allows you to select a cell zone type (solid, fluid or dead) for a specific region.
                 """
             class compute_regions(TUIMethod):
                 """
-                Recompute mesh object topo regions.
+                Closed cell zone regions are computed from the specified mesh object. You may include a material point, if desired.
                 """
             class create_mesh_object(TUIMethod):
                 """
-                Create mesh object from wrap objects.
+                Allows you to specify one or more mesh objects to be connected in one mesh object.
                 """
             class delete_region(TUIMethod):
                 """
-                Delete regions in the object.
+                Removes a closed cell zone region and all of its face zones, except those which are shared by other regions, from the specified mesh object.
                 """
             class intersect(TUIMethod):
                 """
-                Intersect all face zones in mesh object.
+                Connects two intersecting face zones within specified angle and tolerance.
                 """
             class join(TUIMethod):
                 """
-                Join all face zones in mesh object.
+                Connects two overlapping face zones within specified angle and tolerance.
                 """
             class list_regions(TUIMethod):
                 """
-                List regions of mesh object.
+                Lists details of region type, volume, material point, and comprising face zones for the topological regions computed for the specified mesh object.
                 """
             class merge_regions(TUIMethod):
                 """
-                Merge regions in the object.
+                Specified regions are joined into a single region.
                 """
             class rename_region(TUIMethod):
                 """
-                Rename a region in mesh object.
+                Enables you to specify a new name for a specified region.
                 """
 
             class controls(TUIMenu):
@@ -6857,12 +6858,12 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class remesh_post_intersection(TUIMethod):
                     """
-                    Remesh after intersection.
+                    Used to enable or disable automatic post-remesh operation after join or intersect.
                     """
 
         class labels(TUIMenu):
             """
-            Manage Face Zones Labels of an object.
+            Contains options for creating and managing face zone labels.
             """
             def __init__(self, service, version, mode, path):
                 self.cavity = self.__class__.cavity(service, version, mode, path + ["cavity"])
@@ -6879,43 +6880,43 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class add_zones(TUIMethod):
                 """
-                Add face zones to existing label.
+                Adds the specified face zones to the existing face zone label for an object.
                 """
             class create(TUIMethod):
                 """
-                Create a new label with face zones.
+                Creates a new face zone label for the specified face zones.
                 """
             class create_label_per_object(TUIMethod):
                 """
-                Create label per object.
+                Creates a new face zone label for all the face zones in every object.
                 """
             class create_label_per_zone(TUIMethod):
                 """
-                Create a label for zone with it's name.
+                Creates a new face zone label for each face zone in the object.
                 """
             class delete(TUIMethod):
                 """
-                Delete labels of an object.
+                Deletes the specified face zone labels.
                 """
             class label_unlabeled_zones(TUIMethod):
                 """
-                Label unlabeled zones.
+                Creates labels for unlabeled face zones within the specified object. You can either use the object name as the label or provide your own label.
                 """
             class merge(TUIMethod):
                 """
-                Merge multiple labels of an object.
+                Merges the specified face zone labels to a single label with the name specified.
                 """
             class remove_all_labels_on_zones(TUIMethod):
                 """
-                Clear all labels on selected zones.
+                Removes all the face zone labels for the specified face zones. This command is applicable to geometry objects only.
                 """
             class remove_zones(TUIMethod):
                 """
-                Remove face zones from existing label.
+                Removes the specified face zones from the existing face zone label for an object.
                 """
             class rename(TUIMethod):
                 """
-                Rename an existing label of an object.
+                Renames the specified face zone label.
                 """
 
             class cavity(TUIMenu):
@@ -6942,7 +6943,7 @@ class main_menu(TUIMenu):
 
         class remove_gaps(TUIMenu):
             """
-            Enter the gap removal operation menu.
+            Contains options for removing gaps between the mesh objects specified or removing the thickness in the mesh objects specified.
             """
             def __init__(self, service, version, mode, path):
                 self.ignore_orientation = self.__class__.ignore_orientation(service, version, mode, path + ["ignore_orientation"])
@@ -6951,20 +6952,20 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class ignore_orientation(TUIMethod):
                 """
-                Set if gaps should be identified considering orientation.
+                Allows you to set whether the orientation of the normals should be taken into account while identifying the gap to be removed.
                 """
             class remove_gaps(TUIMethod):
                 """
-                Remove gaps between objects or remove thickness in objects.
+                Allows you to remove gaps between the mesh objects specified or remove the thickness in the mesh objects specified. Select the appropriate repair option and specify the other parameters required.
                 """
             class show_gaps(TUIMethod):
                 """
-                Mark faces at gaps.
+                Marks the faces at the gap between mesh objects based on the gap distance and percentage margin specified.
                 """
 
         class set(TUIMenu):
             """
-            Set object parameters.
+            Contains options for setting additional object-related settings.
             """
             def __init__(self, service, version, mode, path):
                 self.set_edge_feature_angle = self.__class__.set_edge_feature_angle(service, version, mode, path + ["set_edge_feature_angle"])
@@ -6973,15 +6974,15 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class set_edge_feature_angle(TUIMethod):
                 """
-                Set edge feature angle for edge extraction.
+                Sets the edge feature angle to be used for extracting edge zone(s) from the face zone(s) included in the object(s).
                 """
             class show_edge_zones(TUIMethod):
                 """
-                Show object edges on display.
+                Displays the edge zone(s) comprising the object(s) drawn in the graphics window.
                 """
             class show_face_zones(TUIMethod):
                 """
-                Show object faces on display.
+                Displays the face zone(s) comprising the object(s) drawn in the graphics window.
                 """
 
         class volumetric_regions(TUIMenu):
@@ -7006,23 +7007,23 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class auto_fill_volume(TUIMethod):
                 """
-                Auto mesh selected regions.
+                Creates the volume mesh for the selected volumetric regions based on the meshing parameters set.
                 """
             class change_type(TUIMethod):
                 """
-                Change type of region.
+                Enables you to change the region type.
                 """
             class compute(TUIMethod):
                 """
-                Recompute mesh object topo regions using face zone labels.
+                Computes the volumetric regions based on the face zone labels. You can choose to use existing material points for computing the regions.  When regions are computed, region names and types will be based on the face zone labels of the mesh object selected. If regions are recomputed, all previous region names and types will be over written.
                 """
             class delete(TUIMethod):
                 """
-                Delete regions in the object.
+                Deletes the specified volumetric regions.
                 """
             class delete_cells(TUIMethod):
                 """
-                Delete all cell zones assocaited to selected regions.
+                Deletes the cell zones of the specified regions.
                 """
             class fill_empty_volume(TUIMethod):
                 """
@@ -7030,11 +7031,11 @@ class main_menu(TUIMenu):
                 """
             class list(TUIMethod):
                 """
-                List regions of mesh object.
+                Prints region information to the console, including type, volume, material point and face zones.
                 """
             class merge(TUIMethod):
                 """
-                Merge regions in the object.
+                Merges specified regions in to a single region.  If there are shared face zones, merging regions will delete the shared face zones. However, if there are cell zones associated with the regions, then merging the regions will not delete the shared face zones. In this case, the shared face zones will be deleted when the cell zones are deleted.
                 """
             class merge_cells(TUIMethod):
                 """
@@ -7042,16 +7043,16 @@ class main_menu(TUIMenu):
                 """
             class rename(TUIMethod):
                 """
-                Rename a region in mesh object.
+                Renames the region.
                 """
             class update(TUIMethod):
                 """
-                Update mesh object topo regions.
+                Recomputes the selected volumetric region(s) while preserving the region name(s) and type(s).
                 """
 
             class hexcore(TUIMenu):
                 """
-                Enter the hexcore menu.
+                Contains options for setting hexcore mesh controls. See mesh/.
                 """
                 def __init__(self, service, version, mode, path):
                     self.set = self.__class__.set(service, version, mode, path + ["set"])
@@ -7229,7 +7230,7 @@ class main_menu(TUIMenu):
 
             class scoped_prism(TUIMenu):
                 """
-                Enter the scoped prisms menu.
+                Contains options for setting scoped prism controls.
                 """
                 def __init__(self, service, version, mode, path):
                     self.set = self.__class__.set(service, version, mode, path + ["set"])
@@ -7309,7 +7310,7 @@ class main_menu(TUIMenu):
 
             class tet(TUIMenu):
                 """
-                Enter the tetrahedral menu.
+                Contains options for setting tetrahedral mesh controls. See mesh/.
                 """
                 def __init__(self, service, version, mode, path):
                     self.set = self.__class__.set(service, version, mode, path + ["set"])
@@ -7637,7 +7638,7 @@ class main_menu(TUIMenu):
 
         class wrap(TUIMenu):
             """
-            Enter the wrapping operation menu.
+            Contains options related to the object wrapping operation.
             """
             def __init__(self, service, version, mode, path):
                 self.set = self.__class__.set(service, version, mode, path + ["set"])
@@ -7648,7 +7649,7 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class check_holes(TUIMethod):
                 """
-                Check for holes on wrapped objects.
+                Allows you to check for holes in the objects. The number of hole faces marked will be reported.
                 """
             class debug(TUIMethod):
                 """
@@ -7660,12 +7661,12 @@ class main_menu(TUIMenu):
                 """
             class wrap(TUIMethod):
                 """
-                Wrap the object.
+                Creates the mesh objects based on the geometry objects selected and other object wrapping parameters specified.
                 """
 
             class set(TUIMenu):
                 """
-                Set wrap options.
+                Contains additional options related to the object wrapping operation.
                 """
                 def __init__(self, service, version, mode, path):
                     self.add_geometry_recovery_level_to_zones = self.__class__.add_geometry_recovery_level_to_zones(service, version, mode, path + ["add_geometry_recovery_level_to_zones"])
@@ -7687,7 +7688,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class add_geometry_recovery_level_to_zones(TUIMethod):
                     """
-                    Update zones with geometry recovery level attributes.
+                    Enables you to set the geometry recovery level (high or low) for the specified face zones.
                     """
                 class delete_far_edges(TUIMethod):
                     """
@@ -7695,47 +7696,47 @@ class main_menu(TUIMenu):
                     """
                 class include_thin_cut_edges_and_faces(TUIMethod):
                     """
-                    Include thin cut Face zones and Edge zones.
+                    Allows better recovery of thin region configurations during the object wrapping operation.
                     """
                 class list_zones_geometry_recovery_levels(TUIMethod):
                     """
-                    List zones with medium and high geometry recovery levels.
+                    Lists the zones based on geometry recovery level specified.
                     """
                 class max_free_edges_for_hole_patching(TUIMethod):
                     """
-                    Maximum length of free edge loop for filling holes.
+                    Allows you to set the maximum number of free edges in a loop to fill the holes.
                     """
                 class minimum_relative_topo_area(TUIMethod):
                     """
-                    Minimum Relative Topo Area.
+                    Specifies the minimum relative topological area for shrink wrapping.
                     """
                 class minimum_relative_topo_count(TUIMethod):
                     """
-                    Minimum Relative Topo Face Count.
+                    Specifies the minimum relative topological count for shrink wrapping.
                     """
                 class minimum_topo_area(TUIMethod):
                     """
-                    Minimum Topo Area.
+                    Specifies the minimum topological area for shrink wrapping.
                     """
                 class minimum_topo_count(TUIMethod):
                     """
-                    Minimum Topo Face Count.
+                    Specifies the minimum topological count for shrink wrapping.
                     """
                 class relative_feature_tolerance(TUIMethod):
                     """
-                    Relative Feature Tolerance.
+                    Specifies the relative feature tolerance for shrink wrapping.
                     """
                 class report_holes(TUIMethod):
                     """
-                    Detect holes in wrapped objects.
+                    Allows you to check for holes in the mesh object created. Holes, if any will be reported at the end of the object wrapping operation.
                     """
                 class resolution_factor(TUIMethod):
                     """
-                    Resolution Factor.
+                    Sets the resolution factor for shrink wrapping. This option can be used to set sampling coarser or finer than the final surface mesh.
                     """
                 class shrink_wrap_rezone_parameters(TUIMethod):
                     """
-                    Set wrapper rezone parameters.
+                    Allows you to set the parameters for improving the mesh object surface quality using rezoning. The geometry object zones will be separated based on the separation angle specified to improve the feature imprinting on the mesh object.
                     """
                 class use_ray_tracing(TUIMethod):
                     """
@@ -7747,7 +7748,7 @@ class main_menu(TUIMenu):
                     """
                 class zone_name_prefix(TUIMethod):
                     """
-                    Prefix to be used for names of wrap face zones created.
+                    Allows you to specify a prefix for the zones included in the mesh object created using the object wrapping operation.
                     """
 
     class openmp_controls(TUIMenu):
@@ -7785,23 +7786,23 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class agglomerate(TUIMethod):
             """
-            Agglomerate mesh into compute node 0.
+            Recombines distributed mesh data into a single partition on compute node 0.
             """
         class auto_partition(TUIMethod):
             """
-            Auto Partition Prism Base Zones?.
+            Automatically partitions face-zones for parallel meshing.
             """
         class print_partition_info(TUIMethod):
             """
-            Prints Partition Info to console.
+            Displays computed partition data to the console.
             """
         class spawn_solver_processes(TUIMethod):
             """
-            Spawn additional solver processes.
+            Specifies the number of solver processes. Additional processes will be spawned as necessary when switching to solution mode in Linux with the default MPI. You will also be prompted for (Linux and mixed Windows/Linux) interconnect type, machine list or host file, and (Linux and mixed Windows/Linux) option to be used.
             """
         class thread_number_control(TUIMethod):
             """
-            Thread number control.
+            Controls the maximum number of threads on each machine.
             """
 
     class preferences(TUIMenu):
@@ -7839,7 +7840,7 @@ class main_menu(TUIMenu):
 
         class appearance(TUIMenu):
             """
-            No help available.
+            Enter the menu for preferences covering appearance.
             """
             def __init__(self, service, version, mode, path):
                 self.ansys_logo = self.__class__.ansys_logo(service, version, mode, path + ["ansys_logo"])
@@ -7875,6 +7876,7 @@ class main_menu(TUIMenu):
                 self.py_console_completer = self.__class__.py_console_completer(service, version, mode, path + ["py_console_completer"])
                 self.quick_property_view = self.__class__.quick_property_view(service, version, mode, path + ["quick_property_view"])
                 self.ruler = self.__class__.ruler(service, version, mode, path + ["ruler"])
+                self.show_default_interior = self.__class__.show_default_interior(service, version, mode, path + ["show_default_interior"])
                 self.show_enabled_models = self.__class__.show_enabled_models(service, version, mode, path + ["show_enabled_models"])
                 self.show_interface_non_overlapping_boundaries = self.__class__.show_interface_non_overlapping_boundaries(service, version, mode, path + ["show_interface_non_overlapping_boundaries"])
                 self.show_model_edges = self.__class__.show_model_edges(service, version, mode, path + ["show_model_edges"])
@@ -7895,15 +7897,15 @@ class main_menu(TUIMenu):
                 """
             class axis_triad(TUIMethod):
                 """
-                No help available.
+                Enable or disable the visibility of the axis triad in the graphics window.
                 """
             class color_theme(TUIMethod):
                 """
-                No help available.
+                Specify a color theme for the appearance of ANSYS Fluent.
                 """
             class completer(TUIMethod):
                 """
-                No help available.
+                Enable/disable the console automatic-completer, which suggests available commands as you type in the console.
                 """
             class custom_title_bar(TUIMethod):
                 """
@@ -7915,15 +7917,15 @@ class main_menu(TUIMenu):
                 """
             class graphics_background_color1(TUIMethod):
                 """
-                No help available.
+                Controls the primary background color of the graphics window.
                 """
             class graphics_background_color2(TUIMethod):
                 """
-                No help available.
+                Controls the secondary background color when the style is set as a gradient.
                 """
             class graphics_background_style(TUIMethod):
                 """
-                No help available.
+                Specify whether the background color is uniform or if there is a gradient.
                 """
             class graphics_color_theme(TUIMethod):
                 """
@@ -7943,7 +7945,7 @@ class main_menu(TUIMenu):
                 """
             class graphics_foreground_color(TUIMethod):
                 """
-                No help available.
+                Specify the color of graphics window text.
                 """
             class graphics_partition_boundary_color(TUIMethod):
                 """
@@ -7959,15 +7961,15 @@ class main_menu(TUIMenu):
                 """
             class graphics_view(TUIMethod):
                 """
-                No help available.
+                Specify whether the default view is orthographic or perspective.
                 """
             class graphics_wall_face_color(TUIMethod):
                 """
-                No help available.
+                Set the default face color for when the mesh is displayed.
                 """
             class group_by_tree_view(TUIMethod):
                 """
-                No help available.
+                Specify how boundary conditions are grouped in the tree.
                 """
             class group_physics_by_tree_view(TUIMethod):
                 """
@@ -7979,7 +7981,7 @@ class main_menu(TUIMenu):
                 """
             class number_of_files_recently_used(TUIMethod):
                 """
-                No help available.
+                Controls how many recently-used files are listed in the File ribbon tab and the Fluent Launcher.
                 """
             class number_of_pastel_colors(TUIMethod):
                 """
@@ -7999,9 +8001,13 @@ class main_menu(TUIMenu):
                 """
             class quick_property_view(TUIMethod):
                 """
-                No help available.
+                Enables/Disables the "quick-edit" properties panels that appear when you select a boundary in the graphics windows.
                 """
             class ruler(TUIMethod):
+                """
+                Adds or removes the ruler from the graphics window. Note that you must be in orthographic view for the ruler to be visible in the graphics  window.
+                """
+            class show_default_interior(TUIMethod):
                 """
                 No help available.
                 """
@@ -8015,7 +8021,7 @@ class main_menu(TUIMenu):
                 """
             class show_model_edges(TUIMethod):
                 """
-                No help available.
+                Enable/disable whether mesh edges are shown in a mesh display.
                 """
             class solution_mode_edge_color_in_meshing_mode(TUIMethod):
                 """
@@ -8027,7 +8033,7 @@ class main_menu(TUIMenu):
                 """
             class surface_specularity(TUIMethod):
                 """
-                No help available.
+                Specify the specularity of all surfaces except those included in contour plots. Sepecularity is the reflectiveness of a surface; higher values (closer to 1) equate to a more reflective surface.
                 """
             class surface_specularity_for_contours(TUIMethod):
                 """
@@ -8035,7 +8041,7 @@ class main_menu(TUIMenu):
                 """
             class titles(TUIMethod):
                 """
-                No help available.
+                Enable/disable the display of solver information in the graphics window.
                 """
             class titles_border_offset(TUIMethod):
                 """
@@ -8044,7 +8050,7 @@ class main_menu(TUIMenu):
 
             class ansys_logo(TUIMenu):
                 """
-                No help available.
+                Enter the menu for controlling Ansys logo visibility.
                 """
                 def __init__(self, service, version, mode, path):
                     self.color = self.__class__.color(service, version, mode, path + ["color"])
@@ -8052,16 +8058,16 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class color(TUIMethod):
                     """
-                    No help available.
+                    Specify whether the Ansys logo is white or black.
                     """
                 class visible(TUIMethod):
                     """
-                    No help available.
+                    Enable or disable the visibility of the Ansys logo in the graphics window.
                     """
 
             class charts(TUIMenu):
                 """
-                No help available.
+                Enter the menu for controlling the display of 2D charts/plots.
                 """
                 def __init__(self, service, version, mode, path):
                     self.font = self.__class__.font(service, version, mode, path + ["font"])
@@ -8080,7 +8086,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class curve_colors(TUIMethod):
                     """
-                    No help available.
+                    Specify the initial set of default colors for the rendering of curves. Note that changing this setting requires any plots to be replotted before you see the effect of the new setting.
                     """
                 class enable_open_glfor_modern_plots(TUIMethod):
                     """
@@ -8096,7 +8102,7 @@ class main_menu(TUIMenu):
                     """
                 class modern_plots_enabled(TUIMethod):
                     """
-                    No help available.
+                    Enables enhanced plots, which is a beta feature. Enabling this feature exposes new fields (all beta functionality).
                     """
                 class modern_plots_points_threshold(TUIMethod):
                     """
@@ -8179,7 +8185,7 @@ class main_menu(TUIMenu):
 
             class selections(TUIMenu):
                 """
-                No help available.
+                Enters the menu for controlling selections in the graphics window.
                 """
                 def __init__(self, service, version, mode, path):
                     self.enable_highlight_edge_transparency = self.__class__.enable_highlight_edge_transparency(service, version, mode, path + ["enable_highlight_edge_transparency"])
@@ -8205,15 +8211,15 @@ class main_menu(TUIMenu):
                     """
                 class highlight_edge_color(TUIMethod):
                     """
-                    No help available.
+                    Specifies the color used to highlight edges when the Hover-Over Highlight feature is enabled (mouse-over-highlight-enabled).
                     """
                 class highlight_edge_weight(TUIMethod):
                     """
-                    No help available.
+                    Specifies the thickness of the edge highlights when the Hover-Over Highlight feature is enabled (mouse-over-highlight-enabled).
                     """
                 class highlight_face_color(TUIMethod):
                     """
-                    No help available.
+                    Specify which color indicates that a face is selected.
                     """
                 class highlight_gloss(TUIMethod):
                     """
@@ -8225,7 +8231,7 @@ class main_menu(TUIMenu):
                     """
                 class highlight_transparency(TUIMethod):
                     """
-                    No help available.
+                    Specify the transparency of the coloring on a selected surface. 0.1 is fully opaque and 1 is fully transparent.
                     """
                 class mouse_hover_probe_values_enabled(TUIMethod):
                     """
@@ -8233,7 +8239,7 @@ class main_menu(TUIMenu):
                     """
                 class mouse_over_highlight_enabled(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable the highlighted outline of a surface when hovered-over. Note that objects must be redisplayed after changing this setting before the new setting is visible.
                     """
                 class probe_tooltip_hide_delay_timer(TUIMethod):
                     """
@@ -8246,7 +8252,7 @@ class main_menu(TUIMenu):
 
         class general(TUIMenu):
             """
-            No help available.
+            Enter the menu for general preferences.
             """
             def __init__(self, service, version, mode, path):
                 self.startup_messages = self.__class__.startup_messages(service, version, mode, path + ["startup_messages"])
@@ -8268,7 +8274,7 @@ class main_menu(TUIMenu):
                 """
             class automatic_transcript(TUIMethod):
                 """
-                No help available.
+                Enable/disable the automatic creation of a transcript file for each ANSYS Fluent session.
                 """
             class default_ioformat(TUIMethod):
                 """
@@ -8284,7 +8290,7 @@ class main_menu(TUIMenu):
                 """
             class idle_timeout(TUIMethod):
                 """
-                No help available.
+                Specify the default file format for saving case and data files.
                 """
             class import_physics_volume_definitions(TUIMethod):
                 """
@@ -8343,7 +8349,7 @@ class main_menu(TUIMenu):
 
         class graphics(TUIMenu):
             """
-            No help available.
+            Enter the menu for preferences covering appearance.
             """
             def __init__(self, service, version, mode, path):
                 self.boundary_markers = self.__class__.boundary_markers(service, version, mode, path + ["boundary_markers"])
@@ -8395,7 +8401,7 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class animation_option(TUIMethod):
                 """
-                No help available.
+                Specify whether the entire model or just a wireframe is shown during manipulations in the graphics window.
                 """
             class backface_cull(TUIMethod):
                 """
@@ -8407,7 +8413,7 @@ class main_menu(TUIMenu):
                 """
             class double_buffering(TUIMethod):
                 """
-                No help available.
+                Enable/disable double-buffering, which reduces screen flicker, but may use more memory on some machines.
                 """
             class enable_camera_near_limit_to_avoid_zfighting(TUIMethod):
                 """
@@ -8431,15 +8437,15 @@ class main_menu(TUIMenu):
                 """
             class graphics_window_line_width(TUIMethod):
                 """
-                No help available.
+                Specify the thickness of lines that appear in the graphics window.
                 """
             class graphics_window_point_symbol(TUIMethod):
                 """
-                No help available.
+                Specify the symbol used for indicating points in the graphics window (like the points in an XY plot).
                 """
             class hidden_surface_removal_method(TUIMethod):
                 """
-                No help available.
+                Specify the method for removing hidden surfaces. These methods vary in speed and quality, depending on your machine.
                 """
             class higher_resolution_graphics_window_line_width(TUIMethod):
                 """
@@ -8467,7 +8473,7 @@ class main_menu(TUIMenu):
                 """
             class point_tool_size(TUIMethod):
                 """
-                No help available.
+                Specify the size of the point tool (10-100).
                 """
             class remove_partition_lines(TUIMethod):
                 """
@@ -8499,7 +8505,7 @@ class main_menu(TUIMenu):
                 """
             class show_hidden_surfaces(TUIMethod):
                 """
-                No help available.
+                Enable/disable the display of hidden surfaces.
                 """
             class surface_general_displacement(TUIMethod):
                 """
@@ -8520,7 +8526,7 @@ class main_menu(TUIMenu):
 
             class boundary_markers(TUIMenu):
                 """
-                No help available.
+                Enter the boundary markers menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.automatic_marker_scaling = self.__class__.automatic_marker_scaling(service, version, mode, path + ["automatic_marker_scaling"])
@@ -8542,11 +8548,11 @@ class main_menu(TUIMenu):
                     """
                 class color_option(TUIMethod):
                     """
-                    No help available.
+                    Specify whether boundary markers are a fixed color or if they match the color of the surface they are identifying.
                     """
                 class enabled(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable boundary marker display.
                     """
                 class exclude_from_bounding(TUIMethod):
                     """
@@ -8554,11 +8560,11 @@ class main_menu(TUIMenu):
                     """
                 class inlet_color(TUIMethod):
                     """
-                    No help available.
+                    Specify the color of the inlet boundary markers.
                     """
                 class marker_fraction(TUIMethod):
                     """
-                    No help available.
+                    Specify marker density factor (0.1-1).
                     """
                 class marker_size_limiting_scale_multiplier(TUIMethod):
                     """
@@ -8570,24 +8576,24 @@ class main_menu(TUIMenu):
                     """
                 class outlet_color(TUIMethod):
                     """
-                    No help available.
+                    Specify the color of the outlet boundary markers.
                     """
                 class scale_marker(TUIMethod):
                     """
-                    No help available.
+                    Specify the scale factor for the boundary markers (0.1-10), which controls the overall size of the markers.
                     """
                 class show_inlet_markers(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable the display of boundary markers for inlets.
                     """
                 class show_outlet_markers(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable the display of boundary markers for outlets.
                     """
 
             class colormap_settings(TUIMenu):
                 """
-                No help available.
+                Enter the colormap settings menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.alignment = self.__class__.alignment(service, version, mode, path + ["alignment"])
@@ -8628,7 +8634,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class alignment(TUIMethod):
                     """
-                    No help available.
+                    Specify the default colormap location.
                     """
                 class aspect_ratio_when_horizontal(TUIMethod):
                     """
@@ -8636,7 +8642,7 @@ class main_menu(TUIMenu):
                     """
                 class aspect_ratio_when_vertical(TUIMethod):
                     """
-                    No help available.
+                    Specify the length vs. width ratio for a vertical colormap, which controls the thickness of the colormap; smaller values mean a thicker colormap.
                     """
                 class auto_refit_on_resize(TUIMethod):
                     """
@@ -8648,11 +8654,11 @@ class main_menu(TUIMenu):
                     """
                 class border_style(TUIMethod):
                     """
-                    No help available.
+                    Specify how/when the colormap border appears.
                     """
                 class colormap(TUIMethod):
                     """
-                    No help available.
+                    Choose the default colormap.
                     """
                 class isolines_position_offset(TUIMethod):
                     """
@@ -8660,15 +8666,15 @@ class main_menu(TUIMenu):
                     """
                 class labels(TUIMethod):
                     """
-                    No help available.
+                    Specify whether there is a label for every colormap value or if some are skipped.
                     """
                 class levels(TUIMethod):
                     """
-                    No help available.
+                    Specify the default colormap size.
                     """
                 class log_scale(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable the use of a logarithmic scale for the colormap.
                     """
                 class major_length_to_screen_ratio_when_horizontal(TUIMethod):
                     """
@@ -8676,7 +8682,7 @@ class main_menu(TUIMenu):
                     """
                 class major_length_to_screen_ratio_when_vertical(TUIMethod):
                     """
-                    No help available.
+                    Choose the length of the colormap as a fraction of graphics window height, when the colormap is vertical.
                     """
                 class margin_from_edge_to_screen_ratio(TUIMethod):
                     """
@@ -8692,11 +8698,11 @@ class main_menu(TUIMenu):
                     """
                 class number_format_precision(TUIMethod):
                     """
-                    No help available.
+                    Specify the colormap number label precision.
                     """
                 class number_format_type(TUIMethod):
                     """
-                    No help available.
+                    Specify how colormap numbers are displayed.
                     """
                 class preserve_aspect_ratio_for_hardcopy(TUIMethod):
                     """
@@ -8704,15 +8710,15 @@ class main_menu(TUIMenu):
                     """
                 class show_colormap(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable the display of colormaps.
                     """
                 class skip_value(TUIMethod):
                     """
-                    No help available.
+                    Specify how many number labels are skipped in the colormap.
                     """
                 class text_behavior(TUIMethod):
                     """
-                    No help available.
+                    Specify whether colormap label text automatically scales with the colormap size.
                     """
                 class text_font_automatic_horizontal_size(TUIMethod):
                     """
@@ -8728,7 +8734,7 @@ class main_menu(TUIMenu):
                     """
                 class text_font_automatic_vertical_size(TUIMethod):
                     """
-                    No help available.
+                    Specify the initial font size as a ratio of the colormap overall size, for vertically aligned colormaps.
                     """
                 class text_font_fixed_horizontal_size(TUIMethod):
                     """
@@ -8736,7 +8742,7 @@ class main_menu(TUIMenu):
                     """
                 class text_font_fixed_size(TUIMethod):
                     """
-                    No help available.
+                    Set the font size for colormap labels.
                     """
                 class text_font_fixed_units(TUIMethod):
                     """
@@ -8760,7 +8766,7 @@ class main_menu(TUIMenu):
                     """
                 class type(TUIMethod):
                     """
-                    No help available.
+                    Specify whether the colormap appearance is smooth or banded.
                     """
                 class use_no_sub_windows(TUIMethod):
                     """
@@ -8883,7 +8889,7 @@ class main_menu(TUIMenu):
 
             class graphics_effects(TUIMenu):
                 """
-                No help available.
+                Enter the graphics effects menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.ambient_occlusion_enabled = self.__class__.ambient_occlusion_enabled(service, version, mode, path + ["ambient_occlusion_enabled"])
@@ -8920,7 +8926,7 @@ class main_menu(TUIMenu):
                     """
                 class anti_aliasing(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable the smoothing of lines and text.
                     """
                 class bloom_blur(TUIMethod):
                     """
@@ -8936,7 +8942,7 @@ class main_menu(TUIMenu):
                     """
                 class grid_color(TUIMethod):
                     """
-                    No help available.
+                    Specify the color of the grid lines when the ground plane grid is shown.
                     """
                 class grid_plane_count(TUIMethod):
                     """
@@ -8944,11 +8950,11 @@ class main_menu(TUIMenu):
                     """
                 class grid_plane_enabled(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable the display of the ground plane grid.
                     """
                 class grid_plane_offset(TUIMethod):
                     """
-                    No help available.
+                    Set the grid plane offset from the model as a percentage of the model size.
                     """
                 class grid_plane_size_factor(TUIMethod):
                     """
@@ -8956,19 +8962,19 @@ class main_menu(TUIMenu):
                     """
                 class plane_direction(TUIMethod):
                     """
-                    No help available.
+                    Specify the direction of the plane for the ground plane grid and reflections.
                     """
                 class reflections_enabled(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable model reflections (mirror-type reflections).
                     """
                 class shadow_map_enabled(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable dynamic shadows, which show shadows of geometric entities on other objects based on lighting and object orientation.
                     """
                 class show_edge_reflections(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable the display of model edges in reflections. Note that this can negatively affect performance.
                     """
                 class show_marker_reflections(TUIMethod):
                     """
@@ -8976,16 +8982,16 @@ class main_menu(TUIMenu):
                     """
                 class simple_shadows_enabled(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable the display of static shadows on the ground plane.
                     """
                 class update_after_mouse_release(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable the updating of graphics effects as a model is being manipulated in the graphics window.
                     """
 
             class hardcopy_settings(TUIMenu):
                 """
-                No help available.
+                Enter the menu for saving picture settings.
                 """
                 def __init__(self, service, version, mode, path):
                     self.export_edges_for_avz = self.__class__.export_edges_for_avz(service, version, mode, path + ["export_edges_for_avz"])
@@ -9004,11 +9010,11 @@ class main_menu(TUIMenu):
                     """
                 class hardcopy_driver(TUIMethod):
                     """
-                    No help available.
+                    Specify the default format for saving pictures.
                     """
                 class hardcopy_line_width(TUIMethod):
                     """
-                    No help available.
+                    Specify the thinkness of lines for saved pictures.
                     """
                 class hardware_image_accel(TUIMethod):
                     """
@@ -9037,7 +9043,7 @@ class main_menu(TUIMenu):
 
             class lighting(TUIMenu):
                 """
-                No help available.
+                Enter the lighting menu.
                 """
                 def __init__(self, service, version, mode, path):
                     self.ambient_light_intensity = self.__class__.ambient_light_intensity(service, version, mode, path + ["ambient_light_intensity"])
@@ -9051,15 +9057,15 @@ class main_menu(TUIMenu):
                     """
                 class headlight(TUIMethod):
                     """
-                    No help available.
+                    Turn the headlight on or off or set it as automatic.
                     """
                 class headlight_intensity(TUIMethod):
                     """
-                    No help available.
+                    Specify the intensity of the headlight.
                     """
                 class lighting_method(TUIMethod):
                     """
-                    No help available.
+                    Specify the default lighting method.
                     """
 
             class manage_hoops_memory(TUIMenu):
@@ -9103,7 +9109,7 @@ class main_menu(TUIMenu):
 
             class meshing_mode(TUIMenu):
                 """
-                No help available.
+                Enter the menu for meshing-specific graphics settings.
                 """
                 def __init__(self, service, version, mode, path):
                     self.graphics_window_display_timeout = self.__class__.graphics_window_display_timeout(service, version, mode, path + ["graphics_window_display_timeout"])
@@ -9111,16 +9117,16 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class graphics_window_display_timeout(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable graphics window display timeout.
                     """
                 class graphics_window_display_timeout_value(TUIMethod):
                     """
-                    No help available.
+                    Specify the graphics window display timeout value.
                     """
 
             class performance(TUIMenu):
                 """
-                No help available.
+                Enter the menu for selecting the predefined graphics effects settings.
                 """
                 def __init__(self, service, version, mode, path):
                     self.fast_display_mode = self.__class__.fast_display_mode(service, version, mode, path + ["fast_display_mode"])
@@ -9133,7 +9139,7 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class optimize_for(TUIMethod):
                     """
-                    No help available.
+                    Choose a preset selection for how graphics are displayed.
                     """
                 class ratio_of_target_frame_rate_to_classify_heavy_geometry(TUIMethod):
                     """
@@ -9197,7 +9203,7 @@ class main_menu(TUIMenu):
 
                 class minimum_frame_rate(TUIMenu):
                     """
-                    No help available.
+                    Enter the menu for minimum frame-rate settings.
                     """
                     def __init__(self, service, version, mode, path):
                         self.dynamic_adjustment = self.__class__.dynamic_adjustment(service, version, mode, path + ["dynamic_adjustment"])
@@ -9209,11 +9215,11 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class dynamic_adjustment(TUIMethod):
                         """
-                        No help available.
+                        Enable/disable dynamic adjustment of quality loss per frame to get to the desired frame rate.
                         """
                     class enabled(TUIMethod):
                         """
-                        No help available.
+                        Enable/disable minimum frame rate.
                         """
                     class fixed_culling_value(TUIMethod):
                         """
@@ -9221,15 +9227,15 @@ class main_menu(TUIMenu):
                         """
                     class maximum_culling_threshold(TUIMethod):
                         """
-                        No help available.
+                        With minimum frame rate enabled, Fluent will not cull beyond this number of pixels.
                         """
                     class minimum_culling_threshold(TUIMethod):
                         """
-                        No help available.
+                        With minimum frame rate enabled, Fluent will cull at least this number of pixels.
                         """
                     class target_fps(TUIMethod):
                         """
-                        No help available.
+                        Specify the target frames-per-second.
                         """
 
                 class optimize_input_data(TUIMenu):
@@ -9450,7 +9456,7 @@ class main_menu(TUIMenu):
 
         class meshing_workflow(TUIMenu):
             """
-            No help available.
+            Enter the menu for preferences covering the Fluent Meshing workflows.
             """
             def __init__(self, service, version, mode, path):
                 self.cad_log_option = self.__class__.cad_log_option(service, version, mode, path + ["cad_log_option"])
@@ -9464,11 +9470,11 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class checkpointing_option(TUIMethod):
                 """
-                No help available.
+                Specify how Fluent Meshing will save data when you edit a task.
                 """
             class save_checkpoint_files(TUIMethod):
                 """
-                No help available.
+                Enable/disable the saving of task editing data when writing a mesh file.
                 """
             class save_wft_file_with_mesh(TUIMethod):
                 """
@@ -9476,7 +9482,7 @@ class main_menu(TUIMenu):
                 """
             class temp_folder(TUIMethod):
                 """
-                No help available.
+                Specify a temporary location to hold generated mesh files. If nothing is specified, Fluent Meshing will write to percentageTEMPpercentage on Windows and to  /tmp on Linux.
                 """
             class templates_folder(TUIMethod):
                 """
@@ -9484,7 +9490,7 @@ class main_menu(TUIMenu):
                 """
             class verbosity(TUIMethod):
                 """
-                No help available.
+                Enable/disable the printing of additional information and messages in the Console.
                 """
 
             class cad_log_option(TUIMenu):
@@ -9511,7 +9517,7 @@ class main_menu(TUIMenu):
 
             class draw_settings(TUIMenu):
                 """
-                No help available.
+                Enter the menu for specifying drawing settings.
                 """
                 def __init__(self, service, version, mode, path):
                     self.auto_draw = self.__class__.auto_draw(service, version, mode, path + ["auto_draw"])
@@ -9520,20 +9526,20 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class auto_draw(TUIMethod):
                     """
-                    No help available.
+                    Enable/disable the automatic display of changes in the graphics window based on the current task.
                     """
                 class face_zone_limit(TUIMethod):
                     """
-                    No help available.
+                    Specify the cutoff number of face zones, beyond which, Fluent Meshing will not automatically display changes.
                     """
                 class facet_limit(TUIMethod):
                     """
-                    No help available.
+                    Specify the cutoff number facets, beyond which, Fluent Meshing will not automatically display changes.
                     """
 
         class navigation(TUIMenu):
             """
-            No help available.
+            Enter the menu for controlling navigation in ANSYS Fluent.
             """
             def __init__(self, service, version, mode, path):
                 self.mouse_mapping = self.__class__.mouse_mapping(service, version, mode, path + ["mouse_mapping"])
@@ -9541,7 +9547,7 @@ class main_menu(TUIMenu):
 
             class mouse_mapping(TUIMenu):
                 """
-                No help available.
+                Enable/disable the printing of additional information and messages in the Console.
                 """
                 def __init__(self, service, version, mode, path):
                     self.additional = self.__class__.additional(service, version, mode, path + ["additional"])
@@ -9555,7 +9561,7 @@ class main_menu(TUIMenu):
 
                 class additional(TUIMenu):
                     """
-                    No help available.
+                    Enter the menu for controlling mouse mappings that include a modifier button such as Ctrl and Shift.
                     """
                     def __init__(self, service, version, mode, path):
                         self.ctrllmbclick = self.__class__.ctrllmbclick(service, version, mode, path + ["ctrllmbclick"])
@@ -9577,67 +9583,67 @@ class main_menu(TUIMenu):
                         super().__init__(service, version, mode, path)
                     class ctrllmbclick(TUIMethod):
                         """
-                        No help available.
+                        Specify the action/behavoir for Ctrl + left-mouse-button + click.
                         """
                     class ctrllmbdrag(TUIMethod):
                         """
-                        No help available.
+                        Specify the action/behavior for Ctrl + left-mouse-button + drag.
                         """
                     class ctrlmmbclick(TUIMethod):
                         """
-                        No help available.
+                        Specify the action/behavior for Ctrl + middle-mouse-button + click.
                         """
                     class ctrlmmbdrag(TUIMethod):
                         """
-                        No help available.
+                        Specify the action/behavior for Ctrl + middle-mouse-button + drag.
                         """
                     class ctrlrmbclick(TUIMethod):
                         """
-                        No help available.
+                        Specify the action/behavior for Ctrl + right-mouse-button + click.
                         """
                     class ctrlrmbdrag(TUIMethod):
                         """
-                        No help available.
+                        Specify the action/behavior for Ctrl + right-mouse-button + drag.
                         """
                     class mouseprobe(TUIMethod):
                         """
-                        No help available.
+                        Specify whether the probe action provides a long description or a short description.
                         """
                     class mousewheel(TUIMethod):
                         """
-                        No help available.
+                        Specify the action/behavior of the mouse-wheel.
                         """
                     class mousewheelsensitivity(TUIMethod):
                         """
-                        No help available.
+                        Specify the sensitivity of the mouse-wheel (0 is least sensitive, 1 is most sensitive).
                         """
                     class reversewheeldirection(TUIMethod):
                         """
-                        No help available.
+                        Reverse the behavior of the mouse-wheel.
                         """
                     class shiftlmbclick(TUIMethod):
                         """
-                        No help available.
+                        Specify the action/behavior for Shift + left-mouse-button + click.
                         """
                     class shiftlmbdrag(TUIMethod):
                         """
-                        No help available.
+                        Specify the action/behavior for Shift + left-mouse-button + drag.
                         """
                     class shiftmmbclick(TUIMethod):
                         """
-                        No help available.
+                        Specify the action/behavior for Shift + middle-mouse-button + click.
                         """
                     class shiftmmbdrag(TUIMethod):
                         """
-                        No help available.
+                        Specify the action/behavior for Shift + middle-mouse-button + drag.
                         """
                     class shiftrmbclick(TUIMethod):
                         """
-                        No help available.
+                        Specify the action/behavior for Shift + right-mouse-button + click.
                         """
                     class shiftrmbdrag(TUIMethod):
                         """
-                        No help available.
+                        Specify the action/behavior for Shift + right-mouse-button + drag.
                         """
 
                 class basic(TUIMenu):
@@ -9814,7 +9820,7 @@ class main_menu(TUIMenu):
 
             class report_definitions(TUIMenu):
                 """
-                No help available.
+                Enter the menu for report definition preferences.
                 """
                 def __init__(self, service, version, mode, path):
                     self.automatic_plot_file = self.__class__.automatic_plot_file(service, version, mode, path + ["automatic_plot_file"])
@@ -9822,11 +9828,11 @@ class main_menu(TUIMenu):
                     super().__init__(service, version, mode, path)
                 class automatic_plot_file(TUIMethod):
                     """
-                    No help available.
+                    New report definitions will automatically create associated report files and plots.
                     """
                 class report_plot_history_data_size(TUIMethod):
                     """
-                    No help available.
+                    Specify how many data points are read from the associated report file and plotted in the graphics window. If the case/data files are already open, read the case and data again, after changing this setting, and re-plot to see the updated report plot.
                     """
 
         class turbo_setup(TUIMenu):
@@ -10107,75 +10113,75 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class boundary_cell_quality(TUIMethod):
             """
-            Report quality of boundary cells.
+            Reports the number and quality limits of boundary cells containing the specified number of boundary faces. If you specify zero for number of boundary faces, you will be prompted for number of boundary nodes.
             """
         class cell_distribution(TUIMethod):
             """
-            Report distribution of cell quality.
+            Reports the distribution of cell quality or size based on the bounding limits and number of partitions specified.
             """
         class cell_quality_limits(TUIMethod):
             """
-            Report cell quality limits.
+            Reports the cell quality limits.
             """
         class cell_size_limits(TUIMethod):
             """
-            Report cell size limits.
+            Reports the cell size limits.
             """
         class cell_zone_at_location(TUIMethod):
             """
-            Report cell zone at given location.
+            Returns the cell zone at or closest to the specified location.
             """
         class cell_zone_volume(TUIMethod):
             """
-            Report volume of a cell zone.
+            Reports the volume of the specified cell zone.
             """
         class edge_size_limits(TUIMethod):
             """
-            Report edge size limits.
+            Reports the edge size limits.
             """
         class enhanced_orthogonal_quality(TUIMethod):
             """
-            Enable enhanced orthogonal quality method.
+            Employs an enhanced definition of the orthogonal quality measure that combines a variety of quality measures, including: the orthogonality of a face relative to a vector between the face and cell centroids; a metric that detects poor cell shape at a local edge (such as twisting and/or concavity); and the variation of normals between the faces that can be constructed from the cell face. This definition is optimal for evaluating thin prism cells.
             """
         class face_distribution(TUIMethod):
             """
-            Reports the distribution of face quality.
+            Reports the distribution of face quality or size based on the bounding limits and number of partitions specified.
             """
         class face_node_degree_distribution(TUIMethod):
             """
-            Report face node degree of boundary faces.
+            Reports the distribution of boundary faces based on face node degree. The node degree is the number of faces connected to the node. Specify the list of boundary face zones and the minimum and maximum face node degree to be reported. You can also consider only internal nodes, if required.
             """
         class face_quality_limits(TUIMethod):
             """
-            Report face quality limits.
+            Reports the face quality limits.
             """
         class face_size_limits(TUIMethod):
             """
-            Report face size limits.
+            Reports the face size limits.
             """
         class face_zone_area(TUIMethod):
             """
-            Report area of a face zone.
+            Reports the area of the specified face zone.
             """
         class face_zone_at_location(TUIMethod):
             """
-            Report face zone at given location.
+            Reports the face zone at the given location.
             """
         class list_cell_quality(TUIMethod):
             """
-            List cells between quality limits.
+            Reports a list of cells with the specified quality measure within a specified range. The valid prefixes are bn (boundary node), n (node), bf (boundary face), f (face), and c (cell).
             """
         class memory_usage(TUIMethod):
             """
-            Report memory usage.
+            Reports the amount of memory used for all nodes, faces, and cells, and the total memory allocated.
             """
         class mesh_size(TUIMethod):
             """
-            Report number of each type of grid object.
+            Reports the number of nodes, faces, and cells in the mesh.
             """
         class mesh_statistics(TUIMethod):
             """
-            Write vital mesh statistics to file.
+            Writes mesh statistics (such as zone information, number of cells, faces, and nodes, range of quality and size) to an external file.
             """
         class meshing_time(TUIMethod):
             """
@@ -10183,19 +10189,19 @@ class main_menu(TUIMenu):
             """
         class neighborhood_quality(TUIMethod):
             """
-            Report max quality measure of all cells using node.
+            Reports the maximum skewness, aspect ratio, or size change of all cells using a specified node.
             """
         class number_meshed(TUIMethod):
             """
-            Report number of nodes and faces that have been meshed.
+            Reports the number of elements that have been meshed.
             """
         class print_info(TUIMethod):
             """
-            Print node/face/cell info.
+            Prints information about individual components of the mesh. This command also appears in the boundary menu. When you use this command, you will be prompted for an “entity” (that is, a node, face, or cell). An entity name consists of a prefix and an index. For a description of the displayed information see.
             """
         class quality_method(TUIMethod):
             """
-            Method to use for measuring face and cell quality.
+            Specifies the method to be used for reporting face and cell quality.
             """
         class spy_level(TUIMethod):
             """
@@ -10203,15 +10209,15 @@ class main_menu(TUIMenu):
             """
         class unrefined_cells(TUIMethod):
             """
-            Report number of cells not refined.
+            Reports the number of cells that have not been refined.
             """
         class update_bounding_box(TUIMethod):
             """
-            Updates bounding box.
+            Updates the bounding box.
             """
         class verbosity_level(TUIMethod):
             """
-            Verbosity level control.
+            Specifies how much information should be displayed during mesh initialization, refinement and other operations. Changing the value to 2 from the default value of 1 will produce more messages, while changing it to 0 will disable all messages.
             """
 
     class scoped_sizing(TUIMenu):
@@ -10233,47 +10239,47 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class compute(TUIMethod):
             """
-            Compute scoped sizing/functions.
+            Computes the size field based on the defined size functions and/or scoped size controls.
             """
         class create(TUIMethod):
             """
-            Create new scoped sizing.
+            Defines the scoped size based on the specified parameters.
             """
         class delete(TUIMethod):
             """
-            Delete scoped sizing.
+            Deletes the specified scoped size controls.
             """
         class delete_all(TUIMethod):
             """
-            Delete all scoped sizing.
+            Deletes all the defined scoped size controls.
             """
         class delete_size_field(TUIMethod):
             """
-            Reset all the processed sizing functions/scoped sizing.
+            Deletes the current size field.
             """
         class list(TUIMethod):
             """
-            List all scoped sizing  parameters.
+            Lists all the defined scoped size controls and the corresponding parameter values defined.
             """
         class list_zones_uncovered_by_controls(TUIMethod):
             """
-            List all Zones not covered by scoepd sizing.
+            Lists the zones for which no scoped sizing controls have been defined.
             """
         class modify(TUIMethod):
             """
-            Modify scoped sizing.
+            Modifies the scoped size control definition.
             """
         class read(TUIMethod):
             """
-            Read scoped sizing from a file.
+            Enables you to read in a scoped sizing file (\\*.szcontrol).
             """
         class validate(TUIMethod):
             """
-            Validate scoped sizing.
+            Validates the scoped sizing controls defined. An error will be reported if the scoped sizing controls do not exist or the scope for one (or more) controls is invalid.
             """
         class write(TUIMethod):
             """
-            Write scoped sizing to a file.
+            Enables you to write a scoped sizing file (\\*.szcontrol).
             """
 
     class server(TUIMenu):
@@ -10348,35 +10354,35 @@ class main_menu(TUIMenu):
             super().__init__(service, version, mode, path)
         class compute(TUIMethod):
             """
-            Compute Size-functions.
+            Computes the size function based on the defined parameters.
             """
         class create(TUIMethod):
             """
-            Add size function.
+            Defines the size function based on the specified parameters.
             """
         class create_defaults(TUIMethod):
             """
-            Creates default curvature & proximty size functions acting on all faces and edges.
+            Creates default size functions based on face and edge curvature and proximity.
             """
         class delete(TUIMethod):
             """
-            Delete Size Functions.
+            Deletes the specified size function or the current size field.
             """
         class delete_all(TUIMethod):
             """
-            Delete All Size Functions.
+            Deletes all the defined size functions.
             """
         class disable_periodicity_filter(TUIMethod):
             """
-            Disable size field periodicity.
+            Removes periodicity from the size field.
             """
         class enable_periodicity_filter(TUIMethod):
             """
-            Enable size field periodicity.
+            Applies periodicity to the size field.  Specify the angle, pivot, and axis of rotation to set up periodicity.  If periodicity has been previously defined, the existing settings will be applied.  Only rotational periodicity is supported, translational periodicity is not supported currently.
             """
         class list(TUIMethod):
             """
-            List all Size function parameters.
+            Lists all the defined size functions and the corresponding parameter values defined.
             """
         class list_periodicity_filter(TUIMethod):
             """
@@ -10384,32 +10390,32 @@ class main_menu(TUIMenu):
             """
         class reset_global_controls(TUIMethod):
             """
-            Reset controls for global controls.
+            Resets the global controls to their default values.
             """
         class set_global_controls(TUIMethod):
             """
-            Set controls for global controls.
+            Sets the values for the global minimum and maximum size, and the growth rate.   If you set the global minimum size to a value greater than the local minimum size defined for existing proximity, curvature, or hard size functions, a warning will appear, indicating that the global minimum size cannot be greater than the specified local minimum size.
             """
         class set_prox_gap_tolerance(TUIMethod):
             """
-            Set proximity min gap tolerance relative to global min-size.
+            Sets the tolerance relative to minimum size to take gaps into account. Gaps whose thickness is less than the global minimum size multiplied by this factor will not be regarded as a proximity gap.
             """
         class set_scaling_filter(TUIMethod):
             """
-            Set scaling filter on size field.
+            Allows you specify the scale factor, and minimum and maximum size values to filter the size output from the size field.
             """
         class triangulate_quad_faces(TUIMethod):
             """
-            Replace non-triangular face zones with triangulated face zones during size field computation.
+            Identifies the zones comprising non-triangular elements and uses a triangulated copy of these zones for computing the size functions.
             """
         class use_cad_imported_curvature(TUIMethod):
             """
-            Use curvature data imported from CAD.
+            Allows you to disable curvature data from the nodes of the CAD facets.
             """
 
         class contours(TUIMenu):
             """
-            Menu to contour of size field.
+            Contains options for managing contours.
             """
             def __init__(self, service, version, mode, path):
                 self.set = self.__class__.set(service, version, mode, path + ["set"])
@@ -10417,19 +10423,19 @@ class main_menu(TUIMenu):
                 super().__init__(service, version, mode, path)
             class draw(TUIMethod):
                 """
-                Draw size field contour on face zones.
+                Displays contours in the graphics window. Run compute prior to contours/draw.
                 """
 
             class set(TUIMenu):
                 """
-                Set contour options.
+                Contains options to manage the contour size.
                 """
                 def __init__(self, service, version, mode, path):
                     self.refine_facets = self.__class__.refine_facets(service, version, mode, path + ["refine_facets"])
                     super().__init__(service, version, mode, path)
                 class refine_facets(TUIMethod):
                     """
-                    Option to refine facets virtually? for better contour resolution.
+                    Allows you to specify smaller facets if the original are too large. Default is no.
                     """
 
         class controls(TUIMenu):

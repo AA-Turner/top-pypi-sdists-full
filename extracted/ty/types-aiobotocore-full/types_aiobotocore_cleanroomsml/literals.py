@@ -46,6 +46,7 @@ __all__ = (
     "ListConfiguredModelAlgorithmsPaginatorName",
     "ListMLInputChannelsPaginatorName",
     "ListTrainedModelInferenceJobsPaginatorName",
+    "ListTrainedModelVersionsPaginatorName",
     "ListTrainedModelsPaginatorName",
     "ListTrainingDatasetsPaginatorName",
     "LogsStatusType",
@@ -55,9 +56,12 @@ __all__ = (
     "PaginatorName",
     "PolicyExistenceConditionType",
     "ResourceServiceName",
+    "ResultFormatType",
+    "S3DataDistributionTypeType",
     "ServiceName",
     "SharedAudienceMetricsType",
     "TagOnCreatePolicyType",
+    "TrainedModelArtifactMaxSizeUnitTypeType",
     "TrainedModelExportFileTypeType",
     "TrainedModelExportJobStatusType",
     "TrainedModelExportsMaxSizeUnitTypeType",
@@ -65,6 +69,7 @@ __all__ = (
     "TrainedModelInferenceMaxOutputSizeUnitTypeType",
     "TrainedModelStatusType",
     "TrainingDatasetStatusType",
+    "TrainingInputModeType",
     "WorkerComputeTypeType",
 )
 
@@ -304,6 +309,7 @@ ListConfiguredModelAlgorithmAssociationsPaginatorName = Literal[
 ListConfiguredModelAlgorithmsPaginatorName = Literal["list_configured_model_algorithms"]
 ListMLInputChannelsPaginatorName = Literal["list_ml_input_channels"]
 ListTrainedModelInferenceJobsPaginatorName = Literal["list_trained_model_inference_jobs"]
+ListTrainedModelVersionsPaginatorName = Literal["list_trained_model_versions"]
 ListTrainedModelsPaginatorName = Literal["list_trained_models"]
 ListTrainingDatasetsPaginatorName = Literal["list_training_datasets"]
 LogsStatusType = Literal["PUBLISH_FAILED", "PUBLISH_SUCCEEDED"]
@@ -320,8 +326,11 @@ MLInputChannelStatusType = Literal[
 MetricsStatusType = Literal["PUBLISH_FAILED", "PUBLISH_SUCCEEDED"]
 NoiseLevelTypeType = Literal["HIGH", "LOW", "MEDIUM", "NONE"]
 PolicyExistenceConditionType = Literal["POLICY_MUST_EXIST", "POLICY_MUST_NOT_EXIST"]
+ResultFormatType = Literal["CSV", "PARQUET"]
+S3DataDistributionTypeType = Literal["FullyReplicated", "ShardedByS3Key"]
 SharedAudienceMetricsType = Literal["ALL", "NONE"]
 TagOnCreatePolicyType = Literal["FROM_PARENT_RESOURCE", "NONE"]
+TrainedModelArtifactMaxSizeUnitTypeType = Literal["GB"]
 TrainedModelExportFileTypeType = Literal["MODEL", "OUTPUT"]
 TrainedModelExportJobStatusType = Literal[
     "ACTIVE", "CREATE_FAILED", "CREATE_IN_PROGRESS", "CREATE_PENDING"
@@ -352,6 +361,7 @@ TrainedModelStatusType = Literal[
     "INACTIVE",
 ]
 TrainingDatasetStatusType = Literal["ACTIVE"]
+TrainingInputModeType = Literal["FastFile", "File", "Pipe"]
 WorkerComputeTypeType = Literal["CR.1X", "CR.4X"]
 CleanRoomsMLServiceName = Literal["cleanroomsml"]
 ServiceName = Literal[
@@ -397,6 +407,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -629,6 +641,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -689,6 +702,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
@@ -790,6 +804,7 @@ PaginatorName = Literal[
     "list_configured_model_algorithms",
     "list_ml_input_channels",
     "list_trained_model_inference_jobs",
+    "list_trained_model_versions",
     "list_trained_models",
     "list_training_datasets",
 ]

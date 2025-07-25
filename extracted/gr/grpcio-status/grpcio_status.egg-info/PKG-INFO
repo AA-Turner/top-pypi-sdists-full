@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: grpcio-status
-Version: 1.73.1
+Version: 1.74.0
 Summary: Status proto mapping for gRPC
 Home-page: https://grpc.io
 Author: The gRPC Authors
@@ -17,8 +17,8 @@ Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: Apache Software License
 Requires-Python: >=3.9
 License-File: LICENSE
-Requires-Dist: protobuf<7.0.0,>=6.30.0
-Requires-Dist: grpcio>=1.73.1
+Requires-Dist: protobuf<7.0.0,>=6.31.1
+Requires-Dist: grpcio>=1.74.0
 Requires-Dist: googleapis-common-protos>=1.5.5
 
 gRPC Python Status Proto

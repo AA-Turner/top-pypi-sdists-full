@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: twilio
-Version: 9.6.5
+Version: 9.7.0
 Summary: Twilio API client and TwiML generator
 Home-page: https://github.com/twilio/twilio-python/
 Author: Twilio

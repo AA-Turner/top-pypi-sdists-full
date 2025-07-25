@@ -2,6 +2,8 @@
 
 import typing
 from ..core.client_wrapper import SyncClientWrapper
+from .files.client import FilesClient
+from .passages.client import PassagesClient
 from ..core.request_options import RequestOptions
 from ..core.unchecked_base_model import construct_type
 from ..errors.unprocessable_entity_error import UnprocessableEntityError
@@ -13,11 +15,9 @@ from ..core.jsonable_encoder import jsonable_encoder
 from ..types.embedding_config import EmbeddingConfig
 from ..core.serialization import convert_and_respect_annotation_metadata
 from ..types.organization_sources_stats import OrganizationSourcesStats
-from .. import core
-from ..types.duplicate_file_handling import DuplicateFileHandling
-from ..types.file_metadata import FileMetadata
-from ..types.passage import Passage
 from ..core.client_wrapper import AsyncClientWrapper
+from .files.client import AsyncFilesClient
+from .passages.client import AsyncPassagesClient
 
 # this is used as the default value for optional parameters
 OMIT = typing.cast(typing.Any, ...)
@@ -26,8 +26,10 @@ OMIT = typing.cast(typing.Any, ...)
 class FoldersClient:
     def __init__(self, *, client_wrapper: SyncClientWrapper):
         self._client_wrapper = client_wrapper
+        self.files = FilesClient(client_wrapper=self._client_wrapper)
+        self.passages = PassagesClient(client_wrapper=self._client_wrapper)
 
-    def count_folders(self, *, request_options: typing.Optional[RequestOptions] = None) -> int:
+    def count(self, *, request_options: typing.Optional[RequestOptions] = None) -> int:
         """
         Count all data folders created by a user.
 
@@ -49,7 +51,7 @@ class FoldersClient:
             project="YOUR_PROJECT",
             token="YOUR_TOKEN",
         )
-        client.folders.count_folders()
+        client.folders.count()
         """
         _response = self._client_wrapper.httpx_client.request(
             "v1/folders/count",
@@ -80,7 +82,7 @@ class FoldersClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def retrieve_folder(self, folder_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Folder:
+    def retrieve(self, folder_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Folder:
         """
         Get a folder by ID
 
@@ -104,7 +106,7 @@ class FoldersClient:
             project="YOUR_PROJECT",
             token="YOUR_TOKEN",
         )
-        client.folders.retrieve_folder(
+        client.folders.retrieve(
             folder_id="folder_id",
         )
         """
@@ -137,7 +139,7 @@ class FoldersClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def delete_folder(
+    def delete(
         self, folder_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> typing.Optional[typing.Any]:
         """
@@ -163,7 +165,7 @@ class FoldersClient:
             project="YOUR_PROJECT",
             token="YOUR_TOKEN",
         )
-        client.folders.delete_folder(
+        client.folders.delete(
             folder_id="folder_id",
         )
         """
@@ -196,7 +198,7 @@ class FoldersClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def modify_folder(
+    def modify(
         self,
         folder_id: str,
         *,
@@ -215,19 +217,19 @@ class FoldersClient:
         folder_id : str
 
         name : typing.Optional[str]
-            The name of the folder.
+            The name of the source.
 
         description : typing.Optional[str]
-            The description of the folder.
+            The description of the source.
 
         instructions : typing.Optional[str]
-            Instructions for how to use the folder.
+            Instructions for how to use the source.
 
         metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
-            Metadata associated with the folder.
+            Metadata associated with the source.
 
         embedding_config : typing.Optional[EmbeddingConfig]
-            The embedding configuration used by the folder.
+            The embedding configuration used by the source.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -245,7 +247,7 @@ class FoldersClient:
             project="YOUR_PROJECT",
             token="YOUR_TOKEN",
         )
-        client.folders.modify_folder(
+        client.folders.modify(
             folder_id="folder_id",
         )
         """
@@ -260,9 +262,6 @@ class FoldersClient:
                 "embedding_config": convert_and_respect_annotation_metadata(
                     object_=embedding_config, annotation=EmbeddingConfig, direction="write"
                 ),
-            },
-            headers={
-                "content-type": "application/json",
             },
             request_options=request_options,
             omit=OMIT,
@@ -291,9 +290,7 @@ class FoldersClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def get_folder_id_by_name(
-        self, folder_name: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> str:
+    def retrieve_by_name(self, folder_name: str, *, request_options: typing.Optional[RequestOptions] = None) -> str:
         """
         Get a folder by name
 
@@ -317,7 +314,7 @@ class FoldersClient:
             project="YOUR_PROJECT",
             token="YOUR_TOKEN",
         )
-        client.folders.get_folder_id_by_name(
+        client.folders.retrieve_by_name(
             folder_name="folder_name",
         )
         """
@@ -419,7 +416,7 @@ class FoldersClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def list_folders(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.List[Folder]:
+    def list(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.List[Folder]:
         """
         List all data folders created by a user.
 
@@ -441,7 +438,7 @@ class FoldersClient:
             project="YOUR_PROJECT",
             token="YOUR_TOKEN",
         )
-        client.folders.list_folders()
+        client.folders.list()
         """
         _response = self._client_wrapper.httpx_client.request(
             "v1/folders/",
@@ -472,7 +469,7 @@ class FoldersClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def create_folder(
+    def create(
         self,
         *,
         name: str,
@@ -490,25 +487,25 @@ class FoldersClient:
         Parameters
         ----------
         name : str
-            The name of the folder.
+            The name of the source.
 
         description : typing.Optional[str]
-            The description of the folder.
+            The description of the source.
 
         instructions : typing.Optional[str]
-            Instructions for how to use the folder.
+            Instructions for how to use the source.
 
         metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
-            Metadata associated with the folder.
+            Metadata associated with the source.
 
         embedding : typing.Optional[str]
-            The handle for the embedding config used by the folder.
+            The handle for the embedding config used by the source.
 
         embedding_chunk_size : typing.Optional[int]
             The chunk size of the embedding.
 
         embedding_config : typing.Optional[EmbeddingConfig]
-            (Legacy) The embedding configuration used by the folder.
+            (Legacy) The embedding configuration used by the source.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -526,7 +523,7 @@ class FoldersClient:
             project="YOUR_PROJECT",
             token="YOUR_TOKEN",
         )
-        client.folders.create_folder(
+        client.folders.create(
             name="name",
         )
         """
@@ -544,9 +541,6 @@ class FoldersClient:
                     object_=embedding_config, annotation=EmbeddingConfig, direction="write"
                 ),
             },
-            headers={
-                "content-type": "application/json",
-            },
             request_options=request_options,
             omit=OMIT,
         )
@@ -556,84 +550,6 @@ class FoldersClient:
                     Folder,
                     construct_type(
                         type_=Folder,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        construct_type(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def upload_file_to_folder(
-        self,
-        folder_id: str,
-        *,
-        file: core.File,
-        duplicate_handling: typing.Optional[DuplicateFileHandling] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> FileMetadata:
-        """
-        Upload a file to a data folder.
-
-        Parameters
-        ----------
-        folder_id : str
-
-        file : core.File
-            See core.File for more documentation
-
-        duplicate_handling : typing.Optional[DuplicateFileHandling]
-            How to handle duplicate filenames
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        FileMetadata
-            Successful Response
-
-        Examples
-        --------
-        from letta_client import Letta
-
-        client = Letta(
-            project="YOUR_PROJECT",
-            token="YOUR_TOKEN",
-        )
-        client.folders.upload_file_to_folder(
-            folder_id="folder_id",
-        )
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"v1/folders/{jsonable_encoder(folder_id)}/upload",
-            method="POST",
-            params={
-                "duplicate_handling": duplicate_handling,
-            },
-            data={},
-            files={
-                "file": file,
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    FileMetadata,
-                    construct_type(
-                        type_=FileMetadata,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -711,225 +627,14 @@ class FoldersClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    def list_folder_passages(
-        self,
-        folder_id: str,
-        *,
-        after: typing.Optional[str] = None,
-        before: typing.Optional[str] = None,
-        limit: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[Passage]:
-        """
-        List all passages associated with a data folder.
-
-        Parameters
-        ----------
-        folder_id : str
-
-        after : typing.Optional[str]
-            Message after which to retrieve the returned messages.
-
-        before : typing.Optional[str]
-            Message before which to retrieve the returned messages.
-
-        limit : typing.Optional[int]
-            Maximum number of messages to retrieve.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[Passage]
-            Successful Response
-
-        Examples
-        --------
-        from letta_client import Letta
-
-        client = Letta(
-            project="YOUR_PROJECT",
-            token="YOUR_TOKEN",
-        )
-        client.folders.list_folder_passages(
-            folder_id="folder_id",
-        )
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"v1/folders/{jsonable_encoder(folder_id)}/passages",
-            method="GET",
-            params={
-                "after": after,
-                "before": before,
-                "limit": limit,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    typing.List[Passage],
-                    construct_type(
-                        type_=typing.List[Passage],  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        construct_type(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def list_folder_files(
-        self,
-        folder_id: str,
-        *,
-        limit: typing.Optional[int] = None,
-        after: typing.Optional[str] = None,
-        include_content: typing.Optional[bool] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[FileMetadata]:
-        """
-        List paginated files associated with a data folder.
-
-        Parameters
-        ----------
-        folder_id : str
-
-        limit : typing.Optional[int]
-            Number of files to return
-
-        after : typing.Optional[str]
-            Pagination cursor to fetch the next set of results
-
-        include_content : typing.Optional[bool]
-            Whether to include full file content
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[FileMetadata]
-            Successful Response
-
-        Examples
-        --------
-        from letta_client import Letta
-
-        client = Letta(
-            project="YOUR_PROJECT",
-            token="YOUR_TOKEN",
-        )
-        client.folders.list_folder_files(
-            folder_id="folder_id",
-        )
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"v1/folders/{jsonable_encoder(folder_id)}/files",
-            method="GET",
-            params={
-                "limit": limit,
-                "after": after,
-                "include_content": include_content,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    typing.List[FileMetadata],
-                    construct_type(
-                        type_=typing.List[FileMetadata],  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        construct_type(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    def delete_file_from_folder(
-        self, folder_id: str, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> None:
-        """
-        Delete a file from a folder.
-
-        Parameters
-        ----------
-        folder_id : str
-
-        file_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        None
-
-        Examples
-        --------
-        from letta_client import Letta
-
-        client = Letta(
-            project="YOUR_PROJECT",
-            token="YOUR_TOKEN",
-        )
-        client.folders.delete_file_from_folder(
-            folder_id="folder_id",
-            file_id="file_id",
-        )
-        """
-        _response = self._client_wrapper.httpx_client.request(
-            f"v1/folders/{jsonable_encoder(folder_id)}/{jsonable_encoder(file_id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        construct_type(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
 
 class AsyncFoldersClient:
     def __init__(self, *, client_wrapper: AsyncClientWrapper):
         self._client_wrapper = client_wrapper
+        self.files = AsyncFilesClient(client_wrapper=self._client_wrapper)
+        self.passages = AsyncPassagesClient(client_wrapper=self._client_wrapper)
 
-    async def count_folders(self, *, request_options: typing.Optional[RequestOptions] = None) -> int:
+    async def count(self, *, request_options: typing.Optional[RequestOptions] = None) -> int:
         """
         Count all data folders created by a user.
 
@@ -956,7 +661,7 @@ class AsyncFoldersClient:
 
 
         async def main() -> None:
-            await client.folders.count_folders()
+            await client.folders.count()
 
 
         asyncio.run(main())
@@ -990,9 +695,7 @@ class AsyncFoldersClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def retrieve_folder(
-        self, folder_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> Folder:
+    async def retrieve(self, folder_id: str, *, request_options: typing.Optional[RequestOptions] = None) -> Folder:
         """
         Get a folder by ID
 
@@ -1021,7 +724,7 @@ class AsyncFoldersClient:
 
 
         async def main() -> None:
-            await client.folders.retrieve_folder(
+            await client.folders.retrieve(
                 folder_id="folder_id",
             )
 
@@ -1057,7 +760,7 @@ class AsyncFoldersClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def delete_folder(
+    async def delete(
         self, folder_id: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> typing.Optional[typing.Any]:
         """
@@ -1088,7 +791,7 @@ class AsyncFoldersClient:
 
 
         async def main() -> None:
-            await client.folders.delete_folder(
+            await client.folders.delete(
                 folder_id="folder_id",
             )
 
@@ -1124,7 +827,7 @@ class AsyncFoldersClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def modify_folder(
+    async def modify(
         self,
         folder_id: str,
         *,
@@ -1143,19 +846,19 @@ class AsyncFoldersClient:
         folder_id : str
 
         name : typing.Optional[str]
-            The name of the folder.
+            The name of the source.
 
         description : typing.Optional[str]
-            The description of the folder.
+            The description of the source.
 
         instructions : typing.Optional[str]
-            Instructions for how to use the folder.
+            Instructions for how to use the source.
 
         metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
-            Metadata associated with the folder.
+            Metadata associated with the source.
 
         embedding_config : typing.Optional[EmbeddingConfig]
-            The embedding configuration used by the folder.
+            The embedding configuration used by the source.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1178,7 +881,7 @@ class AsyncFoldersClient:
 
 
         async def main() -> None:
-            await client.folders.modify_folder(
+            await client.folders.modify(
                 folder_id="folder_id",
             )
 
@@ -1196,9 +899,6 @@ class AsyncFoldersClient:
                 "embedding_config": convert_and_respect_annotation_metadata(
                     object_=embedding_config, annotation=EmbeddingConfig, direction="write"
                 ),
-            },
-            headers={
-                "content-type": "application/json",
             },
             request_options=request_options,
             omit=OMIT,
@@ -1227,7 +927,7 @@ class AsyncFoldersClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def get_folder_id_by_name(
+    async def retrieve_by_name(
         self, folder_name: str, *, request_options: typing.Optional[RequestOptions] = None
     ) -> str:
         """
@@ -1258,7 +958,7 @@ class AsyncFoldersClient:
 
 
         async def main() -> None:
-            await client.folders.get_folder_id_by_name(
+            await client.folders.retrieve_by_name(
                 folder_name="folder_name",
             )
 
@@ -1371,7 +1071,7 @@ class AsyncFoldersClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def list_folders(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.List[Folder]:
+    async def list(self, *, request_options: typing.Optional[RequestOptions] = None) -> typing.List[Folder]:
         """
         List all data folders created by a user.
 
@@ -1398,7 +1098,7 @@ class AsyncFoldersClient:
 
 
         async def main() -> None:
-            await client.folders.list_folders()
+            await client.folders.list()
 
 
         asyncio.run(main())
@@ -1432,7 +1132,7 @@ class AsyncFoldersClient:
             raise ApiError(status_code=_response.status_code, body=_response.text)
         raise ApiError(status_code=_response.status_code, body=_response_json)
 
-    async def create_folder(
+    async def create(
         self,
         *,
         name: str,
@@ -1450,25 +1150,25 @@ class AsyncFoldersClient:
         Parameters
         ----------
         name : str
-            The name of the folder.
+            The name of the source.
 
         description : typing.Optional[str]
-            The description of the folder.
+            The description of the source.
 
         instructions : typing.Optional[str]
-            Instructions for how to use the folder.
+            Instructions for how to use the source.
 
         metadata : typing.Optional[typing.Dict[str, typing.Optional[typing.Any]]]
-            Metadata associated with the folder.
+            Metadata associated with the source.
 
         embedding : typing.Optional[str]
-            The handle for the embedding config used by the folder.
+            The handle for the embedding config used by the source.
 
         embedding_chunk_size : typing.Optional[int]
             The chunk size of the embedding.
 
         embedding_config : typing.Optional[EmbeddingConfig]
-            (Legacy) The embedding configuration used by the folder.
+            (Legacy) The embedding configuration used by the source.
 
         request_options : typing.Optional[RequestOptions]
             Request-specific configuration.
@@ -1491,7 +1191,7 @@ class AsyncFoldersClient:
 
 
         async def main() -> None:
-            await client.folders.create_folder(
+            await client.folders.create(
                 name="name",
             )
 
@@ -1512,9 +1212,6 @@ class AsyncFoldersClient:
                     object_=embedding_config, annotation=EmbeddingConfig, direction="write"
                 ),
             },
-            headers={
-                "content-type": "application/json",
-            },
             request_options=request_options,
             omit=OMIT,
         )
@@ -1524,92 +1221,6 @@ class AsyncFoldersClient:
                     Folder,
                     construct_type(
                         type_=Folder,  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        construct_type(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def upload_file_to_folder(
-        self,
-        folder_id: str,
-        *,
-        file: core.File,
-        duplicate_handling: typing.Optional[DuplicateFileHandling] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> FileMetadata:
-        """
-        Upload a file to a data folder.
-
-        Parameters
-        ----------
-        folder_id : str
-
-        file : core.File
-            See core.File for more documentation
-
-        duplicate_handling : typing.Optional[DuplicateFileHandling]
-            How to handle duplicate filenames
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        FileMetadata
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from letta_client import AsyncLetta
-
-        client = AsyncLetta(
-            project="YOUR_PROJECT",
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.folders.upload_file_to_folder(
-                folder_id="folder_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"v1/folders/{jsonable_encoder(folder_id)}/upload",
-            method="POST",
-            params={
-                "duplicate_handling": duplicate_handling,
-            },
-            data={},
-            files={
-                "file": file,
-            },
-            request_options=request_options,
-            omit=OMIT,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    FileMetadata,
-                    construct_type(
-                        type_=FileMetadata,  # type: ignore
                         object_=_response.json(),
                     ),
                 )
@@ -1680,243 +1291,6 @@ class AsyncFoldersClient:
                         object_=_response.json(),
                     ),
                 )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        construct_type(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def list_folder_passages(
-        self,
-        folder_id: str,
-        *,
-        after: typing.Optional[str] = None,
-        before: typing.Optional[str] = None,
-        limit: typing.Optional[int] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[Passage]:
-        """
-        List all passages associated with a data folder.
-
-        Parameters
-        ----------
-        folder_id : str
-
-        after : typing.Optional[str]
-            Message after which to retrieve the returned messages.
-
-        before : typing.Optional[str]
-            Message before which to retrieve the returned messages.
-
-        limit : typing.Optional[int]
-            Maximum number of messages to retrieve.
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[Passage]
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from letta_client import AsyncLetta
-
-        client = AsyncLetta(
-            project="YOUR_PROJECT",
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.folders.list_folder_passages(
-                folder_id="folder_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"v1/folders/{jsonable_encoder(folder_id)}/passages",
-            method="GET",
-            params={
-                "after": after,
-                "before": before,
-                "limit": limit,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    typing.List[Passage],
-                    construct_type(
-                        type_=typing.List[Passage],  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        construct_type(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def list_folder_files(
-        self,
-        folder_id: str,
-        *,
-        limit: typing.Optional[int] = None,
-        after: typing.Optional[str] = None,
-        include_content: typing.Optional[bool] = None,
-        request_options: typing.Optional[RequestOptions] = None,
-    ) -> typing.List[FileMetadata]:
-        """
-        List paginated files associated with a data folder.
-
-        Parameters
-        ----------
-        folder_id : str
-
-        limit : typing.Optional[int]
-            Number of files to return
-
-        after : typing.Optional[str]
-            Pagination cursor to fetch the next set of results
-
-        include_content : typing.Optional[bool]
-            Whether to include full file content
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        typing.List[FileMetadata]
-            Successful Response
-
-        Examples
-        --------
-        import asyncio
-
-        from letta_client import AsyncLetta
-
-        client = AsyncLetta(
-            project="YOUR_PROJECT",
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.folders.list_folder_files(
-                folder_id="folder_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"v1/folders/{jsonable_encoder(folder_id)}/files",
-            method="GET",
-            params={
-                "limit": limit,
-                "after": after,
-                "include_content": include_content,
-            },
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return typing.cast(
-                    typing.List[FileMetadata],
-                    construct_type(
-                        type_=typing.List[FileMetadata],  # type: ignore
-                        object_=_response.json(),
-                    ),
-                )
-            if _response.status_code == 422:
-                raise UnprocessableEntityError(
-                    typing.cast(
-                        HttpValidationError,
-                        construct_type(
-                            type_=HttpValidationError,  # type: ignore
-                            object_=_response.json(),
-                        ),
-                    )
-                )
-            _response_json = _response.json()
-        except JSONDecodeError:
-            raise ApiError(status_code=_response.status_code, body=_response.text)
-        raise ApiError(status_code=_response.status_code, body=_response_json)
-
-    async def delete_file_from_folder(
-        self, folder_id: str, file_id: str, *, request_options: typing.Optional[RequestOptions] = None
-    ) -> None:
-        """
-        Delete a file from a folder.
-
-        Parameters
-        ----------
-        folder_id : str
-
-        file_id : str
-
-        request_options : typing.Optional[RequestOptions]
-            Request-specific configuration.
-
-        Returns
-        -------
-        None
-
-        Examples
-        --------
-        import asyncio
-
-        from letta_client import AsyncLetta
-
-        client = AsyncLetta(
-            project="YOUR_PROJECT",
-            token="YOUR_TOKEN",
-        )
-
-
-        async def main() -> None:
-            await client.folders.delete_file_from_folder(
-                folder_id="folder_id",
-                file_id="file_id",
-            )
-
-
-        asyncio.run(main())
-        """
-        _response = await self._client_wrapper.httpx_client.request(
-            f"v1/folders/{jsonable_encoder(folder_id)}/{jsonable_encoder(file_id)}",
-            method="DELETE",
-            request_options=request_options,
-        )
-        try:
-            if 200 <= _response.status_code < 300:
-                return
             if _response.status_code == 422:
                 raise UnprocessableEntityError(
                     typing.cast(

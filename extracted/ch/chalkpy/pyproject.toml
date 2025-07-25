@@ -69,7 +69,7 @@ dev = [
     "pytest",
     "python-dotenv",
     "sqlalchemy2-stubs",
-    "sqlglot>=19.0.0,<22",
+    "sqlglot>=19.0.0,<21.2.0",
     "types-protobuf<6",
     "types-psycopg2",
     "types-pymysql",

@@ -35,8 +35,8 @@ use crate::semantic_index::place::{
     PlaceExprWithFlags, PlaceTableBuilder, Scope, ScopeId, ScopeKind, ScopedPlaceId,
 };
 use crate::semantic_index::predicate::{
-    CallableAndCallExpr, PatternPredicate, PatternPredicateKind, Predicate, PredicateNode,
-    PredicateOrLiteral, ScopedPredicateId, StarImportPlaceholderPredicate,
+    CallableAndCallExpr, ClassPatternKind, PatternPredicate, PatternPredicateKind, Predicate,
+    PredicateNode, PredicateOrLiteral, ScopedPredicateId, StarImportPlaceholderPredicate,
 };
 use crate::semantic_index::re_exports::exported_names;
 use crate::semantic_index::reachability_constraints::{
@@ -697,7 +697,25 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
             }
             ast::Pattern::MatchClass(pattern) => {
                 let cls = self.add_standalone_expression(&pattern.cls);
-                PatternPredicateKind::Class(cls)
+
+                PatternPredicateKind::Class(
+                    cls,
+                    if pattern
+                        .arguments
+                        .patterns
+                        .iter()
+                        .all(ast::Pattern::is_irrefutable)
+                        && pattern
+                            .arguments
+                            .keywords
+                            .iter()
+                            .all(|kw| kw.pattern.is_irrefutable())
+                    {
+                        ClassPatternKind::Irrefutable
+                    } else {
+                        ClassPatternKind::Refutable
+                    },
+                )
             }
             ast::Pattern::MatchOr(pattern) => {
                 let predicates = pattern
@@ -716,7 +734,8 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
         subject: Expression<'db>,
         pattern: &ast::Pattern,
         guard: Option<&ast::Expr>,
-    ) -> PredicateOrLiteral<'db> {
+        previous_pattern: Option<PatternPredicate<'db>>,
+    ) -> (PredicateOrLiteral<'db>, PatternPredicate<'db>) {
         // This is called for the top-level pattern of each match arm. We need to create a
         // standalone expression for each arm of a match statement, since they can introduce
         // constraints on the match subject. (Or more accurately, for the match arm's pattern,
@@ -738,13 +757,14 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
             subject,
             kind,
             guard,
+            previous_pattern.map(Box::new),
         );
         let predicate = PredicateOrLiteral::Predicate(Predicate {
             node: PredicateNode::Pattern(pattern_predicate),
             is_positive: true,
         });
         self.record_narrowing_constraint(predicate);
-        predicate
+        (predicate, pattern_predicate)
     }
 
     /// Record an expression that needs to be a Salsa ingredient, because we need to infer its type
@@ -1021,6 +1041,14 @@ impl<'db, 'ast> SemanticIndexBuilder<'db, 'ast> {
 
         assert_eq!(&self.current_assignments, &[]);
 
+        for scope in &self.scopes {
+            if let Some(parent) = scope.parent() {
+                self.use_def_maps[parent]
+                    .reachability_constraints
+                    .mark_used(scope.reachability());
+            }
+        }
+
         let mut place_tables: IndexVec<_, _> = self
             .place_tables
             .into_iter()
@@ -1270,7 +1298,7 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                             continue;
                         };
 
-                        let Some(referenced_module) = module.file() else {
+                        let Some(referenced_module) = module.file(self.db) else {
                             continue;
                         };
 
@@ -1421,6 +1449,13 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                 self.visit_expr(&node.annotation);
                 if let Some(value) = &node.value {
                     self.visit_expr(value);
+                    if self.is_method_of_class().is_some() {
+                        // Record the right-hand side of the assignment as a standalone expression
+                        // if we're inside a method. This allows type inference to infer the type
+                        // of the value for annotated assignments like `self.CONSTANT: Final = 1`,
+                        // where the type itself is not part of the annotation.
+                        self.add_standalone_expression(value);
+                    }
                 }
 
                 if let ast::Expr::Name(name) = &*node.target {
@@ -1714,7 +1749,7 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                     .is_some_and(|case| case.guard.is_none() && case.pattern.is_wildcard());
 
                 let mut post_case_snapshots = vec![];
-                let mut match_predicate;
+                let mut previous_pattern: Option<PatternPredicate<'_>> = None;
 
                 for (i, case) in cases.iter().enumerate() {
                     self.current_match_case = Some(CurrentMatchCase::new(&case.pattern));
@@ -1724,11 +1759,14 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                     // here because the effects of visiting a pattern is binding
                     // symbols, and this doesn't occur unless the pattern
                     // actually matches
-                    match_predicate = self.add_pattern_narrowing_constraint(
-                        subject_expr,
-                        &case.pattern,
-                        case.guard.as_deref(),
-                    );
+                    let (match_predicate, match_pattern_predicate) = self
+                        .add_pattern_narrowing_constraint(
+                            subject_expr,
+                            &case.pattern,
+                            case.guard.as_deref(),
+                            previous_pattern,
+                        );
+                    previous_pattern = Some(match_pattern_predicate);
                     let reachability_constraint =
                         self.record_reachability_constraint(match_predicate);
 
@@ -1994,8 +2032,26 @@ impl<'ast> Visitor<'ast> for SemanticIndexBuilder<'_, 'ast> {
                 walk_stmt(self, stmt);
                 for target in targets {
                     if let Ok(target) = PlaceExpr::try_from(target) {
+                        let is_name = target.is_name();
                         let place_id = self.add_place(PlaceExprWithFlags::new(target));
-                        self.current_place_table_mut().mark_place_used(place_id);
+                        let place_table = self.current_place_table_mut();
+                        if is_name {
+                            // `del x` behaves like an assignment in that it forces all references
+                            // to `x` in the current scope (including *prior* references) to refer
+                            // to the current scope's binding (unless `x` is declared `global` or
+                            // `nonlocal`). For example, this is an UnboundLocalError at runtime:
+                            //
+                            // ```py
+                            // x = 1
+                            // def foo():
+                            //     print(x)  # can't refer to global `x`
+                            //     if False:
+                            //         del x
+                            // foo()
+                            // ```
+                            place_table.mark_place_bound(place_id);
+                        }
+                        place_table.mark_place_used(place_id);
                         self.delete_binding(place_id);
                     }
                 }
@@ -2522,7 +2578,7 @@ impl SemanticSyntaxContext for SemanticIndexBuilder<'_, '_> {
     }
 
     fn report_semantic_error(&self, error: SemanticSyntaxError) {
-        if self.db.is_file_open(self.file) {
+        if self.db.should_check_file(self.file) {
             self.semantic_syntax_errors.borrow_mut().push(error);
         }
     }

@@ -94,6 +94,7 @@ class Root(PyMenu):
             self.PyConsoleCompleter = self.__class__.PyConsoleCompleter(service, rules, path + [("PyConsoleCompleter", "")])
             self.QuickPropertyView = self.__class__.QuickPropertyView(service, rules, path + [("QuickPropertyView", "")])
             self.Ruler = self.__class__.Ruler(service, rules, path + [("Ruler", "")])
+            self.ShowDefaultInterior = self.__class__.ShowDefaultInterior(service, rules, path + [("ShowDefaultInterior", "")])
             self.ShowEnabledModels = self.__class__.ShowEnabledModels(service, rules, path + [("ShowEnabledModels", "")])
             self.ShowInterfaceNonOverlappingBoundaries = self.__class__.ShowInterfaceNonOverlappingBoundaries(service, rules, path + [("ShowInterfaceNonOverlappingBoundaries", "")])
             self.ShowModelEdges = self.__class__.ShowModelEdges(service, rules, path + [("ShowModelEdges", "")])
@@ -550,6 +551,12 @@ class Root(PyMenu):
         class Ruler(PyParameter):
             """
             Parameter Ruler of value type bool.
+            """
+            pass
+
+        class ShowDefaultInterior(PyParameter):
+            """
+            Parameter ShowDefaultInterior of value type bool.
             """
             pass
 

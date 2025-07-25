@@ -207,18 +207,18 @@ def test_footnote_with_absolute(assert_pixels):
 @assert_no_logs
 def test_footnote_max_height_1(assert_pixels):
     assert_pixels('''
-        RRRRRRRR_
-        RRRRRRRR_
+        RRRRKKKK_
+        RRRRKKKK_
         RRRR_____
         RRRR_____
-        _BBBBBB__
-        _BBBBBB__
+        _GGGGBB__
+        _GGGGBB__
         _________
         _________
         _________
         _________
-        _BBBBBB__
-        _BBBBBB__
+        _GGGGBB__
+        _GGGGBB__
     ''', '''
     <style>
         @page {
@@ -238,6 +238,8 @@ def test_footnote_max_height_1(assert_pixels):
         div.footnote {
             float: footnote;
             color: blue;
+            &::footnote-call { color: black }
+            &::footnote-marker { color: lime }
         }
     </style>
     <div>ab<div class="footnote">c</div><div class="footnote">d</div></div>
@@ -278,6 +280,7 @@ def test_footnote_max_height_2(assert_pixels):
         div.footnote {
             float: footnote;
             color: blue;
+            &::footnote-call { color: red }
         }
     </style>
     <div>ab<div class="footnote">c</div><div class="footnote">d</div></div>''')
@@ -325,6 +328,7 @@ def test_footnote_max_height_3(assert_pixels):
         div.footnote {
             float: footnote;
             color: blue;
+            &::footnote-call { color: red }
         }
     </style>
     <div>ab<div class="footnote">c</div><div class="footnote">d</div></div>''')
@@ -364,6 +368,7 @@ def test_footnote_max_height_4(assert_pixels):
         div.footnote {
             float: footnote;
             color: blue;
+            &::footnote-call { color: red }
         }
     </style>
     <div>ab<div class="footnote">c</div><div class="footnote">d</div></div>
@@ -405,6 +410,7 @@ def test_footnote_max_height_5(assert_pixels):
         div.footnote {
             float: footnote;
             color: blue;
+            &::footnote-call { color: red }
         }
     </style>
     <div>ab<div class="footnote">c</div><div class="footnote">d</div>

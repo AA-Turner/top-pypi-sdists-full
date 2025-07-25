@@ -33,8 +33,8 @@ setup(
     ],
     packages=find_packages(exclude=["dagster_dlt_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<=3.13.3",
-    install_requires=["dagster==1.11.2", "dlt>=0.4"],
+    python_requires=">=3.9,<3.14",
+    install_requires=["dagster==1.11.3", "dlt>=0.4"],
     zip_safe=False,
     extras_require={"test": ["duckdb", "dagster-dg-cli"]},
     entry_points={

@@ -10,9 +10,11 @@ import optparse
 import os
 import os.path
 import shlex
+import signal
 import sys
 import textwrap
 import traceback
+import types
 
 from typing import cast, Any, NoReturn
 
@@ -40,7 +42,7 @@ class Opts:
 
     append = optparse.make_option(
         "-a", "--append", action="store_true",
-        help="Append coverage data to .coverage, otherwise it starts clean each time.",
+        help="Append data to the data file. Otherwise it starts clean each time.",
     )
     branch = optparse.make_option(
         "", "--branch", action="store_true",
@@ -164,9 +166,8 @@ class Opts:
     parallel_mode = optparse.make_option(
         "-p", "--parallel-mode", action="store_true",
         help=(
-            "Append the machine name, process id and random number to the " +
-            "data file name to simplify collecting data from " +
-            "many processes."
+            "Append a unique suffix to the data file name to collect separate " +
+            "data from multiple processes."
         ),
     )
     precision = optparse.make_option(
@@ -186,6 +187,14 @@ class Opts:
             "Specify configuration file. " +
             "By default '.coveragerc', 'setup.cfg', 'tox.ini', and " +
             "'pyproject.toml' are tried. [env: COVERAGE_RCFILE]"
+        ),
+    )
+    save_signal = optparse.make_option(
+        '', '--save-signal', action='store', metavar='SIGNAL',
+        choices = ['USR1', 'USR2'],
+        help=(
+            "Specify a signal that will trigger coverage to write its collected data. " +
+            "Supported values are: USR1, USR2. Not available on Windows."
         ),
     )
     show_contexts = optparse.make_option(
@@ -228,7 +237,6 @@ class Opts:
         help="Display version information and exit.",
     )
 
-
 class CoverageOptionParser(optparse.OptionParser):
     """Base OptionParser for coverage.py.
 
@@ -264,6 +272,7 @@ class CoverageOptionParser(optparse.OptionParser):
             pylib=None,
             quiet=None,
             rcfile=True,
+            save_signal=None,
             show_contexts=None,
             show_missing=None,
             skip_covered=None,
@@ -523,6 +532,7 @@ COMMANDS = {
             Opts.omit,
             Opts.pylib,
             Opts.parallel_mode,
+            Opts.save_signal,
             Opts.source,
             Opts.timid,
             ] + GLOBAL_ARGS,
@@ -807,6 +817,11 @@ class CoverageScript:
 
         return False
 
+    def do_signal_save(self, _signum: int, _frame: types.FrameType | None) -> None:
+        """ Signal handler to save coverage report """
+        print("Saving coverage data...", flush=True)
+        self.coverage.save()
+
     def do_run(self, options: optparse.Values, args: list[str]) -> int:
         """Implementation of 'coverage run'."""
 
@@ -850,6 +865,13 @@ class CoverageScript:
 
         if options.append:
             self.coverage.load()
+
+        if options.save_signal:
+            if env.WINDOWS:
+                show_help("--save-signal is not supported on Windows.")
+                return ERR
+            sig = getattr(signal, f"SIG{options.save_signal}")
+            signal.signal(sig, self.do_signal_save)
 
         # Run the script.
         self.coverage.start()

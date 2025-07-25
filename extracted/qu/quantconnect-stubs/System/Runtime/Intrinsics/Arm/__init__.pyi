@@ -7412,6 +7412,86 @@ class Sve2(System.Runtime.Intrinsics.Arm.Sve, metaclass=abc.ABCMeta):
         ...
 
     @staticmethod
+    def multiply_doubling_widening_saturate_even(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqdmullb[_s16](svint8_t op1, svint8_t op2)
+          SQDMULLB Zresult.H, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_widening_saturate_even_by_selected_scalar(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svqdmullb_lane[_s32](svint16_t op1, svint16_t op2, uint64_t imm_index)
+          SQDMULLB Zresult.S, Zop1.H, Zop2.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_widening_saturate_odd(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqdmullt[_s16](svint8_t op1, svint8_t op2)
+          SQDMULLT Zresult.H, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_doubling_widening_saturate_odd_by_selected_scalar(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint32_t svqdmullt_lane[_s32](svint16_t op1, svint16_t op2, uint64_t imm_index)
+          SQDMULLT Zresult.S, Zop1.H, Zop2.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_rounded_doubling_by_selected_scalar_saturate_high(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqrdmulh_lane[_s16](svint16_t op1, svint16_t op2, uint64_t imm_index)
+          SQRDMULH Zresult.H, Zop1.H, Zop2.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_rounded_doubling_saturate_and_add_high(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint8_t svqrdmlah[_s8](svint8_t op1, svint8_t op2, svint8_t op3)
+          SQRDMLAH Ztied1.B, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_rounded_doubling_saturate_and_subtract_high(minuend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint8_t svqrdmlsh[_s8](svint8_t op1, svint8_t op2, svint8_t op3)
+          SQRDMLSH Ztied1.B, Zop2.B, Zop3.B
+        """
+        ...
+
+    @staticmethod
+    def multiply_rounded_doubling_saturate_by_selected_scalar_and_add_high(addend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqrdmlah_lane[_s16](svint16_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
+          SQRDMLAH Ztied1.H, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_rounded_doubling_saturate_by_selected_scalar_and_subtract_high(minuend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
+        """
+        svint16_t svqrdmlsh_lane[_s16](svint16_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)
+          SQRDMLSH Ztied1.H, Zop2.H, Zop3.H[imm_index]
+        """
+        ...
+
+    @staticmethod
+    def multiply_rounded_doubling_saturate_high(left: System.Numerics.Vector[int], right: System.Numerics.Vector[int]) -> System.Numerics.Vector[int]:
+        """
+        svint8_t svqrdmulh[_s8](svint8_t op1, svint8_t op2)
+          SQRDMULH Zresult.B, Zop1.B, Zop2.B
+        """
+        ...
+
+    @staticmethod
     def multiply_subtract_by_selected_scalar(minuend: System.Numerics.Vector[int], left: System.Numerics.Vector[int], right: System.Numerics.Vector[int], right_index: int) -> System.Numerics.Vector[int]:
         """
         svint16_t svmls_lane[_s16](svint16_t op1, svint16_t op2, svint16_t op3, uint64_t imm_index)

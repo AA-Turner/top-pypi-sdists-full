@@ -33,9 +33,9 @@ setup(
     ],
     packages=find_packages(exclude=["dagster_sling_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<=3.13.3",
+    python_requires=">=3.9,<3.14",
     install_requires=[
-        "dagster==1.11.2",
+        "dagster==1.11.3",
         "sling>=1.1.5",
         # Required due to a bug in uv that can cause sling-linux-amd64 to be installed instead.
         # See: https://github.com/astral-sh/uv/issues/10945

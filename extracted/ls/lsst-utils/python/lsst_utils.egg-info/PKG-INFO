@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: lsst-utils
-Version: 29.2025.2900
+Version: 29.2025.3000
 Summary: Utility functions from Rubin Observatory Data Management for the Legacy Survey of Space and Time (LSST).
 Author-email: Rubin Observatory Data Management <dm-admin@lists.lsst.org>
 License: BSD 3-Clause License

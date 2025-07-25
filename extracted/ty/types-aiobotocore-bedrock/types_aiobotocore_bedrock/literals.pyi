@@ -24,9 +24,11 @@ else:
 __all__ = (
     "AgreementStatusType",
     "ApplicationTypeType",
+    "AttributeTypeType",
     "AuthorizationStatusType",
     "BedrockServiceName",
     "CommitmentDurationType",
+    "CustomModelDeploymentStatusType",
     "CustomizationTypeType",
     "EntitlementAvailabilityType",
     "EvaluationJobStatusType",
@@ -54,6 +56,7 @@ __all__ = (
     "InferenceProfileTypeType",
     "InferenceTypeType",
     "JobStatusDetailsType",
+    "ListCustomModelDeploymentsPaginatorName",
     "ListCustomModelsPaginatorName",
     "ListEvaluationJobsPaginatorName",
     "ListGuardrailsPaginatorName",
@@ -82,6 +85,7 @@ __all__ = (
     "QueryTransformationTypeType",
     "RegionAvailabilityType",
     "RegionName",
+    "RerankingMetadataSelectionModeType",
     "ResourceServiceName",
     "RetrieveAndGenerateTypeType",
     "S3InputFormatType",
@@ -92,12 +96,15 @@ __all__ = (
     "SortModelsByType",
     "SortOrderType",
     "StatusType",
+    "VectorSearchRerankingConfigurationTypeType",
 )
 
 AgreementStatusType = Literal["AVAILABLE", "ERROR", "NOT_AVAILABLE", "PENDING"]
 ApplicationTypeType = Literal["ModelEvaluation", "RagEvaluation"]
+AttributeTypeType = Literal["BOOLEAN", "NUMBER", "STRING", "STRING_LIST"]
 AuthorizationStatusType = Literal["AUTHORIZED", "NOT_AUTHORIZED"]
 CommitmentDurationType = Literal["OneMonth", "SixMonths"]
+CustomModelDeploymentStatusType = Literal["Active", "Creating", "Failed"]
 CustomizationTypeType = Literal["CONTINUED_PRE_TRAINING", "DISTILLATION", "FINE_TUNING", "IMPORTED"]
 EntitlementAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
 EvaluationJobStatusType = Literal[
@@ -165,6 +172,7 @@ InferenceTypeType = Literal["ON_DEMAND", "PROVISIONED"]
 JobStatusDetailsType = Literal[
     "Completed", "Failed", "InProgress", "NotStarted", "Stopped", "Stopping"
 ]
+ListCustomModelDeploymentsPaginatorName = Literal["list_custom_model_deployments"]
 ListCustomModelsPaginatorName = Literal["list_custom_models"]
 ListEvaluationJobsPaginatorName = Literal["list_evaluation_jobs"]
 ListGuardrailsPaginatorName = Literal["list_guardrails"]
@@ -204,6 +212,7 @@ PromptRouterTypeType = Literal["custom", "default"]
 ProvisionedModelStatusType = Literal["Creating", "Failed", "InService", "Updating"]
 QueryTransformationTypeType = Literal["QUERY_DECOMPOSITION"]
 RegionAvailabilityType = Literal["AVAILABLE", "NOT_AVAILABLE"]
+RerankingMetadataSelectionModeType = Literal["ALL", "SELECTIVE"]
 RetrieveAndGenerateTypeType = Literal["EXTERNAL_SOURCES", "KNOWLEDGE_BASE"]
 S3InputFormatType = Literal["JSONL"]
 SearchTypeType = Literal["HYBRID", "SEMANTIC"]
@@ -212,6 +221,7 @@ SortJobsByType = Literal["CreationTime"]
 SortModelsByType = Literal["CreationTime"]
 SortOrderType = Literal["Ascending", "Descending"]
 StatusType = Literal["INCOMPATIBLE_ENDPOINT", "REGISTERED"]
+VectorSearchRerankingConfigurationTypeType = Literal["BEDROCK_RERANKING_MODEL"]
 BedrockServiceName = Literal["bedrock"]
 ServiceName = Literal[
     "accessanalyzer",
@@ -256,6 +266,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -488,6 +500,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -548,6 +561,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
@@ -636,6 +650,7 @@ ResourceServiceName = Literal[
     "sqs",
 ]
 PaginatorName = Literal[
+    "list_custom_model_deployments",
     "list_custom_models",
     "list_evaluation_jobs",
     "list_guardrails",

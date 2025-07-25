@@ -218,6 +218,8 @@ class SeeqNames:
             variable_parameter_strings = 'variableParameterStrings'
             prefix = 'prefix'
             suffix = 'suffix'
+            property_values = 'propertyValues'
+            ancestor_property = 'ancestorProperty'
         
         class Rules:
             ancestor = 'ancestor'
@@ -243,6 +245,7 @@ class SeeqNames:
             datasource = 'datasource'
             context_condition = 'contextCondition'
             event_asset_creator = 'eventAssetCreator'
+            descendant_search = 'descendantSearch'
             class ScalarCreator:
                 base_scalar_creator = 'scalarCreator'
                 numeric_scalar_creator = 'numericScalarCreator'
@@ -682,6 +685,8 @@ class SeeqNames:
             csrf = 'x-sq-csrf'
             forwarded_for = 'x-forwarded-for'
             forwarded_host = 'x-forwarded-host'
+            c_f_connecting_i_p = 'cf-connecting-ip'
+            c_f_ray = 'cf-ray'
             interactive_session_id = 'Session-Id'
             pool_id = 'x-sq-pool-id'
             pool_connected_on_degraded_state = 'x-sq-pool-connected-on-degraded-state'
@@ -696,6 +701,9 @@ class SeeqNames:
             expect = 'Expect'
             date_range_start = 'x-sq-daterange-start'
             date_range_end = 'x-sq-daterange-end'
+            height = 'x-sq-height'
+            width = 'x-sq-width'
+            warning_message = 'x-sq-warning-message'
             class Timings:
                 datasource = 'Datasource'
                 cache = 'Cache'
@@ -1208,9 +1216,10 @@ class SeeqNames:
         result_type = 'Result Type'
         view_columns = 'View Columns'
         filter_grouping = 'Filter Grouping'
-        friendly_name_column_id = 'Friendly Name Column ID'
+        alias_column_id = 'Alias Column ID'
         constructed_data_id = 'Constructed Data Id'
         item_table_id = 'Item Table Id'
+        alias = 'Alias'
         features = 'Features'
     
 

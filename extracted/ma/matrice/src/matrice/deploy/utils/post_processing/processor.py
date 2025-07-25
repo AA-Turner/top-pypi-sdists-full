@@ -83,6 +83,9 @@ from .usecases import (
     WindmillMaintenanceUseCase,
     FlowerUseCase,
 
+    #Put all IMAGE based usecases here
+    BloodCancerDetectionUseCase,
+
 )
 
 logger = logging.getLogger(__name__)
@@ -197,6 +200,9 @@ class PostProcessor:
         registry.register_use_case("agriculture", "flower_segmentation", FlowerUseCase)
         registry.register_use_case("general", "parking_det", ParkingUseCase)
         registry.register_use_case("agriculture", "leaf_det", LeafUseCase)
+
+        #Put all IMAGE based usecases here
+        registry.register_use_case("healthcare", "bloodcancer_img_detection", BloodCancerDetectionUseCase)
         
 
         logger.debug("Registered use cases with registry")
@@ -341,6 +347,11 @@ class PostProcessor:
             elif isinstance(use_case, ParkingUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
             elif isinstance(use_case, LeafUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+
+            
+            #Put all IMAGE based usecases here
+            elif isinstance(use_case, BloodCancerDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
 
             else:

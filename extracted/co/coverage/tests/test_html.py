@@ -140,7 +140,7 @@ class HtmlTestHelpers(CoverageTest):
             )
 
 
-class HtmlReportParser(HTMLParser):     # pylint: disable=abstract-method
+class HtmlReportParser(HTMLParser):
     """An HTML parser for our HTML reports.
 
     Assertions are made about the structure we expect.
@@ -1130,6 +1130,37 @@ assert len(math) == 18
             r'<link rel="stylesheet" href="myextra_cb_\w{8}.css" type="text/css">',
             r'<a href="a_py.html">a.py</a>',
             r'<span class="pc_cov">67%</span>',
+        )
+
+    def test_multiline(self) -> None:
+        self.make_file("multiline.py", """\
+            x = 0
+            if (
+                x or x
+            ):
+                print(
+                    # wut
+                    "hello",
+                )
+            else:
+                print(
+                    "bye",
+                    # wut
+                )
+
+            if 0:   # pragma: no cover
+                print(
+                    "never"
+                )
+            """)
+        cov = coverage.Coverage(branch=True)
+        multiline = self.start_import_stop(cov, "multiline")
+        cov.html_report(multiline, directory="out/multiline")
+        compare_html(gold_path("html/multiline"), "out/multiline")
+        contains(
+            "out/multiline/multiline_py.html",
+            '<p class="mis mis2 show_mis"><span class="n"><a id="t6" href="#t6">6</a></span>',
+            '<p class="exc exc2 show_exc"><span class="n"><a id="t17" href="#t17">17</a>',
         )
 
     def test_tabbed(self) -> None:

@@ -11,6 +11,15 @@ from openai.types.chat.chat_completion_message_param import ChatCompletionMessag
 from openai.types.chat.chat_completion_tool_param import ChatCompletionToolParam
 from .platform import FireworksPlatform
 import fireworks.control_plane.generated.protos.gateway as fw
+from fireworks._literals import (
+    DeploymentTypeLiteral,
+    RegionLiteral,
+    MultiRegionLiteral,
+    AcceleratorTypeLiteral,
+    PrecisionLiteral,
+    DirectRouteTypeLiteral,
+    ReasoningEffort,
+)
 
 try:
     __version__ = importlib.metadata.version("fireworks-ai")
@@ -31,4 +40,11 @@ __all__ = [
     "ChatCompletionChunk",
     "ChatCompletionMessageParam",
     "ChatCompletionToolParam",
+    "DeploymentTypeLiteral",
+    "RegionLiteral",
+    "MultiRegionLiteral",
+    "AcceleratorTypeLiteral",
+    "PrecisionLiteral",
+    "DirectRouteTypeLiteral",
+    "ReasoningEffort",
 ]

@@ -1407,8 +1407,8 @@ class Root(PyMenu):
                                 def __init__(self, parent, attr, service, rules, path):
                                     super().__init__(parent, attr, service, rules, path)
                                     self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                    self.Width = self._Width(self, "Width", service, rules, path)
                                     self.Option = self._Option(self, "Option", service, rules, path)
+                                    self.Width = self._Width(self, "Width", service, rules, path)
                                     self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
                                     self.Height = self._Height(self, "Height", service, rules, path)
 
@@ -1417,14 +1417,14 @@ class Root(PyMenu):
                                     Argument DPI.
                                     """
 
-                                class _Width(PyNumericalCommandArgumentsSubItem):
-                                    """
-                                    Argument Width.
-                                    """
-
                                 class _Option(PyTextualCommandArgumentsSubItem):
                                     """
                                     Argument Option.
+                                    """
+
+                                class _Width(PyNumericalCommandArgumentsSubItem):
+                                    """
+                                    Argument Width.
                                     """
 
                                 class _UseWindowResolution(PyParameterCommandArgumentsSubItem):
@@ -2246,8 +2246,8 @@ class Root(PyMenu):
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
                                         self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
 
@@ -2256,14 +2256,14 @@ class Root(PyMenu):
                                         Argument DPI.
                                         """
 
-                                    class _Option(PyTextualCommandArgumentsSubItem):
-                                        """
-                                        Argument Option.
-                                        """
-
                                     class _Width(PyNumericalCommandArgumentsSubItem):
                                         """
                                         Argument Width.
+                                        """
+
+                                    class _Option(PyTextualCommandArgumentsSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                                     class _UseWindowResolution(PyParameterCommandArgumentsSubItem):
@@ -2909,8 +2909,8 @@ class Root(PyMenu):
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
                                         self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                        self.Width = self._Width(self, "Width", service, rules, path)
                                         self.Option = self._Option(self, "Option", service, rules, path)
+                                        self.Width = self._Width(self, "Width", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
 
@@ -2919,14 +2919,14 @@ class Root(PyMenu):
                                         Argument DPI.
                                         """
 
-                                    class _Width(PyNumericalCommandArgumentsSubItem):
-                                        """
-                                        Argument Width.
-                                        """
-
                                     class _Option(PyTextualCommandArgumentsSubItem):
                                         """
                                         Argument Option.
+                                        """
+
+                                    class _Width(PyNumericalCommandArgumentsSubItem):
+                                        """
+                                        Argument Width.
                                         """
 
                                     class _UseWindowResolution(PyParameterCommandArgumentsSubItem):
@@ -3011,8 +3011,8 @@ class Root(PyMenu):
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
                                         self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                        self.Width = self._Width(self, "Width", service, rules, path)
                                         self.Option = self._Option(self, "Option", service, rules, path)
+                                        self.Width = self._Width(self, "Width", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
 
@@ -3021,14 +3021,14 @@ class Root(PyMenu):
                                         Argument DPI.
                                         """
 
-                                    class _Width(PyNumericalCommandArgumentsSubItem):
-                                        """
-                                        Argument Width.
-                                        """
-
                                     class _Option(PyTextualCommandArgumentsSubItem):
                                         """
                                         Argument Option.
+                                        """
+
+                                    class _Width(PyNumericalCommandArgumentsSubItem):
+                                        """
+                                        Argument Width.
                                         """
 
                                     class _UseWindowResolution(PyParameterCommandArgumentsSubItem):
@@ -4466,8 +4466,8 @@ class Root(PyMenu):
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
                                         self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
 
@@ -4476,14 +4476,14 @@ class Root(PyMenu):
                                         Argument DPI.
                                         """
 
-                                    class _Option(PyTextualCommandArgumentsSubItem):
-                                        """
-                                        Argument Option.
-                                        """
-
                                     class _Width(PyNumericalCommandArgumentsSubItem):
                                         """
                                         Argument Width.
+                                        """
+
+                                    class _Option(PyTextualCommandArgumentsSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                                     class _UseWindowResolution(PyParameterCommandArgumentsSubItem):
@@ -5273,8 +5273,8 @@ class Root(PyMenu):
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
                                         self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.Width = self._Width(self, "Width", service, rules, path)
+                                        self.Option = self._Option(self, "Option", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
 
@@ -5283,14 +5283,14 @@ class Root(PyMenu):
                                         Argument DPI.
                                         """
 
-                                    class _Option(PyTextualCommandArgumentsSubItem):
-                                        """
-                                        Argument Option.
-                                        """
-
                                     class _Width(PyNumericalCommandArgumentsSubItem):
                                         """
                                         Argument Width.
+                                        """
+
+                                    class _Option(PyTextualCommandArgumentsSubItem):
+                                        """
+                                        Argument Option.
                                         """
 
                                     class _UseWindowResolution(PyParameterCommandArgumentsSubItem):
@@ -6608,8 +6608,8 @@ class Root(PyMenu):
                                     def __init__(self, parent, attr, service, rules, path):
                                         super().__init__(parent, attr, service, rules, path)
                                         self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                        self.Width = self._Width(self, "Width", service, rules, path)
                                         self.Option = self._Option(self, "Option", service, rules, path)
+                                        self.Width = self._Width(self, "Width", service, rules, path)
                                         self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
                                         self.Height = self._Height(self, "Height", service, rules, path)
 
@@ -6618,14 +6618,14 @@ class Root(PyMenu):
                                         Argument DPI.
                                         """
 
-                                    class _Width(PyNumericalCommandArgumentsSubItem):
-                                        """
-                                        Argument Width.
-                                        """
-
                                     class _Option(PyTextualCommandArgumentsSubItem):
                                         """
                                         Argument Option.
+                                        """
+
+                                    class _Width(PyNumericalCommandArgumentsSubItem):
+                                        """
+                                        Argument Width.
                                         """
 
                                     class _UseWindowResolution(PyParameterCommandArgumentsSubItem):
@@ -7793,8 +7793,8 @@ class Root(PyMenu):
                             def __init__(self, parent, attr, service, rules, path):
                                 super().__init__(parent, attr, service, rules, path)
                                 self.DPI = self._DPI(self, "DPI", service, rules, path)
-                                self.Option = self._Option(self, "Option", service, rules, path)
                                 self.Width = self._Width(self, "Width", service, rules, path)
+                                self.Option = self._Option(self, "Option", service, rules, path)
                                 self.UseWindowResolution = self._UseWindowResolution(self, "UseWindowResolution", service, rules, path)
                                 self.Height = self._Height(self, "Height", service, rules, path)
 
@@ -7803,14 +7803,14 @@ class Root(PyMenu):
                                 Argument DPI.
                                 """
 
-                            class _Option(PyTextualCommandArgumentsSubItem):
-                                """
-                                Argument Option.
-                                """
-
                             class _Width(PyNumericalCommandArgumentsSubItem):
                                 """
                                 Argument Width.
+                                """
+
+                            class _Option(PyTextualCommandArgumentsSubItem):
+                                """
+                                Argument Option.
                                 """
 
                             class _UseWindowResolution(PyParameterCommandArgumentsSubItem):

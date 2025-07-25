@@ -95,7 +95,7 @@ def _rewrite_query_for_unload(sql: str, unload_job_identifier: str, snowflake_un
     rewritten_sql = sql.rstrip(";\n ")
     prefix = _stage_prefix(unload_job_identifier, snowflake_unload_stage)
     new_query = f"""
-    COPY INTO {prefix} FROM ({rewritten_sql}) file_format = (type = 'parquet') overwrite=true header=true; /* {json.dumps({'unload_job_identifier': unload_job_identifier})} */
+    COPY INTO {prefix} FROM ({rewritten_sql}) file_format = (type = 'parquet') overwrite=true header=true; /* {json.dumps({"unload_job_identifier": unload_job_identifier})} */
     """
     return new_query
 
@@ -327,6 +327,10 @@ class SnowflakeSourceImpl(BaseSQLSource):
                 actual_type = tbl.schema.field(col_name).type
                 if pa.types.is_list(expected_type) or pa.types.is_large_list(expected_type):
                     if pa.types.is_string(actual_type) or pa.types.is_large_string(actual_type):
+                        series = pa_array_to_pl_series(tbl[col_name])
+                        column = series.str.json_extract(feature.converter.polars_dtype).to_arrow().cast(expected_type)
+                if pa.types.is_struct(expected_type):
+                    if pa.types.is_string(actual_type):
                         series = pa_array_to_pl_series(tbl[col_name])
                         column = series.str.json_extract(feature.converter.polars_dtype).to_arrow().cast(expected_type)
                 if actual_type != expected_type:

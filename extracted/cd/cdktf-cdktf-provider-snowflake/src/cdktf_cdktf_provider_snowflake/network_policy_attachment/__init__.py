@@ -1,7 +1,7 @@
 r'''
 # `snowflake_network_policy_attachment`
 
-Refer to the Terraform Registry for docs: [`snowflake_network_policy_attachment`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment).
+Refer to the Terraform Registry for docs: [`snowflake_network_policy_attachment`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class NetworkPolicyAttachment(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.networkPolicyAttachment.NetworkPolicyAttachment",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment snowflake_network_policy_attachment}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment snowflake_network_policy_attachment}.'''
 
     def __init__(
         self,
@@ -64,15 +64,15 @@ class NetworkPolicyAttachment(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment snowflake_network_policy_attachment} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment snowflake_network_policy_attachment} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param network_policy_name: Specifies the identifier for the network policy; must be unique for the account in which the network policy is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#network_policy_name NetworkPolicyAttachment#network_policy_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#id NetworkPolicyAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param set_for_account: (Default: ``false``) Specifies whether the network policy should be applied globally to your Snowflake account**Note:** The Snowflake user running ``terraform apply`` must be on an IP address allowed by the network policy to set that policy globally on the Snowflake account.Additionally, a Snowflake account can only have one network policy set globally at any given time. This resource does not enforce one-policy-per-account, it is the user's responsibility to enforce this. If multiple network policy resources have ``set_for_account: true``, the final policy set on the account will be non-deterministic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#set_for_account NetworkPolicyAttachment#set_for_account}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#timeouts NetworkPolicyAttachment#timeouts}
-        :param users: Specifies which users the network policy should be attached to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#users NetworkPolicyAttachment#users}
+        :param network_policy_name: Specifies the identifier for the network policy; must be unique for the account in which the network policy is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#network_policy_name NetworkPolicyAttachment#network_policy_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#id NetworkPolicyAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param set_for_account: (Default: ``false``) Specifies whether the network policy should be applied globally to your Snowflake account**Note:** The Snowflake user running ``terraform apply`` must be on an IP address allowed by the network policy to set that policy globally on the Snowflake account.Additionally, a Snowflake account can only have one network policy set globally at any given time. This resource does not enforce one-policy-per-account, it is the user's responsibility to enforce this. If multiple network policy resources have ``set_for_account: true``, the final policy set on the account will be non-deterministic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#set_for_account NetworkPolicyAttachment#set_for_account}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#timeouts NetworkPolicyAttachment#timeouts}
+        :param users: Specifies which users the network policy should be attached to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#users NetworkPolicyAttachment#users}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -115,7 +115,7 @@ class NetworkPolicyAttachment(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the NetworkPolicyAttachment to import.
-        :param import_from_id: The id of the existing NetworkPolicyAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing NetworkPolicyAttachment that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the NetworkPolicyAttachment to import is found.
         '''
         if __debug__:
@@ -136,10 +136,10 @@ class NetworkPolicyAttachment(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#create NetworkPolicyAttachment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#delete NetworkPolicyAttachment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#read NetworkPolicyAttachment#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#update NetworkPolicyAttachment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#create NetworkPolicyAttachment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#delete NetworkPolicyAttachment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#read NetworkPolicyAttachment#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#update NetworkPolicyAttachment#update}.
         '''
         value = NetworkPolicyAttachmentTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -307,11 +307,11 @@ class NetworkPolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param network_policy_name: Specifies the identifier for the network policy; must be unique for the account in which the network policy is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#network_policy_name NetworkPolicyAttachment#network_policy_name}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#id NetworkPolicyAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param set_for_account: (Default: ``false``) Specifies whether the network policy should be applied globally to your Snowflake account**Note:** The Snowflake user running ``terraform apply`` must be on an IP address allowed by the network policy to set that policy globally on the Snowflake account.Additionally, a Snowflake account can only have one network policy set globally at any given time. This resource does not enforce one-policy-per-account, it is the user's responsibility to enforce this. If multiple network policy resources have ``set_for_account: true``, the final policy set on the account will be non-deterministic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#set_for_account NetworkPolicyAttachment#set_for_account}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#timeouts NetworkPolicyAttachment#timeouts}
-        :param users: Specifies which users the network policy should be attached to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#users NetworkPolicyAttachment#users}
+        :param network_policy_name: Specifies the identifier for the network policy; must be unique for the account in which the network policy is created. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#network_policy_name NetworkPolicyAttachment#network_policy_name}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#id NetworkPolicyAttachment#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param set_for_account: (Default: ``false``) Specifies whether the network policy should be applied globally to your Snowflake account**Note:** The Snowflake user running ``terraform apply`` must be on an IP address allowed by the network policy to set that policy globally on the Snowflake account.Additionally, a Snowflake account can only have one network policy set globally at any given time. This resource does not enforce one-policy-per-account, it is the user's responsibility to enforce this. If multiple network policy resources have ``set_for_account: true``, the final policy set on the account will be non-deterministic. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#set_for_account NetworkPolicyAttachment#set_for_account}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#timeouts NetworkPolicyAttachment#timeouts}
+        :param users: Specifies which users the network policy should be attached to. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#users NetworkPolicyAttachment#users}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -427,7 +427,7 @@ class NetworkPolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         must be unique for the account in which the network policy is created.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#network_policy_name NetworkPolicyAttachment#network_policy_name}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#network_policy_name NetworkPolicyAttachment#network_policy_name}
         '''
         result = self._values.get("network_policy_name")
         assert result is not None, "Required property 'network_policy_name' is missing"
@@ -435,7 +435,7 @@ class NetworkPolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#id NetworkPolicyAttachment#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#id NetworkPolicyAttachment#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -449,7 +449,7 @@ class NetworkPolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``false``) Specifies whether the network policy should be applied globally to your Snowflake account**Note:** The Snowflake user running ``terraform apply`` must be on an IP address allowed by the network policy to set that policy globally on the Snowflake account.Additionally, a Snowflake account can only have one network policy set globally at any given time. This resource does not enforce one-policy-per-account, it is the user's responsibility to enforce this. If multiple network policy resources have ``set_for_account: true``, the final policy set on the account will be non-deterministic.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#set_for_account NetworkPolicyAttachment#set_for_account}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#set_for_account NetworkPolicyAttachment#set_for_account}
         '''
         result = self._values.get("set_for_account")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -458,7 +458,7 @@ class NetworkPolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["NetworkPolicyAttachmentTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#timeouts NetworkPolicyAttachment#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#timeouts NetworkPolicyAttachment#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["NetworkPolicyAttachmentTimeouts"], result)
@@ -467,7 +467,7 @@ class NetworkPolicyAttachmentConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def users(self) -> typing.Optional[typing.List[builtins.str]]:
         '''Specifies which users the network policy should be attached to.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#users NetworkPolicyAttachment#users}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#users NetworkPolicyAttachment#users}
         '''
         result = self._values.get("users")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
@@ -504,10 +504,10 @@ class NetworkPolicyAttachmentTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#create NetworkPolicyAttachment#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#delete NetworkPolicyAttachment#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#read NetworkPolicyAttachment#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#update NetworkPolicyAttachment#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#create NetworkPolicyAttachment#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#delete NetworkPolicyAttachment#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#read NetworkPolicyAttachment#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#update NetworkPolicyAttachment#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__c9830a1602fb5040d8272d5b3003054742e9bd0346954a9726902cc6627367f8)
@@ -527,25 +527,25 @@ class NetworkPolicyAttachmentTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#create NetworkPolicyAttachment#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#create NetworkPolicyAttachment#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#delete NetworkPolicyAttachment#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#delete NetworkPolicyAttachment#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#read NetworkPolicyAttachment#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#read NetworkPolicyAttachment#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/network_policy_attachment#update NetworkPolicyAttachment#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/network_policy_attachment#update NetworkPolicyAttachment#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -1,7 +1,7 @@
 r'''
 # `aws_dms_replication_instance`
 
-Refer to the Terraform Registry for docs: [`aws_dms_replication_instance`](https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance).
+Refer to the Terraform Registry for docs: [`aws_dms_replication_instance`](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class DmsReplicationInstance(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.dmsReplicationInstance.DmsReplicationInstance",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance aws_dms_replication_instance}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance aws_dms_replication_instance}.'''
 
     def __init__(
         self,
@@ -58,8 +58,10 @@ class DmsReplicationInstance(
         apply_immediately: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         availability_zone: typing.Optional[builtins.str] = None,
+        dns_name_servers: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
+        kerberos_authentication_settings: typing.Optional[typing.Union["DmsReplicationInstanceKerberosAuthenticationSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
         multi_az: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         network_type: typing.Optional[builtins.str] = None,
@@ -79,30 +81,32 @@ class DmsReplicationInstance(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance aws_dms_replication_instance} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance aws_dms_replication_instance} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param replication_instance_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#replication_instance_class DmsReplicationInstance#replication_instance_class}.
-        :param replication_instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#replication_instance_id DmsReplicationInstance#replication_instance_id}.
-        :param allocated_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#allocated_storage DmsReplicationInstance#allocated_storage}.
-        :param allow_major_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#allow_major_version_upgrade DmsReplicationInstance#allow_major_version_upgrade}.
-        :param apply_immediately: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#apply_immediately DmsReplicationInstance#apply_immediately}.
-        :param auto_minor_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#auto_minor_version_upgrade DmsReplicationInstance#auto_minor_version_upgrade}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#availability_zone DmsReplicationInstance#availability_zone}.
-        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#engine_version DmsReplicationInstance#engine_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#id DmsReplicationInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#kms_key_arn DmsReplicationInstance#kms_key_arn}.
-        :param multi_az: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#multi_az DmsReplicationInstance#multi_az}.
-        :param network_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#network_type DmsReplicationInstance#network_type}.
-        :param preferred_maintenance_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#preferred_maintenance_window DmsReplicationInstance#preferred_maintenance_window}.
-        :param publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#publicly_accessible DmsReplicationInstance#publicly_accessible}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#region DmsReplicationInstance#region}
-        :param replication_subnet_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#replication_subnet_group_id DmsReplicationInstance#replication_subnet_group_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#tags DmsReplicationInstance#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#tags_all DmsReplicationInstance#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#timeouts DmsReplicationInstance#timeouts}
-        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#vpc_security_group_ids DmsReplicationInstance#vpc_security_group_ids}.
+        :param replication_instance_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#replication_instance_class DmsReplicationInstance#replication_instance_class}.
+        :param replication_instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#replication_instance_id DmsReplicationInstance#replication_instance_id}.
+        :param allocated_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#allocated_storage DmsReplicationInstance#allocated_storage}.
+        :param allow_major_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#allow_major_version_upgrade DmsReplicationInstance#allow_major_version_upgrade}.
+        :param apply_immediately: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#apply_immediately DmsReplicationInstance#apply_immediately}.
+        :param auto_minor_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#auto_minor_version_upgrade DmsReplicationInstance#auto_minor_version_upgrade}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#availability_zone DmsReplicationInstance#availability_zone}.
+        :param dns_name_servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#dns_name_servers DmsReplicationInstance#dns_name_servers}.
+        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#engine_version DmsReplicationInstance#engine_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#id DmsReplicationInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kerberos_authentication_settings: kerberos_authentication_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#kerberos_authentication_settings DmsReplicationInstance#kerberos_authentication_settings}
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#kms_key_arn DmsReplicationInstance#kms_key_arn}.
+        :param multi_az: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#multi_az DmsReplicationInstance#multi_az}.
+        :param network_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#network_type DmsReplicationInstance#network_type}.
+        :param preferred_maintenance_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#preferred_maintenance_window DmsReplicationInstance#preferred_maintenance_window}.
+        :param publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#publicly_accessible DmsReplicationInstance#publicly_accessible}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#region DmsReplicationInstance#region}
+        :param replication_subnet_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#replication_subnet_group_id DmsReplicationInstance#replication_subnet_group_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#tags DmsReplicationInstance#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#tags_all DmsReplicationInstance#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#timeouts DmsReplicationInstance#timeouts}
+        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#vpc_security_group_ids DmsReplicationInstance#vpc_security_group_ids}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -123,8 +127,10 @@ class DmsReplicationInstance(
             apply_immediately=apply_immediately,
             auto_minor_version_upgrade=auto_minor_version_upgrade,
             availability_zone=availability_zone,
+            dns_name_servers=dns_name_servers,
             engine_version=engine_version,
             id=id,
+            kerberos_authentication_settings=kerberos_authentication_settings,
             kms_key_arn=kms_key_arn,
             multi_az=multi_az,
             network_type=network_type,
@@ -160,7 +166,7 @@ class DmsReplicationInstance(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the DmsReplicationInstance to import.
-        :param import_from_id: The id of the existing DmsReplicationInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing DmsReplicationInstance that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the DmsReplicationInstance to import is found.
         '''
         if __debug__:
@@ -171,6 +177,27 @@ class DmsReplicationInstance(
             check_type(argname="argument provider", value=provider, expected_type=type_hints["provider"])
         return typing.cast(_cdktf_9a9027ec.ImportableResource, jsii.sinvoke(cls, "generateConfigForImport", [scope, import_to_id, import_from_id, provider]))
 
+    @jsii.member(jsii_name="putKerberosAuthenticationSettings")
+    def put_kerberos_authentication_settings(
+        self,
+        *,
+        key_cache_secret_iam_arn: builtins.str,
+        key_cache_secret_id: builtins.str,
+        krb5_file_contents: builtins.str,
+    ) -> None:
+        '''
+        :param key_cache_secret_iam_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#key_cache_secret_iam_arn DmsReplicationInstance#key_cache_secret_iam_arn}.
+        :param key_cache_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#key_cache_secret_id DmsReplicationInstance#key_cache_secret_id}.
+        :param krb5_file_contents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#krb5_file_contents DmsReplicationInstance#krb5_file_contents}.
+        '''
+        value = DmsReplicationInstanceKerberosAuthenticationSettings(
+            key_cache_secret_iam_arn=key_cache_secret_iam_arn,
+            key_cache_secret_id=key_cache_secret_id,
+            krb5_file_contents=krb5_file_contents,
+        )
+
+        return typing.cast(None, jsii.invoke(self, "putKerberosAuthenticationSettings", [value]))
+
     @jsii.member(jsii_name="putTimeouts")
     def put_timeouts(
         self,
@@ -180,9 +207,9 @@ class DmsReplicationInstance(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#create DmsReplicationInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#delete DmsReplicationInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#update DmsReplicationInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#create DmsReplicationInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#delete DmsReplicationInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#update DmsReplicationInstance#update}.
         '''
         value = DmsReplicationInstanceTimeouts(
             create=create, delete=delete, update=update
@@ -210,6 +237,10 @@ class DmsReplicationInstance(
     def reset_availability_zone(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetAvailabilityZone", []))
 
+    @jsii.member(jsii_name="resetDnsNameServers")
+    def reset_dns_name_servers(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetDnsNameServers", []))
+
     @jsii.member(jsii_name="resetEngineVersion")
     def reset_engine_version(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetEngineVersion", []))
@@ -217,6 +248,10 @@ class DmsReplicationInstance(
     @jsii.member(jsii_name="resetId")
     def reset_id(self) -> None:
         return typing.cast(None, jsii.invoke(self, "resetId", []))
+
+    @jsii.member(jsii_name="resetKerberosAuthenticationSettings")
+    def reset_kerberos_authentication_settings(self) -> None:
+        return typing.cast(None, jsii.invoke(self, "resetKerberosAuthenticationSettings", []))
 
     @jsii.member(jsii_name="resetKmsKeyArn")
     def reset_kms_key_arn(self) -> None:
@@ -276,6 +311,13 @@ class DmsReplicationInstance(
         return typing.cast(builtins.str, jsii.sget(cls, "tfResourceType"))
 
     @builtins.property
+    @jsii.member(jsii_name="kerberosAuthenticationSettings")
+    def kerberos_authentication_settings(
+        self,
+    ) -> "DmsReplicationInstanceKerberosAuthenticationSettingsOutputReference":
+        return typing.cast("DmsReplicationInstanceKerberosAuthenticationSettingsOutputReference", jsii.get(self, "kerberosAuthenticationSettings"))
+
+    @builtins.property
     @jsii.member(jsii_name="replicationInstanceArn")
     def replication_instance_arn(self) -> builtins.str:
         return typing.cast(builtins.str, jsii.get(self, "replicationInstanceArn"))
@@ -327,6 +369,11 @@ class DmsReplicationInstance(
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "availabilityZoneInput"))
 
     @builtins.property
+    @jsii.member(jsii_name="dnsNameServersInput")
+    def dns_name_servers_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "dnsNameServersInput"))
+
+    @builtins.property
     @jsii.member(jsii_name="engineVersionInput")
     def engine_version_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "engineVersionInput"))
@@ -335,6 +382,13 @@ class DmsReplicationInstance(
     @jsii.member(jsii_name="idInput")
     def id_input(self) -> typing.Optional[builtins.str]:
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "idInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="kerberosAuthenticationSettingsInput")
+    def kerberos_authentication_settings_input(
+        self,
+    ) -> typing.Optional["DmsReplicationInstanceKerberosAuthenticationSettings"]:
+        return typing.cast(typing.Optional["DmsReplicationInstanceKerberosAuthenticationSettings"], jsii.get(self, "kerberosAuthenticationSettingsInput"))
 
     @builtins.property
     @jsii.member(jsii_name="kmsKeyArnInput")
@@ -485,6 +539,18 @@ class DmsReplicationInstance(
             type_hints = typing.get_type_hints(_typecheckingstub__9d8cd499488669e4844747904de74a34551f070919cd8632b00150bdaa2879b4)
             check_type(argname="argument value", value=value, expected_type=type_hints["value"])
         jsii.set(self, "availabilityZone", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="dnsNameServers")
+    def dns_name_servers(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "dnsNameServers"))
+
+    @dns_name_servers.setter
+    def dns_name_servers(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__9e591bf1410020e7bd9dfc8ab149d5e784b073d1de38b1ab0115a1012ffe70fe)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "dnsNameServers", value) # pyright: ignore[reportArgumentType]
 
     @builtins.property
     @jsii.member(jsii_name="engineVersion")
@@ -681,8 +747,10 @@ class DmsReplicationInstance(
         "apply_immediately": "applyImmediately",
         "auto_minor_version_upgrade": "autoMinorVersionUpgrade",
         "availability_zone": "availabilityZone",
+        "dns_name_servers": "dnsNameServers",
         "engine_version": "engineVersion",
         "id": "id",
+        "kerberos_authentication_settings": "kerberosAuthenticationSettings",
         "kms_key_arn": "kmsKeyArn",
         "multi_az": "multiAz",
         "network_type": "networkType",
@@ -714,8 +782,10 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         apply_immediately: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         availability_zone: typing.Optional[builtins.str] = None,
+        dns_name_servers: typing.Optional[builtins.str] = None,
         engine_version: typing.Optional[builtins.str] = None,
         id: typing.Optional[builtins.str] = None,
+        kerberos_authentication_settings: typing.Optional[typing.Union["DmsReplicationInstanceKerberosAuthenticationSettings", typing.Dict[builtins.str, typing.Any]]] = None,
         kms_key_arn: typing.Optional[builtins.str] = None,
         multi_az: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
         network_type: typing.Optional[builtins.str] = None,
@@ -736,29 +806,33 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param replication_instance_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#replication_instance_class DmsReplicationInstance#replication_instance_class}.
-        :param replication_instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#replication_instance_id DmsReplicationInstance#replication_instance_id}.
-        :param allocated_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#allocated_storage DmsReplicationInstance#allocated_storage}.
-        :param allow_major_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#allow_major_version_upgrade DmsReplicationInstance#allow_major_version_upgrade}.
-        :param apply_immediately: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#apply_immediately DmsReplicationInstance#apply_immediately}.
-        :param auto_minor_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#auto_minor_version_upgrade DmsReplicationInstance#auto_minor_version_upgrade}.
-        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#availability_zone DmsReplicationInstance#availability_zone}.
-        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#engine_version DmsReplicationInstance#engine_version}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#id DmsReplicationInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#kms_key_arn DmsReplicationInstance#kms_key_arn}.
-        :param multi_az: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#multi_az DmsReplicationInstance#multi_az}.
-        :param network_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#network_type DmsReplicationInstance#network_type}.
-        :param preferred_maintenance_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#preferred_maintenance_window DmsReplicationInstance#preferred_maintenance_window}.
-        :param publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#publicly_accessible DmsReplicationInstance#publicly_accessible}.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#region DmsReplicationInstance#region}
-        :param replication_subnet_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#replication_subnet_group_id DmsReplicationInstance#replication_subnet_group_id}.
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#tags DmsReplicationInstance#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#tags_all DmsReplicationInstance#tags_all}.
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#timeouts DmsReplicationInstance#timeouts}
-        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#vpc_security_group_ids DmsReplicationInstance#vpc_security_group_ids}.
+        :param replication_instance_class: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#replication_instance_class DmsReplicationInstance#replication_instance_class}.
+        :param replication_instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#replication_instance_id DmsReplicationInstance#replication_instance_id}.
+        :param allocated_storage: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#allocated_storage DmsReplicationInstance#allocated_storage}.
+        :param allow_major_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#allow_major_version_upgrade DmsReplicationInstance#allow_major_version_upgrade}.
+        :param apply_immediately: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#apply_immediately DmsReplicationInstance#apply_immediately}.
+        :param auto_minor_version_upgrade: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#auto_minor_version_upgrade DmsReplicationInstance#auto_minor_version_upgrade}.
+        :param availability_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#availability_zone DmsReplicationInstance#availability_zone}.
+        :param dns_name_servers: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#dns_name_servers DmsReplicationInstance#dns_name_servers}.
+        :param engine_version: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#engine_version DmsReplicationInstance#engine_version}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#id DmsReplicationInstance#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param kerberos_authentication_settings: kerberos_authentication_settings block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#kerberos_authentication_settings DmsReplicationInstance#kerberos_authentication_settings}
+        :param kms_key_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#kms_key_arn DmsReplicationInstance#kms_key_arn}.
+        :param multi_az: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#multi_az DmsReplicationInstance#multi_az}.
+        :param network_type: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#network_type DmsReplicationInstance#network_type}.
+        :param preferred_maintenance_window: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#preferred_maintenance_window DmsReplicationInstance#preferred_maintenance_window}.
+        :param publicly_accessible: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#publicly_accessible DmsReplicationInstance#publicly_accessible}.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#region DmsReplicationInstance#region}
+        :param replication_subnet_group_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#replication_subnet_group_id DmsReplicationInstance#replication_subnet_group_id}.
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#tags DmsReplicationInstance#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#tags_all DmsReplicationInstance#tags_all}.
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#timeouts DmsReplicationInstance#timeouts}
+        :param vpc_security_group_ids: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#vpc_security_group_ids DmsReplicationInstance#vpc_security_group_ids}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
+        if isinstance(kerberos_authentication_settings, dict):
+            kerberos_authentication_settings = DmsReplicationInstanceKerberosAuthenticationSettings(**kerberos_authentication_settings)
         if isinstance(timeouts, dict):
             timeouts = DmsReplicationInstanceTimeouts(**timeouts)
         if __debug__:
@@ -777,8 +851,10 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             check_type(argname="argument apply_immediately", value=apply_immediately, expected_type=type_hints["apply_immediately"])
             check_type(argname="argument auto_minor_version_upgrade", value=auto_minor_version_upgrade, expected_type=type_hints["auto_minor_version_upgrade"])
             check_type(argname="argument availability_zone", value=availability_zone, expected_type=type_hints["availability_zone"])
+            check_type(argname="argument dns_name_servers", value=dns_name_servers, expected_type=type_hints["dns_name_servers"])
             check_type(argname="argument engine_version", value=engine_version, expected_type=type_hints["engine_version"])
             check_type(argname="argument id", value=id, expected_type=type_hints["id"])
+            check_type(argname="argument kerberos_authentication_settings", value=kerberos_authentication_settings, expected_type=type_hints["kerberos_authentication_settings"])
             check_type(argname="argument kms_key_arn", value=kms_key_arn, expected_type=type_hints["kms_key_arn"])
             check_type(argname="argument multi_az", value=multi_az, expected_type=type_hints["multi_az"])
             check_type(argname="argument network_type", value=network_type, expected_type=type_hints["network_type"])
@@ -818,10 +894,14 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
             self._values["auto_minor_version_upgrade"] = auto_minor_version_upgrade
         if availability_zone is not None:
             self._values["availability_zone"] = availability_zone
+        if dns_name_servers is not None:
+            self._values["dns_name_servers"] = dns_name_servers
         if engine_version is not None:
             self._values["engine_version"] = engine_version
         if id is not None:
             self._values["id"] = id
+        if kerberos_authentication_settings is not None:
+            self._values["kerberos_authentication_settings"] = kerberos_authentication_settings
         if kms_key_arn is not None:
             self._values["kms_key_arn"] = kms_key_arn
         if multi_az is not None:
@@ -911,21 +991,21 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def replication_instance_class(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#replication_instance_class DmsReplicationInstance#replication_instance_class}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#replication_instance_class DmsReplicationInstance#replication_instance_class}.'''
         result = self._values.get("replication_instance_class")
         assert result is not None, "Required property 'replication_instance_class' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def replication_instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#replication_instance_id DmsReplicationInstance#replication_instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#replication_instance_id DmsReplicationInstance#replication_instance_id}.'''
         result = self._values.get("replication_instance_id")
         assert result is not None, "Required property 'replication_instance_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def allocated_storage(self) -> typing.Optional[jsii.Number]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#allocated_storage DmsReplicationInstance#allocated_storage}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#allocated_storage DmsReplicationInstance#allocated_storage}.'''
         result = self._values.get("allocated_storage")
         return typing.cast(typing.Optional[jsii.Number], result)
 
@@ -933,7 +1013,7 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def allow_major_version_upgrade(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#allow_major_version_upgrade DmsReplicationInstance#allow_major_version_upgrade}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#allow_major_version_upgrade DmsReplicationInstance#allow_major_version_upgrade}.'''
         result = self._values.get("allow_major_version_upgrade")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -941,7 +1021,7 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def apply_immediately(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#apply_immediately DmsReplicationInstance#apply_immediately}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#apply_immediately DmsReplicationInstance#apply_immediately}.'''
         result = self._values.get("apply_immediately")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -949,25 +1029,31 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def auto_minor_version_upgrade(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#auto_minor_version_upgrade DmsReplicationInstance#auto_minor_version_upgrade}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#auto_minor_version_upgrade DmsReplicationInstance#auto_minor_version_upgrade}.'''
         result = self._values.get("auto_minor_version_upgrade")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def availability_zone(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#availability_zone DmsReplicationInstance#availability_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#availability_zone DmsReplicationInstance#availability_zone}.'''
         result = self._values.get("availability_zone")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def dns_name_servers(self) -> typing.Optional[builtins.str]:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#dns_name_servers DmsReplicationInstance#dns_name_servers}.'''
+        result = self._values.get("dns_name_servers")
+        return typing.cast(typing.Optional[builtins.str], result)
+
+    @builtins.property
     def engine_version(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#engine_version DmsReplicationInstance#engine_version}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#engine_version DmsReplicationInstance#engine_version}.'''
         result = self._values.get("engine_version")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#id DmsReplicationInstance#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#id DmsReplicationInstance#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -976,8 +1062,19 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
+    def kerberos_authentication_settings(
+        self,
+    ) -> typing.Optional["DmsReplicationInstanceKerberosAuthenticationSettings"]:
+        '''kerberos_authentication_settings block.
+
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#kerberos_authentication_settings DmsReplicationInstance#kerberos_authentication_settings}
+        '''
+        result = self._values.get("kerberos_authentication_settings")
+        return typing.cast(typing.Optional["DmsReplicationInstanceKerberosAuthenticationSettings"], result)
+
+    @builtins.property
     def kms_key_arn(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#kms_key_arn DmsReplicationInstance#kms_key_arn}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#kms_key_arn DmsReplicationInstance#kms_key_arn}.'''
         result = self._values.get("kms_key_arn")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -985,19 +1082,19 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def multi_az(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#multi_az DmsReplicationInstance#multi_az}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#multi_az DmsReplicationInstance#multi_az}.'''
         result = self._values.get("multi_az")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
     @builtins.property
     def network_type(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#network_type DmsReplicationInstance#network_type}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#network_type DmsReplicationInstance#network_type}.'''
         result = self._values.get("network_type")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def preferred_maintenance_window(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#preferred_maintenance_window DmsReplicationInstance#preferred_maintenance_window}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#preferred_maintenance_window DmsReplicationInstance#preferred_maintenance_window}.'''
         result = self._values.get("preferred_maintenance_window")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1005,7 +1102,7 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def publicly_accessible(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#publicly_accessible DmsReplicationInstance#publicly_accessible}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#publicly_accessible DmsReplicationInstance#publicly_accessible}.'''
         result = self._values.get("publicly_accessible")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
 
@@ -1013,26 +1110,26 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#region DmsReplicationInstance#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#region DmsReplicationInstance#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def replication_subnet_group_id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#replication_subnet_group_id DmsReplicationInstance#replication_subnet_group_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#replication_subnet_group_id DmsReplicationInstance#replication_subnet_group_id}.'''
         result = self._values.get("replication_subnet_group_id")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#tags DmsReplicationInstance#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#tags DmsReplicationInstance#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#tags_all DmsReplicationInstance#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#tags_all DmsReplicationInstance#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -1040,14 +1137,14 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["DmsReplicationInstanceTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#timeouts DmsReplicationInstance#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#timeouts DmsReplicationInstance#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["DmsReplicationInstanceTimeouts"], result)
 
     @builtins.property
     def vpc_security_group_ids(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#vpc_security_group_ids DmsReplicationInstance#vpc_security_group_ids}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#vpc_security_group_ids DmsReplicationInstance#vpc_security_group_ids}.'''
         result = self._values.get("vpc_security_group_ids")
         return typing.cast(typing.Optional[typing.List[builtins.str]], result)
 
@@ -1064,6 +1161,161 @@ class DmsReplicationInstanceConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
 
 @jsii.data_type(
+    jsii_type="@cdktf/provider-aws.dmsReplicationInstance.DmsReplicationInstanceKerberosAuthenticationSettings",
+    jsii_struct_bases=[],
+    name_mapping={
+        "key_cache_secret_iam_arn": "keyCacheSecretIamArn",
+        "key_cache_secret_id": "keyCacheSecretId",
+        "krb5_file_contents": "krb5FileContents",
+    },
+)
+class DmsReplicationInstanceKerberosAuthenticationSettings:
+    def __init__(
+        self,
+        *,
+        key_cache_secret_iam_arn: builtins.str,
+        key_cache_secret_id: builtins.str,
+        krb5_file_contents: builtins.str,
+    ) -> None:
+        '''
+        :param key_cache_secret_iam_arn: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#key_cache_secret_iam_arn DmsReplicationInstance#key_cache_secret_iam_arn}.
+        :param key_cache_secret_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#key_cache_secret_id DmsReplicationInstance#key_cache_secret_id}.
+        :param krb5_file_contents: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#krb5_file_contents DmsReplicationInstance#krb5_file_contents}.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__0a061d36cbd5b8a1a59dd6d03a31f921c27eae0a8ea7dacb470f45d75ce6b465)
+            check_type(argname="argument key_cache_secret_iam_arn", value=key_cache_secret_iam_arn, expected_type=type_hints["key_cache_secret_iam_arn"])
+            check_type(argname="argument key_cache_secret_id", value=key_cache_secret_id, expected_type=type_hints["key_cache_secret_id"])
+            check_type(argname="argument krb5_file_contents", value=krb5_file_contents, expected_type=type_hints["krb5_file_contents"])
+        self._values: typing.Dict[builtins.str, typing.Any] = {
+            "key_cache_secret_iam_arn": key_cache_secret_iam_arn,
+            "key_cache_secret_id": key_cache_secret_id,
+            "krb5_file_contents": krb5_file_contents,
+        }
+
+    @builtins.property
+    def key_cache_secret_iam_arn(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#key_cache_secret_iam_arn DmsReplicationInstance#key_cache_secret_iam_arn}.'''
+        result = self._values.get("key_cache_secret_iam_arn")
+        assert result is not None, "Required property 'key_cache_secret_iam_arn' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def key_cache_secret_id(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#key_cache_secret_id DmsReplicationInstance#key_cache_secret_id}.'''
+        result = self._values.get("key_cache_secret_id")
+        assert result is not None, "Required property 'key_cache_secret_id' is missing"
+        return typing.cast(builtins.str, result)
+
+    @builtins.property
+    def krb5_file_contents(self) -> builtins.str:
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#krb5_file_contents DmsReplicationInstance#krb5_file_contents}.'''
+        result = self._values.get("krb5_file_contents")
+        assert result is not None, "Required property 'krb5_file_contents' is missing"
+        return typing.cast(builtins.str, result)
+
+    def __eq__(self, rhs: typing.Any) -> builtins.bool:
+        return isinstance(rhs, self.__class__) and rhs._values == self._values
+
+    def __ne__(self, rhs: typing.Any) -> builtins.bool:
+        return not (rhs == self)
+
+    def __repr__(self) -> str:
+        return "DmsReplicationInstanceKerberosAuthenticationSettings(%s)" % ", ".join(
+            k + "=" + repr(v) for k, v in self._values.items()
+        )
+
+
+class DmsReplicationInstanceKerberosAuthenticationSettingsOutputReference(
+    _cdktf_9a9027ec.ComplexObject,
+    metaclass=jsii.JSIIMeta,
+    jsii_type="@cdktf/provider-aws.dmsReplicationInstance.DmsReplicationInstanceKerberosAuthenticationSettingsOutputReference",
+):
+    def __init__(
+        self,
+        terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+        terraform_attribute: builtins.str,
+    ) -> None:
+        '''
+        :param terraform_resource: The parent resource.
+        :param terraform_attribute: The attribute on the parent resource this class is referencing.
+        '''
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__312922d02895d39d8147bb68014f5eefb8c6e3607c1bc9951da0f8f620f0e4cd)
+            check_type(argname="argument terraform_resource", value=terraform_resource, expected_type=type_hints["terraform_resource"])
+            check_type(argname="argument terraform_attribute", value=terraform_attribute, expected_type=type_hints["terraform_attribute"])
+        jsii.create(self.__class__, self, [terraform_resource, terraform_attribute])
+
+    @builtins.property
+    @jsii.member(jsii_name="keyCacheSecretIamArnInput")
+    def key_cache_secret_iam_arn_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "keyCacheSecretIamArnInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="keyCacheSecretIdInput")
+    def key_cache_secret_id_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "keyCacheSecretIdInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="krb5FileContentsInput")
+    def krb5_file_contents_input(self) -> typing.Optional[builtins.str]:
+        return typing.cast(typing.Optional[builtins.str], jsii.get(self, "krb5FileContentsInput"))
+
+    @builtins.property
+    @jsii.member(jsii_name="keyCacheSecretIamArn")
+    def key_cache_secret_iam_arn(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "keyCacheSecretIamArn"))
+
+    @key_cache_secret_iam_arn.setter
+    def key_cache_secret_iam_arn(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__f83421e6906d1a5b2c53b26487e04245a9bc6e06a57a1c664d94ae4f8da904d6)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keyCacheSecretIamArn", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="keyCacheSecretId")
+    def key_cache_secret_id(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "keyCacheSecretId"))
+
+    @key_cache_secret_id.setter
+    def key_cache_secret_id(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__6e250fd7e9b2a10bfd3e73e176eaa8180a666b79a68aa6707d711a6f1e40c2ad)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "keyCacheSecretId", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="krb5FileContents")
+    def krb5_file_contents(self) -> builtins.str:
+        return typing.cast(builtins.str, jsii.get(self, "krb5FileContents"))
+
+    @krb5_file_contents.setter
+    def krb5_file_contents(self, value: builtins.str) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__112ded0b3474475450eb61497a3f5391ff54c6515c472db7c6edc477dc66f517)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "krb5FileContents", value) # pyright: ignore[reportArgumentType]
+
+    @builtins.property
+    @jsii.member(jsii_name="internalValue")
+    def internal_value(
+        self,
+    ) -> typing.Optional[DmsReplicationInstanceKerberosAuthenticationSettings]:
+        return typing.cast(typing.Optional[DmsReplicationInstanceKerberosAuthenticationSettings], jsii.get(self, "internalValue"))
+
+    @internal_value.setter
+    def internal_value(
+        self,
+        value: typing.Optional[DmsReplicationInstanceKerberosAuthenticationSettings],
+    ) -> None:
+        if __debug__:
+            type_hints = typing.get_type_hints(_typecheckingstub__2eb109c2214d40e8e9c8b7bc0931eab9aa2d24166d9fd3823c31e300d713f701)
+            check_type(argname="argument value", value=value, expected_type=type_hints["value"])
+        jsii.set(self, "internalValue", value) # pyright: ignore[reportArgumentType]
+
+
+@jsii.data_type(
     jsii_type="@cdktf/provider-aws.dmsReplicationInstance.DmsReplicationInstanceTimeouts",
     jsii_struct_bases=[],
     name_mapping={"create": "create", "delete": "delete", "update": "update"},
@@ -1077,9 +1329,9 @@ class DmsReplicationInstanceTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#create DmsReplicationInstance#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#delete DmsReplicationInstance#delete}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#update DmsReplicationInstance#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#create DmsReplicationInstance#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#delete DmsReplicationInstance#delete}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#update DmsReplicationInstance#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__9e822bfe7f25b9a0ba560119714526095ee411b3dadc26ceca64cb1e89eb8da2)
@@ -1096,19 +1348,19 @@ class DmsReplicationInstanceTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#create DmsReplicationInstance#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#create DmsReplicationInstance#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#delete DmsReplicationInstance#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#delete DmsReplicationInstance#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/dms_replication_instance#update DmsReplicationInstance#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/dms_replication_instance#update DmsReplicationInstance#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 
@@ -1228,6 +1480,8 @@ class DmsReplicationInstanceTimeoutsOutputReference(
 __all__ = [
     "DmsReplicationInstance",
     "DmsReplicationInstanceConfig",
+    "DmsReplicationInstanceKerberosAuthenticationSettings",
+    "DmsReplicationInstanceKerberosAuthenticationSettingsOutputReference",
     "DmsReplicationInstanceTimeouts",
     "DmsReplicationInstanceTimeoutsOutputReference",
 ]
@@ -1245,8 +1499,10 @@ def _typecheckingstub__d5c86e97d610ac1c0f29efaa76ccca6df488ab59410a469b12ae14361
     apply_immediately: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     availability_zone: typing.Optional[builtins.str] = None,
+    dns_name_servers: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
+    kerberos_authentication_settings: typing.Optional[typing.Union[DmsReplicationInstanceKerberosAuthenticationSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
     multi_az: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     network_type: typing.Optional[builtins.str] = None,
@@ -1303,6 +1559,12 @@ def _typecheckingstub__9a70a888cfe4a48d1d2c3500192f421778c1805f9247ac8d758c0e3ed
     pass
 
 def _typecheckingstub__9d8cd499488669e4844747904de74a34551f070919cd8632b00150bdaa2879b4(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__9e591bf1410020e7bd9dfc8ab149d5e784b073d1de38b1ab0115a1012ffe70fe(
     value: builtins.str,
 ) -> None:
     """Type checking stubs"""
@@ -1408,8 +1670,10 @@ def _typecheckingstub__8d2eae8e723ec957ae49f68eb7ad28b477f3ddfd77302091cd16a090c
     apply_immediately: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     auto_minor_version_upgrade: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     availability_zone: typing.Optional[builtins.str] = None,
+    dns_name_servers: typing.Optional[builtins.str] = None,
     engine_version: typing.Optional[builtins.str] = None,
     id: typing.Optional[builtins.str] = None,
+    kerberos_authentication_settings: typing.Optional[typing.Union[DmsReplicationInstanceKerberosAuthenticationSettings, typing.Dict[builtins.str, typing.Any]]] = None,
     kms_key_arn: typing.Optional[builtins.str] = None,
     multi_az: typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]] = None,
     network_type: typing.Optional[builtins.str] = None,
@@ -1421,6 +1685,46 @@ def _typecheckingstub__8d2eae8e723ec957ae49f68eb7ad28b477f3ddfd77302091cd16a090c
     tags_all: typing.Optional[typing.Mapping[builtins.str, builtins.str]] = None,
     timeouts: typing.Optional[typing.Union[DmsReplicationInstanceTimeouts, typing.Dict[builtins.str, typing.Any]]] = None,
     vpc_security_group_ids: typing.Optional[typing.Sequence[builtins.str]] = None,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__0a061d36cbd5b8a1a59dd6d03a31f921c27eae0a8ea7dacb470f45d75ce6b465(
+    *,
+    key_cache_secret_iam_arn: builtins.str,
+    key_cache_secret_id: builtins.str,
+    krb5_file_contents: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__312922d02895d39d8147bb68014f5eefb8c6e3607c1bc9951da0f8f620f0e4cd(
+    terraform_resource: _cdktf_9a9027ec.IInterpolatingParent,
+    terraform_attribute: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__f83421e6906d1a5b2c53b26487e04245a9bc6e06a57a1c664d94ae4f8da904d6(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__6e250fd7e9b2a10bfd3e73e176eaa8180a666b79a68aa6707d711a6f1e40c2ad(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__112ded0b3474475450eb61497a3f5391ff54c6515c472db7c6edc477dc66f517(
+    value: builtins.str,
+) -> None:
+    """Type checking stubs"""
+    pass
+
+def _typecheckingstub__2eb109c2214d40e8e9c8b7bc0931eab9aa2d24166d9fd3823c31e300d713f701(
+    value: typing.Optional[DmsReplicationInstanceKerberosAuthenticationSettings],
 ) -> None:
     """Type checking stubs"""
     pass

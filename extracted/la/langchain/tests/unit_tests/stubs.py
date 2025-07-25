@@ -5,8 +5,12 @@ from langchain_core.messages import AIMessage, AIMessageChunk, HumanMessage
 
 
 class AnyStr(str):
-    def __eq__(self, other: Any) -> bool:
+    __slots__ = ()
+
+    def __eq__(self, other: object) -> bool:
         return isinstance(other, str)
+
+    __hash__ = str.__hash__
 
 
 # The code below creates version of pydantic models

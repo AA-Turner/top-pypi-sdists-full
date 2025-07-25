@@ -194,8 +194,14 @@ class ConfigTest(CoverageTest):
         ("[report]\nexclude_lines = foo(\n",
             r"Invalid \[report\].exclude_lines value 'foo\(': " +
             r"(unbalanced parenthesis|missing \))"),
+        ("[report]\nexclude_also = foo(\n",
+            r"Invalid \[report\].exclude_also value 'foo\(': " +
+            r"(unbalanced parenthesis|missing \))"),
         ("[report]\npartial_branches = foo[\n",
             r"Invalid \[report\].partial_branches value 'foo\[': " +
+            r"(unexpected end of regular expression|unterminated character set)"),
+        ("[report]\npartial_also = foo[\n",
+            r"Invalid \[report\].partial_also value 'foo\[': " +
             r"(unexpected end of regular expression|unterminated character set)"),
         ("[report]\npartial_branches_always = foo***\n",
             r"Invalid \[report\].partial_branches_always value " +
@@ -214,8 +220,14 @@ class ConfigTest(CoverageTest):
         ('[tool.coverage.report]\nexclude_lines = ["foo("]\n',
          r"Invalid \[tool.coverage.report\].exclude_lines value 'foo\(': " +
          r"(unbalanced parenthesis|missing \))"),
+        ('[tool.coverage.report]\nexclude_also = ["foo("]\n',
+         r"Invalid \[tool.coverage.report\].exclude_also value 'foo\(': " +
+         r"(unbalanced parenthesis|missing \))"),
         ('[tool.coverage.report]\npartial_branches = ["foo["]\n',
          r"Invalid \[tool.coverage.report\].partial_branches value 'foo\[': " +
+         r"(unexpected end of regular expression|unterminated character set)"),
+        ('[tool.coverage.report]\npartial_also = ["foo["]\n',
+         r"Invalid \[tool.coverage.report\].partial_also value 'foo\[': " +
          r"(unexpected end of regular expression|unterminated character set)"),
         ('[tool.coverage.report]\npartial_branches_always = ["foo***"]\n',
          r"Invalid \[tool.coverage.report\].partial_branches_always value " +
@@ -295,6 +307,12 @@ class ConfigTest(CoverageTest):
             [html]
             directory = ~joe/html_dir
 
+            [json]
+            output = ~/json/output.json
+
+            [lcov]
+            output = ~/lcov/~foo.lcov
+
             [xml]
             output = ~/somewhere/xml.out
 
@@ -309,23 +327,8 @@ class ConfigTest(CoverageTest):
                 ~/src
                 ~joe/source
             """)
-        def expanduser(s: str) -> str:
-            """Fake tilde expansion"""
-            s = s.replace("~/", "/Users/me/")
-            s = s.replace("~joe/", "/Users/joe/")
-            return s
 
-        with mock.patch.object(
-            coverage.config.os.path,  # type: ignore[attr-defined]
-            'expanduser',
-            new=expanduser
-        ):
-            cov = coverage.Coverage()
-        assert cov.config.data_file == "/Users/me/data.file"
-        assert cov.config.html_dir == "/Users/joe/html_dir"
-        assert cov.config.xml_output == "/Users/me/somewhere/xml.out"
-        assert cov.config.exclude_list == ["~/data.file", "~joe/html_dir"]
-        assert cov.config.paths == {'mapping': ['/Users/me/src', '/Users/joe/source']}
+        self.assert_tilde_results()
 
     def test_tilde_in_toml_config(self) -> None:
         # Config entries that are file paths can be tilde-expanded.
@@ -335,6 +338,12 @@ class ConfigTest(CoverageTest):
 
             [tool.coverage.html]
             directory = "~joe/html_dir"
+
+            [tool.coverage.json]
+            output = "~/json/output.json"
+
+            [tool.coverage.lcov]
+            output = "~/lcov/~foo.lcov"
 
             [tool.coverage.xml]
             output = "~/somewhere/xml.out"
@@ -352,6 +361,11 @@ class ConfigTest(CoverageTest):
                 "~joe/source",
             ]
             """)
+
+        self.assert_tilde_results()
+
+    def assert_tilde_results(self) -> None:
+        """Common assertions for two tilde tests."""
         def expanduser(s: str) -> str:
             """Fake tilde expansion"""
             s = s.replace("~/", "/Users/me/")
@@ -359,13 +373,15 @@ class ConfigTest(CoverageTest):
             return s
 
         with mock.patch.object(
-            coverage.config.os.path, # type: ignore[attr-defined]
+            coverage.config.os.path,  # type: ignore[attr-defined]
             'expanduser',
             new=expanduser
         ):
             cov = coverage.Coverage()
         assert cov.config.data_file == "/Users/me/data.file"
         assert cov.config.html_dir == "/Users/joe/html_dir"
+        assert cov.config.json_output == "/Users/me/json/output.json"
+        assert cov.config.lcov_output == "/Users/me/lcov/~foo.lcov"
         assert cov.config.xml_output == "/Users/me/somewhere/xml.out"
         assert cov.config.exclude_list == ["~/data.file", "~joe/html_dir"]
         assert cov.config.paths == {'mapping': ['/Users/me/src', '/Users/joe/source']}
@@ -453,6 +469,19 @@ class ConfigTest(CoverageTest):
         with pytest.warns(CoverageWarning, match=msg):
             _ = coverage.Coverage()
 
+    def test_unknown_patch(self) -> None:
+        self.make_file("foo.py", "a = 1")
+        self.make_file(".coveragerc", """\
+            [run]
+            patch =
+                _exit
+                xyzzy
+            """)
+        msg = "Unknown patch 'xyzzy'"
+        with pytest.raises(ConfigError, match=msg):
+            cov = coverage.Coverage()
+            self.start_import_stop(cov, "foo")
+
     def test_misplaced_option(self) -> None:
         self.make_file(".coveragerc", """\
             [report]
@@ -492,6 +521,16 @@ class ConfigTest(CoverageTest):
 
         expected = coverage.config.DEFAULT_EXCLUDE + ["foobar", "raise .*Error"]
         assert cov.config.exclude_list == expected
+
+    def test_partial_also(self) -> None:
+        self.make_file("pyproject.toml", """\
+            [tool.coverage.report]
+            partial_also = ["foobar", "raise .*Error"]
+            """)
+        cov = coverage.Coverage()
+
+        expected = coverage.config.DEFAULT_PARTIAL + ["foobar", "raise .*Error"]
+        assert cov.config.partial_list == expected
 
     def test_core_option(self) -> None:
         # Test that the core option can be set in the configuration file.

@@ -11,6 +11,7 @@ Usage::
     from aiobotocore.session import get_session
     from types_aiobotocore_sagemaker import (
         Client,
+        CreateHubContentPresignedUrlsPaginator,
         EndpointDeletedWaiter,
         EndpointInServiceWaiter,
         ImageCreatedWaiter,
@@ -78,6 +79,7 @@ Usage::
         ListPipelineExecutionStepsPaginator,
         ListPipelineExecutionsPaginator,
         ListPipelineParametersForExecutionPaginator,
+        ListPipelineVersionsPaginator,
         ListPipelinesPaginator,
         ListProcessingJobsPaginator,
         ListResourceCatalogsPaginator,
@@ -125,6 +127,7 @@ Usage::
     training_job_completed_or_stopped_waiter: TrainingJobCompletedOrStoppedWaiter = client.get_waiter("training_job_completed_or_stopped")
     transform_job_completed_or_stopped_waiter: TransformJobCompletedOrStoppedWaiter = client.get_waiter("transform_job_completed_or_stopped")
 
+    create_hub_content_presigned_urls_paginator: CreateHubContentPresignedUrlsPaginator = client.get_paginator("create_hub_content_presigned_urls")
     list_actions_paginator: ListActionsPaginator = client.get_paginator("list_actions")
     list_algorithms_paginator: ListAlgorithmsPaginator = client.get_paginator("list_algorithms")
     list_aliases_paginator: ListAliasesPaginator = client.get_paginator("list_aliases")
@@ -185,6 +188,7 @@ Usage::
     list_pipeline_execution_steps_paginator: ListPipelineExecutionStepsPaginator = client.get_paginator("list_pipeline_execution_steps")
     list_pipeline_executions_paginator: ListPipelineExecutionsPaginator = client.get_paginator("list_pipeline_executions")
     list_pipeline_parameters_for_execution_paginator: ListPipelineParametersForExecutionPaginator = client.get_paginator("list_pipeline_parameters_for_execution")
+    list_pipeline_versions_paginator: ListPipelineVersionsPaginator = client.get_paginator("list_pipeline_versions")
     list_pipelines_paginator: ListPipelinesPaginator = client.get_paginator("list_pipelines")
     list_processing_jobs_paginator: ListProcessingJobsPaginator = client.get_paginator("list_processing_jobs")
     list_resource_catalogs_paginator: ListResourceCatalogsPaginator = client.get_paginator("list_resource_catalogs")
@@ -208,6 +212,7 @@ Usage::
 
 from .client import SageMakerClient
 from .paginator import (
+    CreateHubContentPresignedUrlsPaginator,
     ListActionsPaginator,
     ListAlgorithmsPaginator,
     ListAliasesPaginator,
@@ -269,6 +274,7 @@ from .paginator import (
     ListPipelineExecutionStepsPaginator,
     ListPipelineParametersForExecutionPaginator,
     ListPipelinesPaginator,
+    ListPipelineVersionsPaginator,
     ListProcessingJobsPaginator,
     ListResourceCatalogsPaginator,
     ListSpacesPaginator,
@@ -308,6 +314,7 @@ Client = SageMakerClient
 
 __all__ = (
     "Client",
+    "CreateHubContentPresignedUrlsPaginator",
     "EndpointDeletedWaiter",
     "EndpointInServiceWaiter",
     "ImageCreatedWaiter",
@@ -375,6 +382,7 @@ __all__ = (
     "ListPipelineExecutionStepsPaginator",
     "ListPipelineExecutionsPaginator",
     "ListPipelineParametersForExecutionPaginator",
+    "ListPipelineVersionsPaginator",
     "ListPipelinesPaginator",
     "ListProcessingJobsPaginator",
     "ListResourceCatalogsPaginator",

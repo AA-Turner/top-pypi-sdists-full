@@ -2,7 +2,7 @@
 """various utilities not related to optimization"""
 from __future__ import (absolute_import, division, print_function,
                         )  #unicode_literals, with_statement)
-import os, time
+import os, sys, time
 import warnings
 import ast  # ast.literal_eval is safe eval
 import numpy as np
@@ -171,6 +171,19 @@ def ranks(a, reverse=False):
     idx = argsort(a)
     return [len(idx) - 1 - idx.index(i) if reverse else idx.index(i)
             for i in range(len(idx))]
+
+def round_indices(a, indices):
+    """modify ``a[i]`` to ``round(a[i])`` for i in `indices` and return `a`, never used"""
+    for i in indices:
+        a[i] = np.round(a[i])
+    return a
+
+def tolist(a):
+    """return ``a.tolist()`` if applicable else ``list(a)``, never used"""
+    try:
+        return a.tolist()
+    except AttributeError:
+        return list(a)
 
 def zero_values_indices(diffs):
     """generate increasing index pairs ``(i, j)`` with ``all(diffs[i:j] == 0)``
@@ -503,19 +516,22 @@ class DerivedDictBase(abc.MutableMapping):
     if necessary.
 
     Details: This is the clean way to subclass the build-in dict, however
-    it depends on `MutableMapping`.
+    it depends on `MutableMapping` (since 2.6 but has significantly evolved).
 
     """
     def __init__(self, *args, **kwargs):
         # abc.MutableMapping.__init__(self)
         super(DerivedDictBase, self).__init__()
         # super(SolutionDict, self).__init__()  # the same
-        try:
-            self.data = collections.OrderedDict()
-            self.data.update(collections.OrderedDict(*args, **kwargs))
-        except Exception:
-            self.data = dict()
-            self.data.update(dict(*args, **kwargs))
+        if sys.version_info >= (3, 7):  # dict is guarantied to be ordered since 3.7
+            self.data = dict(*args, **kwargs)  # dict is faster than OrderedDict
+        else:
+            try:
+                self.data = collections.OrderedDict()  # since Python 3.1
+                self.data.update(collections.OrderedDict(*args, **kwargs))
+            except Exception:
+                self.data = dict()  # may be fine, though we need order in truncate_to
+                self.data.update(dict(*args, **kwargs))
     def __len__(self):
         return len(self.data)
     def __contains__(self, key):
@@ -551,10 +567,15 @@ class SolutionDict(DerivedDictBase):
     >>> d[2] = 3
     >>> assert d[2] == 3
 
-    TODO: data_with_same_key behaves like a stack (see setitem and
-    delitem), but rather should behave like a queue?! A queue is less
-    consistent with the operation self[key] = ..., if
-    self.data_with_same_key[key] is not empty.
+    `data_with_same_key` behaves (in contrast to the order of ``keys()``)
+    like a stack (see setitem and delitem). Thereby the last assignment
+    ``self[key] = ...`` determines, as to be expected, the value of
+    ``self[key]`` even when ``self.data_with_same_key[key]`` is not empty.
+
+    CAVEAT: after a same-key item was removed, ``self[key]`` returns the
+    previous value, however ``self._unhashed_keys[key]`` raises a
+    `ValueError` as the unhashed entries for the remaining items with this
+    key are not available as unhashed keys are not stacked.
 
     TODO: iteration key is used to clean up without error management
 
@@ -562,7 +583,8 @@ class SolutionDict(DerivedDictBase):
     def __init__(self, *args, **kwargs):
         # DerivedDictBase.__init__(self, *args, **kwargs)
         super(SolutionDict, self).__init__(*args, **kwargs)
-        self.data_with_same_key = {}
+        self.data_with_same_key = {}  # del truncates this too
+        self._unhashed_keys = {}      # ditto
         self.last_iteration = 0
     def key(self, x):
         """compute key of ``x``"""
@@ -587,7 +609,8 @@ class SolutionDict(DerivedDictBase):
         return super(SolutionDict, self).__contains__(self.key(key))
     def __setitem__(self, key, value):
         """define ``self[key] = value``"""
-        key = self.key(key)
+        unhashed_key, key = key, self.key(key)
+        self._unhashed_keys[key] = unhashed_key  # overwrite, keep only the last
         if key in self.data_with_same_key:
             self.data_with_same_key[key] += [self.data[key]]
         elif key in self.data:
@@ -599,6 +622,8 @@ class SolutionDict(DerivedDictBase):
     def __delitem__(self, key):
         """remove only most current key-entry of list with same keys"""
         key = self.key(key)
+        if key in self._unhashed_keys:
+            del self._unhashed_keys[key]
         if key in self.data_with_same_key:
             if len(self.data_with_same_key[key]) == 1:
                 self.data[key] = self.data_with_same_key.pop(key)[0]
@@ -606,25 +631,38 @@ class SolutionDict(DerivedDictBase):
                 self.data[key] = self.data_with_same_key[key].pop(-1)
         elif key in self.data:
             del self.data[key]
+    def truncate_to(self, len_):
+        """truncate to length `len_` removing the oldest entries"""
+        if len(self) <= len_:
+            return
+        if len_ == 0:
+            # since 2.6 https://docs.python.org/2.6/library/collections.html#abcs-abstract-base-classes
+            self.clear()  # is effectively ``for k in self.keys(): del self[k]``
+            return
+        for k in list(self.keys()):  # relies on insertion time ordering
+            del self[k]  # del treats all stored elements
+            if len(self) <= len_:
+                break
     def truncate(self, max_len, min_iter=None):
         """truncate to ``max_len/2`` when ``len(self) > max_len``.
 
         Only truncate entries with ``'iteration'`` key smaller than
         `min_iter` if given.
+
+        This looks overdesigned given the `dict` is ordered and chunk
+        deletion is not available. See also `truncate_to`.
         """
         if len(self) <= max_len:
             return
-        if min_iter is None:  # new with OrderedDict
-            l = max((0, max_len / 2))
-            while len(self) > l:
-                self.data.popitem(last=False)
-        else:  # previous code
-            for k in list(self.keys()):
-                if self[k]['iteration'] < min_iter:
-                    del self[k]
-                    # deletes one item with k as key, better delete all?
-                if len(self) < max_len / 2:  # new code
-                    break
+        if max_len == 0:
+            self.clear()  # is effectively ``for k in self.keys(): del self[k]``
+            return
+        for k in list(self.keys()):
+            if min_iter is None or self[k]['iteration'] < min_iter:
+                del self[k]  # del treats all stored elements
+                # deletes one item with k as key, better delete all?
+            if len(self) < max_len / 2:  # new code
+                break
 
 class DataDict(collections.defaultdict):
     """a dictionary of lists (of data)"""

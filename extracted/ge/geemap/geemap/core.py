@@ -456,15 +456,19 @@ class MapInterface:
         raise NotImplementedError()
 
     def center_object(
-        self, ee_object: ee.ComputedObject, zoom: Optional[int] = None
+        self,
+        ee_object: ee.ComputedObject,
+        zoom: Optional[int] = None,
+        max_error: float = 0.001,
     ) -> None:
         """Centers the map view on a given object.
 
         Args:
             ee_object (ee.ComputedObject): The Earth Engine object to center on.
             zoom (Optional[int]): Zoom level to set. Defaults to None.
+            max_error (float): The maximum error for the geometry. Defaults to 0.001.
         """
-        del ee_object, zoom  # Unused.
+        del ee_object, zoom, max_error  # Unused.
         raise NotImplementedError()
 
     def get_scale(self) -> float:
@@ -657,6 +661,15 @@ class Map(ipyleaflet.Map, MapInterface):
         return self._find_widget_of_type(map_widgets.Inspector)
 
     @property
+    def _search_bar(self) -> Optional[map_widgets.SearchBar]:
+        """Finds the search bar widget in the map controls.
+
+        Returns:
+            Optional[map_widgets.SearchBar]: The search bar widget if found, else None.
+        """
+        return self._find_widget_of_type(map_widgets.SearchBar)
+
+    @property
     def _draw_control(self) -> MapDrawControl:
         """Finds the draw control widget in the map controls.
 
@@ -672,9 +685,6 @@ class Map(ipyleaflet.Map, MapInterface):
         Returns:
             Optional[map_widgets.LayerManager]: The layer manager widget if found, else None.
         """
-        if toolbar_widget := self._toolbar:
-            if isinstance(toolbar_widget.accessory_widget, map_widgets.LayerManager):
-                return toolbar_widget.accessory_widget
         return self._find_widget_of_type(map_widgets.LayerManager)
 
     @property
@@ -687,13 +697,14 @@ class Map(ipyleaflet.Map, MapInterface):
         return self._find_widget_of_type(map_widgets.LayerEditor)
 
     @property
-    def _basemap_selector(self) -> Optional[map_widgets.Basemap]:
+    def _basemap_selector(self) -> Optional[map_widgets.BasemapSelector]:
         """Finds the basemap selector widget in the map controls.
 
         Returns:
-            Optional[map_widgets.Basemap]: The basemap selector widget if found, else None.
+            Optional[map_widgets.BasemapSelector]: The basemap selector widget
+                if found, else None.
         """
-        return self._find_widget_of_type(map_widgets.Basemap)
+        return self._find_widget_of_type(map_widgets.BasemapSelector)
 
     def __init__(self, **kwargs: Any) -> None:
         """Initialize the map with given keyword arguments.
@@ -719,6 +730,19 @@ class Map(ipyleaflet.Map, MapInterface):
 
         kwargs = self._apply_kwarg_defaults(kwargs)
         super().__init__(**kwargs)
+
+        # Add a container to layout the layer manager and toolbar side-by-side.
+        self.top_right_layout_box = ipywidgets.GridBox(
+            layout=ipywidgets.Layout(
+                grid_template_columns="auto auto",  # Two columns
+                grid_gap="0px 10px",  # 0px row gap, 10px column gap
+            ),
+        )
+        self.top_right_layout_box.layout.overflow = "visible"
+        self.top_right_control = ipyleaflet.WidgetControl(
+            widget=self.top_right_layout_box, position="topright", transparent_bg=True
+        )
+        super().add(self.top_right_control)
 
         for position, widgets in self._control_config().items():
             for widget in widgets:
@@ -826,20 +850,25 @@ class Map(ipyleaflet.Map, MapInterface):
             ) from exc
 
     def center_object(
-        self, ee_object: ee.ComputedObject, zoom: Optional[int] = None
+        self,
+        ee_object: ee.ComputedObject,
+        zoom: Optional[int] = None,
+        max_error: float = 0.001,
     ) -> None:
         """Centers the map view on a given object.
 
         Args:
             ee_object (ee.ComputedObject): The Earth Engine object to center on.
             zoom (Optional[int]): Zoom level to set. Defaults to None.
+            max_error (float): The maximum error for the geometry. Defaults to 0.001.
         """
-        max_error = 0.001
         geometry = self._get_geometry(ee_object, max_error).transform(
             maxError=max_error
         )
         if zoom is None:
-            coordinates = geometry.bounds(max_error).getInfo()["coordinates"][0]
+            coordinates = geometry.bounds(maxError=max_error).getInfo()["coordinates"][
+                0
+            ]
             x_vals = [c[0] for c in coordinates]
             y_vals = [c[1] for c in coordinates]
             self.fit_bounds([[min(y_vals), min(x_vals)], [max(y_vals), max(x_vals)]])
@@ -867,6 +896,10 @@ class Map(ipyleaflet.Map, MapInterface):
                     return widget if return_control else widget.widget
             elif isinstance(widget, widget_type):
                 return widget
+        if self.top_right_layout_box:
+            for child in self.top_right_layout_box.children:
+                if isinstance(child, widget_type):
+                    return child
         return None
 
     def add(self, obj: Any, position: str = "", **kwargs: Any) -> None:
@@ -901,6 +934,8 @@ class Map(ipyleaflet.Map, MapInterface):
                 return
             new_kwargs = {**basic_control[1], **kwargs}
             super().add(basic_control[0](position=position, **new_kwargs))
+        elif obj == "search_control":
+            self._add_search_control(position, **kwargs)
         elif obj == "toolbar":
             self._add_toolbar(position, **kwargs)
         elif obj == "inspector":
@@ -916,29 +951,6 @@ class Map(ipyleaflet.Map, MapInterface):
         else:
             super().add(obj)
 
-    def _on_toggle_toolbar_layers(self, is_open: bool) -> None:
-        """Handles the toggle event for the toolbar layers.
-
-        Args:
-            is_open (bool): Whether the toolbar layers are open.
-        """
-        if is_open:
-            if self._layer_manager:
-                return
-
-            def _on_open_vis(layer_name: str) -> None:
-                layer = self.ee_layers.get(layer_name, None)
-                self._add_layer_editor(position="bottomright", layer_dict=layer)
-
-            layer_manager = map_widgets.LayerManager(self)
-            layer_manager.header_hidden = True
-            layer_manager.close_button_hidden = True
-            layer_manager.on_open_vis = _on_open_vis
-            self._toolbar.accessory_widget = layer_manager
-        else:
-            self._toolbar.accessory_widget = None
-            self.remove("layer_manager")
-
     def _add_layer_manager(self, position: str, **kwargs: Any) -> None:
         """Adds a layer manager to the map.
 
@@ -949,17 +961,16 @@ class Map(ipyleaflet.Map, MapInterface):
         if self._layer_manager:
             return
 
-        def _on_open_vis(layer_name: str) -> None:
-            layer = self.ee_layers.get(layer_name, None)
-            self._add_layer_editor(position="bottomright", layer_dict=layer)
-
         layer_manager = map_widgets.LayerManager(self, **kwargs)
         layer_manager.on_close = lambda: self.remove("layer_manager")
-        layer_manager.on_open_vis = _on_open_vis
-        layer_manager_control = ipyleaflet.WidgetControl(
-            widget=layer_manager, position=position
-        )
-        super().add(layer_manager_control)
+        layer_manager.refresh_layers()
+        if position == "topright" and self.top_right_layout_box:
+            current_children = self.top_right_layout_box.children
+            self.top_right_layout_box.children = (layer_manager,) + current_children
+        else:
+            super().add(
+                ipyleaflet.WidgetControl(widget=layer_manager, position=position)
+            )
 
     def _add_toolbar(self, position: str, **kwargs: Any) -> None:
         """Adds a toolbar to the map.
@@ -972,15 +983,15 @@ class Map(ipyleaflet.Map, MapInterface):
             return
 
         toolbar_val = toolbar.Toolbar(
-            self, self._toolbar_main_tools(), self._toolbar_extra_tools(), **kwargs
+            self,
+            self._toolbar_main_tools(),
+            self._toolbar_extra_tools(),
         )
-        toolbar_val.on_layers_toggled = self._on_toggle_toolbar_layers
-        toolbar_control = ipyleaflet.WidgetControl(
-            widget=toolbar_val, position=position
-        )
-        super().add(toolbar_control)
-        # Enable the layer manager by default.
-        toolbar_val.toggle_layers(True)
+        if position == "topright" and self.top_right_layout_box:
+            current_children = self.top_right_layout_box.children
+            self.top_right_layout_box.children = current_children + (toolbar_val,)
+        else:
+            super().add(ipyleaflet.WidgetControl(widget=toolbar_val, position=position))
 
     def _add_inspector(self, position: str, **kwargs: Any) -> None:
         """Adds an inspector to the map.
@@ -995,9 +1006,25 @@ class Map(ipyleaflet.Map, MapInterface):
         inspector = map_widgets.Inspector(self, **kwargs)
         inspector.on_close = lambda: self.remove("inspector")
         inspector_control = ipyleaflet.WidgetControl(
-            widget=inspector, position=position
+            widget=inspector, position=position, transparent_bg=True
         )
         super().add(inspector_control)
+
+    def _add_search_control(self, position: str, **kwargs: Any) -> None:
+        """Adds a search bar to the map.
+
+        Args:
+            position (str): The position to place the inspector.
+            **kwargs (Any): Additional keyword arguments.
+        """
+        if self._search_bar:
+            return
+        widget = map_widgets.SearchBar(self, **kwargs)
+        widget.on_close = lambda: self.remove("search_control")
+        control = ipyleaflet.WidgetControl(
+            widget=widget, position=position, transparent_bg=True
+        )
+        super().add(control)
 
     def _add_layer_editor(self, position: str, **kwargs: Any) -> None:
         """Adds a layer editor to the map.
@@ -1011,7 +1038,9 @@ class Map(ipyleaflet.Map, MapInterface):
 
         widget = map_widgets.LayerEditor(self, **kwargs)
         widget.on_close = lambda: self.remove("layer_editor")
-        control = ipyleaflet.WidgetControl(widget=widget, position=position)
+        control = ipyleaflet.WidgetControl(
+            widget=widget, position=position, transparent_bg=True
+        )
         super().add(control)
 
     def _add_draw_control(self, position: str = "topleft", **kwargs: Any) -> None:
@@ -1056,13 +1085,36 @@ class Map(ipyleaflet.Map, MapInterface):
             return
 
         basemap_names = kwargs.pop("basemaps", list(self._available_basemaps.keys()))
-        value = kwargs.pop(
-            "value", self._get_preferred_basemap_name(self.layers[0].name)
-        )
-        basemap = map_widgets.Basemap(basemap_names, value, **kwargs)
+
+        default_value_for_selector = None
+        if self.layers:
+            first_layer_name = getattr(self.layers[0], "name", "")
+            if first_layer_name:
+                default_value_for_selector = self._get_preferred_basemap_name(
+                    first_layer_name
+                )
+            elif self._available_basemaps:
+                default_value_for_selector = self._get_preferred_basemap_name(
+                    next(iter(self._available_basemaps.keys()))
+                )
+            else:
+                default_value_for_selector = "DEFAULT"
+
+        elif self._available_basemaps:
+            first_available_key = next(iter(self._available_basemaps.keys()))
+            default_value_for_selector = self._get_preferred_basemap_name(
+                first_available_key
+            )
+        else:
+            default_value_for_selector = "DEFAULT"
+
+        value = kwargs.pop("value", default_value_for_selector)
+        basemap = map_widgets.BasemapSelector(basemap_names, value, **kwargs)
         basemap.on_close = lambda: self.remove("basemap_selector")
         basemap.on_basemap_changed = self._replace_basemap
-        basemap_control = ipyleaflet.WidgetControl(widget=basemap, position=position)
+        basemap_control = ipyleaflet.WidgetControl(
+            widget=basemap, position=position, transparent_bg=True
+        )
         super().add(basemap_control)
 
     def remove(self, widget: Any) -> None:
@@ -1072,6 +1124,7 @@ class Map(ipyleaflet.Map, MapInterface):
             widget (Any): The widget to remove.
         """
         basic_controls: Dict[str, ipyleaflet.Control] = {
+            "search_control": map_widgets.SearchBar,
             "zoom_control": ipyleaflet.ZoomControl,
             "fullscreen_control": ipyleaflet.FullScreenControl,
             "scale_control": ipyleaflet.ScaleControl,
@@ -1081,9 +1134,21 @@ class Map(ipyleaflet.Map, MapInterface):
             "layer_manager": map_widgets.LayerManager,
             "layer_editor": map_widgets.LayerEditor,
             "draw_control": MapDrawControl,
-            "basemap_selector": map_widgets.Basemap,
+            "basemap_selector": map_widgets.BasemapSelector,
         }
-        if widget_type := basic_controls.get(widget, None):
+        widget_type = basic_controls.get(widget, None)
+
+        # First, try removing the widget from any layout boxes.
+        child_to_remove = None
+        for child in self.top_right_layout_box.children:
+            if child == widget or isinstance(child, type(widget_type)):
+                child_to_remove = child
+        if child_to_remove:
+            self.top_right_layout_box.children = [
+                x for x in self.top_right_layout_box.children if x != child_to_remove
+            ]
+
+        if widget_type:
             if control := self._find_widget_of_type(widget_type, return_control=True):
                 self.remove(control)
                 control.close()
@@ -1193,7 +1258,10 @@ class Map(ipyleaflet.Map, MapInterface):
             widget_args,
             **kwargs,
         )
-        control = ipyleaflet.WidgetControl(widget=legend, position=position)
+        legend.host_map = self
+        control = ipyleaflet.WidgetControl(
+            widget=legend, position=position, transparent_bg=True
+        )
         if layer := self.ee_layers.get(layer_name, None):
             if old_legend := layer.pop("legend", None):
                 self.remove(old_legend)
@@ -1262,65 +1330,66 @@ class Map(ipyleaflet.Map, MapInterface):
         return control
 
     def _open_help_page(
-        self, host_map: "MapInterface", selected: bool, item: toolbar.Toolbar.Item
+        self, host_map: "MapInterface", selected: bool, item: toolbar.ToolbarItem
     ) -> None:
         """Opens the help page.
 
         Args:
             host_map (MapInterface): The host map.
             selected (bool): Whether the item is selected.
-            item (toolbar.Toolbar.Item): The toolbar item.
+            item (toolbar.ToolbarItem): The toolbar item.
         """
         del host_map, item  # Unused.
         if selected:
             coreutils.open_url("https://geemap.org")
 
-    def _toolbar_main_tools(self) -> List[toolbar.Toolbar.Item]:
+    def _toolbar_main_tools(self) -> List[toolbar.ToolbarItem]:
         """Gets the main tools for the toolbar.
 
         Returns:
-            List[toolbar.Toolbar.Item]: The main tools for the toolbar.
+            List[toolbar.ToolbarItem]: The main tools for the toolbar.
         """
 
         @toolbar._cleanup_toolbar_item
         def inspector_tool_callback(
-            map: Map, selected: bool, item: toolbar.Toolbar.Item
+            map: Map, selected: bool, item: toolbar.ToolbarItem
         ):
             del selected, item  # Unused.
             map.add("inspector")
             return map._inspector
 
         @toolbar._cleanup_toolbar_item
-        def basemap_tool_callback(map: Map, selected: bool, item: toolbar.Toolbar.Item):
+        def basemap_tool_callback(map: Map, selected: bool, item: toolbar.ToolbarItem):
             del selected, item  # Unused.
             map.add("basemap_selector")
             return map._basemap_selector
 
         return [
-            toolbar.Toolbar.Item(
+            toolbar.ToolbarItem(
                 icon="map",
                 tooltip="Basemap selector",
                 callback=basemap_tool_callback,
-                reset=False,
             ),
-            toolbar.Toolbar.Item(
-                icon="info",
+            toolbar.ToolbarItem(
+                icon="point_scan",
                 tooltip="Inspector",
                 callback=inspector_tool_callback,
-                reset=False,
             ),
-            toolbar.Toolbar.Item(
-                icon="question", tooltip="Get help", callback=self._open_help_page
+            toolbar.ToolbarItem(
+                icon="question_mark",
+                tooltip="Get help",
+                callback=self._open_help_page,
+                reset=True,
             ),
         ]
 
-    def _toolbar_extra_tools(self) -> Optional[List[toolbar.Toolbar.Item]]:
+    def _toolbar_extra_tools(self) -> List[toolbar.ToolbarItem]:
         """Gets the extra tools for the toolbar.
 
         Returns:
-            Optional[List[toolbar.Toolbar.Item]]: The extra tools for the toolbar.
+            List[toolbar.ToolbarItem]: The extra tools for the toolbar.
         """
-        return None
+        return []
 
     def _control_config(self) -> Dict[str, List[str]]:
         """Gets the control configuration.
@@ -1329,9 +1398,14 @@ class Map(ipyleaflet.Map, MapInterface):
             Dict[str, List[str]]: The control configuration.
         """
         return {
-            "topleft": ["zoom_control", "fullscreen_control", "draw_control"],
+            "topleft": [
+                "search_control",
+                "zoom_control",
+                "fullscreen_control",
+                "draw_control",
+            ],
             "bottomleft": ["scale_control", "measure_control"],
-            "topright": ["toolbar"],
+            "topright": ["toolbar", "layer_manager"],
             "bottomright": ["attribution_control"],
         }
 
@@ -1366,8 +1440,11 @@ class Map(ipyleaflet.Map, MapInterface):
             max_zoom=basemap.get("max_zoom", 24),
             attribution=basemap.get("attribution", None),
         )
-        # substitute_layer is broken when the map has a single layer.
-        if len(self.layers) == 1:
+        if not self.layers:
+            self.add_layer(new_layer)
+        elif len(self.layers) == 1:
+            # TODO check if this quirk/bug is still present:
+            # substitute_layer is broken when the map has a single layer.
             self.clear_layers()
             self.add_layer(new_layer)
         else:

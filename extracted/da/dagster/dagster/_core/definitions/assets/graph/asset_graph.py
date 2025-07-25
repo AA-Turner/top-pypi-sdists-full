@@ -189,6 +189,7 @@ class AssetGraph(BaseAssetGraph[AssetNode]):
                 v.get_spec_for_check_key(k).blocking,
                 v.get_spec_for_check_key(k).description,
                 v.get_spec_for_check_key(k).automation_condition,
+                v.get_spec_for_check_key(k).metadata,
             )
             for k, v in assets_defs_by_check_key.items()
         }
@@ -243,7 +244,14 @@ class AssetGraph(BaseAssetGraph[AssetNode]):
         # definition was provided.
         all_referenced_asset_keys = {
             key for assets_def in assets_defs for key in assets_def.dependency_keys
-        }
+        }.union(
+            {
+                check_spec.key.asset_key
+                for assets_def in assets_defs
+                for check_spec in assets_def.node_check_specs_by_output_name.values()
+            }
+        )
+
         with disable_dagster_warnings():
             for key in all_referenced_asset_keys.difference(all_keys):
                 assets_defs.append(

@@ -250,7 +250,7 @@ SortOrderType = Literal["ASCENDING", "DESCENDING"]
 StepLifecycleStatusType = Literal[
     "CREATE_COMPLETE", "UPDATE_FAILED", "UPDATE_IN_PROGRESS", "UPDATE_SUCCEEDED"
 ]
-StepParameterTypeType = Literal["FLOAT", "INT", "PATH", "STRING"]
+StepParameterTypeType = Literal["CHUNK_INT", "FLOAT", "INT", "PATH", "STRING"]
 StepTargetTaskRunStatusType = Literal[
     "CANCELED", "FAILED", "PENDING", "READY", "SUCCEEDED", "SUSPENDED"
 ]
@@ -340,6 +340,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -572,6 +574,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -632,6 +635,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: django-viewflow
-Version: 2.2.11
+Version: 2.2.12
 Summary: Reusable library to build business applications fast
 Author: Mikhail Podgurskiy
 Author-email: kmmbvnr@gmail.com
@@ -26,6 +26,19 @@ Classifier: License :: OSI Approved :: GNU Affero General Public License v3 or l
 Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
+Requires-Dist: Django>=4.2
+Requires-Dist: django-filter>=2.3.0
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # Viewflow
 
@@ -216,7 +229,11 @@ modifications of Viewflow. You can find the commercial license terms in
 
 ## Changelog
 
-## 2.3.11 2025-05-14
+# 2.2.12 2025-07-25
+
+- Allow to extend and override process_data template
+
+## 2.2.11 2025-05-14
 
 - Return .Avaialble(..) for the start node
 

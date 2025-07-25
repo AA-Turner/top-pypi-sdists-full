@@ -140,7 +140,6 @@ if LOG:  # pragma: debugging
                 except Exception as exc:
                     log(f"!!{exc.__class__.__name__}: {exc}")
                     if 1:
-                        # pylint: disable=no-value-for-parameter
                         log("".join(traceback.format_exception(exc)))
                     try:
                         assert sys_monitoring is not None
@@ -319,10 +318,12 @@ class SysMonitor(Tracer):
             filename = code.co_filename
             disp = self.should_trace_cache.get(filename)
             if disp is None:
-                frame = inspect.currentframe().f_back  # type: ignore[union-attr]
-                if LOG:
-                    # @panopticon adds a frame.
-                    frame = frame.f_back  # type: ignore[union-attr]
+                frame = inspect.currentframe()
+                if frame is not None:
+                    frame = inspect.currentframe().f_back  # type: ignore[union-attr]
+                    if LOG:
+                        # @panopticon adds a frame.
+                        frame = frame.f_back  # type: ignore[union-attr]
                 disp = self.should_trace(filename, frame)  # type: ignore[arg-type]
                 self.should_trace_cache[filename] = disp
 

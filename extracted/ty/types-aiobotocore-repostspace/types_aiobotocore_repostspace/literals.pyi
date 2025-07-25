@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from types_aiobotocore_repostspace.literals import ConfigurationStatusType
+    from types_aiobotocore_repostspace.literals import ChannelCreatedWaiterName
 
-    data: ConfigurationStatusType = "CONFIGURED"
+    data: ChannelCreatedWaiterName = "channel_created"
     ```
 """
 
@@ -22,20 +22,41 @@ else:
     from typing_extensions import Literal
 
 __all__ = (
+    "ChannelCreatedWaiterName",
+    "ChannelDeletedWaiterName",
+    "ChannelRoleType",
+    "ChannelStatusType",
     "ConfigurationStatusType",
+    "FeatureEnableParameterType",
+    "FeatureEnableStatusType",
+    "ListChannelsPaginatorName",
     "ListSpacesPaginatorName",
     "PaginatorName",
     "RePostPrivateServiceName",
     "ResourceServiceName",
     "RoleType",
     "ServiceName",
+    "SpaceCreatedWaiterName",
+    "SpaceDeletedWaiterName",
     "TierLevelType",
     "VanityDomainStatusType",
+    "WaiterName",
 )
 
+ChannelCreatedWaiterName = Literal["channel_created"]
+ChannelDeletedWaiterName = Literal["channel_deleted"]
+ChannelRoleType = Literal["ASKER", "EXPERT", "MODERATOR", "SUPPORTREQUESTOR"]
+ChannelStatusType = Literal[
+    "CREATED", "CREATE_FAILED", "CREATING", "DELETED", "DELETE_FAILED", "DELETING"
+]
 ConfigurationStatusType = Literal["CONFIGURED", "UNCONFIGURED"]
+FeatureEnableParameterType = Literal["DISABLED", "ENABLED"]
+FeatureEnableStatusType = Literal["DISABLED", "ENABLED", "NOT_ALLOWED"]
+ListChannelsPaginatorName = Literal["list_channels"]
 ListSpacesPaginatorName = Literal["list_spaces"]
 RoleType = Literal["ADMINISTRATOR", "EXPERT", "MODERATOR", "SUPPORTREQUESTOR"]
+SpaceCreatedWaiterName = Literal["space_created"]
+SpaceDeletedWaiterName = Literal["space_deleted"]
 TierLevelType = Literal["BASIC", "STANDARD"]
 VanityDomainStatusType = Literal["APPROVED", "PENDING", "UNAPPROVED"]
 RePostPrivateServiceName = Literal["repostspace"]
@@ -82,6 +103,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -314,6 +337,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -374,6 +398,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
@@ -461,4 +486,5 @@ ResourceServiceName = Literal[
     "sns",
     "sqs",
 ]
-PaginatorName = Literal["list_spaces"]
+PaginatorName = Literal["list_channels", "list_spaces"]
+WaiterName = Literal["channel_created", "channel_deleted", "space_created", "space_deleted"]

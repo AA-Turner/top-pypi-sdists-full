@@ -22,7 +22,7 @@ permissions:
   issues: write
 
 env:
-  API_CODE_CACHE: 4
+  API_CODE_CACHE: 5
   DOCUMENTATION_CNAME: "fluent.docs.pyansys.com"
   PACKAGE_NAME: "ansys-fluent-core"
   PACKAGE_NAMESPACE: "ansys.fluent.core"
@@ -63,7 +63,7 @@ jobs:
       contents: write
       pull-requests: write
     steps:
-      - uses: ansys/actions/doc-deploy-changelog@v9.0
+      - uses: ansys/actions/doc-deploy-changelog@v10.0
         with:
           bot-user: ${{ secrets.PYANSYS_CI_BOT_USERNAME }}
           bot-email: ${{ secrets.PYANSYS_CI_BOT_EMAIL }}
@@ -74,7 +74,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Running Vale
-        uses: ansys/actions/doc-style@v9.0
+        uses: ansys/actions/doc-style@v10.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -83,13 +83,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: "Run PyAnsys code style checks"
-        uses: ansys/actions/code-style@v9.0
+        uses: ansys/actions/code-style@v10.0
 
   commit-style:
     name: "Run commit style checks"
     runs-on: ubuntu-latest
     steps:
-      - uses: ansys/actions/check-pr-title@v9.0
+      - uses: ansys/actions/check-pr-title@v10.0
         with:
           token: ${{ secrets.GITHUB_TOKEN }}
 
@@ -108,7 +108,7 @@ jobs:
             os: macos-latest
     steps:
       - name: Build wheelhouse and perform smoke test
-        uses: ansys/actions/build-wheelhouse@v9.0
+        uses: ansys/actions/build-wheelhouse@v10.0
         with:
           library-name: ${{ env.PACKAGE_NAME }}
           operating-system: ${{ matrix.os }}
@@ -429,13 +429,17 @@ jobs:
         if: steps.cache-api-code.outputs.cache-hit != 'true'
         run: make docker-pull
         env:
-          FLUENT_IMAGE_TAG: ${{ vars.FLUENT_STABLE_IMAGE_DEV }}
+          # FLUENT_IMAGE_TAG: ${{ vars.FLUENT_STABLE_IMAGE_DEV }}
+          # Temporary until the stable image tag is update for the new image path
+          FLUENT_IMAGE_TAG: v26.1.latest
 
       - name: Run 26.1 API codegen
         if: steps.cache-api-code.outputs.cache-hit != 'true'
         run: make api-codegen
         env:
-          FLUENT_IMAGE_TAG: ${{ vars.FLUENT_STABLE_IMAGE_DEV }}
+          # FLUENT_IMAGE_TAG: ${{ vars.FLUENT_STABLE_IMAGE_DEV }}
+          # Temporary until the stable image tag is update for the new image path
+          FLUENT_IMAGE_TAG: v26.1.latest
 
       - name: Print 26.1 Fluent version info
         run: |
@@ -486,11 +490,13 @@ jobs:
             version: 251
           - image-tag: v25.2.0
             version: 252
-          - image-tag: v26.1.0
+          - image-tag: v26.1.latest
             version: 261
     timeout-minutes: 60
     env:
-      FLUENT_IMAGE_TAG: ${{ matrix.version == 261 && vars.FLUENT_STABLE_IMAGE_DEV || matrix.image-tag }}
+      # FLUENT_IMAGE_TAG: ${{ matrix.version == 261 && vars.FLUENT_STABLE_IMAGE_DEV || matrix.image-tag }}
+      # Temporary until the stable image tag is update for the new image path
+      FLUENT_IMAGE_TAG: ${{ matrix.image-tag }}
 
     steps:
       - uses: actions/checkout@v4
@@ -631,7 +637,7 @@ jobs:
   release:
     name: Release
     if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/v')
-    needs: [test, update-changelog, nightly-dev-test]
+    needs: [test, update-changelog]
     runs-on: ubuntu-latest
     steps:
       - name: Set up Python

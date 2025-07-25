@@ -5,7 +5,7 @@ import contextlib
 import json
 import sys
 from datetime import datetime, timezone
-from typing import TYPE_CHECKING, Any, cast
+from typing import TYPE_CHECKING, Any, Callable, cast
 from unittest.mock import AsyncMock, Mock
 
 import pytest
@@ -19,8 +19,6 @@ from apify import Actor
 from apify._actor import _ActorType
 
 if TYPE_CHECKING:
-    from collections.abc import Callable
-
     from lazy_object_proxy import Proxy
 
 

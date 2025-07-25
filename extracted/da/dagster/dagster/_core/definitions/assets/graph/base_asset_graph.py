@@ -1,7 +1,6 @@
 from abc import ABC, abstractmethod
 from collections import defaultdict, deque
 from collections.abc import Iterable, Iterator, Mapping, Sequence
-from datetime import datetime
 from functools import cached_property
 from typing import (  # noqa: UP035
     TYPE_CHECKING,
@@ -34,7 +33,6 @@ from dagster._core.definitions.partitions.utils import (
     infer_partition_mapping,
 )
 from dagster._core.errors import DagsterInvalidDefinitionError, DagsterInvalidInvocationError
-from dagster._core.instance import DynamicPartitionsStore
 from dagster._core.selector.subset_selector import DependencyGraph, fetch_sources
 from dagster._core.utils import toposort
 from dagster._utils.cached_method import cached_method
@@ -215,12 +213,14 @@ class AssetCheckNode(BaseEntityNode[AssetCheckKey]):
         blocking: bool,
         description: Optional[str],
         automation_condition: Optional["AutomationCondition[AssetCheckKey]"],
+        metadata: ArbitraryMetadataMapping,
     ):
         self.key = key
         self.blocking = blocking
         self._automation_condition = automation_condition
         self._additional_deps = additional_deps
         self._description = description
+        self._metadata = metadata
 
     @property
     def parent_entity_keys(self) -> AbstractSet[AssetKey]:
@@ -246,6 +246,10 @@ class AssetCheckNode(BaseEntityNode[AssetCheckKey]):
     @property
     def description(self) -> Optional[str]:
         return self._description
+
+    @property
+    def metadata(self) -> ArbitraryMetadataMapping:
+        return self._metadata
 
 
 T_AssetNode = TypeVar("T_AssetNode", bound=BaseAssetNode)
@@ -447,14 +451,11 @@ class BaseAssetGraph(ABC, Generic[T_AssetNode]):
         return ancestors
 
     def get_partitions_in_range(
-        self,
-        asset_key: AssetKey,
-        partition_key_range: PartitionKeyRange,
-        dynamic_partitions_store: DynamicPartitionsStore,
+        self, asset_key: AssetKey, partition_key_range: PartitionKeyRange
     ) -> Sequence[AssetKeyPartitionKey]:
         partition_def = self.get(asset_key).partitions_def
         partition_keys_in_range = check.not_none(partition_def).get_partition_keys_in_range(
-            partition_key_range, dynamic_partitions_store
+            partition_key_range
         )
         return [
             AssetKeyPartitionKey(asset_key, partition_key)
@@ -462,11 +463,7 @@ class BaseAssetGraph(ABC, Generic[T_AssetNode]):
         ]
 
     def get_children_partitions(
-        self,
-        dynamic_partitions_store: DynamicPartitionsStore,
-        current_time: datetime,
-        asset_key: AssetKey,
-        partition_key: Optional[str] = None,
+        self, asset_key: AssetKey, partition_key: Optional[str] = None
     ) -> AbstractSet[AssetKeyPartitionKey]:
         """Returns every partition in every of the given asset's children that depends on the given
         partition of that asset.
@@ -475,11 +472,7 @@ class BaseAssetGraph(ABC, Generic[T_AssetNode]):
         for child in self.get_children(self.get(asset_key)):
             if child.is_partitioned:
                 for child_partition_key in self.get_child_partition_keys_of_parent(
-                    dynamic_partitions_store,
-                    partition_key,
-                    asset_key,
-                    child.key,
-                    current_time,
+                    partition_key, asset_key, child.key
                 ):
                     result.add(AssetKeyPartitionKey(child.key, child_partition_key))
             else:
@@ -488,11 +481,9 @@ class BaseAssetGraph(ABC, Generic[T_AssetNode]):
 
     def get_child_partition_keys_of_parent(
         self,
-        dynamic_partitions_store: DynamicPartitionsStore,
         parent_partition_key: Optional[str],
         parent_asset_key: AssetKey,
         child_asset_key: AssetKey,
-        current_time: datetime,
     ) -> Sequence[str]:
         """Converts a partition key from one asset to the corresponding partition keys in a downstream
         asset. Uses the existing partition mapping between the child asset and the parent asset.
@@ -516,10 +507,7 @@ class BaseAssetGraph(ABC, Generic[T_AssetNode]):
                 f"Asset key {child_asset_key} is not partitioned. Cannot get partition keys."
             )
         if parent_partition_key is None:
-            return child_partitions_def.get_partition_keys(
-                dynamic_partitions_store=dynamic_partitions_store,
-                current_time=current_time,
-            )
+            return child_partitions_def.get_partition_keys()
 
         if parent_partitions_def is None:
             raise DagsterInvalidInvocationError(
@@ -532,18 +520,12 @@ class BaseAssetGraph(ABC, Generic[T_AssetNode]):
             parent_partitions_def.empty_subset().with_partition_keys([parent_partition_key]),
             parent_partitions_def,
             downstream_partitions_def=child_partitions_def,
-            dynamic_partitions_store=dynamic_partitions_store,
-            current_time=current_time,
         )
 
         return list(child_partitions_subset.get_partition_keys())
 
     def get_parents_partitions(
-        self,
-        dynamic_partitions_store: DynamicPartitionsStore,
-        current_time: datetime,
-        asset_key: AssetKey,
-        partition_key: Optional[str] = None,
+        self, asset_key: AssetKey, partition_key: Optional[str] = None
     ) -> ParentsPartitionsResult:
         """Returns every partition in every of the given asset's parents that the given partition of
         that asset depends on.
@@ -553,11 +535,7 @@ class BaseAssetGraph(ABC, Generic[T_AssetNode]):
         for parent_asset_key in self.get(asset_key).parent_keys:
             if self.has(parent_asset_key) and self.get(parent_asset_key).is_partitioned:
                 mapped_partitions_result = self.get_parent_partition_keys_for_child(
-                    partition_key,
-                    parent_asset_key,
-                    asset_key,
-                    dynamic_partitions_store=dynamic_partitions_store,
-                    current_time=current_time,
+                    partition_key, parent_asset_key, asset_key
                 )
 
                 valid_parent_partitions.update(
@@ -584,8 +562,6 @@ class BaseAssetGraph(ABC, Generic[T_AssetNode]):
         partition_key: Optional[str],
         parent_asset_key: AssetKey,
         child_asset_key: AssetKey,
-        dynamic_partitions_store: DynamicPartitionsStore,
-        current_time: datetime,
     ) -> UpstreamPartitionsResult:
         """Converts a partition key from one asset to the corresponding partition keys in one of its
         parent assets. Uses the existing partition mapping between the child asset and the parent
@@ -624,8 +600,6 @@ class BaseAssetGraph(ABC, Generic[T_AssetNode]):
             ),
             downstream_partitions_def=child_partitions_def,
             upstream_partitions_def=parent_partitions_def,
-            dynamic_partitions_store=dynamic_partitions_store,
-            current_time=current_time,
         )
 
     def has_materializable_parents(self, asset_key: AssetKey) -> bool:
@@ -728,10 +702,8 @@ class BaseAssetGraph(ABC, Generic[T_AssetNode]):
 
     def bfs_filter_subsets(
         self,
-        dynamic_partitions_store: DynamicPartitionsStore,
         condition_fn: Callable[[AssetKey, Optional[PartitionsSubset]], bool],
         initial_subset: "AssetGraphSubset",
-        current_time: datetime,
     ) -> "AssetGraphSubset":
         """Returns asset partitions within the graph that satisfy supplied criteria.
 
@@ -779,10 +751,7 @@ class BaseAssetGraph(ABC, Generic[T_AssetNode]):
                     if child_partitions_def:
                         if partitions_subset is None:
                             child_partitions_subset = (
-                                child_partitions_def.subset_with_all_partitions(
-                                    current_time=current_time,
-                                    dynamic_partitions_store=dynamic_partitions_store,
-                                )
+                                child_partitions_def.subset_with_all_partitions()
                             )
                             queued_subsets_by_asset_key[child_key] = child_partitions_subset
                         else:
@@ -791,8 +760,6 @@ class BaseAssetGraph(ABC, Generic[T_AssetNode]):
                                     partitions_subset,
                                     check.not_none(self.get(asset_key).partitions_def),
                                     downstream_partitions_def=child_partitions_def,
-                                    dynamic_partitions_store=dynamic_partitions_store,
-                                    current_time=current_time,
                                 )
                             )
                             prior_child_partitions_subset = queued_subsets_by_asset_key.get(

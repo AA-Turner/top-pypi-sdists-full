@@ -1,7 +1,7 @@
 r'''
 # `snowflake_tag_association`
 
-Refer to the Terraform Registry for docs: [`snowflake_tag_association`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association).
+Refer to the Terraform Registry for docs: [`snowflake_tag_association`](https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class TagAssociation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-snowflake.tagAssociation.TagAssociation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association snowflake_tag_association}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association snowflake_tag_association}.'''
 
     def __init__(
         self,
@@ -66,17 +66,17 @@ class TagAssociation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association snowflake_tag_association} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association snowflake_tag_association} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param object_identifiers: Specifies the object identifiers for the tag association. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#object_identifiers TagAssociation#object_identifiers}
-        :param object_type: Specifies the type of object to add a tag. Allowed object types: ``ACCOUNT`` | ``APPLICATION`` | ``APPLICATION PACKAGE`` | ``COMPUTE POOL`` | ``DATABASE`` | ``FAILOVER GROUP`` | ``INTEGRATION`` | ``NETWORK POLICY`` | ``REPLICATION GROUP`` | ``ROLE`` | ``SHARE`` | ``USER`` | ``WAREHOUSE`` | ``DATABASE ROLE`` | ``SCHEMA`` | ``ALERT`` | ``SNOWFLAKE.CORE.BUDGET`` | ``SNOWFLAKE.ML.CLASSIFICATION`` | ``EXTERNAL FUNCTION`` | ``EXTERNAL TABLE`` | ``FUNCTION`` | ``IMAGE REPOSITORY`` | ``GIT REPOSITORY`` | ``ICEBERG TABLE`` | ``MATERIALIZED VIEW`` | ``PIPE`` | ``MASKING POLICY`` | ``PASSWORD POLICY`` | ``ROW ACCESS POLICY`` | ``SESSION POLICY`` | ``PRIVACY POLICY`` | ``PROCEDURE`` | ``SERVICE`` | ``STAGE`` | ``STREAM`` | ``TABLE`` | ``TASK`` | ``VIEW`` | ``COLUMN`` | ``EVENT TABLE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#object_type TagAssociation#object_type}
-        :param tag_id: Specifies the identifier for the tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#tag_id TagAssociation#tag_id}
-        :param tag_value: Specifies the value of the tag, (e.g. 'finance' or 'engineering'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#tag_value TagAssociation#tag_value}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#id TagAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param skip_validation: (Default: ``true``) If true, skips validation of the tag association. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#skip_validation TagAssociation#skip_validation}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#timeouts TagAssociation#timeouts}
+        :param object_identifiers: Specifies the object identifiers for the tag association. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#object_identifiers TagAssociation#object_identifiers}
+        :param object_type: Specifies the type of object to add a tag. Allowed object types: ``ACCOUNT`` | ``APPLICATION`` | ``APPLICATION PACKAGE`` | ``COMPUTE POOL`` | ``DATABASE`` | ``FAILOVER GROUP`` | ``INTEGRATION`` | ``NETWORK POLICY`` | ``REPLICATION GROUP`` | ``ROLE`` | ``SHARE`` | ``USER`` | ``WAREHOUSE`` | ``DATABASE ROLE`` | ``SCHEMA`` | ``ALERT`` | ``SNOWFLAKE.CORE.BUDGET`` | ``SNOWFLAKE.ML.CLASSIFICATION`` | ``EXTERNAL FUNCTION`` | ``EXTERNAL TABLE`` | ``FUNCTION`` | ``IMAGE REPOSITORY`` | ``GIT REPOSITORY`` | ``ICEBERG TABLE`` | ``MATERIALIZED VIEW`` | ``PIPE`` | ``MASKING POLICY`` | ``PASSWORD POLICY`` | ``ROW ACCESS POLICY`` | ``SESSION POLICY`` | ``PRIVACY POLICY`` | ``PROCEDURE`` | ``SERVICE`` | ``STAGE`` | ``STREAM`` | ``TABLE`` | ``TASK`` | ``VIEW`` | ``COLUMN`` | ``EVENT TABLE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#object_type TagAssociation#object_type}
+        :param tag_id: Specifies the identifier for the tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#tag_id TagAssociation#tag_id}
+        :param tag_value: Specifies the value of the tag, (e.g. 'finance' or 'engineering'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#tag_value TagAssociation#tag_value}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#id TagAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param skip_validation: (Default: ``true``) If true, skips validation of the tag association. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#skip_validation TagAssociation#skip_validation}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#timeouts TagAssociation#timeouts}
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -121,7 +121,7 @@ class TagAssociation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the TagAssociation to import.
-        :param import_from_id: The id of the existing TagAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing TagAssociation that should be imported. Refer to the {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the TagAssociation to import is found.
         '''
         if __debug__:
@@ -142,10 +142,10 @@ class TagAssociation(
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#create TagAssociation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#delete TagAssociation#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#read TagAssociation#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#update TagAssociation#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#create TagAssociation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#delete TagAssociation#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#read TagAssociation#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#update TagAssociation#update}.
         '''
         value = TagAssociationTimeouts(
             create=create, delete=delete, read=read, update=update
@@ -347,13 +347,13 @@ class TagAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param object_identifiers: Specifies the object identifiers for the tag association. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#object_identifiers TagAssociation#object_identifiers}
-        :param object_type: Specifies the type of object to add a tag. Allowed object types: ``ACCOUNT`` | ``APPLICATION`` | ``APPLICATION PACKAGE`` | ``COMPUTE POOL`` | ``DATABASE`` | ``FAILOVER GROUP`` | ``INTEGRATION`` | ``NETWORK POLICY`` | ``REPLICATION GROUP`` | ``ROLE`` | ``SHARE`` | ``USER`` | ``WAREHOUSE`` | ``DATABASE ROLE`` | ``SCHEMA`` | ``ALERT`` | ``SNOWFLAKE.CORE.BUDGET`` | ``SNOWFLAKE.ML.CLASSIFICATION`` | ``EXTERNAL FUNCTION`` | ``EXTERNAL TABLE`` | ``FUNCTION`` | ``IMAGE REPOSITORY`` | ``GIT REPOSITORY`` | ``ICEBERG TABLE`` | ``MATERIALIZED VIEW`` | ``PIPE`` | ``MASKING POLICY`` | ``PASSWORD POLICY`` | ``ROW ACCESS POLICY`` | ``SESSION POLICY`` | ``PRIVACY POLICY`` | ``PROCEDURE`` | ``SERVICE`` | ``STAGE`` | ``STREAM`` | ``TABLE`` | ``TASK`` | ``VIEW`` | ``COLUMN`` | ``EVENT TABLE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#object_type TagAssociation#object_type}
-        :param tag_id: Specifies the identifier for the tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#tag_id TagAssociation#tag_id}
-        :param tag_value: Specifies the value of the tag, (e.g. 'finance' or 'engineering'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#tag_value TagAssociation#tag_value}
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#id TagAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param skip_validation: (Default: ``true``) If true, skips validation of the tag association. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#skip_validation TagAssociation#skip_validation}
-        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#timeouts TagAssociation#timeouts}
+        :param object_identifiers: Specifies the object identifiers for the tag association. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#object_identifiers TagAssociation#object_identifiers}
+        :param object_type: Specifies the type of object to add a tag. Allowed object types: ``ACCOUNT`` | ``APPLICATION`` | ``APPLICATION PACKAGE`` | ``COMPUTE POOL`` | ``DATABASE`` | ``FAILOVER GROUP`` | ``INTEGRATION`` | ``NETWORK POLICY`` | ``REPLICATION GROUP`` | ``ROLE`` | ``SHARE`` | ``USER`` | ``WAREHOUSE`` | ``DATABASE ROLE`` | ``SCHEMA`` | ``ALERT`` | ``SNOWFLAKE.CORE.BUDGET`` | ``SNOWFLAKE.ML.CLASSIFICATION`` | ``EXTERNAL FUNCTION`` | ``EXTERNAL TABLE`` | ``FUNCTION`` | ``IMAGE REPOSITORY`` | ``GIT REPOSITORY`` | ``ICEBERG TABLE`` | ``MATERIALIZED VIEW`` | ``PIPE`` | ``MASKING POLICY`` | ``PASSWORD POLICY`` | ``ROW ACCESS POLICY`` | ``SESSION POLICY`` | ``PRIVACY POLICY`` | ``PROCEDURE`` | ``SERVICE`` | ``STAGE`` | ``STREAM`` | ``TABLE`` | ``TASK`` | ``VIEW`` | ``COLUMN`` | ``EVENT TABLE``. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#object_type TagAssociation#object_type}
+        :param tag_id: Specifies the identifier for the tag. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#tag_id TagAssociation#tag_id}
+        :param tag_value: Specifies the value of the tag, (e.g. 'finance' or 'engineering'). Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#tag_value TagAssociation#tag_value}
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#id TagAssociation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param skip_validation: (Default: ``true``) If true, skips validation of the tag association. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#skip_validation TagAssociation#skip_validation}
+        :param timeouts: timeouts block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#timeouts TagAssociation#timeouts}
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -470,7 +470,7 @@ class TagAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def object_identifiers(self) -> typing.List[builtins.str]:
         '''Specifies the object identifiers for the tag association.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#object_identifiers TagAssociation#object_identifiers}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#object_identifiers TagAssociation#object_identifiers}
         '''
         result = self._values.get("object_identifiers")
         assert result is not None, "Required property 'object_identifiers' is missing"
@@ -482,7 +482,7 @@ class TagAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
         Allowed object types: ``ACCOUNT`` | ``APPLICATION`` | ``APPLICATION PACKAGE`` | ``COMPUTE POOL`` | ``DATABASE`` | ``FAILOVER GROUP`` | ``INTEGRATION`` | ``NETWORK POLICY`` | ``REPLICATION GROUP`` | ``ROLE`` | ``SHARE`` | ``USER`` | ``WAREHOUSE`` | ``DATABASE ROLE`` | ``SCHEMA`` | ``ALERT`` | ``SNOWFLAKE.CORE.BUDGET`` | ``SNOWFLAKE.ML.CLASSIFICATION`` | ``EXTERNAL FUNCTION`` | ``EXTERNAL TABLE`` | ``FUNCTION`` | ``IMAGE REPOSITORY`` | ``GIT REPOSITORY`` | ``ICEBERG TABLE`` | ``MATERIALIZED VIEW`` | ``PIPE`` | ``MASKING POLICY`` | ``PASSWORD POLICY`` | ``ROW ACCESS POLICY`` | ``SESSION POLICY`` | ``PRIVACY POLICY`` | ``PROCEDURE`` | ``SERVICE`` | ``STAGE`` | ``STREAM`` | ``TABLE`` | ``TASK`` | ``VIEW`` | ``COLUMN`` | ``EVENT TABLE``.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#object_type TagAssociation#object_type}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#object_type TagAssociation#object_type}
         '''
         result = self._values.get("object_type")
         assert result is not None, "Required property 'object_type' is missing"
@@ -492,7 +492,7 @@ class TagAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tag_id(self) -> builtins.str:
         '''Specifies the identifier for the tag.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#tag_id TagAssociation#tag_id}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#tag_id TagAssociation#tag_id}
         '''
         result = self._values.get("tag_id")
         assert result is not None, "Required property 'tag_id' is missing"
@@ -502,7 +502,7 @@ class TagAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def tag_value(self) -> builtins.str:
         '''Specifies the value of the tag, (e.g. 'finance' or 'engineering').
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#tag_value TagAssociation#tag_value}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#tag_value TagAssociation#tag_value}
         '''
         result = self._values.get("tag_value")
         assert result is not None, "Required property 'tag_value' is missing"
@@ -510,7 +510,7 @@ class TagAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#id TagAssociation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#id TagAssociation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -524,7 +524,7 @@ class TagAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]]:
         '''(Default: ``true``) If true, skips validation of the tag association.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#skip_validation TagAssociation#skip_validation}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#skip_validation TagAssociation#skip_validation}
         '''
         result = self._values.get("skip_validation")
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _cdktf_9a9027ec.IResolvable]], result)
@@ -533,7 +533,7 @@ class TagAssociationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def timeouts(self) -> typing.Optional["TagAssociationTimeouts"]:
         '''timeouts block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#timeouts TagAssociation#timeouts}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#timeouts TagAssociation#timeouts}
         '''
         result = self._values.get("timeouts")
         return typing.cast(typing.Optional["TagAssociationTimeouts"], result)
@@ -570,10 +570,10 @@ class TagAssociationTimeouts:
         update: typing.Optional[builtins.str] = None,
     ) -> None:
         '''
-        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#create TagAssociation#create}.
-        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#delete TagAssociation#delete}.
-        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#read TagAssociation#read}.
-        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#update TagAssociation#update}.
+        :param create: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#create TagAssociation#create}.
+        :param delete: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#delete TagAssociation#delete}.
+        :param read: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#read TagAssociation#read}.
+        :param update: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#update TagAssociation#update}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__07f24d2b9367b13b47e3603e327784aa0932f4471f3880cca17ded55748e9c8e)
@@ -593,25 +593,25 @@ class TagAssociationTimeouts:
 
     @builtins.property
     def create(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#create TagAssociation#create}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#create TagAssociation#create}.'''
         result = self._values.get("create")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def delete(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#delete TagAssociation#delete}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#delete TagAssociation#delete}.'''
         result = self._values.get("delete")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def read(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#read TagAssociation#read}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#read TagAssociation#read}.'''
         result = self._values.get("read")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def update(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.3.0/docs/resources/tag_association#update TagAssociation#update}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/snowflakedb/snowflake/2.4.0/docs/resources/tag_association#update TagAssociation#update}.'''
         result = self._values.get("update")
         return typing.cast(typing.Optional[builtins.str], result)
 

@@ -68,6 +68,8 @@ __all__ = (
     "CancelBatchErrorCodeType",
     "CancelSpotInstanceRequestStateType",
     "CapacityBlockExtensionStatusType",
+    "CapacityBlockInterconnectStatusType",
+    "CapacityBlockResourceStateType",
     "CapacityReservationBillingRequestStatusType",
     "CapacityReservationDeliveryPreferenceType",
     "CapacityReservationFleetStateType",
@@ -111,6 +113,8 @@ __all__ = (
     "DescribeCapacityBlockExtensionHistoryPaginatorName",
     "DescribeCapacityBlockExtensionOfferingsPaginatorName",
     "DescribeCapacityBlockOfferingsPaginatorName",
+    "DescribeCapacityBlockStatusPaginatorName",
+    "DescribeCapacityBlocksPaginatorName",
     "DescribeCapacityReservationBillingRequestsPaginatorName",
     "DescribeCapacityReservationFleetsPaginatorName",
     "DescribeCapacityReservationsPaginatorName",
@@ -316,6 +320,7 @@ __all__ = (
     "ImageStateType",
     "ImageTypeValuesType",
     "ImdsSupportValuesType",
+    "InitializationTypeType",
     "InstanceAttributeNameType",
     "InstanceAutoRecoveryStateType",
     "InstanceBandwidthWeightingType",
@@ -486,6 +491,8 @@ __all__ = (
     "SearchTransitGatewayMulticastGroupsPaginatorName",
     "SecurityGroupExistsWaiterName",
     "SecurityGroupReferencingSupportValueType",
+    "SecurityGroupVpcAssociationAssociatedWaiterName",
+    "SecurityGroupVpcAssociationDisassociatedWaiterName",
     "SecurityGroupVpcAssociationStateType",
     "SelfServicePortalType",
     "ServiceConnectivityTypeType",
@@ -718,6 +725,17 @@ CancelBatchErrorCodeType = Literal[
 ]
 CancelSpotInstanceRequestStateType = Literal["active", "cancelled", "closed", "completed", "open"]
 CapacityBlockExtensionStatusType = Literal["payment-failed", "payment-pending", "payment-succeeded"]
+CapacityBlockInterconnectStatusType = Literal["impaired", "insufficient-data", "ok"]
+CapacityBlockResourceStateType = Literal[
+    "active",
+    "cancelled",
+    "expired",
+    "failed",
+    "payment-failed",
+    "payment-pending",
+    "scheduled",
+    "unavailable",
+]
 CapacityReservationBillingRequestStatusType = Literal[
     "accepted", "cancelled", "expired", "pending", "rejected", "revoked"
 ]
@@ -765,6 +783,7 @@ CapacityReservationStateType = Literal[
     "payment-pending",
     "pending",
     "scheduled",
+    "unavailable",
     "unsupported",
 ]
 CapacityReservationTenancyType = Literal["dedicated", "default"]
@@ -818,6 +837,8 @@ DescribeCapacityBlockExtensionOfferingsPaginatorName = Literal[
     "describe_capacity_block_extension_offerings"
 ]
 DescribeCapacityBlockOfferingsPaginatorName = Literal["describe_capacity_block_offerings"]
+DescribeCapacityBlockStatusPaginatorName = Literal["describe_capacity_block_status"]
+DescribeCapacityBlocksPaginatorName = Literal["describe_capacity_blocks"]
 DescribeCapacityReservationBillingRequestsPaginatorName = Literal[
     "describe_capacity_reservation_billing_requests"
 ]
@@ -1129,6 +1150,7 @@ ImageStateType = Literal[
 ]
 ImageTypeValuesType = Literal["kernel", "machine", "ramdisk"]
 ImdsSupportValuesType = Literal["v2.0"]
+InitializationTypeType = Literal["default", "provisioned-rate"]
 InstanceAttributeNameType = Literal[
     "blockDeviceMapping",
     "disableApiStop",
@@ -2413,6 +2435,7 @@ ReservedInstanceStateType = Literal[
 ResetFpgaImageAttributeNameType = Literal["loadPermission"]
 ResetImageAttributeNameType = Literal["launchPermission"]
 ResourceTypeType = Literal[
+    "capacity-block",
     "capacity-reservation",
     "capacity-reservation-fleet",
     "carrier-gateway",
@@ -2542,6 +2565,12 @@ SearchTransitGatewayMulticastGroupsPaginatorName = Literal[
 ]
 SecurityGroupExistsWaiterName = Literal["security_group_exists"]
 SecurityGroupReferencingSupportValueType = Literal["disable", "enable"]
+SecurityGroupVpcAssociationAssociatedWaiterName = Literal[
+    "security_group_vpc_association_associated"
+]
+SecurityGroupVpcAssociationDisassociatedWaiterName = Literal[
+    "security_group_vpc_association_disassociated"
+]
 SecurityGroupVpcAssociationStateType = Literal[
     "associated",
     "associating",
@@ -2712,7 +2741,7 @@ VolumeInUseWaiterName = Literal["volume_in_use"]
 VolumeModificationStateType = Literal["completed", "failed", "modifying", "optimizing"]
 VolumeStateType = Literal["available", "creating", "deleted", "deleting", "error", "in-use"]
 VolumeStatusInfoStatusType = Literal["impaired", "insufficient-data", "ok"]
-VolumeStatusNameType = Literal["io-enabled", "io-performance"]
+VolumeStatusNameType = Literal["initialization-state", "io-enabled", "io-performance"]
 VolumeTypeType = Literal["gp2", "gp3", "io1", "io2", "sc1", "st1", "standard"]
 VpcAttributeNameType = Literal[
     "enableDnsHostnames", "enableDnsSupport", "enableNetworkAddressUsageMetrics"
@@ -2819,6 +2848,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -3051,6 +3082,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -3111,6 +3143,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
@@ -3206,6 +3239,8 @@ PaginatorName = Literal[
     "describe_capacity_block_extension_history",
     "describe_capacity_block_extension_offerings",
     "describe_capacity_block_offerings",
+    "describe_capacity_block_status",
+    "describe_capacity_blocks",
     "describe_capacity_reservation_billing_requests",
     "describe_capacity_reservation_fleets",
     "describe_capacity_reservations",
@@ -3373,6 +3408,8 @@ WaiterName = Literal[
     "network_interface_available",
     "password_data_available",
     "security_group_exists",
+    "security_group_vpc_association_associated",
+    "security_group_vpc_association_disassociated",
     "snapshot_completed",
     "snapshot_imported",
     "spot_instance_request_fulfilled",

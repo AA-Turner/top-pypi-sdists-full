@@ -33,8 +33,8 @@ setup(
     ],
     packages=find_packages(exclude=["dagster_fivetran_tests*"]),
     include_package_data=True,
-    python_requires=">=3.9,<=3.13.3",
-    install_requires=["dagster==1.11.2"],
+    python_requires=">=3.9,<3.14",
+    install_requires=["dagster==1.11.3"],
     zip_safe=False,
     entry_points={
         "console_scripts": [
@@ -46,7 +46,7 @@ setup(
     },
     extras_require={
         "managed": [
-            "dagster-managed-elements==0.27.2",
+            "dagster-managed-elements==0.27.3",
         ],
         "test": [
             "pytest-order",

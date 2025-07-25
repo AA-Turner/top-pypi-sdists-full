@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dagster-spark
-Version: 0.27.2
+Version: 0.27.3
 Summary: Package for Spark Dagster framework components.
 Home-page: https://github.com/dagster-io/dagster/tree/master/python_modules/libraries/dagster-spark
 Author: Dagster Labs
@@ -13,9 +13,9 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: License :: OSI Approved :: Apache Software License
 Classifier: Operating System :: OS Independent
-Requires-Python: >=3.9,<=3.13.3
+Requires-Python: >=3.9,<3.14
 License-File: LICENSE
-Requires-Dist: dagster==1.11.2
+Requires-Dist: dagster==1.11.3
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier

@@ -97,12 +97,12 @@ class CfnInvestigationGroup(
 
     Currently, you can have one investigation group in each Region in your account. Each investigation in a Region is a part of the investigation group in that Region
 
-    To create an investigation group and set up Amazon Q Developer operational investigations, you must be signed in to an IAM principal that has the either the ``AIOpsConsoleAdminPolicy`` or the ``AdministratorAccess`` IAM policy attached, or to an account that has similar permissions.
+    To create an investigation group and set up CloudWatch investigations, you must be signed in to an IAM principal that has the either the ``AIOpsConsoleAdminPolicy`` or the ``AdministratorAccess`` IAM policy attached, or to an account that has similar permissions.
     .. epigraph::
 
-       You can optionally configure CloudWatch alarms to start investigations and add events to investigations. The examples section on this page demonstrates creating an investigation group and an alarm at the same time.
+       You can configure CloudWatch alarms to start investigations and add events to investigations. If you create your investigation group with ``CreateInvestigationGroup`` and you want to enable alarms to do this, you must use ``PutInvestigationGroupPolicy`` to create a resource policy that grants this permission to CloudWatch alarms.
 
-       For more information about configuring CloudWatch alarms to work with Amazon Q Developer operational investigations, see
+       For more information about configuring CloudWatch alarms to work with CloudWatch investigations, see
 
     :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html
     :cloudformationResource: AWS::AIOps::InvestigationGroup
@@ -160,16 +160,16 @@ class CfnInvestigationGroup(
         '''
         :param scope: Scope in which this resource is defined.
         :param id: Construct identifier for this resource (unique in its scope).
-        :param name: A name for the investigation group.
-        :param chatbot_notification_channels: Use this property to integrate Amazon Q Developer operational investigations with Amazon Q in chat applications. This property is an array. For the first string, specify the ARN of an Amazon SNS topic. For the array of strings, specify the ARNs of one or more Amazon Q in chat applications configurations that you want to associate with that topic. For more information about these configuration ARNs, see `Getting started with Amazon Q in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/getting-started.html>`_ and `Resource type defined by AWS Chatbot <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awschatbot.html#awschatbot-resources-for-iam-policies>`_ .
-        :param cross_account_configurations: An array of cross account configurations.
-        :param encryption_config: Use this property to specify a customer managed AWS KMS key to encrypt your investigation data. If you omit this property, Amazon Q Developer operational investigations will use an AWS key to encrypt the data. For more information, see `Encryption of investigation data <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Investigations-Security.html#Investigations-KMS>`_ .
-        :param investigation_group_policy: Investigation Group policy.
-        :param is_cloud_trail_event_history_enabled: Specify ``true`` to enable Amazon Q Developer operational investigations to have access to change events that are recorded by CloudTrail . The default is ``true`` .
-        :param retention_in_days: Specify how long that investigation data is kept. For more information, see `Operational investigation data retention <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Investigations-Retention.html>`_ . If you omit this parameter, the default of 90 days is used.
-        :param role_arn: Specify the ARN of the IAM role that Amazon Q Developer operational investigations will use when it gathers investigation data. The permissions in this role determine which of your resources that Amazon Q Developer operational investigations will have access to during investigations. For more information, see `How to control what data Amazon Q has access to during investigations <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Investigations-Security.html#Investigations-Security-Data>`_ .
-        :param tag_key_boundaries: Enter the existing custom tag keys for custom applications in your system. Resource tags help Amazon Q narrow the search space when it is unable to discover definite relationships between resources. For example, to discover that an Amazon ECS service depends on an Amazon RDS database, Amazon Q can discover this relationship using data sources such as X-Ray and CloudWatch Application Signals. However, if you haven't deployed these features, Amazon Q will attempt to identify possible relationships. Tag boundaries can be used to narrow the resources that will be discovered by Amazon Q in these cases. You don't need to enter tags created by myApplications or AWS CloudFormation , because Amazon Q can automatically detect those tags.
-        :param tags: A list of key-value pairs to associate with the investigation group. You can associate as many as 50 tags with an investigation group. Tags can help you organize and categorize your resources.
+        :param name: Specify either the name or the ARN of the investigation group that you want to view.
+        :param chatbot_notification_channels: Use this property to integrate CloudWatch investigations with chat applications. This property is an array. For the first string, specify the ARN of an Amazon SNS topic. For the array of strings, specify the ARNs of one or more chat applications configurations that you want to associate with that topic. For more information about these configuration ARNs, see `Getting started with Amazon Q in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/getting-started.html>`_ and `Resource type defined by AWS Chatbot <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awschatbot.html#awschatbot-resources-for-iam-policies>`_ .
+        :param cross_account_configurations: Number of ``sourceAccountId`` values that have been configured for cross-account access.
+        :param encryption_config: Specifies the customer managed AWS KMS key that the investigation group uses to encrypt data, if there is one. If not, the investigation group uses an AWS key to encrypt the data.
+        :param investigation_group_policy: Returns the IAM resource policy that is associated with the specified investigation group.
+        :param is_cloud_trail_event_history_enabled: Specify ``true`` to enable CloudWatch investigations to have access to change events that are recorded by CloudTrail. The default is ``true`` .
+        :param retention_in_days: Specifies how long that investigation data is kept.
+        :param role_arn: The ARN of the IAM role that the investigation group uses for permissions to gather data.
+        :param tag_key_boundaries: Displays the custom tag keys for custom applications in your system that you have specified in the investigation group. Resource tags help CloudWatch investigations narrow the search space when it is unable to discover definite relationships between resources.
+        :param tags: The list of key-value pairs to associate with the resource.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f390e65acdf4efe0289b1b8e5f17c031f7a88a13963effed34b7d4944b31dd7e)
@@ -225,8 +225,6 @@ class CfnInvestigationGroup(
     def attr_arn(self) -> builtins.str:
         '''The Amazon Resource Name (ARN) of the investigation group.
 
-        For example, ``arn:aws:aiops: *Region* : *account-id* :investigation-group: *investigation-group-id*``
-
         :cloudformationAttribute: Arn
         '''
         return typing.cast(builtins.str, jsii.get(self, "attrArn"))
@@ -261,7 +259,7 @@ class CfnInvestigationGroup(
     @builtins.property
     @jsii.member(jsii_name="attrLastModifiedBy")
     def attr_last_modified_by(self) -> builtins.str:
-        '''The name of the user who most recently modified the investigation group.
+        '''The name of the user who created the investigation group.
 
         :cloudformationAttribute: LastModifiedBy
         '''
@@ -281,7 +279,7 @@ class CfnInvestigationGroup(
     @builtins.property
     @jsii.member(jsii_name="name")
     def name(self) -> builtins.str:
-        '''A name for the investigation group.'''
+        '''Specify either the name or the ARN of the investigation group that you want to view.'''
         return typing.cast(builtins.str, jsii.get(self, "name"))
 
     @name.setter
@@ -296,7 +294,7 @@ class CfnInvestigationGroup(
     def chatbot_notification_channels(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInvestigationGroup.ChatbotNotificationChannelProperty"]]]]:
-        '''Use this property to integrate Amazon Q Developer operational investigations with Amazon Q in chat applications.'''
+        '''Use this property to integrate CloudWatch investigations with chat applications.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInvestigationGroup.ChatbotNotificationChannelProperty"]]]], jsii.get(self, "chatbotNotificationChannels"))
 
     @chatbot_notification_channels.setter
@@ -314,7 +312,7 @@ class CfnInvestigationGroup(
     def cross_account_configurations(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInvestigationGroup.CrossAccountConfigurationProperty"]]]]:
-        '''An array of cross account configurations.'''
+        '''Number of ``sourceAccountId`` values that have been configured for cross-account access.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, "CfnInvestigationGroup.CrossAccountConfigurationProperty"]]]], jsii.get(self, "crossAccountConfigurations"))
 
     @cross_account_configurations.setter
@@ -332,7 +330,7 @@ class CfnInvestigationGroup(
     def encryption_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInvestigationGroup.EncryptionConfigMapProperty"]]:
-        '''Use this property to specify a customer managed AWS KMS key to encrypt your investigation data.'''
+        '''Specifies the customer managed AWS KMS key that the investigation group uses to encrypt data, if there is one.'''
         return typing.cast(typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnInvestigationGroup.EncryptionConfigMapProperty"]], jsii.get(self, "encryptionConfig"))
 
     @encryption_config.setter
@@ -348,7 +346,7 @@ class CfnInvestigationGroup(
     @builtins.property
     @jsii.member(jsii_name="investigationGroupPolicy")
     def investigation_group_policy(self) -> typing.Optional[builtins.str]:
-        '''Investigation Group policy.'''
+        '''Returns the IAM resource policy that is associated with the specified investigation group.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "investigationGroupPolicy"))
 
     @investigation_group_policy.setter
@@ -363,7 +361,7 @@ class CfnInvestigationGroup(
     def is_cloud_trail_event_history_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specify ``true`` to enable Amazon Q Developer operational investigations to have access to change events that are recorded by CloudTrail .'''
+        '''Specify ``true`` to enable CloudWatch investigations to have access to change events that are recorded by CloudTrail.'''
         return typing.cast(typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]], jsii.get(self, "isCloudTrailEventHistoryEnabled"))
 
     @is_cloud_trail_event_history_enabled.setter
@@ -379,10 +377,7 @@ class CfnInvestigationGroup(
     @builtins.property
     @jsii.member(jsii_name="retentionInDays")
     def retention_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Specify how long that investigation data is kept.
-
-        For more information, see `Operational investigation data retention <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Investigations-Retention.html>`_ .
-        '''
+        '''Specifies how long that investigation data is kept.'''
         return typing.cast(typing.Optional[jsii.Number], jsii.get(self, "retentionInDays"))
 
     @retention_in_days.setter
@@ -395,7 +390,7 @@ class CfnInvestigationGroup(
     @builtins.property
     @jsii.member(jsii_name="roleArn")
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Specify the ARN of the IAM role that Amazon Q Developer operational investigations will use when it gathers investigation data.'''
+        '''The ARN of the IAM role that the investigation group uses for permissions to gather data.'''
         return typing.cast(typing.Optional[builtins.str], jsii.get(self, "roleArn"))
 
     @role_arn.setter
@@ -408,7 +403,7 @@ class CfnInvestigationGroup(
     @builtins.property
     @jsii.member(jsii_name="tagKeyBoundaries")
     def tag_key_boundaries(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Enter the existing custom tag keys for custom applications in your system.'''
+        '''Displays the custom tag keys for custom applications in your system that you have specified in the investigation group.'''
         return typing.cast(typing.Optional[typing.List[builtins.str]], jsii.get(self, "tagKeyBoundaries"))
 
     @tag_key_boundaries.setter
@@ -424,7 +419,7 @@ class CfnInvestigationGroup(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs to associate with the investigation group.'''
+        '''The list of key-value pairs to associate with the resource.'''
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -449,12 +444,12 @@ class CfnInvestigationGroup(
             chat_configuration_arns: typing.Optional[typing.Sequence[builtins.str]] = None,
             sns_topic_arn: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''This structure is a string array.
+            '''Use this structure to integrate CloudWatch investigations with chat applications.
 
-            The first string is the ARN of a Amazon SNS topic. The array of strings display the ARNs of Amazon Q in chat applications configurations that are associated with that topic. For more information about these configuration ARNs, see `Getting started with Amazon Q in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/getting-started.html>`_ and `Resource type defined by AWS Chatbot <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awschatbot.html#awschatbot-resources-for-iam-policies>`_ .
+            This structure is a string array. For the first string, specify the ARN of an Amazon SNS topic. For the array of strings, specify the ARNs of one or more chat applications configurations that you want to associate with that topic. For more information about these configuration ARNs, see `Getting started with Amazon Q in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/getting-started.html>`_ and `Resource type defined by AWS Chatbot <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awschatbot.html#awschatbot-resources-for-iam-policies>`_ .
 
-            :param chat_configuration_arns: 
-            :param sns_topic_arn: 
+            :param chat_configuration_arns: Returns the Amazon Resource Name (ARN) of any third-party chat integrations configured for the account.
+            :param sns_topic_arn: Returns the ARN of an Amazon SNS topic used for third-party chat integrations.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aiops-investigationgroup-chatbotnotificationchannel.html
             :exampleMetadata: fixture=_generated
@@ -482,7 +477,8 @@ class CfnInvestigationGroup(
 
         @builtins.property
         def chat_configuration_arns(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
+            '''Returns the Amazon Resource Name (ARN) of any third-party chat integrations configured for the account.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aiops-investigationgroup-chatbotnotificationchannel.html#cfn-aiops-investigationgroup-chatbotnotificationchannel-chatconfigurationarns
             '''
             result = self._values.get("chat_configuration_arns")
@@ -490,7 +486,8 @@ class CfnInvestigationGroup(
 
         @builtins.property
         def sns_topic_arn(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Returns the ARN of an Amazon SNS topic used for third-party chat integrations.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aiops-investigationgroup-chatbotnotificationchannel.html#cfn-aiops-investigationgroup-chatbotnotificationchannel-snstopicarn
             '''
             result = self._values.get("sns_topic_arn")
@@ -518,8 +515,9 @@ class CfnInvestigationGroup(
             *,
             source_role_arn: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param source_role_arn: The Investigation Role's ARN.
+            '''This structure contains information about the cross-account configuration in the account.
+
+            :param source_role_arn: The ARN of an existing role which will be used to do investigations on your behalf.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aiops-investigationgroup-crossaccountconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -543,7 +541,7 @@ class CfnInvestigationGroup(
 
         @builtins.property
         def source_role_arn(self) -> typing.Optional[builtins.str]:
-            '''The Investigation Role's ARN.
+            '''The ARN of an existing role which will be used to do investigations on your behalf.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aiops-investigationgroup-crossaccountconfiguration.html#cfn-aiops-investigationgroup-crossaccountconfiguration-sourcerolearn
             '''
@@ -576,8 +574,11 @@ class CfnInvestigationGroup(
             encryption_configuration_type: typing.Optional[builtins.str] = None,
             kms_key_id: typing.Optional[builtins.str] = None,
         ) -> None:
-            '''
-            :param encryption_configuration_type: 
+            '''Use this structure if you want to use a customer managed AWS KMS key to encrypt your investigation data.
+
+            If you omit this parameter, CloudWatch investigations will use an AWS key to encrypt the data. For more information, see `Encryption of investigation data <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Investigations-Security.html#Investigations-KMS>`_ .
+
+            :param encryption_configuration_type: Displays whether investigation data is encrypted by a customer managed key or an AWS owned key.
             :param kms_key_id: If the investigation group uses a customer managed key for encryption, this field displays the ID of that key.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aiops-investigationgroup-encryptionconfigmap.html
@@ -606,7 +607,8 @@ class CfnInvestigationGroup(
 
         @builtins.property
         def encryption_configuration_type(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Displays whether investigation data is encrypted by a customer managed key or an AWS owned key.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-aiops-investigationgroup-encryptionconfigmap.html#cfn-aiops-investigationgroup-encryptionconfigmap-encryptionconfigurationtype
             '''
             result = self._values.get("encryption_configuration_type")
@@ -666,16 +668,16 @@ class CfnInvestigationGroupProps:
     ) -> None:
         '''Properties for defining a ``CfnInvestigationGroup``.
 
-        :param name: A name for the investigation group.
-        :param chatbot_notification_channels: Use this property to integrate Amazon Q Developer operational investigations with Amazon Q in chat applications. This property is an array. For the first string, specify the ARN of an Amazon SNS topic. For the array of strings, specify the ARNs of one or more Amazon Q in chat applications configurations that you want to associate with that topic. For more information about these configuration ARNs, see `Getting started with Amazon Q in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/getting-started.html>`_ and `Resource type defined by AWS Chatbot <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awschatbot.html#awschatbot-resources-for-iam-policies>`_ .
-        :param cross_account_configurations: An array of cross account configurations.
-        :param encryption_config: Use this property to specify a customer managed AWS KMS key to encrypt your investigation data. If you omit this property, Amazon Q Developer operational investigations will use an AWS key to encrypt the data. For more information, see `Encryption of investigation data <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Investigations-Security.html#Investigations-KMS>`_ .
-        :param investigation_group_policy: Investigation Group policy.
-        :param is_cloud_trail_event_history_enabled: Specify ``true`` to enable Amazon Q Developer operational investigations to have access to change events that are recorded by CloudTrail . The default is ``true`` .
-        :param retention_in_days: Specify how long that investigation data is kept. For more information, see `Operational investigation data retention <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Investigations-Retention.html>`_ . If you omit this parameter, the default of 90 days is used.
-        :param role_arn: Specify the ARN of the IAM role that Amazon Q Developer operational investigations will use when it gathers investigation data. The permissions in this role determine which of your resources that Amazon Q Developer operational investigations will have access to during investigations. For more information, see `How to control what data Amazon Q has access to during investigations <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Investigations-Security.html#Investigations-Security-Data>`_ .
-        :param tag_key_boundaries: Enter the existing custom tag keys for custom applications in your system. Resource tags help Amazon Q narrow the search space when it is unable to discover definite relationships between resources. For example, to discover that an Amazon ECS service depends on an Amazon RDS database, Amazon Q can discover this relationship using data sources such as X-Ray and CloudWatch Application Signals. However, if you haven't deployed these features, Amazon Q will attempt to identify possible relationships. Tag boundaries can be used to narrow the resources that will be discovered by Amazon Q in these cases. You don't need to enter tags created by myApplications or AWS CloudFormation , because Amazon Q can automatically detect those tags.
-        :param tags: A list of key-value pairs to associate with the investigation group. You can associate as many as 50 tags with an investigation group. Tags can help you organize and categorize your resources.
+        :param name: Specify either the name or the ARN of the investigation group that you want to view.
+        :param chatbot_notification_channels: Use this property to integrate CloudWatch investigations with chat applications. This property is an array. For the first string, specify the ARN of an Amazon SNS topic. For the array of strings, specify the ARNs of one or more chat applications configurations that you want to associate with that topic. For more information about these configuration ARNs, see `Getting started with Amazon Q in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/getting-started.html>`_ and `Resource type defined by AWS Chatbot <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awschatbot.html#awschatbot-resources-for-iam-policies>`_ .
+        :param cross_account_configurations: Number of ``sourceAccountId`` values that have been configured for cross-account access.
+        :param encryption_config: Specifies the customer managed AWS KMS key that the investigation group uses to encrypt data, if there is one. If not, the investigation group uses an AWS key to encrypt the data.
+        :param investigation_group_policy: Returns the IAM resource policy that is associated with the specified investigation group.
+        :param is_cloud_trail_event_history_enabled: Specify ``true`` to enable CloudWatch investigations to have access to change events that are recorded by CloudTrail. The default is ``true`` .
+        :param retention_in_days: Specifies how long that investigation data is kept.
+        :param role_arn: The ARN of the IAM role that the investigation group uses for permissions to gather data.
+        :param tag_key_boundaries: Displays the custom tag keys for custom applications in your system that you have specified in the investigation group. Resource tags help CloudWatch investigations narrow the search space when it is unable to discover definite relationships between resources.
+        :param tags: The list of key-value pairs to associate with the resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html
         :exampleMetadata: fixture=_generated
@@ -748,7 +750,7 @@ class CfnInvestigationGroupProps:
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''A name for the investigation group.
+        '''Specify either the name or the ARN of the investigation group that you want to view.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html#cfn-aiops-investigationgroup-name
         '''
@@ -760,9 +762,9 @@ class CfnInvestigationGroupProps:
     def chatbot_notification_channels(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInvestigationGroup.ChatbotNotificationChannelProperty]]]]:
-        '''Use this property to integrate Amazon Q Developer operational investigations with Amazon Q in chat applications.
+        '''Use this property to integrate CloudWatch investigations with chat applications.
 
-        This property is an array. For the first string, specify the ARN of an Amazon SNS topic. For the array of strings, specify the ARNs of one or more Amazon Q in chat applications configurations that you want to associate with that topic. For more information about these configuration ARNs, see `Getting started with Amazon Q in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/getting-started.html>`_ and `Resource type defined by AWS Chatbot <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awschatbot.html#awschatbot-resources-for-iam-policies>`_ .
+        This property is an array. For the first string, specify the ARN of an Amazon SNS topic. For the array of strings, specify the ARNs of one or more chat applications configurations that you want to associate with that topic. For more information about these configuration ARNs, see `Getting started with Amazon Q in chat applications <https://docs.aws.amazon.com/chatbot/latest/adminguide/getting-started.html>`_ and `Resource type defined by AWS Chatbot <https://docs.aws.amazon.com/service-authorization/latest/reference/list_awschatbot.html#awschatbot-resources-for-iam-policies>`_ .
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html#cfn-aiops-investigationgroup-chatbotnotificationchannels
         '''
@@ -773,7 +775,7 @@ class CfnInvestigationGroupProps:
     def cross_account_configurations(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, typing.List[typing.Union[_IResolvable_da3f097b, CfnInvestigationGroup.CrossAccountConfigurationProperty]]]]:
-        '''An array of cross account configurations.
+        '''Number of ``sourceAccountId`` values that have been configured for cross-account access.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html#cfn-aiops-investigationgroup-crossaccountconfigurations
         '''
@@ -784,9 +786,9 @@ class CfnInvestigationGroupProps:
     def encryption_config(
         self,
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnInvestigationGroup.EncryptionConfigMapProperty]]:
-        '''Use this property to specify a customer managed AWS KMS key to encrypt your investigation data.
+        '''Specifies the customer managed AWS KMS key that the investigation group uses to encrypt data, if there is one.
 
-        If you omit this property, Amazon Q Developer operational investigations will use an AWS key to encrypt the data. For more information, see `Encryption of investigation data <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Investigations-Security.html#Investigations-KMS>`_ .
+        If not, the investigation group uses an AWS key to encrypt the data.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html#cfn-aiops-investigationgroup-encryptionconfig
         '''
@@ -795,7 +797,7 @@ class CfnInvestigationGroupProps:
 
     @builtins.property
     def investigation_group_policy(self) -> typing.Optional[builtins.str]:
-        '''Investigation Group policy.
+        '''Returns the IAM resource policy that is associated with the specified investigation group.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html#cfn-aiops-investigationgroup-investigationgrouppolicy
         '''
@@ -806,7 +808,7 @@ class CfnInvestigationGroupProps:
     def is_cloud_trail_event_history_enabled(
         self,
     ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-        '''Specify ``true`` to enable Amazon Q Developer operational investigations to have access to change events that are recorded by CloudTrail .
+        '''Specify ``true`` to enable CloudWatch investigations to have access to change events that are recorded by CloudTrail.
 
         The default is ``true`` .
 
@@ -817,9 +819,7 @@ class CfnInvestigationGroupProps:
 
     @builtins.property
     def retention_in_days(self) -> typing.Optional[jsii.Number]:
-        '''Specify how long that investigation data is kept. For more information, see `Operational investigation data retention <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Investigations-Retention.html>`_ .
-
-        If you omit this parameter, the default of 90 days is used.
+        '''Specifies how long that investigation data is kept.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html#cfn-aiops-investigationgroup-retentionindays
         '''
@@ -828,11 +828,7 @@ class CfnInvestigationGroupProps:
 
     @builtins.property
     def role_arn(self) -> typing.Optional[builtins.str]:
-        '''Specify the ARN of the IAM role that Amazon Q Developer operational investigations will use when it gathers investigation data.
-
-        The permissions in this role determine which of your resources that Amazon Q Developer operational investigations will have access to during investigations.
-
-        For more information, see `How to control what data Amazon Q has access to during investigations <https://docs.aws.amazon.com/AmazonCloudWatch/latest/monitoring/Investigations-Security.html#Investigations-Security-Data>`_ .
+        '''The ARN of the IAM role that the investigation group uses for permissions to gather data.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html#cfn-aiops-investigationgroup-rolearn
         '''
@@ -841,11 +837,9 @@ class CfnInvestigationGroupProps:
 
     @builtins.property
     def tag_key_boundaries(self) -> typing.Optional[typing.List[builtins.str]]:
-        '''Enter the existing custom tag keys for custom applications in your system.
+        '''Displays the custom tag keys for custom applications in your system that you have specified in the investigation group.
 
-        Resource tags help Amazon Q narrow the search space when it is unable to discover definite relationships between resources. For example, to discover that an Amazon ECS service depends on an Amazon RDS database, Amazon Q can discover this relationship using data sources such as X-Ray and CloudWatch Application Signals. However, if you haven't deployed these features, Amazon Q will attempt to identify possible relationships. Tag boundaries can be used to narrow the resources that will be discovered by Amazon Q in these cases.
-
-        You don't need to enter tags created by myApplications or AWS CloudFormation , because Amazon Q can automatically detect those tags.
+        Resource tags help CloudWatch investigations narrow the search space when it is unable to discover definite relationships between resources.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html#cfn-aiops-investigationgroup-tagkeyboundaries
         '''
@@ -854,11 +848,7 @@ class CfnInvestigationGroupProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''A list of key-value pairs to associate with the investigation group.
-
-        You can associate as many as 50 tags with an investigation group.
-
-        Tags can help you organize and categorize your resources.
+        '''The list of key-value pairs to associate with the resource.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-aiops-investigationgroup.html#cfn-aiops-investigationgroup-tags
         '''

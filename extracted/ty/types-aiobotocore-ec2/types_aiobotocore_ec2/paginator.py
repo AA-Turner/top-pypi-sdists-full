@@ -19,6 +19,8 @@ Usage::
         DescribeCapacityBlockExtensionHistoryPaginator,
         DescribeCapacityBlockExtensionOfferingsPaginator,
         DescribeCapacityBlockOfferingsPaginator,
+        DescribeCapacityBlockStatusPaginator,
+        DescribeCapacityBlocksPaginator,
         DescribeCapacityReservationBillingRequestsPaginator,
         DescribeCapacityReservationFleetsPaginator,
         DescribeCapacityReservationsPaginator,
@@ -176,6 +178,8 @@ Usage::
         describe_capacity_block_extension_history_paginator: DescribeCapacityBlockExtensionHistoryPaginator = client.get_paginator("describe_capacity_block_extension_history")
         describe_capacity_block_extension_offerings_paginator: DescribeCapacityBlockExtensionOfferingsPaginator = client.get_paginator("describe_capacity_block_extension_offerings")
         describe_capacity_block_offerings_paginator: DescribeCapacityBlockOfferingsPaginator = client.get_paginator("describe_capacity_block_offerings")
+        describe_capacity_block_status_paginator: DescribeCapacityBlockStatusPaginator = client.get_paginator("describe_capacity_block_status")
+        describe_capacity_blocks_paginator: DescribeCapacityBlocksPaginator = client.get_paginator("describe_capacity_blocks")
         describe_capacity_reservation_billing_requests_paginator: DescribeCapacityReservationBillingRequestsPaginator = client.get_paginator("describe_capacity_reservation_billing_requests")
         describe_capacity_reservation_fleets_paginator: DescribeCapacityReservationFleetsPaginator = client.get_paginator("describe_capacity_reservation_fleets")
         describe_capacity_reservations_paginator: DescribeCapacityReservationsPaginator = client.get_paginator("describe_capacity_reservations")
@@ -345,6 +349,10 @@ from .type_defs import (
     DescribeCapacityBlockExtensionOfferingsResultTypeDef,
     DescribeCapacityBlockOfferingsRequestPaginateTypeDef,
     DescribeCapacityBlockOfferingsResultTypeDef,
+    DescribeCapacityBlocksRequestPaginateTypeDef,
+    DescribeCapacityBlocksResultTypeDef,
+    DescribeCapacityBlockStatusRequestPaginateTypeDef,
+    DescribeCapacityBlockStatusResultTypeDef,
     DescribeCapacityReservationBillingRequestsRequestPaginateTypeDef,
     DescribeCapacityReservationBillingRequestsResultTypeDef,
     DescribeCapacityReservationFleetsRequestPaginateTypeDef,
@@ -649,6 +657,8 @@ __all__ = (
     "DescribeCapacityBlockExtensionHistoryPaginator",
     "DescribeCapacityBlockExtensionOfferingsPaginator",
     "DescribeCapacityBlockOfferingsPaginator",
+    "DescribeCapacityBlockStatusPaginator",
+    "DescribeCapacityBlocksPaginator",
     "DescribeCapacityReservationBillingRequestsPaginator",
     "DescribeCapacityReservationFleetsPaginator",
     "DescribeCapacityReservationsPaginator",
@@ -955,6 +965,50 @@ class DescribeCapacityBlockOfferingsPaginator(_DescribeCapacityBlockOfferingsPag
         """
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeCapacityBlockOfferings.html#EC2.Paginator.DescribeCapacityBlockOfferings.paginate)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/paginators/#describecapacityblockofferingspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeCapacityBlockStatusPaginatorBase = AioPaginator[
+        DescribeCapacityBlockStatusResultTypeDef
+    ]
+else:
+    _DescribeCapacityBlockStatusPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class DescribeCapacityBlockStatusPaginator(_DescribeCapacityBlockStatusPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeCapacityBlockStatus.html#EC2.Paginator.DescribeCapacityBlockStatus)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/paginators/#describecapacityblockstatuspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeCapacityBlockStatusRequestPaginateTypeDef]
+    ) -> AioPageIterator[DescribeCapacityBlockStatusResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeCapacityBlockStatus.html#EC2.Paginator.DescribeCapacityBlockStatus.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/paginators/#describecapacityblockstatuspaginator)
+        """
+
+
+if TYPE_CHECKING:
+    _DescribeCapacityBlocksPaginatorBase = AioPaginator[DescribeCapacityBlocksResultTypeDef]
+else:
+    _DescribeCapacityBlocksPaginatorBase = AioPaginator  # type: ignore[assignment]
+
+
+class DescribeCapacityBlocksPaginator(_DescribeCapacityBlocksPaginatorBase):
+    """
+    [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeCapacityBlocks.html#EC2.Paginator.DescribeCapacityBlocks)
+    [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/paginators/#describecapacityblockspaginator)
+    """
+
+    def paginate(  # type: ignore[override]
+        self, **kwargs: Unpack[DescribeCapacityBlocksRequestPaginateTypeDef]
+    ) -> AioPageIterator[DescribeCapacityBlocksResultTypeDef]:
+        """
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/paginator/DescribeCapacityBlocks.html#EC2.Paginator.DescribeCapacityBlocks.paginate)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/paginators/#describecapacityblockspaginator)
         """
 
 

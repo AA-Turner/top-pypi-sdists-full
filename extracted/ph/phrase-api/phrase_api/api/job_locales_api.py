@@ -638,6 +638,7 @@ class JobLocalesApi(object):
         :param str id: ID (required)
         :param str x_phrase_app_otp: Two-Factor-Authentication token (optional)
         :param str branch: Branch to use
+        :param bool include_annotations: Include job-locale annotations in the response
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -667,6 +668,7 @@ class JobLocalesApi(object):
         :param str id: ID (required)
         :param str x_phrase_app_otp: Two-Factor-Authentication token (optional)
         :param str branch: Branch to use
+        :param bool include_annotations: Include job-locale annotations in the response
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -688,7 +690,8 @@ class JobLocalesApi(object):
             'job_id',
             'id',
             'x_phrase_app_otp',
-            'branch'
+            'branch',
+            'include_annotations'
         ]
         all_params.extend(
             [
@@ -733,6 +736,8 @@ class JobLocalesApi(object):
         query_params = []
         if 'branch' in local_var_params and local_var_params['branch'] is not None:  # noqa: E501
             query_params.append(('branch', local_var_params['branch']))  # noqa: E501
+        if 'include_annotations' in local_var_params and local_var_params['include_annotations'] is not None:  # noqa: E501
+            query_params.append(('include_annotations', local_var_params['include_annotations']))  # noqa: E501
 
         header_params = {}
         if 'x_phrase_app_otp' in local_var_params:
@@ -1072,6 +1077,7 @@ class JobLocalesApi(object):
         :param int page: Page number
         :param int per_page: Limit on the number of objects to be returned, between 1 and 100. 25 by default
         :param str branch: Branch to use
+        :param bool include_annotations: Include job-locale annotations in the response
         :param _preload_content: if False, the urllib3.HTTPResponse object will
                                  be returned without reading/decoding response
                                  data. Default is True.
@@ -1102,6 +1108,7 @@ class JobLocalesApi(object):
         :param int page: Page number
         :param int per_page: Limit on the number of objects to be returned, between 1 and 100. 25 by default
         :param str branch: Branch to use
+        :param bool include_annotations: Include job-locale annotations in the response
         :param _return_http_data_only: response data without head status code
                                        and headers
         :param _preload_content: if False, the urllib3.HTTPResponse object will
@@ -1124,7 +1131,8 @@ class JobLocalesApi(object):
             'x_phrase_app_otp',
             'page',
             'per_page',
-            'branch'
+            'branch',
+            'include_annotations'
         ]
         all_params.extend(
             [
@@ -1167,6 +1175,8 @@ class JobLocalesApi(object):
             query_params.append(('per_page', local_var_params['per_page']))  # noqa: E501
         if 'branch' in local_var_params and local_var_params['branch'] is not None:  # noqa: E501
             query_params.append(('branch', local_var_params['branch']))  # noqa: E501
+        if 'include_annotations' in local_var_params and local_var_params['include_annotations'] is not None:  # noqa: E501
+            query_params.append(('include_annotations', local_var_params['include_annotations']))  # noqa: E501
 
         header_params = {}
         if 'x_phrase_app_otp' in local_var_params:

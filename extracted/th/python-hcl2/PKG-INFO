@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-hcl2
-Version: 7.3.0
+Version: 7.3.1
 Summary: A parser for HCL2
 Author-email: Amplify Education <github@amplify.com>
 License: MIT
@@ -22,7 +22,8 @@ Classifier: Programming Language :: Python :: 3.13
 Requires-Python: >=3.7.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: lark<2,>=1
+Requires-Dist: lark<2.0,>=1.1.5
+Requires-Dist: regex>=2024.4.16
 Dynamic: license-file
 
 [![Codacy Badge](https://app.codacy.com/project/badge/Grade/2e2015f9297346cbaa788c46ab957827)](https://app.codacy.com/gh/amplify-education/python-hcl2/dashboard?utm_source=gh&utm_medium=referral&utm_content=&utm_campaign=Badge_grade)

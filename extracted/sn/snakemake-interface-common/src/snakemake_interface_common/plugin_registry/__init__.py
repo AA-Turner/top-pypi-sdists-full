@@ -4,6 +4,7 @@ __email__ = "johannes.koester@uni-due.de"
 __license__ = "MIT"
 
 from abc import ABC, abstractmethod
+import re
 import types
 import pkgutil
 import importlib
@@ -64,8 +65,19 @@ class PluginRegistryBase(ABC, Generic[TPlugin]):
     def register_cli_args(self, argparser: "ArgumentParser") -> None:
         """Add arguments derived from self.executor_settings to given
         argparser."""
+        plugin_type = self.get_plugin_type()
         for _, plugin in self.plugins.items():
-            plugin.register_cli_args(argparser)
+            plugin.register_cli_args(argparser, plugin_type)
+
+    def get_plugin_type(self) -> str:
+        m = re.match(r"(?P<type>.+)PluginRegistry", self.__class__.__name__)
+        if m is not None:
+            return m.group("type").lower()
+        raise ValueError(
+            "Unable to infer plugin type name from registry class "
+            f"name: {self.__class__.__name__}. The name is expected to follow the "
+            "pattern <type>PluginRegistry, e.g. ExecutorPluginRegistry."
+        )
 
     def collect_plugins(self) -> None:
         """Collect plugins and call register_plugin for each."""

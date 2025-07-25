@@ -46,7 +46,7 @@ from dataclasses_json import dataclass_json as dataclass_json
 from dataclasses_json.core import _decode_dataclass
 from dataclasses_json.core import _ExtendedEncoder as JsonEncoder
 
-__version__ = "1.16.4"
+__version__ = "1.16.5"
 
 """
 About the GLTF2 file format:
@@ -431,7 +431,7 @@ class Material(Property):
     emissiveFactor: Optional[List[float]] = field(default_factory=lambda: [0.0, 0.0, 0.0])
     emissiveTexture: Optional[TextureInfo] = None
     alphaMode: Optional[str] = OPAQUE
-    alphaCutoff: Optional[float] = 0.5
+    alphaCutoff: Optional[float] = None
     doubleSided: Optional[bool] = False
     name: Optional[str] = None
 

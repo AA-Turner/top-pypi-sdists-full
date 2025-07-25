@@ -61,6 +61,11 @@ BEACON_ENDPOINT = "https://api.smith.langchain.com/v1/metadata/submit"
 # LangChain auth endpoint for API key submissions
 LANGCHAIN_METADATA_ENDPOINT = None
 if LANGSMITH_AUTH_ENDPOINT:
+    if "/api/v1" in LANGSMITH_AUTH_ENDPOINT:
+        # If the endpoint already has /api/v1 (for self-hosted control plane deployments), we assume it's the correct format
+        LANGCHAIN_METADATA_ENDPOINT = (
+            LANGSMITH_AUTH_ENDPOINT.rstrip("/") + "/metadata/submit"
+        )
     LANGCHAIN_METADATA_ENDPOINT = (
         LANGSMITH_AUTH_ENDPOINT.rstrip("/") + "/v1/metadata/submit"
     )

@@ -1084,11 +1084,21 @@ def _push_workbooks(session: Session, push_result_df, workbook_context: Workbook
                 # This should be resolved in a fix done in workbooks/_workstep.py that cast the display_items df
                 # as object type but since cannot duplicate the issue, let's patch here too
                 display_items['ID'] = display_items['ID'].astype(object)
+                error_rows = list()
 
                 for index, display_item in display_items.iterrows():
                     if not _common.present(display_item, 'ID') or _common.get(display_item, 'Reference', False):
-                        pushed_item = _common.look_up_in_df(display_item, push_result_df)
-                        display_items.at[index, 'ID'] = pushed_item['ID']
+                        try:
+                            pushed_item = _common.look_up_in_df(display_item, push_result_df)
+                            display_items.at[index, 'ID'] = pushed_item['ID']
+                        except SPyRuntimeError as e:
+                            # If errors='catalog', then skip adding the item to the workstep
+                            if status.errors == 'catalog':
+                                error_rows.append(index)
+                            else:
+                                raise
+                if error_rows:
+                    display_items.drop(error_rows, inplace=True)
 
                 workstep.display_items = display_items
 

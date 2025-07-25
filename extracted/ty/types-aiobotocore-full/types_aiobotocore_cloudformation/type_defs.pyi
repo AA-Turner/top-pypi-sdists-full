@@ -1716,6 +1716,7 @@ class StackResourceDriftTypeDef(TypedDict):
     ActualProperties: NotRequired[str]
     PropertyDifferences: NotRequired[List[PropertyDifferenceTypeDef]]
     ModuleInfo: NotRequired[ModuleInfoTypeDef]
+    DriftStatusReason: NotRequired[str]
 
 class ResourceChangeDetailTypeDef(TypedDict):
     Target: NotRequired[ResourceTargetDefinitionTypeDef]

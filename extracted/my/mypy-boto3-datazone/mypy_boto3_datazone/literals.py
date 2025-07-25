@@ -364,7 +364,9 @@ RuleTargetTypeType = Literal["DOMAIN_UNIT"]
 RuleTypeType = Literal["METADATA_FORM_ENFORCEMENT"]
 SearchGroupProfilesPaginatorName = Literal["search_group_profiles"]
 SearchListingsPaginatorName = Literal["search_listings"]
-SearchOutputAdditionalAttributeType = Literal["FORMS", "TIME_SERIES_DATA_POINT_FORMS"]
+SearchOutputAdditionalAttributeType = Literal[
+    "FORMS", "TEXT_MATCH_RATIONALE", "TIME_SERIES_DATA_POINT_FORMS"
+]
 SearchPaginatorName = Literal["search"]
 SearchTypesPaginatorName = Literal["search_types"]
 SearchUserProfilesPaginatorName = Literal["search_user_profiles"]
@@ -531,6 +533,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",

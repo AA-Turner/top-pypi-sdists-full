@@ -211,6 +211,8 @@ __all__ = [
     "WriteCaseData",
     "Initialize",
     "Calculate",
+    "Iterate",
+    "DualTimeIterate",
 ]
 
 class Setup(_SingletonSetting):
@@ -1404,48 +1406,80 @@ class DesignPoint(_CreatableNamedObjectSetting):
 class ReadCase(_CommandSetting):
     """ReadCase command."""
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, **kwargs):
-        super().__init__(settings_source=settings_source, **kwargs)
+    def __new__(cls, settings_source: SettingsBase | Solver | None = None, **kwargs):
+       instance = super().__new__(cls)
+       instance.__init__(settings_source=settings_source, **kwargs)
+       return instance(**kwargs)
 
 class ReadData(_CommandSetting):
     """ReadData command."""
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, **kwargs):
-        super().__init__(settings_source=settings_source, **kwargs)
+    def __new__(cls, settings_source: SettingsBase | Solver | None = None, **kwargs):
+       instance = super().__new__(cls)
+       instance.__init__(settings_source=settings_source, **kwargs)
+       return instance(**kwargs)
 
 class ReadCaseData(_CommandSetting):
     """ReadCaseData command."""
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, **kwargs):
-        super().__init__(settings_source=settings_source, **kwargs)
+    def __new__(cls, settings_source: SettingsBase | Solver | None = None, **kwargs):
+       instance = super().__new__(cls)
+       instance.__init__(settings_source=settings_source, **kwargs)
+       return instance(**kwargs)
 
-class WriteCase(_SingletonSetting):
-    """WriteCase setting."""
+class WriteCase(_CommandSetting):
+    """WriteCase command."""
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None):
-        super().__init__(settings_source=settings_source)
+    def __new__(cls, settings_source: SettingsBase | Solver | None = None, **kwargs):
+       instance = super().__new__(cls)
+       instance.__init__(settings_source=settings_source, **kwargs)
+       return instance(**kwargs)
 
-class WriteData(_SingletonSetting):
-    """WriteData setting."""
+class WriteData(_CommandSetting):
+    """WriteData command."""
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None):
-        super().__init__(settings_source=settings_source)
+    def __new__(cls, settings_source: SettingsBase | Solver | None = None, **kwargs):
+       instance = super().__new__(cls)
+       instance.__init__(settings_source=settings_source, **kwargs)
+       return instance(**kwargs)
 
-class WriteCaseData(_SingletonSetting):
-    """WriteCaseData setting."""
+class WriteCaseData(_CommandSetting):
+    """WriteCaseData command."""
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None):
-        super().__init__(settings_source=settings_source)
+    def __new__(cls, settings_source: SettingsBase | Solver | None = None, **kwargs):
+       instance = super().__new__(cls)
+       instance.__init__(settings_source=settings_source, **kwargs)
+       return instance(**kwargs)
 
 class Initialize(_CommandSetting):
     """Initialize command."""
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, **kwargs):
-        super().__init__(settings_source=settings_source, **kwargs)
+    def __new__(cls, settings_source: SettingsBase | Solver | None = None, **kwargs):
+       instance = super().__new__(cls)
+       instance.__init__(settings_source=settings_source, **kwargs)
+       return instance(**kwargs)
 
 class Calculate(_CommandSetting):
     """Calculate command."""
 
-    def __init__(self, settings_source: SettingsBase | Solver | None = None, **kwargs):
-        super().__init__(settings_source=settings_source, **kwargs)
+    def __new__(cls, settings_source: SettingsBase | Solver | None = None, **kwargs):
+       instance = super().__new__(cls)
+       instance.__init__(settings_source=settings_source, **kwargs)
+       return instance(**kwargs)
+
+class Iterate(_CommandSetting):
+    """Iterate command."""
+
+    def __new__(cls, settings_source: SettingsBase | Solver | None = None, **kwargs):
+       instance = super().__new__(cls)
+       instance.__init__(settings_source=settings_source, **kwargs)
+       return instance(**kwargs)
+
+class DualTimeIterate(_CommandSetting):
+    """DualTimeIterate command."""
+
+    def __new__(cls, settings_source: SettingsBase | Solver | None = None, **kwargs):
+       instance = super().__new__(cls)
+       instance.__init__(settings_source=settings_source, **kwargs)
+       return instance(**kwargs)
 

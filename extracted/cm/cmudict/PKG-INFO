@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: cmudict
-Version: 1.1.0
+Version: 1.1.1
 Summary: A versioned python wrapper package for The CMU Pronouncing Dictionary data files.
 License: GPL-3.0-or-later
 Keywords: cmudict

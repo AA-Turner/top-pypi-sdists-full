@@ -13,9 +13,10 @@ build = "build.rs"
 [lib]
 name = "ontoenv"
 crate-type = ["cdylib"]
+doc = false
 
 [dependencies]
-pyo3 = { version = "0.24", features = ["extension-module"] }
+pyo3 = { version = "0.25", features = ["extension-module"] }
 ontoenv.workspace = true
 anyhow.workspace = true
 oxigraph.workspace = true
@@ -23,7 +24,7 @@ env_logger.workspace = true
 log.workspace = true
 
 [build-dependencies]
-pyo3-build-config = "0.24"
+pyo3-build-config = "0.25"
 
 [features]
 abi3 = ["pyo3/abi3-py39"]

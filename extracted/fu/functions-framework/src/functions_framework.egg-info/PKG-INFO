@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: functions-framework
-Version: 3.9.0
+Version: 3.9.1
 Summary: An open source FaaS (Function as a service) framework for writing portable Python functions -- brought to you by the Google Cloud Functions team.
 Home-page: https://github.com/googlecloudplatform/functions-framework-python
 Author: Google LLC
@@ -26,7 +26,6 @@ Requires-Dist: watchdog>=1.0.0
 Requires-Dist: gunicorn>=22.0.0; platform_system != "Windows"
 Requires-Dist: cloudevents<=1.11.0,>=1.2.0
 Requires-Dist: Werkzeug<4.0.0,>=0.14
-Requires-Dist: httpx>=0.24.1
 Requires-Dist: starlette<1.0.0,>=0.37.0; python_version >= "3.8"
 Requires-Dist: uvicorn<1.0.0,>=0.18.0; python_version >= "3.8"
 Requires-Dist: uvicorn-worker<1.0.0,>=0.2.0; python_version >= "3.8"

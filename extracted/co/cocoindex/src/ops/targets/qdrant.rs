@@ -95,6 +95,9 @@ struct VectorDef {
 struct SetupState {
     #[serde(default)]
     vectors: BTreeMap<String, VectorDef>,
+
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    unsupported_vector_fields: Vec<(String, ValueType)>,
 }
 
 #[derive(Debug)]
@@ -104,10 +107,12 @@ struct SetupStatus {
 }
 
 impl setup::ResourceSetupStatus for SetupStatus {
-    fn describe_changes(&self) -> Vec<String> {
+    fn describe_changes(&self) -> Vec<setup::ChangeDescription> {
         let mut result = vec![];
         if self.delete_collection {
-            result.push("Delete collection".to_string());
+            result.push(setup::ChangeDescription::Action(
+                "Delete collection".to_string(),
+            ));
         }
         if let Some(add_collection) = &self.add_collection {
             let vector_descriptions = add_collection
@@ -121,14 +126,20 @@ impl setup::ResourceSetupStatus for SetupStatus {
                 })
                 .collect::<Vec<_>>()
                 .join("; ");
-            result.push(format!(
+            result.push(setup::ChangeDescription::Action(format!(
                 "Create collection{}",
                 if vector_descriptions.is_empty() {
                     "".to_string()
                 } else {
                     format!(" with vectors: {vector_descriptions}")
                 }
-            ));
+            )));
+            for (name, schema) in add_collection.unsupported_vector_fields.iter() {
+                result.push(setup::ChangeDescription::Note(format!(
+                    "Field `{}` has type `{}`. Only number vector with fixed size is supported by Qdrant. It will be stored in payload.",
+                    name, schema
+                )));
+            }
         }
         result
     }
@@ -309,6 +320,7 @@ impl StorageFactoryBase for Factory {
 
                 let mut fields_info = Vec::<FieldInfo>::new();
                 let mut vector_def = BTreeMap::<String, VectorDef>::new();
+                let mut unsupported_vector_fields = Vec::<(String, ValueType)>::new();
 
                 for field in d.value_fields_schema.iter() {
                     let vector_size = parse_supported_vector_size(&field.value_type.typ);
@@ -324,6 +336,12 @@ impl StorageFactoryBase for Factory {
                                 metric: DEFAULT_VECTOR_SIMILARITY_METRIC,
                             },
                         );
+                    } else if matches!(
+                        &field.value_type.typ,
+                        schema::ValueType::Basic(schema::BasicValueType::Vector(_))
+                    ) {
+                        // This is a vector field but not supported by Qdrant
+                        unsupported_vector_fields.push((field.name.clone(), field.value_type.typ.clone()));
                     }
                 }
 
@@ -368,6 +386,7 @@ impl StorageFactoryBase for Factory {
                     },
                     desired_setup_state: SetupState {
                         vectors: vector_def,
+                        unsupported_vector_fields,
                     },
                 })
             })
@@ -396,16 +415,12 @@ impl StorageFactoryBase for Factory {
         _auth_registry: &Arc<AuthRegistry>,
     ) -> Result<Self::SetupStatus> {
         let desired_exists = desired.is_some();
-        let add_collection = desired
-            .filter(|state| {
-                !existing.always_exists()
-                    || existing
-                        .possible_versions()
-                        .any(|v| v.vectors != state.vectors)
-            })
-            .map(|state| SetupState {
-                vectors: state.vectors,
-            });
+        let add_collection = desired.filter(|state| {
+            !existing.always_exists()
+                || existing
+                    .possible_versions()
+                    .any(|v| v.vectors != state.vectors)
+        });
         let delete_collection = existing.possible_versions().next().is_some()
             && (!desired_exists || add_collection.is_some());
         Ok(SetupStatus {

@@ -3042,6 +3042,44 @@ class IntegrationKeyScope(sgqlc.types.Enum):
     )
 
 
+class InternalJobType(sgqlc.types.Enum):
+    """Enumeration Choices:
+
+    * `AGENT_REACHABILITY`None
+    * `DIRECT_LINEAGE`None
+    * `ETL`None
+    * `JSON_SCHEMA`None
+    * `METADATA`None
+    * `QUERY_LOGS`None
+    * `QUERY_LOGS_BOOTSTRAP`None
+    * `REPORTS`None
+    * `S3_METADATA_EVENTS`None
+    * `S3_QL_EVENTS`None
+    * `SLO`None
+    * `SQL_QUERY`None
+    * `STREAM_METADATA`None
+    * `TABLEAU_GQL`None
+    """
+
+    __schema__ = schema
+    __choices__ = (
+        "AGENT_REACHABILITY",
+        "DIRECT_LINEAGE",
+        "ETL",
+        "JSON_SCHEMA",
+        "METADATA",
+        "QUERY_LOGS",
+        "QUERY_LOGS_BOOTSTRAP",
+        "REPORTS",
+        "S3_METADATA_EVENTS",
+        "S3_QL_EVENTS",
+        "SLO",
+        "SQL_QUERY",
+        "STREAM_METADATA",
+        "TABLEAU_GQL",
+    )
+
+
 class InvitationType(sgqlc.types.Enum):
     """Used to select the template to use for new user invites.
 
@@ -16444,14 +16482,30 @@ class DataCollectorScheduleInfo(sgqlc.types.Type):
     """Detailed information about a data collector schedule"""
 
     __schema__ = schema
-    __field_names__ = ("uuid", "resource_id", "job_type", "limits", "interval_in_seconds")
+    __field_names__ = (
+        "uuid",
+        "resource_id",
+        "connection_id",
+        "job_type",
+        "internal_job_type",
+        "limits",
+        "interval_in_seconds",
+    )
     uuid = sgqlc.types.Field(sgqlc.types.non_null(UUID), graphql_name="uuid")
     """UUID of the schedule"""
 
     resource_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="resourceId")
     """Resource ID (warehouse UUID) this schedule belongs to"""
 
+    connection_id = sgqlc.types.Field(sgqlc.types.non_null(String), graphql_name="connectionId")
+    """Connection ID this schedule belongs to"""
+
     job_type = sgqlc.types.Field(sgqlc.types.non_null(JobTypeEnum), graphql_name="jobType")
+    """Type of job - DEPRECATED: Use internal_job_type instead"""
+
+    internal_job_type = sgqlc.types.Field(
+        sgqlc.types.non_null(InternalJobType), graphql_name="internalJobType"
+    )
     """Type of job (metadata, query_logs, etc.)"""
 
     limits = sgqlc.types.Field(JSONString, graphql_name="limits")
@@ -41843,6 +41897,7 @@ class Query(sgqlc.types.Type):
         "evaluate_comparison_monitor_alert_conditions",
         "evaluate_comparisons",
         "get_delta_logs",
+        "get_job_schedules",
         "get_warehouse_job_schedules",
         "get_data_assets_dashboard",
         "get_incident_dashboard_data",
@@ -47720,6 +47775,10 @@ class Query(sgqlc.types.Type):
                         Boolean, graphql_name="includeDataCollectionOnly", default=False
                     ),
                 ),
+                (
+                    "include_bi_connections",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeBiConnections", default=False),
+                ),
             )
         ),
     )
@@ -47744,6 +47803,8 @@ class Query(sgqlc.types.Type):
       `false`)
     * `include_data_collection_only` (`Boolean`): Include data
       collection only jobs (default: `false`)
+    * `include_bi_connections` (`Boolean`): Include BI connection
+      schedules (default: `false`)
     """
 
     get_job_executions = sgqlc.types.Field(
@@ -47775,6 +47836,10 @@ class Query(sgqlc.types.Type):
                         Boolean, graphql_name="includeDataCollectionOnly", default=False
                     ),
                 ),
+                (
+                    "include_bi_connections",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeBiConnections", default=False),
+                ),
                 ("before", sgqlc.types.Arg(String, graphql_name="before", default=None)),
                 ("after", sgqlc.types.Arg(String, graphql_name="after", default=None)),
                 ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
@@ -47797,6 +47862,8 @@ class Query(sgqlc.types.Type):
       `false`)
     * `include_data_collection_only` (`Boolean`): Include data
       collection only jobs (default: `false`)
+    * `include_bi_connections` (`Boolean`): Include BI connection
+      schedules (default: `false`)
     * `before` (`String`)None
     * `after` (`String`)None
     * `first` (`Int`)None
@@ -50436,6 +50503,57 @@ class Query(sgqlc.types.Type):
       Defaults to the 10 most recent delta logs.
     * `first` (`Int`): The number of items to return (default: 10).
     * `after` (`String`): Cursor of the last item on the previous page
+    """
+
+    get_job_schedules = sgqlc.types.Field(
+        sgqlc.types.non_null(sgqlc.types.list_of(sgqlc.types.non_null(DataCollectorScheduleInfo))),
+        graphql_name="getJobSchedules",
+        args=sgqlc.types.ArgDict(
+            (
+                (
+                    "resource_uuid",
+                    sgqlc.types.Arg(
+                        sgqlc.types.non_null(String), graphql_name="resourceUuid", default=None
+                    ),
+                ),
+                (
+                    "connection_uuid",
+                    sgqlc.types.Arg(String, graphql_name="connectionUuid", default=None),
+                ),
+                (
+                    "job_types",
+                    sgqlc.types.Arg(
+                        sgqlc.types.list_of(sgqlc.types.non_null(InternalJobType)),
+                        graphql_name="jobTypes",
+                        default=None,
+                    ),
+                ),
+                (
+                    "schedule_type",
+                    sgqlc.types.Arg(String, graphql_name="scheduleType", default=None),
+                ),
+                (
+                    "include_deleted",
+                    sgqlc.types.Arg(Boolean, graphql_name="includeDeleted", default=False),
+                ),
+            )
+        ),
+    )
+    """(experimental) Get data collector schedules for a resource
+    (warehouse, BI tool, etc.)
+
+    Arguments:
+
+    * `resource_uuid` (`String!`): Resource UUID (warehouse, BI
+      container, etc.)
+    * `connection_uuid` (`String`): Connection UUID (optional, filters
+      to specific connection)
+    * `job_types` (`[InternalJobType!]`): List of job types to filter
+      by (e.g., METADATA, QUERY_LOGS)
+    * `schedule_type` (`String`): Schedule type to filter by (e.g.,
+      'loose')
+    * `include_deleted` (`Boolean`): Include deleted schedules
+      (default: `false`)
     """
 
     get_warehouse_job_schedules = sgqlc.types.Field(

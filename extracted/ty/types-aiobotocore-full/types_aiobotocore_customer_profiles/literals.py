@@ -50,6 +50,7 @@ __all__ = (
     "ListObjectTypeAttributesPaginatorName",
     "ListRuleBasedMatchesPaginatorName",
     "ListSegmentDefinitionsPaginatorName",
+    "ListUploadJobsPaginatorName",
     "LogicalOperatorType",
     "MarketoConnectorOperatorType",
     "MatchTypeType",
@@ -72,12 +73,14 @@ __all__ = (
     "SourceConnectorTypeType",
     "StandardIdentifierType",
     "StatisticType",
+    "StatusReasonType",
     "StatusType",
     "StringDimensionTypeType",
     "TaskTypeType",
     "TriggerTypeType",
     "TypeType",
     "UnitType",
+    "UploadJobStatusType",
     "WorkflowTypeType",
     "ZendeskConnectorOperatorType",
 )
@@ -161,6 +164,7 @@ ListEventTriggersPaginatorName = Literal["list_event_triggers"]
 ListObjectTypeAttributesPaginatorName = Literal["list_object_type_attributes"]
 ListRuleBasedMatchesPaginatorName = Literal["list_rule_based_matches"]
 ListSegmentDefinitionsPaginatorName = Literal["list_segment_definitions"]
+ListUploadJobsPaginatorName = Literal["list_upload_jobs"]
 LogicalOperatorType = Literal["AND", "OR"]
 MarketoConnectorOperatorType = Literal[
     "ADDITION",
@@ -304,6 +308,7 @@ StatisticType = Literal[
     "MINIMUM",
     "SUM",
 ]
+StatusReasonType = Literal["INTERNAL_FAILURE", "VALIDATION_FAILURE"]
 StatusType = Literal[
     "CANCELLED", "COMPLETE", "FAILED", "IN_PROGRESS", "NOT_STARTED", "RETRY", "SPLIT"
 ]
@@ -312,6 +317,9 @@ TaskTypeType = Literal["Arithmetic", "Filter", "Map", "Mask", "Merge", "Truncate
 TriggerTypeType = Literal["Event", "OnDemand", "Scheduled"]
 TypeType = Literal["ALL", "ANY", "NONE"]
 UnitType = Literal["DAYS"]
+UploadJobStatusType = Literal[
+    "CREATED", "FAILED", "IN_PROGRESS", "PARTIALLY_SUCCEEDED", "STOPPED", "SUCCEEDED"
+]
 WorkflowTypeType = Literal["APPFLOW_INTEGRATION"]
 ZendeskConnectorOperatorType = Literal[
     "ADDITION",
@@ -373,6 +381,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -605,6 +615,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -665,6 +676,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
@@ -760,6 +772,7 @@ PaginatorName = Literal[
     "list_object_type_attributes",
     "list_rule_based_matches",
     "list_segment_definitions",
+    "list_upload_jobs",
 ]
 RegionName = Literal[
     "af-south-1",

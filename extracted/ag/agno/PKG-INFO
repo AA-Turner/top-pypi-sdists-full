@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: agno
-Version: 1.7.5
+Version: 1.7.6
 Summary: Agno: a lightweight library for building Multi-Agent Systems
 Author-email: Ashpreet Bedi <ashpreet@agno.com>
 License: Copyright (c) Agno, Inc.
@@ -443,6 +443,9 @@ Requires-Dist: opentelemetry-exporter-otlp-proto-grpc; extra == "arize"
 Requires-Dist: opentelemetry-distro; extra == "arize"
 Provides-Extra: langfuse
 Requires-Dist: langfuse; extra == "langfuse"
+Provides-Extra: aws-bedrock
+Requires-Dist: boto3; extra == "aws-bedrock"
+Requires-Dist: aioboto3; extra == "aws-bedrock"
 Provides-Extra: anthropic
 Requires-Dist: anthropic; extra == "anthropic"
 Provides-Extra: azure
@@ -472,6 +475,8 @@ Provides-Extra: ollama
 Requires-Dist: ollama; extra == "ollama"
 Provides-Extra: openai
 Requires-Dist: openai; extra == "openai"
+Provides-Extra: portkey
+Requires-Dist: portkey-ai; extra == "portkey"
 Provides-Extra: agentql
 Requires-Dist: agentql; extra == "agentql"
 Provides-Extra: apify
@@ -491,6 +496,8 @@ Provides-Extra: duckdb
 Requires-Dist: duckdb; extra == "duckdb"
 Provides-Extra: elevenlabs
 Requires-Dist: elevenlabs; extra == "elevenlabs"
+Provides-Extra: evm
+Requires-Dist: web3; extra == "evm"
 Provides-Extra: exa
 Requires-Dist: exa_py; extra == "exa"
 Provides-Extra: fal
@@ -521,6 +528,8 @@ Requires-Dist: newspaper4k; extra == "newspaper"
 Requires-Dist: lxml_html_clean; extra == "newspaper"
 Provides-Extra: opencv
 Requires-Dist: opencv-python; extra == "opencv"
+Provides-Extra: psycopg2
+Requires-Dist: psycopg2-binary; extra == "psycopg2"
 Provides-Extra: todoist
 Requires-Dist: todoist-api-python; extra == "todoist"
 Provides-Extra: valyu
@@ -533,6 +542,8 @@ Provides-Extra: youtube
 Requires-Dist: youtube_transcript_api; extra == "youtube"
 Provides-Extra: zep
 Requires-Dist: zep-cloud; extra == "zep"
+Provides-Extra: daytona
+Requires-Dist: daytona; extra == "daytona"
 Provides-Extra: oxylabs
 Requires-Dist: oxylabs; extra == "oxylabs"
 Provides-Extra: sql
@@ -603,6 +614,7 @@ Provides-Extra: aws
 Requires-Dist: agno-aws; extra == "aws"
 Requires-Dist: agno-docker; extra == "aws"
 Provides-Extra: models
+Requires-Dist: agno[aws-bedrock]; extra == "models"
 Requires-Dist: agno[anthropic]; extra == "models"
 Requires-Dist: agno[azure]; extra == "models"
 Requires-Dist: agno[cerebras]; extra == "models"
@@ -617,6 +629,7 @@ Requires-Dist: agno[meta]; extra == "models"
 Requires-Dist: agno[mistral]; extra == "models"
 Requires-Dist: agno[ollama]; extra == "models"
 Requires-Dist: agno[openai]; extra == "models"
+Requires-Dist: agno[portkey]; extra == "models"
 Provides-Extra: tools
 Requires-Dist: agno[apify]; extra == "tools"
 Requires-Dist: agno[brave]; extra == "tools"
@@ -634,6 +647,7 @@ Requires-Dist: agno[googlemaps]; extra == "tools"
 Requires-Dist: agno[todoist]; extra == "tools"
 Requires-Dist: agno[matplotlib]; extra == "tools"
 Requires-Dist: agno[elevenlabs]; extra == "tools"
+Requires-Dist: agno[evm]; extra == "tools"
 Requires-Dist: agno[fal]; extra == "tools"
 Requires-Dist: agno[webex]; extra == "tools"
 Requires-Dist: agno[mcp]; extra == "tools"
@@ -646,6 +660,7 @@ Requires-Dist: agno[oxylabs]; extra == "tools"
 Requires-Dist: agno[zep]; extra == "tools"
 Requires-Dist: agno[mem0]; extra == "tools"
 Requires-Dist: agno[google_bigquery]; extra == "tools"
+Requires-Dist: agno[psycopg2]; extra == "tools"
 Provides-Extra: storage
 Requires-Dist: agno[sql]; extra == "storage"
 Requires-Dist: agno[postgres]; extra == "storage"

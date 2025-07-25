@@ -38,7 +38,7 @@ class VehicleMonitoringConfig(BaseConfig):
     smoothing_confidence_range_factor: float = 0.5
     
     # Vehicle confidence thresholds
-    confidence_threshold: float = 0.6
+    confidence_threshold: float = 0.8
 
     
     vehicle_categories: List[str] = field(

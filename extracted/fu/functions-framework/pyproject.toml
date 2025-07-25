@@ -1,6 +1,6 @@
 [project]
 name = "functions-framework"
-version = "3.9.0"
+version = "3.9.1"
 description = "An open source FaaS (Function as a service) framework for writing portable Python functions -- brought to you by the Google Cloud Functions team."
 readme = "README.md"
 requires-python = ">=3.7, <4"
@@ -27,9 +27,8 @@ dependencies = [
   "click>=7.0,<9.0",
   "watchdog>=1.0.0",
   "gunicorn>=22.0.0; platform_system!='Windows'",
-  "cloudevents>=1.2.0,<=1.11.0",                  # Must support python 3.7
+  "cloudevents>=1.2.0,<=1.11.0",                   # Must support python 3.7
   "Werkzeug>=0.14,<4.0.0",
-  "httpx>=0.24.1",
   "starlette>=0.37.0,<1.0.0; python_version>='3.8'",
   "uvicorn>=0.18.0,<1.0.0; python_version>='3.8'",
   "uvicorn-worker>=0.2.0,<1.0.0; python_version>='3.8'",

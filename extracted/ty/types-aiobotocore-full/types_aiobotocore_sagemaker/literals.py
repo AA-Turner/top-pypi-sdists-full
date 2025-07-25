@@ -86,6 +86,7 @@ __all__ = (
     "ConditionOutcomeType",
     "ContainerModeType",
     "ContentClassifierType",
+    "CreateHubContentPresignedUrlsPaginatorName",
     "CrossAccountFilterOptionType",
     "DataDistributionTypeType",
     "DataSourceNameType",
@@ -230,6 +231,7 @@ __all__ = (
     "ListPipelineExecutionStepsPaginatorName",
     "ListPipelineExecutionsPaginatorName",
     "ListPipelineParametersForExecutionPaginatorName",
+    "ListPipelineVersionsPaginatorName",
     "ListPipelinesPaginatorName",
     "ListProcessingJobsPaginatorName",
     "ListResourceCatalogsPaginatorName",
@@ -936,6 +938,7 @@ CompressionTypeType = Literal["Gzip", "None"]
 ConditionOutcomeType = Literal["False", "True"]
 ContainerModeType = Literal["MultiModel", "SingleModel"]
 ContentClassifierType = Literal["FreeOfAdultContent", "FreeOfPersonallyIdentifiableInformation"]
+CreateHubContentPresignedUrlsPaginatorName = Literal["create_hub_content_presigned_urls"]
 CrossAccountFilterOptionType = Literal["CrossAccount", "SameAccount"]
 DataDistributionTypeType = Literal["FullyReplicated", "ShardedByS3Key"]
 DataSourceNameType = Literal["SalesforceGenie", "Snowflake"]
@@ -1306,6 +1309,7 @@ ListPartnerAppsPaginatorName = Literal["list_partner_apps"]
 ListPipelineExecutionStepsPaginatorName = Literal["list_pipeline_execution_steps"]
 ListPipelineExecutionsPaginatorName = Literal["list_pipeline_executions"]
 ListPipelineParametersForExecutionPaginatorName = Literal["list_pipeline_parameters_for_execution"]
+ListPipelineVersionsPaginatorName = Literal["list_pipeline_versions"]
 ListPipelinesPaginatorName = Literal["list_pipelines"]
 ListProcessingJobsPaginatorName = Literal["list_processing_jobs"]
 ListResourceCatalogsPaginatorName = Literal["list_resource_catalogs"]
@@ -1942,6 +1946,7 @@ ResourceTypeType = Literal[
     "ModelPackageGroup",
     "Pipeline",
     "PipelineExecution",
+    "PipelineVersion",
     "Project",
     "TrainingJob",
 ]
@@ -2417,6 +2422,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -2649,6 +2656,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -2709,6 +2717,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",
@@ -2797,6 +2806,7 @@ ResourceServiceName = Literal[
     "sqs",
 ]
 PaginatorName = Literal[
+    "create_hub_content_presigned_urls",
     "list_actions",
     "list_algorithms",
     "list_aliases",
@@ -2857,6 +2867,7 @@ PaginatorName = Literal[
     "list_pipeline_execution_steps",
     "list_pipeline_executions",
     "list_pipeline_parameters_for_execution",
+    "list_pipeline_versions",
     "list_pipelines",
     "list_processing_jobs",
     "list_resource_catalogs",
@@ -2894,6 +2905,7 @@ WaiterName = Literal[
 RegionName = Literal[
     "af-south-1",
     "ap-east-1",
+    "ap-east-2",
     "ap-northeast-1",
     "ap-northeast-2",
     "ap-northeast-3",

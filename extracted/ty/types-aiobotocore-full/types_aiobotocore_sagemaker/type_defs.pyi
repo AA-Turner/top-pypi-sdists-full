@@ -374,6 +374,7 @@ __all__ = (
     "AsyncInferenceOutputConfigOutputTypeDef",
     "AsyncInferenceOutputConfigTypeDef",
     "AthenaDatasetDefinitionTypeDef",
+    "AuthorizedUrlTypeDef",
     "AutoMLAlgorithmConfigOutputTypeDef",
     "AutoMLAlgorithmConfigTypeDef",
     "AutoMLCandidateGenerationConfigOutputTypeDef",
@@ -474,6 +475,8 @@ __all__ = (
     "ClusterNodeSummaryTypeDef",
     "ClusterOrchestratorEksConfigTypeDef",
     "ClusterOrchestratorTypeDef",
+    "ClusterRestrictedInstanceGroupDetailsTypeDef",
+    "ClusterRestrictedInstanceGroupSpecificationTypeDef",
     "ClusterSchedulerConfigSummaryTypeDef",
     "ClusterSummaryTypeDef",
     "CodeEditorAppImageConfigOutputTypeDef",
@@ -551,6 +554,9 @@ __all__ = (
     "CreateFeatureGroupResponseTypeDef",
     "CreateFlowDefinitionRequestTypeDef",
     "CreateFlowDefinitionResponseTypeDef",
+    "CreateHubContentPresignedUrlsRequestPaginateTypeDef",
+    "CreateHubContentPresignedUrlsRequestTypeDef",
+    "CreateHubContentPresignedUrlsResponseTypeDef",
     "CreateHubContentReferenceRequestTypeDef",
     "CreateHubContentReferenceResponseTypeDef",
     "CreateHubRequestTypeDef",
@@ -954,6 +960,8 @@ __all__ = (
     "EndpointStepMetadataTypeDef",
     "EndpointSummaryTypeDef",
     "EndpointTypeDef",
+    "EnvironmentConfigDetailsTypeDef",
+    "EnvironmentConfigTypeDef",
     "EnvironmentParameterRangesOutputTypeDef",
     "EnvironmentParameterRangesTypeDef",
     "EnvironmentParameterTypeDef",
@@ -966,6 +974,7 @@ __all__ = (
     "ExplainerConfigOutputTypeDef",
     "ExplainerConfigTypeDef",
     "ExplainerConfigUnionTypeDef",
+    "FSxLustreConfigTypeDef",
     "FSxLustreFileSystemConfigTypeDef",
     "FSxLustreFileSystemTypeDef",
     "FailStepMetadataTypeDef",
@@ -1309,6 +1318,9 @@ __all__ = (
     "ListPipelineParametersForExecutionRequestPaginateTypeDef",
     "ListPipelineParametersForExecutionRequestTypeDef",
     "ListPipelineParametersForExecutionResponseTypeDef",
+    "ListPipelineVersionsRequestPaginateTypeDef",
+    "ListPipelineVersionsRequestTypeDef",
+    "ListPipelineVersionsResponseTypeDef",
     "ListPipelinesRequestPaginateTypeDef",
     "ListPipelinesRequestTypeDef",
     "ListPipelinesResponseTypeDef",
@@ -1554,7 +1566,10 @@ __all__ = (
     "PipelineExperimentConfigTypeDef",
     "PipelineSummaryTypeDef",
     "PipelineTypeDef",
+    "PipelineVersionSummaryTypeDef",
+    "PipelineVersionTypeDef",
     "PredefinedMetricSpecificationTypeDef",
+    "PresignedUrlAccessConfigTypeDef",
     "PriorityClassTypeDef",
     "ProcessingClusterConfigTypeDef",
     "ProcessingFeatureStoreOutputTypeDef",
@@ -1728,6 +1743,8 @@ __all__ = (
     "StartNotebookInstanceInputTypeDef",
     "StartPipelineExecutionRequestTypeDef",
     "StartPipelineExecutionResponseTypeDef",
+    "StartSessionRequestTypeDef",
+    "StartSessionResponseTypeDef",
     "StopAutoMLJobRequestTypeDef",
     "StopCompilationJobRequestTypeDef",
     "StopEdgeDeploymentStageRequestTypeDef",
@@ -1892,6 +1909,8 @@ __all__ = (
     "UpdatePipelineExecutionResponseTypeDef",
     "UpdatePipelineRequestTypeDef",
     "UpdatePipelineResponseTypeDef",
+    "UpdatePipelineVersionRequestTypeDef",
+    "UpdatePipelineVersionResponseTypeDef",
     "UpdateProjectInputTypeDef",
     "UpdateProjectOutputTypeDef",
     "UpdateSpaceRequestTypeDef",
@@ -2045,6 +2064,10 @@ class AthenaDatasetDefinitionTypeDef(TypedDict):
     KmsKeyId: NotRequired[str]
     OutputCompression: NotRequired[AthenaResultCompressionTypeType]
 
+class AuthorizedUrlTypeDef(TypedDict):
+    Url: NotRequired[str]
+    LocalPath: NotRequired[str]
+
 class AutoMLAlgorithmConfigOutputTypeDef(TypedDict):
     AutoMLAlgorithms: List[AutoMLAlgorithmType]
 
@@ -2136,7 +2159,7 @@ class BatchDeleteClusterNodesErrorTypeDef(TypedDict):
 
 class BatchDeleteClusterNodesRequestTypeDef(TypedDict):
     ClusterName: str
-    NodeIds: Sequence[str]
+    NodeIds: NotRequired[Sequence[str]]
 
 class BatchDescribeModelPackageErrorTypeDef(TypedDict):
     ErrorCode: str
@@ -2515,6 +2538,15 @@ class FlowDefinitionOutputConfigTypeDef(TypedDict):
 
 class HumanLoopRequestSourceTypeDef(TypedDict):
     AwsManagedHumanLoopRequestSource: AwsManagedHumanLoopRequestSourceType
+
+class PaginatorConfigTypeDef(TypedDict):
+    MaxItems: NotRequired[int]
+    PageSize: NotRequired[int]
+    StartingToken: NotRequired[str]
+
+class PresignedUrlAccessConfigTypeDef(TypedDict):
+    AcceptEula: NotRequired[bool]
+    ExpectedS3Url: NotRequired[str]
 
 class HubS3StorageConfigTypeDef(TypedDict):
     S3OutputPath: NotRequired[str]
@@ -3066,7 +3098,7 @@ class DescribeAutoMLJobV2RequestTypeDef(TypedDict):
 
 class DescribeClusterNodeRequestTypeDef(TypedDict):
     ClusterName: str
-    NodeId: str
+    NodeId: NotRequired[str]
 
 class DescribeClusterRequestTypeDef(TypedDict):
     ClusterName: str
@@ -3375,6 +3407,7 @@ class PipelineExperimentConfigTypeDef(TypedDict):
 
 class DescribePipelineRequestTypeDef(TypedDict):
     PipelineName: str
+    PipelineVersionId: NotRequired[int]
 
 class DescribeProcessingJobRequestTypeDef(TypedDict):
     ProcessingJobName: str
@@ -3660,6 +3693,10 @@ class EndpointSummaryTypeDef(TypedDict):
     LastModifiedTime: datetime
     EndpointStatus: EndpointStatusType
 
+class FSxLustreConfigTypeDef(TypedDict):
+    SizeInGiB: int
+    PerUnitStorageThroughput: int
+
 class EnvironmentParameterTypeDef(TypedDict):
     Key: str
     ValueType: str
@@ -3922,11 +3959,6 @@ class LineageGroupSummaryTypeDef(TypedDict):
     CreationTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
 
-class PaginatorConfigTypeDef(TypedDict):
-    MaxItems: NotRequired[int]
-    PageSize: NotRequired[int]
-    StartingToken: NotRequired[str]
-
 class ListAliasesRequestTypeDef(TypedDict):
     ImageName: str
     Alias: NotRequired[str]
@@ -4108,6 +4140,14 @@ class ListPipelineParametersForExecutionRequestTypeDef(TypedDict):
 class ParameterTypeDef(TypedDict):
     Name: str
     Value: str
+
+class PipelineVersionSummaryTypeDef(TypedDict):
+    PipelineArn: NotRequired[str]
+    PipelineVersionId: NotRequired[int]
+    CreationTime: NotRequired[datetime]
+    PipelineVersionDescription: NotRequired[str]
+    PipelineVersionDisplayName: NotRequired[str]
+    LastExecutionPipelineExecutionArn: NotRequired[str]
 
 class PipelineSummaryTypeDef(TypedDict):
     PipelineArn: NotRequired[str]
@@ -4641,6 +4681,9 @@ class StartMonitoringScheduleRequestTypeDef(TypedDict):
 class StartNotebookInstanceInputTypeDef(TypedDict):
     NotebookInstanceName: str
 
+class StartSessionRequestTypeDef(TypedDict):
+    ResourceIdentifier: str
+
 class StopAutoMLJobRequestTypeDef(TypedDict):
     AutoMLJobName: str
 
@@ -4811,6 +4854,12 @@ class UpdateMonitoringAlertRequestTypeDef(TypedDict):
     MonitoringAlertName: str
     DatapointsToAlert: int
     EvaluationPeriod: int
+
+class UpdatePipelineVersionRequestTypeDef(TypedDict):
+    PipelineArn: str
+    PipelineVersionId: int
+    PipelineVersionDisplayName: NotRequired[str]
+    PipelineVersionDescription: NotRequired[str]
 
 class UpdateTrialRequestTypeDef(TypedDict):
     TrialName: str
@@ -5252,6 +5301,12 @@ class StartPipelineExecutionResponseTypeDef(TypedDict):
     PipelineExecutionArn: str
     ResponseMetadata: ResponseMetadataTypeDef
 
+class StartSessionResponseTypeDef(TypedDict):
+    SessionId: str
+    StreamUrl: str
+    TokenValue: str
+    ResponseMetadata: ResponseMetadataTypeDef
+
 class StopInferenceExperimentResponseTypeDef(TypedDict):
     InferenceExperimentArn: str
     ResponseMetadata: ResponseMetadataTypeDef
@@ -5387,6 +5442,12 @@ class UpdatePipelineExecutionResponseTypeDef(TypedDict):
 
 class UpdatePipelineResponseTypeDef(TypedDict):
     PipelineArn: str
+    PipelineVersionId: int
+    ResponseMetadata: ResponseMetadataTypeDef
+
+class UpdatePipelineVersionResponseTypeDef(TypedDict):
+    PipelineArn: str
+    PipelineVersionId: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class UpdateProjectOutputTypeDef(TypedDict):
@@ -5589,6 +5650,11 @@ class AsyncInferenceOutputConfigTypeDef(TypedDict):
     S3OutputPath: NotRequired[str]
     NotificationConfig: NotRequired[AsyncInferenceNotificationConfigTypeDef]
     S3FailurePath: NotRequired[str]
+
+class CreateHubContentPresignedUrlsResponseTypeDef(TypedDict):
+    AuthorizedUrlConfigs: List[AuthorizedUrlTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class AutoMLCandidateGenerationConfigOutputTypeDef(TypedDict):
     FeatureSpecificationS3Uri: NotRequired[str]
@@ -6018,6 +6084,117 @@ class UpdateDeviceFleetRequestTypeDef(TypedDict):
     Description: NotRequired[str]
     EnableIotRoleAlias: NotRequired[bool]
 
+class ListAliasesRequestPaginateTypeDef(TypedDict):
+    ImageName: str
+    Alias: NotRequired[str]
+    Version: NotRequired[int]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListAppsRequestPaginateTypeDef(TypedDict):
+    SortOrder: NotRequired[SortOrderType]
+    SortBy: NotRequired[Literal["CreationTime"]]
+    DomainIdEquals: NotRequired[str]
+    UserProfileNameEquals: NotRequired[str]
+    SpaceNameEquals: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListCandidatesForAutoMLJobRequestPaginateTypeDef(TypedDict):
+    AutoMLJobName: str
+    StatusEquals: NotRequired[CandidateStatusType]
+    CandidateNameEquals: NotRequired[str]
+    SortOrder: NotRequired[AutoMLSortOrderType]
+    SortBy: NotRequired[CandidateSortByType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListDomainsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListInferenceRecommendationsJobStepsRequestPaginateTypeDef(TypedDict):
+    JobName: str
+    Status: NotRequired[RecommendationJobStatusType]
+    StepType: NotRequired[Literal["BENCHMARK"]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListMonitoringAlertsRequestPaginateTypeDef(TypedDict):
+    MonitoringScheduleName: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPartnerAppsRequestPaginateTypeDef(TypedDict):
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPipelineExecutionStepsRequestPaginateTypeDef(TypedDict):
+    PipelineExecutionArn: NotRequired[str]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPipelineParametersForExecutionRequestPaginateTypeDef(TypedDict):
+    PipelineExecutionArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListSpacesRequestPaginateTypeDef(TypedDict):
+    SortOrder: NotRequired[SortOrderType]
+    SortBy: NotRequired[SpaceSortKeyType]
+    DomainIdEquals: NotRequired[str]
+    SpaceNameContains: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListStageDevicesRequestPaginateTypeDef(TypedDict):
+    EdgeDeploymentPlanName: str
+    StageName: str
+    ExcludeDevicesDeployedInOtherStage: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListSubscribedWorkteamsRequestPaginateTypeDef(TypedDict):
+    NameContains: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListTagsInputPaginateTypeDef(TypedDict):
+    ResourceArn: str
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListTrainingJobsForHyperParameterTuningJobRequestPaginateTypeDef(TypedDict):
+    HyperParameterTuningJobName: str
+    StatusEquals: NotRequired[TrainingJobStatusType]
+    SortBy: NotRequired[TrainingJobSortByOptionsType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListUserProfilesRequestPaginateTypeDef(TypedDict):
+    SortOrder: NotRequired[SortOrderType]
+    SortBy: NotRequired[UserProfileSortKeyType]
+    DomainIdEquals: NotRequired[str]
+    UserProfileNameContains: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListWorkforcesRequestPaginateTypeDef(TypedDict):
+    SortBy: NotRequired[ListWorkforcesSortByOptionsType]
+    SortOrder: NotRequired[SortOrderType]
+    NameContains: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListWorkteamsRequestPaginateTypeDef(TypedDict):
+    SortBy: NotRequired[ListWorkteamsSortByOptionsType]
+    SortOrder: NotRequired[SortOrderType]
+    NameContains: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class CreateHubContentPresignedUrlsRequestPaginateTypeDef(TypedDict):
+    HubName: str
+    HubContentType: HubContentTypeType
+    HubContentName: str
+    HubContentVersion: NotRequired[str]
+    AccessConfig: NotRequired[PresignedUrlAccessConfigTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class CreateHubContentPresignedUrlsRequestTypeDef(TypedDict):
+    HubName: str
+    HubContentType: HubContentTypeType
+    HubContentName: str
+    HubContentVersion: NotRequired[str]
+    AccessConfig: NotRequired[PresignedUrlAccessConfigTypeDef]
+    MaxResults: NotRequired[int]
+    NextToken: NotRequired[str]
+
 class CreateHubRequestTypeDef(TypedDict):
     HubName: str
     HubDescription: str
@@ -6186,6 +6363,15 @@ class InferenceExperimentScheduleTypeDef(TypedDict):
     StartTime: NotRequired[TimestampTypeDef]
     EndTime: NotRequired[TimestampTypeDef]
 
+class ListActionsRequestPaginateTypeDef(TypedDict):
+    SourceUri: NotRequired[str]
+    ActionType: NotRequired[str]
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[SortActionsByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListActionsRequestTypeDef(TypedDict):
     SourceUri: NotRequired[str]
     ActionType: NotRequired[str]
@@ -6196,6 +6382,14 @@ class ListActionsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListAlgorithmsInputPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    SortBy: NotRequired[AlgorithmSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListAlgorithmsInputTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
@@ -6204,6 +6398,16 @@ class ListAlgorithmsInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
     SortBy: NotRequired[AlgorithmSortByType]
     SortOrder: NotRequired[SortOrderType]
+
+class ListAppImageConfigsRequestPaginateTypeDef(TypedDict):
+    NameContains: NotRequired[str]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    ModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    ModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[AppImageConfigSortKeyType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAppImageConfigsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
@@ -6216,6 +6420,15 @@ class ListAppImageConfigsRequestTypeDef(TypedDict):
     SortBy: NotRequired[AppImageConfigSortKeyType]
     SortOrder: NotRequired[SortOrderType]
 
+class ListArtifactsRequestPaginateTypeDef(TypedDict):
+    SourceUri: NotRequired[str]
+    ArtifactType: NotRequired[str]
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[Literal["CreationTime"]]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListArtifactsRequestTypeDef(TypedDict):
     SourceUri: NotRequired[str]
     ArtifactType: NotRequired[str]
@@ -6225,6 +6438,18 @@ class ListArtifactsRequestTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+class ListAssociationsRequestPaginateTypeDef(TypedDict):
+    SourceArn: NotRequired[str]
+    DestinationArn: NotRequired[str]
+    SourceType: NotRequired[str]
+    DestinationType: NotRequired[str]
+    AssociationType: NotRequired[AssociationEdgeTypeType]
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[SortAssociationsByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListAssociationsRequestTypeDef(TypedDict):
     SourceArn: NotRequired[str]
@@ -6239,6 +6464,17 @@ class ListAssociationsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListAutoMLJobsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[AutoMLJobStatusType]
+    SortOrder: NotRequired[AutoMLSortOrderType]
+    SortBy: NotRequired[AutoMLSortByType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListAutoMLJobsRequestTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
@@ -6251,6 +6487,15 @@ class ListAutoMLJobsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
+class ListClusterNodesRequestPaginateTypeDef(TypedDict):
+    ClusterName: str
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    InstanceGroupNameContains: NotRequired[str]
+    SortBy: NotRequired[ClusterSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListClusterNodesRequestTypeDef(TypedDict):
     ClusterName: str
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -6260,6 +6505,16 @@ class ListClusterNodesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     SortBy: NotRequired[ClusterSortByType]
     SortOrder: NotRequired[SortOrderType]
+
+class ListClusterSchedulerConfigsRequestPaginateTypeDef(TypedDict):
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    ClusterArn: NotRequired[str]
+    Status: NotRequired[SchedulerResourceStatusType]
+    SortBy: NotRequired[SortClusterSchedulerConfigByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListClusterSchedulerConfigsRequestTypeDef(TypedDict):
     CreatedAfter: NotRequired[TimestampTypeDef]
@@ -6272,6 +6527,15 @@ class ListClusterSchedulerConfigsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListClustersRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    SortBy: NotRequired[ClusterSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    TrainingPlanArn: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListClustersRequestTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
@@ -6281,6 +6545,16 @@ class ListClustersRequestTypeDef(TypedDict):
     SortBy: NotRequired[ClusterSortByType]
     SortOrder: NotRequired[SortOrderType]
     TrainingPlanArn: NotRequired[str]
+
+class ListCodeRepositoriesInputPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    SortBy: NotRequired[CodeRepositorySortByType]
+    SortOrder: NotRequired[CodeRepositorySortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListCodeRepositoriesInputTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -6292,6 +6566,17 @@ class ListCodeRepositoriesInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
     SortBy: NotRequired[CodeRepositorySortByType]
     SortOrder: NotRequired[CodeRepositorySortOrderType]
+
+class ListCompilationJobsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[CompilationJobStatusType]
+    SortBy: NotRequired[ListCompilationJobsSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListCompilationJobsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -6305,6 +6590,16 @@ class ListCompilationJobsRequestTypeDef(TypedDict):
     SortBy: NotRequired[ListCompilationJobsSortByType]
     SortOrder: NotRequired[SortOrderType]
 
+class ListComputeQuotasRequestPaginateTypeDef(TypedDict):
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    Status: NotRequired[SchedulerResourceStatusType]
+    ClusterArn: NotRequired[str]
+    SortBy: NotRequired[SortQuotaByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListComputeQuotasRequestTypeDef(TypedDict):
     CreatedAfter: NotRequired[TimestampTypeDef]
     CreatedBefore: NotRequired[TimestampTypeDef]
@@ -6316,6 +6611,15 @@ class ListComputeQuotasRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListContextsRequestPaginateTypeDef(TypedDict):
+    SourceUri: NotRequired[str]
+    ContextType: NotRequired[str]
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[SortContextsByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListContextsRequestTypeDef(TypedDict):
     SourceUri: NotRequired[str]
     ContextType: NotRequired[str]
@@ -6326,6 +6630,15 @@ class ListContextsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListDataQualityJobDefinitionsRequestPaginateTypeDef(TypedDict):
+    EndpointName: NotRequired[str]
+    SortBy: NotRequired[MonitoringJobDefinitionSortKeyType]
+    SortOrder: NotRequired[SortOrderType]
+    NameContains: NotRequired[str]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListDataQualityJobDefinitionsRequestTypeDef(TypedDict):
     EndpointName: NotRequired[str]
     SortBy: NotRequired[MonitoringJobDefinitionSortKeyType]
@@ -6335,6 +6648,16 @@ class ListDataQualityJobDefinitionsRequestTypeDef(TypedDict):
     NameContains: NotRequired[str]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
     CreationTimeAfter: NotRequired[TimestampTypeDef]
+
+class ListDeviceFleetsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    SortBy: NotRequired[ListDeviceFleetsSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListDeviceFleetsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -6347,12 +6670,29 @@ class ListDeviceFleetsRequestTypeDef(TypedDict):
     SortBy: NotRequired[ListDeviceFleetsSortByType]
     SortOrder: NotRequired[SortOrderType]
 
+class ListDevicesRequestPaginateTypeDef(TypedDict):
+    LatestHeartbeatAfter: NotRequired[TimestampTypeDef]
+    ModelName: NotRequired[str]
+    DeviceFleetName: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListDevicesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     LatestHeartbeatAfter: NotRequired[TimestampTypeDef]
     ModelName: NotRequired[str]
     DeviceFleetName: NotRequired[str]
+
+class ListEdgeDeploymentPlansRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    DeviceFleetNameContains: NotRequired[str]
+    SortBy: NotRequired[ListEdgeDeploymentPlansSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListEdgeDeploymentPlansRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -6365,6 +6705,18 @@ class ListEdgeDeploymentPlansRequestTypeDef(TypedDict):
     DeviceFleetNameContains: NotRequired[str]
     SortBy: NotRequired[ListEdgeDeploymentPlansSortByType]
     SortOrder: NotRequired[SortOrderType]
+
+class ListEdgePackagingJobsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    ModelNameContains: NotRequired[str]
+    StatusEquals: NotRequired[EdgePackagingJobStatusType]
+    SortBy: NotRequired[ListEdgePackagingJobsSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListEdgePackagingJobsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -6379,6 +6731,14 @@ class ListEdgePackagingJobsRequestTypeDef(TypedDict):
     SortBy: NotRequired[ListEdgePackagingJobsSortByType]
     SortOrder: NotRequired[SortOrderType]
 
+class ListEndpointConfigsInputPaginateTypeDef(TypedDict):
+    SortBy: NotRequired[EndpointConfigSortKeyType]
+    SortOrder: NotRequired[OrderKeyType]
+    NameContains: NotRequired[str]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListEndpointConfigsInputTypeDef(TypedDict):
     SortBy: NotRequired[EndpointConfigSortKeyType]
     SortOrder: NotRequired[OrderKeyType]
@@ -6387,6 +6747,17 @@ class ListEndpointConfigsInputTypeDef(TypedDict):
     NameContains: NotRequired[str]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
     CreationTimeAfter: NotRequired[TimestampTypeDef]
+
+class ListEndpointsInputPaginateTypeDef(TypedDict):
+    SortBy: NotRequired[EndpointSortKeyType]
+    SortOrder: NotRequired[OrderKeyType]
+    NameContains: NotRequired[str]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    StatusEquals: NotRequired[EndpointStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListEndpointsInputTypeDef(TypedDict):
     SortBy: NotRequired[EndpointSortKeyType]
@@ -6400,6 +6771,13 @@ class ListEndpointsInputTypeDef(TypedDict):
     LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
     StatusEquals: NotRequired[EndpointStatusType]
 
+class ListExperimentsRequestPaginateTypeDef(TypedDict):
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[SortExperimentsByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListExperimentsRequestTypeDef(TypedDict):
     CreatedAfter: NotRequired[TimestampTypeDef]
     CreatedBefore: NotRequired[TimestampTypeDef]
@@ -6407,6 +6785,16 @@ class ListExperimentsRequestTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+class ListFeatureGroupsRequestPaginateTypeDef(TypedDict):
+    NameContains: NotRequired[str]
+    FeatureGroupStatusEquals: NotRequired[FeatureGroupStatusType]
+    OfflineStoreStatusEquals: NotRequired[OfflineStoreStatusValueType]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    SortOrder: NotRequired[FeatureGroupSortOrderType]
+    SortBy: NotRequired[FeatureGroupSortByType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListFeatureGroupsRequestTypeDef(TypedDict):
     NameContains: NotRequired[str]
@@ -6418,6 +6806,12 @@ class ListFeatureGroupsRequestTypeDef(TypedDict):
     SortBy: NotRequired[FeatureGroupSortByType]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+class ListFlowDefinitionsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListFlowDefinitionsRequestTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -6462,12 +6856,29 @@ class ListHubsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
 
+class ListHumanTaskUisRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListHumanTaskUisRequestTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
     SortOrder: NotRequired[SortOrderType]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+class ListHyperParameterTuningJobsRequestPaginateTypeDef(TypedDict):
+    SortBy: NotRequired[HyperParameterTuningJobSortByOptionsType]
+    SortOrder: NotRequired[SortOrderType]
+    NameContains: NotRequired[str]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    StatusEquals: NotRequired[HyperParameterTuningJobStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListHyperParameterTuningJobsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -6481,6 +6892,16 @@ class ListHyperParameterTuningJobsRequestTypeDef(TypedDict):
     LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
     StatusEquals: NotRequired[HyperParameterTuningJobStatusType]
 
+class ListImageVersionsRequestPaginateTypeDef(TypedDict):
+    ImageName: str
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[ImageVersionSortByType]
+    SortOrder: NotRequired[ImageVersionSortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListImageVersionsRequestTypeDef(TypedDict):
     ImageName: str
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -6492,6 +6913,16 @@ class ListImageVersionsRequestTypeDef(TypedDict):
     SortBy: NotRequired[ImageVersionSortByType]
     SortOrder: NotRequired[ImageVersionSortOrderType]
 
+class ListImagesRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    SortBy: NotRequired[ImageSortByType]
+    SortOrder: NotRequired[ImageSortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListImagesRequestTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
@@ -6502,6 +6933,19 @@ class ListImagesRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     SortBy: NotRequired[ImageSortByType]
     SortOrder: NotRequired[ImageSortOrderType]
+
+class ListInferenceComponentsInputPaginateTypeDef(TypedDict):
+    SortBy: NotRequired[InferenceComponentSortKeyType]
+    SortOrder: NotRequired[OrderKeyType]
+    NameContains: NotRequired[str]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    StatusEquals: NotRequired[InferenceComponentStatusType]
+    EndpointNameEquals: NotRequired[str]
+    VariantNameEquals: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListInferenceComponentsInputTypeDef(TypedDict):
     SortBy: NotRequired[InferenceComponentSortKeyType]
@@ -6517,6 +6961,21 @@ class ListInferenceComponentsInputTypeDef(TypedDict):
     EndpointNameEquals: NotRequired[str]
     VariantNameEquals: NotRequired[str]
 
+ListInferenceExperimentsRequestPaginateTypeDef = TypedDict(
+    "ListInferenceExperimentsRequestPaginateTypeDef",
+    {
+        "NameContains": NotRequired[str],
+        "Type": NotRequired[Literal["ShadowMode"]],
+        "StatusEquals": NotRequired[InferenceExperimentStatusType],
+        "CreationTimeAfter": NotRequired[TimestampTypeDef],
+        "CreationTimeBefore": NotRequired[TimestampTypeDef],
+        "LastModifiedTimeAfter": NotRequired[TimestampTypeDef],
+        "LastModifiedTimeBefore": NotRequired[TimestampTypeDef],
+        "SortBy": NotRequired[SortInferenceExperimentsByType],
+        "SortOrder": NotRequired[SortOrderType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
 ListInferenceExperimentsRequestTypeDef = TypedDict(
     "ListInferenceExperimentsRequestTypeDef",
     {
@@ -6534,6 +6993,19 @@ ListInferenceExperimentsRequestTypeDef = TypedDict(
     },
 )
 
+class ListInferenceRecommendationsJobsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[RecommendationJobStatusType]
+    SortBy: NotRequired[ListInferenceRecommendationsJobsSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    ModelNameEquals: NotRequired[str]
+    ModelPackageVersionArnEquals: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListInferenceRecommendationsJobsRequestTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
@@ -6548,6 +7020,15 @@ class ListInferenceRecommendationsJobsRequestTypeDef(TypedDict):
     ModelNameEquals: NotRequired[str]
     ModelPackageVersionArnEquals: NotRequired[str]
 
+class ListLabelingJobsForWorkteamRequestPaginateTypeDef(TypedDict):
+    WorkteamArn: str
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    JobReferenceCodeContains: NotRequired[str]
+    SortBy: NotRequired[Literal["CreationTime"]]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListLabelingJobsForWorkteamRequestTypeDef(TypedDict):
     WorkteamArn: str
     MaxResults: NotRequired[int]
@@ -6557,6 +7038,17 @@ class ListLabelingJobsForWorkteamRequestTypeDef(TypedDict):
     JobReferenceCodeContains: NotRequired[str]
     SortBy: NotRequired[Literal["CreationTime"]]
     SortOrder: NotRequired[SortOrderType]
+
+class ListLabelingJobsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    SortBy: NotRequired[SortByType]
+    SortOrder: NotRequired[SortOrderType]
+    StatusEquals: NotRequired[LabelingJobStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListLabelingJobsRequestTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -6570,6 +7062,13 @@ class ListLabelingJobsRequestTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
     StatusEquals: NotRequired[LabelingJobStatusType]
 
+class ListLineageGroupsRequestPaginateTypeDef(TypedDict):
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[SortLineageGroupsByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListLineageGroupsRequestTypeDef(TypedDict):
     CreatedAfter: NotRequired[TimestampTypeDef]
     CreatedBefore: NotRequired[TimestampTypeDef]
@@ -6577,6 +7076,15 @@ class ListLineageGroupsRequestTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+class ListMlflowTrackingServersRequestPaginateTypeDef(TypedDict):
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    TrackingServerStatus: NotRequired[TrackingServerStatusType]
+    MlflowVersion: NotRequired[str]
+    SortBy: NotRequired[SortTrackingServerByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMlflowTrackingServersRequestTypeDef(TypedDict):
     CreatedAfter: NotRequired[TimestampTypeDef]
@@ -6588,6 +7096,15 @@ class ListMlflowTrackingServersRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListModelBiasJobDefinitionsRequestPaginateTypeDef(TypedDict):
+    EndpointName: NotRequired[str]
+    SortBy: NotRequired[MonitoringJobDefinitionSortKeyType]
+    SortOrder: NotRequired[SortOrderType]
+    NameContains: NotRequired[str]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListModelBiasJobDefinitionsRequestTypeDef(TypedDict):
     EndpointName: NotRequired[str]
     SortBy: NotRequired[MonitoringJobDefinitionSortKeyType]
@@ -6597,6 +7114,17 @@ class ListModelBiasJobDefinitionsRequestTypeDef(TypedDict):
     NameContains: NotRequired[str]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
     CreationTimeAfter: NotRequired[TimestampTypeDef]
+
+class ListModelCardExportJobsRequestPaginateTypeDef(TypedDict):
+    ModelCardName: str
+    ModelCardVersion: NotRequired[int]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    ModelCardExportJobNameContains: NotRequired[str]
+    StatusEquals: NotRequired[ModelCardExportJobStatusType]
+    SortBy: NotRequired[ModelCardExportJobSortByType]
+    SortOrder: NotRequired[ModelCardExportJobSortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListModelCardExportJobsRequestTypeDef(TypedDict):
     ModelCardName: str
@@ -6610,6 +7138,15 @@ class ListModelCardExportJobsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListModelCardVersionsRequestPaginateTypeDef(TypedDict):
+    ModelCardName: str
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    ModelCardStatus: NotRequired[ModelCardStatusType]
+    SortBy: NotRequired[Literal["Version"]]
+    SortOrder: NotRequired[ModelCardSortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListModelCardVersionsRequestTypeDef(TypedDict):
     ModelCardName: str
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -6619,6 +7156,15 @@ class ListModelCardVersionsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     SortBy: NotRequired[Literal["Version"]]
     SortOrder: NotRequired[ModelCardSortOrderType]
+
+class ListModelCardsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    ModelCardStatus: NotRequired[ModelCardStatusType]
+    SortBy: NotRequired[ModelCardSortByType]
+    SortOrder: NotRequired[ModelCardSortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListModelCardsRequestTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -6630,6 +7176,15 @@ class ListModelCardsRequestTypeDef(TypedDict):
     SortBy: NotRequired[ModelCardSortByType]
     SortOrder: NotRequired[ModelCardSortOrderType]
 
+class ListModelExplainabilityJobDefinitionsRequestPaginateTypeDef(TypedDict):
+    EndpointName: NotRequired[str]
+    SortBy: NotRequired[MonitoringJobDefinitionSortKeyType]
+    SortOrder: NotRequired[SortOrderType]
+    NameContains: NotRequired[str]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListModelExplainabilityJobDefinitionsRequestTypeDef(TypedDict):
     EndpointName: NotRequired[str]
     SortBy: NotRequired[MonitoringJobDefinitionSortKeyType]
@@ -6640,6 +7195,15 @@ class ListModelExplainabilityJobDefinitionsRequestTypeDef(TypedDict):
     CreationTimeBefore: NotRequired[TimestampTypeDef]
     CreationTimeAfter: NotRequired[TimestampTypeDef]
 
+class ListModelPackageGroupsInputPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    SortBy: NotRequired[ModelPackageGroupSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    CrossAccountFilterOption: NotRequired[CrossAccountFilterOptionType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListModelPackageGroupsInputTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
@@ -6649,6 +7213,17 @@ class ListModelPackageGroupsInputTypeDef(TypedDict):
     SortBy: NotRequired[ModelPackageGroupSortByType]
     SortOrder: NotRequired[SortOrderType]
     CrossAccountFilterOption: NotRequired[CrossAccountFilterOptionType]
+
+class ListModelPackagesInputPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    ModelApprovalStatus: NotRequired[ModelApprovalStatusType]
+    ModelPackageGroupName: NotRequired[str]
+    ModelPackageType: NotRequired[ModelPackageTypeType]
+    SortBy: NotRequired[ModelPackageSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListModelPackagesInputTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -6662,6 +7237,15 @@ class ListModelPackagesInputTypeDef(TypedDict):
     SortBy: NotRequired[ModelPackageSortByType]
     SortOrder: NotRequired[SortOrderType]
 
+class ListModelQualityJobDefinitionsRequestPaginateTypeDef(TypedDict):
+    EndpointName: NotRequired[str]
+    SortBy: NotRequired[MonitoringJobDefinitionSortKeyType]
+    SortOrder: NotRequired[SortOrderType]
+    NameContains: NotRequired[str]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListModelQualityJobDefinitionsRequestTypeDef(TypedDict):
     EndpointName: NotRequired[str]
     SortBy: NotRequired[MonitoringJobDefinitionSortKeyType]
@@ -6672,6 +7256,14 @@ class ListModelQualityJobDefinitionsRequestTypeDef(TypedDict):
     CreationTimeBefore: NotRequired[TimestampTypeDef]
     CreationTimeAfter: NotRequired[TimestampTypeDef]
 
+class ListModelsInputPaginateTypeDef(TypedDict):
+    SortBy: NotRequired[ModelSortKeyType]
+    SortOrder: NotRequired[OrderKeyType]
+    NameContains: NotRequired[str]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListModelsInputTypeDef(TypedDict):
     SortBy: NotRequired[ModelSortKeyType]
     SortOrder: NotRequired[OrderKeyType]
@@ -6680,6 +7272,16 @@ class ListModelsInputTypeDef(TypedDict):
     NameContains: NotRequired[str]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
     CreationTimeAfter: NotRequired[TimestampTypeDef]
+
+class ListMonitoringAlertHistoryRequestPaginateTypeDef(TypedDict):
+    MonitoringScheduleName: NotRequired[str]
+    MonitoringAlertName: NotRequired[str]
+    SortBy: NotRequired[MonitoringAlertHistorySortKeyType]
+    SortOrder: NotRequired[SortOrderType]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    StatusEquals: NotRequired[MonitoringAlertStatusType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMonitoringAlertHistoryRequestTypeDef(TypedDict):
     MonitoringScheduleName: NotRequired[str]
@@ -6691,6 +7293,22 @@ class ListMonitoringAlertHistoryRequestTypeDef(TypedDict):
     CreationTimeBefore: NotRequired[TimestampTypeDef]
     CreationTimeAfter: NotRequired[TimestampTypeDef]
     StatusEquals: NotRequired[MonitoringAlertStatusType]
+
+class ListMonitoringExecutionsRequestPaginateTypeDef(TypedDict):
+    MonitoringScheduleName: NotRequired[str]
+    EndpointName: NotRequired[str]
+    SortBy: NotRequired[MonitoringExecutionSortKeyType]
+    SortOrder: NotRequired[SortOrderType]
+    ScheduledTimeBefore: NotRequired[TimestampTypeDef]
+    ScheduledTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    StatusEquals: NotRequired[ExecutionStatusType]
+    MonitoringJobDefinitionName: NotRequired[str]
+    MonitoringTypeEquals: NotRequired[MonitoringTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListMonitoringExecutionsRequestTypeDef(TypedDict):
     MonitoringScheduleName: NotRequired[str]
@@ -6709,6 +7327,20 @@ class ListMonitoringExecutionsRequestTypeDef(TypedDict):
     MonitoringJobDefinitionName: NotRequired[str]
     MonitoringTypeEquals: NotRequired[MonitoringTypeType]
 
+class ListMonitoringSchedulesRequestPaginateTypeDef(TypedDict):
+    EndpointName: NotRequired[str]
+    SortBy: NotRequired[MonitoringScheduleSortKeyType]
+    SortOrder: NotRequired[SortOrderType]
+    NameContains: NotRequired[str]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    StatusEquals: NotRequired[ScheduleStatusType]
+    MonitoringJobDefinitionName: NotRequired[str]
+    MonitoringTypeEquals: NotRequired[MonitoringTypeType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListMonitoringSchedulesRequestTypeDef(TypedDict):
     EndpointName: NotRequired[str]
     SortBy: NotRequired[MonitoringScheduleSortKeyType]
@@ -6724,6 +7356,16 @@ class ListMonitoringSchedulesRequestTypeDef(TypedDict):
     MonitoringJobDefinitionName: NotRequired[str]
     MonitoringTypeEquals: NotRequired[MonitoringTypeType]
 
+class ListNotebookInstanceLifecycleConfigsInputPaginateTypeDef(TypedDict):
+    SortBy: NotRequired[NotebookInstanceLifecycleConfigSortKeyType]
+    SortOrder: NotRequired[NotebookInstanceLifecycleConfigSortOrderType]
+    NameContains: NotRequired[str]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListNotebookInstanceLifecycleConfigsInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -6734,6 +7376,20 @@ class ListNotebookInstanceLifecycleConfigsInputTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
     LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
     LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+
+class ListNotebookInstancesInputPaginateTypeDef(TypedDict):
+    SortBy: NotRequired[NotebookInstanceSortKeyType]
+    SortOrder: NotRequired[NotebookInstanceSortOrderType]
+    NameContains: NotRequired[str]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    StatusEquals: NotRequired[NotebookInstanceStatusType]
+    NotebookInstanceLifecycleConfigNameContains: NotRequired[str]
+    DefaultCodeRepositoryContains: NotRequired[str]
+    AdditionalCodeRepositoryEquals: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListNotebookInstancesInputTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -6750,6 +7406,18 @@ class ListNotebookInstancesInputTypeDef(TypedDict):
     DefaultCodeRepositoryContains: NotRequired[str]
     AdditionalCodeRepositoryEquals: NotRequired[str]
 
+class ListOptimizationJobsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    OptimizationContains: NotRequired[str]
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[OptimizationJobStatusType]
+    SortBy: NotRequired[ListOptimizationJobsSortByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListOptimizationJobsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
@@ -6763,6 +7431,14 @@ class ListOptimizationJobsRequestTypeDef(TypedDict):
     SortBy: NotRequired[ListOptimizationJobsSortByType]
     SortOrder: NotRequired[SortOrderType]
 
+class ListPipelineExecutionsRequestPaginateTypeDef(TypedDict):
+    PipelineName: str
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[SortPipelineExecutionsByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListPipelineExecutionsRequestTypeDef(TypedDict):
     PipelineName: str
     CreatedAfter: NotRequired[TimestampTypeDef]
@@ -6772,6 +7448,29 @@ class ListPipelineExecutionsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListPipelineVersionsRequestPaginateTypeDef(TypedDict):
+    PipelineName: str
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class ListPipelineVersionsRequestTypeDef(TypedDict):
+    PipelineName: str
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortOrder: NotRequired[SortOrderType]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+
+class ListPipelinesRequestPaginateTypeDef(TypedDict):
+    PipelineNamePrefix: NotRequired[str]
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[SortPipelinesByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListPipelinesRequestTypeDef(TypedDict):
     PipelineNamePrefix: NotRequired[str]
     CreatedAfter: NotRequired[TimestampTypeDef]
@@ -6780,6 +7479,17 @@ class ListPipelinesRequestTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+
+class ListProcessingJobsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[ProcessingJobStatusType]
+    SortBy: NotRequired[SortByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListProcessingJobsRequestTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -6802,6 +7512,14 @@ class ListProjectsInputTypeDef(TypedDict):
     SortBy: NotRequired[ProjectSortByType]
     SortOrder: NotRequired[ProjectSortOrderType]
 
+class ListResourceCatalogsRequestPaginateTypeDef(TypedDict):
+    NameContains: NotRequired[str]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    SortOrder: NotRequired[ResourceCatalogSortOrderType]
+    SortBy: NotRequired[Literal["CreationTime"]]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListResourceCatalogsRequestTypeDef(TypedDict):
     NameContains: NotRequired[str]
     CreationTimeAfter: NotRequired[TimestampTypeDef]
@@ -6810,6 +7528,17 @@ class ListResourceCatalogsRequestTypeDef(TypedDict):
     SortBy: NotRequired[Literal["CreationTime"]]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+class ListStudioLifecycleConfigsRequestPaginateTypeDef(TypedDict):
+    NameContains: NotRequired[str]
+    AppTypeEquals: NotRequired[StudioLifecycleConfigAppTypeType]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    ModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    ModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[StudioLifecycleConfigSortKeyType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListStudioLifecycleConfigsRequestTypeDef(TypedDict):
     MaxResults: NotRequired[int]
@@ -6822,6 +7551,19 @@ class ListStudioLifecycleConfigsRequestTypeDef(TypedDict):
     ModifiedTimeAfter: NotRequired[TimestampTypeDef]
     SortBy: NotRequired[StudioLifecycleConfigSortKeyType]
     SortOrder: NotRequired[SortOrderType]
+
+class ListTrainingJobsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[TrainingJobStatusType]
+    SortBy: NotRequired[SortByType]
+    SortOrder: NotRequired[SortOrderType]
+    WarmPoolStatusEquals: NotRequired[WarmPoolResourceStatusType]
+    TrainingPlanArnEquals: NotRequired[str]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListTrainingJobsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
@@ -6837,6 +7579,17 @@ class ListTrainingJobsRequestTypeDef(TypedDict):
     WarmPoolStatusEquals: NotRequired[WarmPoolResourceStatusType]
     TrainingPlanArnEquals: NotRequired[str]
 
+class ListTransformJobsRequestPaginateTypeDef(TypedDict):
+    CreationTimeAfter: NotRequired[TimestampTypeDef]
+    CreationTimeBefore: NotRequired[TimestampTypeDef]
+    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
+    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
+    NameContains: NotRequired[str]
+    StatusEquals: NotRequired[TransformJobStatusType]
+    SortBy: NotRequired[SortByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListTransformJobsRequestTypeDef(TypedDict):
     CreationTimeAfter: NotRequired[TimestampTypeDef]
     CreationTimeBefore: NotRequired[TimestampTypeDef]
@@ -6849,6 +7602,16 @@ class ListTransformJobsRequestTypeDef(TypedDict):
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
 
+class ListTrialComponentsRequestPaginateTypeDef(TypedDict):
+    ExperimentName: NotRequired[str]
+    TrialName: NotRequired[str]
+    SourceArn: NotRequired[str]
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[SortTrialComponentsByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
 class ListTrialComponentsRequestTypeDef(TypedDict):
     ExperimentName: NotRequired[str]
     TrialName: NotRequired[str]
@@ -6859,6 +7622,15 @@ class ListTrialComponentsRequestTypeDef(TypedDict):
     SortOrder: NotRequired[SortOrderType]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+
+class ListTrialsRequestPaginateTypeDef(TypedDict):
+    ExperimentName: NotRequired[str]
+    TrialComponentName: NotRequired[str]
+    CreatedAfter: NotRequired[TimestampTypeDef]
+    CreatedBefore: NotRequired[TimestampTypeDef]
+    SortBy: NotRequired[SortTrialsByType]
+    SortOrder: NotRequired[SortOrderType]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class ListTrialsRequestTypeDef(TypedDict):
     ExperimentName: NotRequired[str]
@@ -7370,6 +8142,13 @@ class ListEndpointsOutputTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class EnvironmentConfigDetailsTypeDef(TypedDict):
+    FSxLustreConfig: NotRequired[FSxLustreConfigTypeDef]
+    S3OutputPath: NotRequired[str]
+
+class EnvironmentConfigTypeDef(TypedDict):
+    FSxLustreConfig: NotRequired[FSxLustreConfigTypeDef]
+
 class ModelConfigurationTypeDef(TypedDict):
     InferenceSpecificationName: NotRequired[str]
     EnvironmentParameters: NotRequired[List[EnvironmentParameterTypeDef]]
@@ -7604,681 +8383,6 @@ class ListLineageGroupsResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
-class ListActionsRequestPaginateTypeDef(TypedDict):
-    SourceUri: NotRequired[str]
-    ActionType: NotRequired[str]
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    SortBy: NotRequired[SortActionsByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListAlgorithmsInputPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    SortBy: NotRequired[AlgorithmSortByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListAliasesRequestPaginateTypeDef(TypedDict):
-    ImageName: str
-    Alias: NotRequired[str]
-    Version: NotRequired[int]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListAppImageConfigsRequestPaginateTypeDef(TypedDict):
-    NameContains: NotRequired[str]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    ModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    ModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    SortBy: NotRequired[AppImageConfigSortKeyType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListAppsRequestPaginateTypeDef(TypedDict):
-    SortOrder: NotRequired[SortOrderType]
-    SortBy: NotRequired[Literal["CreationTime"]]
-    DomainIdEquals: NotRequired[str]
-    UserProfileNameEquals: NotRequired[str]
-    SpaceNameEquals: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListArtifactsRequestPaginateTypeDef(TypedDict):
-    SourceUri: NotRequired[str]
-    ArtifactType: NotRequired[str]
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    SortBy: NotRequired[Literal["CreationTime"]]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListAssociationsRequestPaginateTypeDef(TypedDict):
-    SourceArn: NotRequired[str]
-    DestinationArn: NotRequired[str]
-    SourceType: NotRequired[str]
-    DestinationType: NotRequired[str]
-    AssociationType: NotRequired[AssociationEdgeTypeType]
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    SortBy: NotRequired[SortAssociationsByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListAutoMLJobsRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    StatusEquals: NotRequired[AutoMLJobStatusType]
-    SortOrder: NotRequired[AutoMLSortOrderType]
-    SortBy: NotRequired[AutoMLSortByType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListCandidatesForAutoMLJobRequestPaginateTypeDef(TypedDict):
-    AutoMLJobName: str
-    StatusEquals: NotRequired[CandidateStatusType]
-    CandidateNameEquals: NotRequired[str]
-    SortOrder: NotRequired[AutoMLSortOrderType]
-    SortBy: NotRequired[CandidateSortByType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListClusterNodesRequestPaginateTypeDef(TypedDict):
-    ClusterName: str
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    InstanceGroupNameContains: NotRequired[str]
-    SortBy: NotRequired[ClusterSortByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListClusterSchedulerConfigsRequestPaginateTypeDef(TypedDict):
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    ClusterArn: NotRequired[str]
-    Status: NotRequired[SchedulerResourceStatusType]
-    SortBy: NotRequired[SortClusterSchedulerConfigByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListClustersRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    SortBy: NotRequired[ClusterSortByType]
-    SortOrder: NotRequired[SortOrderType]
-    TrainingPlanArn: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListCodeRepositoriesInputPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    SortBy: NotRequired[CodeRepositorySortByType]
-    SortOrder: NotRequired[CodeRepositorySortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListCompilationJobsRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    StatusEquals: NotRequired[CompilationJobStatusType]
-    SortBy: NotRequired[ListCompilationJobsSortByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListComputeQuotasRequestPaginateTypeDef(TypedDict):
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    Status: NotRequired[SchedulerResourceStatusType]
-    ClusterArn: NotRequired[str]
-    SortBy: NotRequired[SortQuotaByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListContextsRequestPaginateTypeDef(TypedDict):
-    SourceUri: NotRequired[str]
-    ContextType: NotRequired[str]
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    SortBy: NotRequired[SortContextsByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListDataQualityJobDefinitionsRequestPaginateTypeDef(TypedDict):
-    EndpointName: NotRequired[str]
-    SortBy: NotRequired[MonitoringJobDefinitionSortKeyType]
-    SortOrder: NotRequired[SortOrderType]
-    NameContains: NotRequired[str]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListDeviceFleetsRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    SortBy: NotRequired[ListDeviceFleetsSortByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListDevicesRequestPaginateTypeDef(TypedDict):
-    LatestHeartbeatAfter: NotRequired[TimestampTypeDef]
-    ModelName: NotRequired[str]
-    DeviceFleetName: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListDomainsRequestPaginateTypeDef(TypedDict):
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListEdgeDeploymentPlansRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    DeviceFleetNameContains: NotRequired[str]
-    SortBy: NotRequired[ListEdgeDeploymentPlansSortByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListEdgePackagingJobsRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    ModelNameContains: NotRequired[str]
-    StatusEquals: NotRequired[EdgePackagingJobStatusType]
-    SortBy: NotRequired[ListEdgePackagingJobsSortByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListEndpointConfigsInputPaginateTypeDef(TypedDict):
-    SortBy: NotRequired[EndpointConfigSortKeyType]
-    SortOrder: NotRequired[OrderKeyType]
-    NameContains: NotRequired[str]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListEndpointsInputPaginateTypeDef(TypedDict):
-    SortBy: NotRequired[EndpointSortKeyType]
-    SortOrder: NotRequired[OrderKeyType]
-    NameContains: NotRequired[str]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    StatusEquals: NotRequired[EndpointStatusType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListExperimentsRequestPaginateTypeDef(TypedDict):
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    SortBy: NotRequired[SortExperimentsByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListFeatureGroupsRequestPaginateTypeDef(TypedDict):
-    NameContains: NotRequired[str]
-    FeatureGroupStatusEquals: NotRequired[FeatureGroupStatusType]
-    OfflineStoreStatusEquals: NotRequired[OfflineStoreStatusValueType]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    SortOrder: NotRequired[FeatureGroupSortOrderType]
-    SortBy: NotRequired[FeatureGroupSortByType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListFlowDefinitionsRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListHumanTaskUisRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListHyperParameterTuningJobsRequestPaginateTypeDef(TypedDict):
-    SortBy: NotRequired[HyperParameterTuningJobSortByOptionsType]
-    SortOrder: NotRequired[SortOrderType]
-    NameContains: NotRequired[str]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    StatusEquals: NotRequired[HyperParameterTuningJobStatusType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListImageVersionsRequestPaginateTypeDef(TypedDict):
-    ImageName: str
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    SortBy: NotRequired[ImageVersionSortByType]
-    SortOrder: NotRequired[ImageVersionSortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListImagesRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    SortBy: NotRequired[ImageSortByType]
-    SortOrder: NotRequired[ImageSortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListInferenceComponentsInputPaginateTypeDef(TypedDict):
-    SortBy: NotRequired[InferenceComponentSortKeyType]
-    SortOrder: NotRequired[OrderKeyType]
-    NameContains: NotRequired[str]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    StatusEquals: NotRequired[InferenceComponentStatusType]
-    EndpointNameEquals: NotRequired[str]
-    VariantNameEquals: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-ListInferenceExperimentsRequestPaginateTypeDef = TypedDict(
-    "ListInferenceExperimentsRequestPaginateTypeDef",
-    {
-        "NameContains": NotRequired[str],
-        "Type": NotRequired[Literal["ShadowMode"]],
-        "StatusEquals": NotRequired[InferenceExperimentStatusType],
-        "CreationTimeAfter": NotRequired[TimestampTypeDef],
-        "CreationTimeBefore": NotRequired[TimestampTypeDef],
-        "LastModifiedTimeAfter": NotRequired[TimestampTypeDef],
-        "LastModifiedTimeBefore": NotRequired[TimestampTypeDef],
-        "SortBy": NotRequired[SortInferenceExperimentsByType],
-        "SortOrder": NotRequired[SortOrderType],
-        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
-    },
-)
-
-class ListInferenceRecommendationsJobStepsRequestPaginateTypeDef(TypedDict):
-    JobName: str
-    Status: NotRequired[RecommendationJobStatusType]
-    StepType: NotRequired[Literal["BENCHMARK"]]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListInferenceRecommendationsJobsRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    StatusEquals: NotRequired[RecommendationJobStatusType]
-    SortBy: NotRequired[ListInferenceRecommendationsJobsSortByType]
-    SortOrder: NotRequired[SortOrderType]
-    ModelNameEquals: NotRequired[str]
-    ModelPackageVersionArnEquals: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListLabelingJobsForWorkteamRequestPaginateTypeDef(TypedDict):
-    WorkteamArn: str
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    JobReferenceCodeContains: NotRequired[str]
-    SortBy: NotRequired[Literal["CreationTime"]]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListLabelingJobsRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    SortBy: NotRequired[SortByType]
-    SortOrder: NotRequired[SortOrderType]
-    StatusEquals: NotRequired[LabelingJobStatusType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListLineageGroupsRequestPaginateTypeDef(TypedDict):
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    SortBy: NotRequired[SortLineageGroupsByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListMlflowTrackingServersRequestPaginateTypeDef(TypedDict):
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    TrackingServerStatus: NotRequired[TrackingServerStatusType]
-    MlflowVersion: NotRequired[str]
-    SortBy: NotRequired[SortTrackingServerByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListModelBiasJobDefinitionsRequestPaginateTypeDef(TypedDict):
-    EndpointName: NotRequired[str]
-    SortBy: NotRequired[MonitoringJobDefinitionSortKeyType]
-    SortOrder: NotRequired[SortOrderType]
-    NameContains: NotRequired[str]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListModelCardExportJobsRequestPaginateTypeDef(TypedDict):
-    ModelCardName: str
-    ModelCardVersion: NotRequired[int]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    ModelCardExportJobNameContains: NotRequired[str]
-    StatusEquals: NotRequired[ModelCardExportJobStatusType]
-    SortBy: NotRequired[ModelCardExportJobSortByType]
-    SortOrder: NotRequired[ModelCardExportJobSortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListModelCardVersionsRequestPaginateTypeDef(TypedDict):
-    ModelCardName: str
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    ModelCardStatus: NotRequired[ModelCardStatusType]
-    SortBy: NotRequired[Literal["Version"]]
-    SortOrder: NotRequired[ModelCardSortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListModelCardsRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    ModelCardStatus: NotRequired[ModelCardStatusType]
-    SortBy: NotRequired[ModelCardSortByType]
-    SortOrder: NotRequired[ModelCardSortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListModelExplainabilityJobDefinitionsRequestPaginateTypeDef(TypedDict):
-    EndpointName: NotRequired[str]
-    SortBy: NotRequired[MonitoringJobDefinitionSortKeyType]
-    SortOrder: NotRequired[SortOrderType]
-    NameContains: NotRequired[str]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListModelPackageGroupsInputPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    SortBy: NotRequired[ModelPackageGroupSortByType]
-    SortOrder: NotRequired[SortOrderType]
-    CrossAccountFilterOption: NotRequired[CrossAccountFilterOptionType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListModelPackagesInputPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    ModelApprovalStatus: NotRequired[ModelApprovalStatusType]
-    ModelPackageGroupName: NotRequired[str]
-    ModelPackageType: NotRequired[ModelPackageTypeType]
-    SortBy: NotRequired[ModelPackageSortByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListModelQualityJobDefinitionsRequestPaginateTypeDef(TypedDict):
-    EndpointName: NotRequired[str]
-    SortBy: NotRequired[MonitoringJobDefinitionSortKeyType]
-    SortOrder: NotRequired[SortOrderType]
-    NameContains: NotRequired[str]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListModelsInputPaginateTypeDef(TypedDict):
-    SortBy: NotRequired[ModelSortKeyType]
-    SortOrder: NotRequired[OrderKeyType]
-    NameContains: NotRequired[str]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListMonitoringAlertHistoryRequestPaginateTypeDef(TypedDict):
-    MonitoringScheduleName: NotRequired[str]
-    MonitoringAlertName: NotRequired[str]
-    SortBy: NotRequired[MonitoringAlertHistorySortKeyType]
-    SortOrder: NotRequired[SortOrderType]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    StatusEquals: NotRequired[MonitoringAlertStatusType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListMonitoringAlertsRequestPaginateTypeDef(TypedDict):
-    MonitoringScheduleName: str
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListMonitoringExecutionsRequestPaginateTypeDef(TypedDict):
-    MonitoringScheduleName: NotRequired[str]
-    EndpointName: NotRequired[str]
-    SortBy: NotRequired[MonitoringExecutionSortKeyType]
-    SortOrder: NotRequired[SortOrderType]
-    ScheduledTimeBefore: NotRequired[TimestampTypeDef]
-    ScheduledTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    StatusEquals: NotRequired[ExecutionStatusType]
-    MonitoringJobDefinitionName: NotRequired[str]
-    MonitoringTypeEquals: NotRequired[MonitoringTypeType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListMonitoringSchedulesRequestPaginateTypeDef(TypedDict):
-    EndpointName: NotRequired[str]
-    SortBy: NotRequired[MonitoringScheduleSortKeyType]
-    SortOrder: NotRequired[SortOrderType]
-    NameContains: NotRequired[str]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    StatusEquals: NotRequired[ScheduleStatusType]
-    MonitoringJobDefinitionName: NotRequired[str]
-    MonitoringTypeEquals: NotRequired[MonitoringTypeType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListNotebookInstanceLifecycleConfigsInputPaginateTypeDef(TypedDict):
-    SortBy: NotRequired[NotebookInstanceLifecycleConfigSortKeyType]
-    SortOrder: NotRequired[NotebookInstanceLifecycleConfigSortOrderType]
-    NameContains: NotRequired[str]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListNotebookInstancesInputPaginateTypeDef(TypedDict):
-    SortBy: NotRequired[NotebookInstanceSortKeyType]
-    SortOrder: NotRequired[NotebookInstanceSortOrderType]
-    NameContains: NotRequired[str]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    StatusEquals: NotRequired[NotebookInstanceStatusType]
-    NotebookInstanceLifecycleConfigNameContains: NotRequired[str]
-    DefaultCodeRepositoryContains: NotRequired[str]
-    AdditionalCodeRepositoryEquals: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListOptimizationJobsRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    OptimizationContains: NotRequired[str]
-    NameContains: NotRequired[str]
-    StatusEquals: NotRequired[OptimizationJobStatusType]
-    SortBy: NotRequired[ListOptimizationJobsSortByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListPartnerAppsRequestPaginateTypeDef(TypedDict):
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListPipelineExecutionStepsRequestPaginateTypeDef(TypedDict):
-    PipelineExecutionArn: NotRequired[str]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListPipelineExecutionsRequestPaginateTypeDef(TypedDict):
-    PipelineName: str
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    SortBy: NotRequired[SortPipelineExecutionsByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListPipelineParametersForExecutionRequestPaginateTypeDef(TypedDict):
-    PipelineExecutionArn: str
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListPipelinesRequestPaginateTypeDef(TypedDict):
-    PipelineNamePrefix: NotRequired[str]
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    SortBy: NotRequired[SortPipelinesByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListProcessingJobsRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    StatusEquals: NotRequired[ProcessingJobStatusType]
-    SortBy: NotRequired[SortByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListResourceCatalogsRequestPaginateTypeDef(TypedDict):
-    NameContains: NotRequired[str]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    SortOrder: NotRequired[ResourceCatalogSortOrderType]
-    SortBy: NotRequired[Literal["CreationTime"]]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListSpacesRequestPaginateTypeDef(TypedDict):
-    SortOrder: NotRequired[SortOrderType]
-    SortBy: NotRequired[SpaceSortKeyType]
-    DomainIdEquals: NotRequired[str]
-    SpaceNameContains: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListStageDevicesRequestPaginateTypeDef(TypedDict):
-    EdgeDeploymentPlanName: str
-    StageName: str
-    ExcludeDevicesDeployedInOtherStage: NotRequired[bool]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListStudioLifecycleConfigsRequestPaginateTypeDef(TypedDict):
-    NameContains: NotRequired[str]
-    AppTypeEquals: NotRequired[StudioLifecycleConfigAppTypeType]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    ModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    ModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    SortBy: NotRequired[StudioLifecycleConfigSortKeyType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListSubscribedWorkteamsRequestPaginateTypeDef(TypedDict):
-    NameContains: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListTagsInputPaginateTypeDef(TypedDict):
-    ResourceArn: str
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListTrainingJobsForHyperParameterTuningJobRequestPaginateTypeDef(TypedDict):
-    HyperParameterTuningJobName: str
-    StatusEquals: NotRequired[TrainingJobStatusType]
-    SortBy: NotRequired[TrainingJobSortByOptionsType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListTrainingJobsRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    StatusEquals: NotRequired[TrainingJobStatusType]
-    SortBy: NotRequired[SortByType]
-    SortOrder: NotRequired[SortOrderType]
-    WarmPoolStatusEquals: NotRequired[WarmPoolResourceStatusType]
-    TrainingPlanArnEquals: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListTransformJobsRequestPaginateTypeDef(TypedDict):
-    CreationTimeAfter: NotRequired[TimestampTypeDef]
-    CreationTimeBefore: NotRequired[TimestampTypeDef]
-    LastModifiedTimeAfter: NotRequired[TimestampTypeDef]
-    LastModifiedTimeBefore: NotRequired[TimestampTypeDef]
-    NameContains: NotRequired[str]
-    StatusEquals: NotRequired[TransformJobStatusType]
-    SortBy: NotRequired[SortByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListTrialComponentsRequestPaginateTypeDef(TypedDict):
-    ExperimentName: NotRequired[str]
-    TrialName: NotRequired[str]
-    SourceArn: NotRequired[str]
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    SortBy: NotRequired[SortTrialComponentsByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListTrialsRequestPaginateTypeDef(TypedDict):
-    ExperimentName: NotRequired[str]
-    TrialComponentName: NotRequired[str]
-    CreatedAfter: NotRequired[TimestampTypeDef]
-    CreatedBefore: NotRequired[TimestampTypeDef]
-    SortBy: NotRequired[SortTrialsByType]
-    SortOrder: NotRequired[SortOrderType]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListUserProfilesRequestPaginateTypeDef(TypedDict):
-    SortOrder: NotRequired[SortOrderType]
-    SortBy: NotRequired[UserProfileSortKeyType]
-    DomainIdEquals: NotRequired[str]
-    UserProfileNameContains: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListWorkforcesRequestPaginateTypeDef(TypedDict):
-    SortBy: NotRequired[ListWorkforcesSortByOptionsType]
-    SortOrder: NotRequired[SortOrderType]
-    NameContains: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
-class ListWorkteamsRequestPaginateTypeDef(TypedDict):
-    SortBy: NotRequired[ListWorkteamsSortByOptionsType]
-    SortOrder: NotRequired[SortOrderType]
-    NameContains: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
-
 class ListDataQualityJobDefinitionsResponseTypeDef(TypedDict):
     JobDefinitionSummaries: List[MonitoringJobDefinitionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
@@ -8371,6 +8475,11 @@ class ListPipelineExecutionsResponseTypeDef(TypedDict):
 
 class ListPipelineParametersForExecutionResponseTypeDef(TypedDict):
     PipelineParameters: List[ParameterTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
+class ListPipelineVersionsResponseTypeDef(TypedDict):
+    PipelineVersionSummaries: List[PipelineVersionSummaryTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
@@ -9220,6 +9329,7 @@ class DriftCheckBaselinesTypeDef(TypedDict):
 
 class SpaceSettingsSummaryTypeDef(TypedDict):
     AppType: NotRequired[AppTypeType]
+    RemoteAccess: NotRequired[FeatureStatusType]
     SpaceStorageSettings: NotRequired[SpaceStorageSettingsTypeDef]
 
 class ProductionVariantSummaryTypeDef(TypedDict):
@@ -9436,6 +9546,8 @@ class DescribePipelineResponseTypeDef(TypedDict):
     CreatedBy: UserContextTypeDef
     LastModifiedBy: UserContextTypeDef
     ParallelismConfiguration: ParallelismConfigurationTypeDef
+    PipelineVersionDisplayName: str
+    PipelineVersionDescription: str
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeTrialComponentResponseTypeDef(TypedDict):
@@ -9537,6 +9649,19 @@ class PipelineTypeDef(TypedDict):
     LastModifiedBy: NotRequired[UserContextTypeDef]
     ParallelismConfiguration: NotRequired[ParallelismConfigurationTypeDef]
     Tags: NotRequired[List[TagTypeDef]]
+
+class PipelineVersionTypeDef(TypedDict):
+    PipelineArn: NotRequired[str]
+    PipelineVersionId: NotRequired[int]
+    PipelineVersionDisplayName: NotRequired[str]
+    PipelineVersionDescription: NotRequired[str]
+    CreationTime: NotRequired[datetime]
+    LastModifiedTime: NotRequired[datetime]
+    CreatedBy: NotRequired[UserContextTypeDef]
+    LastModifiedBy: NotRequired[UserContextTypeDef]
+    LastExecutedPipelineExecutionArn: NotRequired[str]
+    LastExecutedPipelineExecutionDisplayName: NotRequired[str]
+    LastExecutedPipelineExecutionStatus: NotRequired[PipelineExecutionStatusType]
 
 class TrialComponentSimpleSummaryTypeDef(TypedDict):
     TrialComponentName: NotRequired[str]
@@ -9926,6 +10051,7 @@ class DescribePipelineExecutionResponseTypeDef(TypedDict):
     LastModifiedBy: UserContextTypeDef
     ParallelismConfiguration: ParallelismConfigurationTypeDef
     SelectiveExecutionConfig: SelectiveExecutionConfigOutputTypeDef
+    PipelineVersionId: int
     ResponseMetadata: ResponseMetadataTypeDef
 
 class PipelineExecutionTypeDef(TypedDict):
@@ -9943,6 +10069,8 @@ class PipelineExecutionTypeDef(TypedDict):
     ParallelismConfiguration: NotRequired[ParallelismConfigurationTypeDef]
     SelectiveExecutionConfig: NotRequired[SelectiveExecutionConfigOutputTypeDef]
     PipelineParameters: NotRequired[List[ParameterTypeDef]]
+    PipelineVersionId: NotRequired[int]
+    PipelineVersionDisplayName: NotRequired[str]
 
 SelectiveExecutionConfigUnionTypeDef = Union[
     SelectiveExecutionConfigTypeDef, SelectiveExecutionConfigOutputTypeDef
@@ -10813,6 +10941,7 @@ class StartPipelineExecutionRequestTypeDef(TypedDict):
     PipelineExecutionDescription: NotRequired[str]
     ParallelismConfiguration: NotRequired[ParallelismConfigurationTypeDef]
     SelectiveExecutionConfig: NotRequired[SelectiveExecutionConfigUnionTypeDef]
+    PipelineVersionId: NotRequired[int]
 
 CreateInferenceExperimentRequestTypeDef = TypedDict(
     "CreateInferenceExperimentRequestTypeDef",
@@ -10848,6 +10977,7 @@ class SpaceSettingsOutputTypeDef(TypedDict):
     SpaceStorageSettings: NotRequired[SpaceStorageSettingsTypeDef]
     SpaceManagedResources: NotRequired[FeatureStatusType]
     CustomFileSystems: NotRequired[List[CustomFileSystemTypeDef]]
+    RemoteAccess: NotRequired[FeatureStatusType]
 
 class SpaceSettingsTypeDef(TypedDict):
     JupyterServerAppSettings: NotRequired[JupyterServerAppSettingsTypeDef]
@@ -10858,6 +10988,7 @@ class SpaceSettingsTypeDef(TypedDict):
     SpaceStorageSettings: NotRequired[SpaceStorageSettingsTypeDef]
     SpaceManagedResources: NotRequired[FeatureStatusType]
     CustomFileSystems: NotRequired[Sequence[CustomFileSystemTypeDef]]
+    RemoteAccess: NotRequired[FeatureStatusType]
 
 AlgorithmSpecificationUnionTypeDef = Union[
     AlgorithmSpecificationTypeDef, AlgorithmSpecificationOutputTypeDef
@@ -11052,6 +11183,22 @@ class ClusterInstanceGroupDetailsTypeDef(TypedDict):
     TrainingPlanStatus: NotRequired[str]
     OverrideVpcConfig: NotRequired[VpcConfigOutputTypeDef]
     ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigOutputTypeDef]
+
+class ClusterRestrictedInstanceGroupDetailsTypeDef(TypedDict):
+    CurrentCount: NotRequired[int]
+    TargetCount: NotRequired[int]
+    InstanceGroupName: NotRequired[str]
+    InstanceType: NotRequired[ClusterInstanceTypeType]
+    ExecutionRole: NotRequired[str]
+    ThreadsPerCore: NotRequired[int]
+    InstanceStorageConfigs: NotRequired[List[ClusterInstanceStorageConfigTypeDef]]
+    OnStartDeepHealthChecks: NotRequired[List[DeepHealthCheckTypeType]]
+    Status: NotRequired[InstanceGroupStatusType]
+    TrainingPlanArn: NotRequired[str]
+    TrainingPlanStatus: NotRequired[str]
+    OverrideVpcConfig: NotRequired[VpcConfigOutputTypeDef]
+    ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigOutputTypeDef]
+    EnvironmentConfig: NotRequired[EnvironmentConfigDetailsTypeDef]
 
 class ScheduledUpdateConfigTypeDef(TypedDict):
     ScheduleExpression: str
@@ -11529,9 +11676,9 @@ class CreateDomainRequestTypeDef(TypedDict):
     DomainName: str
     AuthMode: AuthModeType
     DefaultUserSettings: UserSettingsUnionTypeDef
-    SubnetIds: Sequence[str]
-    VpcId: str
     DomainSettings: NotRequired[DomainSettingsUnionTypeDef]
+    SubnetIds: NotRequired[Sequence[str]]
+    VpcId: NotRequired[str]
     Tags: NotRequired[Sequence[TagTypeDef]]
     AppNetworkAccessType: NotRequired[AppNetworkAccessTypeType]
     HomeEfsFileSystemKmsKeyId: NotRequired[str]
@@ -11583,6 +11730,7 @@ class DescribeClusterResponseTypeDef(TypedDict):
     CreationTime: datetime
     FailureMessage: str
     InstanceGroups: List[ClusterInstanceGroupDetailsTypeDef]
+    RestrictedInstanceGroups: List[ClusterRestrictedInstanceGroupDetailsTypeDef]
     VpcConfig: VpcConfigOutputTypeDef
     Orchestrator: ClusterOrchestratorTypeDef
     NodeRecovery: ClusterNodeRecoveryType
@@ -11839,6 +11987,19 @@ class ClusterInstanceGroupSpecificationTypeDef(TypedDict):
     OverrideVpcConfig: NotRequired[VpcConfigUnionTypeDef]
     ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigUnionTypeDef]
 
+class ClusterRestrictedInstanceGroupSpecificationTypeDef(TypedDict):
+    InstanceCount: int
+    InstanceGroupName: str
+    InstanceType: ClusterInstanceTypeType
+    ExecutionRole: str
+    EnvironmentConfig: EnvironmentConfigTypeDef
+    ThreadsPerCore: NotRequired[int]
+    InstanceStorageConfigs: NotRequired[Sequence[ClusterInstanceStorageConfigTypeDef]]
+    OnStartDeepHealthChecks: NotRequired[Sequence[DeepHealthCheckTypeType]]
+    TrainingPlanArn: NotRequired[str]
+    OverrideVpcConfig: NotRequired[VpcConfigUnionTypeDef]
+    ScheduledUpdateConfig: NotRequired[ScheduledUpdateConfigUnionTypeDef]
+
 class AlgorithmValidationSpecificationOutputTypeDef(TypedDict):
     ValidationRole: str
     ValidationProfiles: List[AlgorithmValidationProfileOutputTypeDef]
@@ -12004,7 +12165,10 @@ ModelPackageValidationSpecificationUnionTypeDef = Union[
 
 class CreateClusterRequestTypeDef(TypedDict):
     ClusterName: str
-    InstanceGroups: Sequence[ClusterInstanceGroupSpecificationTypeDef]
+    InstanceGroups: NotRequired[Sequence[ClusterInstanceGroupSpecificationTypeDef]]
+    RestrictedInstanceGroups: NotRequired[
+        Sequence[ClusterRestrictedInstanceGroupSpecificationTypeDef]
+    ]
     VpcConfig: NotRequired[VpcConfigUnionTypeDef]
     Tags: NotRequired[Sequence[TagTypeDef]]
     Orchestrator: NotRequired[ClusterOrchestratorTypeDef]
@@ -12012,7 +12176,10 @@ class CreateClusterRequestTypeDef(TypedDict):
 
 class UpdateClusterRequestTypeDef(TypedDict):
     ClusterName: str
-    InstanceGroups: Sequence[ClusterInstanceGroupSpecificationTypeDef]
+    InstanceGroups: NotRequired[Sequence[ClusterInstanceGroupSpecificationTypeDef]]
+    RestrictedInstanceGroups: NotRequired[
+        Sequence[ClusterRestrictedInstanceGroupSpecificationTypeDef]
+    ]
     NodeRecovery: NotRequired[ClusterNodeRecoveryType]
     InstanceGroupsToDelete: NotRequired[Sequence[str]]
 
@@ -12172,6 +12339,7 @@ class SearchRecordTypeDef(TypedDict):
     ModelPackageGroup: NotRequired[ModelPackageGroupTypeDef]
     Pipeline: NotRequired[PipelineTypeDef]
     PipelineExecution: NotRequired[PipelineExecutionTypeDef]
+    PipelineVersion: NotRequired[PipelineVersionTypeDef]
     FeatureGroup: NotRequired[FeatureGroupTypeDef]
     FeatureMetadata: NotRequired[FeatureMetadataTypeDef]
     Project: NotRequired[ProjectTypeDef]

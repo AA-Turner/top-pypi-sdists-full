@@ -183,9 +183,18 @@ def do_pull(workbooks: Union[pd.DataFrame, str], *, status: Status, session: Ses
         if required_column not in workbooks_df.columns:
             raise SPyValueError('"%s" column must be included in workbooks_df' % required_column)
 
-    workbooks_df = workbooks_df[workbooks_df['Type'] == 'Workbook'].reset_index(drop=True)
+    supported_workbook_types = ['Topic', 'Analysis']  # the order matters, see comment below
+    supported_workbook_filter = (
+            (workbooks_df['Type'] == 'Workbook') &
+            (workbooks_df['Workbook Type'].isin(supported_workbook_types))
+    )
+    workbooks_df = workbooks_df[supported_workbook_filter].reset_index(drop=True)
 
     status.df = _initialize_status_df(workbooks_df)
+
+    if not supported_workbook_filter.all():
+        status.warn(f'Some items are being skipped. Only workbooks of type: {", ".join(supported_workbook_types)} are '
+                    f'currently supported.')
 
     status.update('Pulling workbooks', Status.RUNNING)
 
@@ -205,7 +214,7 @@ def do_pull(workbooks: Union[pd.DataFrame, str], *, status: Status, session: Ses
     # a link in a Journal) and they will not be properly included in the output. We have accepted this hole because
     # otherwise if we add a Topic to our list and that Topic refers to a workstep in an already-processed Analysis,
     # we would have to go back and re-pull the Analysis. (Maybe someday we'll do that, but not now. :-) )
-    for phase in ['Topic', 'Analysis']:
+    for phase in supported_workbook_types:
         while True:
             at_least_one_item_pulled = False
             for item_id, pull_info in workbooks_to_pull.copy().items():

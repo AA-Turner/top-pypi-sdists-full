@@ -20,8 +20,6 @@ from time import time
 from types import MethodType
 from typing import Callable, Optional
 
-_waitforthreads_lock = threading.Lock()
-
 
 def waitforqueues(queues: list, timeout: float = None) -> filter:
     """Waits for one or more *Queue* to be ready or until *timeout* expires.
@@ -84,51 +82,51 @@ def waitforthreads(threads: list, timeout: float = None) -> filter:
     The function returns a list containing the ready *Threads*.
 
     """
-    old_function = None
-    lock = threading.Condition(threading.Lock())
+    old_get_ident = None
+    event = threading.Event()
 
-    def new_function(*args):
-        old_function(*args)
-        with lock:
-            lock.notify_all()
+    def new_get_ident(*args) -> int:
+        retval = old_get_ident(*args)
+        event.set()
 
-    old_function = prepare_threads(new_function)
+        return retval
+
+    old_get_ident = prepare_threads(new_get_ident)
     try:
-        wait_threads(threads, lock, timeout)
+        wait_threads(threads, event, timeout)
     finally:
-        reset_threads(old_function)
+        reset_threads(old_get_ident)
 
     return filter(lambda t: not t.is_alive(), threads)
 
 
-def prepare_threads(new_function: Callable) -> Callable:
-    """Replaces threading._get_ident() function in order to notify
+def prepare_threads(new_get_ident: Callable) -> Callable:
+    """Replaces threading.get_ident() function in order to notify
     the waiting Condition."""
-    with _waitforthreads_lock:
-        old_function = threading.get_ident
-        threading.get_ident = new_function
+    with threading._active_limbo_lock:
+        old_get_ident = threading.get_ident
+        threading.get_ident = new_get_ident
 
-        return old_function
+        return old_get_ident
 
 
 def wait_threads(threads: list,
-                 lock: threading.Condition,
+                 event: threading.Event,
                  timeout: Optional[float]):
     timestamp = time()
 
-    with lock:
-        while not any(map(lambda t: not t.is_alive(), threads)):
-            if timeout is None:
-                lock.wait()
-            elif timeout - (time() - timestamp) > 0:
-                lock.wait(timeout - (time() - timestamp))
-            else:
-                return
+    while not any(map(lambda t: not t.is_alive(), threads)):
+        if timeout is None:
+            event.wait()
+        elif timeout - (time() - timestamp) > 0:
+            event.wait(timeout - (time() - timestamp))
+        else:
+            return
 
 
 def reset_threads(old_function: Callable):
     """Resets original threading.get_ident() function."""
-    with _waitforthreads_lock:
+    with threading._active_limbo_lock:
         threading.get_ident = old_function
 
 

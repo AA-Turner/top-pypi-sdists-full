@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygltflib
-Version: 1.16.4
+Version: 1.16.5
 Summary: Python library for reading, writing and managing 3D objects in the Khronos Group gltf and gltf2 formats.
 Home-page: https://gitlab.com/dodgyville/pygltflib
 Author: Luke Miller
@@ -325,6 +325,9 @@ We are very interested in hearing your use cases for `pygltflib` to help drive t
 `pygltflib` made for 'The Beat: A Glam Noir Game' supported by Film Victoria / VicScreen. 
 
 ### Changelog
+* 1.16.5:
+  * Material alphaCutoff attribute is now None by default (was 0.5) (Kevin Kreiser)
+
 * 1.16.4:
   * update build and publish to include python wheel (first attempt)
 

@@ -29,30 +29,15 @@ from typing import (
     Union,
 )
 
-from neptune_fetcher.internal.retrieval import attribute_types as types
-
-__all__ = ["_Filter", "_AttributeFilter", "_Attribute"]
-
-from neptune_fetcher.internal.util import (
+from .retrieval import attribute_types as types
+from .retrieval.attribute_types import ATTRIBUTE_LITERAL
+from .util import (
     _validate_allowed_value,
     _validate_list_of_allowed_values,
     _validate_string_list,
     _validate_string_or_string_list,
 )
 
-ATTRIBUTE_LITERAL = Literal[
-    "float",
-    "int",
-    "string",
-    "bool",
-    "datetime",
-    "float_series",
-    "string_set",
-    "string_series",
-    "file",
-    "file_series",
-    "histogram_series",
-]
 AGGREGATION_LITERAL = Literal["last", "min", "max", "average", "variance"]
 
 
@@ -104,7 +89,7 @@ class _AttributeFilter(_BaseAttributeFilter):
     Example:
 
     ```
-    from neptune_fetcher.internal.filters import _AttributeFilter
+    from .filters import _AttributeFilter
 
 
     loss_avg_and_var = _AttributeFilter(
@@ -179,7 +164,7 @@ class _Attribute:
     Select a metric and pick variance as the aggregation:
 
     ```
-    from neptune_fetcher.internal.filters import _Attribute, _Filter
+    from .filters import _Attribute, _Filter
 
 
     val_loss_variance = _Attribute(
@@ -198,7 +183,7 @@ class _Attribute:
 
     def __post_init__(self) -> None:
         _validate_allowed_value(self.aggregation, types.ALL_AGGREGATIONS, "aggregation")
-        _validate_allowed_value(self.type, types.ALL_TYPES, "type")  # type: ignore
+        _validate_allowed_value(self.type, types.ALL_TYPES, "type")
 
     def to_query(self) -> str:
         query = f"`{self.name}`"
@@ -243,7 +228,7 @@ class _Filter(ABC):
     Examples:
 
     ```
-    from neptune_fetcher.internal.filters import _Filter
+    from .filters import _Filter
 
     # Fetch metadata from specific experiments
     specific_experiments = _Filter.name_in("flying-123", "swimming-77")
@@ -343,9 +328,9 @@ class _Filter(ABC):
         return _AttributePredicate(postfix_operator="EXISTS", attribute=attribute)
 
     @staticmethod
-    def all(filters: list["_Filter"]) -> "_Filter":
+    def all(filters: Sequence["_Filter"]) -> "_Filter":
         """Combine multiple filters with a logical AND operator."""
-        if not filters or not isinstance(filters, list):
+        if not filters or not isinstance(filters, Sequence):
             raise ValueError("At least one filter must be provided to combine with AND.")
         return _AssociativeOperator(operator="AND", filters=filters)
 

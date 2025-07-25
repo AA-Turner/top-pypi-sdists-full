@@ -1,7 +1,7 @@
 r'''
 # `aws_connect_hours_of_operation`
 
-Refer to the Terraform Registry for docs: [`aws_connect_hours_of_operation`](https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation).
+Refer to the Terraform Registry for docs: [`aws_connect_hours_of_operation`](https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation).
 '''
 from pkgutil import extend_path
 __path__ = extend_path(__path__, __name__)
@@ -44,7 +44,7 @@ class ConnectHoursOfOperation(
     metaclass=jsii.JSIIMeta,
     jsii_type="@cdktf/provider-aws.connectHoursOfOperation.ConnectHoursOfOperation",
 ):
-    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation aws_connect_hours_of_operation}.'''
+    '''Represents a {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation aws_connect_hours_of_operation}.'''
 
     def __init__(
         self,
@@ -68,19 +68,19 @@ class ConnectHoursOfOperation(
         provider: typing.Optional[_cdktf_9a9027ec.TerraformProvider] = None,
         provisioners: typing.Optional[typing.Sequence[typing.Union[typing.Union[_cdktf_9a9027ec.FileProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.LocalExecProvisioner, typing.Dict[builtins.str, typing.Any]], typing.Union[_cdktf_9a9027ec.RemoteExecProvisioner, typing.Dict[builtins.str, typing.Any]]]]] = None,
     ) -> None:
-        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation aws_connect_hours_of_operation} Resource.
+        '''Create a new {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation aws_connect_hours_of_operation} Resource.
 
         :param scope: The scope in which to define this construct.
         :param id_: The scoped construct ID. Must be unique amongst siblings in the same scope
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#config ConnectHoursOfOperation#config}
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#instance_id ConnectHoursOfOperation#instance_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#name ConnectHoursOfOperation#name}.
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#time_zone ConnectHoursOfOperation#time_zone}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#description ConnectHoursOfOperation#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#id ConnectHoursOfOperation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#region ConnectHoursOfOperation#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#tags ConnectHoursOfOperation#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#tags_all ConnectHoursOfOperation#tags_all}.
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#config ConnectHoursOfOperation#config}
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#instance_id ConnectHoursOfOperation#instance_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#name ConnectHoursOfOperation#name}.
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#time_zone ConnectHoursOfOperation#time_zone}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#description ConnectHoursOfOperation#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#id ConnectHoursOfOperation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#region ConnectHoursOfOperation#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#tags ConnectHoursOfOperation#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#tags_all ConnectHoursOfOperation#tags_all}.
         :param connection: 
         :param count: 
         :param depends_on: 
@@ -127,7 +127,7 @@ class ConnectHoursOfOperation(
 
         :param scope: The scope in which to define this construct.
         :param import_to_id: The construct id used in the generated config for the ConnectHoursOfOperation to import.
-        :param import_from_id: The id of the existing ConnectHoursOfOperation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#import import section} in the documentation of this resource for the id to use
+        :param import_from_id: The id of the existing ConnectHoursOfOperation that should be imported. Refer to the {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#import import section} in the documentation of this resource for the id to use
         :param provider: ? Optional instance of the provider where the ConnectHoursOfOperation to import is found.
         '''
         if __debug__:
@@ -396,15 +396,15 @@ class ConnectHoursOfOperationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
         :param lifecycle: 
         :param provider: 
         :param provisioners: 
-        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#config ConnectHoursOfOperation#config}
-        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#instance_id ConnectHoursOfOperation#instance_id}.
-        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#name ConnectHoursOfOperation#name}.
-        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#time_zone ConnectHoursOfOperation#time_zone}.
-        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#description ConnectHoursOfOperation#description}.
-        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#id ConnectHoursOfOperation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
-        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#region ConnectHoursOfOperation#region}
-        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#tags ConnectHoursOfOperation#tags}.
-        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#tags_all ConnectHoursOfOperation#tags_all}.
+        :param config: config block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#config ConnectHoursOfOperation#config}
+        :param instance_id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#instance_id ConnectHoursOfOperation#instance_id}.
+        :param name: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#name ConnectHoursOfOperation#name}.
+        :param time_zone: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#time_zone ConnectHoursOfOperation#time_zone}.
+        :param description: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#description ConnectHoursOfOperation#description}.
+        :param id: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#id ConnectHoursOfOperation#id}. Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2. If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
+        :param region: Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#region ConnectHoursOfOperation#region}
+        :param tags: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#tags ConnectHoursOfOperation#tags}.
+        :param tags_all: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#tags_all ConnectHoursOfOperation#tags_all}.
         '''
         if isinstance(lifecycle, dict):
             lifecycle = _cdktf_9a9027ec.TerraformResourceLifecycle(**lifecycle)
@@ -527,7 +527,7 @@ class ConnectHoursOfOperationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     ) -> typing.Union[_cdktf_9a9027ec.IResolvable, typing.List["ConnectHoursOfOperationConfigA"]]:
         '''config block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#config ConnectHoursOfOperation#config}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#config ConnectHoursOfOperation#config}
         '''
         result = self._values.get("config")
         assert result is not None, "Required property 'config' is missing"
@@ -535,34 +535,34 @@ class ConnectHoursOfOperationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
 
     @builtins.property
     def instance_id(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#instance_id ConnectHoursOfOperation#instance_id}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#instance_id ConnectHoursOfOperation#instance_id}.'''
         result = self._values.get("instance_id")
         assert result is not None, "Required property 'instance_id' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def name(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#name ConnectHoursOfOperation#name}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#name ConnectHoursOfOperation#name}.'''
         result = self._values.get("name")
         assert result is not None, "Required property 'name' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def time_zone(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#time_zone ConnectHoursOfOperation#time_zone}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#time_zone ConnectHoursOfOperation#time_zone}.'''
         result = self._values.get("time_zone")
         assert result is not None, "Required property 'time_zone' is missing"
         return typing.cast(builtins.str, result)
 
     @builtins.property
     def description(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#description ConnectHoursOfOperation#description}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#description ConnectHoursOfOperation#description}.'''
         result = self._values.get("description")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def id(self) -> typing.Optional[builtins.str]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#id ConnectHoursOfOperation#id}.
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#id ConnectHoursOfOperation#id}.
 
         Please be aware that the id field is automatically added to all resources in Terraform providers using a Terraform provider SDK version below 2.
         If you experience problems setting this value it might not be settable. Please take a look at the provider documentation to ensure it should be settable.
@@ -574,20 +574,20 @@ class ConnectHoursOfOperationConfig(_cdktf_9a9027ec.TerraformMetaArguments):
     def region(self) -> typing.Optional[builtins.str]:
         '''Region where this resource will be `managed <https://docs.aws.amazon.com/general/latest/gr/rande.html#regional-endpoints>`_. Defaults to the Region set in the `provider configuration <https://registry.terraform.io/providers/hashicorp/aws/latest/docs#aws-configuration-reference>`_.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#region ConnectHoursOfOperation#region}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#region ConnectHoursOfOperation#region}
         '''
         result = self._values.get("region")
         return typing.cast(typing.Optional[builtins.str], result)
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#tags ConnectHoursOfOperation#tags}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#tags ConnectHoursOfOperation#tags}.'''
         result = self._values.get("tags")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
     @builtins.property
     def tags_all(self) -> typing.Optional[typing.Mapping[builtins.str, builtins.str]]:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#tags_all ConnectHoursOfOperation#tags_all}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#tags_all ConnectHoursOfOperation#tags_all}.'''
         result = self._values.get("tags_all")
         return typing.cast(typing.Optional[typing.Mapping[builtins.str, builtins.str]], result)
 
@@ -617,9 +617,9 @@ class ConnectHoursOfOperationConfigA:
         start_time: typing.Union["ConnectHoursOfOperationConfigStartTime", typing.Dict[builtins.str, typing.Any]],
     ) -> None:
         '''
-        :param day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#day ConnectHoursOfOperation#day}.
-        :param end_time: end_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#end_time ConnectHoursOfOperation#end_time}
-        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#start_time ConnectHoursOfOperation#start_time}
+        :param day: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#day ConnectHoursOfOperation#day}.
+        :param end_time: end_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#end_time ConnectHoursOfOperation#end_time}
+        :param start_time: start_time block. Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#start_time ConnectHoursOfOperation#start_time}
         '''
         if isinstance(end_time, dict):
             end_time = ConnectHoursOfOperationConfigEndTime(**end_time)
@@ -638,7 +638,7 @@ class ConnectHoursOfOperationConfigA:
 
     @builtins.property
     def day(self) -> builtins.str:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#day ConnectHoursOfOperation#day}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#day ConnectHoursOfOperation#day}.'''
         result = self._values.get("day")
         assert result is not None, "Required property 'day' is missing"
         return typing.cast(builtins.str, result)
@@ -647,7 +647,7 @@ class ConnectHoursOfOperationConfigA:
     def end_time(self) -> "ConnectHoursOfOperationConfigEndTime":
         '''end_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#end_time ConnectHoursOfOperation#end_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#end_time ConnectHoursOfOperation#end_time}
         '''
         result = self._values.get("end_time")
         assert result is not None, "Required property 'end_time' is missing"
@@ -657,7 +657,7 @@ class ConnectHoursOfOperationConfigA:
     def start_time(self) -> "ConnectHoursOfOperationConfigStartTime":
         '''start_time block.
 
-        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#start_time ConnectHoursOfOperation#start_time}
+        Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#start_time ConnectHoursOfOperation#start_time}
         '''
         result = self._values.get("start_time")
         assert result is not None, "Required property 'start_time' is missing"
@@ -797,8 +797,8 @@ class ConnectHoursOfOperationConfigAOutputReference(
     @jsii.member(jsii_name="putEndTime")
     def put_end_time(self, *, hours: jsii.Number, minutes: jsii.Number) -> None:
         '''
-        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#hours ConnectHoursOfOperation#hours}.
-        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#minutes ConnectHoursOfOperation#minutes}.
+        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#hours ConnectHoursOfOperation#hours}.
+        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#minutes ConnectHoursOfOperation#minutes}.
         '''
         value = ConnectHoursOfOperationConfigEndTime(hours=hours, minutes=minutes)
 
@@ -807,8 +807,8 @@ class ConnectHoursOfOperationConfigAOutputReference(
     @jsii.member(jsii_name="putStartTime")
     def put_start_time(self, *, hours: jsii.Number, minutes: jsii.Number) -> None:
         '''
-        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#hours ConnectHoursOfOperation#hours}.
-        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#minutes ConnectHoursOfOperation#minutes}.
+        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#hours ConnectHoursOfOperation#hours}.
+        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#minutes ConnectHoursOfOperation#minutes}.
         '''
         value = ConnectHoursOfOperationConfigStartTime(hours=hours, minutes=minutes)
 
@@ -879,8 +879,8 @@ class ConnectHoursOfOperationConfigAOutputReference(
 class ConnectHoursOfOperationConfigEndTime:
     def __init__(self, *, hours: jsii.Number, minutes: jsii.Number) -> None:
         '''
-        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#hours ConnectHoursOfOperation#hours}.
-        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#minutes ConnectHoursOfOperation#minutes}.
+        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#hours ConnectHoursOfOperation#hours}.
+        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#minutes ConnectHoursOfOperation#minutes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__813c75f5c0871a65f1cf785f1a38cb10c69c56fe067f98d770dbf755cef1fd77)
@@ -893,14 +893,14 @@ class ConnectHoursOfOperationConfigEndTime:
 
     @builtins.property
     def hours(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#hours ConnectHoursOfOperation#hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#hours ConnectHoursOfOperation#hours}.'''
         result = self._values.get("hours")
         assert result is not None, "Required property 'hours' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def minutes(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#minutes ConnectHoursOfOperation#minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#minutes ConnectHoursOfOperation#minutes}.'''
         result = self._values.get("minutes")
         assert result is not None, "Required property 'minutes' is missing"
         return typing.cast(jsii.Number, result)
@@ -995,8 +995,8 @@ class ConnectHoursOfOperationConfigEndTimeOutputReference(
 class ConnectHoursOfOperationConfigStartTime:
     def __init__(self, *, hours: jsii.Number, minutes: jsii.Number) -> None:
         '''
-        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#hours ConnectHoursOfOperation#hours}.
-        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#minutes ConnectHoursOfOperation#minutes}.
+        :param hours: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#hours ConnectHoursOfOperation#hours}.
+        :param minutes: Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#minutes ConnectHoursOfOperation#minutes}.
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__6ad10793f259a0854d1f9fc394eb6158eb3c1c218df942435ea21a0a0f99fa43)
@@ -1009,14 +1009,14 @@ class ConnectHoursOfOperationConfigStartTime:
 
     @builtins.property
     def hours(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#hours ConnectHoursOfOperation#hours}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#hours ConnectHoursOfOperation#hours}.'''
         result = self._values.get("hours")
         assert result is not None, "Required property 'hours' is missing"
         return typing.cast(jsii.Number, result)
 
     @builtins.property
     def minutes(self) -> jsii.Number:
-        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.4.0/docs/resources/connect_hours_of_operation#minutes ConnectHoursOfOperation#minutes}.'''
+        '''Docs at Terraform Registry: {@link https://registry.terraform.io/providers/hashicorp/aws/6.5.0/docs/resources/connect_hours_of_operation#minutes ConnectHoursOfOperation#minutes}.'''
         result = self._values.get("minutes")
         assert result is not None, "Required property 'minutes' is missing"
         return typing.cast(jsii.Number, result)

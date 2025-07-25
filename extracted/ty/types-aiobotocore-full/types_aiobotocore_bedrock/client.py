@@ -29,6 +29,7 @@ from botocore.errorfactory import BaseClientExceptions
 from botocore.exceptions import ClientError as BotocoreClientError
 
 from .paginator import (
+    ListCustomModelDeploymentsPaginator,
     ListCustomModelsPaginator,
     ListEvaluationJobsPaginator,
     ListGuardrailsPaginator,
@@ -45,6 +46,8 @@ from .paginator import (
 from .type_defs import (
     BatchDeleteEvaluationJobRequestTypeDef,
     BatchDeleteEvaluationJobResponseTypeDef,
+    CreateCustomModelDeploymentRequestTypeDef,
+    CreateCustomModelDeploymentResponseTypeDef,
     CreateCustomModelRequestTypeDef,
     CreateCustomModelResponseTypeDef,
     CreateEvaluationJobRequestTypeDef,
@@ -71,6 +74,7 @@ from .type_defs import (
     CreatePromptRouterResponseTypeDef,
     CreateProvisionedModelThroughputRequestTypeDef,
     CreateProvisionedModelThroughputResponseTypeDef,
+    DeleteCustomModelDeploymentRequestTypeDef,
     DeleteCustomModelRequestTypeDef,
     DeleteFoundationModelAgreementRequestTypeDef,
     DeleteGuardrailRequestTypeDef,
@@ -80,6 +84,8 @@ from .type_defs import (
     DeletePromptRouterRequestTypeDef,
     DeleteProvisionedModelThroughputRequestTypeDef,
     DeregisterMarketplaceModelEndpointRequestTypeDef,
+    GetCustomModelDeploymentRequestTypeDef,
+    GetCustomModelDeploymentResponseTypeDef,
     GetCustomModelRequestTypeDef,
     GetCustomModelResponseTypeDef,
     GetEvaluationJobRequestTypeDef,
@@ -110,6 +116,8 @@ from .type_defs import (
     GetProvisionedModelThroughputRequestTypeDef,
     GetProvisionedModelThroughputResponseTypeDef,
     GetUseCaseForModelAccessResponseTypeDef,
+    ListCustomModelDeploymentsRequestTypeDef,
+    ListCustomModelDeploymentsResponseTypeDef,
     ListCustomModelsRequestTypeDef,
     ListCustomModelsResponseTypeDef,
     ListEvaluationJobsRequestTypeDef,
@@ -237,6 +245,16 @@ class BedrockClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_custom_model.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#create_custom_model)
+        """
+
+    async def create_custom_model_deployment(
+        self, **kwargs: Unpack[CreateCustomModelDeploymentRequestTypeDef]
+    ) -> CreateCustomModelDeploymentResponseTypeDef:
+        """
+        Deploys a custom model for on-demand inference in Amazon Bedrock.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/create_custom_model_deployment.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#create_custom_model_deployment)
         """
 
     async def create_evaluation_job(
@@ -374,6 +392,16 @@ class BedrockClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#delete_custom_model)
         """
 
+    async def delete_custom_model_deployment(
+        self, **kwargs: Unpack[DeleteCustomModelDeploymentRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Deletes a custom model deployment.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/delete_custom_model_deployment.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#delete_custom_model_deployment)
+        """
+
     async def delete_foundation_model_agreement(
         self, **kwargs: Unpack[DeleteFoundationModelAgreementRequestTypeDef]
     ) -> Dict[str, Any]:
@@ -471,6 +499,17 @@ class BedrockClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_custom_model.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#get_custom_model)
+        """
+
+    async def get_custom_model_deployment(
+        self, **kwargs: Unpack[GetCustomModelDeploymentRequestTypeDef]
+    ) -> GetCustomModelDeploymentResponseTypeDef:
+        """
+        Retrieves information about a custom model deployment, including its status,
+        configuration, and metadata.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_custom_model_deployment.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#get_custom_model_deployment)
         """
 
     async def get_evaluation_job(
@@ -622,6 +661,16 @@ class BedrockClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_use_case_for_model_access.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#get_use_case_for_model_access)
+        """
+
+    async def list_custom_model_deployments(
+        self, **kwargs: Unpack[ListCustomModelDeploymentsRequestTypeDef]
+    ) -> ListCustomModelDeploymentsResponseTypeDef:
+        """
+        Lists custom model deployments in your account.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/list_custom_model_deployments.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#list_custom_model_deployments)
         """
 
     async def list_custom_models(
@@ -882,6 +931,17 @@ class BedrockClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/update_provisioned_model_throughput.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#update_provisioned_model_throughput)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_custom_model_deployments"]
+    ) -> ListCustomModelDeploymentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/bedrock/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_bedrock/client/#get_paginator)
         """
 
     @overload  # type: ignore[override]

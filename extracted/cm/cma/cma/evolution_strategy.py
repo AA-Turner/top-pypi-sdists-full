@@ -4,10 +4,6 @@ in particular `CMAEvolutionStrategy`, `fmin2` and further ``fmin_*``
 functions.
 """
 
-# TODO (mainly done): remove separable CMA within the code (keep as sampler only)
-# TODO (low): implement a (deep enough) copy-constructor for class
-#       CMAEvolutionStrategy to repeat the same step in different
-#       configurations for online-adaptation of meta parameters
 # TODO (complex): reconsider geno-pheno transformation. Can it be a
 #       separate module that operates inbetween optimizer and objective?
 #       Can we still propagate a repair of solutions to the optimizer?
@@ -26,14 +22,18 @@ functions.
 #       inconcise. Cheap solution: project sigma_vec on smallest eigenvector?
 # TODO: class _CMAStopDict implementation looks way too complicated,
 #       design generically from scratch?
-# TODO: separate display and logging options, those CMAEvolutionStrategy
-#       instances don't use themselves (probably all?)
 # TODO: check scitools.easyviz and how big the adaptation would be
 # TODO: separate initialize==reset_state from __init__
 # TODO: keep best ten solutions
-# TODO: implement constraints handling
 # TODO: eigh(): thorough testing would not hurt
 # TODO: (partly done) apply style guide
+# TODO (mainly done): remove separable CMA within the code (keep as sampler only)
+# DONE (low): implement a (deep enough) copy-constructor for class
+#       CMAEvolutionStrategy to repeat the same step in different
+#       configurations for online-adaptation of meta parameters
+# DONE: ?separate display and logging options, those CMAEvolutionStrategy
+#       instances don't use themselves (probably all?)
+# DONE: implement constraints handling
 # WON'T FIX ANYTIME SOON (done within fmin): implement bipop in a separate
 #       algorithm as meta portfolio algorithm of IPOP and a local restart
 #       option to be implemented
@@ -210,12 +210,34 @@ from .logger import CMADataLogger  # , disp, plot
 from .utilities.utils import BlancClass as _BlancClass
 from .utilities.utils import rglen  #, global_verbosity
 from .utilities.utils import SolutionDict as _SolutionDict
-from .utilities.math import Mh
+from .utilities.math import Mh, ifloat as _ifloat
 from .sigma_adaptation import *
 from . import restricted_gaussian_sampler as _rgs
 
 _where = np.nonzero  # to make pypy work, this is how where is used here anyway
 del division, print_function, absolute_import  #, unicode_literals, with_statement
+
+use_archives = "not anymore in effect"
+archive_sent_solutions = sys.version_info >= (2,6)
+'''If `cma.evolution_strategy.archive_sent_solutions`, save the genotype in
+   `ask` before the gp-transformation. This can be a considerable speed up
+   with a large population size because it allows to bypass the inverse
+   gp-transformation. When `False`, some unit tests fail, namely of
+   ``boundary_handler, evolution_strategy, fitness_models,
+   optimization_tools, restricted_gaussian_sampler, transformations``'''
+archive_after_sent = None  # was `True` before July 2025
+'''`None` ==> active when popsize < 33, for historical reasons, not really useful?'''
+
+round_integer_variables = sys.version_info >= (2,6)
+'''round integer variables of sampled candidate solutions (at the end of
+   `ask`) for the evaluation on the objective function. This takes about
+   15% CPU time with option ``verbose=-9``, partly due to array copies?'''
+
+ask_phenotype_archive_revert_changes = True
+'''When detected, ignore inplace changes of solutions delivered by `ask`
+   for updating in `tell`. Currently, solutions are (only) archived in
+   `_ask_phenotype_archive` when integer variables were rounded at the end
+   of `ask`.'''
 
 class InjectionWarning(UserWarning):
     """Injected solutions are not passed to tell as expected"""
@@ -235,17 +257,15 @@ def _pass(*args, **kwargs):
     """a callable that does nothing and return args[0] in case"""
     return args[0] if args else None
 
-# use_archives uses collections
-use_archives = sys.version_info[0] >= 3 or sys.version_info[1] >= 6
-# use_archives = False  # on False some unit tests fail
-"""speed up for very large population size. `use_archives` prevents the
-need for an inverse gp-transformation, relies on collections module,
-not sure what happens if set to ``False``. """
+def get_CMASolutionDict(functional=True):
+    """return a functional or a template "empty" class.
+    """
+    return _CMASolutionDict_functional if functional else _CMASolutionDict_empty
 
 class _CMASolutionDict_functional(_SolutionDict):
     def __init__(self, *args, **kwargs):
         # _SolutionDict.__init__(self, *args, **kwargs)
-        super(_CMASolutionDict, self).__init__(*args, **kwargs)
+        super(_CMASolutionDict_functional, self).__init__(*args, **kwargs)
         self.last_solution_index = 0
 
     # TODO: insert takes 30% of the overall CPU time, mostly in def key()
@@ -256,6 +276,12 @@ class _CMASolutionDict_functional(_SolutionDict):
         ``value if value is not None else {'geno':key}`` and
         ``self[key]['kwarg'] = kwarg if kwarg is not None`` for the further kwargs.
 
+        TODO: this looks overdesigned. Only the keyword `iteration` is
+        currently used and not even necessary anymore because
+        `SolutionDict` is now ordered. Just using `SolutionDict` would be
+        good enough with insertions done using a `dict` as value if
+        desired, or a single `info` argument could be implemented in
+        `SolutionDict` for any additional information.
         """
         # archive returned solutions, first clean up archive
         if iteration is not None and iteration > self.last_iteration and (iteration % 10) < 1:
@@ -297,13 +323,14 @@ class _CMASolutionDict_empty(dict):
         pass
     def get(self, key):
         return None
+    def truncate(self, *args, **kwargs):
+        pass
+    def truncate_to(self, *args, **kwargs):
+        pass
     def __getitem__(self, key):
-        return None
+        return {}
     def __setitem__(self, key, value):
         pass
-
-_CMASolutionDict = _CMASolutionDict_functional if use_archives else _CMASolutionDict_empty
-# _CMASolutionDict = _CMASolutionDict_empty
 
 # ____________________________________________________________
 # ____________________________________________________________
@@ -404,8 +431,9 @@ class _CMAEvolutionStrategyResult(tuple):
             self.best.get() + (  # (x, f, evals) triple
             self.countevals,
             self.countiter,
-            self.gp.pheno(self.mean[:], into_bounds=self.boundary_handler.repair),
-            self.stds))  # 
+            self.to_phenotype(self.mean[:],
+                              into_bounds=self.boundary_handler.repair),
+            self.stds))
 
 class CMAEvolutionStrategy(interfaces.OOOptimizer):
     """CMA-ES stochastic optimizer class with ask-and-tell interface.
@@ -519,7 +547,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     Iterat #Fevals   function value  axis ratio  sigma  min&max std  t[m:s]
         1      8 2.09...
     >>> assert len(es.result) == 8, es.result
-    >>> assert es.result[1] < 1e-9, es.result
+    >>> assert es.result.fbest < 1e-9, es.result
 
     The optimization loop can also be written explicitly:
 
@@ -555,8 +583,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     ...     es.disp()  #doctest: +ELLIPSIS
     Itera...
     >>>
-    >>> assert es.result[1] < 1e-9, es.result
-    >>> assert es.result[2] < 9000, es.result  # by internal termination
+    >>> assert es.result.fbest < 1e-9, es.result
+    >>> assert es.result.evals_best < 9000, es.result  # by internal termination
     >>> # es.logger.plot()  # will plot data
     >>> # cma.s.figshow()  # display plot window
 
@@ -575,8 +603,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     UserWarning('computed initial point...
     >>> es.optimize(cma.ff.rosen, verb_disp=0)  #doctest: +ELLIPSIS
     <cma...
-    >>> assert cma.ff.rosen(es.result[0]) < 1e-7 + 5.54781521192, es.result
-    >>> assert es.result[2] < 3300, es.result
+    >>> assert cma.ff.rosen(es.result.xbest) < 1e-7 + 5.54781521192, es.result
+    >>> assert es.result.evals_best < 3300, es.result
 
     The inverse transformation is (only) necessary if the `BoundPenalty`
     boundary handler is used at the same time.
@@ -626,7 +654,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     ...     if bestever.f < 1e-8:  # global optimum was hit
     ...         break  #doctest: +ELLIPSIS
     (5_w,...
-    >>> assert es.result[1] < 1e-8, es.result
+    >>> assert es.result.fbest < 1e-8, es.result
 
     On the Rastrigin function, usually after five restarts the global
     optimum is located.
@@ -665,8 +693,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
     >>> # resuming
     >>> es.optimize(cma.ff.rosen, verb_disp=200)  #doctest: +ELLIPSIS
       200 ...
-    >>> assert es.result[2] < 15000, es.result
-    >>> assert cma.s.Mh.vequals_approximately(es.result[0], 12 * [1], 1e-5), es.result
+    >>> assert es.result.evals_best < 15000, es.result
+    >>> assert cma.s.Mh.vequals_approximately(es.result.xbest, 12 * [1], 1e-5), es.result
     >>> assert len(es.result) == 8, es.result
 
     Details
@@ -1109,8 +1137,19 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.noiseS = 0  # noise "signal"
         self.hsiglist = []
 
-        self.sent_solutions = _CMASolutionDict()
-        self.archive = _CMASolutionDict()
+        self.sent_solutions = get_CMASolutionDict(archive_sent_solutions)()
+        '''archive solutions close to the end of `ask`, this archive is
+           passed to ``gp.geno`` to bypass calling the inverse geno-pheno
+           transformation in `tell`'''
+        self._ask_phenotype_archive = utils.SolutionDict()
+        '''archive solutions at the very end of `ask` when and before
+           integer rounding is applied. Retrieve them at the very beginning
+           of `tell` before the inverse geno-pheno transformation is
+           applied'''
+        self.archive = get_CMASolutionDict(self.sp.popsize < 33
+                                               if archive_after_sent is None
+                                           else archive_after_sent)()
+        '''archive solutions processed in `tell`, not really in use!?'''
         self._injected_solutions_archive = _SolutionDict()
         self.best = ot.BestSolution()
 
@@ -1209,8 +1248,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         if self.x0.ndim != 1:
             raise ValueError('x0 must be 1-D array')
         if len(self.x0) <= 1:
-            utils.print_warning('Initial solution argument x0=%s.\n'
-                                'CAVEAT: Optimization in 1-D is poorly tested.'
+            utils.print_warning('Initial solution argument x0=%s is 1-dimensional.\n'
+
+                                'Optimization in 1-D is not supported and may bail or work poorly. \nSee issues https://github.com/CMA-ES/pycma/issues/86 and https://github.com/CMA-ES/pycma/issues/302.'
                                 % str(self.x0))
         try:
             self.x0.resize(self.x0.shape[0])  # 1-D array, not really necessary?!
@@ -1379,7 +1419,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         # return [self.gp.pheno(x, copy=False, into_bounds=self.boundary_handler.repair) for x in pop]  # probably fine
         # return [Solution(self.gp.pheno(x, copy=False), copy=False) for x in pop]  # here comes the memory leak, now solved
         pop_pheno = [self.gp.pheno(x, copy=True,
-                                into_bounds=self.boundary_handler.repair)
+                                   into_bounds=self.boundary_handler.repair)
                         for x in pop_geno]
 
         if gradf is not None:
@@ -1430,7 +1470,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                 if xmean is None:
                     xmean = self.mean
                 xpheno = self.gp.pheno(xmean, copy=True,
-                                    into_bounds=self.boundary_handler.repair)
+                                       into_bounds=self.boundary_handler.repair)
                 grad_at_mean = gradf(xpheno, *args)
                 # lift gradient into geno-space
                 if not self.gp.isidentity or (self.boundary_handler is not None
@@ -1505,6 +1545,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                                         iteration=self.countiter)
         ### iiinteger handling could come here
 
+        # round integer variables
+        self._population_round_int_variables(pop_pheno)
+
         return pop_pheno
 
     # ____________________________________________________________
@@ -1554,7 +1597,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             xmean = self.mean
         else:
             try:
-                xmean = self.archive[xmean]['geno']
+                xmean = self.archive[xmean]['geno']  # xmean is never inserted!?
                 # noise handling after call of tell
             except KeyError:
                 try:
@@ -1721,9 +1764,10 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             return 1.0
         return np.sum(self.opts['randn'](1, len(y))[0]**2)**0.5 / self.mahalanobis_norm(y)
 
-
     def get_mirror(self, x, preserve_length=False):
-        """return ``pheno(self.mean - (geno(x) - self.mean))``.
+        """return ``_round_int_variables(pheno(self.mean - (geno(x) - self.mean)))``
+
+        and update `sent_solutions` and `_ask_phenotype_archive` archives.
 
         >>> import numpy as np, cma
         >>> es = cma.CMAEvolutionStrategy(np.random.randn(3), 1)  #doctest: +ELLIPSIS
@@ -1761,6 +1805,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         y = self.gp.pheno(x, into_bounds=self.boundary_handler.repair)
         # old measure: costs 25% in CPU performance with N,lambda=20,200
         self.sent_solutions.insert(y, geno=x, iteration=self.countiter)
+        y = self._round_int_variables(y, archive=self._ask_phenotype_archive)
         return y
 
     # ____________________________________________________________
@@ -1918,7 +1963,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
                 f = func(x, *args) if kappa == 1 else \
                     func(xmean + kappa * length_normalizer * (x - xmean),
-                         *args)
+                         *args)  # CAVEAT: kappa != 1 is incompatible with integer variables
                 if is_feasible(x, f) and evaluations > 1:
                     f = aggregation([f] + [(func(x, *args) if kappa == 1 else
                                             func(xmean + kappa * length_normalizer * (x - xmean), *args))
@@ -2037,6 +2082,127 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                         # print('fixing dx={} sigma={}'.format(dx[i], stds[i]))
                         dx[i] *= threshold * stds[i] / np.abs(dx[i])
         return dX
+
+    def to_phenotype(self, solution, *args, **kwargs):
+        """return integer-rounded phenotype depending on `round_integer_variables` module setting.
+
+        Without further arguments, `self.gp.pheno` is called with
+        ``copy=True, into_bounds=self.boundary_handler.repair`` as
+        additional arguments, otherwise ``*args, **kwargs`` are passed
+        to `self.gp.pheno`.
+        """
+        return self._round_int_variables(self.gp.pheno(solution, *args, **kwargs)
+                                            if args or kwargs else
+                                         self.gp.pheno(solution, copy=True,
+                                                into_bounds=self.boundary_handler.repair))
+
+    def _round_int_variables(self, solution, copy_when_changed=True, archive=None):
+        """round integer variables in `solution`
+   
+        depending on the `round_integer_variables` module setting and based
+        on the ``integer_variables`` option.
+
+        Insert original solution in `archive` if ``archive is not None``.
+        """
+        if not round_integer_variables or not len(self.opts['integer_variables']):
+            return solution
+        idx = self.opts.get('_pheno_integer_variables',
+                            self.opts['integer_variables'])
+        if not len(idx):
+            return solution  # can not happen
+        if copy_when_changed or archive:
+            _solution = solution
+            solution = np.array(solution)
+        for i in idx:
+            solution[i] = float(np.round(solution[i]))
+        if archive:
+            archive[solution] = _solution
+        return solution
+
+    def _population_round_int_variables(self, pop_pheno):
+        """round integer variables of solutions in `pop_pheno` and store
+
+        the original solutions in `self.__ask_phenotype_archive`.
+
+        Fixed variables are not changed by design (they were removed from
+        the _pheno_integer_variables index list too).
+        """
+        if round_integer_variables and len(self.opts['integer_variables']):
+            idx = self.opts.get('_pheno_integer_variables',
+                                self.opts['integer_variables'])
+            if len(idx):  # should always be true
+                idx = np.asarray(idx)
+                for k in range(len(pop_pheno)):
+                    y = np.array(pop_pheno[k])
+                    y[idx] = np.round(y[idx])
+                    self._ask_phenotype_archive[y] = pop_pheno[k]  # save the original
+                    pop_pheno[k] = y  # replace with new
+            else:
+                warnings.warn("\nask: len(integer_variables) > len(idx) = 0 which"
+                              " looks like a bug. \n integer_variables={0}"
+                              "\n _pheno_integer_variables={1}"
+                              .format(self.opts['integer_variables'],
+                                      self.opts.get('_pheno_integer_variables', None)),
+                              RuntimeWarning)
+
+    def _catch_and_truncate_ask_phenotype_archive(self,
+                popped_solutions, solutions, final_len=0):
+        """catch modified `solutions` to revert rounding and warn of inconcistencies.
+
+        Elements of `popped_solutions` are the noninteger versions of
+        `solutions` and may be reassigned (which changes the reference
+        when it is a `list`, but the content when it is an ndarray).
+
+        Truncate `self._ask_phenotype_archive` to `final_len`.
+
+        Hidden input parameters are `self._ask_phenotype_archive` and
+        `round_integer_variables` and `ask_phenotype_archive_revert_changes`.
+        """
+        # catch inplace modified solutions
+        if len(self._ask_phenotype_archive):
+            for key, val in list(self._ask_phenotype_archive
+                                        ._unhashed_keys.items()):
+                aval = np.asarray(val)
+                for k, s in enumerate(solutions):
+                    if val is s or np.all(aval == s):
+                        # we did not to find this solution in the archive before
+                        # because it was modified and hence its key had changed
+                        s_archived = self._ask_phenotype_archive.pop(key)
+                        if ask_phenotype_archive_revert_changes:
+                            popped_solutions[k] = s_archived
+                            s3 = ("\n Because ``cma.evolution_strategy."
+                                    "ask_phenotype_archive_revert_changes is True``,"
+                                    "\n the modification is ignored.")
+                        else:
+                            s3 = ""
+                        if round_integer_variables:  # recompute the delivered value
+                            s_delta = np.asarray(s) - self._round_int_variables(s_archived)
+                        else:  # can't currently happen
+                            s_delta = '`unkown`'
+                        warnings.warn("\ntell: solution with index {0} = "
+                            "\n    {1}\n was modified by "
+                            "\n    {2}\n between calling `ask` and `tell`."
+                            "\n Modifications often lead to unexpected"
+                            " and/or undesired results.{3}"
+                            .format(k, s, s_delta, s3))
+                        break  # solution found and key is consumed
+        # warn of (still) unconsumed solutions
+        if len(self._ask_phenotype_archive):
+            warnings.warn("\ntell: {0} solution(s) of _ask_phenotype_archive have not been"
+                " consumed.\n These have been delivered by ask but not been passed to tell: {1}"
+                .format(len(self._ask_phenotype_archive),
+                        list(self._ask_phenotype_archive.values())))
+        if len(self._ask_phenotype_archive.data_with_same_key):
+            warnings.warn("\ntell, _ask_phenotype_archive: {0} keys with seemingly"
+                          " identical solutions were found (as delivered in `ask`)"
+                          " which is highly unusual. Namely\n  {1}\n"
+                          "(shown are only the second and further identical solutions)."
+                          .format(len(self._ask_phenotype_archive.data_with_same_key),
+                                  self._ask_phenotype_archive.data_with_same_key))
+            self._ask_phenotype_archive.data_with_same_key = {}
+        # truncate to zero
+        self._ask_phenotype_archive.truncate_to(final_len)
+        #  old: min((10, max((0, len(self._ask_phenotype_archive) - 1)))))
 
     # ____________________________________________________________
     def tell(self, solutions, function_values, check_points=None,
@@ -2178,6 +2344,24 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         self.countevals += lam * self.evaluations_per_f_value
         self.best.update(solutions,  # caveat: these solutions may be out-of-bounds
                          self.sent_solutions, function_values, self.countevals)
+
+        # Retrieve preimages from _ask_phenotype_archive
+        # as the first step to get to the genotype.
+        # Without integer handling, the archive should be empty
+        if 0 < len(self._ask_phenotype_archive) < len(solutions):
+            warnings.warn("\ntell: solutions passed to `tell` = {0} > {1} = solutions"
+                " phenotype-archived by `ask`. \n  Consider using the ``.inject``"
+                " method for outside solution proposals."
+                .format(len(solutions), len(self._ask_phenotype_archive)))
+        # CAVEAT: if solutions is an array, then solutions[k] = 2 *
+        # np.array(solutions[k]) changes the content of solutions[k] which
+        # is not intended. This may have been a bug? Now solutions becomes
+        # invariably a `list`.
+        _solutions = solutions  # to catch changed solutions (hence changed key)
+        solutions = [self._ask_phenotype_archive.pop(s, s) for s in solutions]
+        # amend solutions if necessary (usually not) and clear archive
+        self._catch_and_truncate_ask_phenotype_archive(solutions, _solutions)
+
         flg_diagonal = self.opts['CMA_diagonal'] is True \
                        or self.countiter <= self.opts['CMA_diagonal']
         if not flg_diagonal and isinstance(self.sm, sampler.GaussStandardConstant):
@@ -2236,13 +2420,15 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             if 1 < 3:
                 pop += [self.gp.geno(s,
                             from_bounds=self.boundary_handler.inverse,
+                            # gp.geno manages copy in repair_genotype, by default True_if_changed
                             repair=(self.repair_genotype if check_points not in (False, 0, [], ()) else None),
                             archive=self.sent_solutions)]  # takes genotype from sent_solutions, if available
-                try:
-                    self.archive.insert(s, value=self.sent_solutions.pop(s), fitness=function_values[k])
-                    # self.sent_solutions.pop(s)
-                except KeyError:
-                    pass
+            s_geno = self.sent_solutions.pop(s, None)
+            if archive_after_sent and s_geno is not None:
+                self.archive.insert(s, value=s_geno, fitness=function_values[k])
+            _len = min((max((2 * sp.popsize, 1000)), 30 * sp.popsize))
+            self.sent_solutions.truncate_to(_len)
+            self.archive.truncate_to(_len)
         # check that TPA mirrors are available
         self.pop = pop  # used in check_consistency of CMAAdaptSigmaTPA
         self.adapt_sigma.check_consistency(self)
@@ -2656,7 +2842,8 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
                     indices.append(i)  # found injected solution
         for k, s in list(self._injected_solutions_archive.items()):
             if s['iteration'] < self.countiter - 2:
-                if self.integer_mutations.is_none:  # integer_mutations removes some bad solutions
+                if (not hasattr(self, "integer_mutations")
+                    or self.integer_mutations.is_none):  # integer_mutations removes some bad solutions
                     # warn unless TPA injections were messed up by integer centering
                     if (not isinstance(self.adapt_sigma, CMAAdaptSigmaTPA)
                             # self.integer_centering and
@@ -2712,7 +2899,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
             evals,
             self.countevals,
             self.countiter,
-            self.gp.pheno(self.mean[:], into_bounds=self.boundary_handler.repair),
+            self.to_phenotype(self.mean[:], into_bounds=self.boundary_handler.repair),
             self.stds,
             self.stop()
         )
@@ -2735,12 +2922,12 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
         print('final/bestever f-value = %e %e after %d/%d evaluations' % (
             self.best.last.f, fbestever, self.countevals, self.best.evals))
         if self.N < 9:
-            print('incumbent solution: ' + ' '.join(str(self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair)).split())
+            print('incumbent solution: ' + ' '.join(str(self.to_phenotype(self.mean, into_bounds=self.boundary_handler.repair)).split())
                                            .replace(' ', ', ').replace('[,', '['))
             print('std deviation: ' + ' '.join(str(self.stds).split())
                                            .replace(' ', ', ').replace('[,', '['))
         else:
-            print('incumbent solution: %s ...]' % (str(self.gp.pheno(self.mean, into_bounds=self.boundary_handler.repair)[:8])[:-1]))
+            print('incumbent solution: %s ...]' % (str(self.to_phenotype(self.mean, into_bounds=self.boundary_handler.repair)[:8])[:-1]))
             print('std deviations: %s ...]' % (str(self.stds[:8])[:-1]))
         return self.result
 
@@ -3101,7 +3288,9 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         Argument
         --------
-        A *genotype* difference `dx`.
+        `dx`, a *genotype* difference to the distribution mean. As `dx` is
+        interpreted as a difference to the mean, the return value does not
+        depend on the current mean.
 
         Example
         -------
@@ -3119,7 +3308,7 @@ class CMAEvolutionStrategy(interfaces.OOOptimizer):
 
         """
         self._try_update_sm_now()
-        return self.sm.norm(np.asarray(dx) / self.sigma_vec.scaling) / self.sigma
+        return float(self.sm.norm(np.asarray(dx) / self.sigma_vec.scaling) / self.sigma)
 
     @property
     def isotropic_mean_shift(self):
@@ -3685,7 +3874,7 @@ def fmin_lq_surr2(objective_function, x0, sigma0, options=None,
             for f, x in zip(surrogate.evals.fvalues, surrogate.evals.X):
                 if not_evaluated(f):  # ignore NaN, important for correct count output
                     continue
-                best.update(f if isinstance(f, int) else float(f), x)
+                best.update(_ifloat(f), x)
             if inject:
                 es.inject([surrogate.model.xopt])
             if callback:
@@ -3738,97 +3927,35 @@ def fmin2(objective_function, x0, sigma0,
          bipop=False,
          callback=None,
          init_callback=None):
-    """wrapper around `cma.fmin` returning the tuple ``(xbest, es)``,
-
-    and with the same input arguments as `fmin`. Possible calling patterns
-    are::
-
-        x, es = cma.fmin2(...)  # recommended pattern
-        es = cma.fmin2(...)[1]  # `es` contains all available information
-        x = cma.fmin2(...)[0]   # keep only the best evaluated solution
-
-    and `fmin2` is an alias for::
-
-        res = fmin(...)
-        return res[0], res[-2]
-
-    For descriptions of the input arguments see `fmin`.
-
-    For completness, recovering the output of `fmin` from `fmin2`::
-
-        es = fmin2(...)[1]  # fmin2(...)[0] is es.result[0]
-        return es.result + (es.stop(), es, es.logger)
-
-    The best found solution is equally available under::
-
-        fmin(...)[0]
-        fmin2(...)[0]
-        fmin2(...)[1].result[0]
-        fmin2(...)[1].result.xbest
-        fmin2(...)[1].best.x
-
-    The incumbent, current estimate for the optimum is available under::
-
-        fmin(...)[5]
-        fmin2(...)[1].result[5]
-        fmin2(...)[1].result.xfavorite
-
-    """
-    res = fmin(objective_function, x0, sigma0,
-         options,
-         args,
-         gradf,
-         restarts,
-         restart_from_best,
-         incpopsize,
-         eval_initial_x,
-         parallel_objective,
-         noise_handler,
-         noise_change_sigma_exponent,
-         noise_kappa_exponent,
-         bipop,
-         callback,
-         init_callback)
-    return res[0], res[-2]
-
-
-all_stoppings = []  # accessable via cma.evolution_strategy.all_stoppings, bound to change
-def fmin(objective_function, x0, sigma0,
-         options=None,
-         args=(),
-         gradf=None,
-         restarts=0,
-         restart_from_best=False,
-         incpopsize=2,
-         eval_initial_x=False,
-         parallel_objective=None,
-         noise_handler=None,
-         noise_change_sigma_exponent=1,
-         noise_kappa_exponent=0,  # TODO: add max kappa value as parameter
-         bipop=False,
-         callback=None,
-         init_callback=None):
     """functional interface to the stochastic optimizer CMA-ES
     for non-convex function minimization.
 
-    `fmin2` provides the cleaner return values.
+    Return the `tuple` ``(xbest, es)`` where ``es`` is a
+    `CMAEvolutionStrategy` instance, see in particular ``es.result`` and
+    ``es.result_pretty()`` for detailed results.
+
 
     Calling Sequences
     =================
-    ``fmin(objective_function, x0, sigma0)``
+    ``x, es = fmin2(objective_function, x0, sigma0)``
         minimizes ``objective_function`` starting at ``x0`` and with
         standard deviation ``sigma0`` (step-size)
-    ``fmin(objective_function, x0, sigma0, options={'ftarget': 1e-5})``
+    ``x, es = fmin2(objective_function, x0, sigma0, options={'ftarget': 1e-5})``
         minimizes ``objective_function`` up to target function value 1e-5,
         which is typically useful for benchmarking.
-    ``fmin(objective_function, x0, sigma0, args=('f',))``
+    ``x, es = fmin2(objective_function, x0, sigma0, args=('f',))``
         minimizes ``objective_function`` called with an additional
         argument ``'f'``.
-    ``fmin(objective_function, x0, sigma0, options={'ftarget':1e-5, 'popsize':40})``
+    ``x, es = fmin2(objective_function, x0, sigma0, options={'ftarget':1e-5, 'popsize':40})``
         uses additional options ``ftarget`` and ``popsize``
-    ``fmin(objective_function, esobj, None, options={'maxfevals': 1e5})``
+    ``x, es = fmin2(objective_function, esobj, None, options={'maxfevals': 1e5})``
         uses the `CMAEvolutionStrategy` object instance ``esobj`` to
         optimize ``objective_function``, similar to ``esobj.optimize()``.
+
+    Less recommended calling patterns are::
+
+        es = cma.fmin2(...)[1]  # `es` contains all available information
+        x = cma.fmin2(...)[0]   # keep only the best evaluated solution
 
     Arguments
     =========
@@ -3951,6 +4078,119 @@ def fmin(objective_function, x0, sigma0,
     ``cma.CMAOptions('tol')``, or ``cma.CMAOptions('bound')``,
     see also class `CMAOptions`.
 
+    Details
+    =======
+    This function is an interface to the class `CMAEvolutionStrategy`. The
+    latter class should be used when full control over the iteration loop
+    of the optimizer is desired.
+
+    Examples
+    ========
+    The following example calls `fmin2` optimizing the Rosenbrock function
+    in 10-D with initial solution 0.1 and initial step-size 0.5. The
+    options are specified for the usage with the `doctest` module.
+
+    >>> import cma
+    >>> # cma.CMAOptions()  # returns all possible options
+    >>> options = {'CMA_diagonal':100, 'seed':1234, 'verb_time':0}
+    >>>
+    >>> x, es = cma.fmin2(cma.ff.rosen, [0.1] * 10, 0.3, options)  #doctest: +ELLIPSIS
+    (5_w,10)-aCMA-ES (mu_w=3.2,w_1=45%) in dimension 10 (seed=1234...)
+       Covariance matrix is diagonal for 100 iterations (1/ccov=26...
+    Iterat #Fevals   function value  axis ratio  sigma ...
+        1     10 ...
+    termination on tolfun=1e-11 ...
+    final/bestever f-value = ...
+    >>> assert es.result.fbest < 1e-12  # f-value of best found solution
+    >>> assert es.result.evaluations < 8000  # evaluations
+
+    The above call is pretty much equivalent with the slightly more
+    verbose call::
+
+        es = cma.CMAEvolutionStrategy([0.1] * 10, 0.3,
+                    options=options).optimize(cma.ff.rosen)
+        x = es.result.xbest
+
+    where `optimize` returns the `CMAEvolutionStrategy` instance. The
+    following example calls `fmin2` optimizing the Rastrigin function
+    in 3-D with random initial solution in [-2,2], initial step-size 0.5
+    and the BIPOP restart strategy (that progressively increases population).
+    The options are specified for the usage with the `doctest` module.
+
+    >>> import cma
+    >>> # cma.CMAOptions()  # returns all possible options
+    >>> options = {'seed':12345, 'verb_time':0, 'ftarget': 1e-8}
+    >>>
+    >>> x, es = cma.fmin2(cma.ff.rastrigin, lambda : 2. * np.random.rand(3) - 1, 0.5,
+    ...                   options, restarts=9, bipop=True)  #doctest: +ELLIPSIS
+    (3_w,7)-aCMA-ES (mu_w=2.3,w_1=58%) in dimension 3 (seed=12345...
+
+    In either case, the method::
+
+        cma.plot();
+
+    (based on `matplotlib.pyplot`) produces a plot of the run and, if
+    necessary::
+
+        cma.s.figshow()
+
+    shows the plot in a window. Finally::
+
+        cma.s.figsave('myfirstrun')  # figsave from matplotlib.pyplot
+
+    will save the figure in a png. The figure data can be saved like::
+
+        es.logger.zip()
+
+    We can use the gradient like
+
+    >>> import cma
+    >>> x, es = cma.fmin2(cma.ff.rosen, np.zeros(10), 0.1,
+    ...             options = {'ftarget':1e-8,},
+    ...             gradf=cma.ff.grad_rosen,
+    ...         )  #doctest: +ELLIPSIS
+    (5_w,...
+    >>> assert cma.ff.rosen(es.result.xbest) < 1e-8
+    >>> assert es.result.evals_best < 3600  # 1% are > 3300
+    >>> assert es.result.evaluations < 3600  # 1% are > 3300
+
+    If solutions can only be comparatively ranked, either use
+    `CMAEvolutionStrategy` directly via `ask` and `tell` or a "parallel"
+    objective function accepting a list of solutions as input which
+    returns, for example, the solution ranks:
+
+    >>> def parallel_sphere(X): return [cma.ff.sphere(x) for x in X]
+    >>> x, es = cma.fmin2(None, 3 * [0], 0.1, {'verbose': -9},
+    ...                   parallel_objective=parallel_sphere)
+    >>> assert es.result.fbest < 1e-9
+
+    :See also: `CMAEvolutionStrategy`, `OOOptimizer.optimize`, `plot`,
+        `CMAOptions`, `scipy.optimize.fmin`
+"""
+    res = fmin(objective_function, x0, sigma0,
+         options,
+         args,
+         gradf,
+         restarts,
+         restart_from_best,
+         incpopsize,
+         eval_initial_x,
+         parallel_objective,
+         noise_handler,
+         noise_change_sigma_exponent,
+         noise_kappa_exponent,
+         bipop,
+         callback,
+         init_callback)
+    return res[0], res[-2]
+
+
+all_stoppings = []  # accessable via cma.evolution_strategy.all_stoppings, bound to change
+def fmin(objective_function, x0, sigma0, *posargs, **kwargs):
+    """DEPRECATED: use `fmin2` instead.
+
+    `fmin` will remain fully functional and be maintained in the foreseeable future.
+
     Return
     ======
     Return the list provided in `CMAEvolutionStrategy.result` appended
@@ -3959,22 +4199,42 @@ def fmin(objective_function, x0, sigma0,
         res = es.result + (es.stop(), es, logger)
 
     where
-        - ``res[0]`` (``xopt``) -- best evaluated solution
-        - ``res[1]`` (``fopt``) -- respective function value
-        - ``res[2]`` (``evalsopt``) -- respective number of function evaluations
-        - ``res[3]`` (``evals``) -- number of overall conducted objective function evaluations
+        - ``res[0]`` (``xbest``) -- best evaluated solution
+        - ``res[1]`` (``fbest``) -- respective function value
+        - ``res[2]`` (``evals_best``) -- respective number of function evaluations
+        - ``res[3]`` (``evaluations``) -- number of overall conducted objective function evaluations
         - ``res[4]`` (``iterations``) -- number of overall conducted iterations
-        - ``res[5]`` (``xmean``) -- mean of the final sample distribution
+        - ``res[5]`` (``xfavorite``) -- mean of the final sample distribution
         - ``res[6]`` (``stds``) -- effective stds of the final sample distribution
         - ``res[-3]`` (``stop``) -- termination condition(s) in a dictionary
-        - ``res[-2]`` (``cmaes``) -- class `CMAEvolutionStrategy` instance
-        - ``res[-1]`` (``logger``) -- class `CMADataLogger` instance
+        - ``res[-2]`` (``es``) -- class `CMAEvolutionStrategy` instance
+        - ``res[-1]`` (``logger``) -- class `CMADataLogger` instance == es.logger
 
-    Details
-    =======
-    This function is an interface to the class `CMAEvolutionStrategy`. The
-    latter class should be used when full control over the iteration loop
-    of the optimizer is desired.
+    The successor `fmin2` is an alias for::
+
+        res = fmin(...)
+        return res[0], res[-2]
+
+    For descriptions of the input arguments see `fmin2`.
+
+    For completness, recovering the output of `fmin` from `fmin2`::
+
+        es = fmin2(...)[1]  # fmin2(...)[0] is es.result.xbest
+        return es.result + (es.stop(), es, es.logger)
+
+    The best found solution is equally available under::
+
+        fmin(...)[0]
+        fmin2(...)[0]
+        fmin2(...)[1].result[0]
+        fmin2(...)[1].result.xbest
+        fmin2(...)[1].best.x
+
+    The incumbent, current estimate for the optimum is available under::
+
+        fmin(...)[5]
+        fmin2(...)[1].result[5]
+        fmin2(...)[1].result.xfavorite
 
     Examples
     ========
@@ -4054,9 +4314,35 @@ def fmin(objective_function, x0, sigma0,
 
     :See also: `CMAEvolutionStrategy`, `OOOptimizer.optimize`, `plot`,
         `CMAOptions`, `scipy.optimize.fmin`
-
-    """  # style guides say there should be the above empty line
+"""  # style guides say there should be the above empty line
     if 1 < 3:  # try: # pass on KeyboardInterrupt
+        def _get_value(i, key, default):
+            """check posargs and kwargs for i and key, respectively"""
+            if len(posargs) > i:
+                if key in kwargs:
+                    raise ValueError(
+                        '{0} given as positional and keyword argument with values {1} and {2}.'
+                        '\nOnly either positional or keyword is allowed, see also `cma.fmin2`.'
+                        .format(key, posargs[i], kwargs[key]))
+                return posargs[i]
+            if key in kwargs:
+                return kwargs[key]
+            return default
+        options = _get_value(0, 'options', None)
+        args = _get_value(1, 'args', ())
+        gradf = _get_value(2, 'gradf', None)
+        restarts = _get_value(3, 'restarts', 0)
+        restart_from_best = _get_value(4, 'restart_from_best', False)
+        incpopsize = _get_value(5, 'incpopsize', 2)
+        eval_initial_x = _get_value(6, 'eval_initial_x', False)
+        parallel_objective = _get_value(7, 'parallel_objective', None)
+        noise_handler = _get_value(8, 'noise_handler', None)
+        noise_change_sigma_exponent = _get_value(9, 'noise_change_sigma_exponent', 1)
+        noise_kappa_exponent = _get_value(10, 'noise_kappa_exponent', 0)  # TODO: add max kappa value as parameter
+        bipop = _get_value(11, 'bipop', False)
+        callback = _get_value(12, 'callback', None)
+        init_callback = _get_value(13, 'init_callback', None)
+
         if not objective_function and not parallel_objective:  # cma.fmin(0, 0, 0)
             return CMAOptions()  # these opts are by definition valid
 
@@ -4162,10 +4448,10 @@ def fmin(objective_function, x0, sigma0,
                         or es.opts['CMA_elitist'] == 'initial'
                         or (es.opts['CMA_elitist'] and
                                     eval_initial_x is None)):
-                    x = es.gp.pheno(es.mean, copy=True,
-                                    into_bounds=es.boundary_handler.repair,
-                                    archive=es.sent_solutions)
-                    es.f0 = objective_function(x, *args)
+                    x = es.to_phenotype(es.mean, copy=True,
+                                        into_bounds=es.boundary_handler.repair,
+                                        archive=es.sent_solutions)
+                    es.f0 = _ifloat(objective_function(x, *args))
                     es.best.update([x], es.sent_solutions,
                                    [es.f0], 1)
                     es.countevals += 1
@@ -4237,7 +4523,7 @@ def fmin(objective_function, x0, sigma0,
                         # use option check_point = [0]
                         if 0 * np.random.randn() >= 0:
                             X[0] = 0 + opts['vv'] * es.sigma**0 * np.random.randn(es.N)
-                            fit[0] = objective_function(X[0], *args)
+                            fit[0] = _ifloat(objective_function(X[0], *args))
                             # print fit[0]
                     if es.opts['verbose'] > 4:  # may be undesirable with dynamic fitness (e.g. Augmented Lagrangian)
                         if es.countiter < 2 or min(fit) <= es.best.last.f:
@@ -4263,7 +4549,8 @@ def fmin(objective_function, x0, sigma0,
                             #  like only multiplying kappa instead of
                             #  changing cmean and sigma.
                             es.sp.cmean *= np.exp(-noise_kappa_exponent * np.tanh(noisehandler.noiseS))
-                            es.sp.cmean[es.sp.cmean > 1] = 1.0  # also works with "scalar arrays" like np.array(1.2)
+                            if es.sp.cmean > 1:    # cmean is now a float, however,
+                                es.sp.cmean = 1.0  # cmean[cmean > 1] would also work with "scalar arrays" like np.array(1.2)
                     for f in callback:
                         f is None or f(es)
                     es.disp()
@@ -4275,12 +4562,18 @@ def fmin(objective_function, x0, sigma0,
 
             # end while not es.stop
             if opts['eval_final_mean'] and callable(objective_function):
-                mean_pheno = es.gp.pheno(es.mean, copy=True,
-                                         into_bounds=es.boundary_handler.repair,
-                                         archive=es.sent_solutions)
-                fmean = objective_function(mean_pheno, *args)
+                mean_pheno = es.to_phenotype(es.mean, copy=True,
+                                             into_bounds=es.boundary_handler.repair,
+                                             archive=es.sent_solutions)
+                fmean = _ifloat(objective_function(mean_pheno, *args))
                 es.countevals += 1
                 es.best.update([mean_pheno], es.sent_solutions, [fmean], es.countevals)
+            elif opts['eval_final_mean']:
+                warnings.warn('The final mean was not evaluated (probably due to a'
+                    '\n parallel evaluation setup). Consider checking out'
+                    '\n ``es.result.xfavorite`` which is likely to be better'
+                    '\n than ``es.result.xbest`` (on the sphere function with >= 90%'
+                    '\n for dimension >= 10 or population size >= 2e3/dimension**3)')
 
             best.update(es.best, es.sent_solutions)  # in restarted case
             # es.best.update(best)
@@ -4371,7 +4664,7 @@ def _al_set_logging(al, kwargs, *more_kwargs):
 def fmin_con(objective_function, x0, sigma0,
              g=no_constraints, h=no_constraints, post_optimization=False,
              archiving=True, **kwargs):
-    """Deprecated: use `cma.ConstrainedFitnessAL` or `cma.fmin_con2` instead.
+    """DEPRECATED: use `cma.ConstrainedFitnessAL` or `cma.fmin_con2` instead.
 
     Optimize f with constraints g (inequalities) and h (equalities).
 
@@ -4411,7 +4704,7 @@ def fmin_con(objective_function, x0, sigma0,
     `con_archives` attribute which is nonempty if `archiving`. The last
     element of each archive is the best feasible solution if there was any.
 
-    See `cma.fmin` for further parameters ``**kwargs``.
+    See `cma.fmin2` for the further parameters ``**kwargs``.
 
     >>> import cma
     >>> x, es = cma.evolution_strategy.fmin_con(
@@ -4477,7 +4770,7 @@ def fmin_con(objective_function, x0, sigma0,
         archives = []
 
     def f(x):
-        F.append(objective_function(x))
+        F.append(_ifloat(objective_function(x)))
         return F[-1]
     def constraints(x):
         gvals, hvals = g(x), h(x)
@@ -4489,7 +4782,7 @@ def fmin_con(objective_function, x0, sigma0,
         G.append(list(gvals) + list(hvals))
         return G[-1]
     def auglag(x):
-        fval, gvals = f(x), constraints(x)
+        fval, gvals = _ifloat(f(x)), constraints(x)
         alvals = _al(gvals)
         if all([gi <= 0 for gi in gvals]):
             best_feasible_solution.update(fval, x,
@@ -4518,8 +4811,8 @@ def fmin_con(objective_function, x0, sigma0,
 
     if post_optimization:
         def f_post(x):
-            return sum(gi ** 2 for gi in g(x) if gi > 0) + sum(
-                       hi ** 2 for hi in h(x) if hi ** 2 > post_optimization ** 2)
+            return _ifloat(sum(gi ** 2 for gi in g(x) if gi > 0) + sum(
+                           hi ** 2 for hi in h(x) if hi ** 2 > post_optimization ** 2))
 
         kwargs_post = kwargs.copy()
         kwargs_post.setdefault('options', {})['ftarget'] = 0
@@ -4527,7 +4820,7 @@ def fmin_con(objective_function, x0, sigma0,
         _, es_post = fmin2(f_post, es.result.xfavorite, es.sigma,
                            **kwargs_post)
         if es_post.best.f == 0:
-            f = objective_function(es_post.best.x)
+            f = _ifloat(objective_function(es_post.best.x))
             es.best_feasible.update(f, x=es_post.best.x, info={
                 'x': es_post.best.x,
                 'f': f,
@@ -4538,7 +4831,7 @@ def fmin_con(objective_function, x0, sigma0,
         g_x_post, h_x_post = g(x_post), h(x_post)
         if all([gi <= 0 for gi in g_x_post]) and \
                 all([hi ** 2 <= post_optimization ** 2 for hi in h_x_post]):
-            f_x_post = objective_function(x_post)
+            f_x_post = _ifloat(objective_function(x_post))
             es.best_feasible.update(f_x_post, x=x_post, info={
                 'x': x_post,
                 'f': f_x_post,
@@ -4615,7 +4908,7 @@ def fmin_con2(objective_function, x0, sigma0,
         if kwargs_fmin['options'].get('eval_final_mean', None):
             # this doesn't make sense if xfavorite is returned anyway
             g = constraints(es.result.xfavorite)
-            fun._update_best(x, objective_function(x), g, fun.al(g))
+            fun._update_best(x, _ifloat(objective_function(x)), g, fun.al(g))
             x = fun.best_feas.x
     else:
         x = es.result.xfavorite

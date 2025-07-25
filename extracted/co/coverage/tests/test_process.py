@@ -7,10 +7,12 @@ from __future__ import annotations
 
 import csv
 import glob
+import itertools
 import os
 import os.path
 import platform
 import re
+import signal
 import stat
 import sys
 import textwrap
@@ -270,7 +272,7 @@ class ProcessTest(CoverageTest):
 
         self.run_command("coverage run fleeting.py")
         os.remove("fleeting.py")
-        out = self.run_command("coverage html -d htmlcov")
+        out = self.run_command("coverage html -d htmlcov", status=1)
         assert re.search("No source for code: '.*fleeting.py'", out)
         assert "Traceback" not in out
 
@@ -282,10 +284,9 @@ class ProcessTest(CoverageTest):
 
         self.run_command("coverage run fleeting")
         os.remove("fleeting")
-        status, out = self.run_command_status("coverage html -d htmlcov")
+        out = self.run_command("coverage html -d htmlcov", status=1)
         assert re.search("No source for code: '.*fleeting'", out)
         assert "Traceback" not in out
-        assert status == 1
 
     def test_running_missing_file(self) -> None:
         status, out = self.run_command_status("coverage run xyzzy.py")
@@ -310,8 +311,8 @@ class ProcessTest(CoverageTest):
 
         # The important thing is for "coverage run" and "python" to report the
         # same traceback.
-        status, out = self.run_command_status("coverage run throw.py")
-        out2 = self.run_command("python throw.py")
+        out = self.run_command("coverage run throw.py", status=1)
+        out2 = self.run_command("python throw.py", status=1)
         if env.PYPY:
             # PyPy has an extra frame in the traceback for some reason
             out2 = re_lines_text("toplevel", out2, match=False)
@@ -322,7 +323,6 @@ class ProcessTest(CoverageTest):
         msg = f'File "{re.escape(path)}", line 8, in f2'
         assert re.search(msg, out)
         assert 'raise MyException("hey!")' in out
-        assert status == 1
 
     def test_code_exits(self) -> None:
         self.make_file("exit.py", """\
@@ -421,6 +421,46 @@ class ProcessTest(CoverageTest):
         reported_pids = {line.split(".")[0] for line in debug_text.splitlines()}
         assert len(reported_pids) == 2
 
+    @pytest.mark.skipif(not hasattr(os, "fork"), reason="Can't test os.fork, it doesn't exist.")
+    @pytest.mark.parametrize("patch", [False, True])
+    def test_os_exit(self, patch: bool) -> None:
+        self.make_file("forky.py", """\
+            import os
+            import tempfile
+            import time
+
+            complete_file = tempfile.mkstemp()[1]
+            pid = os.fork()
+            if pid:
+                while pid: # 3.9 wouldn't count "while True": change this. PYVERSION
+                    with open(complete_file, encoding="ascii") as f:
+                        data = f.read()
+                    if "Complete" in data:
+                        break
+                    time.sleep(.02)
+                os.remove(complete_file)
+            else:
+                time.sleep(.1)
+                with open(complete_file, mode="w", encoding="ascii") as f:
+                    f.write("Complete")
+                os._exit(0)
+                # if this exists, then we broke os._exit completely
+                open("impossible.txt", mode="w")
+            """)
+        total_lines = 17    # don't count the last impossible.txt line
+        if patch:
+            self.make_file(".coveragerc", "[run]\npatch = _exit\n")
+        self.run_command("coverage run -p forky.py")
+        self.run_command("coverage combine")
+        data = coverage.CoverageData()
+        data.read()
+        seen = line_counts(data)["forky.py"]
+        if patch:
+            assert seen == total_lines
+        else:
+            assert seen < total_lines
+        self.assert_doesnt_exist("impossible.txt")
+
     def test_warnings_during_reporting(self) -> None:
         # While fixing issue #224, the warnings were being printed far too
         # often.  Make sure they're not any more.
@@ -446,13 +486,13 @@ class ProcessTest(CoverageTest):
         # Note: the name of the function can't have "warning" in it, or the
         # absolute path of the file will have "warning" in it, and an assertion
         # will fail.
-        out = self.run_command("coverage run i_dont_exist.py")
+        out = self.run_command("coverage run i_dont_exist.py", status=1)
         path = python_reported_file('i_dont_exist.py')
         assert f"No file to run: '{path}'" in out
         assert "warning" not in out
         assert "Exception" not in out
 
-        out = self.run_command("coverage run -m no_such_module")
+        out = self.run_command("coverage run -m no_such_module", status=1)
         assert (
             ("No module named no_such_module" in out) or
             ("No module named 'no_such_module'" in out)
@@ -652,6 +692,35 @@ class ProcessTest(CoverageTest):
         out = self.run_command("python -m coverage")
         assert "Use 'coverage help' for help" in out
 
+    @pytest.mark.skipif(env.WINDOWS, reason="This test is not for Windows")
+    def test_save_signal_usr1(self) -> None:
+        self.assert_doesnt_exist(".coverage")
+        self.make_file("dummy_hello.py", """\
+            import os
+            import signal
+
+            print(f"Sending SIGUSR1 to myself")
+            os.kill(os.getpid(), signal.SIGUSR1)
+            os.kill(os.getpid(), signal.SIGKILL)
+
+            print("Done and goodbye")
+            """)
+        out = self.run_command(
+            "coverage run --save-signal=USR1 dummy_hello.py",
+            status=-signal.SIGKILL,
+        )
+        # `startswith` because on Linux it also prints "Killed"
+        assert out.startswith("Sending SIGUSR1 to myself\nSaving coverage data...\n")
+        self.assert_exists(".coverage")
+        out = self.run_command("coverage report -m")
+        assert out == textwrap.dedent("""\
+            Name             Stmts   Miss  Cover   Missing
+            ----------------------------------------------
+            dummy_hello.py       6      2    67%   6-8
+            ----------------------------------------------
+            TOTAL                6      2    67%
+            """)
+
 
 TRY_EXECFILE = os.path.join(os.path.dirname(__file__), "modules/process_test/try_execfile.py")
 
@@ -836,8 +905,8 @@ class EnvironmentTest(CoverageTest):
             self.make_file("with_main/__main__.py", f.read())
 
         self.set_environ("PYTHONSAFEPATH", "1")
-        expected = self.run_command("python -m with_main")
-        actual = self.run_command("coverage run -m with_main")
+        expected = self.run_command("python -m with_main", status=1)
+        actual = self.run_command("coverage run -m with_main", status=1)
         assert re.search("No module named '?with_main'?", actual)
         assert re.search("No module named '?with_main'?", expected)
 
@@ -1002,10 +1071,8 @@ class ExcepthookTest(CoverageTest):
 
             raise RuntimeError('Error Outside')
             """)
-        cov_st, cov_out = self.run_command_status("coverage run excepthook_throw.py")
-        py_st, py_out = self.run_command_status("python excepthook_throw.py")
-        assert cov_st == py_st
-        assert cov_st == 1
+        cov_out = self.run_command("coverage run excepthook_throw.py", status=1)
+        py_out = self.run_command("python excepthook_throw.py", status=1)
         assert "in excepthook" in py_out
         assert cov_out == py_out
 
@@ -1025,8 +1092,9 @@ class AliasedCommandTest(CoverageTest):
         # "coverage2" doesn't work on py3
         assert sys.version_info[0] == 3    # Let us know when Python 4 is out...
         badcmd = "coverage2"
-        out = self.run_command(badcmd)
+        status, out = self.run_command_status(badcmd)
         assert "Code coverage for Python" not in out
+        assert status != 0
 
     def test_specific_alias_works(self) -> None:
         # "coverage-3.9" works on py3.9
@@ -1040,7 +1108,7 @@ class AliasedCommandTest(CoverageTest):
         "coverage-%d.%d" % sys.version_info[:2],
     ])
     def test_aliases_used_in_messages(self, cmd: str) -> None:
-        out = self.run_command(f"{cmd} foobar")
+        out = self.run_command(f"{cmd} foobar", status=1)
         assert "Unknown command: 'foobar'" in out
         assert f"Use '{cmd} help' for help" in out
 
@@ -1191,7 +1259,7 @@ class CoverageCoreTest(CoverageTest):
     def test_core_request_nosuchcore(self) -> None:
         self.set_environ("COVERAGE_CORE", "nosuchcore")
         self.make_file("numbers.py", "print(123, 456)")
-        out = self.run_command("coverage run numbers.py")
+        out = self.run_command("coverage run numbers.py", status=1)
         assert "Unknown core value: 'nosuchcore'\n" in out
         assert "123 456" not in out
 
@@ -1239,7 +1307,7 @@ class YankedDirectoryTest(CoverageTest):
 
     def test_removing_directory_with_error(self) -> None:
         self.make_file("bug806.py", self.BUG_806)
-        out = self.run_command("coverage run bug806.py")
+        out = self.run_command("coverage run bug806.py", status=1)
         path = python_reported_file('bug806.py')
         # Python 3.11 adds an extra line to the traceback.
         # Check that the lines we expect are there.
@@ -1253,6 +1321,7 @@ class YankedDirectoryTest(CoverageTest):
 
 
 @pytest.mark.skipif(env.METACOV, reason="Can't test subprocess pth file during metacoverage")
+@pytest.mark.xdist_group(name="needs_pth")
 class ProcessStartupTest(CoverageTest):
     """Test that we can measure coverage in subprocesses."""
 
@@ -1272,7 +1341,20 @@ class ProcessStartupTest(CoverageTest):
             f.close()
             """)
 
-    def test_subprocess_with_pth_files(self) -> None:
+    def test_patch_subprocess(self) -> None:
+        self.make_file(".coveragerc", """\
+            [run]
+            patch = subprocess
+            """)
+        self.run_command("coverage run main.py")
+        self.run_command("coverage combine")
+        self.assert_exists(".coverage")
+        data = coverage.CoverageData()
+        data.read()
+        assert line_counts(data)["main.py"] == 3
+        assert line_counts(data)["sub.py"] == 3
+
+    def test_subprocess_with_pth_files(self, _create_pth_file: None) -> None:
         # An existing data file should not be read when a subprocess gets
         # measured automatically.  Create the data file here with bogus data in
         # it.
@@ -1296,7 +1378,7 @@ class ProcessStartupTest(CoverageTest):
         data.read()
         assert line_counts(data)['sub.py'] == 3
 
-    def test_subprocess_with_pth_files_and_parallel(self) -> None:
+    def test_subprocess_with_pth_files_and_parallel(self, _create_pth_file: None) -> None:
         # https://github.com/nedbat/coveragepy/issues/492
         self.make_file("coverage.ini", """\
             [run]
@@ -1326,6 +1408,76 @@ class ProcessStartupTest(CoverageTest):
         assert len(data_files) == 1, msg
 
 
+@pytest.mark.skipif(env.METACOV, reason="Can't test subprocess pth file during metacoverage")
+@pytest.mark.skipif(env.WINDOWS, reason="patch=execv isn't supported on Windows")
+@pytest.mark.xdist_group(name="needs_pth")
+class ExecvTest(CoverageTest):
+    """Test that we can measure coverage in subprocesses."""
+
+    @pytest.mark.parametrize("fname",
+        [base + suffix for base, suffix in itertools.product(
+            ["exec", "spawn"],
+            ["l", "le", "lp", "lpe", "v", "ve", "vp", "vpe"],
+        )]
+    )
+    def test_execv_patch(self, fname: str) -> None:
+        if not hasattr(os, fname):
+            pytest.skip(f"This OS doesn't have os.{fname}")
+
+        self.make_file(".coveragerc", """\
+            [run]
+            patch = subprocess, execv
+            """)
+        self.make_file("main.py", f"""\
+            import os, sys
+            print("In main")
+            args = []
+            if "spawn" in {fname!r}:
+                args.append(os.P_WAIT)
+            args.append(sys.executable)
+            prog_args = ["python", {os.path.abspath("other.py")!r}, "cat", "dog"]
+            if "l" in {fname!r}:
+                args.extend(prog_args)
+            else:
+                args.append(prog_args)
+            if {fname!r}.endswith("e"):
+                args.append({{"SUBVAR": "the-sub-var"}})
+            os.environ["MAINVAR"] = "the-main-var"
+            sys.stdout.flush()
+            os.{fname}(*args)
+            """)
+        self.make_file("other.py", """\
+            import os, sys
+            print(f"MAINVAR = {os.getenv('MAINVAR', 'none')}")
+            print(f"SUBVAR = {os.getenv('SUBVAR', 'none')}")
+            print(f"{sys.argv[1:] = }")
+            """)
+
+        out = self.run_command("coverage run main.py")
+        expected = "In main\n"
+        if fname.endswith("e"):
+            expected += "MAINVAR = none\n"
+            expected += "SUBVAR = the-sub-var\n"
+        else:
+            expected += "MAINVAR = the-main-var\n"
+            expected += "SUBVAR = none\n"
+        expected += "sys.argv[1:] = ['cat', 'dog']\n"
+        assert out == expected
+
+        self.run_command("coverage combine")
+        data = coverage.CoverageData()
+        data.read()
+
+        main_lines = 12
+        if "spawn" in fname:
+            main_lines += 1
+        if fname.endswith("e"):
+            main_lines += 1
+
+        assert line_counts(data)["main.py"] == main_lines
+        assert line_counts(data)["other.py"] == 4
+
+
 class ProcessStartupWithSourceTest(CoverageTest):
     """Show that we can configure {[run]source} during process-level coverage.
 
@@ -1343,7 +1495,14 @@ class ProcessStartupWithSourceTest(CoverageTest):
     @pytest.mark.parametrize("dashm", ["-m", ""])
     @pytest.mark.parametrize("package", ["pkg", ""])
     @pytest.mark.parametrize("source", ["main", "sub"])
-    def test_pth_and_source_work_together(self, dashm: str, package: str, source: str) -> None:
+    @pytest.mark.xdist_group(name="needs_pth")
+    def test_pth_and_source_work_together(
+        self,
+        dashm: str,
+        package: str,
+        source: str,
+        _create_pth_file: None,
+    ) -> None:
         """Run the test for a particular combination of factors.
 
         The arguments are all strings:

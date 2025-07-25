@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import io
-import math
 import pathlib
 import typing
 from io import BytesIO
@@ -830,7 +829,8 @@ def to_pylist(arrow_obj: pa.Array | pa.ChunkedArray, /) -> list[object]:
 
 def chunk_table(table: pa.Table, n: int) -> list:
     """
-    Split a PyArrow Table into exactly `n` chunks.
+    Split a PyArrow Table into exactly `n` nonempty chunks if possible (as evenly as possible).
+    If `n` exceeds the number of rows in the table, returns a list with a chunk for each row.
 
     Parameters:
         table (pa.Table): The PyArrow Table to chunk.
@@ -851,7 +851,13 @@ def chunk_table(table: pa.Table, n: int) -> list:
         # If n is greater than or equal to total rows, each chunk will have one row
         return [table.slice(i, 1) for i in range(total_rows)]
 
-    chunk_size = math.ceil(total_rows / n)
-    chunks = [table.slice(i, chunk_size) for i in range(0, total_rows, chunk_size)]
+    small_chunk_size, n_large_chunks = divmod(total_rows, n)
+    large_chunk_size = small_chunk_size + 1
+    n_small_chunks = n - n_large_chunks
 
+    chunks = [table.slice(i * large_chunk_size, large_chunk_size) for i in range(n_large_chunks)]
+    small_chunks_start = large_chunk_size * n_large_chunks
+    chunks.extend(
+        table.slice(small_chunks_start + i * small_chunk_size, small_chunk_size) for i in range(n_small_chunks)
+    )
     return chunks

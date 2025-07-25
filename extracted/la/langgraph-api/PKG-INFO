@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: langgraph-api
-Version: 0.2.100
+Version: 0.2.102
 Author-email: Nuno Campos <nuno@langchain.dev>, Will Fu-Hinthorn <will@langchain.dev>
 License: Elastic-2.0
 License-File: LICENSE

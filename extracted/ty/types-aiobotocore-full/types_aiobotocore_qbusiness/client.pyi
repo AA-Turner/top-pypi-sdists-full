@@ -32,6 +32,7 @@ from .paginator import (
     GetChatControlsConfigurationPaginator,
     ListApplicationsPaginator,
     ListAttachmentsPaginator,
+    ListChatResponseConfigurationsPaginator,
     ListConversationsPaginator,
     ListDataAccessorsPaginator,
     ListDataSourcesPaginator,
@@ -68,6 +69,8 @@ from .type_defs import (
     CreateAnonymousWebExperienceUrlResponseTypeDef,
     CreateApplicationRequestTypeDef,
     CreateApplicationResponseTypeDef,
+    CreateChatResponseConfigurationRequestTypeDef,
+    CreateChatResponseConfigurationResponseTypeDef,
     CreateDataAccessorRequestTypeDef,
     CreateDataAccessorResponseTypeDef,
     CreateDataSourceRequestTypeDef,
@@ -86,6 +89,7 @@ from .type_defs import (
     DeleteApplicationRequestTypeDef,
     DeleteAttachmentRequestTypeDef,
     DeleteChatControlsConfigurationRequestTypeDef,
+    DeleteChatResponseConfigurationRequestTypeDef,
     DeleteConversationRequestTypeDef,
     DeleteDataAccessorRequestTypeDef,
     DeleteDataSourceRequestTypeDef,
@@ -101,6 +105,8 @@ from .type_defs import (
     GetApplicationResponseTypeDef,
     GetChatControlsConfigurationRequestTypeDef,
     GetChatControlsConfigurationResponseTypeDef,
+    GetChatResponseConfigurationRequestTypeDef,
+    GetChatResponseConfigurationResponseTypeDef,
     GetDataAccessorRequestTypeDef,
     GetDataAccessorResponseTypeDef,
     GetDataSourceRequestTypeDef,
@@ -125,6 +131,8 @@ from .type_defs import (
     ListApplicationsResponseTypeDef,
     ListAttachmentsRequestTypeDef,
     ListAttachmentsResponseTypeDef,
+    ListChatResponseConfigurationsRequestTypeDef,
+    ListChatResponseConfigurationsResponseTypeDef,
     ListConversationsRequestTypeDef,
     ListConversationsResponseTypeDef,
     ListDataAccessorsRequestTypeDef,
@@ -168,6 +176,7 @@ from .type_defs import (
     UntagResourceRequestTypeDef,
     UpdateApplicationRequestTypeDef,
     UpdateChatControlsConfigurationRequestTypeDef,
+    UpdateChatResponseConfigurationRequestTypeDef,
     UpdateDataAccessorRequestTypeDef,
     UpdateDataSourceRequestTypeDef,
     UpdateIndexRequestTypeDef,
@@ -331,6 +340,16 @@ class QBusinessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#create_application)
         """
 
+    async def create_chat_response_configuration(
+        self, **kwargs: Unpack[CreateChatResponseConfigurationRequestTypeDef]
+    ) -> CreateChatResponseConfigurationResponseTypeDef:
+        """
+        Creates a new chat response configuration for an Amazon Q Business application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/client/create_chat_response_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#create_chat_response_configuration)
+        """
+
     async def create_data_accessor(
         self, **kwargs: Unpack[CreateDataAccessorRequestTypeDef]
     ) -> CreateDataAccessorResponseTypeDef:
@@ -440,6 +459,17 @@ class QBusinessClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/client/delete_chat_controls_configuration.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#delete_chat_controls_configuration)
+        """
+
+    async def delete_chat_response_configuration(
+        self, **kwargs: Unpack[DeleteChatResponseConfigurationRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Deletes a specified chat response configuration from an Amazon Q Business
+        application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/client/delete_chat_response_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#delete_chat_response_configuration)
         """
 
     async def delete_conversation(
@@ -557,6 +587,17 @@ class QBusinessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#get_chat_controls_configuration)
         """
 
+    async def get_chat_response_configuration(
+        self, **kwargs: Unpack[GetChatResponseConfigurationRequestTypeDef]
+    ) -> GetChatResponseConfigurationResponseTypeDef:
+        """
+        Retrieves detailed information about a specific chat response configuration
+        from an Amazon Q Business application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/client/get_chat_response_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#get_chat_response_configuration)
+        """
+
     async def get_data_accessor(
         self, **kwargs: Unpack[GetDataAccessorRequestTypeDef]
     ) -> GetDataAccessorResponseTypeDef:
@@ -671,6 +712,17 @@ class QBusinessClient(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/client/list_attachments.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#list_attachments)
+        """
+
+    async def list_chat_response_configurations(
+        self, **kwargs: Unpack[ListChatResponseConfigurationsRequestTypeDef]
+    ) -> ListChatResponseConfigurationsResponseTypeDef:
+        """
+        Retrieves a list of all chat response configurations available in a specified
+        Amazon Q Business application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/client/list_chat_response_configurations.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#list_chat_response_configurations)
         """
 
     async def list_conversations(
@@ -925,6 +977,17 @@ class QBusinessClient(AioBaseClient):
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#update_chat_controls_configuration)
         """
 
+    async def update_chat_response_configuration(
+        self, **kwargs: Unpack[UpdateChatResponseConfigurationRequestTypeDef]
+    ) -> Dict[str, Any]:
+        """
+        Updates an existing chat response configuration in an Amazon Q Business
+        application.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/client/update_chat_response_configuration.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#update_chat_response_configuration)
+        """
+
     async def update_data_accessor(
         self, **kwargs: Unpack[UpdateDataAccessorRequestTypeDef]
     ) -> Dict[str, Any]:
@@ -1027,6 +1090,17 @@ class QBusinessClient(AioBaseClient):
     def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["list_attachments"]
     ) -> ListAttachmentsPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/qbusiness/client/get_paginator.html)
+        [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_qbusiness/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["list_chat_response_configurations"]
+    ) -> ListChatResponseConfigurationsPaginator:
         """
         Create a paginator for an operation.
 

@@ -12,6 +12,7 @@ Usage::
     from types_aiobotocore_bedrock import (
         BedrockClient,
         Client,
+        ListCustomModelDeploymentsPaginator,
         ListCustomModelsPaginator,
         ListEvaluationJobsPaginator,
         ListGuardrailsPaginator,
@@ -32,6 +33,7 @@ Usage::
         ...
 
 
+    list_custom_model_deployments_paginator: ListCustomModelDeploymentsPaginator = client.get_paginator("list_custom_model_deployments")
     list_custom_models_paginator: ListCustomModelsPaginator = client.get_paginator("list_custom_models")
     list_evaluation_jobs_paginator: ListEvaluationJobsPaginator = client.get_paginator("list_evaluation_jobs")
     list_guardrails_paginator: ListGuardrailsPaginator = client.get_paginator("list_guardrails")
@@ -49,6 +51,7 @@ Usage::
 
 from .client import BedrockClient
 from .paginator import (
+    ListCustomModelDeploymentsPaginator,
     ListCustomModelsPaginator,
     ListEvaluationJobsPaginator,
     ListGuardrailsPaginator,
@@ -68,6 +71,7 @@ Client = BedrockClient
 __all__ = (
     "BedrockClient",
     "Client",
+    "ListCustomModelDeploymentsPaginator",
     "ListCustomModelsPaginator",
     "ListEvaluationJobsPaginator",
     "ListGuardrailsPaginator",

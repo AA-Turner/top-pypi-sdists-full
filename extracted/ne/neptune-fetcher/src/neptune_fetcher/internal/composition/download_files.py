@@ -20,31 +20,31 @@ from typing import (
 
 import pandas as pd
 
-from neptune_fetcher.internal import client as _client
-from neptune_fetcher.internal import (
+from .. import client as _client
+from .. import (
     identifiers,
     output_format,
 )
-from neptune_fetcher.internal.composition import attribute_components as _components
-from neptune_fetcher.internal.composition import (
+from ..composition import attribute_components as _components
+from ..composition import (
     concurrency,
     type_inference,
     validation,
 )
-from neptune_fetcher.internal.context import (
+from ..context import (
     Context,
     get_context,
     validate_context,
 )
-from neptune_fetcher.internal.filters import (
+from ..filters import (
     _AttributeFilter,
     _Filter,
 )
-from neptune_fetcher.internal.retrieval import (
+from ..retrieval import (
     files,
     search,
 )
-from neptune_fetcher.internal.retrieval.search import ContainerType
+from ..retrieval.search import ContainerType
 
 
 def download_files(
@@ -59,7 +59,7 @@ def download_files(
     valid_context = validate_context(context or get_context())
     client = _client.get_client(context=valid_context)
 
-    attributes = validation.restrict_attribute_filter_type(attributes, type_in={"file"})
+    attributes_restricted = validation.restrict_attribute_filter_type(attributes, type_in={"file"})
     validation.ensure_write_access(destination)
 
     with (
@@ -102,7 +102,7 @@ def download_files(
             downstream=lambda sys_ids: _components.fetch_attribute_definition_aggregations_split(
                 client=client,
                 project_identifier=project_identifier,
-                attribute_filter=attributes,
+                attribute_filter=attributes_restricted,
                 executor=executor,
                 fetch_attribute_definitions_executor=fetch_attribute_definitions_executor,
                 sys_ids=sys_ids,

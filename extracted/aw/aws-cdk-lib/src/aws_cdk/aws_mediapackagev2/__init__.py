@@ -141,7 +141,7 @@ class CfnChannel(
         :param input_switch_configuration: The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
         :param input_type: The input type will be an immutable field which will be used to define whether the channel will allow CMAF ingest or HLS ingest. If unprovided, it will default to HLS to preserve current behavior. The allowed values are: - ``HLS`` - The HLS streaming specification (which defines M3U8 manifests and TS segments). - ``CMAF`` - The DASH-IF CMAF Ingest specification (which defines CMAF segments with optional DASH manifests).
         :param output_header_configuration: The settings for what common media server data (CMSD) headers AWS Elemental MediaPackage includes in responses to the CDN.
-        :param tags: The tags associated with the channel.
+        :param tags: 
         '''
         if __debug__:
             type_hints = typing.get_type_hints(_typecheckingstub__f5f12d43fb05232f03795c27e5dde1f408f5762e93edacb27e01efb9e0e3c7c1)
@@ -219,7 +219,8 @@ class CfnChannel(
     @builtins.property
     @jsii.member(jsii_name="attrIngestEndpointUrls")
     def attr_ingest_endpoint_urls(self) -> typing.List[builtins.str]:
-        '''
+        '''The ingest domain URL where the source stream should be sent.
+
         :cloudformationAttribute: IngestEndpointUrls
         '''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "attrIngestEndpointUrls"))
@@ -335,7 +336,6 @@ class CfnChannel(
     @builtins.property
     @jsii.member(jsii_name="tags")
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags associated with the channel.'''
         return typing.cast(typing.Optional[typing.List[_CfnTag_f6864754]], jsii.get(self, "tags"))
 
     @tags.setter
@@ -1059,7 +1059,7 @@ class CfnChannelProps:
         :param input_switch_configuration: The configuration for input switching based on the media quality confidence score (MQCS) as provided from AWS Elemental MediaLive.
         :param input_type: The input type will be an immutable field which will be used to define whether the channel will allow CMAF ingest or HLS ingest. If unprovided, it will default to HLS to preserve current behavior. The allowed values are: - ``HLS`` - The HLS streaming specification (which defines M3U8 manifests and TS segments). - ``CMAF`` - The DASH-IF CMAF Ingest specification (which defines CMAF segments with optional DASH manifests).
         :param output_header_configuration: The settings for what common media server data (CMSD) headers AWS Elemental MediaPackage includes in responses to the CDN.
-        :param tags: The tags associated with the channel.
+        :param tags: 
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html
         :exampleMetadata: fixture=_generated
@@ -1182,8 +1182,7 @@ class CfnChannelProps:
 
     @builtins.property
     def tags(self) -> typing.Optional[typing.List[_CfnTag_f6864754]]:
-        '''The tags associated with the channel.
-
+        '''
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-mediapackagev2-channel.html#cfn-mediapackagev2-channel-tags
         '''
         result = self._values.get("tags")
@@ -1452,7 +1451,8 @@ class CfnOriginEndpoint(
     @builtins.property
     @jsii.member(jsii_name="attrDashManifestUrls")
     def attr_dash_manifest_urls(self) -> typing.List[builtins.str]:
-        '''
+        '''The egress domain URL for stream delivery from MediaPackage.
+
         :cloudformationAttribute: DashManifestUrls
         '''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "attrDashManifestUrls"))
@@ -1460,7 +1460,8 @@ class CfnOriginEndpoint(
     @builtins.property
     @jsii.member(jsii_name="attrHlsManifestUrls")
     def attr_hls_manifest_urls(self) -> typing.List[builtins.str]:
-        '''
+        '''The egress domain URL for stream delivery from MediaPackage.
+
         :cloudformationAttribute: HlsManifestUrls
         '''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "attrHlsManifestUrls"))
@@ -1468,7 +1469,8 @@ class CfnOriginEndpoint(
     @builtins.property
     @jsii.member(jsii_name="attrLowLatencyHlsManifestUrls")
     def attr_low_latency_hls_manifest_urls(self) -> typing.List[builtins.str]:
-        '''
+        '''The egress domain URL for stream delivery from MediaPackage.
+
         :cloudformationAttribute: LowLatencyHlsManifestUrls
         '''
         return typing.cast(typing.List[builtins.str], jsii.get(self, "attrLowLatencyHlsManifestUrls"))
@@ -1709,17 +1711,17 @@ class CfnOriginEndpoint(
         ) -> None:
             '''The DASH manifest configuration associated with the origin endpoint.
 
-            :param manifest_name:  The manifest name creates a unique path to this endpoint. If you don't enter a value, MediaPackage uses the default manifest name, index.
-            :param drm_signaling: 
-            :param filter_configuration:  
-            :param manifest_window_seconds: 
-            :param min_buffer_time_seconds: 
-            :param min_update_period_seconds: 
-            :param period_triggers:  Leave this value empty to indicate that the manifest is contained all in one period. For more information about periods in the DASH manifest, see Multi-period DASH in AWS Elemental MediaPackage.
-            :param scte_dash: 
-            :param segment_template_format: 
-            :param suggested_presentation_delay_seconds: 
-            :param utc_timing: 
+            :param manifest_name: A short string that's appended to the endpoint URL. The child manifest name creates a unique path to this endpoint.
+            :param drm_signaling: Determines how the DASH manifest signals the DRM content.
+            :param filter_configuration: Filter configuration includes settings for manifest filtering, start and end times, and time delay that apply to all of your egress requests for this manifest.
+            :param manifest_window_seconds: The total duration (in seconds) of the manifest's content.
+            :param min_buffer_time_seconds: Minimum amount of content (in seconds) that a player must keep available in the buffer.
+            :param min_update_period_seconds: Minimum amount of time (in seconds) that the player should wait before requesting updates to the manifest.
+            :param period_triggers: A list of triggers that controls when AWS Elemental MediaPackage separates the MPEG-DASH manifest into multiple periods. Type ``ADS`` to indicate that AWS Elemental MediaPackage must create periods in the output manifest that correspond to SCTE-35 ad markers in the input source. Leave this value empty to indicate that the manifest is contained all in one period. For more information about periods in the DASH manifest, see `Multi-period DASH in AWS Elemental MediaPackage <https://docs.aws.amazon.com/mediapackage/latest/userguide/multi-period.html>`_ .
+            :param scte_dash: The SCTE configuration.
+            :param segment_template_format: Determines the type of variable used in the ``media`` URL of the ``SegmentTemplate`` tag in the manifest. Also specifies if segment timeline information is included in ``SegmentTimeline`` or ``SegmentTemplate`` . Value description: - ``NUMBER_WITH_TIMELINE`` - The ``$Number$`` variable is used in the ``media`` URL. The value of this variable is the sequential number of the segment. A full ``SegmentTimeline`` object is presented in each ``SegmentTemplate`` .
+            :param suggested_presentation_delay_seconds: The amount of time (in seconds) that the player should be from the end of the manifest.
+            :param utc_timing: Determines the type of UTC timing included in the DASH Media Presentation Description (MPD).
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -1796,8 +1798,9 @@ class CfnOriginEndpoint(
 
         @builtins.property
         def manifest_name(self) -> builtins.str:
-            '''
-            The manifest name creates a unique path to this endpoint. If you don't enter a value, MediaPackage uses the default manifest name, index.
+            '''A short string that's appended to the endpoint URL.
+
+            The child manifest name creates a unique path to this endpoint.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-manifestname
             '''
@@ -1807,7 +1810,8 @@ class CfnOriginEndpoint(
 
         @builtins.property
         def drm_signaling(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Determines how the DASH manifest signals the DRM content.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-drmsignaling
             '''
             result = self._values.get("drm_signaling")
@@ -1817,7 +1821,7 @@ class CfnOriginEndpoint(
         def filter_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.FilterConfigurationProperty"]]:
-            '''
+            '''Filter configuration includes settings for manifest filtering, start and end times, and time delay that apply to all of your egress requests for this manifest.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-filterconfiguration
             '''
@@ -1826,7 +1830,8 @@ class CfnOriginEndpoint(
 
         @builtins.property
         def manifest_window_seconds(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The total duration (in seconds) of the manifest's content.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-manifestwindowseconds
             '''
             result = self._values.get("manifest_window_seconds")
@@ -1834,7 +1839,8 @@ class CfnOriginEndpoint(
 
         @builtins.property
         def min_buffer_time_seconds(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''Minimum amount of content (in seconds) that a player must keep available in the buffer.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-minbuffertimeseconds
             '''
             result = self._values.get("min_buffer_time_seconds")
@@ -1842,7 +1848,8 @@ class CfnOriginEndpoint(
 
         @builtins.property
         def min_update_period_seconds(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''Minimum amount of time (in seconds) that the player should wait before requesting updates to the manifest.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-minupdateperiodseconds
             '''
             result = self._values.get("min_update_period_seconds")
@@ -1850,9 +1857,9 @@ class CfnOriginEndpoint(
 
         @builtins.property
         def period_triggers(self) -> typing.Optional[typing.List[builtins.str]]:
-            '''
-            Leave this value empty to indicate that the manifest is contained all in one period.
-            For more information about periods in the DASH manifest, see Multi-period DASH in AWS Elemental MediaPackage.
+            '''A list of triggers that controls when AWS Elemental MediaPackage separates the MPEG-DASH manifest into multiple periods.
+
+            Type ``ADS`` to indicate that AWS Elemental MediaPackage must create periods in the output manifest that correspond to SCTE-35 ad markers in the input source. Leave this value empty to indicate that the manifest is contained all in one period. For more information about periods in the DASH manifest, see `Multi-period DASH in AWS Elemental MediaPackage <https://docs.aws.amazon.com/mediapackage/latest/userguide/multi-period.html>`_ .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-periodtriggers
             '''
@@ -1863,7 +1870,8 @@ class CfnOriginEndpoint(
         def scte_dash(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.ScteDashProperty"]]:
-            '''
+            '''The SCTE configuration.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-sctedash
             '''
             result = self._values.get("scte_dash")
@@ -1871,7 +1879,14 @@ class CfnOriginEndpoint(
 
         @builtins.property
         def segment_template_format(self) -> typing.Optional[builtins.str]:
-            '''
+            '''Determines the type of variable used in the ``media`` URL of the ``SegmentTemplate`` tag in the manifest.
+
+            Also specifies if segment timeline information is included in ``SegmentTimeline`` or ``SegmentTemplate`` .
+
+            Value description:
+
+            - ``NUMBER_WITH_TIMELINE`` - The ``$Number$`` variable is used in the ``media`` URL. The value of this variable is the sequential number of the segment. A full ``SegmentTimeline`` object is presented in each ``SegmentTemplate`` .
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-segmenttemplateformat
             '''
             result = self._values.get("segment_template_format")
@@ -1879,7 +1894,8 @@ class CfnOriginEndpoint(
 
         @builtins.property
         def suggested_presentation_delay_seconds(self) -> typing.Optional[jsii.Number]:
-            '''
+            '''The amount of time (in seconds) that the player should be from the end of the manifest.
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-suggestedpresentationdelayseconds
             '''
             result = self._values.get("suggested_presentation_delay_seconds")
@@ -1889,7 +1905,8 @@ class CfnOriginEndpoint(
         def utc_timing(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.DashUtcTimingProperty"]]:
-            '''
+            '''Determines the type of UTC timing included in the DASH Media Presentation Description (MPD).
+
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-dashmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-dashmanifestconfiguration-utctiming
             '''
             result = self._values.get("utc_timing")
@@ -2498,13 +2515,13 @@ class CfnOriginEndpoint(
 
             :param manifest_name: The name of the manifest associated with the HLS manifest configuration.
             :param child_manifest_name: The name of the child manifest associated with the HLS manifest configuration.
-            :param filter_configuration:  
+            :param filter_configuration: Filter configuration includes settings for manifest filtering, start and end times, and time delay that apply to all of your egress requests for this manifest.
             :param manifest_window_seconds: The duration of the manifest window, in seconds, for the HLS manifest configuration.
             :param program_date_time_interval_seconds: The ``EXT-X-PROGRAM-DATE-TIME`` interval, in seconds, associated with the HLS manifest configuration.
             :param scte_hls: THE SCTE-35 HLS configuration associated with the HLS manifest configuration.
-            :param start_tag:  When you do, you can also optionally specify whether to include a PRECISE value in the EXT-X-START tag.
+            :param start_tag: To insert an EXT-X-START tag in your HLS playlist, specify a StartTag configuration object with a valid TimeOffset. When you do, you can also optionally specify whether to include a PRECISE value in the EXT-X-START tag.
             :param url: The URL of the HLS manifest configuration.
-            :param url_encode_child_manifest:  For more information, see Amazon Web Services Signature Version 4 for API requests in Identity and Access Management User Guide.
+            :param url_encode_child_manifest: When enabled, MediaPackage URL-encodes the query string for API requests for HLS child manifests to comply with AWS Signature Version 4 (SigV4) signature signing protocol. For more information, see `AWS Signature Version 4 for API requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv.html>`_ in *AWS Identity and Access Management User Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-hlsmanifestconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2596,7 +2613,7 @@ class CfnOriginEndpoint(
         def filter_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.FilterConfigurationProperty"]]:
-            '''
+            '''Filter configuration includes settings for manifest filtering, start and end times, and time delay that apply to all of your egress requests for this manifest.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-hlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-hlsmanifestconfiguration-filterconfiguration
             '''
@@ -2636,7 +2653,8 @@ class CfnOriginEndpoint(
         def start_tag(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.StartTagProperty"]]:
-            '''
+            '''To insert an EXT-X-START tag in your HLS playlist, specify a StartTag configuration object with a valid TimeOffset.
+
             When you do, you can also optionally specify whether to include a PRECISE value in the EXT-X-START tag.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-hlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-hlsmanifestconfiguration-starttag
@@ -2657,8 +2675,9 @@ class CfnOriginEndpoint(
         def url_encode_child_manifest(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
-            For more information, see Amazon Web Services Signature Version 4 for API requests in Identity and Access Management User Guide.
+            '''When enabled, MediaPackage URL-encodes the query string for API requests for HLS child manifests to comply with AWS Signature Version 4 (SigV4) signature signing protocol.
+
+            For more information, see `AWS Signature Version 4 for API requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv.html>`_ in *AWS Identity and Access Management User Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-hlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-hlsmanifestconfiguration-urlencodechildmanifest
             '''
@@ -2709,13 +2728,13 @@ class CfnOriginEndpoint(
 
             :param manifest_name: A short string that's appended to the endpoint URL. The manifest name creates a unique path to this endpoint. If you don't enter a value, MediaPackage uses the default manifest name, ``index`` . MediaPackage automatically inserts the format extension, such as ``.m3u8`` . You can't use the same manifest name if you use HLS manifest and low-latency HLS manifest. The ``manifestName`` on the ``HLSManifest`` object overrides the ``manifestName`` you provided on the ``originEndpoint`` object.
             :param child_manifest_name: The name of the child manifest associated with the low-latency HLS (LL-HLS) manifest configuration of the origin endpoint.
-            :param filter_configuration:  
+            :param filter_configuration: Filter configuration includes settings for manifest filtering, start and end times, and time delay that apply to all of your egress requests for this manifest.
             :param manifest_window_seconds: The total duration (in seconds) of the manifest's content.
             :param program_date_time_interval_seconds: Inserts ``EXT-X-PROGRAM-DATE-TIME`` tags in the output manifest at the interval that you specify. If you don't enter an interval, ``EXT-X-PROGRAM-DATE-TIME`` tags aren't included in the manifest. The tags sync the stream to the wall clock so that viewers can seek to a specific time in the playback timeline on the player. Irrespective of this parameter, if any ``ID3Timed`` metadata is in the HLS input, MediaPackage passes through that metadata to the HLS output.
             :param scte_hls: The SCTE-35 HLS configuration associated with the low-latency HLS (LL-HLS) manifest configuration of the origin endpoint.
-            :param start_tag:  When you do, you can also optionally specify whether to include a PRECISE value in the EXT-X-START tag.
+            :param start_tag: To insert an EXT-X-START tag in your HLS playlist, specify a StartTag configuration object with a valid TimeOffset. When you do, you can also optionally specify whether to include a PRECISE value in the EXT-X-START tag.
             :param url: The URL of the low-latency HLS (LL-HLS) manifest configuration of the origin endpoint.
-            :param url_encode_child_manifest:  For more information, see Amazon Web Services Signature Version 4 for API requests in Identity and Access Management User Guide.
+            :param url_encode_child_manifest: When enabled, MediaPackage URL-encodes the query string for API requests for LL-HLS child manifests to comply with AWS Signature Version 4 (SigV4) signature signing protocol. For more information, see `AWS Signature Version 4 for API requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv.html>`_ in *AWS Identity and Access Management User Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration.html
             :exampleMetadata: fixture=_generated
@@ -2809,7 +2828,7 @@ class CfnOriginEndpoint(
         def filter_configuration(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.FilterConfigurationProperty"]]:
-            '''
+            '''Filter configuration includes settings for manifest filtering, start and end times, and time delay that apply to all of your egress requests for this manifest.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration-filterconfiguration
             '''
@@ -2853,7 +2872,8 @@ class CfnOriginEndpoint(
         def start_tag(
             self,
         ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, "CfnOriginEndpoint.StartTagProperty"]]:
-            '''
+            '''To insert an EXT-X-START tag in your HLS playlist, specify a StartTag configuration object with a valid TimeOffset.
+
             When you do, you can also optionally specify whether to include a PRECISE value in the EXT-X-START tag.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration-starttag
@@ -2874,8 +2894,9 @@ class CfnOriginEndpoint(
         def url_encode_child_manifest(
             self,
         ) -> typing.Optional[typing.Union[builtins.bool, _IResolvable_da3f097b]]:
-            '''
-            For more information, see Amazon Web Services Signature Version 4 for API requests in Identity and Access Management User Guide.
+            '''When enabled, MediaPackage URL-encodes the query string for API requests for LL-HLS child manifests to comply with AWS Signature Version 4 (SigV4) signature signing protocol.
+
+            For more information, see `AWS Signature Version 4 for API requests <https://docs.aws.amazon.com/IAM/latest/UserGuide/reference_sigv.html>`_ in *AWS Identity and Access Management User Guide* .
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration.html#cfn-mediapackagev2-originendpoint-lowlatencyhlsmanifestconfiguration-urlencodechildmanifest
             '''

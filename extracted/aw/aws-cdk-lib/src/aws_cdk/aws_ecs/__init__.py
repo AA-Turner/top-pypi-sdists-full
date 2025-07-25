@@ -8701,9 +8701,9 @@ class CfnService(
         :param capacity_provider_strategy: The capacity provider strategy to use for the service. If a ``capacityProviderStrategy`` is specified, the ``launchType`` parameter must be omitted. If no ``capacityProviderStrategy`` or ``launchType`` is specified, the ``defaultCapacityProviderStrategy`` for the cluster is used. A capacity provider strategy can contain a maximum of 20 capacity providers. .. epigraph:: To remove this property from your service resource, specify an empty ``CapacityProviderStrategyItem`` array.
         :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that you run your service on. If you do not specify a cluster, the default cluster is assumed.
         :param deployment_configuration: Optional deployment parameters that control how many tasks run during the deployment and the ordering of stopping and starting tasks.
-        :param deployment_controller: The deployment controller to use for the service. If no deployment controller is specified, the default value of ``ECS`` is used.
+        :param deployment_controller: The deployment controller to use for the service.
         :param desired_count: The number of instantiations of the specified task definition to place and keep running in your service. For new services, if a desired count is not specified, a default value of ``1`` is used. When using the ``DAEMON`` scheduling strategy, the desired count is not required. For existing services, if a desired count is not specified, it is omitted from the operation.
-        :param enable_ecs_managed_tags: Specifies whether to turn on Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging your Amazon ECS resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ in the *Amazon Elastic Container Service Developer Guide* . When you use Amazon ECS managed tags, you need to set the ``propagateTags`` request parameter.
+        :param enable_ecs_managed_tags: Specifies whether to turn on Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging your Amazon ECS resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ in the *Amazon Elastic Container Service Developer Guide* . When you use Amazon ECS managed tags, you must set the ``propagateTags`` request parameter.
         :param enable_execute_command: Determines whether the execute command functionality is turned on for the service. If ``true`` , the execute command functionality is turned on for all containers in tasks as part of the service.
         :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing, VPC Lattice, and container health checks after a task has first started. If you don't specify a health check grace period value, the default value of ``0`` is used. If you don't use any of the health checks, then ``healthCheckGracePeriodSeconds`` is unused. If your service's tasks take a while to start and respond to health checks, you can specify a health check grace period of up to 2,147,483,647 seconds (about 69 years). During that time, the Amazon ECS service scheduler ignores health check status. This grace period can prevent the service scheduler from marking tasks as unhealthy and stopping them before they have time to come up.
         :param launch_type: The launch type on which to run your service. For more information, see `Amazon ECS Launch Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_types.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
@@ -9555,7 +9555,7 @@ class CfnService(
 
             When the alarms are generated, Amazon ECS sets the service deployment to failed. Set the rollback parameter to have Amazon ECS to roll back your service to the last completed deployment after a failure.
 
-            You can only use the ``DeploymentAlarms`` method to detect failures when the ``DeploymentController`` is set to ``ECS`` (rolling update).
+            You can only use the ``DeploymentAlarms`` method to detect failures when the ``DeploymentController`` is set to ``ECS`` .
 
             For more information, see `Rolling update <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/deployment-type-ecs.html>`_ in the **Amazon Elastic Container Service Developer Guide** .
 
@@ -9930,7 +9930,7 @@ class CfnService(
         def __init__(self, *, type: typing.Optional[builtins.str] = None) -> None:
             '''The deployment controller to use for the service.
 
-            :param type: The deployment controller type to use. There are three deployment controller types available:. - **ECS** - The rolling update ( ``ECS`` ) deployment type involves replacing the current running version of the container with the latest version. The number of containers Amazon ECS adds or removes from the service during a rolling update is controlled by adjusting the minimum and maximum number of healthy tasks allowed during a service deployment, as specified in the `DeploymentConfiguration <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeploymentConfiguration.html>`_ . - **CODE_DEPLOY** - The blue/green ( ``CODE_DEPLOY`` ) deployment type uses the blue/green deployment model powered by AWS CodeDeploy , which allows you to verify a new deployment of a service before sending production traffic to it. - **EXTERNAL** - The external ( ``EXTERNAL`` ) deployment type enables you to use any third-party deployment controller for full control over the deployment process for an Amazon ECS service.
+            :param type: The deployment controller type to use. The deployment controller is the mechanism that determines how tasks are deployed for your service. The valid options are: - ECS When you create a service which uses the ``ECS`` deployment controller, you can choose between the following deployment strategies: - ``ROLLING`` : When you create a service which uses the *rolling update* ( ``ROLLING`` ) deployment strategy, the Amazon ECS service scheduler replaces the currently running tasks with new tasks. The number of tasks that Amazon ECS adds or removes from the service during a rolling update is controlled by the service deployment configuration. Rolling update deployments are best suited for the following scenarios: - Gradual service updates: You need to update your service incrementally without taking the entire service offline at once. - Limited resource requirements: You want to avoid the additional resource costs of running two complete environments simultaneously (as required by blue/green deployments). - Acceptable deployment time: Your application can tolerate a longer deployment process, as rolling updates replace tasks one by one. - No need for instant roll back: Your service can tolerate a rollback process that takes minutes rather than seconds. - Simple deployment process: You prefer a straightforward deployment approach without the complexity of managing multiple environments, target groups, and listeners. - No load balancer requirement: Your service doesn't use or require a load balancer, Application Load Balancer , Network Load Balancer , or Service Connect (which are required for blue/green deployments). - Stateful applications: Your application maintains state that makes it difficult to run two parallel environments. - Cost sensitivity: You want to minimize deployment costs by not running duplicate environments during deployment. Rolling updates are the default deployment strategy for services and provide a balance between deployment safety and resource efficiency for many common application scenarios. - ``BLUE_GREEN`` : A *blue/green* deployment strategy ( ``BLUE_GREEN`` ) is a release methodology that reduces downtime and risk by running two identical production environments called blue and green. With Amazon ECS blue/green deployments, you can validate new service revisions before directing production traffic to them. This approach provides a safer way to deploy changes with the ability to quickly roll back if needed. Amazon ECS blue/green deployments are best suited for the following scenarios: - Service validation: When you need to validate new service revisions before directing production traffic to them - Zero downtime: When your service requires zero-downtime deployments - Instant roll back: When you need the ability to quickly roll back if issues are detected - Load balancer requirement: When your service uses Application Load Balancer , Network Load Balancer , or Service Connect - External Use a third-party deployment controller. - Blue/green deployment (powered by CodeDeploy ) CodeDeploy installs an updated version of the application as a new replacement task set and reroutes production traffic from the original application task set to the replacement task set. The original task set is terminated after a successful deployment. Use this deployment controller to verify a new deployment of a service before sending production traffic to it. When updating the deployment controller for a service, consider the following depending on the type of migration you're performing. - If you have a template that contains the ``EXTERNAL`` deployment controller information as well as ``TaskSet`` and ``PrimaryTaskSet`` resources, and you remove the task set resources from the template when updating from ``EXTERNAL`` to ``ECS`` , the ``DescribeTaskSet`` and ``DeleteTaskSet`` API calls will return a 400 error after the deployment controller is updated to ``ECS`` . This results in a delete failure on the task set resources, even though the stack transitions to ``UPDATE_COMPLETE`` status. For more information, see `Resource removed from stack but not deleted <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/troubleshooting.html#troubleshooting-errors-resource-removed-not-deleted>`_ in the AWS CloudFormation User Guide. To fix this issue, delete the task sets directly using the Amazon ECS ``DeleteTaskSet`` API. For more information about how to delete a task set, see `DeleteTaskSet <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeleteTaskSet.html>`_ in the Amazon Elastic Container Service API Reference. - If you're migrating from ``CODE_DEPLOY`` to ``ECS`` with a new task definition and AWS CloudFormation performs a rollback operation, the Amazon ECS ``UpdateService`` request fails with the following error: Resource handler returned message: "Invalid request provided: Unable to update task definition on services with a CODE_DEPLOY deployment controller. - After a successful migration from ``ECS`` to ``EXTERNAL`` deployment controller, you need to manually remove the ``ACTIVE`` task set, because Amazon ECS no longer manages the deployment. For information about how to delete a task set, see `DeleteTaskSet <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeleteTaskSet.html>`_ in the Amazon Elastic Container Service API Reference.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentcontroller.html
             :exampleMetadata: fixture=_generated
@@ -9954,11 +9954,53 @@ class CfnService(
 
         @builtins.property
         def type(self) -> typing.Optional[builtins.str]:
-            '''The deployment controller type to use. There are three deployment controller types available:.
+            '''The deployment controller type to use.
 
-            - **ECS** - The rolling update ( ``ECS`` ) deployment type involves replacing the current running version of the container with the latest version. The number of containers Amazon ECS adds or removes from the service during a rolling update is controlled by adjusting the minimum and maximum number of healthy tasks allowed during a service deployment, as specified in the `DeploymentConfiguration <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeploymentConfiguration.html>`_ .
-            - **CODE_DEPLOY** - The blue/green ( ``CODE_DEPLOY`` ) deployment type uses the blue/green deployment model powered by AWS CodeDeploy , which allows you to verify a new deployment of a service before sending production traffic to it.
-            - **EXTERNAL** - The external ( ``EXTERNAL`` ) deployment type enables you to use any third-party deployment controller for full control over the deployment process for an Amazon ECS service.
+            The deployment controller is the mechanism that determines how tasks are deployed for your service. The valid options are:
+
+            - ECS
+
+            When you create a service which uses the ``ECS`` deployment controller, you can choose between the following deployment strategies:
+
+            - ``ROLLING`` : When you create a service which uses the *rolling update* ( ``ROLLING`` ) deployment strategy, the Amazon ECS service scheduler replaces the currently running tasks with new tasks. The number of tasks that Amazon ECS adds or removes from the service during a rolling update is controlled by the service deployment configuration.
+
+            Rolling update deployments are best suited for the following scenarios:
+
+            - Gradual service updates: You need to update your service incrementally without taking the entire service offline at once.
+            - Limited resource requirements: You want to avoid the additional resource costs of running two complete environments simultaneously (as required by blue/green deployments).
+            - Acceptable deployment time: Your application can tolerate a longer deployment process, as rolling updates replace tasks one by one.
+            - No need for instant roll back: Your service can tolerate a rollback process that takes minutes rather than seconds.
+            - Simple deployment process: You prefer a straightforward deployment approach without the complexity of managing multiple environments, target groups, and listeners.
+            - No load balancer requirement: Your service doesn't use or require a load balancer, Application Load Balancer , Network Load Balancer , or Service Connect (which are required for blue/green deployments).
+            - Stateful applications: Your application maintains state that makes it difficult to run two parallel environments.
+            - Cost sensitivity: You want to minimize deployment costs by not running duplicate environments during deployment.
+
+            Rolling updates are the default deployment strategy for services and provide a balance between deployment safety and resource efficiency for many common application scenarios.
+
+            - ``BLUE_GREEN`` : A *blue/green* deployment strategy ( ``BLUE_GREEN`` ) is a release methodology that reduces downtime and risk by running two identical production environments called blue and green. With Amazon ECS blue/green deployments, you can validate new service revisions before directing production traffic to them. This approach provides a safer way to deploy changes with the ability to quickly roll back if needed.
+
+            Amazon ECS blue/green deployments are best suited for the following scenarios:
+
+            - Service validation: When you need to validate new service revisions before directing production traffic to them
+            - Zero downtime: When your service requires zero-downtime deployments
+            - Instant roll back: When you need the ability to quickly roll back if issues are detected
+            - Load balancer requirement: When your service uses Application Load Balancer , Network Load Balancer , or Service Connect
+            - External
+
+            Use a third-party deployment controller.
+
+            - Blue/green deployment (powered by CodeDeploy )
+
+            CodeDeploy installs an updated version of the application as a new replacement task set and reroutes production traffic from the original application task set to the replacement task set. The original task set is terminated after a successful deployment. Use this deployment controller to verify a new deployment of a service before sending production traffic to it.
+
+            When updating the deployment controller for a service, consider the following depending on the type of migration you're performing.
+
+            - If you have a template that contains the ``EXTERNAL`` deployment controller information as well as ``TaskSet`` and ``PrimaryTaskSet`` resources, and you remove the task set resources from the template when updating from ``EXTERNAL`` to ``ECS`` , the ``DescribeTaskSet`` and ``DeleteTaskSet`` API calls will return a 400 error after the deployment controller is updated to ``ECS`` . This results in a delete failure on the task set resources, even though the stack transitions to ``UPDATE_COMPLETE`` status. For more information, see `Resource removed from stack but not deleted <https://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/troubleshooting.html#troubleshooting-errors-resource-removed-not-deleted>`_ in the AWS CloudFormation User Guide. To fix this issue, delete the task sets directly using the Amazon ECS ``DeleteTaskSet`` API. For more information about how to delete a task set, see `DeleteTaskSet <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeleteTaskSet.html>`_ in the Amazon Elastic Container Service API Reference.
+            - If you're migrating from ``CODE_DEPLOY`` to ``ECS`` with a new task definition and AWS CloudFormation performs a rollback operation, the Amazon ECS ``UpdateService`` request fails with the following error:
+
+            Resource handler returned message: "Invalid request provided: Unable to update task definition on services with a CODE_DEPLOY deployment controller.
+
+            - After a successful migration from ``ECS`` to ``EXTERNAL`` deployment controller, you need to manually remove the ``ACTIVE`` task set, because Amazon ECS no longer manages the deployment. For information about how to delete a task set, see `DeleteTaskSet <https://docs.aws.amazon.com/AmazonECS/latest/APIReference/API_DeleteTaskSet.html>`_ in the Amazon Elastic Container Service API Reference.
 
             :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-properties-ecs-service-deploymentcontroller.html#cfn-ecs-service-deploymentcontroller-type
             '''
@@ -12429,9 +12471,9 @@ class CfnServiceProps:
         :param capacity_provider_strategy: The capacity provider strategy to use for the service. If a ``capacityProviderStrategy`` is specified, the ``launchType`` parameter must be omitted. If no ``capacityProviderStrategy`` or ``launchType`` is specified, the ``defaultCapacityProviderStrategy`` for the cluster is used. A capacity provider strategy can contain a maximum of 20 capacity providers. .. epigraph:: To remove this property from your service resource, specify an empty ``CapacityProviderStrategyItem`` array.
         :param cluster: The short name or full Amazon Resource Name (ARN) of the cluster that you run your service on. If you do not specify a cluster, the default cluster is assumed.
         :param deployment_configuration: Optional deployment parameters that control how many tasks run during the deployment and the ordering of stopping and starting tasks.
-        :param deployment_controller: The deployment controller to use for the service. If no deployment controller is specified, the default value of ``ECS`` is used.
+        :param deployment_controller: The deployment controller to use for the service.
         :param desired_count: The number of instantiations of the specified task definition to place and keep running in your service. For new services, if a desired count is not specified, a default value of ``1`` is used. When using the ``DAEMON`` scheduling strategy, the desired count is not required. For existing services, if a desired count is not specified, it is omitted from the operation.
-        :param enable_ecs_managed_tags: Specifies whether to turn on Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging your Amazon ECS resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ in the *Amazon Elastic Container Service Developer Guide* . When you use Amazon ECS managed tags, you need to set the ``propagateTags`` request parameter.
+        :param enable_ecs_managed_tags: Specifies whether to turn on Amazon ECS managed tags for the tasks within the service. For more information, see `Tagging your Amazon ECS resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ in the *Amazon Elastic Container Service Developer Guide* . When you use Amazon ECS managed tags, you must set the ``propagateTags`` request parameter.
         :param enable_execute_command: Determines whether the execute command functionality is turned on for the service. If ``true`` , the execute command functionality is turned on for all containers in tasks as part of the service.
         :param health_check_grace_period_seconds: The period of time, in seconds, that the Amazon ECS service scheduler ignores unhealthy Elastic Load Balancing, VPC Lattice, and container health checks after a task has first started. If you don't specify a health check grace period value, the default value of ``0`` is used. If you don't use any of the health checks, then ``healthCheckGracePeriodSeconds`` is unused. If your service's tasks take a while to start and respond to health checks, you can specify a health check grace period of up to 2,147,483,647 seconds (about 69 years). During that time, the Amazon ECS service scheduler ignores health check status. This grace period can prevent the service scheduler from marking tasks as unhealthy and stopping them before they have time to come up.
         :param launch_type: The launch type on which to run your service. For more information, see `Amazon ECS Launch Types <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/launch_types.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
@@ -12771,8 +12813,6 @@ class CfnServiceProps:
     ) -> typing.Optional[typing.Union[_IResolvable_da3f097b, CfnService.DeploymentControllerProperty]]:
         '''The deployment controller to use for the service.
 
-        If no deployment controller is specified, the default value of ``ECS`` is used.
-
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-service.html#cfn-ecs-service-deploymentcontroller
         '''
         result = self._values.get("deployment_controller")
@@ -12799,7 +12839,7 @@ class CfnServiceProps:
 
         For more information, see `Tagging your Amazon ECS resources <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/ecs-using-tags.html>`_ in the *Amazon Elastic Container Service Developer Guide* .
 
-        When you use Amazon ECS managed tags, you need to set the ``propagateTags`` request parameter.
+        When you use Amazon ECS managed tags, you must set the ``propagateTags`` request parameter.
 
         :see: http://docs.aws.amazon.com/AWSCloudFormation/latest/UserGuide/aws-resource-ecs-service.html#cfn-ecs-service-enableecsmanagedtags
         '''
@@ -33949,11 +33989,7 @@ class NetworkMode(enum.Enum):
     single container instance when port mappings are used.
     '''
     NAT = "NAT"
-    '''The task utilizes NAT network mode required by Windows containers.
-
-    This is the only supported network mode for Windows containers. For more information, see
-    `Task Definition Parameters <https://docs.aws.amazon.com/AmazonECS/latest/developerguide/task_definition_parameters.html#network_mode>`_.
-    '''
+    '''The task utilizes Docker's built-in virtual network which runs inside each Windows container instance.'''
 
 
 class OperatingSystemFamily(
@@ -34048,6 +34084,18 @@ class OperatingSystemFamily(
     def WINDOWS_SERVER_2022_FULL(cls) -> "OperatingSystemFamily":
         '''WINDOWS_SERVER_2022_FULL.'''
         return typing.cast("OperatingSystemFamily", jsii.sget(cls, "WINDOWS_SERVER_2022_FULL"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="WINDOWS_SERVER_2025_CORE")
+    def WINDOWS_SERVER_2025_CORE(cls) -> "OperatingSystemFamily":
+        '''WINDOWS_SERVER_2025_CORE.'''
+        return typing.cast("OperatingSystemFamily", jsii.sget(cls, "WINDOWS_SERVER_2025_CORE"))
+
+    @jsii.python.classproperty
+    @jsii.member(jsii_name="WINDOWS_SERVER_2025_FULL")
+    def WINDOWS_SERVER_2025_FULL(cls) -> "OperatingSystemFamily":
+        '''WINDOWS_SERVER_2025_FULL.'''
+        return typing.cast("OperatingSystemFamily", jsii.sget(cls, "WINDOWS_SERVER_2025_FULL"))
 
     @jsii.python.classproperty
     @jsii.member(jsii_name="WINDOWS_SERVER_20H2_CORE")
@@ -39861,6 +39909,7 @@ class VolumeFrom:
 class WindowsOptimizedVersion(enum.Enum):
     '''ECS-optimized Windows version list.'''
 
+    SERVER_2025 = "SERVER_2025"
     SERVER_2022 = "SERVER_2022"
     SERVER_2019 = "SERVER_2019"
     SERVER_2016 = "SERVER_2016"

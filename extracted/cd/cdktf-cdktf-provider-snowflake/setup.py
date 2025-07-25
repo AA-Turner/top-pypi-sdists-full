@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-snowflake",
-    "version": "15.2.0",
+    "version": "15.3.0",
     "description": "Prebuilt snowflake Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-snowflake.git",
@@ -37,6 +37,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_snowflake.compute_pool",
         "cdktf_cdktf_provider_snowflake.cortex_search_service",
         "cdktf_cdktf_provider_snowflake.current_account",
+        "cdktf_cdktf_provider_snowflake.current_organization_account",
         "cdktf_cdktf_provider_snowflake.data_snowflake_account_roles",
         "cdktf_cdktf_provider_snowflake.data_snowflake_accounts",
         "cdktf_cdktf_provider_snowflake.data_snowflake_alerts",
@@ -83,6 +84,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_snowflake.data_snowflake_tables",
         "cdktf_cdktf_provider_snowflake.data_snowflake_tags",
         "cdktf_cdktf_provider_snowflake.data_snowflake_tasks",
+        "cdktf_cdktf_provider_snowflake.data_snowflake_user_programmatic_access_tokens",
         "cdktf_cdktf_provider_snowflake.data_snowflake_users",
         "cdktf_cdktf_provider_snowflake.data_snowflake_views",
         "cdktf_cdktf_provider_snowflake.data_snowflake_warehouses",
@@ -164,13 +166,14 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_snowflake.user",
         "cdktf_cdktf_provider_snowflake.user_authentication_policy_attachment",
         "cdktf_cdktf_provider_snowflake.user_password_policy_attachment",
+        "cdktf_cdktf_provider_snowflake.user_programmatic_access_token",
         "cdktf_cdktf_provider_snowflake.user_public_keys",
         "cdktf_cdktf_provider_snowflake.view",
         "cdktf_cdktf_provider_snowflake.warehouse"
     ],
     "package_data": {
         "cdktf_cdktf_provider_snowflake._jsii": [
-            "provider-snowflake@15.2.0.jsii.tgz"
+            "provider-snowflake@15.3.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_snowflake": [
             "py.typed"

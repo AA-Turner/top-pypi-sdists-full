@@ -6,6 +6,7 @@ from traceback import TracebackException
 from typing import Any, Literal, Optional, Union
 
 import click
+import dagster_shared.check as check
 from dagster_dg_core.context import DgContext
 from dagster_shared.cli import PythonPointerOpts
 from dagster_shared.error import SerializableErrorInfo, remove_system_frames_from_error
@@ -27,6 +28,8 @@ from dagster._cli.workspace.cli_target import get_repository_python_origin_from_
 from dagster._config.pythonic_config.resource import get_resource_type_name
 from dagster._core.definitions.asset_selection import AssetSelection
 from dagster._core.definitions.assets.job.asset_job import is_reserved_asset_job_name
+from dagster._core.definitions.metadata import ArbitraryMetadataMapping, CodeReferencesMetadataValue
+from dagster._core.definitions.metadata.source_code import LocalFileCodeReference
 from dagster._core.definitions.repository_definition.repository_definition import (
     RepositoryDefinition,
 )
@@ -162,6 +165,7 @@ def list_definitions(
                 DgAssetMetadata(
                     key=key.to_user_string(),
                     deps=sorted([k.to_user_string() for k in node.parent_keys]),
+                    owners=node.owners,
                     group=node.group_name,
                     kinds=sorted(list(node.kinds)),
                     description=node.description,
@@ -170,6 +174,7 @@ def list_definitions(
                     else None,
                     tags=sorted(f'"{k}"="{v}"' for k, v in node.tags.items() if _tag_filter(k)),
                     is_executable=node.is_executable,
+                    source=_get_source(node.metadata, dg_context),
                 )
             )
         checks = []
@@ -182,13 +187,20 @@ def list_definitions(
                     name=key.name,
                     additional_deps=sorted([k.to_user_string() for k in node.parent_entity_keys]),
                     description=node.description,
+                    source=_get_source(node.metadata, dg_context),
                 )
             )
 
         jobs = []
         for job in repo_def.get_all_jobs():
             if not is_reserved_asset_job_name(job.name):
-                jobs.append(DgJobMetadata(name=job.name, description=job.description))
+                jobs.append(
+                    DgJobMetadata(
+                        name=job.name,
+                        description=job.description,
+                        source=_get_source(job.metadata, dg_context),
+                    )
+                )
 
         schedules = []
         for schedule in repo_def.schedule_defs:
@@ -201,16 +213,27 @@ def list_definitions(
                 DgScheduleMetadata(
                     name=schedule.name,
                     cron_schedule=schedule_str,
+                    source=_get_source(schedule.metadata, dg_context),
                 )
             )
 
         sensors = []
         for sensor in repo_def.sensor_defs:
-            sensors.append(DgSensorMetadata(name=sensor.name))
+            sensors.append(
+                DgSensorMetadata(
+                    name=sensor.name,
+                    source=_get_source(sensor.metadata, dg_context),
+                )
+            )
 
         resources = []
         for name, resource in repo_def.get_top_level_resources().items():
-            resources.append(DgResourceMetadata(name=name, type=get_resource_type_name(resource)))
+            resources.append(
+                DgResourceMetadata(
+                    name=name,
+                    type=get_resource_type_name(resource),
+                )
+            )
 
         return DgDefinitionMetadata(
             assets=assets,
@@ -246,3 +269,23 @@ def _load_component_types(
         for key, obj in _load_plugin_objects(entry_points, extra_modules).items()
         if isinstance(obj, type) and issubclass(obj, Component)
     }
+
+
+def _get_source(
+    metadata: ArbitraryMetadataMapping,
+    dg_context: DgContext,
+) -> Optional[str]:
+    code_ref_metadata = check.opt_inst(
+        metadata.get("dagster/code_references"), CodeReferencesMetadataValue
+    )
+    if code_ref_metadata and code_ref_metadata.code_references:
+        return next(
+            (
+                str(Path(ref.source).relative_to(dg_context.root_path))
+                for ref in code_ref_metadata.code_references
+                if isinstance(ref, LocalFileCodeReference)
+            ),
+            None,
+        )
+
+    return None

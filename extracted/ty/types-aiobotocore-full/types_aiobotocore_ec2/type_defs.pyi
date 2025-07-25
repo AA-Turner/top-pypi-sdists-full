@@ -64,6 +64,8 @@ from .literals import (
     CancelBatchErrorCodeType,
     CancelSpotInstanceRequestStateType,
     CapacityBlockExtensionStatusType,
+    CapacityBlockInterconnectStatusType,
+    CapacityBlockResourceStateType,
     CapacityReservationBillingRequestStatusType,
     CapacityReservationDeliveryPreferenceType,
     CapacityReservationFleetStateType,
@@ -143,6 +145,7 @@ from .literals import (
     ImageAttributeNameType,
     ImageStateType,
     ImageTypeValuesType,
+    InitializationTypeType,
     InstanceAttributeNameType,
     InstanceAutoRecoveryStateType,
     InstanceBandwidthWeightingType,
@@ -578,6 +581,8 @@ __all__ = (
     "CapacityBlockExtensionOfferingTypeDef",
     "CapacityBlockExtensionTypeDef",
     "CapacityBlockOfferingTypeDef",
+    "CapacityBlockStatusTypeDef",
+    "CapacityBlockTypeDef",
     "CapacityReservationBillingRequestTypeDef",
     "CapacityReservationCommitmentInfoTypeDef",
     "CapacityReservationFleetCancellationStateTypeDef",
@@ -588,6 +593,7 @@ __all__ = (
     "CapacityReservationOptionsTypeDef",
     "CapacityReservationSpecificationResponseTypeDef",
     "CapacityReservationSpecificationTypeDef",
+    "CapacityReservationStatusTypeDef",
     "CapacityReservationTargetResponseTypeDef",
     "CapacityReservationTargetTypeDef",
     "CapacityReservationTypeDef",
@@ -1089,6 +1095,12 @@ __all__ = (
     "DescribeCapacityBlockOfferingsRequestPaginateTypeDef",
     "DescribeCapacityBlockOfferingsRequestTypeDef",
     "DescribeCapacityBlockOfferingsResultTypeDef",
+    "DescribeCapacityBlockStatusRequestPaginateTypeDef",
+    "DescribeCapacityBlockStatusRequestTypeDef",
+    "DescribeCapacityBlockStatusResultTypeDef",
+    "DescribeCapacityBlocksRequestPaginateTypeDef",
+    "DescribeCapacityBlocksRequestTypeDef",
+    "DescribeCapacityBlocksResultTypeDef",
     "DescribeCapacityReservationBillingRequestsRequestPaginateTypeDef",
     "DescribeCapacityReservationBillingRequestsRequestTypeDef",
     "DescribeCapacityReservationBillingRequestsResultTypeDef",
@@ -1389,6 +1401,8 @@ __all__ = (
     "DescribeSecurityGroupRulesResultTypeDef",
     "DescribeSecurityGroupVpcAssociationsRequestPaginateTypeDef",
     "DescribeSecurityGroupVpcAssociationsRequestTypeDef",
+    "DescribeSecurityGroupVpcAssociationsRequestWaitExtraTypeDef",
+    "DescribeSecurityGroupVpcAssociationsRequestWaitTypeDef",
     "DescribeSecurityGroupVpcAssociationsResultTypeDef",
     "DescribeSecurityGroupsRequestPaginateTypeDef",
     "DescribeSecurityGroupsRequestTypeDef",
@@ -1979,6 +1993,7 @@ __all__ = (
     "InferenceAcceleratorInfoTypeDef",
     "InferenceDeviceInfoTypeDef",
     "InferenceDeviceMemoryInfoTypeDef",
+    "InitializationStatusDetailsTypeDef",
     "InstanceAttachmentEnaSrdSpecificationTypeDef",
     "InstanceAttachmentEnaSrdUdpSpecificationTypeDef",
     "InstanceAttributeTypeDef",
@@ -3549,7 +3564,15 @@ class CapacityBlockOfferingTypeDef(TypedDict):
     UpfrontFee: NotRequired[str]
     CurrencyCode: NotRequired[str]
     Tenancy: NotRequired[CapacityReservationTenancyType]
+    UltraserverType: NotRequired[str]
+    UltraserverCount: NotRequired[int]
     CapacityBlockDurationMinutes: NotRequired[int]
+
+class CapacityReservationStatusTypeDef(TypedDict):
+    CapacityReservationId: NotRequired[str]
+    TotalCapacity: NotRequired[int]
+    TotalAvailableCapacity: NotRequired[int]
+    TotalUnavailableCapacity: NotRequired[int]
 
 class CapacityReservationInfoTypeDef(TypedDict):
     InstanceType: NotRequired[str]
@@ -4734,6 +4757,7 @@ class InstanceTopologyTypeDef(TypedDict):
     NetworkNodes: NotRequired[List[str]]
     AvailabilityZone: NotRequired[str]
     ZoneId: NotRequired[str]
+    CapacityBlockId: NotRequired[str]
 
 class InstanceTypeOfferingTypeDef(TypedDict):
     InstanceType: NotRequired[InstanceTypeType]
@@ -4816,6 +4840,7 @@ class SecurityGroupVpcAssociationTypeDef(TypedDict):
     VpcOwnerId: NotRequired[str]
     State: NotRequired[SecurityGroupVpcAssociationStateType]
     StateReason: NotRequired[str]
+    GroupOwnerId: NotRequired[str]
 
 class DescribeSnapshotAttributeRequestSnapshotDescribeAttributeTypeDef(TypedDict):
     Attribute: SnapshotAttributeNameType
@@ -5899,6 +5924,11 @@ class UserDataTypeDef(TypedDict):
 
 class InferenceDeviceMemoryInfoTypeDef(TypedDict):
     SizeInMiB: NotRequired[int]
+
+class InitializationStatusDetailsTypeDef(TypedDict):
+    InitializationType: NotRequired[InitializationTypeType]
+    Progress: NotRequired[int]
+    EstimatedTimeToCompleteInSeconds: NotRequired[int]
 
 class InstanceAttachmentEnaSrdUdpSpecificationTypeDef(TypedDict):
     EnaSrdUdpEnabled: NotRequired[bool]
@@ -8323,6 +8353,18 @@ class AllowedPrincipalTypeDef(TypedDict):
     Tags: NotRequired[List[TagTypeDef]]
     ServiceId: NotRequired[str]
 
+class CapacityBlockTypeDef(TypedDict):
+    CapacityBlockId: NotRequired[str]
+    UltraserverType: NotRequired[str]
+    AvailabilityZone: NotRequired[str]
+    AvailabilityZoneId: NotRequired[str]
+    CapacityReservationIds: NotRequired[List[str]]
+    StartDate: NotRequired[datetime]
+    EndDate: NotRequired[datetime]
+    CreateDate: NotRequired[datetime]
+    State: NotRequired[CapacityBlockResourceStateType]
+    Tags: NotRequired[List[TagTypeDef]]
+
 class CarrierGatewayTypeDef(TypedDict):
     CarrierGatewayId: NotRequired[str]
     VpcId: NotRequired[str]
@@ -8408,6 +8450,7 @@ class Ec2InstanceConnectEndpointTypeDef(TypedDict):
     PreserveClientIp: NotRequired[bool]
     SecurityGroupIds: NotRequired[List[str]]
     Tags: NotRequired[List[TagTypeDef]]
+    IpAddressType: NotRequired[IpAddressTypeType]
 
 class HostReservationTypeDef(TypedDict):
     Count: NotRequired[int]
@@ -9118,6 +9161,8 @@ class DescribeCapacityBlockOfferingsRequestTypeDef(TypedDict):
     EndDateRange: NotRequired[TimestampTypeDef]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
+    UltraserverType: NotRequired[str]
+    UltraserverCount: NotRequired[int]
 
 class DescribeFleetHistoryRequestTypeDef(TypedDict):
     FleetId: str
@@ -9396,6 +9441,14 @@ class DescribeCapacityBlockOfferingsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class CapacityBlockStatusTypeDef(TypedDict):
+    CapacityBlockId: NotRequired[str]
+    InterconnectStatus: NotRequired[CapacityBlockInterconnectStatusType]
+    TotalCapacity: NotRequired[int]
+    TotalAvailableCapacity: NotRequired[int]
+    TotalUnavailableCapacity: NotRequired[int]
+    CapacityReservationStatuses: NotRequired[List[CapacityReservationStatusTypeDef]]
+
 class CapacityReservationBillingRequestTypeDef(TypedDict):
     CapacityReservationId: NotRequired[str]
     RequestedBy: NotRequired[str]
@@ -9433,6 +9486,7 @@ class CapacityReservationTypeDef(TypedDict):
     UnusedReservationBillingOwnerId: NotRequired[str]
     CommitmentInfo: NotRequired[CapacityReservationCommitmentInfoTypeDef]
     DeliveryPreference: NotRequired[CapacityReservationDeliveryPreferenceType]
+    CapacityBlockId: NotRequired[str]
 
 class CapacityReservationFleetTypeDef(TypedDict):
     CapacityReservationFleetId: NotRequired[str]
@@ -9931,6 +9985,8 @@ class DescribeCapacityBlockOfferingsRequestPaginateTypeDef(TypedDict):
     InstanceCount: NotRequired[int]
     StartDateRange: NotRequired[TimestampTypeDef]
     EndDateRange: NotRequired[TimestampTypeDef]
+    UltraserverType: NotRequired[str]
+    UltraserverCount: NotRequired[int]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class DescribePrincipalIdFormatRequestPaginateTypeDef(TypedDict):
@@ -10050,6 +10106,32 @@ class DescribeCapacityBlockExtensionHistoryRequestPaginateTypeDef(TypedDict):
 
 class DescribeCapacityBlockExtensionHistoryRequestTypeDef(TypedDict):
     CapacityReservationIds: NotRequired[Sequence[str]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+
+class DescribeCapacityBlockStatusRequestPaginateTypeDef(TypedDict):
+    CapacityBlockIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeCapacityBlockStatusRequestTypeDef(TypedDict):
+    CapacityBlockIds: NotRequired[Sequence[str]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+
+class DescribeCapacityBlocksRequestPaginateTypeDef(TypedDict):
+    CapacityBlockIds: NotRequired[Sequence[str]]
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    DryRun: NotRequired[bool]
+    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+
+class DescribeCapacityBlocksRequestTypeDef(TypedDict):
+    CapacityBlockIds: NotRequired[Sequence[str]]
     NextToken: NotRequired[str]
     MaxResults: NotRequired[int]
     Filters: NotRequired[Sequence[FilterTypeDef]]
@@ -12115,6 +12197,20 @@ class DescribeNetworkInterfacesRequestWaitTypeDef(TypedDict):
     Filters: NotRequired[Sequence[FilterTypeDef]]
     WaiterConfig: NotRequired[WaiterConfigTypeDef]
 
+class DescribeSecurityGroupVpcAssociationsRequestWaitExtraTypeDef(TypedDict):
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    DryRun: NotRequired[bool]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
+class DescribeSecurityGroupVpcAssociationsRequestWaitTypeDef(TypedDict):
+    Filters: NotRequired[Sequence[FilterTypeDef]]
+    NextToken: NotRequired[str]
+    MaxResults: NotRequired[int]
+    DryRun: NotRequired[bool]
+    WaiterConfig: NotRequired[WaiterConfigTypeDef]
+
 class DescribeSecurityGroupsRequestWaitTypeDef(TypedDict):
     GroupIds: NotRequired[Sequence[str]]
     GroupNames: NotRequired[Sequence[str]]
@@ -13948,6 +14044,11 @@ class DescribeVpcEndpointServicePermissionsResultTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
     NextToken: NotRequired[str]
 
+class DescribeCapacityBlocksResultTypeDef(TypedDict):
+    CapacityBlocks: List[CapacityBlockTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
+
 class CreateCarrierGatewayResultTypeDef(TypedDict):
     CarrierGateway: CarrierGatewayTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
@@ -14610,6 +14711,7 @@ class ImageTypeDef(TypedDict):
     ImageAllowed: NotRequired[bool]
     SourceImageId: NotRequired[str]
     SourceImageRegion: NotRequired[str]
+    FreeTierEligible: NotRequired[bool]
     ImageId: NotRequired[str]
     ImageLocation: NotRequired[str]
     State: NotRequired[ImageStateType]
@@ -14632,6 +14734,11 @@ class CancelSpotFleetRequestsResponseTypeDef(TypedDict):
     SuccessfulFleetRequests: List[CancelSpotFleetRequestsSuccessItemTypeDef]
     UnsuccessfulFleetRequests: List[CancelSpotFleetRequestsErrorItemTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
+
+class DescribeCapacityBlockStatusResultTypeDef(TypedDict):
+    CapacityBlockStatuses: List[CapacityBlockStatusTypeDef]
+    ResponseMetadata: ResponseMetadataTypeDef
+    NextToken: NotRequired[str]
 
 class DescribeCapacityReservationBillingRequestsResultTypeDef(TypedDict):
     CapacityReservationBillingRequests: List[CapacityReservationBillingRequestTypeDef]
@@ -14661,6 +14768,7 @@ class MoveCapacityReservationInstancesResultTypeDef(TypedDict):
 
 class PurchaseCapacityBlockResultTypeDef(TypedDict):
     CapacityReservation: CapacityReservationTypeDef
+    CapacityBlocks: List[CapacityBlockTypeDef]
     ResponseMetadata: ResponseMetadataTypeDef
 
 class DescribeCapacityReservationFleetsResultTypeDef(TypedDict):
@@ -16168,6 +16276,7 @@ class VolumeStatusItemTypeDef(TypedDict):
     VolumeId: NotRequired[str]
     VolumeStatus: NotRequired[VolumeStatusInfoTypeDef]
     AttachmentStatuses: NotRequired[List[VolumeStatusAttachmentStatusTypeDef]]
+    InitializationStatusDetails: NotRequired[InitializationStatusDetailsTypeDef]
     AvailabilityZoneId: NotRequired[str]
 
 class AssociateVpcCidrBlockResultTypeDef(TypedDict):
@@ -16456,6 +16565,7 @@ class CreateInstanceConnectEndpointRequestTypeDef(TypedDict):
     PreserveClientIp: NotRequired[bool]
     ClientToken: NotRequired[str]
     TagSpecifications: NotRequired[Sequence[TagSpecificationUnionTypeDef]]
+    IpAddressType: NotRequired[IpAddressTypeType]
 
 class CreateInstanceEventWindowRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
@@ -18104,6 +18214,7 @@ class GetInstanceTypesFromInstanceRequirementsRequestPaginateTypeDef(TypedDict):
     VirtualizationTypes: Sequence[VirtualizationTypeType]
     InstanceRequirements: InstanceRequirementsRequestTypeDef
     DryRun: NotRequired[bool]
+    Context: NotRequired[str]
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 class GetInstanceTypesFromInstanceRequirementsRequestTypeDef(TypedDict):
@@ -18113,6 +18224,7 @@ class GetInstanceTypesFromInstanceRequirementsRequestTypeDef(TypedDict):
     DryRun: NotRequired[bool]
     MaxResults: NotRequired[int]
     NextToken: NotRequired[str]
+    Context: NotRequired[str]
 
 class InstanceRequirementsWithMetadataRequestTypeDef(TypedDict):
     ArchitectureTypes: NotRequired[Sequence[ArchitectureTypeType]]
@@ -18374,6 +18486,7 @@ class InstanceTypeDef(TypedDict):
     Tags: NotRequired[List[TagTypeDef]]
     VirtualizationType: NotRequired[VirtualizationTypeType]
     CpuOptions: NotRequired[CpuOptionsTypeDef]
+    CapacityBlockId: NotRequired[str]
     CapacityReservationId: NotRequired[str]
     CapacityReservationSpecification: NotRequired[CapacityReservationSpecificationResponseTypeDef]
     HibernationOptions: NotRequired[HibernationOptionsTypeDef]

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ebmlite
-Version: 3.4.0
+Version: 3.4.1
 Summary: A lightweight, "pure Python" library for parsing EBML (Extensible Binary Markup Language) data.
 Home-page: https://github.com/MideTechnology/ebmlite/tree/master
 Author: Mide Technology

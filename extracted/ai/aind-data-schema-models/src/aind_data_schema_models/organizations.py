@@ -1203,6 +1203,7 @@ Organization.DAQ_DEVICE_MANUFACTURERS = one_of_instance(
         Organization.ARDUINO,
         Organization.CHAMPALIMAUD,
         Organization.NATIONAL_INSTRUMENTS,
+        Organization.NEURALYNX,
         Organization.IMEC,
         Organization.OEPS,
         Organization.SECOND_ORDER_EFFECTS,

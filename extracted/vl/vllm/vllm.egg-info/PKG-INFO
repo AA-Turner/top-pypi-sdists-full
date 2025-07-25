@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: vllm
-Version: 0.9.2
+Version: 0.10.0
 Summary: A high-throughput and memory-efficient inference and serving engine for LLMs
 Author: vLLM Team
 License-Expression: Apache-2.0
@@ -28,13 +28,13 @@ Requires-Dist: requests>=2.26.0
 Requires-Dist: tqdm
 Requires-Dist: blake3
 Requires-Dist: py-cpuinfo
-Requires-Dist: transformers>=4.51.1
+Requires-Dist: transformers>=4.53.2
 Requires-Dist: huggingface-hub[hf_xet]>=0.33.0
 Requires-Dist: tokenizers>=0.21.1
 Requires-Dist: protobuf
 Requires-Dist: fastapi[standard]>=0.115.0
 Requires-Dist: aiohttp
-Requires-Dist: openai<=1.90.0,>=1.52.0
+Requires-Dist: openai<=1.90.0,>=1.87.0
 Requires-Dist: pydantic>=2.10
 Requires-Dist: prometheus_client>=0.18.0
 Requires-Dist: pillow
@@ -42,9 +42,10 @@ Requires-Dist: prometheus-fastapi-instrumentator>=7.0.0
 Requires-Dist: tiktoken>=0.6.0
 Requires-Dist: lm-format-enforcer<0.11,>=0.10.11
 Requires-Dist: llguidance<0.8.0,>=0.7.11; platform_machine == "x86_64" or platform_machine == "arm64" or platform_machine == "aarch64"
-Requires-Dist: outlines==0.1.11
+Requires-Dist: outlines_core==0.2.10
+Requires-Dist: diskcache==5.6.3
 Requires-Dist: lark==1.2.2
-Requires-Dist: xgrammar==0.1.19; platform_machine == "x86_64" or platform_machine == "aarch64" or platform_machine == "arm64"
+Requires-Dist: xgrammar==0.1.21; platform_machine == "x86_64" or platform_machine == "aarch64" or platform_machine == "arm64"
 Requires-Dist: typing_extensions>=4.10
 Requires-Dist: filelock>=3.16.1
 Requires-Dist: partial-json-parser
@@ -52,41 +53,43 @@ Requires-Dist: pyzmq>=25.0.0
 Requires-Dist: msgspec
 Requires-Dist: gguf>=0.13.0
 Requires-Dist: importlib_metadata; python_version < "3.10"
-Requires-Dist: mistral_common[opencv]>=1.6.2
+Requires-Dist: mistral_common[audio,image]>=1.8.2
 Requires-Dist: opencv-python-headless>=4.11.0
 Requires-Dist: pyyaml
 Requires-Dist: six>=1.16.0; python_version > "3.11"
 Requires-Dist: setuptools<80,>=77.0.3; python_version > "3.11"
 Requires-Dist: einops
 Requires-Dist: compressed-tensors==0.10.2
-Requires-Dist: depyf==0.18.0
+Requires-Dist: depyf==0.19.0
 Requires-Dist: cloudpickle
 Requires-Dist: watchfiles
 Requires-Dist: python-json-logger
 Requires-Dist: scipy
 Requires-Dist: ninja
 Requires-Dist: pybase64
+Requires-Dist: cbor2
 Requires-Dist: numba==0.60.0; python_version == "3.9"
 Requires-Dist: numba==0.61.2; python_version > "3.9"
 Requires-Dist: ray[cgraph]!=2.44.*,>=2.43.0
-Requires-Dist: torch==2.7.0
-Requires-Dist: torchaudio==2.7.0
-Requires-Dist: torchvision==0.22.0
-Requires-Dist: xformers==0.0.30; platform_system == "Linux" and platform_machine == "x86_64"
+Requires-Dist: torch==2.7.1
+Requires-Dist: torchaudio==2.7.1
+Requires-Dist: torchvision==0.22.1
+Requires-Dist: xformers==0.0.31; platform_system == "Linux" and platform_machine == "x86_64"
 Provides-Extra: bench
 Requires-Dist: pandas; extra == "bench"
 Requires-Dist: datasets; extra == "bench"
 Provides-Extra: tensorizer
-Requires-Dist: tensorizer>=2.9.0; extra == "tensorizer"
+Requires-Dist: tensorizer==2.10.1; extra == "tensorizer"
 Provides-Extra: fastsafetensors
 Requires-Dist: fastsafetensors>=0.1.10; extra == "fastsafetensors"
 Provides-Extra: runai
-Requires-Dist: runai-model-streamer; extra == "runai"
+Requires-Dist: runai-model-streamer>=0.13.3; extra == "runai"
 Requires-Dist: runai-model-streamer-s3; extra == "runai"
 Requires-Dist: boto3; extra == "runai"
 Provides-Extra: audio
 Requires-Dist: librosa; extra == "audio"
 Requires-Dist: soundfile; extra == "audio"
+Requires-Dist: mistral_common[audio]; extra == "audio"
 Provides-Extra: video
 Dynamic: license-file
 Dynamic: provides-extra
@@ -157,13 +160,11 @@ vLLM is fast with:
 - Speculative decoding
 - Chunked prefill
 
-**Performance benchmark**: We include a performance benchmark at the end of [our blog post](https://blog.vllm.ai/2024/09/05/perf-update.html). It compares the performance of vLLM against other LLM serving engines ([TensorRT-LLM](https://github.com/NVIDIA/TensorRT-LLM), [SGLang](https://github.com/sgl-project/sglang) and [LMDeploy](https://github.com/InternLM/lmdeploy)). The implementation is under [nightly-benchmarks folder](.buildkite/nightly-benchmarks/) and you can [reproduce](https://github.com/vllm-project/vllm/issues/8176) this benchmark using our one-click runnable script.
-
 vLLM is flexible and easy to use with:
 
 - Seamless integration with popular Hugging Face models
 - High-throughput serving with various decoding algorithms, including *parallel sampling*, *beam search*, and more
-- Tensor parallelism and pipeline parallelism support for distributed inference
+- Tensor, pipeline, data and expert parallelism support for distributed inference
 - Streaming outputs
 - OpenAI-compatible API server
 - Support NVIDIA GPUs, AMD CPUs and GPUs, Intel CPUs and GPUs, PowerPC CPUs, TPU, and AWS Neuron

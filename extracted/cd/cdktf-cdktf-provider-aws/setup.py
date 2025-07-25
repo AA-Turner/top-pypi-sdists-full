@@ -5,7 +5,7 @@ kwargs = json.loads(
     """
 {
     "name": "cdktf-cdktf-provider-aws",
-    "version": "21.3.0",
+    "version": "21.4.0",
     "description": "Prebuilt aws Provider for Terraform CDK (cdktf)",
     "license": "MPL-2.0",
     "url": "https://github.com/cdktf/cdktf-provider-aws.git",
@@ -320,6 +320,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.cognito_identity_pool_provider_principal_tag",
         "cdktf_cdktf_provider_aws.cognito_identity_pool_roles_attachment",
         "cdktf_cdktf_provider_aws.cognito_identity_provider",
+        "cdktf_cdktf_provider_aws.cognito_log_delivery_configuration",
         "cdktf_cdktf_provider_aws.cognito_managed_user_pool_client",
         "cdktf_cdktf_provider_aws.cognito_resource_server",
         "cdktf_cdktf_provider_aws.cognito_risk_configuration",
@@ -578,6 +579,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.data_aws_ec2_transit_gateway_vpn_attachment",
         "cdktf_cdktf_provider_aws.data_aws_ecr_authorization_token",
         "cdktf_cdktf_provider_aws.data_aws_ecr_image",
+        "cdktf_cdktf_provider_aws.data_aws_ecr_images",
         "cdktf_cdktf_provider_aws.data_aws_ecr_lifecycle_policy_document",
         "cdktf_cdktf_provider_aws.data_aws_ecr_pull_through_cache_rule",
         "cdktf_cdktf_provider_aws.data_aws_ecr_repositories",
@@ -1562,6 +1564,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.network_interface_sg_attachment",
         "cdktf_cdktf_provider_aws.networkfirewall_firewall",
         "cdktf_cdktf_provider_aws.networkfirewall_firewall_policy",
+        "cdktf_cdktf_provider_aws.networkfirewall_firewall_transit_gateway_attachment_accepter",
         "cdktf_cdktf_provider_aws.networkfirewall_logging_configuration",
         "cdktf_cdktf_provider_aws.networkfirewall_resource_policy",
         "cdktf_cdktf_provider_aws.networkfirewall_rule_group",
@@ -1786,6 +1789,7 @@ kwargs = json.loads(
         "cdktf_cdktf_provider_aws.s3_bucket_inventory",
         "cdktf_cdktf_provider_aws.s3_bucket_lifecycle_configuration",
         "cdktf_cdktf_provider_aws.s3_bucket_logging",
+        "cdktf_cdktf_provider_aws.s3_bucket_metadata_configuration",
         "cdktf_cdktf_provider_aws.s3_bucket_metric",
         "cdktf_cdktf_provider_aws.s3_bucket_notification",
         "cdktf_cdktf_provider_aws.s3_bucket_object",
@@ -2144,7 +2148,7 @@ kwargs = json.loads(
     ],
     "package_data": {
         "cdktf_cdktf_provider_aws._jsii": [
-            "provider-aws@21.3.0.jsii.tgz"
+            "provider-aws@21.4.0.jsii.tgz"
         ],
         "cdktf_cdktf_provider_aws": [
             "py.typed"

@@ -4,6 +4,7 @@ import click
 import copy
 import time
 import os
+import pydantic
 from abc import abstractmethod
 from io import FileIO
 from pathlib import Path, PurePath
@@ -201,6 +202,53 @@ class TargetHotglue(Target):
             )
             self.drain_all()
 
+    def _validate_unified_schema(self, sink: Sink, transformed_record: dict) -> dict:
+        """Validate the unified schema for a sink."""
+
+        def flatten_dict_keys(dictionary: dict, parent_key=''):
+            keys = set()
+            for key, value in dictionary.items():
+                new_key = f"{parent_key}.{key}" if parent_key else key
+                if isinstance(value, dict):
+                    keys.update(flatten_dict_keys(value, new_key))
+                elif isinstance(value, list):
+                    for item in value:
+                        if isinstance(item, dict):
+                            keys.update(flatten_dict_keys(item, new_key))
+                else:
+                    keys.add(new_key)
+            return keys
+
+        success = True
+        if hasattr(sink, 'auto_validate_unified_schema') and sink.auto_validate_unified_schema \
+            and hasattr(sink, 'unified_schema') and sink.unified_schema and issubclass(sink.unified_schema, pydantic.BaseModel):
+            try:
+                unified_record = sink.unified_schema.model_validate(transformed_record, strict=True)
+                unified_transformed = unified_record.model_dump(exclude_none=True, exclude_unset=True)
+                extra_fields = flatten_dict_keys(transformed_record) - flatten_dict_keys(unified_transformed)
+                if extra_fields:
+                    self.logger.warning(f"Extra fields found in {sink.name} will be ignored: {', '.join(extra_fields)}")
+                transformed_record = unified_transformed
+            except pydantic.ValidationError as e:
+                error_msg_fields = "; ".join([f"'{'.'.join(map(str, err.get('loc', tuple())))}' -> {err.get('msg')} (got value {err.get('input')} of type {type(err.get('input')).__name__})" for err in e.errors()])
+                error_msg = f"Failed Structure/Datatype validation for {sink.name}: {error_msg_fields}"
+                self.logger.error(error_msg)
+                
+                if not sink.latest_state:
+                    sink.init_state()
+
+                state = {"success": False, "error": error_msg}
+                id = transformed_record.get("id")
+                if id:
+                    state["id"] = str(id)
+                external_id = transformed_record.get("externalId")
+                if external_id:
+                    state["externalId"] = external_id
+                sink.update_state(state)
+                success = False
+
+        return success, transformed_record
+
     def _process_record_message(self, message_dict: dict) -> None:
         """Process a RECORD message."""
         self._assert_line_requires(message_dict, requires={"stream", "record"})
@@ -235,6 +283,10 @@ class TargetHotglue(Target):
             sink._validate_and_parse(transformed_record)
 
             sink.tally_record_read()
+
+            validation_success, transformed_record = self._validate_unified_schema(sink, transformed_record)
+            if not validation_success:
+                continue
 
             transformed_record = self.get_record_id(sink.name, transformed_record, sink.relation_fields if hasattr(sink, 'relation_fields') else None)
 

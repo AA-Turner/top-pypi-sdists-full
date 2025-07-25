@@ -15481,6 +15481,17 @@ class Convert(System.Object):
 
     @staticmethod
     @overload
+    def from_hex_string(utf_8_source: System.ReadOnlySpan[int]) -> typing.List[int]:
+        """
+        Converts the span, which encodes binary data as hex characters, to an equivalent 8-bit unsigned integer array.
+        
+        :param utf_8_source: The UTF-8 span to convert.
+        :returns: An array of 8-bit unsigned integers that is equivalent to .
+        """
+        ...
+
+    @staticmethod
+    @overload
     def from_hex_string(source: str, destination: System.Span[int], chars_consumed: typing.Optional[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int, int]:
         """
         Converts the string, which encodes binary data as hex characters, to an equivalent 8-bit unsigned integer span.
@@ -15502,6 +15513,20 @@ class Convert(System.Object):
         :param source: The span to convert.
         :param destination: The span in which to write the converted 8-bit unsigned integers. When this method returns value different than OperationStatus.Done, either the span remains unmodified or contains an incomplete conversion of , up to the last valid character.
         :param chars_consumed: When this method returns, contains the number of characters that were consumed from .
+        :param bytes_written: When this method returns, contains the number of bytes that were written to .
+        :returns: An OperationStatus describing the result of the operation.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def from_hex_string(utf_8_source: System.ReadOnlySpan[int], destination: System.Span[int], bytes_consumed: typing.Optional[int], bytes_written: typing.Optional[int]) -> typing.Tuple[System.Buffers.OperationStatus, int, int]:
+        """
+        Converts the span of UTF-8 chars, which encodes binary data as hex characters, to an equivalent 8-bit unsigned integer span.
+        
+        :param utf_8_source: The span to convert.
+        :param destination: The span in which to write the converted 8-bit unsigned integers. When this method returns value different than OperationStatus.Done, either the span remains unmodified or contains an incomplete conversion of , up to the last valid character.
+        :param bytes_consumed: When this method returns, contains the number of bytes that were consumed from .
         :param bytes_written: When this method returns, contains the number of bytes that were written to .
         :returns: An OperationStatus describing the result of the operation.
         """
@@ -16300,6 +16325,7 @@ class Convert(System.Object):
         ...
 
     @staticmethod
+    @overload
     def try_to_hex_string(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
         """
         Converts a span of 8-bit unsigned integers to its equivalent span representation that is encoded with uppercase hex characters.
@@ -16312,6 +16338,20 @@ class Convert(System.Object):
         ...
 
     @staticmethod
+    @overload
+    def try_to_hex_string(source: System.ReadOnlySpan[int], utf_8_destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Converts a span of 8-bit unsigned integers to its equivalent UTF-8 span representation that is encoded with uppercase hex characters.
+        
+        :param source: A span of 8-bit unsigned integers.
+        :param utf_8_destination: The UTF-8 span representation in hex of the elements in .
+        :param bytes_written: When this method returns, contains the number of bytes that were written in .
+        :returns: true if the conversion was successful; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
     def try_to_hex_string_lower(source: System.ReadOnlySpan[int], destination: System.Span[str], chars_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
         """
         Converts a span of 8-bit unsigned integers to its equivalent span representation that is encoded with lowercase hex characters.
@@ -16319,6 +16359,19 @@ class Convert(System.Object):
         :param source: A span of 8-bit unsigned integers.
         :param destination: The span representation in hex of the elements in .
         :param chars_written: When this method returns, contains the number of chars that were written in .
+        :returns: true if the conversion was successful; otherwise, false.
+        """
+        ...
+
+    @staticmethod
+    @overload
+    def try_to_hex_string_lower(source: System.ReadOnlySpan[int], utf_8_destination: System.Span[int], bytes_written: typing.Optional[int]) -> typing.Tuple[bool, int]:
+        """
+        Converts a span of 8-bit unsigned integers to its equivalent UTF-8 span representation that is encoded with lowercase hex characters.
+        
+        :param source: A span of 8-bit unsigned integers.
+        :param utf_8_destination: The UTF-8 span representation in hex of the elements in .
+        :param bytes_written: When this method returns, contains the number of bytes that were written in .
         :returns: true if the conversion was successful; otherwise, false.
         """
         ...

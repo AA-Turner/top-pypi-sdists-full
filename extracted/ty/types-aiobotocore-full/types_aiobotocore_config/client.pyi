@@ -1068,8 +1068,8 @@ class ConfigServiceClient(AioBaseClient):
         self, **kwargs: Unpack[ListDiscoveredResourcesRequestTypeDef]
     ) -> ListDiscoveredResourcesResponseTypeDef:
         """
-        Returns a list of resource resource identifiers for the specified resource
-        types for the resources of that type.
+        Accepts a resource type and returns a list of resource identifiers for the
+        resources of that type.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/config/client/list_discovered_resources.html)
         [Show types-aiobotocore-full documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_config/client/#list_discovered_resources)

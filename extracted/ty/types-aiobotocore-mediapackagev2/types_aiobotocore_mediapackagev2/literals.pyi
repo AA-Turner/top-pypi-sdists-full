@@ -38,11 +38,13 @@ __all__ = (
     "HarvestJobFinishedWaiterName",
     "HarvestJobStatusType",
     "InputTypeType",
+    "IsmEncryptionMethodType",
     "ListChannelGroupsPaginatorName",
     "ListChannelsPaginatorName",
     "ListHarvestJobsPaginatorName",
     "ListOriginEndpointsPaginatorName",
     "Mediapackagev2ServiceName",
+    "MssManifestLayoutType",
     "PaginatorName",
     "PresetSpeke20AudioType",
     "PresetSpeke20VideoType",
@@ -57,7 +59,7 @@ __all__ = (
 AdMarkerDashType = Literal["BINARY", "XML"]
 AdMarkerHlsType = Literal["DATERANGE"]
 CmafEncryptionMethodType = Literal["CBCS", "CENC"]
-ContainerTypeType = Literal["CMAF", "TS"]
+ContainerTypeType = Literal["CMAF", "ISM", "TS"]
 DashCompactnessType = Literal["NONE", "STANDARD"]
 DashDrmSignalingType = Literal["INDIVIDUAL", "REFERENCED"]
 DashPeriodTriggerType = Literal[
@@ -74,10 +76,12 @@ EndpointErrorConditionType = Literal[
 HarvestJobFinishedWaiterName = Literal["harvest_job_finished"]
 HarvestJobStatusType = Literal["CANCELLED", "COMPLETED", "FAILED", "IN_PROGRESS", "QUEUED"]
 InputTypeType = Literal["CMAF", "HLS"]
+IsmEncryptionMethodType = Literal["CENC"]
 ListChannelGroupsPaginatorName = Literal["list_channel_groups"]
 ListChannelsPaginatorName = Literal["list_channels"]
 ListHarvestJobsPaginatorName = Literal["list_harvest_jobs"]
 ListOriginEndpointsPaginatorName = Literal["list_origin_endpoints"]
+MssManifestLayoutType = Literal["COMPACT", "FULL"]
 PresetSpeke20AudioType = Literal[
     "PRESET_AUDIO_1", "PRESET_AUDIO_2", "PRESET_AUDIO_3", "SHARED", "UNENCRYPTED"
 ]
@@ -149,6 +153,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -381,6 +387,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -441,6 +448,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

@@ -3321,14 +3321,15 @@ https://docs.chalk.ai/cli/apply
                 )
             else:
                 tables = chunk_table(tables[0], num_shards)
+        num_partitions = num_shards or len(offline_query_inputs)
         url_response = self._get_offline_query_input_upload_url(
-            num_partitions=num_shards or len(offline_query_inputs),
+            num_partitions=num_partitions,
             context=context,
             branch=branch,
         )
         if len(tables) != len(url_response.urls):
             raise ValueError(
-                f"The number of signed upload URLs is {len(url_response.urls)}, input data {len(offline_query_inputs)} must be equal. "
+                f"The number of signed upload URLs is {len(url_response.urls)}; the number of input partitions ({num_partitions}) must be equal. "
             )
 
         futs: List[Future[None]] = []

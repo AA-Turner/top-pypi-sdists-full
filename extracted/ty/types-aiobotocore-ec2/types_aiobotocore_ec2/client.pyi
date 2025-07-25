@@ -36,6 +36,8 @@ from .paginator import (
     DescribeCapacityBlockExtensionHistoryPaginator,
     DescribeCapacityBlockExtensionOfferingsPaginator,
     DescribeCapacityBlockOfferingsPaginator,
+    DescribeCapacityBlocksPaginator,
+    DescribeCapacityBlockStatusPaginator,
     DescribeCapacityReservationBillingRequestsPaginator,
     DescribeCapacityReservationFleetsPaginator,
     DescribeCapacityReservationsPaginator,
@@ -659,6 +661,10 @@ from .type_defs import (
     DescribeCapacityBlockExtensionOfferingsResultTypeDef,
     DescribeCapacityBlockOfferingsRequestTypeDef,
     DescribeCapacityBlockOfferingsResultTypeDef,
+    DescribeCapacityBlocksRequestTypeDef,
+    DescribeCapacityBlocksResultTypeDef,
+    DescribeCapacityBlockStatusRequestTypeDef,
+    DescribeCapacityBlockStatusResultTypeDef,
     DescribeCapacityReservationBillingRequestsRequestTypeDef,
     DescribeCapacityReservationBillingRequestsResultTypeDef,
     DescribeCapacityReservationFleetsRequestTypeDef,
@@ -1524,6 +1530,8 @@ from .waiter import (
     NetworkInterfaceAvailableWaiter,
     PasswordDataAvailableWaiter,
     SecurityGroupExistsWaiter,
+    SecurityGroupVpcAssociationAssociatedWaiter,
+    SecurityGroupVpcAssociationDisassociatedWaiter,
     SnapshotCompletedWaiter,
     SnapshotImportedWaiter,
     SpotInstanceRequestFulfilledWaiter,
@@ -4190,6 +4198,28 @@ class EC2Client(AioBaseClient):
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_block_offerings.html)
         [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_capacity_block_offerings)
+        """
+
+    async def describe_capacity_block_status(
+        self, **kwargs: Unpack[DescribeCapacityBlockStatusRequestTypeDef]
+    ) -> DescribeCapacityBlockStatusResultTypeDef:
+        """
+        Describes the availability of capacity for the specified Capacity blocks, or
+        all of your Capacity Blocks.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_block_status.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_capacity_block_status)
+        """
+
+    async def describe_capacity_blocks(
+        self, **kwargs: Unpack[DescribeCapacityBlocksRequestTypeDef]
+    ) -> DescribeCapacityBlocksResultTypeDef:
+        """
+        Describes details about Capacity Blocks in the Amazon Web Services Region that
+        you're currently using.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/describe_capacity_blocks.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#describe_capacity_blocks)
         """
 
     async def describe_capacity_reservation_billing_requests(
@@ -8750,6 +8780,28 @@ class EC2Client(AioBaseClient):
 
     @overload  # type: ignore[override]
     def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_capacity_block_status"]
+    ) -> DescribeCapacityBlockStatusPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
+        self, operation_name: Literal["describe_capacity_blocks"]
+    ) -> DescribeCapacityBlocksPaginator:
+        """
+        Create a paginator for an operation.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_paginator.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_paginator)
+        """
+
+    @overload  # type: ignore[override]
+    def get_paginator(  # type: ignore[override]
         self, operation_name: Literal["describe_capacity_reservation_billing_requests"]
     ) -> DescribeCapacityReservationBillingRequestsPaginator:
         """
@@ -10559,6 +10611,28 @@ class EC2Client(AioBaseClient):
     def get_waiter(  # type: ignore[override]
         self, waiter_name: Literal["security_group_exists"]
     ) -> SecurityGroupExistsWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_waiter.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["security_group_vpc_association_associated"]
+    ) -> SecurityGroupVpcAssociationAssociatedWaiter:
+        """
+        Returns an object that can wait for some condition.
+
+        [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/ec2/client/get_waiter.html)
+        [Show types-aiobotocore documentation](https://youtype.github.io/types_aiobotocore_docs/types_aiobotocore_ec2/client/#get_waiter)
+        """
+
+    @overload  # type: ignore[override]
+    def get_waiter(  # type: ignore[override]
+        self, waiter_name: Literal["security_group_vpc_association_disassociated"]
+    ) -> SecurityGroupVpcAssociationDisassociatedWaiter:
         """
         Returns an object that can wait for some condition.
 

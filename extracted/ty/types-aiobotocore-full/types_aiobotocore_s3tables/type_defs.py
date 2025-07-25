@@ -24,6 +24,7 @@ from .literals import (
     JobStatusType,
     MaintenanceStatusType,
     SSEAlgorithmType,
+    TableBucketTypeType,
     TableMaintenanceJobTypeType,
     TableMaintenanceTypeType,
     TableTypeType,
@@ -274,18 +275,26 @@ class NamespaceSummaryTypeDef(TypedDict):
     tableBucketId: NotRequired[str]
 
 
-class ListTableBucketsRequestTypeDef(TypedDict):
-    prefix: NotRequired[str]
-    continuationToken: NotRequired[str]
-    maxBuckets: NotRequired[int]
-
-
-class TableBucketSummaryTypeDef(TypedDict):
-    arn: str
-    name: str
-    ownerAccountId: str
-    createdAt: datetime
-    tableBucketId: NotRequired[str]
+ListTableBucketsRequestTypeDef = TypedDict(
+    "ListTableBucketsRequestTypeDef",
+    {
+        "prefix": NotRequired[str],
+        "continuationToken": NotRequired[str],
+        "maxBuckets": NotRequired[int],
+        "type": NotRequired[TableBucketTypeType],
+    },
+)
+TableBucketSummaryTypeDef = TypedDict(
+    "TableBucketSummaryTypeDef",
+    {
+        "arn": str,
+        "name": str,
+        "ownerAccountId": str,
+        "createdAt": datetime,
+        "tableBucketId": NotRequired[str],
+        "type": NotRequired[TableBucketTypeType],
+    },
+)
 
 
 class ListTablesRequestTypeDef(TypedDict):
@@ -376,13 +385,18 @@ class GetTableBucketPolicyResponseTypeDef(TypedDict):
     ResponseMetadata: ResponseMetadataTypeDef
 
 
-class GetTableBucketResponseTypeDef(TypedDict):
-    arn: str
-    name: str
-    ownerAccountId: str
-    createdAt: datetime
-    tableBucketId: str
-    ResponseMetadata: ResponseMetadataTypeDef
+GetTableBucketResponseTypeDef = TypedDict(
+    "GetTableBucketResponseTypeDef",
+    {
+        "arn": str,
+        "name": str,
+        "ownerAccountId": str,
+        "createdAt": datetime,
+        "tableBucketId": str,
+        "type": TableBucketTypeType,
+        "ResponseMetadata": ResponseMetadataTypeDef,
+    },
+)
 
 
 class GetTableMetadataLocationResponseTypeDef(TypedDict):
@@ -475,9 +489,14 @@ class ListNamespacesRequestPaginateTypeDef(TypedDict):
     PaginationConfig: NotRequired[PaginatorConfigTypeDef]
 
 
-class ListTableBucketsRequestPaginateTypeDef(TypedDict):
-    prefix: NotRequired[str]
-    PaginationConfig: NotRequired[PaginatorConfigTypeDef]
+ListTableBucketsRequestPaginateTypeDef = TypedDict(
+    "ListTableBucketsRequestPaginateTypeDef",
+    {
+        "prefix": NotRequired[str],
+        "type": NotRequired[TableBucketTypeType],
+        "PaginationConfig": NotRequired[PaginatorConfigTypeDef],
+    },
+)
 
 
 class ListTablesRequestPaginateTypeDef(TypedDict):

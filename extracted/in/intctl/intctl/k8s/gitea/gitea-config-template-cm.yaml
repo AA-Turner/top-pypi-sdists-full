@@ -1,0 +1,70 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: gitea-config-template
+  namespace: intellithing
+data:
+  app.ini.tpl: |
+    # This is a template file for Gitea's configuration.
+    APP_NAME = Gitea Git Service
+    RUN_USER = git
+    RUN_MODE = prod
+
+    [database]
+    DB_TYPE  = postgres
+    # --- DYNAMIC VALUES ---
+    HOST     = __DB_HOST__:5432
+    NAME     = __DB_NAME__
+    USER     = __DB_USER__
+    PASSWD   = """__DB_PASSWORD__""" # Quoted to handle special characters
+    # --- STATIC VALUES ---
+    SSL_MODE = disable # This is acceptable for private IP within the same VPC.
+    CHARSET  = utf8
+
+    [repository]
+    # These paths are correct for the official Gitea container and will map to your Persistent Volume.
+    ROOT             = /data/git/repositories
+    LFS_CONTENT_PATH = /data/git/lfs
+
+    [server]
+    # --- DYNAMIC VALUES ---
+    DOMAIN           = gitea.intellithing.svc.cluster.local
+    ROOT_URL         = http://gitea.intellithing.svc.cluster.local:3000/
+    # --- STATIC VALUES ---
+    # This is the internal port the Gitea container listens on.
+    HTTP_PORT        = 3000
+    # Using a non-privileged port inside the container is a good practice.
+    SSH_PORT         = 2222
+    START_SSH_SERVER = true
+    # This setting is required in recent Gitea versions for SSH to work.
+    BUILTIN_SSH_SERVER_USER = git
+
+    [security]
+    # --- DYNAMIC VALUE ---
+    # This MUST be a long, random, secret string. It secures user sessions.
+    SECRET_KEY       = """__SECRET_KEY__"""
+    # --- STATIC VALUES ---
+    INSTALL_LOCK     = true
+    # Cookie name can be static or dynamic. Static is fine.
+    COOKIE_USERNAME  = gitea_username
+    COOKIE_REMEMBER_NAME = gitea_remember
+    COOKIE_SECURE    = true
+
+    [service]
+    # Best practices for a private, controlled instance.
+    DISABLE_REGISTRATION   = true
+    REQUIRE_SIGNIN_VIEW    = true
+    REGISTER_EMAIL_CONFIRM = false
+    ENABLE_NOTIFY_MAIL     = false
+    ENABLE_CAPTCHA         = false
+
+    [log]
+    MODE      = file
+    ROOT_PATH = /data/log
+    LEVEL     = Info
+
+    [mailer]
+    ENABLED = false
+
+    [other]
+    SHOW_FOOTER_VERSION = false

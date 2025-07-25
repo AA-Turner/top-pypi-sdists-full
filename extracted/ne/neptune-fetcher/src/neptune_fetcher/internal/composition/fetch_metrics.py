@@ -23,33 +23,33 @@ from typing import (
 import pandas as pd
 from neptune_api.client import AuthenticatedClient
 
-from neptune_fetcher.internal import identifiers
-from neptune_fetcher.internal.client import get_client
-from neptune_fetcher.internal.composition import (
+from .. import identifiers
+from ..client import get_client
+from ..composition import (
     concurrency,
     type_inference,
     validation,
 )
-from neptune_fetcher.internal.composition.attribute_components import fetch_attribute_definitions_split
-from neptune_fetcher.internal.context import (
+from ..composition.attribute_components import fetch_attribute_definitions_split
+from ..context import (
     Context,
     get_context,
     validate_context,
 )
-from neptune_fetcher.internal.filters import (
-    _AttributeFilter,
+from ..filters import (
+    _BaseAttributeFilter,
     _Filter,
 )
-from neptune_fetcher.internal.output_format import create_metrics_dataframe
-from neptune_fetcher.internal.retrieval import (
+from ..output_format import create_metrics_dataframe
+from ..retrieval import (
     search,
     split,
 )
-from neptune_fetcher.internal.retrieval.metrics import (
+from ..retrieval.metrics import (
     FloatPointValue,
     fetch_multiple_series_values,
 )
-from neptune_fetcher.internal.retrieval.search import ContainerType
+from ..retrieval.search import ContainerType
 
 __all__ = ("fetch_metrics",)
 
@@ -57,8 +57,8 @@ __all__ = ("fetch_metrics",)
 def fetch_metrics(
     *,
     project_identifier: identifiers.ProjectIdentifier,
-    filter_: _Filter,
-    attributes: _AttributeFilter,
+    filter_: Optional[_Filter],
+    attributes: _BaseAttributeFilter,
     include_time: Optional[Literal["absolute"]],
     step_range: tuple[Optional[float], Optional[float]],
     lineage_to_the_root: bool,
@@ -71,7 +71,7 @@ def fetch_metrics(
     validation.validate_step_range(step_range)
     validation.validate_tail_limit(tail_limit)
     validation.validate_include_time(include_time)
-    attributes = validation.restrict_attribute_filter_type(attributes, type_in={"float_series"})
+    restricted_attributes = validation.restrict_attribute_filter_type(attributes, type_in={"float_series"})
 
     valid_context = validate_context(context or get_context())
     client = get_client(context=valid_context)
@@ -97,11 +97,11 @@ def fetch_metrics(
                 include_point_previews=include_point_previews,
                 type_suffix_in_column_names=type_suffix_in_column_names,
             )
-        filter_ = inference_result.get_result_or_raise()
+        inferred_filter = inference_result.get_result_or_raise()
 
         metrics_data, sys_id_to_label_mapping = _fetch_metrics(
-            filter_=filter_,
-            attributes=attributes,
+            filter_=inferred_filter,
+            attributes=restricted_attributes,
             client=client,
             project_identifier=project_identifier,
             step_range=step_range,
@@ -126,8 +126,8 @@ def fetch_metrics(
 
 
 def _fetch_metrics(
-    filter_: _Filter,
-    attributes: _AttributeFilter,
+    filter_: Optional[_Filter],
+    attributes: _BaseAttributeFilter,
     client: AuthenticatedClient,
     project_identifier: identifiers.ProjectIdentifier,
     executor: Executor,

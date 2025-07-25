@@ -248,20 +248,22 @@ def regular_function_wrapper(
                     res_queue.put(res)
                     return
                 initialized = True
+            def run_task():
+                try:
+                    res = task(*args, **kwargs) # pyright: ignore [reportCallIssue]
+                except Exception as e:
+                    res = exception_result(e)
+                else:
+                    res = OkResult(res)
+                try:
+                    res_queue.put(res)
+                except PicklingError as e:
+                    res_queue.put(exception_result(e))
             GradioPartialContext.apply(gradio_context)
             context = copy_context()
             with ThreadPoolExecutor() as executor:
-                future = executor.submit(context.run, task, *args, **kwargs) # type: ignore
-            try:
-                res = future.result()
-            except Exception as e:
-                res = exception_result(e)
-            else:
-                res = OkResult(res)
-            try:
-                res_queue.put(res)
-            except PicklingError as e:
-                res_queue.put(exception_result(e))
+                future = executor.submit(context.run, run_task)
+            future.result()
 
     # https://github.com/python/cpython/issues/91002
     if not hasattr(task, '__annotations__'):
