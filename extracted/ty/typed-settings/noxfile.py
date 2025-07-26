@@ -44,7 +44,7 @@ MYPY_PATHS = [
 LINT_PATHS = [p for paths in MYPY_PATHS for p in paths]
 
 # Dependencies for which to test against multiple versions
-PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13"]
+PYTHON_VERSIONS = ["3.9", "3.10", "3.11", "3.12", "3.13", "3.14"]
 COVERAGE_PYTHON_VERSIONS = ["3.9", "3.13"]
 
 DEPS_MATRIX = {

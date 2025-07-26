@@ -296,11 +296,41 @@ void export_ensure_omni_thread()
 #if defined(TANGO_USE_TELEMETRY)
 // I.e., cppTango is compiled with telemetry support.
 
+  #include <opentelemetry/sdk/common/global_log_handler.h>
+
+namespace otel_log = opentelemetry::sdk::common::internal_log;
+
+void set_log_level(std::string level_str)
+{
+    std::transform(level_str.begin(), level_str.end(), level_str.begin(), ::toupper);
+
+    static const std::unordered_map<std::string, otel_log::LogLevel> level_map = {
+        {"NONE", otel_log::LogLevel::None},
+        {"CRITICAL", otel_log::LogLevel::None},
+        {"FATAL", otel_log::LogLevel::None},
+        {"ERROR", otel_log::LogLevel::Error},
+        {"WARNING", otel_log::LogLevel::Warning},
+        {"INFO", otel_log::LogLevel::Info},
+        {"DEBUG", otel_log::LogLevel::Debug}};
+
+    auto it = level_map.find(level_str);
+    if(it != level_map.end())
+    {
+        otel_log::GlobalLogHandler::SetLogLevel(it->second);
+    }
+    // else ignore request, leaving default log level
+}
+
 Tango::telemetry::InterfacePtr telemetry_interface{nullptr};
-Tango::telemetry::ScopePtr telemetry_set_context_scope{nullptr};
+bool shutdown{false};
 
 void ensure_default_telemetry_interface_initialized()
 {
+    if(shutdown)
+    {
+        return;
+    }
+
     if(!telemetry_interface)
     {
         std::string client_name;
@@ -322,6 +352,15 @@ void ensure_default_telemetry_interface_initialized()
         Tango::telemetry::Interface::set_current(telemetry_interface);
     }
     // else: a non-default interface is either from a device, or we already set our client interface for this thread.
+}
+
+void cleanup_default_telemetry_interface()
+{
+    // Ensure we release the telemetry interface object at shutdown time.  Hopefully, this happens before
+    // OpenSSL's atexit handler starts cleaning up.  This is important if we are sending traces to an
+    // https endpoint.  We need to flush any outstanding traces before shutting down
+    shutdown = true;
+    telemetry_interface = nullptr;
 }
 
 /*
@@ -379,7 +418,7 @@ class TraceContextScope
 
     void acquire()
     {
-        if(scope == nullptr)
+        if(scope == nullptr && !shutdown)
         {
             ensure_default_telemetry_interface_initialized();
             scope = Tango::telemetry::Interface::set_trace_context(
@@ -401,6 +440,10 @@ class TraceContextScope
 #else
 // cppTango is *not* compiled with telemetry support.
 // We use no-op handlers, so the Python code can run without errors but does nothing.
+
+void no_op_cleanup() { }
+
+void no_op_set_log_level(std::string level_str) { }
 
 bopy::dict no_op_get_trace_context()
 {
@@ -437,12 +480,16 @@ void export_telemetry_helpers()
 #if defined(TANGO_USE_TELEMETRY)
     telemetry_scope.attr("TELEMETRY_ENABLED") = true;
     bopy::def("get_trace_context", get_trace_context);
+    bopy::def("cleanup_default_telemetry_interface", &cleanup_default_telemetry_interface);
+    bopy::def("set_log_level", &set_log_level);
     bopy::class_<TraceContextScope, boost::noncopyable>(
         "TraceContextScope", bopy::init<const std::string &, const std::string &, const std::string &>())
         .def("_acquire", &TraceContextScope::acquire)
         .def("_release", &TraceContextScope::release);
 #else
     bopy::def("get_trace_context", no_op_get_trace_context);
+    bopy::def("cleanup_default_telemetry_interface", &no_op_cleanup);
+    bopy::def("set_log_level", &no_op_set_log_level);
     bopy::class_<NoOpTraceContextScope, boost::noncopyable>(
         "TraceContextScope", bopy::init<const std::string &, const std::string &, const std::string &>())
         .def("_acquire", &NoOpTraceContextScope::acquire)

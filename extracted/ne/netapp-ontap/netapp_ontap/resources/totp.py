@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -31,28 +31,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Totp(
     {
+        "sha_fingerprint": "21364f5417600e3d9d6a7ac6c05dd244aed9f15dce6786a2c89399a41ff0fdb0",
+        "scope": "cluster",
+        "owner": {
+            "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
+            "name": "Default",
+            "_links": {
+                "self": {"href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"}
+            },
+        },
         "account": {
-            "name": "pubuser2",
             "_links": {
                 "self": {
                     "href": "/api/security/accounts/b009a9e7-4081-b576-7575-ada21efcaf16/pubuser2"
                 }
             },
-        },
-        "owner": {
-            "name": "Default",
-            "_links": {
-                "self": {"href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"}
-            },
-            "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
+            "name": "pubuser2",
         },
         "_links": {
             "self": {
                 "href": "/api/security/login/totps/b009a9e7-4081-b576-7575-ada21efcaf16/pubuser2"
             }
         },
-        "sha_fingerprint": "21364f5417600e3d9d6a7ac6c05dd244aed9f15dce6786a2c89399a41ff0fdb0",
-        "scope": "cluster",
     }
 )
 

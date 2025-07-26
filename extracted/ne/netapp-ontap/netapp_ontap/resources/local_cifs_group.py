@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,111 +28,111 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LocalCifsGroup(
         {
+            "sid": "S-1-5-32-544",
             "members": [
                 {"name": "CIFS_SERVER\\Administrator"},
                 {"name": "AD_DOMAIN\\Domain Admins"},
             ],
-            "sid": "S-1-5-32-544",
+            "svm": {"uuid": "b009a9e7-4081-b576-7575-ada21efcaf16", "name": "vs1"},
             "description": "Built-in Administrators group",
             "name": "BUILTIN\\Administrators",
-            "svm": {"name": "vs1", "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
     LocalCifsGroup(
         {
-            "members": [{"name": "AD_DOMAIN\\Domain Users"}],
             "sid": "S-1-5-32-545",
+            "members": [{"name": "AD_DOMAIN\\Domain Users"}],
+            "svm": {"uuid": "b009a9e7-4081-b576-7575-ada21efcaf16", "name": "vs1"},
             "description": "All users",
             "name": "BUILTIN\\Users",
-            "svm": {"name": "vs1", "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
     LocalCifsGroup(
         {
-            "members": [{"name": "SACHILDAP02\\Domain Guests"}],
             "sid": "S-1-5-32-546",
+            "members": [{"name": "SACHILDAP02\\Domain Guests"}],
+            "svm": {"uuid": "b009a9e7-4081-b576-7575-ada21efcaf16", "name": "vs1"},
             "description": "Built-in Guests Group",
             "name": "BUILTIN\\Guests",
-            "svm": {"name": "vs1", "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
     LocalCifsGroup(
         {
             "sid": "S-1-5-32-547",
+            "svm": {"uuid": "b009a9e7-4081-b576-7575-ada21efcaf16", "name": "vs1"},
             "description": "Restricted administrative privileges",
             "name": "BUILTIN\\Power Users",
-            "svm": {"name": "vs1", "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
     LocalCifsGroup(
         {
             "sid": "S-1-5-32-551",
+            "svm": {"uuid": "b009a9e7-4081-b576-7575-ada21efcaf16", "name": "vs1"},
             "description": "Backup Operators group",
             "name": "BUILTIN\\Backup Operators",
-            "svm": {"name": "vs1", "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
     LocalCifsGroup(
         {
             "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
+            "svm": {"uuid": "b009a9e7-4081-b576-7575-ada21efcaf16", "name": "vs1"},
             "description": "local group2",
             "name": "CIFS_SERVER\\group2",
-            "svm": {"name": "vs1", "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16"},
         }
     ),
     LocalCifsGroup(
         {
+            "sid": "S-1-5-32-544",
             "members": [
                 {"name": "VS2.CIFS\\Administrator"},
                 {"name": "VS2.CIFS\\user3"},
                 {"name": "SACHILDAP02\\Domain Admins"},
             ],
-            "sid": "S-1-5-32-544",
+            "svm": {"uuid": "5060077c-5be6-11eb-90b7-0050568e5169", "name": "vs2"},
             "description": "Built-in Administrators group",
             "name": "BUILTIN\\Administrators",
-            "svm": {"name": "vs2", "uuid": "5060077c-5be6-11eb-90b7-0050568e5169"},
         }
     ),
     LocalCifsGroup(
         {
-            "members": [{"name": "SACHILDAP02\\Domain Users"}],
             "sid": "S-1-5-32-545",
+            "members": [{"name": "SACHILDAP02\\Domain Users"}],
+            "svm": {"uuid": "5060077c-5be6-11eb-90b7-0050568e5169", "name": "vs2"},
             "description": "All users",
             "name": "BUILTIN\\Users",
-            "svm": {"name": "vs2", "uuid": "5060077c-5be6-11eb-90b7-0050568e5169"},
         }
     ),
     LocalCifsGroup(
         {
-            "members": [{"name": "SACHILDAP02\\Domain Guests"}],
             "sid": "S-1-5-32-546",
+            "members": [{"name": "SACHILDAP02\\Domain Guests"}],
+            "svm": {"uuid": "5060077c-5be6-11eb-90b7-0050568e5169", "name": "vs2"},
             "description": "Built-in Guests Group",
             "name": "BUILTIN\\Guests",
-            "svm": {"name": "vs2", "uuid": "5060077c-5be6-11eb-90b7-0050568e5169"},
         }
     ),
     LocalCifsGroup(
         {
             "sid": "S-1-5-32-547",
+            "svm": {"uuid": "5060077c-5be6-11eb-90b7-0050568e5169", "name": "vs2"},
             "description": "Restricted administrative privileges",
             "name": "BUILTIN\\Power Users",
-            "svm": {"name": "vs2", "uuid": "5060077c-5be6-11eb-90b7-0050568e5169"},
         }
     ),
     LocalCifsGroup(
         {
             "sid": "S-1-5-32-551",
+            "svm": {"uuid": "5060077c-5be6-11eb-90b7-0050568e5169", "name": "vs2"},
             "description": "Backup Operators group",
             "name": "BUILTIN\\Backup Operators",
-            "svm": {"name": "vs2", "uuid": "5060077c-5be6-11eb-90b7-0050568e5169"},
         }
     ),
     LocalCifsGroup(
         {
             "sid": "S-1-5-21-1625922807-3304708894-3529444428-1001",
+            "svm": {"uuid": "5060077c-5be6-11eb-90b7-0050568e5169", "name": "vs2"},
             "description": "local group1",
             "name": "CIFS_SERVER\\group1",
-            "svm": {"name": "vs2", "uuid": "5060077c-5be6-11eb-90b7-0050568e5169"},
         }
     ),
 ]
@@ -164,9 +164,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 LocalCifsGroup(
     {
         "sid": "S-1-5-21-256008430-3394229847-3930036330-1001",
+        "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
         "description": "local group",
         "name": "CIFS_SERVER\\group1",
-        "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
     }
 )
 

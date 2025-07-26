@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -15,7 +15,13 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import UnixGroupUsers
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    print(list(UnixGroupUsers.get_collection("pcuser")))
+    print(
+        list(
+            UnixGroupUsers.get_collection(
+                "f06686a2-c901-11eb-94b4-0050568e9f2c", "pcuser"
+            )
+        )
+    )
 
 ```
 <div class="try_it_out">
@@ -27,13 +33,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     UnixGroupUsers(
         {
             "unix_group": {"name": "pcuser"},
-            "name": "user1",
+            "svm": {"uuid": "f06686a2-c901-11eb-94b4-0050568e9f2c", "name": "svm1"},
             "_links": {
                 "self": {
                     "href": "/api/name-services/unix-groups/f06686a2-c901-11eb-94b4-0050568e9f2c/pcuser/users/user1"
                 }
             },
-            "svm": {"name": "svm1", "uuid": "f06686a2-c901-11eb-94b4-0050568e9f2c"},
+            "name": "user1",
         }
     )
 ]
@@ -48,7 +54,9 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import UnixGroupUsers
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = UnixGroupUsers("pcuser", name="user1")
+    resource = UnixGroupUsers(
+        "f06686a2-c901-11eb-94b4-0050568e9f2c", "pcuser", name="user1"
+    )
     resource.get()
     print(resource)
 
@@ -61,13 +69,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 UnixGroupUsers(
     {
         "unix_group": {"name": "pcuser"},
-        "name": "user1",
+        "svm": {"uuid": "f06686a2-c901-11eb-94b4-0050568e9f2c", "name": "svm1"},
         "_links": {
             "self": {
                 "href": "/api/name-services/unix-groups/f06686a2-c901-11eb-94b4-0050568e9f2c/pcuser/users/user1"
             }
         },
-        "svm": {"name": "svm1", "uuid": "f06686a2-c901-11eb-94b4-0050568e9f2c"},
+        "name": "user1",
     }
 )
 
@@ -85,7 +93,7 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import UnixGroupUsers
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = UnixGroupUsers("group1")
+    resource = UnixGroupUsers("179d3c85-7053-11e8-b9b8-005056b41bd1", "group1")
     resource.name = "user4"
     resource.post(hydrate=True)
     print(resource)
@@ -98,7 +106,7 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import UnixGroupUsers
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = UnixGroupUsers("group1")
+    resource = UnixGroupUsers("179d3c85-7053-11e8-b9b8-005056b41bd1", "group1")
     resource.records = [{"name": "user1"}, {"name": "user2"}, {"name": "user3"}]
     resource.post(hydrate=True)
     print(resource)
@@ -113,7 +121,9 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import UnixGroupUsers
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = UnixGroupUsers("group1", name="user1")
+    resource = UnixGroupUsers(
+        "179d3c85-7053-11e8-b9b8-005056b41bd1", "group1", name="user1"
+    )
     resource.delete()
 
 ```

@@ -61,9 +61,11 @@ class ActionInstance:
             "data_split": data_split_execute,
             "data_prep": data_preparation_execute,
             "dataset_annotation": dataset_annotation_execute,
+            "dataset_augmentation": dataset_augmentation_execute,
             "image_build": image_build_execute,
             "resource_clone": resource_clone_execute,
             "kafka_setup": kafka_setup_execute,
+            "inference_aggregator": deploy_aggregator_execute,
         }
         if self.action_type not in self.actions_map:
             raise ValueError(f"Unknown action type: {self.action_type}")
@@ -110,6 +112,7 @@ class ActionInstance:
         1. Verifies that the process attribute exists and is not None
         2. Checks if the process has terminated using poll() method
         3. Additional safeguards against zombie processes
+        4. Coordinates with log monitoring to ensure all logs are sent before cleanup
 
         Returns:
             bool: True if process exists and is still running, False if process
@@ -136,6 +139,9 @@ class ActionInstance:
                     poll_result
                 )
                 
+                # CRITICAL: Ensure all logs are sent before cleaning up process
+                self._ensure_final_logs_sent()
+                
                 # Try to explicitly clean up the process to avoid zombies
                 try:
                     # Wait for process with a short timeout to ensure it's fully terminated
@@ -144,7 +150,7 @@ class ActionInstance:
                     # If still running after timeout (unlikely at this point)
                     logging.warning(f"Process for action {action_id} failed to terminate properly")
                 
-                # Set process to None to help garbage collection
+                # Set process to None to help garbage collection - BUT ONLY after logs are handled
                 self.process = None
             
             return is_running
@@ -152,9 +158,59 @@ class ActionInstance:
         except Exception as e:
             # Something went wrong while checking the process status
             logging.error(f"Error checking process status: {str(e)}")
+            # Ensure logs are sent even in error cases
+            self._ensure_final_logs_sent()
             # To be safe, assume process is not running when we can't check it
             self.process = None
             return False
+
+    def _ensure_final_logs_sent(self):
+        """Ensure all remaining logs are sent when a process terminates.
+        
+        This method performs a final log flush to ensure no logs are lost
+        when a container crashes or shuts down.
+        """
+        if not hasattr(self, 'log_path') or not self.log_path or not os.path.exists(self.log_path):
+            return
+            
+        try:
+            # Set flag to stop continuous logging thread
+            self.stop_thread = True
+            
+            # Give log thread a moment to finish current operation
+            time.sleep(1)
+            
+            # Perform final log flush
+            logging.info("Performing final log flush for action %s", 
+                        getattr(self, 'action_record_id', 'unknown'))
+            
+            # Read any remaining logs that haven't been sent
+            with open(self.log_path, "rb") as log_file:
+                # Get the last position that was read (if tracked)
+                last_position = getattr(self, '_last_log_position', 0)
+                log_file.seek(last_position)
+                remaining_content = log_file.read()
+                
+                if remaining_content:
+                    try:
+                        decoded_content = remaining_content.decode("utf-8")
+                    except UnicodeDecodeError:
+                        decoded_content = remaining_content.decode("utf-8", errors="replace")
+                    
+                    # Send final logs
+                    self._send_logs_to_scaling(decoded_content)
+                    self._check_cuda(decoded_content)
+                    
+                    logging.info("Sent %d bytes of final logs for action %s", 
+                               len(remaining_content), 
+                               getattr(self, 'action_record_id', 'unknown'))
+                else:
+                    logging.debug("No additional logs to send for action %s", 
+                                getattr(self, 'action_record_id', 'unknown'))
+                    
+        except Exception as e:
+            logging.error("Error during final log flush for action %s: %s", 
+                         getattr(self, 'action_record_id', 'unknown'), str(e))
 
     @log_errors(default_return=None, raise_exception=False, log_error=False)
     def get_action_details(self):
@@ -260,7 +316,7 @@ class ActionInstance:
         env_exports = " && ".join([f"export {key}={shlex.quote(str(value))}" for key, value in env_vars.items()])
         
         cmd_parts = [
-            f"docker run {use_gpu} --rm",
+            f"docker run {use_gpu} ",
             network_config,
             *[f"-e {key}={shlex.quote(str(value))}" for key, value in env_vars.items()],
             *volumes,
@@ -388,25 +444,64 @@ class ActionInstance:
 
     @log_errors(raise_exception=False, log_error=False)
     def send_logs_continuously(self):
-        """Continuously read and send logs from the log file to the scaling service."""
+        """Continuously read and send logs from the log file to the scaling service.
+        
+        Enhanced version that tracks log position and handles graceful shutdown.
+        """
         last_position = 0
+        self._last_log_position = 0  # Track position for final flush
+        
         while not self.stop_thread and os.path.exists(self.log_path):
-            with open(self.log_path, "rb") as log_file:
-                log_file.seek(last_position)
-                new_content = log_file.read()
-                if new_content:
-                    try:
-                        decoded_content = new_content.decode("utf-8")
-                    except UnicodeDecodeError:
-                        # Handle invalid UTF-8 bytes by replacing them
-                        decoded_content = new_content.decode(
-                            "utf-8",
-                            errors="replace",
-                        )
-                    self._send_logs_to_scaling(decoded_content)
-                    self._check_cuda(decoded_content)
-                last_position = log_file.tell()
-            time.sleep(30)
+            try:
+                with open(self.log_path, "rb") as log_file:
+                    log_file.seek(last_position)
+                    new_content = log_file.read()
+                    if new_content:
+                        try:
+                            decoded_content = new_content.decode("utf-8")
+                        except UnicodeDecodeError:
+                            # Handle invalid UTF-8 bytes by replacing them
+                            decoded_content = new_content.decode(
+                                "utf-8",
+                                errors="replace",
+                            )
+                        self._send_logs_to_scaling(decoded_content)
+                        self._check_cuda(decoded_content)
+                    
+                    # Update tracked position
+                    last_position = log_file.tell()
+                    self._last_log_position = last_position
+                    
+            except Exception as e:
+                logging.error("Error reading logs for action %s: %s", 
+                             getattr(self, 'action_record_id', 'unknown'), str(e))
+                
+            # Use shorter sleep interval for more responsive log monitoring
+            time.sleep(10)  # Reduced from 30 to 10 seconds for better responsiveness
+            
+        # Final attempt to send any remaining logs when thread is stopping
+        logging.info("Log monitoring thread stopping for action %s, performing final check", 
+                    getattr(self, 'action_record_id', 'unknown'))
+        
+        # One more final read attempt
+        try:
+            if os.path.exists(self.log_path):
+                with open(self.log_path, "rb") as log_file:
+                    log_file.seek(last_position)
+                    final_content = log_file.read()
+                    if final_content:
+                        try:
+                            decoded_content = final_content.decode("utf-8")
+                        except UnicodeDecodeError:
+                            decoded_content = final_content.decode("utf-8", errors="replace")
+                        self._send_logs_to_scaling(decoded_content)
+                        self._check_cuda(decoded_content)
+                        logging.info("Sent final %d bytes of logs for action %s", 
+                                   len(final_content), 
+                                   getattr(self, 'action_record_id', 'unknown'))
+        except Exception as e:
+            logging.error("Error in final log read for action %s: %s", 
+                         getattr(self, 'action_record_id', 'unknown'), str(e))
 
     @log_errors(raise_exception=False, log_error=False)
     def _send_logs_to_scaling(self, log_content):
@@ -479,25 +574,66 @@ class ActionInstance:
         self.start_process(cmd, log_name)
         self.log_thread = threading.Thread(
             target=self.send_logs_continuously,
-            daemon=True,
+            daemon=False,  # CRITICAL: Make thread non-daemon to ensure it completes
         )
         self.log_thread.start()
 
     @log_errors(raise_exception=False, log_error=False)
     def stop(self):
-        """Stop the process and log monitoring thread."""
+        """Stop the process and log monitoring thread.
+        
+        Enhanced version that ensures proper cleanup sequencing and log completion.
+        """
+        logging.info("Stopping action %s", getattr(self, 'action_record_id', 'unknown'))
+        
+        # Step 1: Signal log thread to stop
         self.stop_thread = True
+        
+        # Step 2: Stop the process
         try:
             if self.process:
+                logging.info("Terminating process for action %s", 
+                           getattr(self, 'action_record_id', 'unknown'))
                 os.killpg(
                     os.getpgid(self.process.pid),
                     signal.SIGTERM,
                 )
-                self.process.wait(timeout=30)
-            if self.log_thread and self.log_thread.is_alive():
-                self.log_thread.join(timeout=30)
-        except Exception as err:
-            logging.error("Error stopping process: %s", str(err))
+                # Give process time to terminate gracefully
+                try:
+                    self.process.wait(timeout=15)
+                    logging.info("Process terminated gracefully for action %s", 
+                               getattr(self, 'action_record_id', 'unknown'))
+                except subprocess.TimeoutExpired:
+                    logging.warning("Process didn't terminate gracefully, forcing kill for action %s", 
+                                  getattr(self, 'action_record_id', 'unknown'))
+                    try:
+                        os.killpg(os.getpgid(self.process.pid), signal.SIGKILL)
+                        self.process.wait(timeout=5)
+                    except Exception as kill_err:
+                        logging.error("Error force-killing process for action %s: %s", 
+                                    getattr(self, 'action_record_id', 'unknown'), str(kill_err))
+        except Exception as proc_err:
+            logging.error("Error stopping process for action %s: %s", 
+                         getattr(self, 'action_record_id', 'unknown'), str(proc_err))
+        
+        # Step 3: Ensure final logs are sent
+        self._ensure_final_logs_sent()
+        
+        # Step 4: Wait for log thread to complete
+        if self.log_thread and self.log_thread.is_alive():
+            logging.info("Waiting for log thread to complete for action %s", 
+                        getattr(self, 'action_record_id', 'unknown'))
+            try:
+                self.log_thread.join(timeout=30)  # Wait up to 30 seconds for logs to complete
+                if self.log_thread.is_alive():
+                    logging.warning("Log thread didn't complete within timeout for action %s", 
+                                  getattr(self, 'action_record_id', 'unknown'))
+                else:
+                    logging.info("Log thread completed successfully for action %s", 
+                               getattr(self, 'action_record_id', 'unknown'))
+            except Exception as thread_err:
+                logging.error("Error waiting for log thread for action %s: %s", 
+                             getattr(self, 'action_record_id', 'unknown'), str(thread_err))
 
     @log_errors(raise_exception=False)
     def execute(self):
@@ -609,6 +745,36 @@ def dataset_annotation_execute(
     cmd = f'{self.get_base_docker_cmd(work_fs)} python3 /usr/src/app/dataset_annotation.py {self.action_record_id} "'
     logging.info("cmd: %s", cmd)
     self.start(cmd, "dataset_annotation")
+
+
+@log_errors(raise_exception=False)
+def dataset_augmentation_execute(
+    self: ActionInstance,
+):
+    """Execute dataset augmentation task."""
+    work_fs = get_max_file_system()
+    action_details = self.get_action_details()
+    if not action_details:
+        return
+    self.setup_action_requirements(action_details, work_fs)
+    cmd = f'{self.get_base_docker_cmd(work_fs)} python3 /usr/src/app/data_augmentation.py {self.action_record_id} "'
+    logging.info("cmd: %s", cmd)
+    self.start(cmd, "dataset_augmentation")
+
+
+@log_errors(raise_exception=False)
+def deploy_aggregator_execute(
+    self: ActionInstance,
+):
+    """Execute deploy aggregator task."""
+    work_fs = get_max_file_system()
+    action_details = self.get_action_details()
+    if not action_details:
+        return
+    self.setup_action_requirements(action_details, work_fs)
+    cmd = f'{self.get_base_docker_cmd(work_fs)} python3 /usr/src/app/deploy_aggregator.py {self.action_record_id} "'
+    logging.info("cmd: %s", cmd)
+    self.start(cmd, "deploy_aggregator")
 
 
 @log_errors(raise_exception=False)
@@ -776,7 +942,7 @@ def kafka_setup_execute(self: ActionInstance):
     pypi_index = f"https://{'test.' if env != 'prod' else ''}pypi.org/simple/"
     
     cmd = (
-        f"docker run --rm -p {host_port}:{container_port} "
+        f"docker run -p {host_port}:{container_port} "
         f"{env_args} "
         f"--shm-size=30G --pull=always "
         f"aiforeveryone/matrice-kafka:latest /bin/bash -c \""

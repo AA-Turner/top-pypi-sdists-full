@@ -45,6 +45,51 @@ class QueriesServiceStub(object):
             request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryRunsRequest.SerializeToString,
             response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryRunsResponse.FromString,
         )
+        self.ListMetaQueries = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/ListMetaQueries",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesResponse.FromString,
+        )
+        self.ListLatestMetaQueries = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/ListLatestMetaQueries",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListLatestMetaQueriesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListLatestMetaQueriesResponse.FromString,
+        )
+        self.GetMetaQuery = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/GetMetaQuery",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetMetaQueryRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetMetaQueryResponse.FromString,
+        )
+        self.GetMetaQueryByName = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/GetMetaQueryByName",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetMetaQueryByNameRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetMetaQueryByNameResponse.FromString,
+        )
+        self.ListMetaQueriesByIds = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/ListMetaQueriesByIds",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesByIdsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesByIdsResponse.FromString,
+        )
+        self.ListArchivedMetaQueries = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/ListArchivedMetaQueries",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListArchivedMetaQueriesRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListArchivedMetaQueriesResponse.FromString,
+        )
+        self.ListMetaQueriesForResolver = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/ListMetaQueriesForResolver",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesForResolverRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesForResolverResponse.FromString,
+        )
+        self.ListMetaQueriesForFeature = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/ListMetaQueriesForFeature",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesForFeatureRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesForFeatureResponse.FromString,
+        )
+        self.ListMetaQueryVersions = channel.unary_unary(
+            "/chalk.server.v1.QueriesService/ListMetaQueryVersions",
+            request_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryVersionsRequest.SerializeToString,
+            response_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryVersionsResponse.FromString,
+        )
 
 
 class QueriesServiceServicer(object):
@@ -86,6 +131,60 @@ class QueriesServiceServicer(object):
         context.set_details("Method not implemented!")
         raise NotImplementedError("Method not implemented!")
 
+    def ListMetaQueries(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListLatestMetaQueries(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetMetaQuery(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def GetMetaQueryByName(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListMetaQueriesByIds(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListArchivedMetaQueries(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListMetaQueriesForResolver(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListMetaQueriesForFeature(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
+    def ListMetaQueryVersions(self, request, context):
+        """Missing associated documentation comment in .proto file."""
+        context.set_code(grpc.StatusCode.UNIMPLEMENTED)
+        context.set_details("Method not implemented!")
+        raise NotImplementedError("Method not implemented!")
+
 
 def add_QueriesServiceServicer_to_server(servicer, server):
     rpc_method_handlers = {
@@ -118,6 +217,51 @@ def add_QueriesServiceServicer_to_server(servicer, server):
             servicer.ListMetaQueryRuns,
             request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryRunsRequest.FromString,
             response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryRunsResponse.SerializeToString,
+        ),
+        "ListMetaQueries": grpc.unary_unary_rpc_method_handler(
+            servicer.ListMetaQueries,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesResponse.SerializeToString,
+        ),
+        "ListLatestMetaQueries": grpc.unary_unary_rpc_method_handler(
+            servicer.ListLatestMetaQueries,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListLatestMetaQueriesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListLatestMetaQueriesResponse.SerializeToString,
+        ),
+        "GetMetaQuery": grpc.unary_unary_rpc_method_handler(
+            servicer.GetMetaQuery,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetMetaQueryRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetMetaQueryResponse.SerializeToString,
+        ),
+        "GetMetaQueryByName": grpc.unary_unary_rpc_method_handler(
+            servicer.GetMetaQueryByName,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetMetaQueryByNameRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.GetMetaQueryByNameResponse.SerializeToString,
+        ),
+        "ListMetaQueriesByIds": grpc.unary_unary_rpc_method_handler(
+            servicer.ListMetaQueriesByIds,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesByIdsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesByIdsResponse.SerializeToString,
+        ),
+        "ListArchivedMetaQueries": grpc.unary_unary_rpc_method_handler(
+            servicer.ListArchivedMetaQueries,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListArchivedMetaQueriesRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListArchivedMetaQueriesResponse.SerializeToString,
+        ),
+        "ListMetaQueriesForResolver": grpc.unary_unary_rpc_method_handler(
+            servicer.ListMetaQueriesForResolver,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesForResolverRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesForResolverResponse.SerializeToString,
+        ),
+        "ListMetaQueriesForFeature": grpc.unary_unary_rpc_method_handler(
+            servicer.ListMetaQueriesForFeature,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesForFeatureRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesForFeatureResponse.SerializeToString,
+        ),
+        "ListMetaQueryVersions": grpc.unary_unary_rpc_method_handler(
+            servicer.ListMetaQueryVersions,
+            request_deserializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryVersionsRequest.FromString,
+            response_serializer=chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryVersionsResponse.SerializeToString,
         ),
     }
     generic_handler = grpc.method_handlers_generic_handler("chalk.server.v1.QueriesService", rpc_method_handlers)
@@ -292,6 +436,267 @@ class QueriesService(object):
             "/chalk.server.v1.QueriesService/ListMetaQueryRuns",
             chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryRunsRequest.SerializeToString,
             chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryRunsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListMetaQueries(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/ListMetaQueries",
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListLatestMetaQueries(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/ListLatestMetaQueries",
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListLatestMetaQueriesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListLatestMetaQueriesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetMetaQuery(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/GetMetaQuery",
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetMetaQueryRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetMetaQueryResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def GetMetaQueryByName(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/GetMetaQueryByName",
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetMetaQueryByNameRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.GetMetaQueryByNameResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListMetaQueriesByIds(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/ListMetaQueriesByIds",
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesByIdsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesByIdsResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListArchivedMetaQueries(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/ListArchivedMetaQueries",
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListArchivedMetaQueriesRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListArchivedMetaQueriesResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListMetaQueriesForResolver(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/ListMetaQueriesForResolver",
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesForResolverRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesForResolverResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListMetaQueriesForFeature(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/ListMetaQueriesForFeature",
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesForFeatureRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueriesForFeatureResponse.FromString,
+            options,
+            channel_credentials,
+            insecure,
+            call_credentials,
+            compression,
+            wait_for_ready,
+            timeout,
+            metadata,
+        )
+
+    @staticmethod
+    def ListMetaQueryVersions(
+        request,
+        target,
+        options=(),
+        channel_credentials=None,
+        call_credentials=None,
+        insecure=False,
+        compression=None,
+        wait_for_ready=None,
+        timeout=None,
+        metadata=None,
+    ):
+        return grpc.experimental.unary_unary(
+            request,
+            target,
+            "/chalk.server.v1.QueriesService/ListMetaQueryVersions",
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryVersionsRequest.SerializeToString,
+            chalk_dot_server_dot_v1_dot_queries__pb2.ListMetaQueryVersionsResponse.FromString,
             options,
             channel_credentials,
             insecure,

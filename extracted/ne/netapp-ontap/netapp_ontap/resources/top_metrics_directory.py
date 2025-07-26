@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -50,73 +50,73 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsDirectory(
         {
-            "volume": {"name": "vol1"},
-            "iops": {"error": {"lower_bound": 1495, "upper_bound": 1505}, "read": 1495},
+            "path": "/dir1/dir2",
+            "iops": {"read": 1495, "error": {"upper_bound": 1505, "lower_bound": 1495}},
+            "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
+                "name": "vs1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
+                    }
+                },
+            },
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/dir1%2Fdir2?return_metadata=true"
                 }
             },
+            "volume": {"name": "vol1"},
+        }
+    ),
+    TopMetricsDirectory(
+        {
+            "path": "/dir3/dir4",
+            "iops": {"read": 1022, "error": {"upper_bound": 1032, "lower_bound": 1022}},
             "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
             },
-            "path": "/dir1/dir2",
-        }
-    ),
-    TopMetricsDirectory(
-        {
-            "volume": {"name": "vol1"},
-            "iops": {"error": {"lower_bound": 1022, "upper_bound": 1032}, "read": 1022},
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/dir3%2Fdir4?return_metadata=true"
                 }
             },
+            "volume": {"name": "vol1"},
+        }
+    ),
+    TopMetricsDirectory(
+        {
+            "path": "/dir12",
+            "iops": {"read": 345, "error": {"upper_bound": 355, "lower_bound": 345}},
             "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
             },
-            "path": "/dir3/dir4",
-        }
-    ),
-    TopMetricsDirectory(
-        {
+            "_links": {
+                "metadata": {
+                    "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/dir12?return_metadata=true"
+                }
+            },
             "volume": {
+                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
                 "name": "vol1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864"
                     }
                 },
-                "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
             },
-            "iops": {"error": {"lower_bound": 345, "upper_bound": 355}, "read": 345},
-            "_links": {
-                "metadata": {
-                    "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/dir12?return_metadata=true"
-                }
-            },
-            "svm": {
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
-                    }
-                },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
-            },
-            "path": "/dir12",
         }
     ),
 ]
@@ -148,56 +148,56 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsDirectory(
         {
-            "volume": {"name": "fv"},
-            "svm": {
-                "name": "vs0",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
-                    }
-                },
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
-            },
+            "path": "{4ec6d1ea-d5da-11eb-a25f-005056ac0f77:1232}",
             "throughput": {
-                "error": {"lower_bound": 24, "upper_bound": 29},
+                "error": {"upper_bound": 29, "lower_bound": 24},
                 "write": 24,
             },
-            "path": "{4ec6d1ea-d5da-11eb-a25f-005056ac0f77:1232}",
-        }
-    ),
-    TopMetricsDirectory(
-        {
-            "volume": {"name": "fv"},
             "svm": {
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
                     }
                 },
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
             },
+            "volume": {"name": "fv"},
+        }
+    ),
+    TopMetricsDirectory(
+        {
+            "path": "{4ec6d1ea-d5da-11eb-a25f-005056ac0f77:6754}",
             "throughput": {
-                "error": {"lower_bound": 12, "upper_bound": 22},
+                "error": {"upper_bound": 22, "lower_bound": 12},
                 "write": 12,
             },
-            "path": "{4ec6d1ea-d5da-11eb-a25f-005056ac0f77:6754}",
-        }
-    ),
-    TopMetricsDirectory(
-        {
-            "volume": {"name": "fv"},
             "svm": {
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
                     }
                 },
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
             },
-            "throughput": {"error": {"lower_bound": 8, "upper_bound": 10}, "write": 8},
+            "volume": {"name": "fv"},
+        }
+    ),
+    TopMetricsDirectory(
+        {
             "path": "{4ec6d1ea-d5da-11eb-a25f-005056ac0f77:8654}",
+            "throughput": {"error": {"upper_bound": 10, "lower_bound": 8}, "write": 8},
+            "svm": {
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
+                "name": "vs0",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
+                    }
+                },
+            },
+            "volume": {"name": "fv"},
         }
     ),
 ]
@@ -230,65 +230,65 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsDirectory(
         {
-            "volume": {"name": "vol1"},
+            "path": "/dir1/dir2",
+            "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
+                "name": "vs1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
+                    }
+                },
+            },
             "non_recursive_bytes_used": 345,
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/dir1%2Fdir2?return_metadata=true"
                 }
             },
+            "volume": {"name": "vol1"},
+        }
+    ),
+    TopMetricsDirectory(
+        {
+            "path": "/dir3/dir4",
             "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
             },
-            "path": "/dir1/dir2",
-        }
-    ),
-    TopMetricsDirectory(
-        {
-            "volume": {"name": "vol1"},
             "non_recursive_bytes_used": 345,
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/dir3%2Fdir4?return_metadata=true"
                 }
             },
+            "volume": {"name": "vol1"},
+        }
+    ),
+    TopMetricsDirectory(
+        {
+            "path": "/dir12",
             "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
             },
-            "path": "/dir3/dir4",
-        }
-    ),
-    TopMetricsDirectory(
-        {
-            "volume": {"name": "vol1"},
             "non_recursive_bytes_used": 345,
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/dir12?return_metadata=true"
                 }
             },
-            "svm": {
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
-                    }
-                },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
-            },
-            "path": "/dir12",
+            "volume": {"name": "vol1"},
         }
     ),
 ]
@@ -321,44 +321,44 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsDirectory(
         {
-            "volume": {"name": "vol1"},
+            "path": "/dir1/dir2",
+            "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
+                "name": "vs1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
+                    }
+                },
+            },
             "non_recursive_bytes_used": 1022,
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/dir1%2Fdir2?return_metadata=true"
                 }
             },
+            "volume": {"name": "vol1"},
+        }
+    ),
+    TopMetricsDirectory(
+        {
+            "path": "/dir12",
             "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
             },
-            "path": "/dir1/dir2",
-        }
-    ),
-    TopMetricsDirectory(
-        {
-            "volume": {"name": "vol1"},
             "non_recursive_bytes_used": 261,
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864/files/dir12?return_metadata=true"
                 }
             },
-            "svm": {
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
-                    }
-                },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
-            },
-            "path": "/dir12",
+            "volume": {"name": "vol1"},
         }
     ),
 ]
@@ -525,9 +525,6 @@ class TopMetricsDirectory(Resource):
         **kwargs
     ) -> Iterable["Resource"]:
         r"""Retrieves a list of directories with the greatest value performance metric or capacity metric.
-### Platform Specifics
-* **Unified ONTAP**: GET must be used to retrieve a list of directories with the greatest value performance metric or capacity metric.
-* **ASA**: GET is not supported.
 
 ### Learn more
 * [`DOC /storage/volumes/{volume.uuid}/top-metrics/directories`](#docs-storage-storage_volumes_{volume.uuid}_top-metrics_directories)"""
@@ -569,9 +566,6 @@ class TopMetricsDirectory(Resource):
     @classmethod
     def find(cls, *args, connection: HostConnection = None, **kwargs) -> Resource:
         r"""Retrieves a list of directories with the greatest value performance metric or capacity metric.
-### Platform Specifics
-* **Unified ONTAP**: GET must be used to retrieve a list of directories with the greatest value performance metric or capacity metric.
-* **ASA**: GET is not supported.
 
 ### Learn more
 * [`DOC /storage/volumes/{volume.uuid}/top-metrics/directories`](#docs-storage-storage_volumes_{volume.uuid}_top-metrics_directories)"""

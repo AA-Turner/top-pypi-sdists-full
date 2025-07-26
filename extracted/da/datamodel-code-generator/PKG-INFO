@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datamodel-code-generator
-Version: 0.31.2
+Version: 0.32.0
 Summary: Datamodel Code Generator
 Project-URL: Homepage, https://github.com/koxudaxi/datamodel-code-generator
 Project-URL: Source, https://github.com/koxudaxi/datamodel-code-generator
@@ -552,6 +552,9 @@ Template customization:
                         option (require black 20.8b0 or later)
 
 OpenAPI-only options:
+  --include-path-parameters
+                        Include path parameters in generated parameter models in addition to
+                        query parameters (Only OpenAPI)
   --openapi-scopes {schemas,paths,tags,parameters} [{schemas,paths,tags,parameters} ...]
                         Scopes of OpenAPI model generation (default: schemas)
   --strict-nullable     Treat default field as a non-nullable field (Only OpenAPI)

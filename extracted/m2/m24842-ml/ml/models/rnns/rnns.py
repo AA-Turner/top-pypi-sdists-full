@@ -2,7 +2,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from einops import rearrange, repeat
-from ..common import GatedRMSNorm
+from ..common import *
 
 class Mamba2Block(nn.Module):
     def __init__(self, d_model, n_layers=24, d_state=128, d_conv=4,
@@ -62,13 +62,15 @@ class Mamba2Block(nn.Module):
     def forward(self, u):
         """
         Arguments
-            u: (batch, seqlen, d_model) input. seqlen should be a multiple of chunk_size.
+            u: (batch, seq_len, d_model) input. seq_len should be a multiple of chunk_size.
 
         Return (y, h)
-            y: (batch, seqlen, d_model) output
+            y: (batch, seq_len, d_model) output
         """
         # Keep track of original sequence length
-        seqlen = u.shape[1]
+        seq_len = u.shape[1]
+        u = F.pad(u, (0, 0, 0, self.chunk_size - seq_len % self.chunk_size), value=0.0)
+        padded_seq_len = u.shape[1]
         
         A = -torch.exp(self.A_log)
         zxbcdt = self.in_proj(u)
@@ -91,7 +93,7 @@ class Mamba2Block(nn.Module):
         
         # Important: Slice to maintain original sequence length
         # The convolution with padding=d_conv-1 produces extra timesteps we don't need
-        conv_out = conv_out[:, :, :seqlen]
+        conv_out = conv_out[:, :, :padded_seq_len]
         
         # Back to [B, L, C]
         xBC = conv_out.permute(0, 2, 1).contiguous()
@@ -108,7 +110,7 @@ class Mamba2Block(nn.Module):
         )
         
         # Reshape x for the SSM operation
-        x = x.reshape(x.shape[0], seqlen, self.n_heads, -1)
+        x = x.reshape(x.shape[0], padded_seq_len, self.n_heads, -1)
         
         dt = F.softplus(dt + self.dt_bias)
         
@@ -121,11 +123,11 @@ class Mamba2Block(nn.Module):
         )
         
         y = y + x * self.D.unsqueeze(-1)
-        y = y.reshape(y.shape[0], seqlen, -1)
+        y = y.reshape(y.shape[0], padded_seq_len, -1)
         y = self.norm(y, z)
         y = self.out_proj(y)
 
-        return y
+        return y[:, :seq_len]
 
     def segsum(self, x):
         """Stable segment sum calculation.
@@ -149,13 +151,13 @@ class Mamba2Block(nn.Module):
         This is almost the exact same minimal SSD code from the blog post.
 
         Arguments
-            x: (batch, seqlen, n_heads, d_head)
-            A: (batch, seqlen, n_heads)
-            B: (batch, seqlen, n_heads, d_state)
-            C: (batch, seqlen, n_heads, d_state)
+            x: (batch, seq_len, n_heads, d_head)
+            A: (batch, seq_len, n_heads)
+            B: (batch, seq_len, n_heads, d_state)
+            C: (batch, seq_len, n_heads, d_state)
 
         Return
-            y: (batch, seqlen, n_heads, d_head)
+            y: (batch, seq_len, n_heads, d_head)
 
         Source
         1. https://tridao.me/blog/2024/mamba2-part3-algorithm/
@@ -204,58 +206,56 @@ class Mamba2Block(nn.Module):
 class Mamba2(nn.Module):
     def __init__(self, emb_dim, input_dim, output_dim,
                  n_layers=1, n_heads=1,
+                 d_state=None, d_conv=4, expand=2,
                  use_embedding=True, weight_tying=False,
                  bidirectional=False,
-                 chunk_size=16, device="cpu"):
+                 chunk_size=64, device="cpu"):
         super().__init__()
         self.emb_dim = emb_dim
+        self.d_state = d_state if d_state is not None else emb_dim
+        self.d_conv = d_conv
+        self.expand = expand
         self.input_dim = input_dim
         self.output_dim = output_dim
         self.n_layers = n_layers
         self.n_heads = n_heads
         self.bidirectional = bidirectional
+        self.use_embedding = use_embedding
         self.device = device
 
-        self.backbone = nn.ModuleDict(
-            dict(
-                embedding=nn.Embedding(input_dim, emb_dim, device=device) if use_embedding else nn.Linear(input_dim, emb_dim, bias=False, device=device),
-                layers=nn.ModuleList(
-                    [
-                        nn.ModuleDict(
-                            dict(
-                                mixer_f=Mamba2Block(d_model=emb_dim, n_layers=n_layers, d_state=emb_dim, d_conv=4, expand=2, n_heads=n_heads, chunk_size=chunk_size, device=device),
-                                mixer_b=Mamba2Block(d_model=emb_dim, n_layers=n_layers, d_state=emb_dim, d_conv=4, expand=2, n_heads=n_heads, chunk_size=chunk_size, device=device) if bidirectional else None,
-                                norm=GatedRMSNorm(emb_dim, device=device),
-                            )
-                        )
-                        for _ in range(n_layers)
-                    ]
-                ),
-                norm_f=GatedRMSNorm(emb_dim, device=device),
-            )
+        if use_embedding:
+            self.embedding = nn.Embedding(input_dim, emb_dim, device=device)
+        else:
+            self.embedding = nn.Linear(input_dim, emb_dim, bias=False, device=device)
+        
+        self.layers = nn.ModuleList(
+            [
+                nn.ModuleDict(
+                    dict(
+                        mixer=Mamba2Block(d_model=emb_dim, n_layers=n_layers, d_state=self.d_state, d_conv=d_conv, expand=expand, n_heads=n_heads, chunk_size=chunk_size, device=device),
+                        norm=GatedRMSNorm(emb_dim, device=device),
+                    )
+                )
+                for _ in range(n_layers)
+            ]
         )
+        self.norm_f=GatedRMSNorm(emb_dim, device=device)
         self.out_proj = nn.Linear(emb_dim, output_dim, bias=False, device=device)
         
-        nn.init.xavier_uniform_(self.backbone.embedding.weight)
-        if weight_tying: self.out_proj.weight = self.backbone.embedding.weight
+        nn.init.xavier_uniform_(self.embedding.weight)
+        if weight_tying: self.out_proj.weight = self.embedding.weight
         else: nn.init.xavier_uniform_(self.out_proj.weight)
         
         self.to(device)
 
     def forward(self, x):
-        seqlen = x.shape[1]
-
-        x = ((self.input_dim-1)*x).long().squeeze(-1)
-        x = self.backbone.embedding(x)
-        for i, layer in enumerate(self.backbone.layers):
-            y_f = layer.mixer_f(layer.norm(x))
-            if self.bidirectional:
-                y_b = layer.mixer_b(layer.norm(x.flip(1)))
-                x = y_f + y_b + x
-            else:
-                x = y_f + x
-
-        x = self.backbone.norm_f(x)
+        seq_len = x.shape[1]
+        if self.use_embedding: x = self.embedding(x.long())
+        else: x = self.embedding(x)
+        for layer in self.layers:
+            y_f = layer.mixer(layer.norm(x))
+            y_b = layer.mixer(layer.norm(x.flip(1))) if self.bidirectional else 0.0
+            x = x + y_f + y_b
+        x = self.norm_f(x)
         logits = self.out_proj(x)
-        return logits[:, :seqlen]
-
+        return logits[:, :seq_len]

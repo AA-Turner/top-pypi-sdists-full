@@ -1,11 +1,11 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
-Use Vscan to protect data from being compromised by viruses or other malicious code. Vscan combines best-in-class third party antivirus software with ONTAP features that give you the flexibility you need to control which files get scanned and when. Storage systems offload scanning operations to external servers hosting antivirus software from third party vendors. An Antivirus Connector on the external server handles communications between the storage system and the antivirus software.
+Use Vscan to protect data from being compromised by viruses or other malicious code. Vscan combines best-in-class third party antivirus software with ONTAP features that give you the flexibility you need to control which files get scanned and when. Storage systems offload scanning operations to external servers hosting antivirus software from third party vendors. An Antivirus Connector on the external server handles communications between the storage system and the antivirus software. Vscan is not supported on continuous availability (CA) shares.
 ## Examples
 ### Retrieving all of the Vscan configurations
 ```python
@@ -27,72 +27,71 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
             "scanner_pools": [
                 {
                     "cluster": {
-                        "name": "Cluster1",
                         "uuid": "0228714d-f268-11e8-8851-0050568e5298",
+                        "name": "Cluster1",
                     },
-                    "servers": ["1.1.1.1", "10.72.204.27"],
-                    "name": "scanner-1",
-                    "role": "primary",
                     "privileged_users": ["cifs\\u1", "cifs\\u2"],
+                    "servers": ["1.1.1.1", "10.72.204.27"],
+                    "role": "primary",
+                    "name": "scanner-1",
                 },
                 {
                     "cluster": {
-                        "name": "Cluster1",
                         "uuid": "0228714d-f268-11e8-8851-0050568e5298",
+                        "name": "Cluster1",
                     },
-                    "servers": ["1.1.1.1", "10.72.204.27"],
-                    "name": "scanner-2",
-                    "role": "primary",
                     "privileged_users": ["cifs\\u1", "cifs\\u2"],
+                    "servers": ["1.1.1.1", "10.72.204.27"],
+                    "role": "primary",
+                    "name": "scanner-2",
                 },
             ],
             "on_access_policies": [
                 {
-                    "enabled": True,
                     "mandatory": True,
-                    "name": "default_CIFS",
                     "scope": {
                         "scan_without_extension": True,
                         "include_extensions": ["*"],
+                        "scan_readonly_volumes": False,
                         "only_execute_access": False,
                         "max_file_size": 2147483648,
-                        "scan_readonly_volumes": False,
                     },
+                    "enabled": True,
+                    "name": "default_CIFS",
                 },
                 {
-                    "enabled": False,
                     "mandatory": True,
+                    "scope": {
+                        "exclude_paths": ["\\dir"],
+                        "scan_without_extension": True,
+                        "include_extensions": ["mp*", "txt"],
+                        "scan_readonly_volumes": False,
+                        "only_execute_access": False,
+                        "max_file_size": 10000,
+                        "exclude_extensions": ["mp*", "txt"],
+                    },
+                    "enabled": False,
                     "name": "on-access-test1",
-                    "scope": {
-                        "exclude_paths": ["\\dir"],
-                        "scan_without_extension": True,
-                        "include_extensions": ["mp*", "txt"],
-                        "only_execute_access": False,
-                        "max_file_size": 10000,
-                        "exclude_extensions": ["mp*", "txt"],
-                        "scan_readonly_volumes": False,
-                    },
                 },
                 {
-                    "enabled": False,
                     "mandatory": True,
-                    "name": "on-access-test2",
                     "scope": {
                         "exclude_paths": ["\\dir"],
                         "scan_without_extension": True,
                         "include_extensions": ["mp*", "txt"],
+                        "scan_readonly_volumes": False,
                         "only_execute_access": False,
                         "max_file_size": 10000,
                         "exclude_extensions": ["mp*", "txt"],
-                        "scan_readonly_volumes": False,
                     },
+                    "enabled": False,
+                    "name": "on-access-test2",
                 },
             ],
             "enabled": True,
+            "svm": {"uuid": "03ce5c36-f269-11e8-8852-0050568e5298", "name": "vs1"},
             "on_demand_policies": [
                 {
-                    "name": "task-1",
-                    "log_path": "/vol1",
                     "scan_paths": ["/vol1"],
                     "scope": {
                         "exclude_paths": ["/vol1"],
@@ -101,10 +100,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                         "max_file_size": 10000,
                         "exclude_extensions": ["mp3", "mp4"],
                     },
+                    "log_path": "/vol1",
+                    "name": "task-1",
                 },
                 {
-                    "name": "task-2",
-                    "log_path": "/vol2",
                     "scan_paths": ["/vol1"],
                     "scope": {
                         "exclude_paths": ["/vol2"],
@@ -113,61 +112,62 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                         "max_file_size": 10000,
                         "exclude_extensions": ["mp3", "mp4"],
                     },
+                    "log_path": "/vol2",
+                    "name": "task-2",
                 },
             ],
-            "svm": {"name": "vs1", "uuid": "03ce5c36-f269-11e8-8852-0050568e5298"},
         }
     ),
     Vscan(
         {
             "scanner_pools": [
                 {
-                    "servers": ["1.1.1.1"],
-                    "name": "sp2",
-                    "role": "idle",
                     "privileged_users": ["cifs\\u1"],
+                    "servers": ["1.1.1.1"],
+                    "role": "idle",
+                    "name": "sp2",
                 }
             ],
             "on_access_policies": [
                 {
-                    "enabled": True,
                     "mandatory": True,
-                    "name": "default_CIFS",
                     "scope": {
                         "scan_without_extension": True,
                         "include_extensions": ["*"],
+                        "scan_readonly_volumes": False,
                         "only_execute_access": False,
                         "max_file_size": 2147483648,
-                        "scan_readonly_volumes": False,
                     },
+                    "enabled": True,
+                    "name": "default_CIFS",
                 },
                 {
-                    "enabled": False,
                     "mandatory": True,
-                    "name": "ap1",
                     "scope": {
                         "scan_without_extension": True,
                         "include_extensions": ["*"],
+                        "scan_readonly_volumes": False,
                         "only_execute_access": False,
                         "max_file_size": 2147483648,
-                        "scan_readonly_volumes": False,
                     },
+                    "enabled": False,
+                    "name": "ap1",
                 },
             ],
             "enabled": False,
+            "svm": {"uuid": "24c2567a-f269-11e8-8852-0050568e5298", "name": "vs2"},
             "on_demand_policies": [
                 {
-                    "name": "t1",
-                    "log_path": "/vol1",
                     "scan_paths": ["/vol1"],
                     "scope": {
                         "scan_without_extension": True,
                         "include_extensions": ["*"],
                         "max_file_size": 10737418240,
                     },
+                    "log_path": "/vol1",
+                    "name": "t1",
                 }
             ],
-            "svm": {"name": "vs2", "uuid": "24c2567a-f269-11e8-8852-0050568e5298"},
         }
     ),
 ]
@@ -196,52 +196,52 @@ Vscan(
     {
         "scanner_pools": [
             {
-                "servers": ["1.1.1.1"],
-                "name": "sp2",
-                "role": "idle",
                 "privileged_users": ["cifs\\u1"],
+                "servers": ["1.1.1.1"],
+                "role": "idle",
+                "name": "sp2",
             }
         ],
         "on_access_policies": [
             {
-                "enabled": True,
                 "mandatory": True,
-                "name": "default_CIFS",
                 "scope": {
                     "scan_without_extension": True,
                     "include_extensions": ["*"],
+                    "scan_readonly_volumes": False,
                     "only_execute_access": False,
                     "max_file_size": 2147483648,
-                    "scan_readonly_volumes": False,
                 },
+                "enabled": True,
+                "name": "default_CIFS",
             },
             {
-                "enabled": False,
                 "mandatory": True,
-                "name": "ap1",
                 "scope": {
                     "scan_without_extension": True,
                     "include_extensions": ["*"],
+                    "scan_readonly_volumes": False,
                     "only_execute_access": False,
                     "max_file_size": 2147483648,
-                    "scan_readonly_volumes": False,
                 },
+                "enabled": False,
+                "name": "ap1",
             },
         ],
         "enabled": False,
+        "svm": {"uuid": "24c2567a-f269-11e8-8852-0050568e5298", "name": "vs2"},
         "on_demand_policies": [
             {
-                "name": "t1",
-                "log_path": "/vol1",
                 "scan_paths": ["/vol1"],
                 "scope": {
                     "scan_without_extension": True,
                     "include_extensions": ["*"],
                     "max_file_size": 10737418240,
                 },
+                "log_path": "/vol1",
+                "name": "t1",
             }
         ],
-        "svm": {"name": "vs2", "uuid": "24c2567a-f269-11e8-8852-0050568e5298"},
     }
 )
 
@@ -318,40 +318,39 @@ Vscan(
         "scanner_pools": [
             {
                 "cluster": {
-                    "name": "Cluster1",
                     "uuid": "ab746d77-17b7-11e9-b450-0050568ecd85",
+                    "name": "Cluster1",
                 },
-                "servers": ["1.1.1.1", "10.72.204.27"],
-                "name": "scanner-1",
-                "role": "primary",
                 "privileged_users": ["cifs\\u1", "cifs\\u2"],
+                "servers": ["1.1.1.1", "10.72.204.27"],
+                "role": "primary",
+                "name": "scanner-1",
             }
         ],
         "on_access_policies": [
             {
-                "enabled": True,
                 "mandatory": True,
-                "name": "on-access-test",
                 "scope": {
                     "exclude_paths": ["\\vol"],
                     "scan_without_extension": True,
                     "include_extensions": ["mp*", "txt"],
+                    "scan_readonly_volumes": False,
                     "only_execute_access": False,
                     "max_file_size": 21474,
                     "exclude_extensions": ["mp*", "txt"],
-                    "scan_readonly_volumes": False,
                 },
+                "enabled": True,
+                "name": "on-access-test",
             }
         ],
         "enabled": True,
+        "svm": {"uuid": "b103be27-17b8-11e9-b451-0050568ecd85", "name": "vs1"},
         "on_demand_policies": [
             {
                 "schedule": {
-                    "name": "daily",
                     "uuid": "d4984822-17b7-11e9-b450-0050568ecd85",
+                    "name": "daily",
                 },
-                "name": "task-1",
-                "log_path": "/vol",
                 "scan_paths": ["/vol"],
                 "scope": {
                     "exclude_paths": ["//"],
@@ -360,9 +359,10 @@ Vscan(
                     "max_file_size": 10737,
                     "exclude_extensions": ["mp3", "mp4"],
                 },
+                "log_path": "/vol",
+                "name": "task-1",
             }
         ],
-        "svm": {"name": "vs1", "uuid": "b103be27-17b8-11e9-b451-0050568ecd85"},
     }
 )
 
@@ -414,26 +414,26 @@ Vscan(
         "scanner_pools": [
             {
                 "cluster": {
-                    "name": "Cluster1",
                     "uuid": "ab746d77-17b7-11e9-b450-0050568ecd85",
+                    "name": "Cluster1",
                 },
-                "servers": ["1.1.1.1", "10.72.204.27"],
-                "name": "scanner-1",
-                "role": "primary",
                 "privileged_users": ["cifs\\u1", "cifs\\u2"],
+                "servers": ["1.1.1.1", "10.72.204.27"],
+                "role": "primary",
+                "name": "scanner-1",
             },
             {
                 "cluster": {
-                    "name": "Cluster1",
                     "uuid": "ab746d77-17b7-11e9-b450-0050568ecd85",
+                    "name": "Cluster1",
                 },
-                "servers": ["1.1.1.5", "10.72.3.27"],
-                "name": "scanner-2",
-                "role": "primary",
                 "privileged_users": ["cifs\\u3", "cifs\\u4"],
+                "servers": ["1.1.1.5", "10.72.3.27"],
+                "role": "primary",
+                "name": "scanner-2",
             },
         ],
-        "svm": {"name": "vs1", "uuid": "b103be27-17b8-11e9-b451-0050568ecd85"},
+        "svm": {"uuid": "b103be27-17b8-11e9-b451-0050568ecd85", "name": "vs1"},
     }
 )
 
@@ -492,35 +492,35 @@ Vscan(
     {
         "on_access_policies": [
             {
-                "enabled": False,
                 "mandatory": True,
-                "name": "on-access-test11",
                 "scope": {
                     "exclude_paths": ["\\vol"],
                     "scan_without_extension": True,
                     "include_extensions": ["mp*", "txt"],
+                    "scan_readonly_volumes": False,
                     "only_execute_access": False,
                     "max_file_size": 214748,
                     "exclude_extensions": ["mp*", "txt"],
-                    "scan_readonly_volumes": False,
                 },
+                "enabled": False,
+                "name": "on-access-test11",
             },
             {
-                "enabled": False,
                 "mandatory": True,
-                "name": "on-access-test10",
                 "scope": {
                     "exclude_paths": ["\\vol"],
                     "scan_without_extension": True,
                     "include_extensions": ["mp*", "txt"],
+                    "scan_readonly_volumes": False,
                     "only_execute_access": False,
                     "max_file_size": 21474,
                     "exclude_extensions": ["mp*", "txt"],
-                    "scan_readonly_volumes": False,
                 },
+                "enabled": False,
+                "name": "on-access-test10",
             },
         ],
-        "svm": {"name": "vs1", "uuid": "b103be27-17b8-11e9-b451-0050568ecd85"},
+        "svm": {"uuid": "b103be27-17b8-11e9-b451-0050568ecd85", "name": "vs1"},
     }
 )
 
@@ -577,14 +577,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Vscan(
     {
+        "svm": {"uuid": "b103be27-17b8-11e9-b451-0050568ecd85", "name": "vs1"},
         "on_demand_policies": [
             {
                 "schedule": {
-                    "name": "daily",
                     "uuid": "d4984822-17b7-11e9-b450-0050568ecd85",
+                    "name": "daily",
                 },
-                "name": "task-1",
-                "log_path": "/vol",
                 "scan_paths": ["/vol"],
                 "scope": {
                     "exclude_paths": ["/vol1"],
@@ -593,10 +592,10 @@ Vscan(
                     "max_file_size": 107374,
                     "exclude_extensions": ["mp3", "mp4"],
                 },
+                "log_path": "/vol",
+                "name": "task-1",
             },
             {
-                "name": "task-2",
-                "log_path": "/vol",
                 "scan_paths": ["/vol"],
                 "scope": {
                     "exclude_paths": ["/vol1"],
@@ -605,9 +604,10 @@ Vscan(
                     "max_file_size": 107374,
                     "exclude_extensions": ["mp3", "mp4"],
                 },
+                "log_path": "/vol",
+                "name": "task-2",
             },
         ],
-        "svm": {"name": "vs1", "uuid": "b103be27-17b8-11e9-b451-0050568ecd85"},
     }
 )
 
@@ -850,6 +850,7 @@ Important notes:
 * There needs to be at least one active scanner-pool and one enabled On-Access policy to enable Vscan successfully.
 * By default, a Vscan is enabled when it’s created.
 * By default, the Vscan On-Access policies created from this endpoint are in the disabled state. You can use the On-Access policy PATCH endpoint to enable a particular On-Access policy. In ONTAP 9.6, only one Vscan On-Access policy can be enabled and only one Vscan On-Demand policy can be scheduled on an SVM.
+* Vscan is not supported on continuous availability (CA) shares.
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the Vscan configuration.
 ### Recommended optional properties
@@ -972,6 +973,7 @@ Important notes:
 * There needs to be at least one active scanner-pool and one enabled On-Access policy to enable Vscan successfully.
 * By default, a Vscan is enabled when it’s created.
 * By default, the Vscan On-Access policies created from this endpoint are in the disabled state. You can use the On-Access policy PATCH endpoint to enable a particular On-Access policy. In ONTAP 9.6, only one Vscan On-Access policy can be enabled and only one Vscan On-Demand policy can be scheduled on an SVM.
+* Vscan is not supported on continuous availability (CA) shares.
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the Vscan configuration.
 ### Recommended optional properties

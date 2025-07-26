@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -47,6 +47,9 @@ Example: 2019-04-17T15:49:26.000+0000 """
 
     external_cache = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_external_cache.ClusterNodesExternalCacheSchema", unknown=EXCLUDE, data_key="external_cache", allow_none=True)
     r""" Cache used for buffer management. """
+
+    external_cache_bypass = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_external_cache_bypass.ClusterNodesExternalCacheBypassSchema", unknown=EXCLUDE, data_key="external_cache_bypass", allow_none=True)
+    r""" External cache bypass management. """
 
     ha = marshmallow_fields.Nested("netapp_ontap.models.node_response_records_ha.NodeResponseRecordsHaSchema", unknown=EXCLUDE, data_key="ha", allow_none=True)
     r""" The ha field of the node_response_records. """
@@ -98,6 +101,9 @@ Example: FAS3070 """
 
 Example: node-01 """
 
+    nvlog = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_nvlog.ClusterNodesNvlogSchema", unknown=EXCLUDE, data_key="nvlog", allow_none=True)
+    r""" Non-volatile write log settings. """
+
     nvram = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_nvram.ClusterNodesNvramSchema", unknown=EXCLUDE, data_key="nvram", allow_none=True)
     r""" The nvram field of the node_response_records. """
 
@@ -142,7 +148,7 @@ Valid choices:
     statistics = marshmallow_fields.Nested("netapp_ontap.models.node_statistics.NodeStatisticsSchema", unknown=EXCLUDE, data_key="statistics", allow_none=True)
     r""" Raw CPU performance for the nodes. """
 
-    storage_availability_zones = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.node_storage_availability_zones.NodeStorageAvailabilityZonesSchema", unknown=EXCLUDE, allow_none=True), data_key="storage_availability_zones", allow_none=True)
+    storage_availability_zones = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.storage_availability_zone.StorageAvailabilityZoneSchema", unknown=EXCLUDE, allow_none=True), data_key="storage_availability_zones", allow_none=True)
     r""" Storage availability zones associated with the node. """
 
     storage_configuration = marshmallow_fields.Str(data_key="storage_configuration", allow_none=True)
@@ -225,6 +231,7 @@ Example: 791603000068 """
         "controller",
         "date",
         "external_cache",
+        "external_cache_bypass",
         "ha",
         "hw_assist",
         "is_spares_low",
@@ -238,6 +245,7 @@ Example: 791603000068 """
         "metrocluster",
         "model",
         "name",
+        "nvlog",
         "nvram",
         "owner",
         "serial_number",
@@ -245,9 +253,7 @@ Example: 791603000068 """
         "snaplock",
         "state",
         "statistics",
-        "storage_availability_zones.links",
-        "storage_availability_zones.name",
-        "storage_availability_zones.uuid",
+        "storage_availability_zones",
         "storage_configuration",
         "system_aggregate.links",
         "system_aggregate.name",
@@ -260,31 +266,35 @@ Example: 791603000068 """
         "version",
         "vm",
     ]
-    """links,anti_ransomware_version,cluster_interfaces.links,cluster_interfaces.ip,cluster_interfaces.name,cluster_interfaces.uuid,controller,date,external_cache,ha,hw_assist,is_spares_low,location,management_interfaces.links,management_interfaces.ip,management_interfaces.name,management_interfaces.uuid,membership,metric,metrocluster,model,name,nvram,owner,serial_number,service_processor,snaplock,state,statistics,storage_availability_zones.links,storage_availability_zones.name,storage_availability_zones.uuid,storage_configuration,system_aggregate.links,system_aggregate.name,system_aggregate.uuid,system_id,system_machine_type,uptime,uuid,vendor_serial_number,version,vm,"""
+    """links,anti_ransomware_version,cluster_interfaces.links,cluster_interfaces.ip,cluster_interfaces.name,cluster_interfaces.uuid,controller,date,external_cache,external_cache_bypass,ha,hw_assist,is_spares_low,location,management_interfaces.links,management_interfaces.ip,management_interfaces.name,management_interfaces.uuid,membership,metric,metrocluster,model,name,nvlog,nvram,owner,serial_number,service_processor,snaplock,state,statistics,storage_availability_zones,storage_configuration,system_aggregate.links,system_aggregate.name,system_aggregate.uuid,system_id,system_machine_type,uptime,uuid,vendor_serial_number,version,vm,"""
 
     patchable_fields = [
+        "external_cache_bypass",
         "ha",
         "location",
         "name",
+        "nvlog",
         "owner",
         "service_processor",
         "system_aggregate.name",
         "system_aggregate.uuid",
     ]
-    """ha,location,name,owner,service_processor,system_aggregate.name,system_aggregate.uuid,"""
+    """external_cache_bypass,ha,location,name,nvlog,owner,service_processor,system_aggregate.name,system_aggregate.uuid,"""
 
     postable_fields = [
         "cluster_interface",
+        "external_cache_bypass",
         "ha",
         "location",
         "management_interface",
         "name",
+        "nvlog",
         "owner",
         "service_processor",
         "system_aggregate.name",
         "system_aggregate.uuid",
     ]
-    """cluster_interface,ha,location,management_interface,name,owner,service_processor,system_aggregate.name,system_aggregate.uuid,"""
+    """cluster_interface,external_cache_bypass,ha,location,management_interface,name,nvlog,owner,service_processor,system_aggregate.name,system_aggregate.uuid,"""
 
 
 class NodeResponseRecords(Resource):

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -196,7 +196,6 @@ GET /application/applications/{application.uuid}/snapshots?consistency_type=appl
         **kwargs
     ) -> Union[List["ApplicationSnapshot"], NetAppResponse]:
         r"""Creates a snapshot of the application.
-
 ### Required properties
 * `name`
 ### Recommended optional properties
@@ -225,7 +224,6 @@ GET /application/applications/{application.uuid}/snapshots?consistency_type=appl
         **kwargs
     ) -> NetAppResponse:
         r"""Delete a snapshot of an application
-
 ### Query examples
 Individual snapshots can be destroyed with no query parameters, or a range of snapshots can be destroyed at one time using a query.<br/>
 The following query deletes all application snapshots created before May 4, 2017<br/><br/>
@@ -284,7 +282,6 @@ Component snapshots are essentially more granular application snapshots. There i
         **kwargs
     ) -> NetAppResponse:
         r"""Creates a snapshot of the application.
-
 ### Required properties
 * `name`
 ### Recommended optional properties
@@ -310,7 +307,6 @@ Component snapshots are essentially more granular application snapshots. There i
         **kwargs
     ) -> NetAppResponse:
         r"""Delete a snapshot of an application
-
 ### Query examples
 Individual snapshots can be destroyed with no query parameters, or a range of snapshots can be destroyed at one time using a query.<br/>
 The following query deletes all application snapshots created before May 4, 2017<br/><br/>
@@ -336,7 +332,6 @@ DELETE /application/applications/{application.uuid}/snapshots?create_time=<2017-
         **kwargs
     ) -> NetAppResponse:
         r"""Restore an application snapshot<br/>
-
 Restoring an application snapshot reverts all storage elements in the snapshot to the state in which the snapshot was in when the snapshot was taken. This restoration does not apply to access settings that might have changed since the snapshot was created.
 ### Learn more
 * [`DOC /application`](#docs-application-overview)

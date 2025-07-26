@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -289,7 +289,7 @@ class ActiveDirectoryPreferredDc(Resource):
         r"""Creates an Active Directory preferred DC configuration for an SVM.
 ### Required properties
 * `svm.uuid` - Existing SVM in which to create the preferred DC.
-* `domain` - Fully Qualified Domain Name.
+* `fqdn` - Fully Qualified Domain Name.
 * `server_ip` - IPv4/IPv6 address of the preferred DC.
 #### The following parameters are optional:
 - skip_config_validation
@@ -364,7 +364,7 @@ class ActiveDirectoryPreferredDc(Resource):
         r"""Creates an Active Directory preferred DC configuration for an SVM.
 ### Required properties
 * `svm.uuid` - Existing SVM in which to create the preferred DC.
-* `domain` - Fully Qualified Domain Name.
+* `fqdn` - Fully Qualified Domain Name.
 * `server_ip` - IPv4/IPv6 address of the preferred DC.
 #### The following parameters are optional:
 - skip_config_validation

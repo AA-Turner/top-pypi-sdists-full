@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -24,10 +24,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     EmsMessage(
         {
-            "name": "CR.Data.File.Inaccessible",
             "_links": {
                 "self": {"href": "/api/support/ems/messages/CR.Data.File.Inaccessible"}
             },
+            "name": "CR.Data.File.Inaccessible",
         }
     )
 ]

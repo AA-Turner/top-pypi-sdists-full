@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -79,18 +79,8 @@ Example: s3-server-1 """
 
     patchable_fields = [
         "allowed",
-        "certificate.name",
-        "certificate.uuid",
-        "default_unix_user",
-        "default_win_user",
-        "enabled",
-        "is_http_enabled",
-        "is_https_enabled",
-        "name",
-        "port",
-        "secure_port",
     ]
-    """allowed,certificate.name,certificate.uuid,default_unix_user,default_win_user,enabled,is_http_enabled,is_https_enabled,name,port,secure_port,"""
+    """allowed,"""
 
     postable_fields = [
         "allowed",

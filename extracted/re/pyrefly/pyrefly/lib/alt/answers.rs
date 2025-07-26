@@ -18,7 +18,6 @@ use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_util::display::DisplayWith;
 use pyrefly_util::display::DisplayWithCtx;
-use pyrefly_util::gas::Gas;
 use pyrefly_util::lock::Mutex;
 use pyrefly_util::recurser::Recurser;
 use pyrefly_util::uniques::UniqueFactory;
@@ -453,7 +452,7 @@ impl Answers {
             for idx in bindings.keys::<Key>() {
                 let key = bindings.idx_to_key(idx);
                 let (imported_module_name, imported_name) =
-                    match key_to_intermediate_definition(bindings, key, &mut Gas::new(20)) {
+                    match key_to_intermediate_definition(bindings, key) {
                         None => continue,
                         Some(IntermediateDefinition::Local(_)) => continue,
                         Some(IntermediateDefinition::Module(_)) => continue,
@@ -622,7 +621,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn record_overload_trace(
         &self,
         loc: TextRange,
-        all_overloads: &[Callable],
+        all_overloads: Vec<&Callable>,
         closest_overload: &Callable,
         is_closest_overload_chosen: bool,
     ) {
@@ -630,7 +629,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             trace.lock().overloaded_callees.insert(
                 loc,
                 OverloadedCallee {
-                    all_overloads: all_overloads.to_vec(),
+                    all_overloads: all_overloads
+                        .into_iter()
+                        .map(|func| (*func).clone())
+                        .collect(),
                     closest_overload: closest_overload.clone(),
                     is_closest_overload_chosen,
                 },

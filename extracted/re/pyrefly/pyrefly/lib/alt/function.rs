@@ -74,12 +74,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 // This is the last definition in the chain. We should produce an overload type.
                 let last_range = def.id_range;
                 let has_impl = def.stub_or_impl == FunctionStubOrImpl::Impl;
-                let mut acc = Vec1::new((last_range, ty));
+                let mut acc = Vec1::new((last_range, ty, def.metadata.clone()));
                 let mut first = def;
                 let mut impl_before_overload_range = None;
                 while let Some(def) = self.step_pred(predecessor) {
                     if def.metadata.flags.is_overload {
-                        acc.push((def.id_range, def.ty.clone()));
+                        acc.push((def.id_range, def.ty.clone(), def.metadata.clone()));
                         first = def;
                     } else {
                         impl_before_overload_range = Some(def.id_range);
@@ -123,11 +123,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 } else {
                     acc.reverse();
                     Type::Overload(Overload {
-                        signatures: self.extract_signatures(
-                            first.metadata.kind.as_func_id().func,
-                            acc,
-                            errors,
-                        ),
+                        signatures: self
+                            .extract_signatures(first.metadata.kind.as_func_id().func, acc, errors)
+                            .mapped(|(_, sig)| sig),
                         metadata: Box::new(first.metadata.clone()),
                     })
                 }
@@ -137,11 +135,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         } else {
             let impl_is_deprecated = def.metadata.flags.is_deprecated;
             let mut acc = Vec::new();
-            let mut first = def;
+            let mut first = def.clone();
             while let Some(def) = self.step_pred(predecessor)
                 && def.metadata.flags.is_overload
             {
-                acc.push((def.id_range, def.ty.clone()));
+                acc.push((def.id_range, def.ty.clone(), def.metadata.clone()));
                 first = def;
             }
             acc.reverse();
@@ -158,12 +156,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     // TODO: merge the metadata properly.
                     let mut metadata = first.metadata.clone();
                     metadata.flags.is_deprecated = impl_is_deprecated;
+                    let sigs =
+                        self.extract_signatures(metadata.kind.as_func_id().func, defs, errors);
+                    self.check_consistency(&sigs, def, errors);
                     Type::Overload(Overload {
-                        signatures: self.extract_signatures(
-                            metadata.kind.as_func_id().func,
-                            defs,
-                            errors,
-                        ),
+                        signatures: sigs.mapped(|(_, sig)| sig),
                         metadata: Box::new(metadata),
                     })
                 }
@@ -183,18 +180,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Arc<DecoratedFunction> {
         let defining_cls = class_key.and_then(|k| self.get_idx(*k).0.dupe());
-        let mut self_type = if def.name.id == dunder::NEW || def.name.id == dunder::INIT_SUBCLASS {
-            // __new__ and __init_subclass__ are staticmethods, and do not take a self parameter.
-            None
-        } else {
-            defining_cls
-                .as_ref()
-                .map(|cls| Type::SelfType(self.as_class_type_unchecked(cls)))
-        };
+        let mut self_type = defining_cls
+            .as_ref()
+            .map(|cls| Type::SelfType(self.as_class_type_unchecked(cls)));
+
+        // __new__ is an implicit staticmethod, __init_subclass__ is an implicit classmethod
+        // __new__, unlike decorated staticmethods, uses Self
+        let is_dunder_new = defining_cls.is_some() && def.name.as_str() == dunder::NEW;
+        let is_dunder_init_subclass =
+            defining_cls.is_some() && def.name.as_str() == dunder::INIT_SUBCLASS;
 
         let mut is_overload = false;
-        let mut is_staticmethod = false;
-        let mut is_classmethod = false;
+        let mut is_staticmethod = is_dunder_new;
+        let mut is_classmethod = is_dunder_init_subclass;
         let mut is_deprecated = false;
         let mut is_property_getter = false;
         let mut is_property_setter_with_getter = None;
@@ -259,10 +257,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Look for a @classmethod or @staticmethod decorator and change the "self" type
         // accordingly. This is not totally correct, since it doesn't account for chaining
         // decorators, or weird cases like both decorators existing at the same time.
-        if is_staticmethod {
-            self_type = None;
-        } else if is_classmethod {
+        if is_classmethod || is_dunder_new {
             self_type = self_type.map(Type::type_form);
+        } else if is_staticmethod {
+            self_type = None;
         }
 
         let get_requiredness =
@@ -521,8 +519,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 {
                     let call_attr = self.instance_to_method(&cls).and_then(|call_attr| {
                         if let Type::BoundMethod(m) = call_attr {
-                            let func = m.as_bound_function();
-                            Some(func.to_unbound_callable().unwrap_or(func))
+                            let func = m.as_function();
+                            Some(func.drop_first_param_of_unbound_callable().unwrap_or(func))
                         } else {
                             None
                         }
@@ -651,24 +649,31 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     fn extract_signatures(
         &self,
         func: Name,
-        ts: Vec1<(TextRange, Type)>,
+        ts: Vec1<(TextRange, Type, FuncMetadata)>,
         errors: &ErrorCollector,
-    ) -> Vec1<OverloadType> {
-        ts.mapped(|(range, t)| match t {
-            Type::Callable(callable) => OverloadType::Callable(*callable),
-            Type::Function(function) => OverloadType::Callable(function.signature),
-            Type::Forall(box Forall {
-                tparams,
-                body: Forallable::Function(func),
-            }) => OverloadType::Forall(Forall {
-                tparams,
-                body: func,
-            }),
-            Type::Any(any_style) => {
-                OverloadType::Callable(Callable::ellipsis(any_style.propagate()))
-            }
-            _ => {
-                self.error(
+    ) -> Vec1<(TextRange, OverloadType)> {
+        ts.mapped(|(range, t, metadata)| {
+            (
+                range,
+                match t {
+                    Type::Callable(callable) => OverloadType::Callable(Function {
+                        signature: *callable,
+                        metadata,
+                    }),
+                    Type::Function(function) => OverloadType::Callable(*function),
+                    Type::Forall(box Forall {
+                        tparams,
+                        body: Forallable::Function(func),
+                    }) => OverloadType::Forall(Forall {
+                        tparams,
+                        body: func,
+                    }),
+                    Type::Any(any_style) => OverloadType::Callable(Function {
+                        signature: Callable::ellipsis(any_style.propagate()),
+                        metadata,
+                    }),
+                    _ => {
+                        self.error(
                     errors,
                     range,
                     ErrorInfo::Kind(ErrorKind::InvalidOverload),
@@ -678,8 +683,50 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                         self.for_display(t)
                     ),
                 );
-                OverloadType::Callable(Callable::ellipsis(Type::any_error()))
-            }
+                        OverloadType::Callable(Function {
+                            signature: Callable::ellipsis(Type::any_error()),
+                            metadata,
+                        })
+                    }
+                },
+            )
         })
+    }
+
+    fn check_consistency(
+        &self,
+        overloads: &Vec1<(TextRange, OverloadType)>,
+        def: Arc<DecoratedFunction>,
+        errors: &ErrorCollector,
+    ) {
+        let impl_tparams = match &def.ty {
+            Type::Forall(forall) => Some(&forall.tparams),
+            _ => None,
+        };
+        let Some(impl_return) = def.ty.callable_return_type() else {
+            return;
+        };
+        for (range, overload) in overloads.iter() {
+            let func = match overload {
+                OverloadType::Callable(func) => func,
+                OverloadType::Forall(forall) => {
+                    &self
+                        .fresh_quantified_function(&forall.tparams, forall.body.clone())
+                        .1
+                }
+            };
+            let want = match impl_tparams {
+                Some(tparams) => {
+                    &self
+                        .solver()
+                        .fresh_quantified(tparams, impl_return.clone(), self.uniques)
+                        .1
+                }
+                None => &impl_return,
+            };
+            self.check_type(want, &func.signature.ret, *range, errors, &|| {
+                TypeCheckContext::of_kind(TypeCheckKind::OverloadReturn)
+            });
+        }
     }
 }

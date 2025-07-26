@@ -38,26 +38,32 @@ fn get_all_builtin_completions() -> Vec<CompletionItem> {
     .collect()
 }
 
-/// Creates a completion response message
-/// completion_items is a serde_json value containing completion items to include in the response
-pub fn make_completion_result(request_id: i32, completion_items: serde_json::Value) -> Message {
-    let mut all_items = Vec::new();
+/// Creates a completion response message sorting the completion_items.
+/// completion_items is a Vec of CompletionItem to include in the response
+pub fn make_sorted_completion_result_with_all_keywords(
+    request_id: i32,
+    completion_items: Vec<CompletionItem>,
+) -> Message {
+    let mut all_items = get_all_builtin_completions();
+    all_items.extend(completion_items);
+    all_items.sort_by(|item1, item2| {
+        item1
+            .sort_text
+            .cmp(&item2.sort_text)
+            .then_with(|| item1.label.cmp(&item2.label))
+            .then_with(|| item1.detail.cmp(&item2.detail))
+    });
 
-    for builtin in get_all_builtin_completions() {
-        all_items.push(serde_json::to_value(builtin).unwrap());
-    }
-
-    if let Some(items) = completion_items.as_array() {
-        for item in items {
-            all_items.push(item.clone());
-        }
-    }
+    let items_json: Vec<serde_json::Value> = all_items
+        .into_iter()
+        .map(|item| serde_json::to_value(item).unwrap())
+        .collect();
 
     Message::Response(Response {
         id: RequestId::from(request_id),
         result: Some(serde_json::json!({
             "isIncomplete": false,
-            "items": all_items,
+            "items": items_json,
         })),
         error: None,
     })
@@ -128,13 +134,25 @@ fn test_completion() {
             }),
         ],
         expected_messages_from_language_server: vec![
-            make_completion_result(
+            make_sorted_completion_result_with_all_keywords(
                 2,
-                serde_json::json!([{"detail":"type[Bar]","kind":6,"label":"Bar","sortText":"0"}]),
+                vec![CompletionItem {
+                    label: "Bar".to_owned(),
+                    detail: Some("type[Bar]".to_owned()),
+                    kind: Some(CompletionItemKind::VARIABLE),
+                    sort_text: Some("0".to_owned()),
+                    ..Default::default()
+                }],
             ),
-            make_completion_result(
+            make_sorted_completion_result_with_all_keywords(
                 3,
-                serde_json::json!([{"detail":"type[Bar]","kind":6,"label":"Bar","sortText":"0"}]),
+                vec![CompletionItem {
+                    label: "Bar".to_owned(),
+                    detail: Some("type[Bar]".to_owned()),
+                    kind: Some(CompletionItemKind::VARIABLE),
+                    sort_text: Some("0".to_owned()),
+                    ..Default::default()
+                }],
             ),
         ],
         ..Default::default()
@@ -159,7 +177,7 @@ fn test_completion_with_autoimport() {
                         "version": 2
                     },
                     "contentChanges": [{
-                        "text": format!("{}\n{}", std::fs::read_to_string(root_path.join("foo.py")).unwrap(), "this_is_a_very_long_function_name_so_we_can")
+                        "text": "this_is_a_very_long_function_name_so_we_can".to_owned()
                     }],
                 }),
             }),
@@ -171,27 +189,36 @@ fn test_completion_with_autoimport() {
                         "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string()
                     },
                     "position": {
-                        "line": 11,
+                        "line": 0,
                         "character": 43
                     }
                 }),
             }),
         ],
-        expected_messages_from_language_server: vec![make_completion_result(
+        expected_messages_from_language_server: vec![make_sorted_completion_result_with_all_keywords(
             2,
-            serde_json::json!([
-                {"detail":"type[Bar]","kind":6,"label":"Bar","sortText":"0"},
-                {
-                    "additionalTextEdits":[{
-                        "newText":"from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n",
-                        "range":{"end":{"character":0,"line":5},"start":{"character":0,"line":5}}
-                    }],
-                    "detail":"from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n",
-                    "kind":3,
-                    "label":"this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search",
-                    "sortText":"3"
-                }
-            ]),
+            vec![
+                CompletionItem {
+                    label: "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search".to_owned(),
+                    detail: Some("from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned()),
+                    kind: Some(CompletionItemKind::FUNCTION),
+                    sort_text: Some("3".to_owned()),
+                    additional_text_edits: Some(vec![lsp_types::TextEdit {
+                        range: lsp_types::Range {
+                            start: lsp_types::Position {
+                                line: 0,
+                                character: 0,
+                            },
+                            end: lsp_types::Position {
+                                line: 0,
+                                character: 0,
+                            },
+                        },
+                        new_text: "from autoimport_provider import this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search\n".to_owned(),
+                    }]),
+                    ..Default::default()
+                },
+            ],
         )],
         indexing_mode: IndexingMode::LazyBlocking,
         workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
@@ -237,17 +264,120 @@ fn test_completion_with_autoimport_in_defined_module() {
             }),
         ],
         // This response should contain no textedits because it's defined locally in the module
-        expected_messages_from_language_server: vec![make_completion_result(
+        expected_messages_from_language_server: vec![make_sorted_completion_result_with_all_keywords(
             2,
-            serde_json::json!([
-                {
-                    "detail":"() -> None",
-                    "kind":3,
-                    "label":"this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search",
-                    "sortText":"0"
+            vec![
+                CompletionItem {
+                    label: "this_is_a_very_long_function_name_so_we_can_deterministically_test_autoimport_with_fuzzy_search".to_owned(),
+                    detail: Some("() -> None".to_owned()),
+                    kind: Some(CompletionItemKind::FUNCTION),
+                    sort_text: Some("0".to_owned()),
+                    ..Default::default()
                 },
-            ]),
+            ],
         )],
+        indexing_mode: IndexingMode::LazyBlocking,
+        workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
+        ..Default::default()
+    });
+}
+
+#[test]
+fn test_completion_with_autoimport_duplicates() {
+    let root = get_test_files_root();
+    let root_path = root.path().join("duplicate_export_test");
+    let scope_uri = Url::from_file_path(root_path.clone()).unwrap();
+
+    run_test_lsp(TestCase {
+        messages_from_language_client: vec![
+            Message::from(build_did_open_notification(root_path.join("foo.py"))),
+            Message::from(Request {
+                id: RequestId::from(2),
+                method: "textDocument/completion".to_owned(),
+                params: serde_json::json!({
+                    "textDocument": {
+                        "uri": Url::from_file_path(root_path.join("foo.py")).unwrap().to_string()
+                    },
+                    "position": {
+                        "line": 5,
+                        "character": 14
+                    }
+                }),
+            }),
+        ],
+        expected_messages_from_language_server: vec![
+            make_sorted_completion_result_with_all_keywords(
+                2,
+                vec![
+                    CompletionItem {
+                        label: "MutableMappingUnrelatedAfter".to_owned(),
+                        detail: Some(
+                            "from typing import MutableMappingUnrelatedAfter\n".to_owned(),
+                        ),
+                        kind: Some(CompletionItemKind::CLASS),
+                        sort_text: Some("3".to_owned()),
+                        additional_text_edits: Some(vec![lsp_types::TextEdit {
+                            range: lsp_types::Range {
+                                start: lsp_types::Position {
+                                    line: 5,
+                                    character: 0,
+                                },
+                                end: lsp_types::Position {
+                                    line: 5,
+                                    character: 0,
+                                },
+                            },
+                            new_text: "from typing import MutableMappingUnrelatedAfter\n"
+                                .to_owned(),
+                        }]),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "MutableMapping".to_owned(),
+                        detail: Some("from typing import MutableMapping\n".to_owned()),
+                        kind: Some(CompletionItemKind::CLASS),
+                        sort_text: Some("3".to_owned()),
+                        additional_text_edits: Some(vec![lsp_types::TextEdit {
+                            range: lsp_types::Range {
+                                start: lsp_types::Position {
+                                    line: 5,
+                                    character: 0,
+                                },
+                                end: lsp_types::Position {
+                                    line: 5,
+                                    character: 0,
+                                },
+                            },
+                            new_text: "from typing import MutableMapping\n".to_owned(),
+                        }]),
+                        ..Default::default()
+                    },
+                    CompletionItem {
+                        label: "MutableMappingUnrelatedBefore".to_owned(),
+                        detail: Some(
+                            "from typing import MutableMappingUnrelatedBefore\n".to_owned(),
+                        ),
+                        kind: Some(CompletionItemKind::CLASS),
+                        sort_text: Some("3".to_owned()),
+                        additional_text_edits: Some(vec![lsp_types::TextEdit {
+                            range: lsp_types::Range {
+                                start: lsp_types::Position {
+                                    line: 5,
+                                    character: 0,
+                                },
+                                end: lsp_types::Position {
+                                    line: 5,
+                                    character: 0,
+                                },
+                            },
+                            new_text: "from typing import MutableMappingUnrelatedBefore\n"
+                                .to_owned(),
+                        }]),
+                        ..Default::default()
+                    },
+                ],
+            ),
+        ],
         indexing_mode: IndexingMode::LazyBlocking,
         workspace_folders: Some(vec![("test".to_owned(), scope_uri)]),
         ..Default::default()
@@ -276,10 +406,20 @@ fn test_module_completion() {
                 }),
             }),
         ],
-        expected_messages_from_language_server: vec![make_completion_result(
-            2,
-            serde_json::json!([{"detail":"bar","kind":9,"label":"bar","sortText":"0"}]),
-        )],
+        expected_messages_from_language_server: vec![Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(serde_json::json!({
+                "isIncomplete": false,
+                "items": vec![CompletionItem {
+                label: "bar".to_owned(),
+                detail: Some("bar".to_owned()),
+                kind: Some(CompletionItemKind::MODULE),
+                sort_text: Some("0".to_owned()),
+                ..Default::default()
+            }],
+            })),
+            error: None,
+        })],
         ..Default::default()
     });
 }
@@ -307,10 +447,14 @@ fn test_relative_module_completion() {
                 }),
             }),
         ],
-        expected_messages_from_language_server: vec![make_completion_result(
-            2,
-            serde_json::json!([]),
-        )],
+        expected_messages_from_language_server: vec![Message::Response(Response {
+            id: RequestId::from(2),
+            result: Some(serde_json::json!({
+                "isIncomplete": false,
+                "items": [],
+            })),
+            error: None,
+        })],
         ..Default::default()
     });
 }
@@ -387,13 +531,25 @@ fn test_empty_filepath_file_completion() {
             }),
         ],
         expected_messages_from_language_server: vec![
-            make_completion_result(
+            make_sorted_completion_result_with_all_keywords(
                 2,
-                serde_json::json!([{"detail":"(a: int, b: int, c: str) -> int","kind":3,"label":"tear","sortText":"0"}]),
+                vec![CompletionItem {
+                    label: "tear".to_owned(),
+                    detail: Some("(a: int, b: int, c: str) -> int".to_owned()),
+                    kind: Some(CompletionItemKind::FUNCTION),
+                    sort_text: Some("0".to_owned()),
+                    ..Default::default()
+                }],
             ),
-            make_completion_result(
+            make_sorted_completion_result_with_all_keywords(
                 3,
-                serde_json::json!([{"detail":"(a: int, b: int, c: str) -> int","kind":3,"label":"tear","sortText":"0"}]),
+                vec![CompletionItem {
+                    label: "tear".to_owned(),
+                    detail: Some("(a: int, b: int, c: str) -> int".to_owned()),
+                    kind: Some(CompletionItemKind::FUNCTION),
+                    sort_text: Some("0".to_owned()),
+                    ..Default::default()
+                }],
             ),
         ],
         ..Default::default()

@@ -7,6 +7,26 @@ import System.Runtime.InteropServices
 import System.Runtime.InteropServices.Java
 
 
+class JavaMarshal(System.Object):
+    """This class has no documentation."""
+
+    @staticmethod
+    def create_reference_tracking_handle(obj: typing.Any, context: typing.Any) -> System.Runtime.InteropServices.GCHandle:
+        ...
+
+    @staticmethod
+    def finish_cross_reference_processing(cross_references: typing.Any, unreachable_object_handles: System.ReadOnlySpan[System.Runtime.InteropServices.GCHandle]) -> None:
+        ...
+
+    @staticmethod
+    def get_context(obj: System.Runtime.InteropServices.GCHandle) -> typing.Any:
+        ...
+
+    @staticmethod
+    def initialize(mark_cross_references: typing.Any) -> None:
+        ...
+
+
 class StronglyConnectedComponent:
     """This class has no documentation."""
 
@@ -65,26 +85,6 @@ class MarkCrossReferencesArgs:
 
     @cross_references.setter
     def cross_references(self, value: typing.Any) -> None:
-        ...
-
-
-class JavaMarshal(System.Object):
-    """This class has no documentation."""
-
-    @staticmethod
-    def create_reference_tracking_handle(obj: typing.Any, context: typing.Any) -> System.Runtime.InteropServices.GCHandle:
-        ...
-
-    @staticmethod
-    def finish_cross_reference_processing(cross_references: typing.Any, unreachable_object_handles: System.ReadOnlySpan[System.Runtime.InteropServices.GCHandle]) -> None:
-        ...
-
-    @staticmethod
-    def get_context(obj: System.Runtime.InteropServices.GCHandle) -> typing.Any:
-        ...
-
-    @staticmethod
-    def initialize(mark_cross_references: typing.Any) -> None:
         ...
 
 

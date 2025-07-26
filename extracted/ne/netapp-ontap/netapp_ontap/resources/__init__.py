@@ -1,6 +1,6 @@
 # pylint: disable=line-too-long
 """
-Copyright &copy; 2024 NetApp Inc. All rights reserved.
+Copyright &copy; 2025 NetApp Inc. All rights reserved.
 
 All of the modules in this package represent individual object models which can
 be imported and used for communicating with the REST APIs. To see their interface,
@@ -191,7 +191,6 @@ CifsDomainPreferredDc.post_collection(cifs, "1234")
 URL|Resource
 :----------------|:-------
 `/api/security/key-managers/{security_key_manager[uuid]}/keys/{node[uuid]}/key-ids`| <a title="netapp_ontap.resources.key_manager_keys.KeyManagerKeys" href="../resources/key_manager_keys.html"><code>KeyManagerKeys</code></a>
-`/api/storage/directory-restore`| <a title="netapp_ontap.resources.directory_restore.DirectoryRestore" href="../resources/directory_restore.html"><code>DirectoryRestore</code></a>
 `/api/storage/namespaces/{nvme_namespace[uuid]}/metrics`| <a title="netapp_ontap.resources.performance_namespace_metric.PerformanceNamespaceMetric" href="../resources/performance_namespace_metric.html"><code>PerformanceNamespaceMetric</code></a>
 `/api/security/roles`| <a title="netapp_ontap.resources.role.Role" href="../resources/role.html"><code>Role</code></a>
 `/api/storage/volumes/{volume[uuid]}/top-metrics/clients`| <a title="netapp_ontap.resources.top_metrics_client.TopMetricsClient" href="../resources/top_metrics_client.html"><code>TopMetricsClient</code></a>
@@ -212,6 +211,7 @@ URL|Resource
 `/api/network/ip/interfaces`| <a title="netapp_ontap.resources.ip_interface.IpInterface" href="../resources/ip_interface.html"><code>IpInterface</code></a>
 `/api/support/snmp`| <a title="netapp_ontap.resources.snmp.Snmp" href="../resources/snmp.html"><code>Snmp</code></a>
 `/api/protocols/san/lun-maps`| <a title="netapp_ontap.resources.lun_map.LunMap" href="../resources/lun_map.html"><code>LunMap</code></a>
+`/api/security/anti-ransomware/storage-unit/entropy-stats`| <a title="netapp_ontap.resources.storage_unit_anti_ransomware_entropy_stats.StorageUnitAntiRansomwareEntropyStats" href="../resources/storage_unit_anti_ransomware_entropy_stats.html"><code>StorageUnitAntiRansomwareEntropyStats</code></a>
 `/api/protocols/nfs/services`| <a title="netapp_ontap.resources.nfs_service.NfsService" href="../resources/nfs_service.html"><code>NfsService</code></a>
 `/api/protocols/fpolicy/{svm[uuid]}/policies`| <a title="netapp_ontap.resources.fpolicy_policy.FpolicyPolicy" href="../resources/fpolicy_policy.html"><code>FpolicyPolicy</code></a>
 `/api/security/authentication/cluster/ad-proxy`| <a title="netapp_ontap.resources.cluster_ad_proxy.ClusterAdProxy" href="../resources/cluster_ad_proxy.html"><code>ClusterAdProxy</code></a>
@@ -317,6 +317,7 @@ URL|Resource
 `/api/network/fc/interfaces`| <a title="netapp_ontap.resources.fc_interface.FcInterface" href="../resources/fc_interface.html"><code>FcInterface</code></a>
 `/api/security/multi-admin-verify`| <a title="netapp_ontap.resources.multi_admin_verify_config.MultiAdminVerifyConfig" href="../resources/multi_admin_verify_config.html"><code>MultiAdminVerifyConfig</code></a>
 `/api/protocols/cifs/services/{svm[uuid]}/metrics`| <a title="netapp_ontap.resources.performance_cifs_metric.PerformanceCifsMetric" href="../resources/performance_cifs_metric.html"><code>PerformanceCifsMetric</code></a>
+`/api/security/barbican-kms`| <a title="netapp_ontap.resources.barbican.Barbican" href="../resources/barbican.html"><code>Barbican</code></a>
 `/api/name-services/nis`| <a title="netapp_ontap.resources.nis_service.NisService" href="../resources/nis_service.html"><code>NisService</code></a>
 `/api/security/anti-ransomware/suspects`| <a title="netapp_ontap.resources.anti_ransomware_suspect.AntiRansomwareSuspect" href="../resources/anti_ransomware_suspect.html"><code>AntiRansomwareSuspect</code></a>
 `/api/storage/file/clone/split-status`| <a title="netapp_ontap.resources.split_status.SplitStatus" href="../resources/split_status.html"><code>SplitStatus</code></a>
@@ -390,6 +391,7 @@ URL|Resource
 `/api/protocols/nvme/subsystem-controllers`| <a title="netapp_ontap.resources.nvme_subsystem_controller.NvmeSubsystemController" href="../resources/nvme_subsystem_controller.html"><code>NvmeSubsystemController</code></a>
 `/api/security/groups`| <a title="netapp_ontap.resources.security_group.SecurityGroup" href="../resources/security_group.html"><code>SecurityGroup</code></a>
 `/api/storage/snaplock/event-retention/operations`| <a title="netapp_ontap.resources.ebr_operation.EbrOperation" href="../resources/ebr_operation.html"><code>EbrOperation</code></a>
+`/api/application/containers`| <a title="netapp_ontap.resources.container.Container" href="../resources/container.html"><code>Container</code></a>
 `/api/protocols/nvme/subsystem-maps`| <a title="netapp_ontap.resources.nvme_subsystem_map.NvmeSubsystemMap" href="../resources/nvme_subsystem_map.html"><code>NvmeSubsystemMap</code></a>
 `/api/support/ems/destinations`| <a title="netapp_ontap.resources.ems_destination.EmsDestination" href="../resources/ems_destination.html"><code>EmsDestination</code></a>
 `/api/svm/svms/{svm[uuid]}/top-metrics/files`| <a title="netapp_ontap.resources.top_metrics_svm_file.TopMetricsSvmFile" href="../resources/top_metrics_svm_file.html"><code>TopMetricsSvmFile</code></a>
@@ -405,10 +407,11 @@ URL|Resource
 `/api/security/multi-admin-verify/rules`| <a title="netapp_ontap.resources.multi_admin_verify_rule.MultiAdminVerifyRule" href="../resources/multi_admin_verify_rule.html"><code>MultiAdminVerifyRule</code></a>
 `/api/storage/aggregates/{aggregate[uuid]}/plexes`| <a title="netapp_ontap.resources.plex.Plex" href="../resources/plex.html"><code>Plex</code></a>
 `/api/security/ipsec/policies`| <a title="netapp_ontap.resources.ipsec_policy.IpsecPolicy" href="../resources/ipsec_policy.html"><code>IpsecPolicy</code></a>
+`/api/security/authentication/cluster/saml-sp/default-metadata`| <a title="netapp_ontap.resources.security_saml_def_metadata.SecuritySamlDefMetadata" href="../resources/security_saml_def_metadata.html"><code>SecuritySamlDefMetadata</code></a>
 `/api/protocols/cifs/shadow-copies`| <a title="netapp_ontap.resources.shadowcopy.Shadowcopy" href="../resources/shadowcopy.html"><code>Shadowcopy</code></a>
 `/api/security/key-managers/{security_key_manager[uuid]}/key-servers`| <a title="netapp_ontap.resources.key_server.KeyServer" href="../resources/key_server.html"><code>KeyServer</code></a>
 `/api/cluster/jobs`| <a title="netapp_ontap.resources.job.Job" href="../resources/job.html"><code>Job</code></a>
-`/api/protocols/cifs/users-and-groups/bulk-import`| <a title="netapp_ontap.resources.local_cifs_users_and_groups_import.LocalCifsUsersAndGroupsImport" href="../resources/local_cifs_users_and_groups_import.html"><code>LocalCifsUsersAndGroupsImport</code></a>
+`/api/protocols/cifs/users-and-groups/bulk-import/{svm[uuid]}`| <a title="netapp_ontap.resources.local_cifs_users_and_groups_import.LocalCifsUsersAndGroupsImport" href="../resources/local_cifs_users_and_groups_import.html"><code>LocalCifsUsersAndGroupsImport</code></a>
 `/api/protocols/cifs/local-groups`| <a title="netapp_ontap.resources.local_cifs_group.LocalCifsGroup" href="../resources/local_cifs_group.html"><code>LocalCifsGroup</code></a>
 `/api/cluster/metrics`| <a title="netapp_ontap.resources.cluster_metrics.ClusterMetrics" href="../resources/cluster_metrics.html"><code>ClusterMetrics</code></a>
 `/api/security/key-managers`| <a title="netapp_ontap.resources.security_key_manager.SecurityKeyManager" href="../resources/security_key_manager.html"><code>SecurityKeyManager</code></a>
@@ -420,13 +423,16 @@ URL|Resource
 `/api/network/http-proxy`| <a title="netapp_ontap.resources.network_http_proxy.NetworkHttpProxy" href="../resources/network_http_proxy.html"><code>NetworkHttpProxy</code></a>
 `/api/security/ipsec`| <a title="netapp_ontap.resources.ipsec.Ipsec" href="../resources/ipsec.html"><code>Ipsec</code></a>
 `/api/name-services/cache/netgroup/settings`| <a title="netapp_ontap.resources.netgroups_settings.NetgroupsSettings" href="../resources/netgroups_settings.html"><code>NetgroupsSettings</code></a>
+`/api/security/anti-ransomware/storage-unit/suspects`| <a title="netapp_ontap.resources.storage_unit_anti_ransomware_suspect.StorageUnitAntiRansomwareSuspect" href="../resources/storage_unit_anti_ransomware_suspect.html"><code>StorageUnitAntiRansomwareSuspect</code></a>
 `/api/protocols/cifs/group-policies/{svm[uuid]}/objects`| <a title="netapp_ontap.resources.group_policy_object.GroupPolicyObject" href="../resources/group_policy_object.html"><code>GroupPolicyObject</code></a>
 `/api/protocols/fpolicy/{svm[uuid]}/events`| <a title="netapp_ontap.resources.fpolicy_event.FpolicyEvent" href="../resources/fpolicy_event.html"><code>FpolicyEvent</code></a>
 `/api/network/fc/logins`| <a title="netapp_ontap.resources.fc_login.FcLogin" href="../resources/fc_login.html"><code>FcLogin</code></a>
+`/api/security/jit-privilege-users`| <a title="netapp_ontap.resources.security_jit_privilege_user.SecurityJitPrivilegeUser" href="../resources/security_jit_privilege_user.html"><code>SecurityJitPrivilegeUser</code></a>
 `/api/support/ems/role-configs`| <a title="netapp_ontap.resources.ems_role_config.EmsRoleConfig" href="../resources/ems_role_config.html"><code>EmsRoleConfig</code></a>
 `/api/protocols/cifs/services`| <a title="netapp_ontap.resources.cifs_service.CifsService" href="../resources/cifs_service.html"><code>CifsService</code></a>
 `/api/protocols/nvme/subsystems/{subsystem[uuid]}/hosts`| <a title="netapp_ontap.resources.nvme_subsystem_host.NvmeSubsystemHost" href="../resources/nvme_subsystem_host.html"><code>NvmeSubsystemHost</code></a>
 `/api/protocols/cifs/domains`| <a title="netapp_ontap.resources.cifs_domain.CifsDomain" href="../resources/cifs_domain.html"><code>CifsDomain</code></a>
+`/api/security/anti-ransomware/volume/entropy-stats`| <a title="netapp_ontap.resources.anti_ransomware_volume_entropy_stats.AntiRansomwareVolumeEntropyStats" href="../resources/anti_ransomware_volume_entropy_stats.html"><code>AntiRansomwareVolumeEntropyStats</code></a>
 `/api/storage/volumes/{volume[uuid]}/top-metrics/files`| <a title="netapp_ontap.resources.top_metrics_file.TopMetricsFile" href="../resources/top_metrics_file.html"><code>TopMetricsFile</code></a>
 `/api/protocols/san/igroups/{igroup[uuid]}/initiators`| <a title="netapp_ontap.resources.igroup_initiator.IgroupInitiator" href="../resources/igroup_initiator.html"><code>IgroupInitiator</code></a>
 `/api/security/group/role-mappings`| <a title="netapp_ontap.resources.group_role_mappings.GroupRoleMappings" href="../resources/group_role_mappings.html"><code>GroupRoleMappings</code></a>
@@ -451,6 +457,7 @@ URL|Resource
 `/api/storage/disks`| <a title="netapp_ontap.resources.disk.Disk" href="../resources/disk.html"><code>Disk</code></a>
 `/api/network/ethernet/switches`| <a title="netapp_ontap.resources.switch.Switch" href="../resources/switch.html"><code>Switch</code></a>
 `/api/support/auto-update/configurations`| <a title="netapp_ontap.resources.auto_update_configuration.AutoUpdateConfiguration" href="../resources/auto_update_configuration.html"><code>AutoUpdateConfiguration</code></a>
+`/api/security/jit-privileges`| <a title="netapp_ontap.resources.security_jit_privilege.SecurityJitPrivilege" href="../resources/security_jit_privilege.html"><code>SecurityJitPrivilege</code></a>
 `/api/protocols/ndmp/sessions`| <a title="netapp_ontap.resources.ndmp_session.NdmpSession" href="../resources/ndmp_session.html"><code>NdmpSession</code></a>
 `/api/storage/bridges`| <a title="netapp_ontap.resources.storage_bridge.StorageBridge" href="../resources/storage_bridge.html"><code>StorageBridge</code></a>
 `/api/cluster/metrocluster`| <a title="netapp_ontap.resources.metrocluster.Metrocluster" href="../resources/metrocluster.html"><code>Metrocluster</code></a>
@@ -506,7 +513,6 @@ from netapp_ontap.models import *
 from netapp_ontap.resources.cli import CLI
 
 from netapp_ontap.resources.key_manager_keys import KeyManagerKeys
-from netapp_ontap.resources.directory_restore import DirectoryRestore
 from netapp_ontap.resources.performance_namespace_metric import PerformanceNamespaceMetric
 from netapp_ontap.resources.role import Role
 from netapp_ontap.resources.top_metrics_client import TopMetricsClient
@@ -527,6 +533,7 @@ from netapp_ontap.resources.cloud_target import CloudTarget
 from netapp_ontap.resources.ip_interface import IpInterface
 from netapp_ontap.resources.snmp import Snmp
 from netapp_ontap.resources.lun_map import LunMap
+from netapp_ontap.resources.storage_unit_anti_ransomware_entropy_stats import StorageUnitAntiRansomwareEntropyStats
 from netapp_ontap.resources.nfs_service import NfsService
 from netapp_ontap.resources.fpolicy_policy import FpolicyPolicy
 from netapp_ontap.resources.cluster_ad_proxy import ClusterAdProxy
@@ -632,6 +639,7 @@ from netapp_ontap.resources.coredump import Coredump
 from netapp_ontap.resources.fc_interface import FcInterface
 from netapp_ontap.resources.multi_admin_verify_config import MultiAdminVerifyConfig
 from netapp_ontap.resources.performance_cifs_metric import PerformanceCifsMetric
+from netapp_ontap.resources.barbican import Barbican
 from netapp_ontap.resources.nis_service import NisService
 from netapp_ontap.resources.anti_ransomware_suspect import AntiRansomwareSuspect
 from netapp_ontap.resources.split_status import SplitStatus
@@ -705,6 +713,7 @@ from netapp_ontap.resources.file_directory_security_acl import FileDirectorySecu
 from netapp_ontap.resources.nvme_subsystem_controller import NvmeSubsystemController
 from netapp_ontap.resources.security_group import SecurityGroup
 from netapp_ontap.resources.ebr_operation import EbrOperation
+from netapp_ontap.resources.container import Container
 from netapp_ontap.resources.nvme_subsystem_map import NvmeSubsystemMap
 from netapp_ontap.resources.ems_destination import EmsDestination
 from netapp_ontap.resources.top_metrics_svm_file import TopMetricsSvmFile
@@ -720,6 +729,7 @@ from netapp_ontap.resources.configuration_backup import ConfigurationBackup
 from netapp_ontap.resources.multi_admin_verify_rule import MultiAdminVerifyRule
 from netapp_ontap.resources.plex import Plex
 from netapp_ontap.resources.ipsec_policy import IpsecPolicy
+from netapp_ontap.resources.security_saml_def_metadata import SecuritySamlDefMetadata
 from netapp_ontap.resources.shadowcopy import Shadowcopy
 from netapp_ontap.resources.key_server import KeyServer
 from netapp_ontap.resources.job import Job
@@ -735,13 +745,16 @@ from netapp_ontap.resources.ipspace import Ipspace
 from netapp_ontap.resources.network_http_proxy import NetworkHttpProxy
 from netapp_ontap.resources.ipsec import Ipsec
 from netapp_ontap.resources.netgroups_settings import NetgroupsSettings
+from netapp_ontap.resources.storage_unit_anti_ransomware_suspect import StorageUnitAntiRansomwareSuspect
 from netapp_ontap.resources.group_policy_object import GroupPolicyObject
 from netapp_ontap.resources.fpolicy_event import FpolicyEvent
 from netapp_ontap.resources.fc_login import FcLogin
+from netapp_ontap.resources.security_jit_privilege_user import SecurityJitPrivilegeUser
 from netapp_ontap.resources.ems_role_config import EmsRoleConfig
 from netapp_ontap.resources.cifs_service import CifsService
 from netapp_ontap.resources.nvme_subsystem_host import NvmeSubsystemHost
 from netapp_ontap.resources.cifs_domain import CifsDomain
+from netapp_ontap.resources.anti_ransomware_volume_entropy_stats import AntiRansomwareVolumeEntropyStats
 from netapp_ontap.resources.top_metrics_file import TopMetricsFile
 from netapp_ontap.resources.igroup_initiator import IgroupInitiator
 from netapp_ontap.resources.group_role_mappings import GroupRoleMappings
@@ -766,6 +779,7 @@ from netapp_ontap.resources.cluster_ldap import ClusterLdap
 from netapp_ontap.resources.disk import Disk
 from netapp_ontap.resources.switch import Switch
 from netapp_ontap.resources.auto_update_configuration import AutoUpdateConfiguration
+from netapp_ontap.resources.security_jit_privilege import SecurityJitPrivilege
 from netapp_ontap.resources.ndmp_session import NdmpSession
 from netapp_ontap.resources.storage_bridge import StorageBridge
 from netapp_ontap.resources.metrocluster import Metrocluster
@@ -814,7 +828,6 @@ from netapp_ontap.resources.fc_zone import FcZone
 
 __all__ = [
     "KeyManagerKeys",
-    "DirectoryRestore",
     "PerformanceNamespaceMetric",
     "Role",
     "TopMetricsClient",
@@ -835,6 +848,7 @@ __all__ = [
     "IpInterface",
     "Snmp",
     "LunMap",
+    "StorageUnitAntiRansomwareEntropyStats",
     "NfsService",
     "FpolicyPolicy",
     "ClusterAdProxy",
@@ -940,6 +954,7 @@ __all__ = [
     "FcInterface",
     "MultiAdminVerifyConfig",
     "PerformanceCifsMetric",
+    "Barbican",
     "NisService",
     "AntiRansomwareSuspect",
     "SplitStatus",
@@ -1013,6 +1028,7 @@ __all__ = [
     "NvmeSubsystemController",
     "SecurityGroup",
     "EbrOperation",
+    "Container",
     "NvmeSubsystemMap",
     "EmsDestination",
     "TopMetricsSvmFile",
@@ -1028,6 +1044,7 @@ __all__ = [
     "MultiAdminVerifyRule",
     "Plex",
     "IpsecPolicy",
+    "SecuritySamlDefMetadata",
     "Shadowcopy",
     "KeyServer",
     "Job",
@@ -1043,13 +1060,16 @@ __all__ = [
     "NetworkHttpProxy",
     "Ipsec",
     "NetgroupsSettings",
+    "StorageUnitAntiRansomwareSuspect",
     "GroupPolicyObject",
     "FpolicyEvent",
     "FcLogin",
+    "SecurityJitPrivilegeUser",
     "EmsRoleConfig",
     "CifsService",
     "NvmeSubsystemHost",
     "CifsDomain",
+    "AntiRansomwareVolumeEntropyStats",
     "TopMetricsFile",
     "IgroupInitiator",
     "GroupRoleMappings",
@@ -1074,6 +1094,7 @@ __all__ = [
     "Disk",
     "Switch",
     "AutoUpdateConfiguration",
+    "SecurityJitPrivilege",
     "NdmpSession",
     "StorageBridge",
     "Metrocluster",

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -8,16 +8,13 @@ This file has been automatically generated based on the ONTAP REST API documenta
 A LUN is the logical representation of storage in a storage area network (SAN).<br/>
 The LUN REST API allows you to create, update, delete, and discover LUNs.<br/>
 A LUN must be mapped to an initiator group to grant access to the initiator group's initiators (client hosts). Initiators can then access the LUN and perform I/O over a Fibre Channel (FC) fabric using the FC Protocol or a TCP/IP network using iSCSI.<br/>
-See the LUN object model to learn more about each of the properties supported by the LUN REST API.
-## Platform Specifics
-### Unified ONTAP
-A LUN is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
+See the LUN object model to learn more about each of the properties supported by the LUN REST API.<br/>
+<personalities supports=unified>A LUN is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
 LUN names are paths of the form "/vol/\<volume>[/\<qtree>]/\<lun>" where the qtree name is optional.<br/>
-A LUN can be created to a specified size using thin or thick provisioning. A LUN can then be renamed, resized, cloned, moved to a different volume and copied. LUNs support the assignment of a QoS policy for performance management or a QoS policy can be assigned to a volume containing one or more LUNs.
-### ASA r2
-LUN names are simple names that share a namespace with NVMe namespaces within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
+A LUN can be created to a specified size using thin or thick provisioning. A LUN can then be renamed, resized, cloned, moved to a different volume and copied. LUNs support the assignment of a QoS policy for performance management or a QoS policy can be assigned to a volume containing one or more LUNs.</personalities>
+<personalities supports=asar2>LUN names are simple names that share a namespace with NVMe namespaces within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
 A LUN can be created to a specified size. A LUN can then be renamed, resized, or cloned. LUNs support the assignment of a QoS policy for performance management.<br/>
-**Note**: LUN related REST API examples use the Unified ONTAP form for LUN names. On ASA r2, the ASA r2 format must be used.
+**Note**: LUN related REST API examples use the Unified ONTAP form for LUN names. On ASA r2, the ASA r2 format must be used.</personalities>
 ## Performance monitoring
 Performance of a LUN can be monitored by observing the `metric.*` and `statistics.*` properties. These properties show the space utilization and performance of a LUN in terms of IOPS, latency and throughput. The `metric.*` properties denote an average whereas `statistics.*` properties denote a real-time monotonically increasing value aggregated across all nodes.
 ## Examples
@@ -44,40 +41,40 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Lun(
     {
-        "name": "/vol/vol1/lun1",
-        "enabled": True,
-        "_links": {
-            "self": {"href": "/api/storage/luns/5a24ae5b-28af-47fb-b129-5adf6cfba0a6"}
-        },
+        "serial_number": "wf0Iq+N4uck3",
+        "status": {"read_only": False, "container_state": "online", "state": "online"},
         "svm": {
+            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/6bf967fd-2a1c-11e9-b682-005056bbc17d"}
             },
-            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
         },
         "uuid": "5a24ae5b-28af-47fb-b129-5adf6cfba0a6",
+        "space": {
+            "used": 0,
+            "scsi_thin_provisioning_support_enabled": True,
+            "guarantee": {"reserved": False, "requested": False},
+            "size": 322163441664,
+        },
+        "os_type": "linux",
+        "name": "/vol/vol1/lun1",
+        "enabled": True,
         "class": "regular",
         "location": {
+            "logical_unit": "lun1",
             "volume": {
+                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
                 "name": "vol1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/71cd0dba-2a1c-11e9-b682-005056bbc17d"
                     }
                 },
-                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
             },
-            "logical_unit": "lun1",
         },
-        "os_type": "linux",
-        "status": {"read_only": False, "state": "online", "container_state": "online"},
-        "serial_number": "wf0Iq+N4uck3",
-        "space": {
-            "used": 0,
-            "scsi_thin_provisioning_support_enabled": True,
-            "guarantee": {"requested": False, "reserved": False},
-            "size": 322163441664,
+        "_links": {
+            "self": {"href": "/api/storage/luns/5a24ae5b-28af-47fb-b129-5adf6cfba0a6"}
         },
     }
 )
@@ -117,41 +114,41 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Lun(
         {
+            "status": {"state": "online"},
+            "svm": {"name": "svm1"},
+            "uuid": "5a24ae5b-28af-47fb-b129-5adf6cfba0a6",
             "name": "/vol/vol1/lun1",
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/5a24ae5b-28af-47fb-b129-5adf6cfba0a6"
                 }
             },
-            "svm": {"name": "svm1"},
-            "uuid": "5a24ae5b-28af-47fb-b129-5adf6cfba0a6",
-            "status": {"state": "online"},
         }
     ),
     Lun(
         {
+            "status": {"state": "online"},
+            "svm": {"name": "svm1"},
+            "uuid": "c903a978-9bac-4ce9-8237-4a3ba8b13f08",
             "name": "/vol/vol1/lun2",
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/c903a978-9bac-4ce9-8237-4a3ba8b13f08"
                 }
             },
-            "svm": {"name": "svm1"},
-            "uuid": "c903a978-9bac-4ce9-8237-4a3ba8b13f08",
-            "status": {"state": "online"},
         }
     ),
     Lun(
         {
+            "status": {"state": "online"},
+            "svm": {"name": "svm1"},
+            "uuid": "7faf0a9e-0a47-4876-8318-3638d5da16bf",
             "name": "/vol/vol2/lun3",
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/7faf0a9e-0a47-4876-8318-3638d5da16bf"
                 }
             },
-            "svm": {"name": "svm1"},
-            "uuid": "7faf0a9e-0a47-4876-8318-3638d5da16bf",
-            "status": {"state": "online"},
         }
     ),
 ]
@@ -179,114 +176,114 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Lun(
     {
-        "name": "/vol/vol1/lun1",
-        "enabled": True,
-        "_links": {
-            "self": {
-                "href": "/api/storage/luns/5a24ae5b-28af-47fb-b129-5adf6cfba0a6?fields=**"
-            }
+        "serial_number": "wf0Iq+N4uck3",
+        "status": {
+            "mapped": True,
+            "read_only": False,
+            "container_state": "online",
+            "state": "online",
+        },
+        "metric": {
+            "timestamp": "2019-04-09T05:50:15+00:00",
+            "throughput": {"read": 0, "total": 0, "other": 0, "write": 0},
+            "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
+            "status": "ok",
+            "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
+            "duration": "PT15S",
         },
         "svm": {
+            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/6bf967fd-2a1c-11e9-b682-005056bbc17d"}
             },
-            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
-        },
-        "metric": {
-            "status": "ok",
-            "iops": {"total": 0, "write": 0, "other": 0, "read": 0},
-            "latency": {"total": 0, "write": 0, "other": 0, "read": 0},
-            "timestamp": "2019-04-09T05:50:15+00:00",
-            "throughput": {"total": 0, "write": 0, "other": 0, "read": 0},
-            "duration": "PT15S",
-        },
-        "consistency_group": {
-            "name": "vol1",
-            "_links": {
-                "self": {
-                    "href": "/api/application/consistency-groups/6d657aaf-b57a-5396-82ea-c01329e46c79"
-                }
-            },
-            "uuid": "6d657aaf-b57a-5396-82ea-c01329e46c79",
-        },
-        "vvol": {
-            "bindings": [
-                {
-                    "_links": {
-                        "self": {
-                            "href": "/api/protocols/san/vvol-bindings/353c7262-be4b-4176-acf3-f1021faa8b64/5a24ae5b-28af-47fb-b129-5adf6cfba0a6"
-                        }
-                    },
-                    "id": 4304512,
-                    "partner": {
-                        "name": "/vol/vol1/pelun1",
-                        "_links": {
-                            "self": {
-                                "href": "/api/storage/luns/353c7262-be4b-4176-acf3-f1021faa8b64"
-                            }
-                        },
-                        "uuid": "353c7262-be4b-4176-acf3-f1021faa8b64",
-                    },
-                }
-            ],
-            "is_bound": True,
         },
         "uuid": "5a24ae5b-28af-47fb-b129-5adf6cfba0a6",
-        "class": "vvol",
-        "location": {
-            "volume": {
-                "name": "vol1",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/volumes/71cd0dba-2a1c-11e9-b682-005056bbc17d"
-                    }
-                },
-                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
-            },
-            "logical_unit": "lun1",
-        },
-        "os_type": "linux",
-        "statistics": {
-            "status": "ok",
-            "iops_raw": {"total": 3, "write": 0, "other": 3, "read": 0},
-            "latency_raw": {"total": 38298, "write": 0, "other": 38298, "read": 0},
-            "throughput_raw": {"total": 0, "write": 0, "other": 0, "read": 0},
-            "timestamp": "2019-04-09T05:50:42+00:00",
+        "space": {
+            "used": 0,
+            "scsi_thin_provisioning_support_enabled": True,
+            "guarantee": {"reserved": False, "requested": False},
+            "size": 322163441664,
         },
         "comment": "Data for the finance department.",
-        "status": {
-            "read_only": False,
-            "state": "online",
-            "mapped": True,
-            "container_state": "online",
-        },
-        "auto_delete": False,
-        "serial_number": "wf0Iq+N4uck3",
+        "os_type": "linux",
         "lun_maps": [
             {
                 "igroup": {
-                    "name": "ig1",
                     "uuid": "2b9d57e1-2a66-11e9-b682-005056bbc17d",
                     "_links": {
                         "self": {
                             "href": "/api/protocols/san/igroups/2b9d57e1-2a66-11e9-b682-005056bbc17d"
                         }
                     },
+                    "name": "ig1",
                 },
-                "logical_unit_number": 0,
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/lun-maps/5a24ae5b-28af-47fb-b129-5adf6cfba0a6/2b9d57e1-2a66-11e9-b682-005056bbc17d"
                     }
                 },
+                "logical_unit_number": 0,
             }
         ],
-        "space": {
-            "used": 0,
-            "scsi_thin_provisioning_support_enabled": True,
-            "guarantee": {"requested": False, "reserved": False},
-            "size": 322163441664,
+        "auto_delete": False,
+        "name": "/vol/vol1/lun1",
+        "statistics": {
+            "timestamp": "2019-04-09T05:50:42+00:00",
+            "latency_raw": {"read": 0, "total": 38298, "other": 38298, "write": 0},
+            "iops_raw": {"read": 0, "total": 3, "other": 3, "write": 0},
+            "status": "ok",
+            "throughput_raw": {"read": 0, "total": 0, "other": 0, "write": 0},
+        },
+        "enabled": True,
+        "class": "vvol",
+        "vvol": {
+            "is_bound": True,
+            "bindings": [
+                {
+                    "id": 4304512,
+                    "_links": {
+                        "self": {
+                            "href": "/api/protocols/san/vvol-bindings/353c7262-be4b-4176-acf3-f1021faa8b64/5a24ae5b-28af-47fb-b129-5adf6cfba0a6"
+                        }
+                    },
+                    "partner": {
+                        "uuid": "353c7262-be4b-4176-acf3-f1021faa8b64",
+                        "_links": {
+                            "self": {
+                                "href": "/api/storage/luns/353c7262-be4b-4176-acf3-f1021faa8b64"
+                            }
+                        },
+                        "name": "/vol/vol1/pelun1",
+                    },
+                }
+            ],
+        },
+        "location": {
+            "logical_unit": "lun1",
+            "volume": {
+                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
+                "name": "vol1",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/volumes/71cd0dba-2a1c-11e9-b682-005056bbc17d"
+                    }
+                },
+            },
+        },
+        "_links": {
+            "self": {
+                "href": "/api/storage/luns/5a24ae5b-28af-47fb-b129-5adf6cfba0a6?fields=**"
+            }
+        },
+        "consistency_group": {
+            "uuid": "6d657aaf-b57a-5396-82ea-c01329e46c79",
+            "_links": {
+                "self": {
+                    "href": "/api/application/consistency-groups/6d657aaf-b57a-5396-82ea-c01329e46c79"
+                }
+            },
+            "name": "vol1",
         },
     }
 )
@@ -433,19 +430,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Lun(
     {
         "movement": {
-            "paths": {"destination": "/vol/vol1/lun3", "source": "/vol/vol2/lun3"},
             "progress": {
                 "volume_snapshot_blocked": False,
-                "state": "preparing",
                 "percent_complete": 0,
                 "elapsed": 1,
+                "state": "preparing",
             },
+            "paths": {"source": "/vol/vol2/lun3", "destination": "/vol/vol1/lun3"},
         },
+        "uuid": "7faf0a9e-0a47-4876-8318-3638d5da16bf",
         "name": "/vol/vol1/lun3",
         "_links": {
             "self": {"href": "/api/storage/luns/7faf0a9e-0a47-4876-8318-3638d5da16bf"}
         },
-        "uuid": "7faf0a9e-0a47-4876-8318-3638d5da16bf",
     }
 )
 
@@ -489,20 +486,17 @@ class LunSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 Attribute names and values must be at least one byte and no more than 4091 bytes in length. The sum of the name and value lengths must be no more than 4092 bytes.<br/>
 Valid in POST except when creating a LUN clone. A cloned can already have attributes from its source. You can add, modify, and delete the attributes of a LUN clone in separate requests after creation of the LUN.<br/>
 Attributes can be added/modified/removed for an existing LUN using the /api/storage/luns/{lun.uuid}/attributes endpoint. For further information, see [`DOC /storage/luns/{lun.uuid}/attributes`](#docs-SAN-storage_luns_{lun.uuid}_attributes).<br/>
-There is an added computational cost to retrieving property values for `attributes`. They are not populated for either a collection GET or an instance GET unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more."""
+There is an added computational cost to retrieving property values for `attributes`. They are not populated for a GET request unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more."""
 
     auto_delete = marshmallow_fields.Boolean(
         data_key="auto_delete",
         allow_none=True,
     )
-    r""" * **Unified ONTAP**:
-This property marks the LUN for auto deletion when the volume containing the LUN runs out of space. This is most commonly set on LUN clones.<br/>
+    r""" <personalities supports=unified>This property marks the LUN for auto deletion when the volume containing the LUN runs out of space. This is most commonly set on LUN clones.<br/>
 When set to _true_, the LUN becomes eligible for automatic deletion when the volume runs out of space. Auto deletion only occurs when the volume containing the LUN is also configured for auto deletion and free space in the volume decreases below a particular threshold.<br/>
 This property is optional in POST and PATCH. The default value for a new LUN is _false_.<br/>
-There is an added computational cost to retrieving this property's value. It is not populated for either a collection GET or an instance GET unless it is explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
-
-* **ASA r2**:
-This property is not supported. It cannot be set in POST or PATCH and will not be returned by GET."""
+There is an added computational cost to retrieving this property's value. It is not populated for a GET request unless it is explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.</personalities>
+<personalities supports=asar2>This property is not supported. It cannot be set in POST or PATCH and will not be returned by GET.</personalities>"""
 
     class_ = marshmallow_fields.Str(
         data_key="class",
@@ -510,25 +504,29 @@ This property is not supported. It cannot be set in POST or PATCH and will not b
         allow_none=True,
     )
     r""" The class of LUN.<br/>
-Optional in POST.
-### Platform Specifics
-
-* **ASA r2**: When set to _protocol_endpoint_, most other properties are not supported in POST, and the operation can be asynchronous. The LUN is provisioned with a generated name. Protocol endpoints are provisioned in a round robin pattern across all nodes in the cluster.<br/>
-The following properties are supported in POST:<br/>
+Optional in POST.<br/>
+<personalities supports=asar2>
+When set to _protocol_endpoint_, most other properties are not supported in POST and the operation can be asynchronous. The LUN is provisioned with a generated name. Protocol endpoints are provisioned in a round robin pattern across all nodes in the cluster.<br/>
+The following properties are supported in POST:
 
 * `class`
 * `svm`
 * `provisioning_options.count`
 * `lun_maps`
 * `comment`
-POST is asynchronous in these cases:<br/>
+</personalities>
+<personalities supports=asar2>
+POST is asynchronous in these cases:
 
 * There are nodes in the cluster not already hosting a protocol endpoint.
 * The request includes either the `lun_maps` or `provisioning_options.count` properties.
-* The `records` array is used for bulk provisioning.
-<br/>DELETE is asynchronous when calling DELETE on the last protocol endpoint on a node.
-<br/>Calling implementations should not attempt to track these conditions. Instead, check the HTTP status code. A 200 or 201 status code indicates the operation is already complete. A 202 status code indicates there is an asynchronous job that can be tracked. If asynchronous requests are always preferred, wrap individual POST and DELETE requests in a `records` array to force the operation to be asynchronous.
-<br/>For more details, see [`Asynchronous operations`](#Synchronous_and_asynchronous_operations)
+* The `records` array is used for bulk provisioning.<br/>
+</personalities>
+<personalities supports=asar2>
+DELETE is asynchronous when calling DELETE on the last protocol endpoint on a node.<br/>
+Calling implementations should not attempt to track these conditions. Instead, check the HTTP status code. A 200 or 201 status code indicates the operation is already complete. A 202 status code indicates there is an asynchronous job that can be tracked. If asynchronous requests are always preferred, wrap individual POST and DELETE requests in a `records` array to force the operation to be asynchronous.<br/>
+For more details, see [`Asynchronous operations`](#Synchronous_and_asynchronous_operations)
+</personalities>
 
 
 Valid choices:
@@ -538,14 +536,11 @@ Valid choices:
 * vvol"""
 
     clone = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_consistency_groups_luns_clone.ConsistencyGroupConsistencyGroupsLunsCloneSchema", data_key="clone", unknown=EXCLUDE, allow_none=True)
-    r""" * **Unified ONTAP**:
-This sub-object is used in POST to create a new LUN as a clone of an existing LUN, or PATCH to overwrite an existing LUN as a clone of another. Setting a property in this sub-object indicates that a LUN clone is desired. Consider the following other properties when cloning a LUN: `auto_delete`, `qos_policy`, `space.guarantee.requested` and `space.scsi_thin_provisioning_support_enabled`.<br/>
+    r""" <personalities supports=unified>This sub-object is used in POST to create a new LUN as a clone of an existing LUN, or PATCH to overwrite an existing LUN as a clone of another. Setting a property in this sub-object indicates that a LUN clone is desired. Consider the following other properties when cloning a LUN: `auto_delete`, `qos_policy`, `space.guarantee.requested` and `space.scsi_thin_provisioning_support_enabled`.<br/>
 When used in a PATCH, the patched LUN's data is over-written as a clone of the source and the following properties are preserved from the patched LUN unless otherwise specified as part of the PATCH: `class`, `auto_delete`, `lun_maps`, `serial_number`, `status.state`, and `uuid`.<br/>
-Persistent reservations for the patched LUN are also preserved.
-
-* **ASA r2**:
-This endpoint does not support clones. No properties in this sub-object can be set for POST or PATCH and none will be returned by GET.<br/>
-Cloning is supported through the /api/storage/storage-units endpoint. See the [`POST /ap/storage/storage-units`](#/SAN/storage_unit_create) to learn more about cloning LUNs."""
+Persistent reservations for the patched LUN are also preserved.</personalities>
+<personalities supports=asar2>This endpoint does not support clones. No properties in this sub-object can be set for POST or PATCH and none will be returned by GET.<br/>
+Cloning is supported through the /api/storage/storage-units endpoint. See the [`POST /api/storage/storage-units`](#/SAN/storage_unit_create) to learn more about cloning LUNs.</personalities>"""
 
     comment = marshmallow_fields.Str(
         data_key="comment",
@@ -556,23 +551,18 @@ Cloning is supported through the /api/storage/storage-units endpoint. See the [`
 
     consistency_group = marshmallow_fields.Nested("netapp_ontap.models.lun_consistency_group.LunConsistencyGroupSchema", data_key="consistency_group", unknown=EXCLUDE, allow_none=True)
     r""" The LUN's consistency group. This property is populated for LUNs that are members of a consistency group. If the LUN is a member of a child consistency group, the parent consistency group is reported.
-### Platform Specifics
-
-* **Unified ONTAP**: A LUN's consistency group is the consistency group of its containing volume.
-* **ASA r2**: A LUN is optionally associated directly with a consistency group."""
+<personalities supports=unified>A LUN's consistency group is the consistency group of its containing volume.</personalities>
+<personalities supports=asar2>A LUN is optionally associated directly with a consistency group.</personalities>"""
 
     convert = marshmallow_fields.Nested("netapp_ontap.models.lun_convert.LunConvertSchema", data_key="convert", unknown=EXCLUDE, allow_none=True)
     r""" This sub-object is used in POST to convert a valid in-place NVMe namespace to a LUN. Setting a property in this sub-object indicates that a conversion from the specified NVMe namespace to LUN is desired.<br/>"""
 
     copy = marshmallow_fields.Nested("netapp_ontap.models.lun_copy.LunCopySchema", data_key="copy", unknown=EXCLUDE, allow_none=True)
-    r""" * **Unified ONTAP**:
-This sub-object applies to LUN copy operations. A LUN can be copied with a POST request that supplies `copy.source` properties.<br/>
+    r""" <personalities supports=unified>This sub-object applies to LUN copy operations. A LUN can be copied with a POST request that supplies `copy.source` properties.<br/>
 Copying a LUN is an asynchronous activity begun by a POST request that specifies the source of the copy in the `copy.source` properties. The data for the LUN is then asynchronously copied from the source to the destination. The time required to complete the copy depends on the size of the LUN and the load on the cluster. The `copy` sub-object is populated while a LUN copy is in progress and for two (2) minutes following completion of a copy.<br/>
 While LUNs are being copied, the status of the LUN copy operations can be obtained using a GET of the source or destination LUN that requests the `copy` properties. If the LUN is the source LUN for one or more copy operations, the `copy.destinations` array is populated in GET. If the containing LUN is the destination LUN for a copy operation, the `copy.source` sub-object is populated in GET. The LUN copy operation can be further modified using a PATCH on the properties on the `copy.source` sub-object of the copy destination LUN.<br/>
-There is an added computational cost to retrieving property values for `copy`. They are not populated for either a collection GET or an instance GET unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
-
-* **ASA r2**:
-LUN copies are not supported. No properties in this sub-object can be set in POST or PATCH and none will be returned by GET."""
+There is an added computational cost to retrieving property values for `copy`. They are not populated for a GET request unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.</personalities>
+<personalities supports=asar2>LUN copies are not supported. No properties in this sub-object can be set in POST or PATCH and none will be returned by GET.</personalities>"""
 
     create_time = ImpreciseDateTime(
         data_key="create_time",
@@ -593,50 +583,36 @@ Example: 2018-06-04T19:00:00.000+0000"""
 
     location = marshmallow_fields.Nested("netapp_ontap.models.lun_location.LunLocationSchema", data_key="location", unknown=EXCLUDE, allow_none=True)
     r""" The location of the LUN within the ONTAP cluster.
-### Platform Specifics
-
-* **Unified ONTAP**:
-LUNs support rename and move between volumes. Valid in POST and PATCH.
-
-* **ASA r2**:
-The LUN name can be changed by PATCHing the `name` property. The `location` properties are read-only."""
+<personalities supports=unified>LUNs support rename and move between volumes. Valid in POST and PATCH.</personalities>
+<personalities supports=asar2>The LUN name can be changed by PATCHing the `name` property. The `location` properties are read-only.</personalities>"""
 
     lun_maps = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.lun_lun_maps.LunLunMapsSchema", unknown=EXCLUDE, allow_none=True), data_key="lun_maps", allow_none=True)
     r""" The LUN maps with which the LUN is associated.<br/>
-There is an added computational cost to retrieving property values for `lun_maps`. They are not populated for either a collection GET or an instance GET unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
-### Platform Specifics
-
-* **Unified ONTAP**: These properties are supported for GET only.
-* **ASA r2**: These properties are supported for GET and POST. During POST, a new or existing initiator group can be referenced. When referencing an existing initiator group, only the `name` and `uuid` properties are supported."""
+There is an added computational cost to retrieving property values for `lun_maps`. They are not populated for a GET request unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
+<personalities supports=unified>These properties are supported for GET only.</personalities>
+<personalities supports=asar2>These properties are supported for GET and POST. During POST, a new or existing initiator group can be referenced. When referencing an existing initiator group, only the `name` and `uuid` properties are supported.</personalities>"""
 
     metric = marshmallow_fields.Nested("netapp_ontap.resources.performance_metric.PerformanceMetricSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
     r""" Performance numbers, such as IOPS latency and throughput."""
 
     movement = marshmallow_fields.Nested("netapp_ontap.models.lun_movement.LunMovementSchema", data_key="movement", unknown=EXCLUDE, allow_none=True)
-    r""" * **Unified ONTAP**:
-This sub-object applies to LUN movement between volumes. A LUN can be moved to a new volume with a PATCH request that changes either the volume portion of property `name`, `location.volume.uuid`, or `location.volume.name`. If the volume is changed using more than one of these properties, the supplied properties used must refer to the same volume.<br/>
+    r""" <personalities supports=unified>This sub-object applies to LUN movement between volumes. A LUN can be moved to a new volume with a PATCH request that changes either the volume portion of property `name`, `location.volume.uuid`, or `location.volume.name`. If the volume is changed using more than one of these properties, the supplied properties used must refer to the same volume.<br/>
 Moving a LUN between volumes is an asynchronous activity begun by a PATCH request. The data for the LUN is then asynchronously copied from the source volume to the destination volume. The time required to complete the move depends on the size of the LUN and the load on the cluster. The `movement` sub-object is populated while a LUN movement is in progress and for two (2) minutes following completion of a movement.<br/>
 While the LUN is being moved, the status of the LUN movement operation can be obtained using a GET for the LUN that requests the `movement` properties. The LUN movement operation can be further modified using a PATCH on the properties on the `movement` sub-object.<br/>
-There is an added computational cost to retrieving property values for `movement`. They are not populated for either a collection GET or an instance GET unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
-
-* **ASA r2**:
-LUN movement is not supported. No properties in this sub-object can be set in POST or PATCH and none will be returned by GET."""
+There is an added computational cost to retrieving property values for `movement`. They are not populated for a GET request unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.</personalities>
+<personalities supports=asar2>LUN movement is not supported. No properties in this sub-object can be set in POST or PATCH and none will be returned by GET.</personalities>"""
 
     name = marshmallow_fields.Str(
         data_key="name",
         allow_none=True,
     )
-    r""" The name of the LUN. Valid in POST and PATCH.
-
-* **Unified ONTAP**:
-A LUN is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
+    r""" The name of the LUN. Valid in POST and PATCH.<br/>
+<personalities supports=unified>A LUN is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
 LUN names are paths of the form "/vol/\<volume>[/\<qtree>]/\<lun>" where the qtree name is optional.<br/>
 A PATCH that modifies the qtree and/or base name portion of the LUN path is considered a rename operation.<br/>
-A PATCH that modifies the volume portion of the LUN path begins an asynchronous LUN movement operation.
-
-* **ASA r2**:
-LUN names are simple names that share a namespace with NVMe namespaces within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
-A PATCH that modifies the name of the LUN is considered a rename operation.
+A PATCH that modifies the volume portion of the LUN path begins an asynchronous LUN movement operation.</personalities>
+<personalities supports=asar2>LUN names are simple names that share a namespace with NVMe namespaces within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
+A PATCH that modifies the name of the LUN is considered a rename operation.</personalities>
 
 
 Example: /vol/volume1/qtree1/lun1"""
@@ -671,9 +647,7 @@ Valid choices:
 
     qos_policy = marshmallow_fields.Nested("netapp_ontap.models.lun_qos_policy.LunQosPolicySchema", data_key="qos_policy", unknown=EXCLUDE, allow_none=True)
     r""" The QoS policy for the LUN. Both traditional and adaptive QoS policies are supported. If both property `qos_policy.uuid` and `qos_policy.name` are specified in the same request, they must refer to the same QoS policy. To remove the QoS policy from a LUN, leaving it with no QoS policy, set the property `qos_policy.name` to an empty string ("") in a PATCH request. Valid in POST and PATCH.
-### Platform Specifics
-
-* **ASA r2**: To remove the QoS policy, set it to `null` in a PATCH request."""
+<personalities supports=asar2>To remove the QoS policy, set it to `null` in a PATCH request.</personalities>"""
 
     serial_number = marshmallow_fields.Str(
         data_key="serial_number",
@@ -681,6 +655,12 @@ Valid choices:
         allow_none=True,
     )
     r""" The LUN serial number. The serial number is generated by ONTAP when the LUN is created."""
+
+    serial_number_hex = marshmallow_fields.Str(
+        data_key="serial_number_hex",
+        allow_none=True,
+    )
+    r""" The LUN serial number encoded in hexadecimal format. The serial number is generated by ONTAP when the LUN is created."""
 
     space = marshmallow_fields.Nested("netapp_ontap.models.lun_space.LunSpaceSchema", data_key="space", unknown=EXCLUDE, allow_none=True)
     r""" The storage space related properties of the LUN."""
@@ -706,7 +686,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
     vvol = marshmallow_fields.Nested("netapp_ontap.models.lun_vvol.LunVvolSchema", data_key="vvol", unknown=EXCLUDE, allow_none=True)
     r""" A VMware virtual volume (vVol) binding is an association between a LUN of class `protocol_endpoint` and a LUN of class `vvol`. Class `protocol_endpoint` LUNs are mapped to igroups and granted access using the same configuration as class `regular` LUNs. When a class `vvol` LUN is bound to a mapped class `protocol_endpoint` LUN, VMware can access the class `vvol` LUN through the class `protocol_endpoint` LUN mapping.<br/>
 See [`POST /protocols/san/vvol-bindings`](#/SAN/vvol_binding_create) to learn more about creating vVol bindings and [`DELETE /protocols/san/vvol-bindings`](#/SAN/vvol_binding_delete) to learn more about deleting vVol bindings.<br/>
-There is an added computational cost to retrieving property values for `vvol`. They are not populated for either a collection GET or an instance GET unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more."""
+There is an added computational cost to retrieving property values for `vvol`. They are not populated for a GET request unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more."""
 
     @property
     def resource(self):
@@ -731,6 +711,7 @@ There is an added computational cost to retrieving property values for `vvol`. T
         "os_type",
         "qos_policy",
         "serial_number",
+        "serial_number_hex",
         "space",
         "statistics.iops_raw",
         "statistics.latency_raw",
@@ -744,7 +725,7 @@ There is an added computational cost to retrieving property values for `vvol`. T
         "uuid",
         "vvol",
     ]
-    """links,attributes,auto_delete,class_,comment,consistency_group,copy,create_time,enabled,encryption,location,lun_maps,metric,movement,name,os_type,qos_policy,serial_number,space,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,status,svm.links,svm.name,svm.uuid,uuid,vvol,"""
+    """links,attributes,auto_delete,class_,comment,consistency_group,copy,create_time,enabled,encryption,location,lun_maps,metric,movement,name,os_type,qos_policy,serial_number,serial_number_hex,space,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,status,svm.links,svm.name,svm.uuid,uuid,vvol,"""
 
     patchable_fields = [
         "auto_delete",
@@ -784,16 +765,13 @@ There is an added computational cost to retrieving property values for `vvol`. T
 class Lun(Resource):
     r""" A LUN is the logical representation of storage in a storage area network (SAN).<br/>
 A LUN must be mapped to an initiator group to grant access to the initiator group's initiators (client hosts). Initiators can then access the LUN and perform I/O over a Fibre Channel (FC) fabric using the FC Protocol or a TCP/IP network using iSCSI.<br/>
-See the LUN object model to learn more about each of the properties supported by the LUN REST API.
-## Platform Specifics
-### Unified ONTAP
-A LUN is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
+See the LUN object model to learn more about each of the properties supported by the LUN REST API.<br/>
+<personalities supports=unified>A LUN is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
 LUN names are paths of the form "/vol/\<volume>[/\<qtree>]/\<lun>" where the qtree name is optional.<br/>
-A LUN can be created to a specified size using thin or thick provisioning. A LUN can then be renamed, resized, cloned, moved to a different volume and copied. LUNs support the assignment of a QoS policy for performance management or a QoS policy can be assigned to a volume containing one or more LUNs.
-### ASA r2
-LUN names are simple names that share a namespace with NVMe namespaces within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
+A LUN can be created to a specified size using thin or thick provisioning. A LUN can then be renamed, resized, cloned, moved to a different volume and copied. LUNs support the assignment of a QoS policy for performance management or a QoS policy can be assigned to a volume containing one or more LUNs.</personalities>
+<personalities supports=asar2>LUN names are simple names that share a namespace with NVMe namespaces within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
 A LUN can be created to a specified size. A LUN can then be renamed, resized, or cloned. LUNs support the assignment of a QoS policy for performance management.<br/>
-**Note**: LUN related REST API examples use the Unified ONTAP form for LUN names. On ASA r2, the ASA r2 format must be used. """
+**Note**: LUN related REST API examples use the Unified ONTAP form for LUN names. On ASA r2, the ASA r2 format must be used.</personalities> """
 
     _schema = LunSchema
     _path = "/api/storage/luns"
@@ -893,8 +871,9 @@ There is an added computational cost to retrieving values for these properties. 
 * `lun move start`
 * `lun resize`
 * `volume file clone autodelete`
-### Platform Specifics
-* **ASA r2**: PATCH is asynchronous when modifying `name` or `qos_policy`.
+<personalities supports=asar2>
+PATCH is asynchronous when modifying `name` or `qos_policy`.
+</personalities>
 ### Learn more
 * [`DOC /storage/luns`](#docs-SAN-storage_luns)
 """
@@ -935,8 +914,9 @@ If not specified in POST, the follow default property values are assigned.
 * `lun copy start`
 * `volume file clone autodelete`
 * `volume file clone create`
-### Platform Specifics
-* **ASA r2**: The `name` property is required when creating a new LUN. The name must start with an alphabetic character (a to z or A to Z) or an underscore (_). The name must be 203 characters or less in length. The `location` properties are not supported.
+<personalities supports=asar2>
+The `name` property is required when creating a new LUN. The name must start with an alphabetic character (a to z or A to Z) or an underscore (_). The name must be 203 characters or less in length. The `location` properties are not supported.
+</personalities>
 POST is asynchronous when creating a new LUN. It is synchronous when converting a namespace to a LUN via the `convert` property.
 ### Learn more
 * [`DOC /storage/luns`](#docs-SAN-storage_luns)
@@ -964,8 +944,9 @@ POST is asynchronous when creating a new LUN. It is synchronous when converting 
 ### Related ONTAP commands
 * `lun copy cancel`
 * `lun delete`
-### Platform Specifics
-* **ASA r2**: DELETE is asynchronous.
+<personalities supports=asar2>
+DELETE is asynchronous.
+</personalities>
 ### Learn more
 * [`DOC /storage/luns`](#docs-SAN-storage_luns)
 """
@@ -1062,8 +1043,9 @@ If not specified in POST, the follow default property values are assigned.
 * `lun copy start`
 * `volume file clone autodelete`
 * `volume file clone create`
-### Platform Specifics
-* **ASA r2**: The `name` property is required when creating a new LUN. The name must start with an alphabetic character (a to z or A to Z) or an underscore (_). The name must be 203 characters or less in length. The `location` properties are not supported.
+<personalities supports=asar2>
+The `name` property is required when creating a new LUN. The name must start with an alphabetic character (a to z or A to Z) or an underscore (_). The name must be 203 characters or less in length. The `location` properties are not supported.
+</personalities>
 POST is asynchronous when creating a new LUN. It is synchronous when converting a namespace to a LUN via the `convert` property.
 ### Learn more
 * [`DOC /storage/luns`](#docs-SAN-storage_luns)
@@ -1100,8 +1082,9 @@ POST is asynchronous when creating a new LUN. It is synchronous when converting 
 * `lun move start`
 * `lun resize`
 * `volume file clone autodelete`
-### Platform Specifics
-* **ASA r2**: PATCH is asynchronous when modifying `name` or `qos_policy`.
+<personalities supports=asar2>
+PATCH is asynchronous when modifying `name` or `qos_policy`.
+</personalities>
 ### Learn more
 * [`DOC /storage/luns`](#docs-SAN-storage_luns)
 """
@@ -1124,8 +1107,9 @@ POST is asynchronous when creating a new LUN. It is synchronous when converting 
 ### Related ONTAP commands
 * `lun copy cancel`
 * `lun delete`
-### Platform Specifics
-* **ASA r2**: DELETE is asynchronous.
+<personalities supports=asar2>
+DELETE is asynchronous.
+</personalities>
 ### Learn more
 * [`DOC /storage/luns`](#docs-SAN-storage_luns)
 """

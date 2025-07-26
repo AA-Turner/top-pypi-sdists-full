@@ -5,10 +5,10 @@ import os
 import tempfile
 from typing import Any
 
+from connector_sdk_types.generated import AppInfoResponse
 from fastapi import FastAPI, Request
 
 from connector.ca_certs import is_windows, set_python_to_use_system_ca_certificates
-from connector.generated.models.app_info_response import AppInfoResponse
 from connector.httpx_rewrite import proxy_settings
 from connector.logging import set_logger_config
 from connector.oai.integration import Integration

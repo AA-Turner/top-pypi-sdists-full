@@ -35,6 +35,20 @@ from typed_settings.types import LoadedSettings, LoaderMeta, OptionList, Setting
 from .conftest import Host, Settings, SettingsClasses
 
 
+@dataclasses.dataclass(frozen=True)
+class Sub:  # noqa: D101
+    b_1: str = ""
+
+
+@dataclasses.dataclass(frozen=True)
+class Parent:  # noqa: D101
+    a_1: str = ""
+    a_2: str = ""
+    sub_section: Sub = Sub()
+    sub_list: list[Sub] = dataclasses.field(default_factory=list)
+    sub_dict: dict[str, Sub] = dataclasses.field(default_factory=dict)
+
+
 class TestCleanSettings:
     """Tests for clean_settings."""
 
@@ -42,29 +56,22 @@ class TestCleanSettings:
         """
         Dashes in settings and section names are replaced with underscores.
         """
-
-        @dataclasses.dataclass(frozen=True)
-        class Sub:
-            b_1: str
-
-        @dataclasses.dataclass(frozen=True)
-        class Settings:
-            a_1: str
-            a_2: str
-            sub_section: Sub
+        expected = {
+            "a_1": "spam",
+            "a_2": "eggs",
+            "sub_section": {"b_1": "bacon"},
+            "sub_list": [{"b_1": "bacon"}],
+            "sub_dict": {"k-1": {"b_1": "bacon"}},  # Keep "-" in "k-1"!
+        }
 
         s = {
             "a-1": "spam",
             "a_2": "eggs",
             "sub-section": {"b-1": "bacon"},
+            "sub-list": [{"b-1": "bacon"}],
+            "sub-dict": {"k-1": {"b-1": "bacon"}},
         }
-
-        result = clean_settings(s, deep_options(Settings), "test")
-        assert result == {
-            "a_1": "spam",
-            "a_2": "eggs",
-            "sub_section": {"b_1": "bacon"},
-        }
+        assert clean_settings(s, deep_options(Parent), "test") == expected
 
     def test_no_replace_dash_in_dict_keys(self) -> None:
         """
@@ -84,24 +91,67 @@ class TestCleanSettings:
             "option-2": {"another-key": 23},
         }
 
-        result = clean_settings(s, deep_options(Settings), "test")
-        assert result == {
+        expected = {
             "option_1": {"my-key": "val1"},
             "option_2": {"another-key": 23},
         }
+
+        assert clean_settings(s, deep_options(Settings), "test") == expected
 
     def test_invalid_settings(self) -> None:
         """
         Settings for which there is no attribute are errors.
         """
         s = {
-            "url": "abc",
-            "host": {"port": 23, "eggs": 42},
-            "spam": 23,
+            "a-1": "1",
+            "a-2": "2",
+            "a-3": "3",
+            "sub-section": {"b-2": "4"},
+            "sub-list": [{"b-3": "5"}],
+            "sub-dict": {"k": {"b-4": "6"}},
         }
         with pytest.raises(InvalidOptionsError) as exc_info:
-            clean_settings(s, deep_options(Settings), "t")
-        assert str(exc_info.value) == ("Invalid options found in t: host.eggs, spam")
+            clean_settings(s, deep_options(Parent), "t")
+
+        assert str(exc_info.value) == (
+            "Invalid options found in t: "
+            "a_3, "
+            "sub_dict.k.b_4, "
+            "sub_list.0.b_3, "
+            "sub_section.b_2"
+        )
+
+    def test_invalid_nesting(self) -> None:
+        """
+        Errors in nested settings in collections are detected.
+        """
+        s = {
+            "sub-list": ["spam"],
+            "sub-dict": {"k": "spam"},
+        }
+        with pytest.raises(InvalidOptionsError) as exc_info:
+            clean_settings(s, deep_options(Parent), "t")
+
+        assert str(exc_info.value) == (
+            "Invalid options found in t: sub_dict.k. (is not a settings dict), "
+            "sub_list.0. (is not a settings dict)"
+        )
+
+    def test_invalid_collection(self) -> None:
+        """
+        Errors in nested settings in collections are detected.
+        """
+        s = {
+            "sub-dict": ["spam"],
+            "sub-list": {"k": ["spam"]},
+        }
+        with pytest.raises(InvalidOptionsError) as exc_info:
+            clean_settings(s, deep_options(Parent), "t")
+
+        assert str(exc_info.value) == (
+            "Invalid options found in t: sub_dict (needs to be mapping), sub_list "
+            "(needs to be sequence)"
+        )
 
     def test_clean_settings_dict_values(self) -> None:
         """
@@ -110,11 +160,27 @@ class TestCleanSettings:
         """
 
         @dataclasses.dataclass(frozen=True)
-        class Settings:
+        class Sub:
             option: dict[str, Any]
 
-        s: SettingsDict = {"option": {"a": 1, "b": 2}}
-        clean_settings(s, deep_options(Settings), "t")
+        @dataclasses.dataclass(frozen=True)
+        class Settings:
+            option: dict[str, Any]
+            sub: Sub
+            sub_list: list[Sub]
+            sub_dict: dict[str, Sub]
+
+        s: SettingsDict = {
+            "option": {"a": 1, "b": 2},
+            "sub": {"option": {"a": 1, "b": 2}},
+            "sub_list": [{"option": {"a": 1, "b": 2}}],
+            "sub_dict": {"k": {"option": {"a": 1, "b": 2}}},
+        }
+        data: SettingsDict = s
+        result = clean_settings(data, deep_options(Settings), "t")
+
+        # nothing has changed
+        assert data == result
 
 
 class TestPythonFormat:

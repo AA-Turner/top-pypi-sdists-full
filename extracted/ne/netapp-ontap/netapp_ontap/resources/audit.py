@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -49,26 +49,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Audit(
     {
-        "log_path": "/",
         "enabled": True,
-        "events": {
-            "user_account": False,
-            "file_operations": True,
-            "authorization_policy": False,
-            "async_delete": False,
-            "security_group": False,
-            "cap_staging": False,
-            "audit_policy_change": True,
-            "file_share": False,
-            "cifs_logon_logoff": True,
-        },
         "guarantee": True,
+        "log_path": "/",
+        "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
+        "events": {
+            "cap_staging": False,
+            "security_group": False,
+            "file_operations": True,
+            "user_account": False,
+            "cifs_logon_logoff": True,
+            "async_delete": False,
+            "authorization_policy": False,
+            "file_share": False,
+            "audit_policy_change": True,
+        },
         "log": {
-            "rotation": {"size": 2048000},
             "retention": {"duration": "0s", "count": 10},
+            "rotation": {"size": 2048000},
             "format": "evtx",
         },
-        "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
     }
 )
 
@@ -126,34 +126,34 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Audit(
     {
-        "log_path": "/",
         "enabled": True,
-        "events": {
-            "user_account": False,
-            "file_operations": True,
-            "authorization_policy": False,
-            "async_delete": False,
-            "security_group": False,
-            "cap_staging": False,
-            "audit_policy_change": True,
-            "file_share": False,
-            "cifs_logon_logoff": True,
-        },
         "guarantee": True,
+        "log_path": "/",
+        "svm": {"uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e", "name": "vs3"},
+        "events": {
+            "cap_staging": False,
+            "security_group": False,
+            "file_operations": True,
+            "user_account": False,
+            "cifs_logon_logoff": True,
+            "async_delete": False,
+            "authorization_policy": False,
+            "file_share": False,
+            "audit_policy_change": True,
+        },
         "log": {
+            "retention": {"duration": "P4DT12H30M5S", "count": 0},
             "rotation": {
                 "schedule": {
-                    "days": [1, 5, 10, 15],
-                    "hours": [0, 1, 6, 12, 18, 23],
-                    "minutes": [10, 15, 30, 45, 59],
-                    "weekdays": [0, 2, 5],
                     "months": [0],
+                    "hours": [0, 1, 6, 12, 18, 23],
+                    "weekdays": [0, 2, 5],
+                    "days": [1, 5, 10, 15],
+                    "minutes": [10, 15, 30, 45, 59],
                 }
             },
-            "retention": {"duration": "P4DT12H30M5S", "count": 0},
             "format": "xml",
         },
-        "svm": {"name": "vs3", "uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e"},
     }
 )
 
@@ -180,60 +180,60 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Audit(
         {
-            "log_path": "/",
-            "charge_qos": False,
             "enabled": True,
-            "events": {
-                "user_account": False,
-                "file_operations": True,
-                "authorization_policy": False,
-                "async_delete": False,
-                "security_group": False,
-                "cap_staging": False,
-                "audit_policy_change": True,
-                "file_share": False,
-                "cifs_logon_logoff": True,
-            },
             "guarantee": True,
+            "log_path": "/",
+            "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
+            "events": {
+                "cap_staging": False,
+                "security_group": False,
+                "file_operations": True,
+                "user_account": False,
+                "cifs_logon_logoff": True,
+                "async_delete": False,
+                "authorization_policy": False,
+                "file_share": False,
+                "audit_policy_change": True,
+            },
             "log": {
-                "rotation": {"size": 2048000},
                 "retention": {"duration": "0s", "count": 10},
+                "rotation": {"size": 2048000},
                 "format": "evtx",
             },
-            "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
+            "charge_qos": False,
         }
     ),
     Audit(
         {
-            "log_path": "/",
-            "charge_qos": False,
             "enabled": True,
-            "events": {
-                "user_account": False,
-                "file_operations": True,
-                "authorization_policy": False,
-                "async_delete": False,
-                "security_group": False,
-                "cap_staging": False,
-                "audit_policy_change": True,
-                "file_share": False,
-                "cifs_logon_logoff": True,
-            },
             "guarantee": True,
+            "log_path": "/",
+            "svm": {"uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e", "name": "vs3"},
+            "events": {
+                "cap_staging": False,
+                "security_group": False,
+                "file_operations": True,
+                "user_account": False,
+                "cifs_logon_logoff": True,
+                "async_delete": False,
+                "authorization_policy": False,
+                "file_share": False,
+                "audit_policy_change": True,
+            },
             "log": {
+                "retention": {"duration": "P4DT12H30M5S", "count": 0},
                 "rotation": {
                     "schedule": {
-                        "days": [1, 5, 10, 15],
-                        "hours": [0, 1, 6, 12, 18, 23],
-                        "minutes": [10, 15, 30, 45, 59],
-                        "weekdays": [0, 2, 5],
                         "months": [0],
+                        "hours": [0, 1, 6, 12, 18, 23],
+                        "weekdays": [0, 2, 5],
+                        "days": [1, 5, 10, 15],
+                        "minutes": [10, 15, 30, 45, 59],
                     }
                 },
-                "retention": {"duration": "P4DT12H30M5S", "count": 0},
                 "format": "xml",
             },
-            "svm": {"name": "vs3", "uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e"},
+            "charge_qos": False,
         }
     ),
 ]
@@ -270,14 +270,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Audit(
         {
+            "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
             "events": {"file_operations": True, "cifs_logon_logoff": True},
-            "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
         }
     ),
     Audit(
         {
+            "svm": {"uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e", "name": "vs3"},
             "events": {"file_operations": True, "cifs_logon_logoff": True},
-            "svm": {"name": "vs3", "uuid": "a8d64674-13fc-11e9-87b1-005056a7ae7e"},
         }
     ),
 ]
@@ -308,27 +308,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Audit(
     {
-        "log_path": "/",
-        "charge_qos": False,
         "enabled": True,
-        "events": {
-            "user_account": False,
-            "file_operations": True,
-            "authorization_policy": False,
-            "async_delete": False,
-            "security_group": False,
-            "cap_staging": False,
-            "audit_policy_change": True,
-            "file_share": False,
-            "cifs_logon_logoff": True,
-        },
         "guarantee": True,
+        "log_path": "/",
+        "svm": {"uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf", "name": "vs1"},
+        "events": {
+            "cap_staging": False,
+            "security_group": False,
+            "file_operations": True,
+            "user_account": False,
+            "cifs_logon_logoff": True,
+            "async_delete": False,
+            "authorization_policy": False,
+            "file_share": False,
+            "audit_policy_change": True,
+        },
         "log": {
-            "rotation": {"size": 2048000},
             "retention": {"duration": "0s", "count": 10},
+            "rotation": {"size": 2048000},
             "format": "evtx",
         },
-        "svm": {"name": "vs1", "uuid": "ec650e97-156e-11e9-abcb-005056bbd0bf"},
+        "charge_qos": False,
     }
 )
 

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -58,6 +58,11 @@ Valid choices:
     remote = marshmallow_fields.Nested("netapp_ontap.models.shelf_ports_remote.ShelfPortsRemoteSchema", unknown=EXCLUDE, data_key="remote", allow_none=True)
     r""" The remote field of the shelf_ports. """
 
+    speed = Size(data_key="speed", allow_none=True)
+    r""" The speed field of the shelf_ports.
+
+Example: 100 """
+
     state = marshmallow_fields.Str(data_key="state", allow_none=True)
     r""" The state field of the shelf_ports.
 
@@ -84,10 +89,11 @@ Example: 500A0980000B6C3F """
         "mac_address",
         "module_id",
         "remote",
+        "speed",
         "state",
         "wwn",
     ]
-    """cable,designator,id,internal,mac_address,module_id,remote,state,wwn,"""
+    """cable,designator,id,internal,mac_address,module_id,remote,speed,state,wwn,"""
 
     patchable_fields = [
         "cable",
@@ -97,10 +103,11 @@ Example: 500A0980000B6C3F """
         "mac_address",
         "module_id",
         "remote",
+        "speed",
         "state",
         "wwn",
     ]
-    """cable,designator,id,internal,mac_address,module_id,remote,state,wwn,"""
+    """cable,designator,id,internal,mac_address,module_id,remote,speed,state,wwn,"""
 
     postable_fields = [
         "cable",
@@ -110,10 +117,11 @@ Example: 500A0980000B6C3F """
         "mac_address",
         "module_id",
         "remote",
+        "speed",
         "state",
         "wwn",
     ]
-    """cable,designator,id,internal,mac_address,module_id,remote,state,wwn,"""
+    """cable,designator,id,internal,mac_address,module_id,remote,speed,state,wwn,"""
 
 
 class ShelfPorts(Resource):

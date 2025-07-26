@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -23,30 +23,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ShadowcopySet(
         {
-            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
-            "keep_snapshots": True,
             "uuid": "27ed1b79-97f6-11ec-8ad1-0050568e57be",
-        }
-    ),
-    ShadowcopySet(
-        {
-            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
-            "keep_snapshots": False,
-            "uuid": "388be551-97f6-11ec-8ad1-0050568e57be",
-        }
-    ),
-    ShadowcopySet(
-        {
-            "svm": {"name": "vs2", "uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be"},
-            "keep_snapshots": False,
-            "uuid": "525104ef-9f96-11ec-82fd-0050568e57be",
-        }
-    ),
-    ShadowcopySet(
-        {
-            "svm": {"name": "vs2", "uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be"},
             "keep_snapshots": True,
+            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+        }
+    ),
+    ShadowcopySet(
+        {
+            "uuid": "388be551-97f6-11ec-8ad1-0050568e57be",
+            "keep_snapshots": False,
+            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+        }
+    ),
+    ShadowcopySet(
+        {
+            "uuid": "525104ef-9f96-11ec-82fd-0050568e57be",
+            "keep_snapshots": False,
+            "svm": {"uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be", "name": "vs2"},
+        }
+    ),
+    ShadowcopySet(
+        {
             "uuid": "66f8f723-9f96-11ec-82fd-0050568e57be",
+            "keep_snapshots": True,
+            "svm": {"uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be", "name": "vs2"},
         }
     ),
 ]
@@ -75,9 +75,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ShadowcopySet(
     {
-        "svm": {"name": "vs2", "uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be"},
-        "keep_snapshots": False,
         "uuid": "525104ef-9f96-11ec-82fd-0050568e57be",
+        "keep_snapshots": False,
+        "svm": {"uuid": "fdb5bd8b-9498-11ec-9f9d-0050568e57be", "name": "vs2"},
     }
 )
 
@@ -118,42 +118,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Shadowcopy(
         {
-            "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
-            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-            "uuid": "919fbc80-a421-11ec-b82e-0050568e57be",
-            "client_uuid": "(uuid)",
-            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
             "share": {"name": "sh1"},
+            "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
+            "uuid": "919fbc80-a421-11ec-b82e-0050568e57be",
+            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
+            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+            "client_uuid": "(uuid)",
         }
     ),
     Shadowcopy(
         {
-            "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
-            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-            "uuid": "91ac5a5f-a421-11ec-b82e-0050568e57be",
-            "client_uuid": "(uuid)",
-            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
             "share": {"name": "sh2"},
+            "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
+            "uuid": "91ac5a5f-a421-11ec-b82e-0050568e57be",
+            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
+            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+            "client_uuid": "(uuid)",
         }
     ),
     Shadowcopy(
         {
-            "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
-            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-            "uuid": "91b14098-a421-11ec-b82e-0050568e57be",
-            "client_uuid": "(uuid)",
-            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
             "share": {"name": "sh3"},
+            "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
+            "uuid": "91b14098-a421-11ec-b82e-0050568e57be",
+            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
+            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+            "client_uuid": "(uuid)",
         }
     ),
     Shadowcopy(
         {
-            "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
-            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-            "uuid": "91b63309-a421-11ec-b82e-0050568e57be",
-            "client_uuid": "(uuid)",
-            "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
             "share": {"name": "sh4"},
+            "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
+            "uuid": "91b63309-a421-11ec-b82e-0050568e57be",
+            "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
+            "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+            "client_uuid": "(uuid)",
         }
     ),
 ]
@@ -182,12 +182,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Shadowcopy(
     {
-        "volume": {"name": "vol1", "uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be"},
-        "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
-        "uuid": "91b14098-a421-11ec-b82e-0050568e57be",
-        "client_uuid": "(uuid)",
-        "svm": {"name": "vs1", "uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be"},
         "share": {"name": "sh3"},
+        "volume": {"uuid": "e117c8f6-9498-11ec-9f9d-0050568e57be", "name": "vol1"},
+        "uuid": "91b14098-a421-11ec-b82e-0050568e57be",
+        "shadowcopy_set": {"uuid": "9169cd4a-a421-11ec-b82e-0050568e57be"},
+        "svm": {"uuid": "dfb8e00d-9498-11ec-9f9d-0050568e57be", "name": "vs1"},
+        "client_uuid": "(uuid)",
     }
 )
 

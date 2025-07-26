@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -36,6 +36,9 @@ class StorageAvailabilityZoneSpaceSchema(ResourceSchema, metaclass=ResourceSchem
     inactive_data = Size(data_key="inactive_data", allow_none=True)
     r""" Inactive data in the availability zone. """
 
+    log_and_recovery_metadata = Size(data_key="log_and_recovery_metadata", allow_none=True)
+    r""" The total space consumed by system logs and cores in the availability zone. """
+
     logical_user_data_without_snapshots = Size(data_key="logical_user_data_without_snapshots", allow_none=True)
     r""" The logical space used by user data excluding snapshots in the availability zone. """
 
@@ -55,7 +58,7 @@ class StorageAvailabilityZoneSpaceSchema(ResourceSchema, metaclass=ResourceSchem
     r""" Total space in the availability zone. """
 
     total_metadata_used = Size(data_key="total_metadata_used", allow_none=True)
-    r""" Total metadata used in the availability zone. """
+    r""" The total space consumed by metadata in the availability zone, which includes log and recovery metadata, delayed frees along with filesystem metadata and performance metadata. """
 
     unusable = Size(data_key="unusable", allow_none=True)
     r""" Total unusable space in the availability zone due to an aggregate being unavailable. """
@@ -70,6 +73,7 @@ class StorageAvailabilityZoneSpaceSchema(ResourceSchema, metaclass=ResourceSchem
         "efficiency_without_snapshots",
         "full_threshold_percent",
         "inactive_data",
+        "log_and_recovery_metadata",
         "logical_user_data_without_snapshots",
         "nearly_full_threshold_percent",
         "physical_used",
@@ -79,7 +83,7 @@ class StorageAvailabilityZoneSpaceSchema(ResourceSchema, metaclass=ResourceSchem
         "total_metadata_used",
         "unusable",
     ]
-    """available,delayed_frees,efficiency_without_snapshots,full_threshold_percent,inactive_data,logical_user_data_without_snapshots,nearly_full_threshold_percent,physical_used,physical_used_percent,physical_user_data_without_snapshots,size,total_metadata_used,unusable,"""
+    """available,delayed_frees,efficiency_without_snapshots,full_threshold_percent,inactive_data,log_and_recovery_metadata,logical_user_data_without_snapshots,nearly_full_threshold_percent,physical_used,physical_used_percent,physical_user_data_without_snapshots,size,total_metadata_used,unusable,"""
 
     patchable_fields = [
         "full_threshold_percent",

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,34 +30,40 @@ class VolumeQosSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
     gettable_fields = [
         "policy.links",
+        "policy.max_throughput",
         "policy.max_throughput_iops",
         "policy.max_throughput_mbps",
+        "policy.min_throughput",
         "policy.min_throughput_iops",
         "policy.min_throughput_mbps",
         "policy.name",
         "policy.uuid",
     ]
-    """policy.links,policy.max_throughput_iops,policy.max_throughput_mbps,policy.min_throughput_iops,policy.min_throughput_mbps,policy.name,policy.uuid,"""
+    """policy.links,policy.max_throughput,policy.max_throughput_iops,policy.max_throughput_mbps,policy.min_throughput,policy.min_throughput_iops,policy.min_throughput_mbps,policy.name,policy.uuid,"""
 
     patchable_fields = [
+        "policy.max_throughput",
         "policy.max_throughput_iops",
         "policy.max_throughput_mbps",
+        "policy.min_throughput",
         "policy.min_throughput_iops",
         "policy.min_throughput_mbps",
         "policy.name",
         "policy.uuid",
     ]
-    """policy.max_throughput_iops,policy.max_throughput_mbps,policy.min_throughput_iops,policy.min_throughput_mbps,policy.name,policy.uuid,"""
+    """policy.max_throughput,policy.max_throughput_iops,policy.max_throughput_mbps,policy.min_throughput,policy.min_throughput_iops,policy.min_throughput_mbps,policy.name,policy.uuid,"""
 
     postable_fields = [
+        "policy.max_throughput",
         "policy.max_throughput_iops",
         "policy.max_throughput_mbps",
+        "policy.min_throughput",
         "policy.min_throughput_iops",
         "policy.min_throughput_mbps",
         "policy.name",
         "policy.uuid",
     ]
-    """policy.max_throughput_iops,policy.max_throughput_mbps,policy.min_throughput_iops,policy.min_throughput_mbps,policy.name,policy.uuid,"""
+    """policy.max_throughput,policy.max_throughput_iops,policy.max_throughput_mbps,policy.min_throughput,policy.min_throughput_iops,policy.min_throughput_mbps,policy.name,policy.uuid,"""
 
 
 class VolumeQos(Resource):

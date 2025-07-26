@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mypy-boto3-socialmessaging
-Version: 1.39.0
-Summary: Type annotations for boto3 EndUserMessagingSocial 1.39.0 service generated with mypy-boto3-builder 8.11.0
+Version: 1.39.14
+Summary: Type annotations for boto3 EndUserMessagingSocial 1.39.14 service generated with mypy-boto3-builder 8.11.0
 Home-page: https://github.com/youtype/mypy_boto3_builder
 Author: Vlad Emelianov
 Author-email: vlad.emelianov.nz@gmail.com
@@ -57,7 +57,7 @@ Dynamic: summary
 ![boto3.typed](https://github.com/youtype/mypy_boto3_builder/raw/main/logo.png)
 
 Type annotations for
-[boto3 EndUserMessagingSocial 1.39.0](https://pypi.org/project/boto3/)
+[boto3 EndUserMessagingSocial 1.39.14](https://pypi.org/project/boto3/)
 compatible with [VSCode](https://code.visualstudio.com/),
 [PyCharm](https://www.jetbrains.com/pycharm/),
 [Emacs](https://www.gnu.org/software/emacs/),
@@ -119,7 +119,7 @@ You can generate type annotations for `boto3` package locally with
 isolation.
 
 1. Run mypy-boto3-builder in your package root directory:
-   `uvx --with 'boto3==1.39.0' mypy-boto3-builder`
+   `uvx --with 'boto3==1.39.14' mypy-boto3-builder`
 2. Select `boto3-stubs` AWS SDK.
 3. Add `EndUserMessagingSocial` service.
 4. Use provided commands to install generated packages.
@@ -354,7 +354,11 @@ paginators.
 from boto3.session import Session
 
 from mypy_boto3_socialmessaging import EndUserMessagingSocialClient
-from mypy_boto3_socialmessaging.paginator import ListLinkedWhatsAppBusinessAccountsPaginator
+from mypy_boto3_socialmessaging.paginator import (
+    ListLinkedWhatsAppBusinessAccountsPaginator,
+    ListWhatsAppMessageTemplatesPaginator,
+    ListWhatsAppTemplateLibraryPaginator,
+)
 
 client: EndUserMessagingSocialClient = Session().client("socialmessaging")
 
@@ -362,6 +366,12 @@ client: EndUserMessagingSocialClient = Session().client("socialmessaging")
 # Types should be correctly discovered by mypy and IDEs
 list_linked_whatsapp_business_accounts_paginator: ListLinkedWhatsAppBusinessAccountsPaginator = (
     client.get_paginator("list_linked_whatsapp_business_accounts")
+)
+list_whatsapp_message_templates_paginator: ListWhatsAppMessageTemplatesPaginator = (
+    client.get_paginator("list_whatsapp_message_templates")
+)
+list_whatsapp_template_library_paginator: ListWhatsAppTemplateLibraryPaginator = (
+    client.get_paginator("list_whatsapp_template_library")
 )
 ```
 

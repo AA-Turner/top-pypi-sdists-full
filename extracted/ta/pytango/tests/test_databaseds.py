@@ -3,6 +3,7 @@
 import os
 import pytest
 import socket
+import sys
 from time import sleep
 from subprocess import Popen
 from tango import DeviceProxy, DevState, DevFailed
@@ -12,9 +13,15 @@ from tango import DeviceProxy, DevState, DevFailed
 
 
 def start_database(port, inst):
-    tests_directory = os.path.abspath("tests")
-    cmd = f"python -m tango.databaseds.database --port={port} --logging_level=2 {inst}"
-    proc = Popen(cmd.split(), cwd=tests_directory)
+    python = sys.executable
+    tests_directory = os.path.dirname(__file__)
+    cmd = (
+        f"{python} -m tango.databaseds.database"
+        f" --host 127.0.0.1 --port={port} --logging_level=2 {inst}"
+    )
+    env = os.environ.copy()
+    env["PYTANGO_DATABASE_NAME"] = ":memory:"  # Don't write to disk
+    proc = Popen(cmd.split(), cwd=tests_directory, env=env)
     sleep(1)
     return proc
 

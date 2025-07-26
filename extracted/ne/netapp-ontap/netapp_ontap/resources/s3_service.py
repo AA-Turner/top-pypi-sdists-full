@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,52 +26,52 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Service(
         {
+            "min_lock_retention_period": "none",
+            "svm": {"uuid": "cf90b8f2-8071-11e9-8190-0050568eae21", "name": "vs2"},
+            "comment": "S3 server",
+            "max_lock_retention_period": "none",
             "name": "vs1",
             "enabled": False,
-            "svm": {"name": "vs2", "uuid": "cf90b8f2-8071-11e9-8190-0050568eae21"},
-            "max_lock_retention_period": "none",
-            "min_lock_retention_period": "none",
-            "comment": "S3 server",
         }
     ),
     S3Service(
         {
-            "name": "Server-1",
-            "enabled": True,
-            "svm": {"name": "vs1", "uuid": "d7f1219c-7f8e-11e9-9124-0050568eae21"},
-            "max_lock_retention_period": "none",
-            "users": [
-                {"name": "user-1", "comment": "S3 user", "access_key": "(token)"},
-                {"name": "user-2", "comment": "", "access_key": "(token)"},
-            ],
             "min_lock_retention_period": "none",
+            "svm": {"uuid": "d7f1219c-7f8e-11e9-9124-0050568eae21", "name": "vs1"},
             "comment": "S3 server",
             "buckets": [
                 {
-                    "name": "bucket-1",
                     "uuid": "e08665af-8114-11e9-8190-0050568eae21",
-                    "logical_used_size": 157286400,
                     "comment": "s3 bucket",
-                    "size": 209715200,
                     "volume": {
-                        "name": "fg_oss_1559026220",
                         "uuid": "de146bff-8114-11e9-8190-0050568eae21",
+                        "name": "fg_oss_1559026220",
                     },
+                    "name": "bucket-1",
                     "encryption": {"enabled": False},
+                    "logical_used_size": 157286400,
+                    "size": 209715200,
                 },
                 {
-                    "name": "bucket-2",
                     "uuid": "fb1912ef-8114-11e9-8190-0050568eae21",
-                    "logical_used_size": 78643200,
                     "comment": "s3 bucket",
-                    "size": 1048576000,
                     "volume": {
-                        "name": "fg_oss_1559026269",
                         "uuid": "f9b1cdd0-8114-11e9-8190-0050568eae21",
+                        "name": "fg_oss_1559026269",
                     },
+                    "name": "bucket-2",
                     "encryption": {"enabled": False},
+                    "logical_used_size": 78643200,
+                    "size": 1048576000,
                 },
             ],
+            "users": [
+                {"comment": "S3 user", "access_key": "(token)", "name": "user-1"},
+                {"comment": "", "access_key": "(token)", "name": "user-2"},
+            ],
+            "max_lock_retention_period": "none",
+            "name": "Server-1",
+            "enabled": True,
         }
     ),
 ]
@@ -98,75 +98,75 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Service(
     {
-        "name": "Server-1",
-        "enabled": True,
-        "svm": {"name": "vs1", "uuid": "d7f1219c-7f8e-11e9-9124-0050568eae21"},
-        "max_lock_retention_period": "none",
-        "users": [
-            {"name": "user-1", "comment": "s3 user", "access_key": "(token)"},
-            {"name": "user-2", "comment": "", "access_key": "(token)"},
-        ],
         "min_lock_retention_period": "none",
+        "svm": {"uuid": "d7f1219c-7f8e-11e9-9124-0050568eae21", "name": "vs1"},
         "comment": "S3 server",
         "buckets": [
             {
-                "name": "bucket-1",
                 "uuid": "e08665af-8114-11e9-8190-0050568eae21",
+                "comment": "s3 bucket",
+                "cors": {
+                    "rules": [
+                        {
+                            "id": "string",
+                            "allowed_origins": ["http://www.example.com"],
+                            "allowed_headers": ["x-amz-request-id"],
+                            "max_age_seconds": 1024,
+                            "allowed_methods": ["PUT", "DELETE"],
+                            "expose_headers": ["http://www.example.com"],
+                        }
+                    ]
+                },
+                "volume": {
+                    "uuid": "de146bff-8114-11e9-8190-0050568eae21",
+                    "name": "fg_oss_1559026220",
+                },
+                "name": "bucket-1",
+                "encryption": {"enabled": False},
                 "policy": {
                     "statements": [
                         {
-                            "sid": "DenyAccessToGetPutDeleteObjectForMike",
                             "effect": "deny",
+                            "sid": "DenyAccessToGetPutDeleteObjectForMike",
                             "actions": ["*Object"],
-                            "principals": ["mike"],
                             "resources": [
                                 "bucket-1/policy-docs/*",
                                 "bucket-1/confidential-*",
                             ],
+                            "principals": ["mike"],
                         },
                         {
-                            "sid": "AccessToGetObjectForAnonymousUser",
                             "effect": "allow",
+                            "sid": "AccessToGetObjectForAnonymousUser",
                             "actions": ["GetObject"],
-                            "principals": ["*"],
                             "resources": ["bucket-1/readme"],
+                            "principals": ["*"],
                         },
                     ]
                 },
                 "logical_used_size": 157286400,
-                "comment": "s3 bucket",
                 "size": 209715200,
-                "volume": {
-                    "name": "fg_oss_1559026220",
-                    "uuid": "de146bff-8114-11e9-8190-0050568eae21",
-                },
-                "encryption": {"enabled": False},
-                "cors": {
-                    "rules": [
-                        {
-                            "max_age_seconds": 1024,
-                            "expose_headers": ["http://www.example.com"],
-                            "allowed_origins": ["http://www.example.com"],
-                            "id": "string",
-                            "allowed_headers": ["x-amz-request-id"],
-                            "allowed_methods": ["PUT", "DELETE"],
-                        }
-                    ]
-                },
             },
             {
-                "name": "bucket-2",
                 "uuid": "fb1912ef-8114-11e9-8190-0050568eae21",
-                "logical_used_size": 1075838976,
                 "comment": "s3 bucket",
-                "size": 1677721600,
                 "volume": {
-                    "name": "fg_oss_1559026269",
                     "uuid": "f9b1cdd0-8114-11e9-8190-0050568eae21",
+                    "name": "fg_oss_1559026269",
                 },
+                "name": "bucket-2",
                 "encryption": {"enabled": False},
+                "logical_used_size": 1075838976,
+                "size": 1677721600,
             },
         ],
+        "users": [
+            {"comment": "s3 user", "access_key": "(token)", "name": "user-1"},
+            {"comment": "", "access_key": "(token)", "name": "user-2"},
+        ],
+        "max_lock_retention_period": "none",
+        "name": "Server-1",
+        "enabled": True,
     }
 )
 
@@ -197,19 +197,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Service(
     {
-        "_links": {"self": {"href": "/api/protocols/s3/services/"}},
         "users": [
             {
-                "name": "user-1",
-                "secret_key": "<secret_key_here>",
                 "access_key": "(token)",
+                "secret_key": "<secret_key_here>",
+                "name": "user-1",
             },
             {
-                "name": "user-2",
-                "secret_key": "<secret_key_here>",
                 "access_key": "(token)",
+                "secret_key": "<secret_key_here>",
+                "name": "user-2",
             },
         ],
+        "_links": {"self": {"href": "/api/protocols/s3/services/"}},
     }
 )
 
@@ -274,19 +274,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Service(
     {
-        "_links": {"self": {"href": "/api/protocols/s3/services/"}},
         "users": [
             {
-                "name": "user-1",
-                "secret_key": "<secret_key_here>",
                 "access_key": "(token)",
+                "secret_key": "<secret_key_here>",
+                "name": "user-1",
             },
             {
-                "name": "user-2",
-                "secret_key": "<secret_key_here>",
                 "access_key": "(token)",
+                "secret_key": "<secret_key_here>",
+                "name": "user-2",
             },
         ],
+        "_links": {"self": {"href": "/api/protocols/s3/services/"}},
     }
 )
 

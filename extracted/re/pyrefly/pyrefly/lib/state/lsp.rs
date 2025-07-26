@@ -8,6 +8,8 @@
 use std::sync::Arc;
 
 use dupe::Dupe;
+use fuzzy_matcher::FuzzyMatcher;
+use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
 use lsp_types::CompletionItem;
 use lsp_types::CompletionItemKind;
@@ -40,6 +42,8 @@ use ruff_python_ast::Expr;
 use ruff_python_ast::ExprAttribute;
 use ruff_python_ast::ExprCall;
 use ruff_python_ast::ExprContext;
+use ruff_python_ast::ExprDict;
+use ruff_python_ast::ExprList;
 use ruff_python_ast::ExprName;
 use ruff_python_ast::Identifier;
 use ruff_python_ast::ModModule;
@@ -62,7 +66,6 @@ use crate::config::error_kind::ErrorKind;
 use crate::export::exports::Export;
 use crate::export::exports::ExportLocation;
 use crate::graph::index::Idx;
-use crate::module::module_info::ModuleInfo;
 use crate::state::handle::Handle;
 use crate::state::ide::IntermediateDefinition;
 use crate::state::ide::insert_import_edit;
@@ -78,7 +81,7 @@ use crate::types::module::ModuleType;
 use crate::types::types::BoundMethodType;
 use crate::types::types::Type;
 
-const INITIAL_GAS: Gas = Gas::new(100);
+const RESOLVE_EXPORT_INITIAL_GAS: Gas = Gas::new(100);
 const MIN_CHARACTERS_TYPED_AUTOIMPORT: usize = 3;
 
 #[derive(Clone, Debug)]
@@ -204,6 +207,7 @@ pub enum AnnotationKind {
     #[allow(dead_code)]
     Parameter,
     Return,
+    Variable,
 }
 
 #[derive(Debug)]
@@ -813,9 +817,9 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         module_name: ModuleName,
         name: Name,
-        gas: &mut Gas,
     ) -> Option<(Handle, Export)> {
         let mut m = module_name;
+        let mut gas = RESOLVE_EXPORT_INITIAL_GAS;
         while !gas.stop() {
             let handle = self.import_handle(handle, m, None).ok()?;
             match self.get_exports(&handle).get(&name) {
@@ -837,7 +841,6 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         intermediate_definition: IntermediateDefinition,
         jump_through_renamed_import: bool,
-        mut gas: Gas,
     ) -> Option<(Handle, Export)> {
         match intermediate_definition {
             IntermediateDefinition::Local(export) => Some((handle.dupe(), export)),
@@ -847,8 +850,7 @@ impl<'a> Transaction<'a> {
                 name,
                 original_name_range,
             ) => {
-                let (def_handle, export) =
-                    self.resolve_named_import(handle, module_name, name, &mut gas)?;
+                let (def_handle, export) = self.resolve_named_import(handle, module_name, name)?;
                 if !jump_through_renamed_import && original_name_range.is_some() {
                     Some((
                         handle.dupe(),
@@ -888,9 +890,8 @@ impl<'a> Transaction<'a> {
                 Some((text_range_with_module_info, None))
             }
             AttrDefinition::PartiallyResolvedImportedModuleAttribute { module_name } => {
-                let mut gas = INITIAL_GAS;
                 let (handle, export) =
-                    self.resolve_named_import(handle, module_name, attr_name.clone(), &mut gas)?;
+                    self.resolve_named_import(handle, module_name, attr_name.clone())?;
                 let module_info = self.get_module_info(&handle)?;
                 Some((
                     TextRangeWithModule::new(module_info, export.location),
@@ -905,15 +906,13 @@ impl<'a> Transaction<'a> {
         handle: &Handle,
         key: &Key,
         jump_through_renamed_import: bool,
-        mut gas: Gas,
     ) -> Option<(Handle, Export)> {
         let bindings = self.get_bindings(handle)?;
-        let intermediate_definition = key_to_intermediate_definition(&bindings, key, &mut gas)?;
+        let intermediate_definition = key_to_intermediate_definition(&bindings, key)?;
         self.resolve_intermediate_definition(
             handle,
             intermediate_definition,
             jump_through_renamed_import,
-            gas,
         )
     }
 
@@ -951,7 +950,7 @@ impl<'a> Transaction<'a> {
                 symbol_kind,
                 docstring_range,
             },
-        ) = self.key_to_export(handle, &def_key, jump_through_renamed_import, INITIAL_GAS)?;
+        ) = self.key_to_export(handle, &def_key, jump_through_renamed_import)?;
         let module_info = self.get_module_info(&handle)?;
         let name = Name::new(module_info.code_at(location));
         Some(FindDefinitionItemWithDocstring {
@@ -979,7 +978,7 @@ impl<'a> Transaction<'a> {
                 symbol_kind,
                 docstring_range,
             },
-        ) = self.key_to_export(handle, &use_key, jump_through_renamed_import, INITIAL_GAS)?;
+        ) = self.key_to_export(handle, &use_key, jump_through_renamed_import)?;
         Some(FindDefinitionItemWithDocstring {
             metadata: DefinitionMetadata::Variable(symbol_kind),
             definition_range: location,
@@ -1063,7 +1062,7 @@ impl<'a> Transaction<'a> {
         // Group all locations by their containing module, so later we could avoid reparsing
         // the same module multiple times.
         let location_count = callee_locations.len();
-        let mut modules_to_ranges: SmallMap<ModuleInfo, Vec<TextRange>> =
+        let mut modules_to_ranges: SmallMap<Module, Vec<TextRange>> =
             SmallMap::with_capacity(location_count);
         for TextRangeWithModule { module, range } in callee_locations.into_iter() {
             modules_to_ranges.entry(module).or_default().push(range)
@@ -1275,7 +1274,7 @@ impl<'a> Transaction<'a> {
         &self,
         handle: &Handle,
         range: TextRange,
-    ) -> Option<Vec<(String, ModuleInfo, TextRange, String)>> {
+    ) -> Option<Vec<(String, Module, TextRange, String)>> {
         let module_info = self.get_module_info(handle)?;
         let ast = self.get_ast(handle)?;
         let errors = self.get_errors(vec![handle]).collect_errors().shown;
@@ -1348,13 +1347,9 @@ impl<'a> Transaction<'a> {
                 .iter()
                 .chain(&index.renamed_imports)
             {
-                let mut gas = INITIAL_GAS;
-                if let Some((imported_handle, export)) = self.resolve_named_import(
-                    handle,
-                    *imported_module_name,
-                    imported_name.clone(),
-                    &mut gas,
-                ) && imported_handle.path().as_path() == module.path().as_path()
+                if let Some((imported_handle, export)) =
+                    self.resolve_named_import(handle, *imported_module_name, imported_name.clone())
+                    && imported_handle.path().as_path() == module.path().as_path()
                     && export.location == definition_range
                 {
                     references.extend(ranges.iter().copied());
@@ -1494,7 +1489,7 @@ impl<'a> Transaction<'a> {
                 continue;
             }
             if let Some((definition_handle, definition_export)) =
-                self.key_to_export(handle, key, false, INITIAL_GAS)
+                self.key_to_export(handle, key, false)
             {
                 named_bindings.push(NamedBinding {
                     definition_handle,
@@ -1587,14 +1582,19 @@ impl<'a> Transaction<'a> {
             .to_owned();
             item.sort_text = Some(sort_text);
         }
-        results.sort_by(|item1, item2| item1.sort_text.cmp(&item2.sort_text));
+        results.sort_by(|item1, item2| {
+            item1
+                .sort_text
+                .cmp(&item2.sort_text)
+                .then_with(|| item1.label.cmp(&item2.label))
+                .then_with(|| item1.detail.cmp(&item2.detail))
+        });
         results.dedup_by(|item1, item2| item1.label == item2.label && item1.detail == item2.detail);
         results
     }
 
     fn completion_unsorted_opt(&self, handle: &Handle, position: TextSize) -> Vec<CompletionItem> {
         let mut result = Vec::new();
-        self.add_keyword_completions(handle, &mut result);
         self.add_kwargs_completions(handle, position, &mut result);
 
         match self.identifier_at(handle, position) {
@@ -1661,56 +1661,90 @@ impl<'a> Transaction<'a> {
                 }
             }
             Some(IdentifierWithContext { identifier, .. }) => {
+                self.add_keyword_completions(handle, &mut result);
                 if let Some(bindings) = self.get_bindings(handle)
                     && let Some(module_info) = self.get_module_info(handle)
                 {
-                    bindings
-                        .available_definitions(position)
-                        .into_iter()
-                        .for_each(|idx| {
-                            let key = bindings.idx_to_key(idx);
-                            if let Key::Definition(id) = key {
-                                let binding = bindings.get(idx);
-                                let detail = self.get_type(handle, key).map(|t| t.to_string());
-                                result.push(CompletionItem {
-                                    label: module_info.code_at(id.range()).to_owned(),
-                                    detail,
-                                    kind: binding
-                                        .symbol_kind()
-                                        .map_or(Some(CompletionItemKind::VARIABLE), |k| {
-                                            Some(k.to_lsp_completion_item_kind())
-                                        }),
-                                    ..Default::default()
-                                })
+                    let mut has_local_variable_results = false;
+                    let matcher = SkimMatcherV2::default().smart_case();
+                    for idx in bindings.available_definitions(position) {
+                        let key = bindings.idx_to_key(idx);
+                        if let Key::Definition(id) = key {
+                            let label = module_info.code_at(id.range());
+                            if matcher.fuzzy_match(label, identifier.as_str()).is_none() {
+                                continue;
                             }
-                        });
+                            let binding = bindings.get(idx);
+                            let detail = self.get_type(handle, key).map(|t| t.to_string());
+                            has_local_variable_results = true;
+                            result.push(CompletionItem {
+                                label: label.to_owned(),
+                                detail,
+                                kind: binding
+                                    .symbol_kind()
+                                    .map_or(Some(CompletionItemKind::VARIABLE), |k| {
+                                        Some(k.to_lsp_completion_item_kind())
+                                    }),
+                                ..Default::default()
+                            })
+                        }
+                    }
+                    if identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
+                        && let Ok(builtin_handle) =
+                            self.import_handle(handle, ModuleName::builtins(), None)
+                    {
+                        let builtin_exports = self.get_exports(&builtin_handle);
+                        for (name, location) in builtin_exports.iter() {
+                            if matcher
+                                .fuzzy_match(name.as_str(), identifier.as_str())
+                                .is_none()
+                            {
+                                continue;
+                            }
+                            let kind = match location {
+                                ExportLocation::OtherModule(_) => continue,
+                                ExportLocation::ThisModule(export) => export
+                                    .symbol_kind
+                                    .map_or(Some(CompletionItemKind::VARIABLE), |k| {
+                                        Some(k.to_lsp_completion_item_kind())
+                                    }),
+                            };
+                            result.push(CompletionItem {
+                                label: name.as_str().to_owned(),
+                                detail: None,
+                                kind,
+                                ..Default::default()
+                            });
+                        }
+                    }
+                    // Auto-import can be slow. Let's only return results if there are no local
+                    // results for now. TODO: re-enable it once we no longer have perf issues.
                     // We should not try to generate autoimport when the user has typed very few
                     // characters. It's unhelpful to narrow down suggestions.
-                    if identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
+                    if !has_local_variable_results
+                        && identifier.as_str().len() >= MIN_CHARACTERS_TYPED_AUTOIMPORT
                         && let Some(ast) = self.get_ast(handle)
                     {
                         for (handle_to_import_from, name, export) in
                             self.search_exports_fuzzy(identifier.as_str())
                         {
                             // Using handle itself doesn't always work because handles can be made separately and have different hashes
-                            if handle_to_import_from.module() == handle.module() {
+                            if handle_to_import_from.module() == handle.module()
+                                || handle_to_import_from.module() == ModuleName::builtins()
+                            {
                                 continue;
                             }
-                            let (insert_text, additional_text_edits) =
-                                match handle_to_import_from.module().as_str() {
-                                    "builtins" => (None, None),
-                                    _ => {
-                                        let (position, insert_text) =
-                                            insert_import_edit(&ast, handle_to_import_from, &name);
-                                        let import_text_edit = TextEdit {
-                                            range: module_info.lined_buffer().to_lsp_range(
-                                                TextRange::at(position, TextSize::new(0)),
-                                            ),
-                                            new_text: insert_text.clone(),
-                                        };
-                                        (Some(insert_text), Some(vec![import_text_edit]))
-                                    }
+                            let (insert_text, additional_text_edits) = {
+                                let (position, insert_text) =
+                                    insert_import_edit(&ast, handle_to_import_from, &name);
+                                let import_text_edit = TextEdit {
+                                    range: module_info
+                                        .lined_buffer()
+                                        .to_lsp_range(TextRange::at(position, TextSize::new(0))),
+                                    new_text: insert_text.clone(),
                                 };
+                                (Some(insert_text), Some(vec![import_text_edit]))
+                            };
                             result.push(CompletionItem {
                                 label: name,
                                 detail: insert_text,
@@ -1774,7 +1808,7 @@ impl<'a> Transaction<'a> {
         idx: Idx<Key>,
         bindings: Bindings,
         transaction: &mut CancellableTransaction,
-    ) -> Vec<(ModuleInfo, Vec<TextRange>)> {
+    ) -> Vec<(Module, Vec<TextRange>)> {
         if let Key::Definition(id) = bindings.idx_to_key(idx)
             && let Some(module_info) = self.get_module_info(handle)
         {
@@ -1904,7 +1938,7 @@ impl<'a> Transaction<'a> {
 
     pub fn inferred_types(&self, handle: &Handle) -> Option<Vec<(TextSize, Type, AnnotationKind)>> {
         let is_interesting_type = |x: &Type| !x.is_error();
-
+        let is_interesting_expr = |x: &Expr| !Ast::is_literal(x);
         let bindings = self.get_bindings(handle)?;
         let mut res = Vec::new();
         for idx in bindings.keys::<Key>() {
@@ -1926,6 +1960,35 @@ impl<'a> Transaction<'a> {
                             }
                         }
                         _ => {}
+                    }
+                }
+                // Only annotate empty containers for now
+                key @ Key::Definition(_) if let Some(ty) = self.get_type(handle, key) => {
+                    let e = match bindings.get(idx) {
+                        Binding::NameAssign(_, None, e) => match &**e {
+                            Expr::List(ExprList { elts, .. }) => {
+                                if elts.is_empty() {
+                                    Some(&**e)
+                                } else {
+                                    None
+                                }
+                            }
+                            Expr::Dict(ExprDict { items, .. }) => {
+                                if items.is_empty() {
+                                    Some(&**e)
+                                } else {
+                                    None
+                                }
+                            }
+                            _ => None,
+                        },
+                        _ => None,
+                    };
+                    if let Some(e) = e
+                        && is_interesting_expr(e)
+                        && is_interesting_type(&ty)
+                    {
+                        res.push((key.range().end(), ty, AnnotationKind::Variable));
                     }
                 }
                 _ => {}
@@ -2014,7 +2077,7 @@ impl<'a> Transaction<'a> {
         fn recurse_stmt_adding_symbols<'a>(
             stmt: &'a Stmt,
             symbols: &'a mut Vec<DocumentSymbol>,
-            module_info: &ModuleInfo,
+            module_info: &Module,
         ) {
             let mut recursed_symbols = Vec::new();
             stmt.recurse(&mut |stmt| {
@@ -2109,7 +2172,7 @@ impl<'a> CancellableTransaction<'a> {
         sys_info: &SysInfo,
         definition_kind: DefinitionMetadata,
         definition: TextRangeWithModule,
-    ) -> Result<Vec<(ModuleInfo, Vec<TextRange>)>, Cancelled> {
+    ) -> Result<Vec<(Module, Vec<TextRange>)>, Cancelled> {
         // General strategy:
         // 1: Compute the set of transitive rdeps.
         // 2. Find references in each one of them using the index computed during earlier checking

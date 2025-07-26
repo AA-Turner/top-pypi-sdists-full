@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -32,7 +32,7 @@ Example: 16 """
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
     r""" The name of the fabric to which the port is connected. This is only available when the FC port is connected to a fabric.<br/>
-There is an added computational cost to retrieving this property's value. It is not populated for either a collection GET or an instance GET unless it is explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more. """
+There is an added computational cost to retrieving this property's value. It is not populated for a GET request unless it is explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more. """
 
     port_address = marshmallow_fields.Str(data_key="port_address", allow_none=True)
     r""" The FC port address of the host bus adapter (HBA) physical port.<br/>

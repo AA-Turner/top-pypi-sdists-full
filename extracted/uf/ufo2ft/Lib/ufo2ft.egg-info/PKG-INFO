@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ufo2ft
-Version: 3.5.1
+Version: 3.6.0
 Summary: A bridge between UFOs and FontTools.
 Home-page: https://github.com/googlefonts/ufo2ft
 Author: Tal Leming, James Godfrey-Kittle
@@ -19,19 +19,19 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 2
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Multimedia :: Graphics
 Classifier: Topic :: Multimedia :: Graphics :: Graphics Conversion
 Classifier: Topic :: Multimedia :: Graphics :: Editors :: Vector-Based
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
-Requires-Python: >=3.8
+Requires-Python: >=3.9
 Description-Content-Type: text/x-rst
 License-File: LICENSE
-Requires-Dist: fonttools[ufo]>=4.52.0
+Requires-Dist: fonttools[ufo]>=4.58.5
 Requires-Dist: cffsubr>=0.3.0
 Requires-Dist: booleanOperations>=0.9.0
 Requires-Dist: fontMath>=0.9.3

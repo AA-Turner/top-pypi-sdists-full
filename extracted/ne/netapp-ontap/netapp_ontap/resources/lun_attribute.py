@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -33,24 +33,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LunAttribute(
         {
-            "name": "name1",
             "value": "value1",
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/4bc204df-ecd8-4f35-8207-d0ccb4db3a90/attributes/name1"
                 }
             },
+            "name": "name1",
         }
     ),
     LunAttribute(
         {
-            "name": "name2",
             "value": "value2",
             "_links": {
                 "self": {
                     "href": "/api/storage/luns/4bc204df-ecd8-4f35-8207-d0ccb4db3a90/attributes/name2"
                 }
             },
+            "name": "name2",
         }
     ),
 ]
@@ -77,31 +77,31 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Lun(
     {
+        "uuid": "4bc204df-ecd8-4f35-8207-d0ccb4db3a90",
         "attributes": [
             {
-                "name": "name1",
                 "value": "name1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/luns/4bc204df-ecd8-4f35-8207-d0ccb4db3a90/attributes/name1"
                     }
                 },
+                "name": "name1",
             },
             {
-                "name": "name2",
                 "value": "value2",
                 "_links": {
                     "self": {
                         "href": "/api/storage/luns/4bc204df-ecd8-4f35-8207-d0ccb4db3a90/attributes/name2"
                     }
                 },
+                "name": "name2",
             },
         ],
         "name": "/vol/vol1/lun1",
         "_links": {
             "self": {"href": "/api/storage/luns/4bc204df-ecd8-4f35-8207-d0ccb4db3a90"}
         },
-        "uuid": "4bc204df-ecd8-4f35-8207-d0ccb4db3a90",
     }
 )
 
@@ -130,13 +130,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LunAttribute(
     {
-        "name": "name1",
         "value": "value1",
         "_links": {
             "self": {
                 "href": "/api/storage/luns/4bc204df-ecd8-4f35-8207-d0ccb4db3a90/attributes/name1"
             }
         },
+        "name": "name1",
     }
 )
 

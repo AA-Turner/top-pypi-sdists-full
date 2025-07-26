@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -328,7 +328,6 @@ Numerous queries are available for classifying and sorting applications:
         **kwargs
     ) -> NetAppResponse:
         r"""Updates the properties of an application.
-
 ### Overview
 Similar to creating an application, modification is done using the template properties of an application. The `storage_service`, `size`, and `igroup_name` of an application may be modified.
 ### `storage_service`
@@ -404,7 +403,24 @@ During a modification, the `state` property of the application updates to indica
         **kwargs
     ) -> Union[List["Application"], NetAppResponse]:
         r"""Creates an application.
-
+### Supported templates
+* MongoDBOnSAN
+* MultiComponentNAS
+* NAS
+* NVME
+* OracleOnNFS
+* OracleOnSAN
+* OracleRACOnNFS
+* OracleRACOnSAN
+* S3
+* SAN
+* SAPHANAOnNFS
+* SQLOnSAN
+* SQLOnSMB
+* VDIOnNAS
+* VDIOnSAN
+* VSIOnNAS
+* VSIOnSAN
 ### Template properties
 The application APIs appear to be complex and long in this documentation because we document every possible template, of which there are currently 14. When creating an application, only a single template is used, so it is best to focus only on the template of interest. Other than the properties for the chosen template, only the `name` and `svm` of the application must be provided. The following three sections provided guidelines on using the properties of the templates, but the whole idea behind the templates is to automatically follow the best practices of the given application, so the only way to determine the exact list of required properties and default values is to dig in to the model section of the template. The templates are all top level properties of the application object with names matching the values returned by [`GET /application/templates`](#operations-application-application_template_collection_get).
 ### Required properties
@@ -516,7 +532,6 @@ A common pattern across many templates are objects that are optional, but once a
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes an application and all associated data.
-
 ### Warning - this deletes it all, including your data
 This deletes everything created with the application, including any volumes, LUNs, NFS export policies, CIFS shares, and initiator groups. Initiator groups are only destroyed if they were created as part of an application and are no longer in use by other applications.
 ### Learn more
@@ -600,7 +615,24 @@ An application includes three main groups or properties.
         **kwargs
     ) -> NetAppResponse:
         r"""Creates an application.
-
+### Supported templates
+* MongoDBOnSAN
+* MultiComponentNAS
+* NAS
+* NVME
+* OracleOnNFS
+* OracleOnSAN
+* OracleRACOnNFS
+* OracleRACOnSAN
+* S3
+* SAN
+* SAPHANAOnNFS
+* SQLOnSAN
+* SQLOnSMB
+* VDIOnNAS
+* VDIOnSAN
+* VSIOnNAS
+* VSIOnSAN
 ### Template properties
 The application APIs appear to be complex and long in this documentation because we document every possible template, of which there are currently 14. When creating an application, only a single template is used, so it is best to focus only on the template of interest. Other than the properties for the chosen template, only the `name` and `svm` of the application must be provided. The following three sections provided guidelines on using the properties of the templates, but the whole idea behind the templates is to automatically follow the best practices of the given application, so the only way to determine the exact list of required properties and default values is to dig in to the model section of the template. The templates are all top level properties of the application object with names matching the values returned by [`GET /application/templates`](#operations-application-application_template_collection_get).
 ### Required properties
@@ -708,7 +740,6 @@ A common pattern across many templates are objects that are optional, but once a
         **kwargs
     ) -> NetAppResponse:
         r"""Updates the properties of an application.
-
 ### Overview
 Similar to creating an application, modification is done using the template properties of an application. The `storage_service`, `size`, and `igroup_name` of an application may be modified.
 ### `storage_service`
@@ -780,7 +811,6 @@ During a modification, the `state` property of the application updates to indica
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes an application and all associated data.
-
 ### Warning - this deletes it all, including your data
 This deletes everything created with the application, including any volumes, LUNs, NFS export policies, CIFS shares, and initiator groups. Initiator groups are only destroyed if they were created as part of an application and are no longer in use by other applications.
 ### Learn more

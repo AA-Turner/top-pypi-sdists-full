@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,8 +26,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <div id="example0_result" class="try_it_out_content">
 ```
 [
-    StorageBridge({"name": "ATTO_2000001086a18100", "wwn": "2000001086a18100"}),
-    StorageBridge({"name": "ATTO_2000001086a18380", "wwn": "2000001086a18380"}),
+    StorageBridge({"wwn": "2000001086a18100", "name": "ATTO_2000001086a18100"}),
+    StorageBridge({"wwn": "2000001086a18380", "name": "ATTO_2000001086a18380"}),
 ]
 
 ```
@@ -55,6 +55,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageBridge(
     {
+        "serial_number": "FB7500N102450",
+        "chassis_throughput_state": "ok",
+        "dram_single_bit_error_count": 0,
+        "wwn": "2000001086a18100",
+        "managed_by": "in_band",
+        "state": "ok",
+        "firmware_version": "3.10 007A",
+        "model": "FibreBridge 7500N",
         "last_reboot": {
             "reason": {
                 "message": 'Reason: "FirmwareRestart Command".',
@@ -62,132 +70,124 @@ StorageBridge(
             },
             "time": "2020-12-09T00:47:58-05:00",
         },
-        "name": "ATTO_2000001086a18100",
-        "fc_ports": [
-            {
-                "configured_data_rate": 8.0,
-                "peer_wwn": "0000000000000000",
-                "negotiated_data_rate": 8.0,
-                "state": "online",
-                "enabled": True,
-                "sfp": {
-                    "serial_number": "UW106SA",
-                    "vendor": "FINISAR CORP.",
-                    "part_number": "FTLF8529P3BCV",
-                    "data_rate_capability": 16.0,
-                },
-                "id": 1,
-                "data_rate_capability": 16.0,
-                "wwn": "2100001086a18100",
-            },
-            {
-                "configured_data_rate": 16.0,
-                "peer_wwn": "0000000000000000",
-                "negotiated_data_rate": 16.0,
-                "state": "online",
-                "enabled": True,
-                "sfp": {
-                    "serial_number": "UW1072B",
-                    "vendor": "FINISAR CORP.",
-                    "part_number": "FTLF8529P3BCV",
-                    "data_rate_capability": 16.0,
-                },
-                "id": 2,
-                "data_rate_capability": 16.0,
-                "wwn": "2200001086a18100",
-            },
-        ],
-        "managed_by": "in_band",
-        "monitoring_enabled": True,
-        "sas_ports": [
-            {
-                "phy_3": {"state": "online"},
-                "negotiated_data_rate": 6.0,
-                "state": "online",
-                "phy_2": {"state": "online"},
-                "enabled": True,
-                "phy_4": {"state": "online"},
-                "id": 1,
-                "data_rate_capability": 12.0,
-                "cable": {
-                    "serial_number": "618130935",
-                    "part_number": "112-00431",
-                    "vendor": "Molex Inc.",
-                    "technology": "Passive Copper 5m ID:00",
-                },
-                "wwn": "5001086000a18100",
-                "phy_1": {"state": "online"},
-            },
-            {
-                "phy_3": {"state": "offline"},
-                "negotiated_data_rate": 0.0,
-                "state": "offline",
-                "phy_2": {"state": "offline"},
-                "enabled": False,
-                "phy_4": {"state": "offline"},
-                "data_rate_capability": 12.0,
-                "wwn": "5001086000a18104",
-                "phy_1": {"state": "offline"},
-            },
-            {
-                "phy_3": {"state": "offline"},
-                "negotiated_data_rate": 0.0,
-                "state": "offline",
-                "phy_2": {"state": "offline"},
-                "enabled": False,
-                "phy_4": {"state": "offline"},
-                "data_rate_capability": 12.0,
-                "wwn": "5001086000a18108",
-                "phy_1": {"state": "offline"},
-            },
-            {
-                "phy_3": {"state": "offline"},
-                "negotiated_data_rate": 0.0,
-                "state": "offline",
-                "phy_2": {"state": "offline"},
-                "enabled": False,
-                "phy_4": {"state": "offline"},
-                "data_rate_capability": 12.0,
-                "wwn": "5001086000a1810c",
-                "phy_1": {"state": "offline"},
-            },
-        ],
-        "temperature_sensor": {
-            "minimum": 0,
-            "name": "Chassis Temperature Sensor",
-            "maximum": 90,
-            "state": "ok",
-            "reading": 54,
-        },
-        "security_enabled": False,
-        "firmware_version": "3.10 007A",
-        "chassis_throughput_state": "ok",
-        "dram_single_bit_error_count": 0,
-        "model": "FibreBridge 7500N",
-        "power_supply_units": [
-            {"name": "A", "state": "ok"},
-            {"name": "B", "state": "ok"},
-        ],
-        "state": "ok",
-        "symbolic_name": "RTP-FCSAS02-41KK10",
-        "wwn": "2000001086a18100",
-        "serial_number": "FB7500N102450",
-        "ip_address": "10.226.57.178",
-        "vendor": "atto",
         "paths": [
             {
                 "target_port": {"wwn": "2100001086a18380"},
-                "name": "0e",
                 "node": {
+                    "uuid": "ecc3d992-3a86-11eb-9fab-00a0985a6024",
                     "name": "sti8080mcc-htp-005",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/ecc3d992-3a86-11eb-9fab-00a0985a6024"
                         }
                     },
-                    "uuid": "ecc3d992-3a86-11eb-9fab-00a0985a6024",
                 },
+                "name": "0e",
             }
+        ],
+        "monitoring_enabled": True,
+        "temperature_sensor": {
+            "maximum": 90,
+            "state": "ok",
+            "reading": 54,
+            "minimum": 0,
+            "name": "Chassis Temperature Sensor",
+        },
+        "ip_address": "10.226.57.178",
+        "power_supply_units": [
+            {"state": "ok", "name": "A"},
+            {"state": "ok", "name": "B"},
+        ],
+        "name": "ATTO_2000001086a18100",
+        "sas_ports": [
+            {
+                "id": 1,
+                "phy_1": {"state": "online"},
+                "enabled": True,
+                "wwn": "5001086000a18100",
+                "phy_4": {"state": "online"},
+                "cable": {
+                    "technology": "Passive Copper 5m ID:00",
+                    "serial_number": "618130935",
+                    "vendor": "Molex Inc.",
+                    "part_number": "112-00431",
+                },
+                "data_rate_capability": 12.0,
+                "negotiated_data_rate": 6.0,
+                "phy_2": {"state": "online"},
+                "phy_3": {"state": "online"},
+                "state": "online",
+            },
+            {
+                "phy_1": {"state": "offline"},
+                "enabled": False,
+                "wwn": "5001086000a18104",
+                "phy_4": {"state": "offline"},
+                "data_rate_capability": 12.0,
+                "negotiated_data_rate": 0.0,
+                "phy_2": {"state": "offline"},
+                "phy_3": {"state": "offline"},
+                "state": "offline",
+            },
+            {
+                "phy_1": {"state": "offline"},
+                "enabled": False,
+                "wwn": "5001086000a18108",
+                "phy_4": {"state": "offline"},
+                "data_rate_capability": 12.0,
+                "negotiated_data_rate": 0.0,
+                "phy_2": {"state": "offline"},
+                "phy_3": {"state": "offline"},
+                "state": "offline",
+            },
+            {
+                "phy_1": {"state": "offline"},
+                "enabled": False,
+                "wwn": "5001086000a1810c",
+                "phy_4": {"state": "offline"},
+                "data_rate_capability": 12.0,
+                "negotiated_data_rate": 0.0,
+                "phy_2": {"state": "offline"},
+                "phy_3": {"state": "offline"},
+                "state": "offline",
+            },
+        ],
+        "vendor": "atto",
+        "symbolic_name": "RTP-FCSAS02-41KK10",
+        "security_enabled": False,
+        "fc_ports": [
+            {
+                "id": 1,
+                "enabled": True,
+                "wwn": "2100001086a18100",
+                "configured_data_rate": 8.0,
+                "peer_wwn": "0000000000000000",
+                "data_rate_capability": 16.0,
+                "negotiated_data_rate": 8.0,
+                "state": "online",
+                "sfp": {
+                    "serial_number": "UW106SA",
+                    "data_rate_capability": 16.0,
+                    "vendor": "FINISAR CORP.",
+                    "part_number": "FTLF8529P3BCV",
+                },
+            },
+            {
+                "id": 2,
+                "enabled": True,
+                "wwn": "2200001086a18100",
+                "configured_data_rate": 16.0,
+                "peer_wwn": "0000000000000000",
+                "data_rate_capability": 16.0,
+                "negotiated_data_rate": 16.0,
+                "state": "online",
+                "sfp": {
+                    "serial_number": "UW1072B",
+                    "data_rate_capability": 16.0,
+                    "vendor": "FINISAR CORP.",
+                    "part_number": "FTLF8529P3BCV",
+                },
+            },
         ],
     }
 )

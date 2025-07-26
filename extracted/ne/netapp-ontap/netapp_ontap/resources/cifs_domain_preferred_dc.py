@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -34,14 +34,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CifsDomainPreferredDc(
         {
-            "svm": {"name": "svm1", "uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4"},
+            "svm": {"uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4", "name": "svm1"},
             "fqdn": "host1",
             "server_ip": "4.4.4.4",
         }
     ),
     CifsDomainPreferredDc(
         {
-            "svm": {"name": "svm1", "uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4"},
+            "svm": {"uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4", "name": "svm1"},
             "fqdn": "host2",
             "server_ip": "11.11.11.11",
         }
@@ -74,7 +74,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsDomainPreferredDc(
     {
-        "svm": {"name": "svm1", "uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4"},
+        "svm": {"uuid": "1226670c-abc9-11eb-8de3-0050568eb0c4", "name": "svm1"},
         "fqdn": "host1",
         "server_ip": "4.4.4.4",
     }

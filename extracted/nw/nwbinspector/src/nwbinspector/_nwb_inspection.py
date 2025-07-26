@@ -15,7 +15,7 @@ from tqdm import tqdm
 
 from ._configuration import configure_checks
 from ._registration import Importance, InspectorMessage, available_checks
-from .tools._read_nwbfile import read_nwbfile
+from .tools._read_nwbfile import read_nwbfile, read_nwbfile_and_io
 from .utils import (
     OptionalListOfStrings,
     PathType,
@@ -148,12 +148,7 @@ def inspect_all(
             nwbfile = read_nwbfile(nwbfile_path=nwbfile_path)
             identifiers[nwbfile.identifier].append(nwbfile_path)
         except Exception as exception:
-            yield InspectorMessage(
-                message=traceback.format_exc(),
-                importance=Importance.ERROR,
-                check_function_name=f"During io.read() - {type(exception)}: {str(exception)}",
-                file_path=str(nwbfile_path),
-            )
+            continue  # read failure errors will be returned as part of inspect_nwbfile
 
     if len(identifiers) != len(nwbfiles):
         for identifier, nwbfiles_with_identifier in identifiers.items():
@@ -273,12 +268,12 @@ def inspect_nwbfile(
     filterwarnings(action="ignore", message="No cached namespaces found in .*")
     filterwarnings(action="ignore", message="Ignoring cached namespace .*")
 
+    io = None
     try:
-        in_memory_nwbfile = read_nwbfile(nwbfile_path=nwbfile_path)
+        in_memory_nwbfile, io = read_nwbfile_and_io(nwbfile_path=nwbfile_path)
 
         if not skip_validate:
-            # TODO - update validation call when pynwb 3.0 is the minimal
-            validation_result = pynwb.validate(paths=[nwbfile_path])
+            validation_result = pynwb.validate(path=nwbfile_path)
             if isinstance(validation_result, tuple):
                 validation_errors = validation_result[0]
             else:
@@ -304,12 +299,20 @@ def inspect_nwbfile(
             inspector_message.file_path = nwbfile_path  # type: ignore
             yield inspector_message
     except Exception as exception:
+        exception_name = f"{type(exception).__module__}.{type(exception).__name__}"
         yield InspectorMessage(
             message=traceback.format_exc(),
             importance=Importance.ERROR,
-            check_function_name=f"During io.read() - {type(exception)}: {str(exception)}",
+            check_function_name=(
+                f"During io.read(), an error occurred: {exception_name}. "
+                f"This indicates that PyNWB was unable to read the file. "
+                f"See the traceback message for more details."
+            ),
             file_path=nwbfile_path,
         )
+    finally:
+        if io is not None:
+            io.close()  # close the io object in case of exceptions or when inspection is complete
 
 
 # TODO: deprecate once subject types and dandi schemas have been extended

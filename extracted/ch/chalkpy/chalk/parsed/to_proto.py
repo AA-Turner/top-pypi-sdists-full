@@ -672,6 +672,7 @@ class ToProtoConverter:
                 join=ToProtoConverter.convert_filter(f.join),
                 foreign_namespace=f.joined_class.namespace,
                 max_staleness_duration=max_staleness_duration,
+                online_store_max_items=f.online_store_max_items,
                 tags=f.tags,
                 owner=f.owner,
                 description=f.description,

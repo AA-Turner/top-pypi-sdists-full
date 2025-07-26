@@ -23,24 +23,26 @@ std::vector<LogicalType> LocalNodeTable::getNodeTableColumnTypes(
     return types;
 }
 
-LocalNodeTable::LocalNodeTable(const catalog::TableCatalogEntry* tableEntry, const Table& table)
+LocalNodeTable::LocalNodeTable(const catalog::TableCatalogEntry* tableEntry, Table& table,
+    MemoryManager& mm)
     : LocalTable{table}, overflowFileHandle(nullptr),
-      nodeGroups{getNodeTableColumnTypes(*tableEntry), false /*enableCompression*/} {
-    initLocalHashIndex();
+      nodeGroups{mm, getNodeTableColumnTypes(*tableEntry), false /*enableCompression*/} {
+    initLocalHashIndex(mm);
+    startOffset = table.getNumTotalRows(nullptr /* transaction */);
 }
 
-void LocalNodeTable::initLocalHashIndex() {
+void LocalNodeTable::initLocalHashIndex(MemoryManager& mm) {
     auto& nodeTable = ku_dynamic_cast<const NodeTable&>(table);
-    overflowFile = std::make_unique<InMemOverflowFile>(nodeTable.getMemoryManager());
+    overflowFile = std::make_unique<InMemOverflowFile>(mm);
     overflowFileHandle = overflowFile->addHandle();
-    hashIndex = std::make_unique<LocalHashIndex>(table.getMemoryManager(),
+    hashIndex = std::make_unique<LocalHashIndex>(mm,
         nodeTable.getColumn(nodeTable.getPKColumnID()).getDataType().getPhysicalType(),
         overflowFileHandle);
 }
 
 bool LocalNodeTable::isVisible(const Transaction* transaction, offset_t offset) const {
-    auto [nodeGroupIdx, offsetInGroup] = StorageUtils::getNodeGroupIdxAndOffsetInChunk(
-        transaction->getLocalRowIdx(table.getTableID(), offset));
+    auto [nodeGroupIdx, offsetInGroup] =
+        StorageUtils::getNodeGroupIdxAndOffsetInChunk(offset - startOffset);
     auto* nodeGroup = nodeGroups.getNodeGroup(nodeGroupIdx);
     if (nodeGroup->isDeleted(transaction, offsetInGroup)) {
         return false;
@@ -57,8 +59,7 @@ offset_t LocalNodeTable::validateUniquenessConstraint(const Transaction* transac
 
 bool LocalNodeTable::insert(Transaction* transaction, TableInsertState& insertState) {
     auto& nodeInsertState = insertState.constCast<NodeTableInsertState>();
-    const auto nodeOffset =
-        transaction->getUncommittedOffset(table.getTableID(), nodeGroups.getNumTotalRows());
+    const auto nodeOffset = startOffset + nodeGroups.getNumTotalRows();
     KU_ASSERT(nodeInsertState.pkVector.state->getSelVector().getSelSize() == 1);
     if (!hashIndex->insert(nodeInsertState.pkVector, nodeOffset,
             [&](offset_t offset) { return isVisible(transaction, offset); })) {
@@ -69,7 +70,7 @@ bool LocalNodeTable::insert(Transaction* transaction, TableInsertState& insertSt
     const auto nodeIDPos =
         nodeInsertState.nodeIDVector.state->getSelVector().getSelectedPositions()[0];
     nodeInsertState.nodeIDVector.setValue(nodeIDPos, internalID_t{nodeOffset, table.getTableID()});
-    nodeGroups.append(transaction, insertState.propertyVectors);
+    nodeGroups.append(&DUMMY_TRANSACTION, insertState.propertyVectors);
     return true;
 }
 
@@ -80,8 +81,9 @@ bool LocalNodeTable::update(Transaction* transaction, TableUpdateState& updateSt
     const auto pos = nodeUpdateState.nodeIDVector.state->getSelVector()[0];
     const auto offset = nodeUpdateState.nodeIDVector.readNodeOffset(pos);
     KU_ASSERT(nodeUpdateState.columnID != table.cast<NodeTable>().getPKColumnID());
-    const auto [nodeGroupIdx, rowIdxInGroup] = StorageUtils::getQuotientRemainder(
-        transaction->getLocalRowIdx(table.getTableID(), offset), StorageConfig::NODE_GROUP_SIZE);
+    KU_ASSERT(offset >= startOffset);
+    const auto [nodeGroupIdx, rowIdxInGroup] =
+        StorageUtils::getQuotientRemainder(offset - startOffset, StorageConfig::NODE_GROUP_SIZE);
     const auto nodeGroup = nodeGroups.getNodeGroup(nodeGroupIdx);
     nodeGroup->update(transaction, rowIdxInGroup, nodeUpdateState.columnID,
         nodeUpdateState.propertyVector);
@@ -94,15 +96,16 @@ bool LocalNodeTable::delete_(Transaction* transaction, TableDeleteState& deleteS
     KU_ASSERT(nodeDeleteState.nodeIDVector.state->getSelVector().getSelSize() == 1);
     const auto pos = nodeDeleteState.nodeIDVector.state->getSelVector()[0];
     const auto offset = nodeDeleteState.nodeIDVector.readNodeOffset(pos);
+    KU_ASSERT(offset >= startOffset);
     hashIndex->delete_(nodeDeleteState.pkVector);
-    const auto [nodeGroupIdx, rowIdxInGroup] = StorageUtils::getQuotientRemainder(
-        transaction->getLocalRowIdx(table.getTableID(), offset), StorageConfig::NODE_GROUP_SIZE);
+    const auto [nodeGroupIdx, rowIdxInGroup] =
+        StorageUtils::getQuotientRemainder(offset - startOffset, StorageConfig::NODE_GROUP_SIZE);
     const auto nodeGroup = nodeGroups.getNodeGroup(nodeGroupIdx);
     return nodeGroup->delete_(transaction, rowIdxInGroup);
 }
 
-bool LocalNodeTable::addColumn(Transaction* transaction, TableAddColumnState& addColumnState) {
-    nodeGroups.addColumn(transaction, addColumnState);
+bool LocalNodeTable::addColumn(TableAddColumnState& addColumnState) {
+    nodeGroups.addColumn(addColumnState);
     return true;
 }
 
@@ -110,9 +113,9 @@ uint64_t LocalNodeTable::getEstimatedMemUsage() {
     return nodeGroups.getEstimatedMemoryUsage() + hashIndex->getEstimatedMemUsage();
 }
 
-void LocalNodeTable::clear() {
+void LocalNodeTable::clear(MemoryManager& mm) {
     auto& nodeTable = ku_dynamic_cast<const NodeTable&>(table);
-    hashIndex = std::make_unique<LocalHashIndex>(table.getMemoryManager(),
+    hashIndex = std::make_unique<LocalHashIndex>(mm,
         nodeTable.getColumn(nodeTable.getPKColumnID()).getDataType().getPhysicalType(),
         overflowFileHandle);
     nodeGroups.clear();

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -34,7 +34,7 @@ Valid choices:
     count = Size(data_key="count", allow_none=True)
     r""" Number of elements to perform the operation on. """
 
-    storage_service = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_consistency_groups_provisioning_options_storage_service.ConsistencyGroupConsistencyGroupsProvisioningOptionsStorageServiceSchema", unknown=EXCLUDE, data_key="storage_service", allow_none=True)
+    storage_service = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_consistency_groups_volumes_provisioning_options_storage_service.ConsistencyGroupConsistencyGroupsVolumesProvisioningOptionsStorageServiceSchema", unknown=EXCLUDE, data_key="storage_service", allow_none=True)
     r""" Determines the placement of any storage object created during this operation. """
 
     @property

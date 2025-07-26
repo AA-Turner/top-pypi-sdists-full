@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,10 +30,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SecuritySamlSp(
     {
-        "certificate": {"ca": "cluster1", "serial_number": "156F10C3EB4C51C1"},
-        "host": "172.21.74.181",
-        "idp_uri": "https://examplelab.customer.com/idp/Metadata",
         "enabled": True,
+        "idp_uri": "https://examplelab.customer.com/idp/Metadata",
+        "certificate": {"serial_number": "156F10C3EB4C51C1", "ca": "cluster1"},
+        "host": "172.21.74.181",
         "_links": {"self": {"href": "/api/security/authentication/cluster/saml-sp"}},
     }
 )
@@ -122,7 +122,7 @@ class SecuritySamlSpSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
     r""" The links field of the security_saml_sp."""
 
-    certificate = marshmallow_fields.Nested("netapp_ontap.models.security_saml_sp_certificate.SecuritySamlSpCertificateSchema", data_key="certificate", unknown=EXCLUDE, allow_none=True)
+    certificate = marshmallow_fields.Nested("netapp_ontap.models.security_saml_def_metadata_certificate.SecuritySamlDefMetadataCertificateSchema", data_key="certificate", unknown=EXCLUDE, allow_none=True)
     r""" The certificate field of the security_saml_sp."""
 
     enabled = marshmallow_fields.Boolean(

@@ -3,7 +3,11 @@
 import typing as t
 
 import pytest_cases
-from connector.generated import (
+from connector.oai.capability import (
+    CapabilityCallableProto,
+    CustomRequest,
+)
+from connector_sdk_types.generated import (
     AssignedEntitlement,
     AssignEntitlement,
     AssignEntitlementResponse,
@@ -13,10 +17,6 @@ from connector.generated import (
     StandardCapabilityName,
     UpdateableAccount,
     UpdateAccountResponse,
-)
-from connector.oai.capability import (
-    CapabilityCallableProto,
-    CustomRequest,
 )
 from pydantic import BaseModel
 

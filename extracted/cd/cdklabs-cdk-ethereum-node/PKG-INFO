@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: cdklabs.cdk-ethereum-node
-Version: 0.0.667
+Version: 0.0.668
 Summary: CDK construct to deploy an Ethereum node running on Amazon Managed Blockchain
 Home-page: https://github.com/cdklabs/cdk-ethereum-node.git
 Author: Amazon Web Services

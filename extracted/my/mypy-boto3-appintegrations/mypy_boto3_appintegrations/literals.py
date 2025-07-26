@@ -8,9 +8,9 @@ Copyright 2025 Vlad Emelianov
 Usage::
 
     ```python
-    from mypy_boto3_appintegrations.literals import ExecutionModeType
+    from mypy_boto3_appintegrations.literals import ContactHandlingScopeType
 
-    data: ExecutionModeType = "ON_DEMAND"
+    data: ContactHandlingScopeType = "CROSS_CONTACTS"
     ```
 """
 
@@ -24,6 +24,7 @@ else:
 
 __all__ = (
     "AppIntegrationsServiceServiceName",
+    "ContactHandlingScopeType",
     "ExecutionModeType",
     "ExecutionStatusType",
     "ListApplicationAssociationsPaginatorName",
@@ -39,6 +40,7 @@ __all__ = (
 )
 
 
+ContactHandlingScopeType = Literal["CROSS_CONTACTS", "PER_CONTACT"]
 ExecutionModeType = Literal["ON_DEMAND", "SCHEDULED"]
 ExecutionStatusType = Literal["COMPLETED", "FAILED", "IN_PROGRESS"]
 ListApplicationAssociationsPaginatorName = Literal["list_application_associations"]
@@ -91,6 +93,8 @@ ServiceName = Literal[
     "bedrock",
     "bedrock-agent",
     "bedrock-agent-runtime",
+    "bedrock-agentcore",
+    "bedrock-agentcore-control",
     "bedrock-data-automation",
     "bedrock-data-automation-runtime",
     "bedrock-runtime",
@@ -323,6 +327,7 @@ ServiceName = Literal[
     "notificationscontacts",
     "oam",
     "observabilityadmin",
+    "odb",
     "omics",
     "opensearch",
     "opensearchserverless",
@@ -383,6 +388,7 @@ ServiceName = Literal[
     "s3control",
     "s3outposts",
     "s3tables",
+    "s3vectors",
     "sagemaker",
     "sagemaker-a2i-runtime",
     "sagemaker-edge",

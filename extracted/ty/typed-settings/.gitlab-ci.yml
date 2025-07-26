@@ -6,25 +6,23 @@ stages:
 
 variables:
   FORCE_COLOR: '1'
+  # Check "https://ghcr.io/astral-sh/uv" for updates
+  IMAGE_BASE_LAYER: 'bookworm'  # "bookworm-slim" doesn't come with git installed
+  IMAGE_PY_VERSION: '3.13'
+  IMAGE_UV_VERSION: '0.8.2'
   NOX_DEFAULT_VENV_BACKEND: 'uv'
-  UV_INSTALL_DIR: '$CI_PROJECT_DIR/.uv'
+  # Use local cache dir so that we can use the GitLab cache.
+  # This way, we can also keep the default "link-mode".
   UV_CACHE_DIR: '$CI_PROJECT_DIR/.cache/uv'
 
 default:
-  image: 'python:3'
+  image: 'ghcr.io/astral-sh/uv:$IMAGE_UV_VERSION-python$IMAGE_PY_VERSION-$IMAGE_BASE_LAYER'
   before_script:
-    - 'export PATH="$UV_INSTALL_DIR/bin:$HOME/.local/bin:$PATH"'
-    - 'curl -LsSf https://astral.sh/uv/install.sh | sh'
+    - 'uv --version'
     - 'uv tool install --with=packaging --with=rich nox'
-  after_script:
-    - 'export PATH="$UV_INSTALL_DIR/bin:$HOME/.local/bin:$PATH"'
-    - 'uv cache prune --ci'
-  cache:
-    paths:
-      - '.cache/uv'
 
 build:
-  stage: build
+  stage: 'build'
   script:
     - 'nox -s build'
   artifacts:
@@ -32,22 +30,22 @@ build:
       - 'dist/'
 
 lint:
-  stage: test
+  stage: 'test'
   script:
     - 'nox -s lint'
 
 mypy:
-  stage: test
+  stage: 'test'
   script:
     - 'nox -s mypy'
 
 sec-check:
-  stage: test
+  stage: 'test'
   script:
     - 'nox -s sec-check'
 
 .test:
-  stage: test
+  stage: 'test'
   artifacts:
     paths:
       - '.coverage'
@@ -59,18 +57,17 @@ test:
   extends: '.test'
   parallel:
     matrix:
-      - PY: ['3.9', '3.10', '3.11', '3.12', '3.13']
+      - PY: ['3.9', '3.10', '3.11', '3.12', '3.13', '3.14']
         DEPS_VERSION: ['min_deps_version', 'latest_deps_version']
-  image: 'python:$PY'
-  # rules:
-  #   # Adding rules without checking for a branch/tag will enable
-  #   # Merge Request pipelines.  We only want normal branch/tag pipelines.
-  #   # See: https://docs.gitlab.com/ee/ci/jobs/job_rules.html#avoid-duplicate-pipelines
-  #   - if: $CI_COMMIT_BRANCH == null && $CI_COMMIT_TAG == null
-  #     when: never
-  #   - if: $PY == '3.14-rc'
-  #     allow_failure: true
-  #   - when: 'on_success'
+  rules:
+    # Adding rules without checking for a branch/tag will enable
+    # Merge Request pipelines.  We only want normal branch/tag pipelines.
+    # See: https://docs.gitlab.com/ee/ci/jobs/job_rules.html#avoid-duplicate-pipelines
+    - if: $CI_COMMIT_BRANCH == null && $CI_COMMIT_TAG == null
+      when: never
+    - if: $PY == '3.14'
+      allow_failure: true
+    - when: 'on_success'
   script:
     # "%%-*" strips the longest possible match of "-*" from the right:
     - 'nox -s "test-${PY%%-*}($DEPS_VERSION)" -- --junit-xml=report-${PY%%-*}-${DEPS_VERSION}.xml'
@@ -81,7 +78,7 @@ test-no-optionals:
     - 'nox -s test_no_optionals -- --junit-xml=report-no-optionals.xml'
 
 test-coverage:
-  stage: post-test
+  stage: 'post-test'
   script:
     - 'nox -s coverage-report'
   coverage: '/^TOTAL.*\s+(\d+\%)\s*$/'
@@ -93,25 +90,27 @@ test-coverage:
         coverage_format: 'cobertura'
         path: 'coverage.xml'
 
-.release:
+.release-base:
   # Abstract base step for "release" steps.
   # Extending steps must define the following variables:
   # - PYPI_OIDC_AUD: Audience for the ID token that GitLab issues to the pipeline step
   # - PYPI_OIDC_URL: PyPI endpoint for retrieving a publish token with GitLab’s ID token
   # - UV_PUBLISH_URL: PyPI endpoint for the actual upload
-  stage: deploy
+  stage: 'deploy'
   id_tokens:
     PYPI_ID_TOKEN:
       aud: '$PYPI_OIDC_AUD'
   script:
-    - 'resp="$(curl -X POST $PYPI_OIDC_URL -d "{\"token\":\"${PYPI_ID_TOKEN}\"}")"'
+    - >-
+      resp="$(curl -X POST "${PYPI_OIDC_URL}" -d "{\"token\":\"${PYPI_ID_TOKEN}\"}")"
     - >-
       publish_token="$(python -c 'import json, sys; print(json.load(sys.stdin)["token"])' <<< "${resp}")"
-    - 'uv publish --token "$publish_token"'
-    - 'echo -e "\033[34;1mPackage on PyPI:\033[0m $CI_ENVIRONMENT_URL"'
+    - 'uv publish --token "$publish_token" dist/*'
+    - 'version="$(uv run --with hatch-vcs hatchling version)"'
+    - 'echo -e "\033[34;1mPackage on PyPI:\033[0m ${CI_ENVIRONMENT_URL}${version}/"'
 
 release-test:
-  extends: .release
+  extends: '.release-base'
   rules:
     - if: >-
         $CI_PIPELINE_SOURCE != "api" &&
@@ -119,17 +118,17 @@ release-test:
         $CI_PIPELINE_SOURCE != "web" &&
         $CI_PIPELINE_SOURCE != "webide"
       when: 'never'
-    - if: $CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG
+    - if: '$CI_COMMIT_BRANCH == $CI_DEFAULT_BRANCH || $CI_COMMIT_TAG'
   environment:
-    name: release-test
-    url: https://test.pypi.org/project/typed-settings/
+    name: 'release-test'
+    url: 'https://test.pypi.org/project/typed-settings/'
   variables:
     PYPI_OIDC_AUD: 'testpypi'
     PYPI_OIDC_URL: 'https://test.pypi.org/_/oidc/mint-token'
     UV_PUBLISH_URL: 'https://test.pypi.org/legacy/'
 
 release:
-  extends: .release
+  extends: '.release-base'
   rules:
     - if: >-
         $CI_PIPELINE_SOURCE != "api" &&
@@ -137,10 +136,10 @@ release:
         $CI_PIPELINE_SOURCE != "web" &&
         $CI_PIPELINE_SOURCE != "webide"
       when: 'never'
-    - if: $CI_COMMIT_TAG
+    - if: '$CI_COMMIT_TAG'
   environment:
-    name: release
-    url: https://pypi.org/project/typed-settings/
+    name: 'release'
+    url: 'https://pypi.org/project/typed-settings/'
   variables:
     PYPI_OIDC_AUD: 'pypi'
     PYPI_OIDC_URL: 'https://pypi.org/_/oidc/mint-token'

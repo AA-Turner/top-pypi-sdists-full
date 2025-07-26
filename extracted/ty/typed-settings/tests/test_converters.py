@@ -2,8 +2,10 @@
 Tests for `typed_settings.attrs.converters`.
 """
 
+import collections.abc
 import dataclasses
 import json
+import typing
 from collections.abc import Sequence
 from datetime import date, datetime, timedelta, timezone
 from enum import Enum
@@ -27,6 +29,12 @@ from typed_settings._compat import PY_310, PY_311
 from typed_settings.cls_attrs import option, secret, settings
 
 
+if PY_311:
+    from enum import IntEnum, StrEnum
+else:
+    IntEnum = StrEnum = None  # type: ignore
+
+
 def custom_converter(v: Union[str, Path]) -> Path:
     """A custom converter for attrs fields."""
     return Path(v).resolve()
@@ -35,8 +43,23 @@ def custom_converter(v: Union[str, Path]) -> Path:
 class LeEnum(Enum):
     """A simple enum for testing."""
 
-    spam = "Le Spam"
-    eggs = "Le Eggs"
+    spam = "Le spam"
+    eggs = "Le eggs"
+
+
+if PY_311:
+
+    class LeIntEnum(IntEnum):
+        """An int enum for testing."""
+
+        spam = 1
+        eggs = 2
+
+    class LeStrEnum(StrEnum):
+        """A str enum for testing."""
+
+        spam = "Le spam"
+        eggs = "Le eggs"
 
 
 @dataclasses.dataclass
@@ -124,8 +147,14 @@ class ParentPydantic(pydantic.BaseModel):
     g: pydantic.SecretStr = pydantic.Field(default=pydantic.SecretStr("secret-default"))
 
 
-Example3T = list[tuple[str, Any, Any]]  # 3-tuple example
-Example4T = list[tuple[str, Any, Any, Any]]  # 4-tuple example
+Value: "typing.TypeAlias" = Any
+Expected: "typing.TypeAlias" = Any
+DefinedType: "typing.TypeAlias" = Any
+PytestId: "typing.TypeAlias" = str
+
+
+Example3T = list[tuple[PytestId, Value, Expected]]  # 3-tuple example
+Example4T = list[tuple[PytestId, Value, Expected, DefinedType]]  # 4-tuple example
 
 # This list is filled with examples for each supported data type below.
 # It is used to check that all supported converters can convert the same data.
@@ -267,7 +296,16 @@ SUPPORTED_ENUM: Example3T = [
     ("enum(str)", "eggs", LeEnum.eggs),
     ("enum(inst)", LeEnum.eggs, LeEnum.eggs),
 ]
-SUPPORTED_TYPES_DATA += [(n, v, e, LeEnum) for n, v, e in SUPPORTED_ENUM]
+if PY_311:
+    SUPPORTED_ENUM.extend(
+        [
+            ("intenum(str)", 2, LeIntEnum.eggs),
+            ("intenum(inst)", LeIntEnum.eggs, LeIntEnum.eggs),
+            ("strenum(str)", "Le eggs", LeStrEnum.eggs),
+            ("strenum(inst)", LeStrEnum.eggs, LeStrEnum.eggs),
+        ]
+    )
+SUPPORTED_TYPES_DATA += [(n, v, e, type(e)) for n, v, e in SUPPORTED_ENUM]
 
 # Path - Paths are resolved by default
 SUPPORTED_PATH = [
@@ -345,10 +383,34 @@ SUPPORTED_MAPPINGPROXY: Example4T = [
         MappingProxyType,
     ),
     (
+        "typing.Mapping[Any, Any]",
+        {"y": 1, "n": 3.1},
+        MappingProxyType({"y": 1, "n": 3.1}),
+        typing.Mapping,
+    ),
+    (
+        "collections.abc.Mapping[Any, Any]",
+        {"y": 1, "n": 3.1},
+        MappingProxyType({"y": 1, "n": 3.1}),
+        collections.abc.Mapping,
+    ),
+    (
         "MappingProxyType[bool, int]",
         {"y": 1, "n": 3.1},
         MappingProxyType({True: 1, False: 3}),
         MappingProxyType[bool, int],
+    ),
+    (
+        "typing.Mapping[bool, int]",
+        {"y": 1, "n": 3.1},
+        MappingProxyType({True: 1, False: 3}),
+        typing.Mapping[bool, int],
+    ),
+    (
+        "collection.abc.Mapping[bool, int]",
+        {"y": 1, "n": 3.1},
+        MappingProxyType({True: 1, False: 3}),
+        collections.abc.Mapping[bool, int],
     ),
 ]
 SUPPORTED_TYPES_DATA += SUPPORTED_MAPPINGPROXY
@@ -476,7 +538,7 @@ SUPPORTED_PYDANTIC: Example4T = [
         {
             "a": "3.14",
             "b": 1,
-            "c": "Le Eggs",
+            "c": "Le eggs",
             "d": "2023-05-04T13:37:42+00:00",
             "e": [{"x": 0, "y": "a"}, {"x": 1, "y": "b"}],
             "f": ["2023-05-04T13:37:42+00:00", "2023-05-04T13:37:42+00:00"],
@@ -502,7 +564,7 @@ SUPPORTED_PYDANTIC: Example4T = [
         "pydantic(nested) defaults",
         {
             "a": "3.14",
-            "c": "Le Eggs",
+            "c": "Le eggs",
             "d": "2023-05-04T13:37:42+00:00",
             "e": [{"x": 0, "y": "a"}, {"x": 1, "y": "b"}],
             "f": ["2023-05-04T13:37:42+00:00", "2023-05-04T13:37:42+00:00"],

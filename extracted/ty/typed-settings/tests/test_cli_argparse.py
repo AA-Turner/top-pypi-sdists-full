@@ -106,7 +106,7 @@ def test_cli_desc_from_kwarg(invoke: Invoke, capsys: pytest.CaptureFixture) -> N
     @cli_argparse.cli(Settings, "test", description="Le description")
     def cli(settings: Settings) -> None:
         """
-        spam spam spam.
+        Spam spam spam.
         """
 
     with pytest.raises(SystemExit):

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -39,17 +39,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 GcpKms(
     {
+        "key_ring_name": "testKeyRing",
+        "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+        "key_name": "key1",
+        "key_ring_location": "global",
+        "project_id": "testProj",
         "_links": {
             "self": {
                 "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
             }
         },
-        "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
-        "key_ring_location": "global",
-        "project_id": "testProj",
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        "key_ring_name": "testKeyRing",
-        "key_name": "key1",
     }
 )
 
@@ -76,18 +76,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     GcpKms(
         {
+            "key_ring_name": "testKeyRing",
+            "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
+            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+            "key_name": "key1",
+            "key_ring_location": "global",
+            "project_id": "testProj",
+            "scope": "svm",
             "_links": {
                 "self": {
                     "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
                 }
             },
-            "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
-            "key_ring_location": "global",
-            "project_id": "testProj",
-            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-            "scope": "svm",
-            "key_ring_name": "testKeyRing",
-            "key_name": "key1",
         }
     )
 ]
@@ -116,18 +116,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 GcpKms(
     {
+        "key_ring_name": "testKeyRing",
+        "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+        "key_name": "key1",
+        "key_ring_location": "global",
+        "project_id": "testProj",
+        "scope": "svm",
         "_links": {
             "self": {
                 "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
             }
         },
-        "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
-        "key_ring_location": "global",
-        "project_id": "testProj",
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        "scope": "svm",
-        "key_ring_name": "testKeyRing",
-        "key_name": "key1",
     }
 )
 
@@ -155,48 +155,48 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 GcpKms(
     {
-        "_links": {
-            "self": {
-                "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
-            }
-        },
-        "google_reachability": {"message": "", "reachable": True, "code": "0"},
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
         "state": {
             "message": "The Google Cloud Key Management Service key protection is unavailable on the following nodes: cluster1-node1.",
-            "code": "65537708",
             "cluster_state": False,
+            "code": "65537708",
         },
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+        "google_reachability": {"message": "", "reachable": True, "code": "0"},
         "ekmip_reachability": [
             {
                 "message": "",
-                "reachable": True,
-                "code": "0",
                 "node": {
+                    "uuid": "d208115f-7721-11eb-bf83-005056bb150e",
                     "name": "node1",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/d208115f-7721-11eb-bf83-005056bb150e"
                         }
                     },
-                    "uuid": "d208115f-7721-11eb-bf83-005056bb150e",
                 },
+                "reachable": True,
+                "code": "0",
             },
             {
                 "message": "",
-                "reachable": True,
-                "code": "0",
                 "node": {
+                    "uuid": "e208115f-7721-11eb-bf83-005056bb150e",
                     "name": "node2",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/e208115f-7721-11eb-bf83-005056bb150e"
                         }
                     },
-                    "uuid": "e208115f-7721-11eb-bf83-005056bb150e",
                 },
+                "reachable": True,
+                "code": "0",
             },
         ],
+        "_links": {
+            "self": {
+                "href": "/api/security/gcp-kms/f72098a2-e908-11ea-bd56-005056bb4222"
+            }
+        },
     }
 )
 
@@ -231,6 +231,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource = GcpKms(uuid="f72098a2-e908-11ea-bd56-005056bb4222")
     resource.application_credentials = '{"client_email": "unprivileged@account.com", "private_key": "ValidPrivateKeyforUnprivilegedAccount"}'
     resource.privileged_account = "privileged@account.com"
+    resource.patch()
+
+```
+
+---
+### Updating the authentication method to use GCE metadata server for retrieving short lived authentication tokens.
+The following example shows how to change the authentication method on an existing GCKMS configuration.
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import GcpKms
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = GcpKms(uuid="f72098a2-e908-11ea-bd56-005056bb4222")
+    resource.authentication_method = "sa_credentials_attachment"
     resource.patch()
 
 ```
@@ -296,9 +310,21 @@ class GcpKmsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         data_key="application_credentials",
         allow_none=True,
     )
-    r""" Google Cloud application's service account credentials required to access the specified KMS. The client_email and private_key fields of the service account holder are required.
+    r""" The Google Cloud application's service account credentials required to access the specified KMS. The client_email and private_key fields of the service account holder are required. The credentials are required if the `authentication_method` is set to `application_credentials_key`.
 
 Example: {"private_key":"ValidPrivateKey","client_email":"my@account.email.com"}"""
+
+    authentication_method = marshmallow_fields.Str(
+        data_key="authentication_method",
+        validate=enum_validation(['application_credentials_key', 'sa_credentials_attachment']),
+        allow_none=True,
+    )
+    r""" Google Cloud KMS authentication method.
+
+Valid choices:
+
+* application_credentials_key
+* sa_credentials_attachment"""
 
     caller_account = marshmallow_fields.Str(
         data_key="caller_account",
@@ -319,6 +345,14 @@ Example: cloudkms.googleapis.com"""
     ekmip_reachability = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.azure_key_vault_ekmip_reachability.AzureKeyVaultEkmipReachabilitySchema", unknown=EXCLUDE, allow_none=True), data_key="ekmip_reachability", allow_none=True)
     r""" Provides the connectivity status for the given SVM on the given node to all EKMIP servers configured on all nodes of the cluster.
 This is an advanced property; there is an added computational cost to retrieving its value. The property is not populated for either a collection GET or an instance GET unless it is explicitly requested using the `fields` query parameter or GET for all advanced properties is enabled."""
+
+    gce_metadata_server = marshmallow_fields.Str(
+        data_key="gce_metadata_server",
+        allow_none=True,
+    )
+    r""" A custom metadata server URL used for retrieving short lived authentication tokens if the default service account is not used. This is only applicable when the `authentication_method` is set to `sa_credentials_attachment`.
+
+Example: http://169.254.169.254/computeMetadata/v1/instance/service-accounts/default/token"""
 
     google_reachability = marshmallow_fields.Nested("netapp_ontap.models.gcp_connectivity.GcpConnectivitySchema", data_key="google_reachability", unknown=EXCLUDE, allow_none=True)
     r""" Indicates whether or not the Google Cloud KMS is reachable from all nodes in the cluster.
@@ -477,9 +511,11 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
 
     gettable_fields = [
         "links",
+        "authentication_method",
         "caller_account",
         "cloudkms_host",
         "ekmip_reachability",
+        "gce_metadata_server",
         "google_reachability",
         "key_name",
         "key_ring_location",
@@ -502,11 +538,13 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "verify_host",
         "verify_ip",
     ]
-    """links,caller_account,cloudkms_host,ekmip_reachability,google_reachability,key_name,key_ring_location,key_ring_name,oauth_host,oauth_url,port,privileged_account,project_id,proxy_host,proxy_port,proxy_type,proxy_username,scope,state,svm.links,svm.name,svm.uuid,uuid,verify_host,verify_ip,"""
+    """links,authentication_method,caller_account,cloudkms_host,ekmip_reachability,gce_metadata_server,google_reachability,key_name,key_ring_location,key_ring_name,oauth_host,oauth_url,port,privileged_account,project_id,proxy_host,proxy_port,proxy_type,proxy_username,scope,state,svm.links,svm.name,svm.uuid,uuid,verify_host,verify_ip,"""
 
     patchable_fields = [
         "application_credentials",
+        "authentication_method",
         "cloudkms_host",
+        "gce_metadata_server",
         "oauth_host",
         "oauth_url",
         "port",
@@ -519,11 +557,13 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "verify_host",
         "verify_ip",
     ]
-    """application_credentials,cloudkms_host,oauth_host,oauth_url,port,privileged_account,proxy_host,proxy_password,proxy_port,proxy_type,proxy_username,verify_host,verify_ip,"""
+    """application_credentials,authentication_method,cloudkms_host,gce_metadata_server,oauth_host,oauth_url,port,privileged_account,proxy_host,proxy_password,proxy_port,proxy_type,proxy_username,verify_host,verify_ip,"""
 
     postable_fields = [
         "application_credentials",
+        "authentication_method",
         "cloudkms_host",
+        "gce_metadata_server",
         "key_name",
         "key_ring_location",
         "key_ring_name",
@@ -542,7 +582,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "verify_host",
         "verify_ip",
     ]
-    """application_credentials,cloudkms_host,key_name,key_ring_location,key_ring_name,oauth_host,oauth_url,port,privileged_account,project_id,proxy_host,proxy_password,proxy_port,proxy_type,proxy_username,svm.name,svm.uuid,verify_host,verify_ip,"""
+    """application_credentials,authentication_method,cloudkms_host,gce_metadata_server,key_name,key_ring_location,key_ring_name,oauth_host,oauth_url,port,privileged_account,project_id,proxy_host,proxy_password,proxy_port,proxy_type,proxy_username,svm.name,svm.uuid,verify_host,verify_ip,"""
 
 class GcpKms(Resource):
     """Allows interaction with GcpKms objects on the host"""
@@ -629,6 +669,8 @@ class GcpKms(Resource):
 * `verify_host` - Verify the identity of the Google Cloud KMS host name.
 * `verify_ip ` - Verify identity of Google Cloud KMS IP address.
 * `privileged_account` - Account used to impersonate Google Cloud KMS requests.
+* `authentication_method` - The authentication method to use for retrieving short lived authentication tokens.
+* `gce_metadata_server` - A custom metadata server URL used for retrieving short lived authentication tokens if the default service account is not used. This is only applicable when the `authentication_method` is set to `sa_credentials_attachment`.
 ### Related ONTAP commands
 * `security key-manager external gcp update-credentials`
 * `security key-manager external gcp update-config`
@@ -661,7 +703,7 @@ class GcpKms(Resource):
 * `key_ring_name` - Google Cloud KMS key ring name of the deployed Google Cloud application with appropriate access to the specified Google Cloud KMS.
 * `key_ring_location` - Google Cloud KMS key ring location.
 * `key_name`- Key Identifier of the Google Cloud KMS key encryption key.
-* `application_credentials` - Google Cloud application's service account credentials required to access the specified KMS. It is a JSON file containing an email address and the private key of the service account holder.
+* `application_credentials` - The Google Cloud application's service account credentials required to access the specified KMS. This is a JSON file containing an email address and the private key of the service account holder. The field is required if the `authentication_method` is set to `application_credentials_key`.
 ### Optional properties
 * `proxy_type` - Type of proxy (http/https) if proxy configuration is used.
 * `proxy_host` - Proxy hostname if proxy configuration is used.
@@ -675,6 +717,8 @@ class GcpKms(Resource):
 * `privileged_account` - Account used to impersonate Google Cloud KMS requests.
 * `verify_ip` - Verify identity of Google Cloud KMS IP address.
 * `verify_host` - Verify the identity of the Google Cloud KMS host name.
+* `authentication_method` - The authentication method to use for retrieving short lived authentication tokens.
+* `gce_metadata_server` - A custom metadata server URL used for retrieving short lived authentication tokens if the default service account is not used. This is only applicable when the `authentication_method` is set to `sa_credentials_attachment`.
 ### Related ONTAP commands
 * `security key-manager external gcp enable`
 
@@ -752,7 +796,7 @@ class GcpKms(Resource):
 * `key_ring_name` - Google Cloud KMS key ring name of the deployed Google Cloud application with appropriate access to the specified Google Cloud KMS.
 * `key_ring_location` - Google Cloud KMS key ring location.
 * `key_name`- Key Identifier of the Google Cloud KMS key encryption key.
-* `application_credentials` - Google Cloud application's service account credentials required to access the specified KMS. It is a JSON file containing an email address and the private key of the service account holder.
+* `application_credentials` - The Google Cloud application's service account credentials required to access the specified KMS. This is a JSON file containing an email address and the private key of the service account holder. The field is required if the `authentication_method` is set to `application_credentials_key`.
 ### Optional properties
 * `proxy_type` - Type of proxy (http/https) if proxy configuration is used.
 * `proxy_host` - Proxy hostname if proxy configuration is used.
@@ -766,6 +810,8 @@ class GcpKms(Resource):
 * `privileged_account` - Account used to impersonate Google Cloud KMS requests.
 * `verify_ip` - Verify identity of Google Cloud KMS IP address.
 * `verify_host` - Verify the identity of the Google Cloud KMS host name.
+* `authentication_method` - The authentication method to use for retrieving short lived authentication tokens.
+* `gce_metadata_server` - A custom metadata server URL used for retrieving short lived authentication tokens if the default service account is not used. This is only applicable when the `authentication_method` is set to `sa_credentials_attachment`.
 ### Related ONTAP commands
 * `security key-manager external gcp enable`
 
@@ -804,6 +850,8 @@ class GcpKms(Resource):
 * `verify_host` - Verify the identity of the Google Cloud KMS host name.
 * `verify_ip ` - Verify identity of Google Cloud KMS IP address.
 * `privileged_account` - Account used to impersonate Google Cloud KMS requests.
+* `authentication_method` - The authentication method to use for retrieving short lived authentication tokens.
+* `gce_metadata_server` - A custom metadata server URL used for retrieving short lived authentication tokens if the default service account is not used. This is only applicable when the `authentication_method` is set to `sa_credentials_attachment`.
 ### Related ONTAP commands
 * `security key-manager external gcp update-credentials`
 * `security key-manager external gcp update-config`

@@ -51,9 +51,6 @@ def filter_none(obj: Union[Dict[str, Any], List[Any]]) -> Union[Dict[str, Any], 
                 continue
             if isinstance(v, (dict, list)):
                 v = filter_none(v)
-                # remove empty nested dicts
-                if isinstance(v, dict) and not v:
-                    continue
             cleaned[k] = v
         return cleaned
 
@@ -101,7 +98,7 @@ class TaskProviderHelper:
         # prepare payload (to customize in subclasses)
         payload = self._prepare_payload_as_dict(inputs, parameters, provider_mapping_info=provider_mapping_info)
         if payload is not None:
-            payload = recursive_merge(payload, extra_payload or {})
+            payload = recursive_merge(payload, filter_none(extra_payload or {}))
 
         # body data (to customize in subclasses)
         data = self._prepare_payload_as_bytes(inputs, parameters, provider_mapping_info, extra_payload)
@@ -134,7 +131,7 @@ class TaskProviderHelper:
             api_key = get_token()
         if api_key is None:
             raise ValueError(
-                f"You must provide an api_key to work with {self.provider} API or log in with `huggingface-cli login`."
+                f"You must provide an api_key to work with {self.provider} API or log in with `hf auth login`."
             )
         return api_key
 
@@ -270,7 +267,7 @@ class BaseTextGenerationTask(TaskProviderHelper):
     def _prepare_payload_as_dict(
         self, inputs: Any, parameters: Dict, provider_mapping_info: InferenceProviderMapping
     ) -> Optional[Dict]:
-        return {"prompt": inputs, **filter_none(parameters), "model": provider_mapping_info.provider_id}
+        return filter_none({"prompt": inputs, **parameters, "model": provider_mapping_info.provider_id})
 
 
 @lru_cache(maxsize=None)

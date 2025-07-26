@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -53,24 +53,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroupSnapshot(
         {
+            "uuid": "92c6c770-17a1-11eb-b141-005056acd498",
             "name": "sa3s1",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/a8d0626a-17a0-11eb-b141-005056acd498/snapshots/92c6c770-17a1-11eb-b141-005056acd498"
                 }
             },
-            "uuid": "92c6c770-17a1-11eb-b141-005056acd498",
         }
     ),
     ConsistencyGroupSnapshot(
         {
+            "uuid": "c5a250ba-17a1-11eb-b141-005056acd498",
             "name": "sa3s2",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/a8d0626a-17a0-11eb-b141-005056acd498/snapshots/c5a250ba-17a1-11eb-b141-005056acd498"
                 }
             },
-            "uuid": "c5a250ba-17a1-11eb-b141-005056acd498",
         }
     ),
 ]
@@ -101,32 +101,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroupSnapshot(
     {
+        "svm": {
+            "uuid": "7379fecb-4195-11ec-8674-005056accf3f",
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/7379fecb-4195-11ec-8674-005056accf3f"}
+            },
+        },
+        "uuid": "a175c021-4199-11ec-8674-005056accf3f",
+        "comment": "manually created snapshot",
+        "create_time": "2021-11-09T15:14:23-05:00",
         "name": "sa3s2",
+        "consistency_type": "crash",
         "_links": {
             "self": {
                 "href": "/api/application/consistency-groups/ddabc6a5-4196-11ec-8674-005056accf3f/snapshots/a175c021-4199-11ec-8674-005056accf3f"
             }
         },
-        "svm": {
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/7379fecb-4195-11ec-8674-005056accf3f"}
-            },
-            "uuid": "7379fecb-4195-11ec-8674-005056accf3f",
-        },
         "consistency_group": {
+            "uuid": "ddabc6a5-4196-11ec-8674-005056accf3f",
             "name": "CG_1",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/ddabc6a5-4196-11ec-8674-005056accf3f"
                 }
             },
-            "uuid": "ddabc6a5-4196-11ec-8674-005056accf3f",
         },
-        "uuid": "a175c021-4199-11ec-8674-005056accf3f",
-        "create_time": "2021-11-09T15:14:23-05:00",
-        "comment": "manually created snapshot",
-        "consistency_type": "crash",
     }
 )
 
@@ -152,6 +152,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroupSnapshot(
         {
+            "uuid": "7da4d364-c12e-11ee-bbfe-005056acb65e",
             "name": "cg3ss",
             "_links": {
                 "self": {
@@ -159,19 +160,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "consistency_group": {
+                "uuid": "1218f900-c124-11ee-bbfe-005056acb65e",
                 "name": "cg3",
                 "_links": {
                     "self": {
                         "href": "/api/application/consistency-groups/1218f900-c124-11ee-bbfe-005056acb65e"
                     }
                 },
-                "uuid": "1218f900-c124-11ee-bbfe-005056acb65e",
             },
-            "uuid": "7da4d364-c12e-11ee-bbfe-005056acb65e",
         }
     ),
     ConsistencyGroupSnapshot(
         {
+            "uuid": "83595384-c12e-11ee-bbfe-005056acb65e",
             "name": "cg2ss",
             "_links": {
                 "self": {
@@ -179,19 +180,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "consistency_group": {
+                "uuid": "15a8f66e-c124-11ee-bbfe-005056acb65e",
                 "name": "cg2",
                 "_links": {
                     "self": {
                         "href": "/api/application/consistency-groups/15a8f66e-c124-11ee-bbfe-005056acb65e"
                     }
                 },
-                "uuid": "15a8f66e-c124-11ee-bbfe-005056acb65e",
             },
-            "uuid": "83595384-c12e-11ee-bbfe-005056acb65e",
         }
     ),
     ConsistencyGroupSnapshot(
         {
+            "uuid": "87d0e49c-c12e-11ee-bbfe-005056acb65e",
             "name": "cg1ss",
             "_links": {
                 "self": {
@@ -199,15 +200,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "consistency_group": {
+                "uuid": "1c101d17-c124-11ee-bbfe-005056acb65e",
                 "name": "cg1",
                 "_links": {
                     "self": {
                         "href": "/api/application/consistency-groups/1c101d17-c124-11ee-bbfe-005056acb65e"
                     }
                 },
-                "uuid": "1c101d17-c124-11ee-bbfe-005056acb65e",
             },
-            "uuid": "87d0e49c-c12e-11ee-bbfe-005056acb65e",
         }
     ),
 ]
@@ -483,9 +483,8 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "snaplock",
         "svm.name",
         "svm.uuid",
-        "write_fence",
     ]
-    """consistency_type,name,snaplock,svm.name,svm.uuid,write_fence,"""
+    """consistency_type,name,snaplock,svm.name,svm.uuid,"""
 
     postable_fields = [
         "comment",
@@ -567,7 +566,10 @@ There is an added computational cost to retrieving values for these properties. 
         connection: HostConnection = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Completes a snapshot operation of a consistency group. This can also be used to modify the SnapLock expiry time of a locked snapshot in SnapLock for SnapVault destination.
+        r"""Completes a snapshot operation of a consistency group. 
+<personalities supports=asar2>
+This can also be used to modify the SnapLock expiry time of a locked snapshot in SnapLock for SnapVault destination.
+</personalities>
 ## Example
 ### Completing a snapshot operation
   The following example shows how to complete the snapshot operation by committing an existing snapshot to disk:
@@ -597,6 +599,7 @@ There is an added computational cost to retrieving values for these properties. 
     }
   }
   ```
+
 
 ### Learn more
 * [`DOC /application/consistency-groups/{consistency_group.uuid}/snapshots`](#docs-application-application_consistency-groups_{consistency_group.uuid}_snapshots)"""
@@ -714,7 +717,10 @@ There is an added computational cost to retrieving values for these properties. 
         poll_timeout: Optional[int] = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Completes a snapshot operation of a consistency group. This can also be used to modify the SnapLock expiry time of a locked snapshot in SnapLock for SnapVault destination.
+        r"""Completes a snapshot operation of a consistency group. 
+<personalities supports=asar2>
+This can also be used to modify the SnapLock expiry time of a locked snapshot in SnapLock for SnapVault destination.
+</personalities>
 ## Example
 ### Completing a snapshot operation
   The following example shows how to complete the snapshot operation by committing an existing snapshot to disk:
@@ -744,6 +750,7 @@ There is an added computational cost to retrieving values for these properties. 
     }
   }
   ```
+
 
 ### Learn more
 * [`DOC /application/consistency-groups/{consistency_group.uuid}/snapshots`](#docs-application-application_consistency-groups_{consistency_group.uuid}_snapshots)"""

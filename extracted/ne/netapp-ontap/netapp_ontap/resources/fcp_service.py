@@ -1,15 +1,13 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
 A Fibre Channel Protocol (FC Protocol) service defines the properties of the FC Protocol target for an SVM. There can be at most one FC Protocol service for an SVM. An SVM FC Protocol service must be created before FC Protocol initiators can log in to the SVM.<br/>
-The FC Protocol service REST API allows you to create, update, delete, and discover FC services for SVMs.
-### Platform Specifics
-
-* **ASA r2**: An FC Protocol service is always present for each data SVM. The service can be disabled, but not created or deleted.
+The FC Protocol service REST API allows you to create, update, delete, and discover FC services for SVMs.</br>
+<personalities supports=asar2>An FC Protocol service is always present for each data SVM. The service can be enabled and disabled, but not created or deleted.</personalities>
 ## Performance monitoring
 Performance of the SVM can be monitored by the `metric.*` and `statistics.*` properties. These show the performance of the SVM in terms of IOPS, latency, and throughput. The `metric.*` properties denote an average whereas `statistics.*` properties denote a real-time monotonically increasing value aggregated across all nodes.
 ## Examples
@@ -36,18 +34,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 FcpService(
     {
         "enabled": True,
+        "svm": {
+            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
+            },
+        },
         "target": {"name": "20:00:00:50:56:bb:b2:4b"},
         "_links": {
             "self": {
                 "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
             }
-        },
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
-            },
-            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
         },
     }
 )
@@ -74,37 +72,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FcpService(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
-                }
-            },
             "svm": {
+                "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"
                     }
                 },
-                "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
+                }
             },
         }
     ),
     FcpService(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/fcp/services/6011f874-c01a-11e8-88ed-005056bbb24b"
-                }
-            },
             "svm": {
+                "uuid": "6011f874-c01a-11e8-88ed-005056bbb24b",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6011f874-c01a-11e8-88ed-005056bbb24b"
                     }
                 },
-                "uuid": "6011f874-c01a-11e8-88ed-005056bbb24b",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/fcp/services/6011f874-c01a-11e8-88ed-005056bbb24b"
+                }
             },
         }
     ),
@@ -136,18 +134,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 FcpService(
     {
         "enabled": True,
+        "svm": {
+            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
+            },
+        },
         "target": {"name": "20:00:00:50:56:bb:b2:4b"},
         "_links": {
             "self": {
                 "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
             }
-        },
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
-            },
-            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
         },
     }
 )
@@ -194,17 +192,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 FcpService(
     {
         "enabled": False,
-        "_links": {
-            "self": {
-                "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
-            }
-        },
         "svm": {
+            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/5c659d90-c01a-11e8-88ed-005056bbb24b"}
             },
-            "uuid": "5c659d90-c01a-11e8-88ed-005056bbb24b",
+        },
+        "_links": {
+            "self": {
+                "href": "/api/protocols/san/fcp/services/5c659d90-c01a-11e8-88ed-005056bbb24b"
+            }
         },
     }
 )
@@ -413,9 +411,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> Union[List["FcpService"], NetAppResponse]:
         r"""Creates an FC Protocol service.
-### Platform Specifics
-* **Unified ONTAP**: POST and DELETE must be used to manage the FC Protocol service for access to the FC Protocol.
-* **ASA r2**: POST and DELETE are not supported. The FC Protocol service is automatically created and deleted with the SVM.
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the FC Protocol service.
 ### Related ONTAP commands
@@ -443,9 +438,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes an FC Protocol service. An FC Protocol service must be disabled before it can be deleted.
-### Platform Specifics
-* **Unified ONTAP**: POST and DELETE must be used to manage the FC Protocol service for access to the FC Protocol.
-* **ASA r2**: POST and DELETE are not supported. The FC Protocol service is automatically created and deleted with the SVM.
 ### Related ONTAP commands
 * `vserver fcp delete`
 ### Learn more
@@ -494,9 +486,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Creates an FC Protocol service.
-### Platform Specifics
-* **Unified ONTAP**: POST and DELETE must be used to manage the FC Protocol service for access to the FC Protocol.
-* **ASA r2**: POST and DELETE are not supported. The FC Protocol service is automatically created and deleted with the SVM.
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the FC Protocol service.
 ### Related ONTAP commands
@@ -543,9 +532,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes an FC Protocol service. An FC Protocol service must be disabled before it can be deleted.
-### Platform Specifics
-* **Unified ONTAP**: POST and DELETE must be used to manage the FC Protocol service for access to the FC Protocol.
-* **ASA r2**: POST and DELETE are not supported. The FC Protocol service is automatically created and deleted with the SVM.
 ### Related ONTAP commands
 * `vserver fcp delete`
 ### Learn more

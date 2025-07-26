@@ -19964,17 +19964,20 @@ class DataHubPageModuleParamsClass(DictWrapper):
         linkParams: Union[None, "LinkModuleParamsClass"]=None,
         richTextParams: Union[None, "RichTextModuleParamsClass"]=None,
         assetCollectionParams: Union[None, "AssetCollectionModuleParamsClass"]=None,
+        hierarchyViewParams: Union[None, "HierarchyModuleParamsClass"]=None,
     ):
         super().__init__()
         
         self.linkParams = linkParams
         self.richTextParams = richTextParams
         self.assetCollectionParams = assetCollectionParams
+        self.hierarchyViewParams = hierarchyViewParams
     
     def _restore_defaults(self) -> None:
         self.linkParams = self.RECORD_SCHEMA.fields_dict["linkParams"].default
         self.richTextParams = self.RECORD_SCHEMA.fields_dict["richTextParams"].default
         self.assetCollectionParams = self.RECORD_SCHEMA.fields_dict["assetCollectionParams"].default
+        self.hierarchyViewParams = self.RECORD_SCHEMA.fields_dict["hierarchyViewParams"].default
     
     
     @property
@@ -20005,6 +20008,16 @@ class DataHubPageModuleParamsClass(DictWrapper):
     @assetCollectionParams.setter
     def assetCollectionParams(self, value: Union[None, "AssetCollectionModuleParamsClass"]) -> None:
         self._inner_dict['assetCollectionParams'] = value
+    
+    
+    @property
+    def hierarchyViewParams(self) -> Union[None, "HierarchyModuleParamsClass"]:
+        """The params required if the module is type HIERARCHY_VIEW"""
+        return self._inner_dict.get('hierarchyViewParams')  # type: ignore
+    
+    @hierarchyViewParams.setter
+    def hierarchyViewParams(self, value: Union[None, "HierarchyModuleParamsClass"]) -> None:
+        self._inner_dict['hierarchyViewParams'] = value
     
     
 class DataHubPageModulePropertiesClass(_Aspect):
@@ -20147,6 +20160,61 @@ class DataHubPageModuleVisibilityClass(DictWrapper):
     @scope.setter
     def scope(self, value: Union[str, "PageModuleScopeClass"]) -> None:
         self._inner_dict['scope'] = value
+    
+    
+class HierarchyModuleParamsClass(DictWrapper):
+    """The params required if the module is type HIERARCHY_VIEW"""
+    
+    RECORD_SCHEMA = get_schema_type("com.linkedin.pegasus2avro.module.HierarchyModuleParams")
+    def __init__(self,
+        showRelatedEntities: bool,
+        assetUrns: Union[None, List[str]]=None,
+        relatedEntitiesFilterJson: Union[None, str]=None,
+    ):
+        super().__init__()
+        
+        self.assetUrns = assetUrns
+        self.showRelatedEntities = showRelatedEntities
+        self.relatedEntitiesFilterJson = relatedEntitiesFilterJson
+    
+    def _restore_defaults(self) -> None:
+        self.assetUrns = self.RECORD_SCHEMA.fields_dict["assetUrns"].default
+        self.showRelatedEntities = bool()
+        self.relatedEntitiesFilterJson = self.RECORD_SCHEMA.fields_dict["relatedEntitiesFilterJson"].default
+    
+    
+    @property
+    def assetUrns(self) -> Union[None, List[str]]:
+        # No docs available.
+        return self._inner_dict.get('assetUrns')  # type: ignore
+    
+    @assetUrns.setter
+    def assetUrns(self, value: Union[None, List[str]]) -> None:
+        self._inner_dict['assetUrns'] = value
+    
+    
+    @property
+    def showRelatedEntities(self) -> bool:
+        # No docs available.
+        return self._inner_dict.get('showRelatedEntities')  # type: ignore
+    
+    @showRelatedEntities.setter
+    def showRelatedEntities(self, value: bool) -> None:
+        self._inner_dict['showRelatedEntities'] = value
+    
+    
+    @property
+    def relatedEntitiesFilterJson(self) -> Union[None, str]:
+        """Optional filters to filter relatedEntities (assetUrns) out
+    
+    The stringified json representing the logical predicate built in the UI to select assets.
+    This predicate is turned into orFilters to send through graphql since graphql doesn't support
+    arbitrary nesting. This string is used to restore the UI for this logical predicate."""
+        return self._inner_dict.get('relatedEntitiesFilterJson')  # type: ignore
+    
+    @relatedEntitiesFilterJson.setter
+    def relatedEntitiesFilterJson(self, value: Union[None, str]) -> None:
+        self._inner_dict['relatedEntitiesFilterJson'] = value
     
     
 class LinkModuleParamsClass(DictWrapper):
@@ -20772,6 +20840,8 @@ class SystemMetadataClass(_Aspect):
         registryVersion: Union[None, str]=None,
         properties: Union[None, Dict[str, str]]=None,
         version: Union[None, str]=None,
+        aspectCreated: Union[None, "AuditStampClass"]=None,
+        aspectModified: Union[None, "AuditStampClass"]=None,
     ):
         super().__init__()
         
@@ -20795,6 +20865,8 @@ class SystemMetadataClass(_Aspect):
         self.registryVersion = registryVersion
         self.properties = properties
         self.version = version
+        self.aspectCreated = aspectCreated
+        self.aspectModified = aspectModified
     
     def _restore_defaults(self) -> None:
         self.lastObserved = self.RECORD_SCHEMA.fields_dict["lastObserved"].default
@@ -20805,6 +20877,8 @@ class SystemMetadataClass(_Aspect):
         self.registryVersion = self.RECORD_SCHEMA.fields_dict["registryVersion"].default
         self.properties = self.RECORD_SCHEMA.fields_dict["properties"].default
         self.version = self.RECORD_SCHEMA.fields_dict["version"].default
+        self.aspectCreated = self.RECORD_SCHEMA.fields_dict["aspectCreated"].default
+        self.aspectModified = self.RECORD_SCHEMA.fields_dict["aspectModified"].default
     
     
     @property
@@ -20887,6 +20961,26 @@ class SystemMetadataClass(_Aspect):
     @version.setter
     def version(self, value: Union[None, str]) -> None:
         self._inner_dict['version'] = value
+    
+    
+    @property
+    def aspectCreated(self) -> Union[None, "AuditStampClass"]:
+        """When the aspect was initially created and who created it, detected by version 0 -> 1 change"""
+        return self._inner_dict.get('aspectCreated')  # type: ignore
+    
+    @aspectCreated.setter
+    def aspectCreated(self, value: Union[None, "AuditStampClass"]) -> None:
+        self._inner_dict['aspectCreated'] = value
+    
+    
+    @property
+    def aspectModified(self) -> Union[None, "AuditStampClass"]:
+        """When the aspect was last modified and the actor that performed the modification"""
+        return self._inner_dict.get('aspectModified')  # type: ignore
+    
+    @aspectModified.setter
+    def aspectModified(self, value: Union[None, "AuditStampClass"]) -> None:
+        self._inner_dict['aspectModified'] = value
     
     
 class ChartCellClass(DictWrapper):
@@ -27171,6 +27265,7 @@ __SCHEMA_TYPES = {
     'com.linkedin.pegasus2avro.module.DataHubPageModuleProperties': DataHubPageModulePropertiesClass,
     'com.linkedin.pegasus2avro.module.DataHubPageModuleType': DataHubPageModuleTypeClass,
     'com.linkedin.pegasus2avro.module.DataHubPageModuleVisibility': DataHubPageModuleVisibilityClass,
+    'com.linkedin.pegasus2avro.module.HierarchyModuleParams': HierarchyModuleParamsClass,
     'com.linkedin.pegasus2avro.module.LinkModuleParams': LinkModuleParamsClass,
     'com.linkedin.pegasus2avro.module.PageModuleScope': PageModuleScopeClass,
     'com.linkedin.pegasus2avro.module.RichTextModuleParams': RichTextModuleParamsClass,
@@ -27680,6 +27775,7 @@ __SCHEMA_TYPES = {
     'DataHubPageModuleProperties': DataHubPageModulePropertiesClass,
     'DataHubPageModuleType': DataHubPageModuleTypeClass,
     'DataHubPageModuleVisibility': DataHubPageModuleVisibilityClass,
+    'HierarchyModuleParams': HierarchyModuleParamsClass,
     'LinkModuleParams': LinkModuleParamsClass,
     'PageModuleScope': PageModuleScopeClass,
     'RichTextModuleParams': RichTextModuleParamsClass,

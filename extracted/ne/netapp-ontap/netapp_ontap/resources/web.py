@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,6 +28,8 @@ The following fields can be used to update the cluster-wide configuration:
 * certificate.uuid
 * client_enabled
 * ocsp_enabled
+* hsts.enabled
+* hsts.max_age
 ## Examples
 ### Retrieving the cluster-wide web services configuration
 ```python
@@ -47,27 +49,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Web(
     {
-        "csrf": {
-            "token": {"concurrent_limit": 500, "max_timeout": 650, "idle_timeout": 900},
-            "protection_enabled": True,
-        },
+        "https_port": 443,
+        "http_enabled": False,
+        "hsts": {"max_age": 31536000, "enabled": True},
+        "enabled": True,
+        "ocsp_enabled": False,
         "certificate": {
-            "name": "cert1",
+            "uuid": "a3bb219d-4382-1fe0-9c06-1070568ea23d",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/a3bb219d-4382-1fe0-9c06-1070568ea23d"
                 }
             },
-            "uuid": "a3bb219d-4382-1fe0-9c06-1070568ea23d",
+            "name": "cert1",
         },
-        "ocsp_enabled": False,
-        "client_enabled": False,
+        "csrf": {
+            "token": {"idle_timeout": 900, "max_timeout": 650, "concurrent_limit": 500},
+            "protection_enabled": True,
+        },
         "state": "online",
-        "enabled": True,
-        "_links": {"self": {"href": "/api/cluster/web"}},
-        "http_enabled": False,
         "http_port": 80,
-        "https_port": 443,
+        "client_enabled": False,
+        "_links": {"self": {"href": "/api/cluster/web"}},
     }
 )
 
@@ -136,6 +139,9 @@ class WebSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" Indicates whether remote clients can connect to the web services."""
 
+    hsts = marshmallow_fields.Nested("netapp_ontap.models.web_hsts.WebHstsSchema", data_key="hsts", unknown=EXCLUDE, allow_none=True)
+    r""" The hsts field of the web."""
+
     http_enabled = marshmallow_fields.Boolean(
         data_key="http_enabled",
         allow_none=True,
@@ -200,6 +206,7 @@ Valid choices:
         "client_enabled",
         "csrf",
         "enabled",
+        "hsts",
         "http_enabled",
         "http_port",
         "https_port",
@@ -208,13 +215,14 @@ Valid choices:
         "state",
         "wait_queue_capacity",
     ]
-    """links,certificate,client_enabled,csrf,enabled,http_enabled,http_port,https_port,ocsp_enabled,per_address_limit,state,wait_queue_capacity,"""
+    """links,certificate,client_enabled,csrf,enabled,hsts,http_enabled,http_port,https_port,ocsp_enabled,per_address_limit,state,wait_queue_capacity,"""
 
     patchable_fields = [
         "certificate",
         "client_enabled",
         "csrf",
         "enabled",
+        "hsts",
         "http_enabled",
         "http_port",
         "https_port",
@@ -222,13 +230,14 @@ Valid choices:
         "per_address_limit",
         "wait_queue_capacity",
     ]
-    """certificate,client_enabled,csrf,enabled,http_enabled,http_port,https_port,ocsp_enabled,per_address_limit,wait_queue_capacity,"""
+    """certificate,client_enabled,csrf,enabled,hsts,http_enabled,http_port,https_port,ocsp_enabled,per_address_limit,wait_queue_capacity,"""
 
     postable_fields = [
         "certificate",
         "client_enabled",
         "csrf",
         "enabled",
+        "hsts",
         "http_enabled",
         "http_port",
         "https_port",
@@ -236,7 +245,7 @@ Valid choices:
         "per_address_limit",
         "wait_queue_capacity",
     ]
-    """certificate,client_enabled,csrf,enabled,http_enabled,http_port,https_port,ocsp_enabled,per_address_limit,wait_queue_capacity,"""
+    """certificate,client_enabled,csrf,enabled,hsts,http_enabled,http_port,https_port,ocsp_enabled,per_address_limit,wait_queue_capacity,"""
 
 class Web(Resource):
     """Allows interaction with Web objects on the host"""

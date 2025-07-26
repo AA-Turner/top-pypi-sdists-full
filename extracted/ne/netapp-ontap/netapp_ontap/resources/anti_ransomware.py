@@ -1,14 +1,14 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
-This API displays and manages the anti-ransomware version.
+This API displays and manages the anti-ransomware package version.
 ## Examples
-### Retrieving the anti-ransomware versions of all nodes in the cluster.
-The following example shows how to retrieve anti-ransomware versions.
+### Retrieving the anti-ransomware package version of all nodes in the cluster.
+The following example shows how to retrieve anti-ransomware package version.
 <br/>
 ```python
 from netapp_ontap import HostConnection
@@ -73,10 +73,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Job(
     {
-        "description": "PATCH /api/security/anti-ransomware",
-        "code": 0,
         "message": "success",
         "state": "success",
+        "code": 0,
+        "description": "PATCH /api/security/anti-ransomware",
         "uuid": "74d0faef-3e1a-11ef-af89-005056ac6d8a",
         "_links": {
             "self": {"href": "/api/cluster/jobs/74d0faef-3e1a-11ef-af89-005056ac6d8a"}
@@ -157,7 +157,7 @@ class AntiRansomware(Resource):
 
 
     def get(self, **kwargs) -> NetAppResponse:
-        r"""Retrieves the anti-ransomware version of the nodes in the cluster.
+        r"""Retrieves the anti-ransomware package version of the nodes in the cluster.
 ### Related ONTAP commands
 * `security anti-ransomware show`
 

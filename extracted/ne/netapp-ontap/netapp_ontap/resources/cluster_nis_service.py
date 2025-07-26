@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,9 +27,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterNisService(
     {
-        "servers": ["10.10.10.10", "example.com"],
-        "bound_servers": ["10.10.10.10"],
         "domain": "domainA.example.com",
+        "bound_servers": ["10.10.10.10"],
+        "servers": ["10.10.10.10", "example.com"],
     }
 )
 

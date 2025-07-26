@@ -355,7 +355,7 @@ class PedestrianDetectionUseCase(BaseProcessor):
         """
         self.reset_tracker()
         self.reset_violation_tracking()
-        self.logger.info("All PPE tracking state reset")
+        self.logger.info("All pedestrian tracking state reset")
         
     def _generate_events(self, counting_summary: Dict, alerts: List, config: PedestrianDetectionConfig, frame_number: Optional[int] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
         """Generate structured events for the output format with frame-based keys."""
@@ -368,9 +368,9 @@ class PedestrianDetectionUseCase(BaseProcessor):
         # Generate human text in new format
         human_text_lines = ["EVENTS DETECTED:"]
         if total_pedestrians > 0:
-            human_text_lines.append(f"\t- {total_pedestrians} PPE violation(s) detected [INFO]")
+            human_text_lines.append(f"\t- {total_pedestrians} Pedestrian(s) detected [INFO]")
         else:
-            human_text_lines.append("\t- No PPE pedestrians detected")
+            human_text_lines.append("\t- No pedestrians detected")
         human_text = "\n".join(human_text_lines)
 
         if total_pedestrians > 0:
@@ -461,7 +461,8 @@ class PedestrianDetectionUseCase(BaseProcessor):
             "human_text": human_text,
             "track_ids_info": track_ids_info,
             "global_frame_offset": getattr(self, '_global_frame_offset', 0),
-            "local_frame_id": frame_key
+            "local_frame_id": frame_key,
+            "detections": counting_summary.get("detections", []) 
         }
 
         frame_tracking_stats.append(tracking_stat)
@@ -528,7 +529,7 @@ class PedestrianDetectionUseCase(BaseProcessor):
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total >= threshold:
                     timestamp = datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S UTC')
-                    alert_description = f"PPE violation count ({total}) exceeds threshold ({threshold})"
+                    alert_description = f"Pedestrian count ({total}) exceeds threshold ({threshold})"
                     alerts.append({
                         "type": "count_threshold",
                         "severity": "warning",

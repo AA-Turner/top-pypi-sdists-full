@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -36,6 +36,9 @@ class AntiRansomwareVolumeAttackDetectionParametersSchema(ResourceSchema, metacl
     based_on_never_seen_before_file_extension = marshmallow_fields.Boolean(data_key="based_on_never_seen_before_file_extension", allow_none=True)
     r""" Specifies whether file extensions never seen before should be considered for attack detection. """
 
+    block_device_auto_learned_encryption_threshold = Size(data_key="block_device_auto_learned_encryption_threshold", allow_none=True)
+    r""" Specifies the block device auto learned encryption threshold. """
+
     file_create_op_rate_surge_notify_percent = Size(data_key="file_create_op_rate_surge_notify_percent", allow_none=True)
     r""" Specifies the percentage of surge in the file create rate up to which it is considered normal behavior.
 
@@ -69,6 +72,7 @@ Example: 100 """
         "based_on_file_rename_op_rate",
         "based_on_high_entropy_data_rate",
         "based_on_never_seen_before_file_extension",
+        "block_device_auto_learned_encryption_threshold",
         "file_create_op_rate_surge_notify_percent",
         "file_delete_op_rate_surge_notify_percent",
         "file_rename_op_rate_surge_notify_percent",
@@ -77,7 +81,7 @@ Example: 100 """
         "never_seen_before_file_extension_duration_in_hours",
         "relaxing_popular_file_extensions",
     ]
-    """based_on_file_create_op_rate,based_on_file_delete_op_rate,based_on_file_rename_op_rate,based_on_high_entropy_data_rate,based_on_never_seen_before_file_extension,file_create_op_rate_surge_notify_percent,file_delete_op_rate_surge_notify_percent,file_rename_op_rate_surge_notify_percent,high_entropy_data_surge_notify_percent,never_seen_before_file_extension_count_notify_threshold,never_seen_before_file_extension_duration_in_hours,relaxing_popular_file_extensions,"""
+    """based_on_file_create_op_rate,based_on_file_delete_op_rate,based_on_file_rename_op_rate,based_on_high_entropy_data_rate,based_on_never_seen_before_file_extension,block_device_auto_learned_encryption_threshold,file_create_op_rate_surge_notify_percent,file_delete_op_rate_surge_notify_percent,file_rename_op_rate_surge_notify_percent,high_entropy_data_surge_notify_percent,never_seen_before_file_extension_count_notify_threshold,never_seen_before_file_extension_duration_in_hours,relaxing_popular_file_extensions,"""
 
     patchable_fields = [
         "based_on_file_create_op_rate",
@@ -85,6 +89,7 @@ Example: 100 """
         "based_on_file_rename_op_rate",
         "based_on_high_entropy_data_rate",
         "based_on_never_seen_before_file_extension",
+        "block_device_auto_learned_encryption_threshold",
         "file_create_op_rate_surge_notify_percent",
         "file_delete_op_rate_surge_notify_percent",
         "file_rename_op_rate_surge_notify_percent",
@@ -93,7 +98,7 @@ Example: 100 """
         "never_seen_before_file_extension_duration_in_hours",
         "relaxing_popular_file_extensions",
     ]
-    """based_on_file_create_op_rate,based_on_file_delete_op_rate,based_on_file_rename_op_rate,based_on_high_entropy_data_rate,based_on_never_seen_before_file_extension,file_create_op_rate_surge_notify_percent,file_delete_op_rate_surge_notify_percent,file_rename_op_rate_surge_notify_percent,high_entropy_data_surge_notify_percent,never_seen_before_file_extension_count_notify_threshold,never_seen_before_file_extension_duration_in_hours,relaxing_popular_file_extensions,"""
+    """based_on_file_create_op_rate,based_on_file_delete_op_rate,based_on_file_rename_op_rate,based_on_high_entropy_data_rate,based_on_never_seen_before_file_extension,block_device_auto_learned_encryption_threshold,file_create_op_rate_surge_notify_percent,file_delete_op_rate_surge_notify_percent,file_rename_op_rate_surge_notify_percent,high_entropy_data_surge_notify_percent,never_seen_before_file_extension_count_notify_threshold,never_seen_before_file_extension_duration_in_hours,relaxing_popular_file_extensions,"""
 
     postable_fields = [
         "based_on_file_create_op_rate",
@@ -101,6 +106,7 @@ Example: 100 """
         "based_on_file_rename_op_rate",
         "based_on_high_entropy_data_rate",
         "based_on_never_seen_before_file_extension",
+        "block_device_auto_learned_encryption_threshold",
         "file_create_op_rate_surge_notify_percent",
         "file_delete_op_rate_surge_notify_percent",
         "file_rename_op_rate_surge_notify_percent",
@@ -109,7 +115,7 @@ Example: 100 """
         "never_seen_before_file_extension_duration_in_hours",
         "relaxing_popular_file_extensions",
     ]
-    """based_on_file_create_op_rate,based_on_file_delete_op_rate,based_on_file_rename_op_rate,based_on_high_entropy_data_rate,based_on_never_seen_before_file_extension,file_create_op_rate_surge_notify_percent,file_delete_op_rate_surge_notify_percent,file_rename_op_rate_surge_notify_percent,high_entropy_data_surge_notify_percent,never_seen_before_file_extension_count_notify_threshold,never_seen_before_file_extension_duration_in_hours,relaxing_popular_file_extensions,"""
+    """based_on_file_create_op_rate,based_on_file_delete_op_rate,based_on_file_rename_op_rate,based_on_high_entropy_data_rate,based_on_never_seen_before_file_extension,block_device_auto_learned_encryption_threshold,file_create_op_rate_surge_notify_percent,file_delete_op_rate_surge_notify_percent,file_rename_op_rate_surge_notify_percent,high_entropy_data_surge_notify_percent,never_seen_before_file_extension_count_notify_threshold,never_seen_before_file_extension_duration_in_hours,relaxing_popular_file_extensions,"""
 
 
 class AntiRansomwareVolumeAttackDetectionParameters(Resource):

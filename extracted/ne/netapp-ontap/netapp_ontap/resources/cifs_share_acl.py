@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -17,7 +17,7 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import CifsShareAcl
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = CifsShareAcl("sh1")
+    resource = CifsShareAcl("000c5cd2-ebdf-11e8-a96e-0050568ea3cb", "sh1")
     resource.permission = "no_access"
     resource.type = "windows"
     resource.user_or_group = "root"
@@ -33,10 +33,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 CifsShareAcl(
     {
         "permission": "no_access",
-        "sid": "S-1-1-0",
         "svm": {"name": "vs1"},
-        "type": "windows",
         "user_or_group": "root",
+        "sid": "S-1-1-0",
+        "type": "windows",
     }
 )
 
@@ -52,7 +52,16 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import CifsShareAcl
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    print(list(CifsShareAcl.get_collection("sh1", fields="*", return_timeout=15)))
+    print(
+        list(
+            CifsShareAcl.get_collection(
+                "000c5cd2-ebdf-11e8-a96e-0050568ea3cb",
+                "sh1",
+                fields="*",
+                return_timeout=15,
+            )
+        )
+    )
 
 ```
 <div class="try_it_out">
@@ -64,19 +73,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     CifsShareAcl(
         {
             "permission": "full_control",
-            "sid": "S-1-1-0",
-            "svm": {"name": "vs1", "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb"},
-            "type": "windows",
+            "svm": {"uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb", "name": "vs1"},
             "user_or_group": "Everyone",
+            "sid": "S-1-1-0",
+            "type": "windows",
         }
     ),
     CifsShareAcl(
         {
             "permission": "no_access",
-            "sid": "S-1-1-0",
-            "svm": {"name": "vs1", "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb"},
-            "type": "windows",
+            "svm": {"uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb", "name": "vs1"},
             "user_or_group": "root",
+            "sid": "S-1-1-0",
+            "type": "windows",
         }
     ),
 ]
@@ -93,7 +102,12 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import CifsShareAcl
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = CifsShareAcl("sh1", type="windows", user_or_group="everyone")
+    resource = CifsShareAcl(
+        "000c5cd2-ebdf-11e8-a96e-0050568ea3cb",
+        "sh1",
+        type="windows",
+        user_or_group="everyone",
+    )
     resource.get()
     print(resource)
 
@@ -106,10 +120,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 CifsShareAcl(
     {
         "permission": "full_control",
-        "sid": "S-1-1-0",
-        "svm": {"name": "vs1", "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb"},
-        "type": "windows",
+        "svm": {"uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb", "name": "vs1"},
         "user_or_group": "everyone",
+        "sid": "S-1-1-0",
+        "type": "windows",
     }
 )
 
@@ -124,7 +138,12 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import CifsShareAcl
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = CifsShareAcl("sh1", type="windows", user_or_group="everyone")
+    resource = CifsShareAcl(
+        "000c5cd2-ebdf-11e8-a96e-0050568ea3cb",
+        "sh1",
+        type="windows",
+        user_or_group="everyone",
+    )
     resource.permission = "no_access"
     resource.patch()
 
@@ -137,7 +156,12 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import CifsShareAcl
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = CifsShareAcl("sh1", type="windows", user_or_group="everyone")
+    resource = CifsShareAcl(
+        "000c5cd2-ebdf-11e8-a96e-0050568ea3cb",
+        "sh1",
+        type="windows",
+        user_or_group="everyone",
+    )
     resource.delete()
 
 ```

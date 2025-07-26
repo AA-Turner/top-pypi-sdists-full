@@ -1,6 +1,6 @@
 # pylint: disable=line-too-long
 """
-Copyright &copy; 2024 NetApp Inc. All rights reserved.
+Copyright &copy; 2025 NetApp Inc. All rights reserved.
 
 This module defines a unified response object for all resource actions.
 """

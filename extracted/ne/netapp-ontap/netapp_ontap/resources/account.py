@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -34,37 +34,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Account(
     {
+        "scope": "svm",
         "applications": [
             {
-                "authentication_methods": ["password"],
-                "application": "ssh",
                 "second_authentication_method": "none",
+                "application": "ssh",
+                "authentication_methods": ["password"],
             }
         ],
-        "name": "svm_user1",
-        "locked": False,
         "password_hash_algorithm": "sha512",
-        "_links": {
-            "self": {
-                "href": "/api/security/accounts/aaef7c38-4bd3-11e9-b238-0050568e2e25/svm_user1"
-            }
-        },
         "owner": {
+            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25"}
             },
-            "uuid": "aaef7c38-4bd3-11e9-b238-0050568e2e25",
         },
+        "locked": False,
         "role": {
-            "name": "vsadmin",
             "_links": {
                 "self": {
                     "href": "/api/svms/aaef7c38-4bd3-11e9-b238-0050568e2e25/admin/roles/vsadmin"
                 }
             },
+            "name": "vsadmin",
         },
-        "scope": "svm",
+        "_links": {
+            "self": {
+                "href": "/api/security/accounts/aaef7c38-4bd3-11e9-b238-0050568e2e25/svm_user1"
+            }
+        },
+        "name": "svm_user1",
     }
 )
 

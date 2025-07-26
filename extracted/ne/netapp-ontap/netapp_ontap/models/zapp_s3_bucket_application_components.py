@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -65,6 +65,9 @@ Valid choices:
     size = Size(data_key="size", allow_none=True)
     r""" The total size of the S3 Bucket, split across the member components. Usage: {&lt;integer&gt;[KB|MB|GB|TB|PB]} """
 
+    snapshot_policy = marshmallow_fields.Nested("netapp_ontap.models.zapp_s3_bucket_application_components_snapshot_policy.ZappS3BucketApplicationComponentsSnapshotPolicySchema", unknown=EXCLUDE, data_key="snapshot_policy", allow_none=True)
+    r""" The snapshot_policy field of the zapp_s3_bucket_application_components. """
+
     storage_service = marshmallow_fields.Nested("netapp_ontap.models.nas_application_components_storage_service.NasApplicationComponentsStorageServiceSchema", unknown=EXCLUDE, data_key="storage_service", allow_none=True)
     r""" The storage_service field of the zapp_s3_bucket_application_components. """
 
@@ -96,11 +99,12 @@ Valid choices:
         "qos",
         "retention_mode",
         "size",
+        "snapshot_policy",
         "storage_service",
         "uuid",
         "versioning_state",
     ]
-    """access_policies,bucket_endpoint_type,capacity_tier,comment,default_retention_period,exclude_aggregates,name,nas_path,qos,retention_mode,size,storage_service,uuid,versioning_state,"""
+    """access_policies,bucket_endpoint_type,capacity_tier,comment,default_retention_period,exclude_aggregates,name,nas_path,qos,retention_mode,size,snapshot_policy,storage_service,uuid,versioning_state,"""
 
     patchable_fields = [
         "name",
@@ -121,10 +125,11 @@ Valid choices:
         "qos",
         "retention_mode",
         "size",
+        "snapshot_policy",
         "storage_service",
         "versioning_state",
     ]
-    """access_policies,bucket_endpoint_type,capacity_tier,comment,default_retention_period,exclude_aggregates,name,nas_path,qos,retention_mode,size,storage_service,versioning_state,"""
+    """access_policies,bucket_endpoint_type,capacity_tier,comment,default_retention_period,exclude_aggregates,name,nas_path,qos,retention_mode,size,snapshot_policy,storage_service,versioning_state,"""
 
 
 class ZappS3BucketApplicationComponents(Resource):

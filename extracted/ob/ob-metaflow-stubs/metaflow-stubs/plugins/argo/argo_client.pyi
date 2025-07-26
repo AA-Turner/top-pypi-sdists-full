@@ -1,7 +1,7 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.3+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-21T18:19:17.290195                                                            #
+# MF version: 2.15.21.4+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-25T18:05:14.988092                                                            #
 ######################################################################################################
 
 from __future__ import annotations
@@ -30,7 +30,7 @@ class ArgoClient(object, metaclass=type):
         ...
     def get_workflow_template(self, name):
         ...
-    def get_workflow_templates(self):
+    def get_workflow_templates(self, page_size = 100):
         ...
     def register_workflow_template(self, name, workflow_template):
         ...

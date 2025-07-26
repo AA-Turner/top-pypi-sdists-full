@@ -392,6 +392,8 @@ def object_get_state(obj: Any, save_context: SaveContext) -> dict[str, Any]:
     # This method is for objects which can either be persisted with json, or
     # the ones for which we can get/set attributes through
     # __getstate__/__setstate__ or reading/writing to __dict__.
+
+    # We first check if the object can be serialized using json.
     try:
         # if we can simply use json, then we're done.
         obj_str = json.dumps(obj)
@@ -405,6 +407,21 @@ def object_get_state(obj: Any, save_context: SaveContext) -> dict[str, Any]:
     except Exception:
         pass
 
+    # Then we check if the output of __reduce__ is of the form
+    # (constructor, (constructor_args,))
+    # If the constructor is the same as the object's type, then we consider it
+    # safe to call it with the specified arguments.
+
+    reduce_output = obj.__reduce__()
+    if len(reduce_output) == 2 and reduce_output[0] is type(obj):
+        return {
+            "__class__": type(obj).__name__,
+            "__module__": get_module(type(obj)),
+            "__loader__": "ConstructorFromReduceNode",
+            "content": get_state(reduce_output[1], save_context),
+        }
+
+    # Otherwise we recover the object from the __dict__ or __getstate__
     res = {
         "__class__": obj.__class__.__name__,
         "__module__": get_module(type(obj)),
@@ -425,6 +442,24 @@ def object_get_state(obj: Any, save_context: SaveContext) -> dict[str, Any]:
     # only have str type keys
     res["content"] = content
     return res
+
+
+class ConstructorFromReduceNode(Node):
+    def __init__(
+        self,
+        state: dict[str, Any],
+        load_context: LoadContext,
+        trusted: Optional[Sequence[str]] = None,
+    ) -> None:
+        super().__init__(state, load_context, trusted)
+        self.children = {
+            "content": get_tree(state["content"], load_context, trusted=trusted)
+        }
+
+    def _construct(self):
+        return gettype(self.module_name, self.class_name)(
+            *self.children["content"].construct()
+        )
 
 
 class ObjectNode(Node):
@@ -474,13 +509,15 @@ def method_get_state(obj: Any, save_context: SaveContext) -> dict[str, Any]:
     # dependent on a specific instance of an object.
     # It stores the state of the object the method is bound to,
     # and prepares both to be persisted.
+    owner = obj.__self__
+    func_name = obj.__func__.__name__
     res = {
-        "__class__": obj.__class__.__name__,
+        "__class__": owner.__class__.__name__,
         "__module__": get_module(obj),
         "__loader__": "MethodNode",
         "content": {
-            "func": obj.__func__.__name__,
-            "obj": get_state(obj.__self__, save_context),
+            "func": func_name,
+            "obj": get_state(owner, save_context),
         },
     }
     return res
@@ -494,12 +531,31 @@ class MethodNode(Node):
         trusted: Optional[Sequence[str]] = None,
     ) -> None:
         super().__init__(state, load_context, trusted)
+        obj = get_tree(state["content"]["obj"], load_context, trusted=trusted)
+        if self.module_name != obj.module_name or self.class_name != obj.class_name:
+            raise ValueError(
+                f"Expected object of type {self.module_name}.{self.class_name}, got"
+                f" {obj.module_name}.{obj.class_name}. This is probably due to a"
+                " corrupted or a malicious file."
+            )
         self.children = {
-            "obj": get_tree(state["content"]["obj"], load_context, trusted=trusted),
+            "obj": obj,
             "func": state["content"]["func"],
         }
         # TODO: what do we trust?
         self.trusted = self._get_trusted(trusted, [])
+
+    def get_unsafe_set(self) -> set[str]:
+        res = super().get_unsafe_set()
+        obj_node = self.children["obj"]
+        res.add(
+            obj_node.module_name  # type: ignore
+            + "."
+            + obj_node.class_name  # type: ignore
+            + "."
+            + self.children["func"]
+        )
+        return res
 
     def _construct(self):
         loaded_obj = self.children["obj"].construct()
@@ -623,6 +679,11 @@ class OperatorFuncNode(Node):
         trusted: Optional[Sequence[str]] = None,
     ) -> None:
         super().__init__(state, load_context, trusted)
+        if self.module_name != "operator":
+            raise ValueError(
+                f"Expected module 'operator', got {self.module_name}. This is probably"
+                " due to a corrupted or a malicious file."
+            )
         self.trusted = self._get_trusted(trusted, [])
         self.children["attrs"] = get_tree(state["attrs"], load_context, trusted=trusted)
 
@@ -670,6 +731,7 @@ NODE_TYPE_MAPPING = {
     ("MethodNode", PROTOCOL): MethodNode,
     ("PartialNode", PROTOCOL): PartialNode,
     ("TypeNode", PROTOCOL): TypeNode,
+    ("ConstructorFromReduceNode", PROTOCOL): ConstructorFromReduceNode,
     ("ObjectNode", PROTOCOL): ObjectNode,
     ("JsonNode", PROTOCOL): JsonNode,
     ("OperatorFuncNode", PROTOCOL): OperatorFuncNode,

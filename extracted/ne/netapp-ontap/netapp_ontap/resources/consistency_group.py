@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -33,46 +33,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroup(
         {
+            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
             "name": "vol1",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f"
                 }
             },
-            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
         }
     ),
     ConsistencyGroup(
         {
+            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
             "name": "parent_cg",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
                 }
             },
-            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
         }
     ),
     ConsistencyGroup(
         {
+            "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
             "name": "child_1",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b270b1-0a82-11ec-a449-005056bbcf9f"
                 }
             },
-            "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
         }
     ),
     ConsistencyGroup(
         {
+            "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
             "name": "child_2",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b270c3-0a82-11ec-a449-005056bbcf9f"
                 }
             },
-            "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
         }
     ),
 ]
@@ -105,6 +105,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroup(
         {
+            "svm": {
+                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
+                "name": "vs1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
+                    }
+                },
+            },
+            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+            "space": {"size": 108003328, "available": 107704320, "used": 299008},
             "replicated": False,
             "name": "vol1",
             "_links": {
@@ -112,21 +123,52 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f"
                 }
             },
+        }
+    ),
+    ConsistencyGroup(
+        {
             "svm": {
+                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
                     }
                 },
-                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             },
-            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
-            "space": {"available": 107704320, "used": 299008, "size": 108003328},
-        }
-    ),
-    ConsistencyGroup(
-        {
+            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
+            "space": {"size": 83886080, "available": 78696448, "used": 995328},
+            "snapshot_policy": {
+                "uuid": "a30bd0fe-067d-11ec-a449-005056bbcf9f",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/snapshot-policies/a30bd0fe-067d-11ec-a449-005056bbcf9f"
+                    }
+                },
+                "name": "default-1weekly",
+            },
+            "consistency_groups": [
+                {
+                    "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
+                    "_links": {
+                        "self": {
+                            "href": "/api/application/consistency-groups/c1b270b1-0a82-11ec-a449-005056bbcf9f"
+                        }
+                    },
+                    "space": {"size": 41943040, "available": 39346176, "used": 499712},
+                    "name": "child_1",
+                },
+                {
+                    "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
+                    "_links": {
+                        "self": {
+                            "href": "/api/application/consistency-groups/c1b270c3-0a82-11ec-a449-005056bbcf9f"
+                        }
+                    },
+                    "space": {"size": 41943040, "available": 39350272, "used": 495616},
+                    "name": "child_2",
+                },
+            ],
             "replicated": False,
             "name": "parent_cg",
             "_links": {
@@ -134,126 +176,84 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
                 }
             },
+        }
+    ),
+    ConsistencyGroup(
+        {
             "svm": {
+                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
                     }
                 },
-                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             },
-            "consistency_groups": [
-                {
-                    "space": {"available": 39346176, "used": 499712, "size": 41943040},
-                    "name": "child_1",
-                    "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
-                    "_links": {
-                        "self": {
-                            "href": "/api/application/consistency-groups/c1b270b1-0a82-11ec-a449-005056bbcf9f"
-                        }
-                    },
-                },
-                {
-                    "space": {"available": 39350272, "used": 495616, "size": 41943040},
-                    "name": "child_2",
-                    "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
-                    "_links": {
-                        "self": {
-                            "href": "/api/application/consistency-groups/c1b270c3-0a82-11ec-a449-005056bbcf9f"
-                        }
-                    },
-                },
-            ],
-            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
-            "snapshot_policy": {
-                "name": "default-1weekly",
-                "uuid": "a30bd0fe-067d-11ec-a449-005056bbcf9f",
+            "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
+            "space": {"size": 41943040, "available": 39346176, "used": 499712},
+            "parent_consistency_group": {
+                "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
+                "name": "parent_cg",
                 "_links": {
                     "self": {
-                        "href": "/api/storage/snapshot-policies/a30bd0fe-067d-11ec-a449-005056bbcf9f"
+                        "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
                     }
                 },
             },
-            "space": {"available": 78696448, "used": 995328, "size": 83886080},
-        }
-    ),
-    ConsistencyGroup(
-        {
+            "snapshot_policy": {
+                "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/snapshot-policies/a30b60a4-067d-11ec-a449-005056bbcf9f"
+                    }
+                },
+                "name": "default",
+            },
             "name": "child_1",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b270b1-0a82-11ec-a449-005056bbcf9f"
                 }
             },
+        }
+    ),
+    ConsistencyGroup(
+        {
             "svm": {
+                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
                     }
                 },
-                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             },
-            "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
+            "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
+            "space": {"size": 41943040, "available": 39350272, "used": 495616},
             "parent_consistency_group": {
+                "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
                 "name": "parent_cg",
                 "_links": {
                     "self": {
                         "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
                     }
                 },
-                "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
             },
             "snapshot_policy": {
-                "name": "default",
                 "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
                 "_links": {
                     "self": {
                         "href": "/api/storage/snapshot-policies/a30b60a4-067d-11ec-a449-005056bbcf9f"
                     }
                 },
+                "name": "default",
             },
-            "space": {"available": 39346176, "used": 499712, "size": 41943040},
-        }
-    ),
-    ConsistencyGroup(
-        {
             "name": "child_2",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b270c3-0a82-11ec-a449-005056bbcf9f"
                 }
             },
-            "svm": {
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"
-                    }
-                },
-                "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
-            },
-            "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
-            "parent_consistency_group": {
-                "name": "parent_cg",
-                "_links": {
-                    "self": {
-                        "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
-                    }
-                },
-                "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
-            },
-            "snapshot_policy": {
-                "name": "default",
-                "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/snapshot-policies/a30b60a4-067d-11ec-a449-005056bbcf9f"
-                    }
-                },
-            },
-            "space": {"available": 39350272, "used": 495616, "size": 41943040},
         }
     ),
 ]
@@ -286,26 +286,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConsistencyGroup(
         {
+            "svm": {"name": "vs1"},
+            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
             "name": "vol1",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f"
                 }
             },
-            "svm": {"name": "vs1"},
-            "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
         }
     ),
     ConsistencyGroup(
         {
+            "svm": {"name": "vs1"},
+            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
             "name": "parent_cg",
             "_links": {
                 "self": {
                     "href": "/api/application/consistency-groups/c1b22c85-0a82-11ec-a449-005056bbcf9f"
                 }
             },
-            "svm": {"name": "vs1"},
-            "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
         }
     ),
 ]
@@ -314,6 +314,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 </div>
 </div>
 
+<personalities supports=unified>
 ### Creating a single consistency group with a new SAN volume
 Provisions an application with one consistency group, each with one new SAN volumes, with one LUN, an igroup and no explicit snapshot policy, FabricPool tiering policy, storage service, and QoS policy specification. The igroup to map a LUN to is specified at LUN-granularity.
 ```python
@@ -349,30 +350,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
-        "name": "vol1",
-        "luns": [
-            {
-                "os_type": "linux",
-                "lun_maps": [
-                    {
-                        "igroup": {
-                            "name": "igroup1",
-                            "initiators": [{"name": "example_name"}],
-                        }
-                    }
-                ],
-                "space": {"size": 104857600},
-                "name": "/vol/vol1/lun1",
-            }
-        ],
         "svm": {
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             "name": "vs1",
             "_links": {
                 "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
             },
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
         },
         "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+        "luns": [
+            {
+                "os_type": "linux",
+                "name": "/vol/vol1/lun1",
+                "space": {"size": 104857600},
+                "lun_maps": [
+                    {
+                        "igroup": {
+                            "initiators": [{"name": "example_name"}],
+                            "name": "igroup1",
+                        }
+                    }
+                ],
+            }
+        ],
+        "name": "vol1",
     }
 )
 
@@ -420,30 +421,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
-        "name": "parent_cg",
         "svm": {
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
             "name": "vs1",
             "_links": {
                 "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
             },
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
         },
+        "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
+        "snapshot_policy": {"name": "default-1weekly"},
         "consistency_groups": [
             {
                 "volumes": [{"name": "existing_vol1"}, {"name": "existing_vol2"}],
-                "name": "child_1",
-                "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
                 "snapshot_policy": {"name": "default"},
+                "uuid": "c1b270b1-0a82-11ec-a449-005056bbcf9f",
+                "name": "child_1",
             },
             {
                 "volumes": [{"name": "existing_vol3"}, {"name": "existing_vol4"}],
-                "name": "child_2",
-                "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
                 "snapshot_policy": {"name": "default"},
+                "uuid": "c1b270c3-0a82-11ec-a449-005056bbcf9f",
+                "name": "child_2",
             },
         ],
-        "uuid": "c1b22c85-0a82-11ec-a449-005056bbcf9f",
-        "snapshot_policy": {"name": "default-1weekly"},
+        "name": "parent_cg",
     }
 )
 
@@ -451,6 +452,7 @@ ConsistencyGroup(
 </div>
 </div>
 
+</personalities>
 ### Retrieving specific details of an existing consistency group
 Retrieves the details of an existing consistency group.
 ```python
@@ -470,6 +472,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
+        "svm": {
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
+            },
+        },
+        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+        "space": {"size": 108003328, "available": 107724800, "used": 278528},
         "replicated": False,
         "name": "vol1",
         "_links": {
@@ -477,15 +488,6 @@ ConsistencyGroup(
                 "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f"
             }
         },
-        "svm": {
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
-            },
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
-        },
-        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
-        "space": {"available": 107724800, "used": 278528, "size": 108003328},
     }
 )
 
@@ -493,8 +495,9 @@ ConsistencyGroup(
 </div>
 </div>
 
+<personalities supports=unified>
 ### Retrieving all details of an existing consistency group
-Retrieves all details of an existing consistency group. These details are not considered to be performant and are not guaranteed to return within one second.
+Retrieves all details of an existing consistency group. These details are expensive and are not guaranteed to return within one second.
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import ConsistencyGroup
@@ -512,84 +515,84 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConsistencyGroup(
     {
-        "replicated": False,
-        "name": "vol1",
-        "_links": {
-            "self": {
-                "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f?fields=**"
-            }
-        },
-        "luns": [
-            {
-                "create_time": "2021-08-31T13:18:24-04:00",
-                "serial_number": "wIqM6]RfQK3t",
-                "os_type": "linux",
-                "lun_maps": [
-                    {
-                        "igroup": {
-                            "os_type": "linux",
-                            "protocol": "mixed",
-                            "name": "igroup1",
-                            "uuid": "6f4a4b86-0a7f-11ec-a449-005056bbcf9f",
-                            "initiators": [{"name": "example_name"}],
-                        },
-                        "logical_unit_number": 0,
-                    }
-                ],
-                "space": {
-                    "guarantee": {"requested": False, "reserved": False},
-                    "used": 0,
-                    "size": 104857600,
-                },
-                "name": "/vol/vol1/lun1",
-                "uuid": "6f51748a-0a7f-11ec-a449-005056bbcf9f",
-            }
-        ],
-        "svm": {
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
-            },
-            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
-        },
-        "qos": {
-            "policy": {
-                "name": "extreme-fixed",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
-                    }
-                },
-                "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
-            }
-        },
-        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
         "tiering": {"policy": "none"},
         "volumes": [
             {
-                "space": {"available": 107569152, "used": 434176, "size": 108003328},
-                "name": "vol1",
+                "tiering": {"policy": "none"},
                 "comment": "",
                 "qos": {
                     "policy": {
-                        "name": "extreme-fixed",
+                        "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
                         "_links": {
                             "self": {
                                 "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
                             }
                         },
-                        "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
+                        "name": "extreme-fixed",
                     }
                 },
-                "uuid": "6f516c6c-0a7f-11ec-a449-005056bbcf9f",
-                "tiering": {"policy": "none"},
                 "snapshot_policy": {
-                    "name": "default",
                     "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
+                    "name": "default",
                 },
+                "uuid": "6f516c6c-0a7f-11ec-a449-005056bbcf9f",
+                "space": {"size": 108003328, "available": 107569152, "used": 434176},
+                "name": "vol1",
             }
         ],
-        "space": {"available": 107569152, "used": 434176, "size": 108003328},
+        "svm": {
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
+            },
+        },
+        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+        "space": {"size": 108003328, "available": 107569152, "used": 434176},
+        "replicated": False,
+        "luns": [
+            {
+                "serial_number": "wIqM6]RfQK3t",
+                "os_type": "linux",
+                "name": "/vol/vol1/lun1",
+                "create_time": "2021-08-31T13:18:24-04:00",
+                "uuid": "6f51748a-0a7f-11ec-a449-005056bbcf9f",
+                "space": {
+                    "size": 104857600,
+                    "used": 0,
+                    "guarantee": {"reserved": False, "requested": False},
+                },
+                "lun_maps": [
+                    {
+                        "igroup": {
+                            "os_type": "linux",
+                            "protocol": "mixed",
+                            "uuid": "6f4a4b86-0a7f-11ec-a449-005056bbcf9f",
+                            "initiators": [{"name": "example_name"}],
+                            "name": "igroup1",
+                        },
+                        "logical_unit_number": 0,
+                    }
+                ],
+            }
+        ],
+        "name": "vol1",
+        "qos": {
+            "policy": {
+                "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
+                    }
+                },
+                "name": "extreme-fixed",
+            }
+        },
+        "_links": {
+            "self": {
+                "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f?fields=**"
+            }
+        },
     }
 )
 
@@ -597,6 +600,88 @@ ConsistencyGroup(
 </div>
 </div>
 
+</personalities>
+<personalities supports=aiml>
+### Retrieving all details of an existing consistency group
+Retrieves all details of an existing consistency group. These details are expensive and are not guaranteed to return within one second.
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import ConsistencyGroup
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = ConsistencyGroup(uuid="6f48d798-0a7f-11ec-a449-005056bbcf9f")
+    resource.get(fields="**")
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example7_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example7_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example7_result" class="try_it_out_content">
+```
+ConsistencyGroup(
+    {
+        "tiering": {"policy": "none"},
+        "volumes": [
+            {
+                "tiering": {"policy": "none"},
+                "comment": "",
+                "qos": {
+                    "policy": {
+                        "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
+                        "_links": {
+                            "self": {
+                                "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
+                            }
+                        },
+                        "name": "extreme-fixed",
+                    }
+                },
+                "snapshot_policy": {
+                    "uuid": "a30b60a4-067d-11ec-a449-005056bbcf9f",
+                    "name": "default",
+                },
+                "uuid": "6f516c6c-0a7f-11ec-a449-005056bbcf9f",
+                "space": {"size": 108003328, "available": 107569152, "used": 434176},
+                "name": "vol1",
+            }
+        ],
+        "svm": {
+            "uuid": "4853f97a-0a63-11ec-a449-005056bbcf9f",
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/4853f97a-0a63-11ec-a449-005056bbcf9f"}
+            },
+        },
+        "uuid": "6f48d798-0a7f-11ec-a449-005056bbcf9f",
+        "space": {"size": 108003328, "available": 107569152, "used": 434176},
+        "replicated": False,
+        "name": "vol1",
+        "qos": {
+            "policy": {
+                "uuid": "b7189398-e572-48ab-8f69-82cd46580812",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/qos/policies/b7189398-e572-48ab-8f69-82cd46580812"
+                    }
+                },
+                "name": "extreme-fixed",
+            }
+        },
+        "_links": {
+            "self": {
+                "href": "/api/application/consistency-groups/6f48d798-0a7f-11ec-a449-005056bbcf9f?fields=**"
+            }
+        },
+    }
+)
+
+```
+</div>
+</div>
+
+</personalities>
+<personalities supports=unified>
 ### Adding LUNs to an existing volume in an existing consistency group
 Adds two NVMe namespaces to an existing volume in an existing consistency group, creates a new subsystem, and binds the new namespaces to it.
 ```python
@@ -625,6 +710,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 
+</personalities>
 ### Restoring a consistency group to the contents of an existing snapshot
 Restores an existing consistency group to the contents of an existing snapshot of the consistency group.
 ```python
@@ -674,23 +760,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example10_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example10_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example10_result" class="try_it_out_content">
+<input id="example11_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example11_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example11_result" class="try_it_out_content">
 ```
 ConsistencyGroup(
     {
-        "name": "clone01_of_cg01",
-        "svm": {"name": "vs_0"},
         "clone": {
-            "volume": {"prefix": "my_clone_pfx", "suffix": "my_clone_sfx"},
-            "guarantee": {"type": "none"},
             "parent_consistency_group": {
-                "name": "cg01",
                 "uuid": "ca5e76fb-98c0-11ec-855a-005056a7693b",
+                "name": "cg01",
             },
             "split_initiated": True,
+            "guarantee": {"type": "none"},
+            "volume": {"suffix": "my_clone_sfx", "prefix": "my_clone_pfx"},
         },
+        "svm": {"name": "vs_0"},
+        "name": "clone01_of_cg01",
     }
 )
 
@@ -723,24 +809,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example11_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example11_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example11_result" class="try_it_out_content">
+<input id="example12_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example12_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example12_result" class="try_it_out_content">
 ```
 ConsistencyGroup(
     {
-        "name": "clone01_of_cg01",
-        "svm": {"name": "vs_0"},
         "clone": {
-            "volume": {"prefix": "my_clone_pfx", "suffix": "my_clone_sfx"},
-            "guarantee": {"type": "none"},
             "parent_consistency_group": {
-                "name": "cg01",
                 "uuid": "ca5e76fb-98c0-11ec-855a-005056a7693b",
+                "name": "cg01",
             },
-            "parent_snapshot": {"name": "snap01_of_cg01"},
             "split_initiated": True,
+            "guarantee": {"type": "none"},
+            "parent_snapshot": {"name": "snap01_of_cg01"},
+            "volume": {"suffix": "my_clone_sfx", "prefix": "my_clone_pfx"},
         },
+        "svm": {"name": "vs_0"},
+        "name": "clone01_of_cg01",
     }
 )
 
@@ -748,6 +834,7 @@ ConsistencyGroup(
 </div>
 </div>
 
+<personalities supports=unified>
 ### Adding namespaces to an existing volume in an existing consistency group
 To add two NVMe Namespaces to an existing volume in an existing consistency group, create a new subsystem and bind the new namespaces to it.
 ```python
@@ -781,6 +868,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 
+</personalities>
 ### Add a new volume in an existing consistency group
 The following example adds two new volumes to an existing consistency group.
 ```python
@@ -906,18 +994,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example19_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example19_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example19_result" class="try_it_out_content">
+<input id="example20_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example20_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example20_result" class="try_it_out_content">
 ```
 ConsistencyGroup(
     {
-        "name": "cg_parent2",
         "svm": {"name": "vs1"},
         "consistency_groups": [
-            {"name": "cg_large", "provisioning_options": {"action": "add"}},
-            {"name": "cg_standalone2", "provisioning_options": {"action": "add"}},
+            {"provisioning_options": {"action": "add"}, "name": "cg_large"},
+            {"provisioning_options": {"action": "add"}, "name": "cg_standalone2"},
         ],
+        "name": "cg_parent2",
     }
 )
 
@@ -925,6 +1013,7 @@ ConsistencyGroup(
 </div>
 </div>
 
+<personalities supports=aiml,unified>
 ### Reassign a volume to another child consistency group.
 The following example reassigns a volume from a child consistency group
 to another child consistency group with the same parent consistency group.
@@ -946,7 +1035,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource.patch()
 
 ```
-"""
+
+</personalities>"""
 
 import asyncio
 from datetime import datetime
@@ -992,7 +1082,9 @@ Example: ["team:csi","environment:test"]"""
     r""" A consistency group is a mutually exclusive aggregation of volumes or other consistency groups. A consistency group can only be associated with one direct parent consistency group."""
 
     luns = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_lun.ConsistencyGroupLunSchema", unknown=EXCLUDE, allow_none=True), data_key="luns", allow_none=True)
-    r""" The LUNs array can be used to create or modify LUNs in a consistency group on a new or existing volume that is a member of the consistency group. LUNs are considered members of a consistency group if they are located on a volume that is a member of the consistency group."""
+    r""" The LUNs array can be used to create or modify LUNs in a consistency group on a new or existing volume that is a member of the consistency group. LUNs are considered members of a consistency group if they are located on a volume that is a member of the consistency group.
+<personalities supports=unified>The maximum number of items for this array is 16.</personalities>
+<personalities supports=asar2>The maximum number of items for this array is 256.</personalities>"""
 
     map_to = marshmallow_fields.Nested("netapp_ontap.models.consistency_group_map_to.ConsistencyGroupMapToSchema", data_key="map_to", unknown=EXCLUDE, allow_none=True)
     r""" Specifies the igroup or subsystem to map the LUNs or namespaces within the consistency group. This parameter can only be used if all the storage objects within the consistency groups are either LUNs or namespaces."""
@@ -1004,13 +1096,16 @@ Example: ["team:csi","environment:test"]"""
         data_key="name",
         allow_none=True,
     )
-    r""" Name of the consistency group. The consistency group name must be unique within an SVM.<br/>"""
+    r""" Name of the consistency group. The consistency group name must be unique within an SVM.<br/>
+<personalities supports=unified>If not provided and the consistency group contains only one volume, the name will be generated based on the volume name. If the consistency group contains more than one volume, the name is required.</personalities>"""
 
     namespaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_consistency_groups_namespaces.ConsistencyGroupConsistencyGroupsNamespacesSchema", unknown=EXCLUDE, allow_none=True), data_key="namespaces", allow_none=True)
     r""" An NVMe namespace is a collection of addressable logical blocks presented to hosts connected to the SVM using the NVMe over Fabrics protocol.
 In ONTAP, an NVMe namespace is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
 An NVMe namespace is created to a specified size using thin or thick provisioning as determined by the volume on which it is created. NVMe namespaces support being cloned. An NVMe namespace cannot be renamed, resized, or moved to a different volume. NVMe namespaces do not support the assignment of a QoS policy for performance management, but a QoS policy can be assigned to the volume containing the namespace. See the NVMe namespace object model to learn more about each of the properties supported by the NVMe namespace REST API.<br/>
-An NVMe namespace must be mapped to an NVMe subsystem to grant access to the subsystem's hosts. Hosts can then access the NVMe namespace and perform I/O using the NVMe over Fabrics protocol."""
+An NVMe namespace must be mapped to an NVMe subsystem to grant access to the subsystem's hosts. Hosts can then access the NVMe namespace and perform I/O using the NVMe over Fabrics protocol.
+<personalities supports=unified>The maximum number of items for this array is 16.</personalities>
+<personalities supports=asar2>The maximum number of items for this array is 256.</personalities>"""
 
     parent_consistency_group = marshmallow_fields.Nested("netapp_ontap.resources.consistency_group.ConsistencyGroupSchema", data_key="parent_consistency_group", unknown=EXCLUDE, allow_none=True)
     r""" The parent_consistency_group field of the consistency_group."""
@@ -1085,7 +1180,7 @@ Valid choices:
 
     volumes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_consistency_groups_volumes.ConsistencyGroupConsistencyGroupsVolumesSchema", unknown=EXCLUDE, allow_none=True), data_key="volumes", allow_none=True)
     r""" A consistency group is a mutually exclusive aggregation of volumes or other consistency groups. A volume can only be associated with one direct parent consistency group.<br/>
-
+<personalities supports=unified>The volumes array can be used to create new volumes in the consistency group, add existing volumes to the consistency group, or modify existing volumes that are already members of the consistency group.<br/></personalities>
 The total number of volumes across all child consistency groups contained in a consistency group is constrained by the same limit."""
 
     @property
@@ -1189,9 +1284,15 @@ If this consistency group instance has 1 or more replication relationships, the 
 Note that this parameter is an array and as such it has as many elements as the number of replication relationships associated with this consistency group. Each element of the array describes properties of one replication relationship associated with this consistency group. The "uuid" parameter identifies a specific replication relationship and the "href" parameter is a link to the corresponding SnapMirror relationship. The "is_source" parameter is true if this consistency group is the source in that relationship, otherwise it is false.
 ## Expensive properties
 There is an added computational cost to retrieving values for these properties. They are not included by default in GET results and must be explicitly requested using the `fields` query parameter. See [`DOC Requesting specific fields`](#docs-docs-Requesting-specific-fields) to learn more.
+<personalities supports=aiml,unified>
 * `volumes`
+</personalities>
+<personalities supports=unified,asar2>
 * `luns`
 * `namespaces`
+</personalities>
+## Related ONTAP commands
+* `vserver consistency-group show'
 
 ### Learn more
 * [`DOC /application/consistency-groups`](#docs-application-application_consistency-groups)"""
@@ -1241,7 +1342,7 @@ There is an added computational cost to retrieving values for these properties. 
     ) -> NetAppResponse:
         r"""Updates a consistency group.
 <br>Note that this operation will never delete storage elements. You can specify only elements that should be added to the consistency group regardless of existing storage objects.
-
+<personalities supports=unified>Mapping or unmapping a consistency group from igroups or subsystems is not supported.</personalities>
 ## Related ONTAP commands
 * `vserver consistency-group modify`
 
@@ -1271,16 +1372,24 @@ There is an added computational cost to retrieving values for these properties. 
 * existing SAN, NVMe or NAS FlexVol volumes in a new or existing consistency group
 ## Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the group.
-* `volumes`, `luns` or `namespaces`
+<personalities supports=aiml,unified>
+* `volumes`
+</personalities>
+<personalities supports=unified,asar2>
+* `luns` or `namespaces`
+</personalities>
 ## Naming Conventions
 ### Consistency groups
   * name or consistency_groups[].name, if specified
   * derived from volumes[0].name, if only one volume is specified, same as volume name
+<personalities supports=aiml,unified>
 ### Volume
   * volumes[].name, if specified
   * derived from volume prefix in luns[].name
   * derived from cg[].name, suffixed by "_#" where "#" is a system generated unique number
   * suffixed by "_#" where "#" is a system generated unique number, if provisioning_options.count is provided
+</personalities>
+<personalities supports=unified,asar2>
 ### LUN
   * luns[].name, if specified
   * derived from volumes[].name, suffixed by "_#" where "#" is a system generated unique number
@@ -1289,8 +1398,9 @@ There is an added computational cost to retrieving values for these properties. 
   * namespaces[].name, if specified
   * derived from volumes[].name, suffixed by "_#" where "#" is a system generated unique number
   * suffixed by "_#" where "#" is a system generated unique number, if provisioning_options.count is provided
+</personalities>
 ## Related ONTAP commands
-There are no ONTAP commands for managing consistency group.
+* `vserver consistency-group create`
 
 ### Learn more
 * [`DOC /application/consistency-groups`](#docs-application-application_consistency-groups)"""
@@ -1316,7 +1426,7 @@ There are no ONTAP commands for managing consistency group.
         r"""Deletes a consistency group.
 <br>Note this will not delete any associated volumes or LUNs. To delete those elements, use the appropriate object endpoint.
 ## Related ONTAP commands
-There are no ONTAP commands for managing consistency groups.
+* `vserver consistency-group delete`
 
 ### Learn more
 * [`DOC /application/consistency-groups`](#docs-application-application_consistency-groups)"""
@@ -1337,9 +1447,15 @@ If this consistency group instance has 1 or more replication relationships, the 
 Note that this parameter is an array and as such it has as many elements as the number of replication relationships associated with this consistency group. Each element of the array describes properties of one replication relationship associated with this consistency group. The "uuid" parameter identifies a specific replication relationship and the "href" parameter is a link to the corresponding SnapMirror relationship. The "is_source" parameter is true if this consistency group is the source in that relationship, otherwise it is false.
 ## Expensive properties
 There is an added computational cost to retrieving values for these properties. They are not included by default in GET results and must be explicitly requested using the `fields` query parameter. See [`DOC Requesting specific fields`](#docs-docs-Requesting-specific-fields) to learn more.
+<personalities supports=aiml,unified>
 * `volumes`
+</personalities>
+<personalities supports=unified,asar2>
 * `luns`
 * `namespaces`
+</personalities>
+## Related ONTAP commands
+* `vserver consistency-group show'
 
 ### Learn more
 * [`DOC /application/consistency-groups`](#docs-application-application_consistency-groups)"""
@@ -1352,10 +1468,12 @@ There is an added computational cost to retrieving values for these properties. 
 ### Expensive properties
 There is an added computational cost to retrieving values for these properties. They are not included by default in GET results and must be explicitly requested using the `fields` query parameter. See [`DOC Requesting specific fields`](#docs-docs-Requesting-specific-fields) to learn more.
 * `volumes`
+<personalities supports=asar2,unified>
 * `luns`
 * `namespaces`
+</personalities>
 ## Related ONTAP commands
-There are no ONTAP commands for managing consistency groups.
+* `vserver consistency-group show`
 
 ### Learn more
 * [`DOC /application/consistency-groups`](#docs-application-application_consistency-groups)"""
@@ -1376,16 +1494,24 @@ There are no ONTAP commands for managing consistency groups.
 * existing SAN, NVMe or NAS FlexVol volumes in a new or existing consistency group
 ## Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the group.
-* `volumes`, `luns` or `namespaces`
+<personalities supports=aiml,unified>
+* `volumes`
+</personalities>
+<personalities supports=unified,asar2>
+* `luns` or `namespaces`
+</personalities>
 ## Naming Conventions
 ### Consistency groups
   * name or consistency_groups[].name, if specified
   * derived from volumes[0].name, if only one volume is specified, same as volume name
+<personalities supports=aiml,unified>
 ### Volume
   * volumes[].name, if specified
   * derived from volume prefix in luns[].name
   * derived from cg[].name, suffixed by "_#" where "#" is a system generated unique number
   * suffixed by "_#" where "#" is a system generated unique number, if provisioning_options.count is provided
+</personalities>
+<personalities supports=unified,asar2>
 ### LUN
   * luns[].name, if specified
   * derived from volumes[].name, suffixed by "_#" where "#" is a system generated unique number
@@ -1394,8 +1520,9 @@ There are no ONTAP commands for managing consistency groups.
   * namespaces[].name, if specified
   * derived from volumes[].name, suffixed by "_#" where "#" is a system generated unique number
   * suffixed by "_#" where "#" is a system generated unique number, if provisioning_options.count is provided
+</personalities>
 ## Related ONTAP commands
-There are no ONTAP commands for managing consistency group.
+* `vserver consistency-group create`
 
 ### Learn more
 * [`DOC /application/consistency-groups`](#docs-application-application_consistency-groups)"""
@@ -1416,7 +1543,7 @@ There are no ONTAP commands for managing consistency group.
     ) -> NetAppResponse:
         r"""Updates a consistency group.
 <br>Note that this operation will never delete storage elements. You can specify only elements that should be added to the consistency group regardless of existing storage objects.
-
+<personalities supports=unified>Mapping or unmapping a consistency group from igroups or subsystems is not supported.</personalities>
 ## Related ONTAP commands
 * `vserver consistency-group modify`
 
@@ -1440,7 +1567,7 @@ There are no ONTAP commands for managing consistency group.
         r"""Deletes a consistency group.
 <br>Note this will not delete any associated volumes or LUNs. To delete those elements, use the appropriate object endpoint.
 ## Related ONTAP commands
-There are no ONTAP commands for managing consistency groups.
+* `vserver consistency-group delete`
 
 ### Learn more
 * [`DOC /application/consistency-groups`](#docs-application-application_consistency-groups)"""

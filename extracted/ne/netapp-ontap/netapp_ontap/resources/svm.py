@@ -1,15 +1,16 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Managing SVMs
 <br/>Cluster administrators can manage any SVM bound to the cluster. In addition, SVMs can also be managed by their SVM administrators. The SVM administrator manages the SVM resources, such as volumes, protocols and services, depending on the capabilities assigned by the cluster administrator. SVM administrators cannot create, modify, or delete SVMs. The cluster administrator manages SVM create, modify, or delete operations.<br/>
-<br/>While configuring CIFS, you must also configure IP interfaces and DNS. No other protocol configuration is allowed when configuring NVMe. NFS, FCP, CIFS, iSCSI, and S3 protocols can be configured together.<br/>
+<br/>While configuring CIFS, you must also configure IP interfaces and DNS.<personalities supports=asar2,unified> No other protocol configuration is allowed when configuring NVMe. NFS, FCP, CIFS, iSCSI, and S3 protocols can be configured together.</personalities><br/>
 SVM administrators might have all or some of the following administration capabilities:
 1. Data access protocol configuration
-   Configures data access protocols, such as NFS, CIFS, iSCSI, S3, and Fibre Channel (FC) protocols (Fibre Channel over Ethernet included).
+   <personalities supports=asar2,unified>Configures data access protocols, such as NFS, CIFS, iSCSI, S3, and Fibre Channel (FC) protocols (Fibre Channel over Ethernet included).</personalities>
+   <personalities supports=aiml>Configures data access protocols, such as NFS, CIFS, and S3.</personalities>
 2. Services configuration
    Configures services such as LDAP, NIS, and DNS.
 3. Monitoring SVM
@@ -61,7 +62,7 @@ class SvmSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         data_key="anti_ransomware_auto_switch_duration_without_new_file_extension",
         allow_none=True,
     )
-    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that no new file-extensions are observed in the volume in recent time. This parameter optionally specifies the recent time duration (in days) to be considered during which no new file-extension should be observed in a given volume to automatically switch the anti-ransomware state from ‘learning” to “enabled”."""
+    r""" One of the many conditions to be satisfied to automatically switch the anti-ransomware state of the volumes in this SVM from “learning” (dry-run) to “enabled” is that no new file-extensions are observed in the volume in recent time. This parameter optionally specifies the recent time duration (in days) to be considered during which no new file-extension should be observed in a given volume to automatically switch the anti-ransomware state from “learning” to “enabled”."""
 
     anti_ransomware_auto_switch_from_learning_to_enabled = marshmallow_fields.Boolean(
         data_key="anti_ransomware_auto_switch_from_learning_to_enabled",
@@ -149,10 +150,12 @@ Valid choices:
     r""" FC Interface for the SVM"""
 
     fcp = marshmallow_fields.Nested("netapp_ontap.models.svm_fcp.SvmFcpSchema", data_key="fcp", unknown=EXCLUDE, allow_none=True)
-    r""" ### Platform Specifics
-
-* **Unified ONTAP**: Available for GET, POST and PATCH.
-* **ASA r2**: Available for GET. All SVMs are provisioned with the FCP service configured."""
+    r""" <personalities supports=unified>
+Available for GET, POST, and PATCH requests.
+</personalities>
+<personalities supports=asar2>
+Available for GET requests. All SVMs are provisioned with the FCP service configured.
+</personalities>"""
 
     ip_interfaces = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.ip_interface_svm.IpInterfaceSvmSchema", unknown=EXCLUDE, allow_none=True), data_key="ip_interfaces", allow_none=True)
     r""" IP interfaces for the SVM"""
@@ -173,10 +176,12 @@ Valid choices:
     r""" Indicates whether logical space reporting for the SVM is enabled."""
 
     iscsi = marshmallow_fields.Nested("netapp_ontap.models.svm_iscsi.SvmIscsiSchema", data_key="iscsi", unknown=EXCLUDE, allow_none=True)
-    r""" ### Platform Specifics
-
-* **Unified ONTAP**: Available for GET, POST and PATCH.
-* **ASA r2**: Available for GET. All SVMs are provisioned with the iSCSI service configured."""
+    r""" <personalities supports=unified>
+Available for GET, POST, and PATCH requests.
+</personalities>
+<personalities supports=asar2>
+Available for GET requests. All SVMs are provisioned with the iSCSI service configured.
+</personalities>"""
 
     language = marshmallow_fields.Str(
         data_key="language",
@@ -294,10 +299,12 @@ Example: svm1"""
     r""" Number of volumes in the recovery queue."""
 
     nvme = marshmallow_fields.Nested("netapp_ontap.models.svm_nvme.SvmNvmeSchema", data_key="nvme", unknown=EXCLUDE, allow_none=True)
-    r""" ### Platform Specifics
-
-* **Unified ONTAP**: Available for GET, POST and PATCH.
-* **ASA r2**: Available for GET. All SVMs are provisioned with the NVMe service configured."""
+    r""" <personalities supports=unified>
+Available for GET, POST, and PATCH requests.
+</personalities>
+<personalities supports=asar2>
+Available for GET requests. All SVMs are provisioned with the NVMe service configured.
+</personalities>"""
 
     qos_adaptive_policy_group_template = marshmallow_fields.Nested("netapp_ontap.resources.qos_policy.QosPolicySchema", data_key="qos_adaptive_policy_group_template", unknown=EXCLUDE, allow_none=True)
     r""" The qos_adaptive_policy_group_template field of the svm."""
@@ -426,22 +433,28 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "number_of_volumes_in_recovery_queue",
         "nvme",
         "qos_adaptive_policy_group_template.links",
+        "qos_adaptive_policy_group_template.max_throughput",
         "qos_adaptive_policy_group_template.max_throughput_iops",
         "qos_adaptive_policy_group_template.max_throughput_mbps",
+        "qos_adaptive_policy_group_template.min_throughput",
         "qos_adaptive_policy_group_template.min_throughput_iops",
         "qos_adaptive_policy_group_template.min_throughput_mbps",
         "qos_adaptive_policy_group_template.name",
         "qos_adaptive_policy_group_template.uuid",
         "qos_policy.links",
+        "qos_policy.max_throughput",
         "qos_policy.max_throughput_iops",
         "qos_policy.max_throughput_mbps",
+        "qos_policy.min_throughput",
         "qos_policy.min_throughput_iops",
         "qos_policy.min_throughput_mbps",
         "qos_policy.name",
         "qos_policy.uuid",
         "qos_policy_group_template.links",
+        "qos_policy_group_template.max_throughput",
         "qos_policy_group_template.max_throughput_iops",
         "qos_policy_group_template.max_throughput_mbps",
+        "qos_policy_group_template.min_throughput",
         "qos_policy_group_template.min_throughput_iops",
         "qos_policy_group_template.min_throughput_mbps",
         "qos_policy_group_template.name",
@@ -467,7 +480,7 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "total_volume_size_in_recovery_queue",
         "uuid",
     ]
-    """links,aggregates,aggregates_delegated,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,certificate.links,certificate.name,certificate.uuid,cifs.links,cifs.ad_domain,cifs.allowed,cifs.auth_style,cifs.domain_workgroup,cifs.enabled,cifs.name,cifs.workgroup,comment,dns,fc_interfaces,fcp,ip_interfaces,ipspace.links,ipspace.name,ipspace.uuid,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,ldap.ad_domain,ldap.base_dn,ldap.bind_dn,ldap.enabled,ldap.restrict_discovery_to_site,ldap.servers,max_volumes,name,ndmp,nfs,nis,nsswitch,number_of_volumes_in_recovery_queue,nvme,qos_adaptive_policy_group_template.links,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy.links,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,qos_policy_group_template.links,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,s3.links,s3.allowed,s3.certificate,s3.default_unix_user,s3.default_win_user,s3.enabled,s3.is_http_enabled,s3.is_https_enabled,s3.name,s3.port,s3.secure_port,snapmirror,snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,state,storage,subtype,total_volume_size_in_recovery_queue,uuid,"""
+    """links,aggregates,aggregates_delegated,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,certificate.links,certificate.name,certificate.uuid,cifs.links,cifs.ad_domain,cifs.allowed,cifs.auth_style,cifs.domain_workgroup,cifs.enabled,cifs.name,cifs.workgroup,comment,dns,fc_interfaces,fcp,ip_interfaces,ipspace.links,ipspace.name,ipspace.uuid,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,ldap.ad_domain,ldap.base_dn,ldap.bind_dn,ldap.enabled,ldap.restrict_discovery_to_site,ldap.servers,max_volumes,name,ndmp,nfs,nis,nsswitch,number_of_volumes_in_recovery_queue,nvme,qos_adaptive_policy_group_template.links,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy.links,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,qos_policy_group_template.links,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,s3.links,s3.allowed,s3.certificate,s3.default_unix_user,s3.default_win_user,s3.enabled,s3.is_http_enabled,s3.is_https_enabled,s3.name,s3.port,s3.secure_port,snapmirror,snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,state,storage,subtype,total_volume_size_in_recovery_queue,uuid,"""
 
     patchable_fields = [
         "aggregates",
@@ -500,31 +513,38 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "nfs",
         "nsswitch",
         "nvme",
+        "qos_adaptive_policy_group_template.max_throughput",
         "qos_adaptive_policy_group_template.max_throughput_iops",
         "qos_adaptive_policy_group_template.max_throughput_mbps",
+        "qos_adaptive_policy_group_template.min_throughput",
         "qos_adaptive_policy_group_template.min_throughput_iops",
         "qos_adaptive_policy_group_template.min_throughput_mbps",
         "qos_adaptive_policy_group_template.name",
         "qos_adaptive_policy_group_template.uuid",
+        "qos_policy.max_throughput",
         "qos_policy.max_throughput_iops",
         "qos_policy.max_throughput_mbps",
+        "qos_policy.min_throughput",
         "qos_policy.min_throughput_iops",
         "qos_policy.min_throughput_mbps",
         "qos_policy.name",
         "qos_policy.uuid",
+        "qos_policy_group_template.max_throughput",
         "qos_policy_group_template.max_throughput_iops",
         "qos_policy_group_template.max_throughput_mbps",
+        "qos_policy_group_template.min_throughput",
         "qos_policy_group_template.min_throughput_iops",
         "qos_policy_group_template.min_throughput_mbps",
         "qos_policy_group_template.name",
         "qos_policy_group_template.uuid",
+        "s3.allowed",
         "snapmirror",
         "snapshot_policy.name",
         "snapshot_policy.uuid",
         "state",
         "storage",
     ]
-    """aggregates,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,certificate.name,certificate.uuid,cifs.allowed,cifs.workgroup,comment,fcp,ip_interfaces,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,max_volumes,name,ndmp,nfs,nsswitch,nvme,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,snapmirror,snapshot_policy.name,snapshot_policy.uuid,state,storage,"""
+    """aggregates,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,certificate.name,certificate.uuid,cifs.allowed,cifs.workgroup,comment,fcp,ip_interfaces,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,max_volumes,name,ndmp,nfs,nsswitch,nvme,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,s3.allowed,snapmirror,snapshot_policy.name,snapshot_policy.uuid,state,storage,"""
 
     postable_fields = [
         "aggregates",
@@ -569,14 +589,18 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "nis",
         "nsswitch",
         "nvme",
+        "qos_adaptive_policy_group_template.max_throughput",
         "qos_adaptive_policy_group_template.max_throughput_iops",
         "qos_adaptive_policy_group_template.max_throughput_mbps",
+        "qos_adaptive_policy_group_template.min_throughput",
         "qos_adaptive_policy_group_template.min_throughput_iops",
         "qos_adaptive_policy_group_template.min_throughput_mbps",
         "qos_adaptive_policy_group_template.name",
         "qos_adaptive_policy_group_template.uuid",
+        "qos_policy_group_template.max_throughput",
         "qos_policy_group_template.max_throughput_iops",
         "qos_policy_group_template.max_throughput_mbps",
+        "qos_policy_group_template.min_throughput",
         "qos_policy_group_template.min_throughput_iops",
         "qos_policy_group_template.min_throughput_mbps",
         "qos_policy_group_template.name",
@@ -598,7 +622,7 @@ Example: 02c9e252-41be-11e9-81d5-00a0986138f7"""
         "storage",
         "subtype",
     ]
-    """aggregates,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,cifs.ad_domain,cifs.allowed,cifs.enabled,cifs.name,cifs.workgroup,comment,dns,fc_interfaces,fcp,ip_interfaces,ipspace.name,ipspace.uuid,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,ldap.ad_domain,ldap.base_dn,ldap.bind_dn,ldap.enabled,ldap.restrict_discovery_to_site,ldap.servers,max_volumes,name,ndmp,nfs,nis,nsswitch,nvme,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,routes,s3.allowed,s3.certificate,s3.default_unix_user,s3.default_win_user,s3.enabled,s3.is_http_enabled,s3.is_https_enabled,s3.name,s3.port,s3.secure_port,snapmirror,snapshot_policy.name,snapshot_policy.uuid,storage,subtype,"""
+    """aggregates,anti_ransomware,anti_ransomware_auto_switch_duration_without_new_file_extension,anti_ransomware_auto_switch_from_learning_to_enabled,anti_ransomware_auto_switch_minimum_file_count,anti_ransomware_auto_switch_minimum_file_extension,anti_ransomware_auto_switch_minimum_incoming_data,anti_ransomware_auto_switch_minimum_learning_period,anti_ransomware_default_volume_state,anti_ransomware_incoming_write_threshold,anti_ransomware_incoming_write_threshold_percent,auto_enable_activity_tracking,auto_enable_analytics,cifs.ad_domain,cifs.allowed,cifs.enabled,cifs.name,cifs.workgroup,comment,dns,fc_interfaces,fcp,ip_interfaces,ipspace.name,ipspace.uuid,is_space_enforcement_logical,is_space_reporting_logical,iscsi,language,ldap.ad_domain,ldap.base_dn,ldap.bind_dn,ldap.enabled,ldap.restrict_discovery_to_site,ldap.servers,max_volumes,name,ndmp,nfs,nis,nsswitch,nvme,qos_adaptive_policy_group_template.max_throughput,qos_adaptive_policy_group_template.max_throughput_iops,qos_adaptive_policy_group_template.max_throughput_mbps,qos_adaptive_policy_group_template.min_throughput,qos_adaptive_policy_group_template.min_throughput_iops,qos_adaptive_policy_group_template.min_throughput_mbps,qos_adaptive_policy_group_template.name,qos_adaptive_policy_group_template.uuid,qos_policy_group_template.max_throughput,qos_policy_group_template.max_throughput_iops,qos_policy_group_template.max_throughput_mbps,qos_policy_group_template.min_throughput,qos_policy_group_template.min_throughput_iops,qos_policy_group_template.min_throughput_mbps,qos_policy_group_template.name,qos_policy_group_template.uuid,routes,s3.allowed,s3.certificate,s3.default_unix_user,s3.default_win_user,s3.enabled,s3.is_http_enabled,s3.is_https_enabled,s3.name,s3.port,s3.secure_port,snapmirror,snapshot_policy.name,snapshot_policy.uuid,storage,subtype,"""
 
 class Svm(Resource):
     """Allows interaction with Svm objects on the host"""
@@ -626,49 +650,51 @@ There is an added computational cost to retrieving values for these properties. 
 ### Related ONTAP commands
 * `vserver show`
 ### Examples
-1. Retrieves a list of SVMs in the cluster sorted by name
+* Retrieves a list of SVMs in the cluster sorted by name.
     <br/>
     ```
     GET "/api/svm/svms?order_by=name"
     ```
     <br/>
-2. Retrieves a list of SVMs in the cluster that have the NFS protocol enabled
+* Retrieves a list of SVMs in the cluster that have the NFS protocol enabled.
     <br/>
     ```
     GET "/api/svm/svms?nfs.enabled=true"
     ```
     <br/>
-3. Retrieves a list of SVMs in the cluster that have the CIFS protocol enabled
+* Retrieves a list of SVMs in the cluster that have the CIFS protocol enabled.
     <br/>
     ```
     GET "/api/svm/svms?cifs.enabled=true"
     ```
     <br/>
-4. Retrieves a list of SVMs in the cluster that have the S3 protocol enabled
+* Retrieves a list of SVMs in the cluster that have the S3 protocol enabled.
     <br/>
     ```
     GET "/api/svm/svms?s3.enabled=true"
     ```
     <br/>
-5 Retrieves a list of SVMs in the cluster that have the FCP protocol allowed
+<personalities supports=asar2,unified>
+* Retrieves a list of SVMs in the cluster that have the FCP protocol allowed.
     <br/>
     ```
     GET "/api/svm/svms?fcp.allowed=true"
     ```
     <br/>
-6. Retrieves a list of SVMs in the cluster that have the CIFS protocol allowed
+</personalities>
+* Retrieves a list of SVMs in the cluster that have the CIFS protocol allowed.
     <br/>
     ```
     GET "/api/svm/svms?cifs.allowed=true"
     ```
     <br/>
-7. Retrieves a list of SVMs in the cluster where the NDMP protocol is specified as allowed
+* Retrieves a list of SVMs in the cluster where the NDMP protocol is specified as allowed.
     <br/>
     ```
     GET "/api/svm/svms?ndmp.allowed=true"
     ```
     <br/>
-8.  Retrieves a list of SVMs in the cluster that have the s3 protocol allowed
+*  Retrieves a list of SVMs in the cluster that have the s3 protocol allowed.
     <br/>
     ```
     GET "/api/svm/svms?s3.allowed=true"
@@ -827,6 +853,12 @@ There is an added computational cost to retrieving values for these properties. 
     PATCH "/api/svm/svms/f16f0935-5281-11e8-b94d-005056b46485" '{"qos_policy_group_template":{"name":"policy1"}}'
     ```
     <br/>
+17. Updates the S3 protocol that was previously disallowed for the SVM
+    <br/>
+    ```
+    PATCH "/api/svm/svms/f16f0935-5281-11e8-b94d-005056b46485" '{"s3":{"allowed":"true"}}'
+    ```
+    <br/>
 ### Learn more
 * [`DOC /svm/svms`](#docs-svm-svm_svms)
 """
@@ -883,10 +915,12 @@ There is an added computational cost to retrieving values for these properties. 
 * `dns` - If provided, the following fields are required:
   * `dns.servers` - Name servers
   * `dns.domains` - Domains
+  <personalities supports=asar2,unified>
 * `fc_interfaces` - If provided, the following fields are required:
   * `fc_interfaces.name` - Fibre Channel interface name
   * `fc_interfaces.data_protocol` - Fibre Channel interface data protocol
   * `fc_interfaces.location.port.uuid` or `fc_interfaces.location.port.name` and `fc_interfaces.location.port.node.name` - Either port UUID or port name and node name together must be provided.
+  </personalities>
 * `s3` - If provided, the following field should also be specified:
   * `s3.name` - Name of the S3 server. If `s3.name' is not specified while `s3.enabled` is set to 'true', the S3 server will be created with the default name '<svm.name>_S3Server'.
   * `s3.port` - S3 server listener port.
@@ -906,7 +940,7 @@ If not specified in POST, the following default property values are assigned:
 * `snapshot_policy.name` - _Default_
 * `subtype` - _Default_ ( _sync-source_ if MetroCluster configuration )
 * `anti_ransomware_default_volume_state` - _disabled_
-* `qos_adaptive_policy_group_template` - _extreme_ ( if running ONTAP X and neither qos_policy_group_template nor qos_adaptive_policy_group_template are provided)
+* `qos_adaptive_policy_group_template` - _extreme_ ( if using a platform with disaggregated storage and neither qos_policy_group_template nor qos_adaptive_policy_group_template are provided)
 ### Related ONTAP commands
 * `vserver create`
 * `vserver add-aggregates`
@@ -917,146 +951,154 @@ If not specified in POST, the following default property values are assigned:
 * `vserver services name-service ldap client create`
 * `vserver cifs create`
 * `vserver services name-service nis-domain create`
+<personalities supports=asar2,unified>
 * `vserver iscsi create`
 * `vserver nvme create`
 * `vserver fcp create`
+</personalities>
 * `vserver services name-service ns-switch create`
 * `vserver object-store-server create`
 * `vserver add-protocols`
 * `vserver remove-protocols`
 ### Examples
-1. Creates an SVM with default "snapshot_policy"
+* Creates an SVM with default "snapshot_policy".
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "snapshot_policy":{"name":"default"}}'
     ```
     <br/>
-2. Creates an SVM and configures NFS, ISCSI and FCP
+* Creates an SVM and configures NFS, CIFS, and S3.
     <br/>
     ```
-    POST "/api/svm/svms" '{"name":"testVs", "nfs":{"enabled":"true"}, "fcp":{"enabled":"true"}, "iscsi":{"enabled":"true"}}'
+    POST "/api/svm/svms" '{"name":"testVs", "nfs":{"enabled":"true"}, "cifs":{"enabled":"true"}, "s3":{"enabled":"true"}}'
     ```
     <br/>
-3. Creates an SVM and configures NVMe
+<personalities supports=asar2,unified>
+* Creates an SVM and configures NVMe.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "nvme":{"enabled":"true"}}'
     ```
     <br/>
-4. Creates an SVM and configures LDAP
+</personalities>
+* Creates an SVM and configures LDAP.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "snapshot_policy":{"name":"default"}, "ldap":{"servers":["10.140.101.1","10.140.101.2"], "ad_domain":"abc.com", "base_dn":"dc=netapp,dc=com", "bind_dn":"dc=netapp,dc=com"}}'
     ```
     <br/>
-5. Creates an SVM and configures NIS
+* Creates an SVM and configures NIS.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "snapshot_policy":{"name":"default"}, "nis":{"enabled":"true", "domain":"def.com","servers":["10.224.223.130", "10.224.223.131"]}}'
     ```
     <br/>
-6. Creates an SVM and configures DNS
+* Creates an SVM and configures DNS.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "snapshot_policy":{"name":"default"}, "dns":{"domains":["abc.com","def.com"], "servers":["10.224.223.130", "10.224.223.131"]}}'
     ```
     <br/>
-7. Creates an SVM and configures a LIF
+* Creates an SVM and configures a LIF.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "ip_interfaces": [{"name":"lif1", "ip":{"address":"10.10.10.7", "netmask": "255.255.255.0"}, "location":{"broadcast_domain":{"name":"bd1"}, "home_node":{"name":"node1"}}, "service_policy": "default-management"}]}'
     ```
     <br/>
-8. Creates an SVM and configures a LIF with IPV6 address
+* Creates an SVM and configures a LIF with IPV6 address.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "ip_interfaces": [{"name":"lif2", "ip":{"address":"fd22:8b1e:b255:202:2a0:98ff:fe01:7d5b", "netmask":"24"}, "location":{"broadcast_domain":{"name":"bd1"}, "home_node":{"name":"node1"}}, "service_policy": "default-management"}]}'
     ```
     <br/>
-9. Creates an SVM and configures CIFS
+* Creates an SVM and configures CIFS.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "cifs":{"name":"CIFDOC", "ad_domain":{"fqdn":"abc.def.com", "organizational_unit":"CN=Computers", "user":"cif_admin", "password":"abc123"}}, "ip_interfaces":[{"name":"lif1", "ip":{"address":"10.10.10.7", "netmask": "255.255.255.0"}, "location":{"broadcast_domain":{"name":"bd1"}, "home_node":{"name":"node1"}}, "service_policy": "default-management"}],"routes": [{"destination": {"address": "0.0.0.0", "netmask": "0"}, "gateway": "10.10.10.7"}], "dns":{"domains":["abc.def.com", "def.com"], "servers":["10.224.223.130", "10.224.223.131"]}}'
     ```
     <br/>
-10. Creates an SVM with an S3 server enabled and configured
+* Creates an SVM with an S3 server enabled and configured.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"svm5", "s3":{"name":"s3-server-1", "enabled":true, "allowed":true, "is_http_enabled": true, "is_https_enabled":false}}'
     ```
     <br/>
-11. Creates an SVM and disallows NVMe service for the SVM
+<personalities supports=asar2,unified>
+* Creates an SVM and disallows NVMe service for the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "nvme":{"allowed":"false"}}'
     ```
     <br/>
-12. Creates an SVM, allows and configures the NFS service for the SVM
+</personalities>
+* Creates an SVM, allows and configures the NFS service for the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "nfs":{"allowed":"true", "enabled":true}}'
     ```
     <br/>
-13. Create an SVM and set the max volume limit for the SVM
+* Create an SVM and set the max volume limit for the SVM.
     <br/>
     ```
     POST "/api/svm/svms/" '{"name":"testVs", "max_volumes":"200"}'
     ```
     <br/>
-14. Creates an SVM and disallows the NDMP service for the SVM.
+* Creates an SVM and disallows the NDMP service for the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "ndmp":{"allowed":"false"}}'
     ```
     <br/>
-15. Creates an SVM and specifies whether file system analytics is enabled on all newly created volumes in the SVM.
+* Creates an SVM and specifies whether file system analytics is enabled on all newly created volumes in the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "auto_enable_analytics":true}}'
     ```
     <br/>
-16. Creates an SVM and specifies whether volume_activity_tracking is enabled on all newly created volumes in the SVM.
+* Creates an SVM and specifies whether volume_activity_tracking is enabled on all newly created volumes in the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "auto_enable_activity_tracking":true}}'
     ```
     <br/>
-17. Creates an SVM and specifies whether file system analytics is enabled on all newly created volumes in the SVM.
+* Creates an SVM and specifies whether file system analytics is enabled on all newly created volumes in the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "auto_enable_analytics":true}}'
     ```
     <br/>
-18. Creates an SVM and specifies the maximum storage limit for a single SVM.
+* Creates an SVM and specifies the maximum storage limit for a single SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "storage": {"limit":"4GB"}}'
     ```
     <br/>
-19. Creates an SVM and specifies at what percentage of storage capacity an alert message is sent. Default value is 90.
+* Creates an SVM and specifies at what percentage of storage capacity an alert message is sent. Default value is 90.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "storage": {"limit":"20GB", "limit_threshold_alert":"95"}}'
     ```
     <br/>
-20. Creates an SVM and specifies the QoS policy group template to be assigned to the SVM.
+* Creates an SVM and specifies the QoS policy group template to be assigned to the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "qos_policy_group_template":{"name":"performance-fixed"}}'
     ```
     <br/>
-21. Creates an SVM and specifies the QoS adaptive policy group template to be assigned to the SVM.
+* Creates an SVM and specifies the QoS adaptive policy group template to be assigned to the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "qos_adaptive_policy_group_template":{"name":"performance"}}'
     ```
     <br/>
-22. On ASA r2 platforms, _fcp_, _iscsi_, and _nvme_ services are enabled and allowed by default, and are not necessary in the POST request.
+<personalities supports=asar2>
+* On ASA r2 platforms, _fcp_, _iscsi_, and _nvme_ services are enabled and allowed by default, and are not necessary in the POST request.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs"}'
     ```
     <br/>
+</personalities>
 ### Learn more
 * [`DOC /svm/svms`](#docs-svm-svm_svms)
 """
@@ -1114,49 +1156,51 @@ There is an added computational cost to retrieving values for these properties. 
 ### Related ONTAP commands
 * `vserver show`
 ### Examples
-1. Retrieves a list of SVMs in the cluster sorted by name
+* Retrieves a list of SVMs in the cluster sorted by name.
     <br/>
     ```
     GET "/api/svm/svms?order_by=name"
     ```
     <br/>
-2. Retrieves a list of SVMs in the cluster that have the NFS protocol enabled
+* Retrieves a list of SVMs in the cluster that have the NFS protocol enabled.
     <br/>
     ```
     GET "/api/svm/svms?nfs.enabled=true"
     ```
     <br/>
-3. Retrieves a list of SVMs in the cluster that have the CIFS protocol enabled
+* Retrieves a list of SVMs in the cluster that have the CIFS protocol enabled.
     <br/>
     ```
     GET "/api/svm/svms?cifs.enabled=true"
     ```
     <br/>
-4. Retrieves a list of SVMs in the cluster that have the S3 protocol enabled
+* Retrieves a list of SVMs in the cluster that have the S3 protocol enabled.
     <br/>
     ```
     GET "/api/svm/svms?s3.enabled=true"
     ```
     <br/>
-5 Retrieves a list of SVMs in the cluster that have the FCP protocol allowed
+<personalities supports=asar2,unified>
+* Retrieves a list of SVMs in the cluster that have the FCP protocol allowed.
     <br/>
     ```
     GET "/api/svm/svms?fcp.allowed=true"
     ```
     <br/>
-6. Retrieves a list of SVMs in the cluster that have the CIFS protocol allowed
+</personalities>
+* Retrieves a list of SVMs in the cluster that have the CIFS protocol allowed.
     <br/>
     ```
     GET "/api/svm/svms?cifs.allowed=true"
     ```
     <br/>
-7. Retrieves a list of SVMs in the cluster where the NDMP protocol is specified as allowed
+* Retrieves a list of SVMs in the cluster where the NDMP protocol is specified as allowed.
     <br/>
     ```
     GET "/api/svm/svms?ndmp.allowed=true"
     ```
     <br/>
-8.  Retrieves a list of SVMs in the cluster that have the s3 protocol allowed
+*  Retrieves a list of SVMs in the cluster that have the s3 protocol allowed.
     <br/>
     ```
     GET "/api/svm/svms?s3.allowed=true"
@@ -1233,10 +1277,12 @@ There is an added computational cost to retrieving values for these properties. 
 * `dns` - If provided, the following fields are required:
   * `dns.servers` - Name servers
   * `dns.domains` - Domains
+  <personalities supports=asar2,unified>
 * `fc_interfaces` - If provided, the following fields are required:
   * `fc_interfaces.name` - Fibre Channel interface name
   * `fc_interfaces.data_protocol` - Fibre Channel interface data protocol
   * `fc_interfaces.location.port.uuid` or `fc_interfaces.location.port.name` and `fc_interfaces.location.port.node.name` - Either port UUID or port name and node name together must be provided.
+  </personalities>
 * `s3` - If provided, the following field should also be specified:
   * `s3.name` - Name of the S3 server. If `s3.name' is not specified while `s3.enabled` is set to 'true', the S3 server will be created with the default name '<svm.name>_S3Server'.
   * `s3.port` - S3 server listener port.
@@ -1256,7 +1302,7 @@ If not specified in POST, the following default property values are assigned:
 * `snapshot_policy.name` - _Default_
 * `subtype` - _Default_ ( _sync-source_ if MetroCluster configuration )
 * `anti_ransomware_default_volume_state` - _disabled_
-* `qos_adaptive_policy_group_template` - _extreme_ ( if running ONTAP X and neither qos_policy_group_template nor qos_adaptive_policy_group_template are provided)
+* `qos_adaptive_policy_group_template` - _extreme_ ( if using a platform with disaggregated storage and neither qos_policy_group_template nor qos_adaptive_policy_group_template are provided)
 ### Related ONTAP commands
 * `vserver create`
 * `vserver add-aggregates`
@@ -1267,146 +1313,154 @@ If not specified in POST, the following default property values are assigned:
 * `vserver services name-service ldap client create`
 * `vserver cifs create`
 * `vserver services name-service nis-domain create`
+<personalities supports=asar2,unified>
 * `vserver iscsi create`
 * `vserver nvme create`
 * `vserver fcp create`
+</personalities>
 * `vserver services name-service ns-switch create`
 * `vserver object-store-server create`
 * `vserver add-protocols`
 * `vserver remove-protocols`
 ### Examples
-1. Creates an SVM with default "snapshot_policy"
+* Creates an SVM with default "snapshot_policy".
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "snapshot_policy":{"name":"default"}}'
     ```
     <br/>
-2. Creates an SVM and configures NFS, ISCSI and FCP
+* Creates an SVM and configures NFS, CIFS, and S3.
     <br/>
     ```
-    POST "/api/svm/svms" '{"name":"testVs", "nfs":{"enabled":"true"}, "fcp":{"enabled":"true"}, "iscsi":{"enabled":"true"}}'
+    POST "/api/svm/svms" '{"name":"testVs", "nfs":{"enabled":"true"}, "cifs":{"enabled":"true"}, "s3":{"enabled":"true"}}'
     ```
     <br/>
-3. Creates an SVM and configures NVMe
+<personalities supports=asar2,unified>
+* Creates an SVM and configures NVMe.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "nvme":{"enabled":"true"}}'
     ```
     <br/>
-4. Creates an SVM and configures LDAP
+</personalities>
+* Creates an SVM and configures LDAP.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "snapshot_policy":{"name":"default"}, "ldap":{"servers":["10.140.101.1","10.140.101.2"], "ad_domain":"abc.com", "base_dn":"dc=netapp,dc=com", "bind_dn":"dc=netapp,dc=com"}}'
     ```
     <br/>
-5. Creates an SVM and configures NIS
+* Creates an SVM and configures NIS.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "snapshot_policy":{"name":"default"}, "nis":{"enabled":"true", "domain":"def.com","servers":["10.224.223.130", "10.224.223.131"]}}'
     ```
     <br/>
-6. Creates an SVM and configures DNS
+* Creates an SVM and configures DNS.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "snapshot_policy":{"name":"default"}, "dns":{"domains":["abc.com","def.com"], "servers":["10.224.223.130", "10.224.223.131"]}}'
     ```
     <br/>
-7. Creates an SVM and configures a LIF
+* Creates an SVM and configures a LIF.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "ip_interfaces": [{"name":"lif1", "ip":{"address":"10.10.10.7", "netmask": "255.255.255.0"}, "location":{"broadcast_domain":{"name":"bd1"}, "home_node":{"name":"node1"}}, "service_policy": "default-management"}]}'
     ```
     <br/>
-8. Creates an SVM and configures a LIF with IPV6 address
+* Creates an SVM and configures a LIF with IPV6 address.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "ip_interfaces": [{"name":"lif2", "ip":{"address":"fd22:8b1e:b255:202:2a0:98ff:fe01:7d5b", "netmask":"24"}, "location":{"broadcast_domain":{"name":"bd1"}, "home_node":{"name":"node1"}}, "service_policy": "default-management"}]}'
     ```
     <br/>
-9. Creates an SVM and configures CIFS
+* Creates an SVM and configures CIFS.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "cifs":{"name":"CIFDOC", "ad_domain":{"fqdn":"abc.def.com", "organizational_unit":"CN=Computers", "user":"cif_admin", "password":"abc123"}}, "ip_interfaces":[{"name":"lif1", "ip":{"address":"10.10.10.7", "netmask": "255.255.255.0"}, "location":{"broadcast_domain":{"name":"bd1"}, "home_node":{"name":"node1"}}, "service_policy": "default-management"}],"routes": [{"destination": {"address": "0.0.0.0", "netmask": "0"}, "gateway": "10.10.10.7"}], "dns":{"domains":["abc.def.com", "def.com"], "servers":["10.224.223.130", "10.224.223.131"]}}'
     ```
     <br/>
-10. Creates an SVM with an S3 server enabled and configured
+* Creates an SVM with an S3 server enabled and configured.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"svm5", "s3":{"name":"s3-server-1", "enabled":true, "allowed":true, "is_http_enabled": true, "is_https_enabled":false}}'
     ```
     <br/>
-11. Creates an SVM and disallows NVMe service for the SVM
+<personalities supports=asar2,unified>
+* Creates an SVM and disallows NVMe service for the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "nvme":{"allowed":"false"}}'
     ```
     <br/>
-12. Creates an SVM, allows and configures the NFS service for the SVM
+</personalities>
+* Creates an SVM, allows and configures the NFS service for the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "nfs":{"allowed":"true", "enabled":true}}'
     ```
     <br/>
-13. Create an SVM and set the max volume limit for the SVM
+* Create an SVM and set the max volume limit for the SVM.
     <br/>
     ```
     POST "/api/svm/svms/" '{"name":"testVs", "max_volumes":"200"}'
     ```
     <br/>
-14. Creates an SVM and disallows the NDMP service for the SVM.
+* Creates an SVM and disallows the NDMP service for the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "ndmp":{"allowed":"false"}}'
     ```
     <br/>
-15. Creates an SVM and specifies whether file system analytics is enabled on all newly created volumes in the SVM.
+* Creates an SVM and specifies whether file system analytics is enabled on all newly created volumes in the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "auto_enable_analytics":true}}'
     ```
     <br/>
-16. Creates an SVM and specifies whether volume_activity_tracking is enabled on all newly created volumes in the SVM.
+* Creates an SVM and specifies whether volume_activity_tracking is enabled on all newly created volumes in the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "auto_enable_activity_tracking":true}}'
     ```
     <br/>
-17. Creates an SVM and specifies whether file system analytics is enabled on all newly created volumes in the SVM.
+* Creates an SVM and specifies whether file system analytics is enabled on all newly created volumes in the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "auto_enable_analytics":true}}'
     ```
     <br/>
-18. Creates an SVM and specifies the maximum storage limit for a single SVM.
+* Creates an SVM and specifies the maximum storage limit for a single SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "storage": {"limit":"4GB"}}'
     ```
     <br/>
-19. Creates an SVM and specifies at what percentage of storage capacity an alert message is sent. Default value is 90.
+* Creates an SVM and specifies at what percentage of storage capacity an alert message is sent. Default value is 90.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "storage": {"limit":"20GB", "limit_threshold_alert":"95"}}'
     ```
     <br/>
-20. Creates an SVM and specifies the QoS policy group template to be assigned to the SVM.
+* Creates an SVM and specifies the QoS policy group template to be assigned to the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "qos_policy_group_template":{"name":"performance-fixed"}}'
     ```
     <br/>
-21. Creates an SVM and specifies the QoS adaptive policy group template to be assigned to the SVM.
+* Creates an SVM and specifies the QoS adaptive policy group template to be assigned to the SVM.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs", "qos_adaptive_policy_group_template":{"name":"performance"}}'
     ```
     <br/>
-22. On ASA r2 platforms, _fcp_, _iscsi_, and _nvme_ services are enabled and allowed by default, and are not necessary in the POST request.
+<personalities supports=asar2>
+* On ASA r2 platforms, _fcp_, _iscsi_, and _nvme_ services are enabled and allowed by default, and are not necessary in the POST request.
     <br/>
     ```
     POST "/api/svm/svms" '{"name":"testVs"}'
     ```
     <br/>
+</personalities>
 ### Learn more
 * [`DOC /svm/svms`](#docs-svm-svm_svms)
 """
@@ -1529,6 +1583,12 @@ If not specified in POST, the following default property values are assigned:
     <br/>
     ```
     PATCH "/api/svm/svms/f16f0935-5281-11e8-b94d-005056b46485" '{"qos_policy_group_template":{"name":"policy1"}}'
+    ```
+    <br/>
+17. Updates the S3 protocol that was previously disallowed for the SVM
+    <br/>
+    ```
+    PATCH "/api/svm/svms/f16f0935-5281-11e8-b94d-005056b46485" '{"s3":{"allowed":"true"}}'
     ```
     <br/>
 ### Learn more

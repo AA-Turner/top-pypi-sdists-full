@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,36 +30,36 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3User(
         {
-            "key_time_to_live": "PT3H5M",
-            "name": "user-1",
             "comment": "S3 user",
             "key_expiry_time": "2023-11-13T23:28:03+05:30",
+            "access_key": "(token)",
+            "key_time_to_live": "PT3H5M",
             "svm": {
+                "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/db2ec036-8375-11e9-99e1-0050568e3ed9"
                     }
                 },
-                "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
             },
-            "access_key": "(token)",
+            "name": "user-1",
         }
     ),
     S3User(
         {
-            "name": "user-2",
             "comment": "s3-user",
+            "access_key": "(token)",
             "svm": {
+                "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/db2ec036-8375-11e9-99e1-0050568e3ed9"
                     }
                 },
-                "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
             },
-            "access_key": "(token)",
+            "name": "user-2",
         }
     ),
 ]
@@ -86,18 +86,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3User(
     {
-        "key_time_to_live": "P6DT1H5M",
-        "name": "user-1",
         "comment": "s3-user",
         "key_expiry_time": "2023-02-20T10:04:31+00:00",
+        "access_key": "(token)",
+        "key_time_to_live": "P6DT1H5M",
         "svm": {
+            "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
             "name": "vs1",
             "_links": {
                 "self": {"href": "/api/svm/svms/db2ec036-8375-11e9-99e1-0050568e3ed9"}
             },
-            "uuid": "db2ec036-8375-11e9-99e1-0050568e3ed9",
         },
-        "access_key": "(token)",
+        "name": "user-1",
     }
 )
 
@@ -122,7 +122,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example2_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example2_result" class="try_it_out_content">
 ```
-S3User({"name": "user-1", "secret_key": "<secret_key_here>", "access_key": "(token)"})
+S3User({"access_key": "(token)", "secret_key": "<secret_key_here>", "name": "user-1"})
 
 ```
 </div>
@@ -149,10 +149,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3User(
     {
-        "name": "user-3",
-        "secret_key": "OXx6J_GkTc94Xx91cYrNBar_OT3BY6lWOHI_HSR5",
         "key_expiry_time": "2023-06-16T12:08:38+00:00",
         "access_key": "(token)",
+        "secret_key": "OXx6J_GkTc94Xx91cYrNBar_OT3BY6lWOHI_HSR5",
+        "name": "user-3",
     }
 )
 
@@ -183,10 +183,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3User(
     {
-        "name": "user-test",
-        "secret_key": "<secret_key_here>",
         "key_expiry_time": "2024-02-12T22:36:29+05:30",
         "access_key": "DUMMYACCESSKEY123456ACV",
+        "secret_key": "<secret_key_here>",
+        "name": "user-test",
     }
 )
 
@@ -215,10 +215,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3User(
     {
-        "name": "user-3@domain1.com",
-        "secret_key": "OXx6J_GkTc94Xx91cYrNBar_OT3BY6lWOHI_HSR5",
         "key_expiry_time": "2023-06-16T12:08:38+00:00",
         "access_key": "(token)",
+        "secret_key": "OXx6J_GkTc94Xx91cYrNBar_OT3BY6lWOHI_HSR5",
+        "name": "user-3@domain1.com",
     }
 )
 

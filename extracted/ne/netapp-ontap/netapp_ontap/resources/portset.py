@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -36,20 +36,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Portset(
     {
         "protocol": "mixed",
-        "name": "portset1",
+        "svm": {
+            "uuid": "31484775-1e23-11eb-b2a8-005056bb3521",
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/31484775-1e23-11eb-b2a8-005056bb3521"}
+            },
+        },
         "uuid": "5d7b1dfa-1ed7-11eb-8b0f-005056bb3521",
         "_links": {
             "self": {
                 "href": "/api/protocols/san/portsets/5d7b1dfa-1ed7-11eb-8b0f-005056bb3521"
             }
         },
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/31484775-1e23-11eb-b2a8-005056bb3521"}
-            },
-            "uuid": "31484775-1e23-11eb-b2a8-005056bb3521",
-        },
+        "name": "portset1",
     }
 )
 
@@ -84,57 +84,57 @@ Portset(
     {
         "interfaces": [
             {
+                "uuid": "f37bfb01-1e2a-11eb-b2a8-005056bb3521",
+                "_links": {
+                    "self": {
+                        "href": "/api/protocols/san/portsets/816c0d49-1ed7-11eb-8b0f-005056bb3521/interfaces/f37bfb01-1e2a-11eb-b2a8-005056bb3521"
+                    }
+                },
                 "ip": {
+                    "uuid": "f37bfb01-1e2a-11eb-b2a8-005056bb3521",
+                    "ip": {"address": "192.168.1.100"},
                     "name": "lif1",
                     "_links": {
                         "self": {
                             "href": "/api/network/ip/interfaces/f37bfb01-1e2a-11eb-b2a8-005056bb3521"
                         }
                     },
-                    "uuid": "f37bfb01-1e2a-11eb-b2a8-005056bb3521",
-                    "ip": {"address": "192.168.1.100"},
                 },
-                "_links": {
-                    "self": {
-                        "href": "/api/protocols/san/portsets/816c0d49-1ed7-11eb-8b0f-005056bb3521/interfaces/f37bfb01-1e2a-11eb-b2a8-005056bb3521"
-                    }
-                },
-                "uuid": "f37bfb01-1e2a-11eb-b2a8-005056bb3521",
             },
             {
+                "uuid": "f92178e7-1e2a-11eb-b2a8-005056bb3521",
+                "_links": {
+                    "self": {
+                        "href": "/api/protocols/san/portsets/816c0d49-1ed7-11eb-8b0f-005056bb3521/interfaces/f92178e7-1e2a-11eb-b2a8-005056bb3521"
+                    }
+                },
                 "ip": {
+                    "uuid": "f92178e7-1e2a-11eb-b2a8-005056bb3521",
+                    "ip": {"address": "192.168.1.101"},
                     "name": "lif2",
                     "_links": {
                         "self": {
                             "href": "/api/network/ip/interfaces/f92178e7-1e2a-11eb-b2a8-005056bb3521"
                         }
                     },
-                    "uuid": "f92178e7-1e2a-11eb-b2a8-005056bb3521",
-                    "ip": {"address": "192.168.1.101"},
                 },
-                "_links": {
-                    "self": {
-                        "href": "/api/protocols/san/portsets/816c0d49-1ed7-11eb-8b0f-005056bb3521/interfaces/f92178e7-1e2a-11eb-b2a8-005056bb3521"
-                    }
-                },
-                "uuid": "f92178e7-1e2a-11eb-b2a8-005056bb3521",
             },
         ],
         "protocol": "iscsi",
-        "name": "portset2",
+        "svm": {
+            "uuid": "31484775-1e23-11eb-b2a8-005056bb3521",
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/31484775-1e23-11eb-b2a8-005056bb3521"}
+            },
+        },
         "uuid": "816c0d49-1ed7-11eb-8b0f-005056bb3521",
         "_links": {
             "self": {
                 "href": "/api/protocols/san/portsets/816c0d49-1ed7-11eb-8b0f-005056bb3521"
             }
         },
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/31484775-1e23-11eb-b2a8-005056bb3521"}
-            },
-            "uuid": "31484775-1e23-11eb-b2a8-005056bb3521",
-        },
+        "name": "portset2",
     }
 )
 
@@ -161,35 +161,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Portset(
         {
-            "name": "portset1",
             "uuid": "5d7b1dfa-1ed7-11eb-8b0f-005056bb3521",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/portsets/5d7b1dfa-1ed7-11eb-8b0f-005056bb3521"
                 }
             },
+            "name": "portset1",
         }
     ),
     Portset(
         {
-            "name": "portset2",
             "uuid": "816c0d49-1ed7-11eb-8b0f-005056bb3521",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/portsets/816c0d49-1ed7-11eb-8b0f-005056bb3521"
                 }
             },
+            "name": "portset2",
         }
     ),
     Portset(
         {
-            "name": "portset3",
             "uuid": "b716b4d2-1ed7-11eb-8b0f-005056bb3521",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/portsets/b716b4d2-1ed7-11eb-8b0f-005056bb3521"
                 }
             },
+            "name": "portset3",
         }
     ),
 ]
@@ -219,57 +219,57 @@ Portset(
     {
         "interfaces": [
             {
+                "uuid": "164eb052-1e2b-11eb-b2a8-005056bb3521",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/portsets/b716b4d2-1ed7-11eb-8b0f-005056bb3521/interfaces/164eb052-1e2b-11eb-b2a8-005056bb3521"
                     }
                 },
                 "fc": {
-                    "name": "lif5",
+                    "wwpn": "20:01:00:50:56:bb:35:21",
                     "uuid": "164eb052-1e2b-11eb-b2a8-005056bb3521",
                     "_links": {
                         "self": {
                             "href": "/api/network/fc/interfaces/164eb052-1e2b-11eb-b2a8-005056bb3521"
                         }
                     },
-                    "wwpn": "20:01:00:50:56:bb:35:21",
+                    "name": "lif5",
                 },
-                "uuid": "164eb052-1e2b-11eb-b2a8-005056bb3521",
             },
             {
+                "uuid": "197ba2b7-1e2b-11eb-b2a8-005056bb3521",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/portsets/b716b4d2-1ed7-11eb-8b0f-005056bb3521/interfaces/197ba2b7-1e2b-11eb-b2a8-005056bb3521"
                     }
                 },
                 "fc": {
-                    "name": "lif6",
+                    "wwpn": "20:02:00:50:56:bb:35:21",
                     "uuid": "197ba2b7-1e2b-11eb-b2a8-005056bb3521",
                     "_links": {
                         "self": {
                             "href": "/api/network/fc/interfaces/197ba2b7-1e2b-11eb-b2a8-005056bb3521"
                         }
                     },
-                    "wwpn": "20:02:00:50:56:bb:35:21",
+                    "name": "lif6",
                 },
-                "uuid": "197ba2b7-1e2b-11eb-b2a8-005056bb3521",
             },
         ],
         "protocol": "fcp",
-        "name": "portset3",
+        "svm": {
+            "uuid": "31484775-1e23-11eb-b2a8-005056bb3521",
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/31484775-1e23-11eb-b2a8-005056bb3521"}
+            },
+        },
         "uuid": "b716b4d2-1ed7-11eb-8b0f-005056bb3521",
         "_links": {
             "self": {
                 "href": "/api/protocols/san/portsets/b716b4d2-1ed7-11eb-8b0f-005056bb3521"
             }
         },
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/31484775-1e23-11eb-b2a8-005056bb3521"}
-            },
-            "uuid": "31484775-1e23-11eb-b2a8-005056bb3521",
-        },
+        "name": "portset3",
     }
 )
 

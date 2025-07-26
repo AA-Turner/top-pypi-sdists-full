@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,10 +30,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 ```
 S3BucketLifecycleRule(
     {
-        "name": "rule1",
-        "expiration": {"object_age_days": 1000},
         "abort_incomplete_multipart_upload": {"after_initiation_days": 200},
-        "object_filter": {"size_greater_than": 1000, "prefix": "obj1*/"},
+        "object_filter": {"prefix": "obj1*/", "size_greater_than": 1000},
+        "expiration": {"object_age_days": 1000},
+        "name": "rule1",
     }
 )
 

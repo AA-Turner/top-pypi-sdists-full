@@ -335,6 +335,7 @@ STEP_DECORATORS_DESC = [
     ("snowpark", ".snowpark.snowpark_decorator.SnowparkDecorator"),
     ("tensorboard", ".tensorboard.TensorboardDecorator"),
     ("gpu_profile", ".profilers.gpu_profile_decorator.GPUProfileDecorator"),
+    ("test_append_card", ".profilers.simple_card_decorator.DynamicCardAppendDecorator"),
     ("nim", ".nim.nim_decorator.NimDecorator"),
     ("ollama", ".ollama.OllamaDecorator"),
     ("vllm", ".vllm.VLLMDecorator"),

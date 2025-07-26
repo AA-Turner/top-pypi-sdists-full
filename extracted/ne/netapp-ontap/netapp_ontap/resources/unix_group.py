@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,65 +27,65 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UnixGroup(
         {
+            "id": 11,
             "users": [{"name": "user1"}, {"name": "user2"}, {"name": "user3"}],
-            "name": "group1",
+            "svm": {
+                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
+                "name": "vs1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"
+                    }
+                },
+            },
             "_links": {
                 "self": {
                     "href": "/api/name-services/unix-groups/b009a9e7-4081-b576-7575-ada21efcaf16/group1"
                 }
             },
-            "id": 11,
+            "name": "group1",
+        }
+    ),
+    UnixGroup(
+        {
+            "id": 12,
+            "users": [{"name": "user1"}, {"name": "user2"}],
             "svm": {
+                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"
                     }
                 },
-                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
             },
-        }
-    ),
-    UnixGroup(
-        {
-            "users": [{"name": "user1"}, {"name": "user2"}],
-            "name": "group2",
             "_links": {
                 "self": {
                     "href": "/api/name-services/unix-groups/b009a9e7-4081-b576-7575-ada21efcaf16/group2"
                 }
             },
-            "id": 12,
-            "svm": {
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"
-                    }
-                },
-                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
-            },
+            "name": "group2",
         }
     ),
     UnixGroup(
         {
-            "users": [{"name": "user2"}, {"name": "user3"}],
-            "name": "group1",
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/unix-groups/b009a9e7-4081-b576-7575-ada21efcad17/group1"
-                }
-            },
             "id": 11,
+            "users": [{"name": "user2"}, {"name": "user3"}],
             "svm": {
+                "uuid": "b009a9e7-4081-b576-7575-ada21efcad17",
                 "name": "vs2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcad17"
                     }
                 },
-                "uuid": "b009a9e7-4081-b576-7575-ada21efcad17",
             },
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/unix-groups/b009a9e7-4081-b576-7575-ada21efcad17/group1"
+                }
+            },
+            "name": "group1",
         }
     ),
 ]
@@ -111,22 +111,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UnixGroup(
         {
-            "name": "group1",
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/unix-groups/b009a9e7-4081-b576-7575-ada21efcaf16/group1"
-                }
-            },
             "id": 11,
             "svm": {
+                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"
                     }
                 },
-                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
             },
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/unix-groups/b009a9e7-4081-b576-7575-ada21efcaf16/group1"
+                }
+            },
+            "name": "group1",
         }
     )
 ]

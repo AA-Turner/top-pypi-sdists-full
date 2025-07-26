@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,10 +28,8 @@ Valid in POST when creating an NVMe namespace that is not a clone of another. Di
 
     efficiency_ratio = marshmallow_fields.Number(data_key="efficiency_ratio", allow_none=True)
     r""" The storage efficiency ratio of the namespace without snapshots. (Logical Used / Used)
-### Platform Specifics
-
-* **Unified ONTAP**: This property is not available on the namespace object in the REST API and is not reported for GET requests. See the containing volume object for this information.
-* **ASA r2**: Available for GET.
+<personalities supports=unified>This property is not available on the namespace object in the REST API and is not reported for GET requests. See the containing volume object for this information.</personalities>
+<personalities supports=asar2>Available for GET.</personalities>
 
 
 Example: 2.5 """
@@ -41,20 +39,16 @@ Example: 2.5 """
 
     physical_used = Size(data_key="physical_used", allow_none=True)
     r""" The number of bytes consumed on the disk by the namespace, excluding snapshots.
-### Platform Specifics
-
-* **Unified ONTAP**: This property is not available on the namespace object in the REST API and is not reported for GET requests. See the containing volume object for this information.
-* **ASA r2**: Available for GET.
+<personalities supports=unified>This property is not available on the namespace object in the REST API and is not reported for GET requests. See the containing volume object for this information.</personalities>
+<personalities supports=asar2>Available for GET.</personalities>
 
 
 Example: 1073741824 """
 
     physical_used_by_snapshots = Size(data_key="physical_used_by_snapshots", allow_none=True)
     r""" The number of bytes consumed on the disk by the namespace's snapshots.
-### Platform Specifics
-
-* **Unified ONTAP**: This property is not available on the namespace object in the REST API and is not reported for GET requests. See the containing volume object for this information.
-* **ASA r2**: Available for GET.
+<personalities supports=unified>This property is not available on the namespace object in the REST API and is not reported for GET requests. See the containing volume object for this information.</personalities>
+<personalities supports=asar2>Available for GET.</personalities>
 
 
 Example: 1073741824 """

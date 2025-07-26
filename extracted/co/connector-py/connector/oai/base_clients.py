@@ -5,6 +5,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from connector_sdk_types.generated import ErrorCode
 from gql import Client
 from gql.client import AsyncClientSession
 from gql.dsl import DSLSchema
@@ -12,7 +13,6 @@ from graphql import GraphQLSchema, build_schema
 from httpx import Response
 from typing_extensions import Self
 
-from connector.generated import ErrorCode
 from connector.httpx_rewrite import AsyncClient
 from connector.oai.capability import Request
 from connector.oai.errors import ConnectorError

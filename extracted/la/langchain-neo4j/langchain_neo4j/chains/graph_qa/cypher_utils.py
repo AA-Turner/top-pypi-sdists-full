@@ -51,7 +51,7 @@ class CypherQueryCorrector:
         res: Dict[str, Any] = {}
         for node in nodes:
             parts = node.split(":")
-            if parts == "":
+            if parts[0] == "":
                 continue
             variable = parts[0]
             if variable not in res:
@@ -72,7 +72,7 @@ class CypherQueryCorrector:
                 m for i, m in enumerate(matched) if i not in [1, len(matched) - 1]
             ]
             path = "".join(matched)
-            idx = query.find(path) + len(path) - len(matched[-1])
+            idx = idx + query[idx:].find(path) + len(path) - len(matched[-1])
             paths.append(path)
         return paths
 

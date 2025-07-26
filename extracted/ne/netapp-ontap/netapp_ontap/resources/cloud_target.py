@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -131,7 +131,7 @@ Example: bucket1"""
         validate=enum_validation(['fabricpool', 'snapmirror', 's3_snapmirror']),
         allow_none=True,
     )
-    r""" Owner of the target. Allowed values are FabricPool, SnapMirror or S3_SnapMirror. A target can be used by only one feature.
+    r""" Owner of the target. Allowed values are <personalities supports=unified> FabricPool, </personalities> SnapMirror or S3_SnapMirror. A target can be used by only one feature.
 
 Valid choices:
 
@@ -149,7 +149,7 @@ Valid choices:
         data_key="provider_type",
         allow_none=True,
     )
-    r""" Type of cloud provider. Allowed values depend on owner type. For FabricPool, AliCloud, AWS_S3, Azure_Cloud, GoogleCloud, IBM_COS, SGWS, and ONTAP_S3 are allowed. For SnapMirror, the valid values are AWS_S3 or SGWS. For FabricLink, AWS_S3, SGWS, S3_Compatible, S3EMU, LOOPBACK and ONTAP_S3 are allowed."""
+    r""" Type of cloud provider. Allowed values depend on owner type. <personalities supports=unified> For FabricPool, AliCloud, AWS_S3, Azure_Cloud, GoogleCloud, IBM_COS, SGWS, and ONTAP_S3 are allowed. </personalities> For SnapMirror, the valid values are AWS_S3 or SGWS. For FabricLink, AWS_S3, SGWS, S3_Compatible, S3EMU, LOOPBACK and ONTAP_S3 are allowed."""
 
     read_latency_warning_threshold = Size(
         data_key="read_latency_warning_threshold",
@@ -431,7 +431,7 @@ class CloudTarget(Resource):
         r"""Creates a cloud target.
 ### Required properties
 * `name` - Name for the cloud target.
-* `owner` - Owner of the target: _fabricpool_, _snapmirror_.
+* `owner` - Owner of the target: <personalities supports=unified> _fabricpool_,</personalities> _snapmirror_.
 * `provider_type` - Type of cloud provider: _AWS_S3_, _Azure_Cloud_, _SGWS_, _IBM_COS_, _AliCloud_, _GoogleCloud_, _ONTAP_S3_.
 * `server` - Fully qualified domain name of the object store server. Required when `provider_type` is one of the following: _SGWS_, _IBM_COS_, _AliCloud_.
 * `container` - Data bucket/container name.
@@ -549,7 +549,7 @@ class CloudTarget(Resource):
         r"""Creates a cloud target.
 ### Required properties
 * `name` - Name for the cloud target.
-* `owner` - Owner of the target: _fabricpool_, _snapmirror_.
+* `owner` - Owner of the target: <personalities supports=unified> _fabricpool_,</personalities> _snapmirror_.
 * `provider_type` - Type of cloud provider: _AWS_S3_, _Azure_Cloud_, _SGWS_, _IBM_COS_, _AliCloud_, _GoogleCloud_, _ONTAP_S3_.
 * `server` - Fully qualified domain name of the object store server. Required when `provider_type` is one of the following: _SGWS_, _IBM_COS_, _AliCloud_.
 * `container` - Data bucket/container name.

@@ -9,6 +9,7 @@ use std::iter;
 
 use dupe::Dupe;
 use pyrefly_python::dunder;
+use pyrefly_util::prelude::SliceExt;
 use pyrefly_util::prelude::VecExt;
 use ruff_python_ast::name::Name;
 use ruff_text_size::TextRange;
@@ -22,7 +23,6 @@ use crate::alt::attr::DescriptorBase;
 use crate::alt::callable::CallArg;
 use crate::alt::callable::CallKeyword;
 use crate::alt::callable::CallWithTypes;
-use crate::alt::expr::TypeOrExpr;
 use crate::config::error_kind::ErrorKind;
 use crate::error::collector::ErrorCollector;
 use crate::error::context::ErrorContext;
@@ -87,9 +87,9 @@ enum Target {
     /// A TypedDict.
     TypedDict(TypedDict),
     /// An overloaded function.
-    FunctionOverload(Vec1<Callable>, FuncMetadata),
+    FunctionOverload(Vec1<Function>, FuncMetadata),
     /// An overloaded method.
-    BoundMethodOverload(Type, Vec1<Callable>, FuncMetadata),
+    BoundMethodOverload(Type, Vec1<Function>, FuncMetadata),
     /// A union of call targets.
     Union(Vec<Target>),
     /// Any, as a call target.
@@ -113,6 +113,7 @@ struct CalledOverload {
     arg_errors: ErrorCollector,
     call_errors: ErrorCollector,
     return_type: Type,
+    is_deprecated: bool,
 }
 
 impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
@@ -128,7 +129,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         CallTarget::new(Target::Any(AnyStyle::Error))
     }
 
-    fn fresh_quantified_function(&self, tparams: &TParams, func: Function) -> (Vec<Var>, Function) {
+    pub fn fresh_quantified_function(
+        &self,
+        tparams: &TParams,
+        func: Function,
+    ) -> (Vec<Var>, Function) {
         let (qs, t) =
             self.solver()
                 .fresh_quantified(tparams, Type::Function(Box::new(func)), self.uniques);
@@ -146,18 +151,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             Type::Function(func) => Some(CallTarget::new(Target::Function(*func))),
             Type::Overload(overload) => {
                 let mut qs = Vec::new();
-                let sigs = overload.signatures.mapped(|ty| match ty {
-                    OverloadType::Callable(signature) => signature,
+                let funcs = overload.signatures.mapped(|ty| match ty {
+                    OverloadType::Callable(function) => function,
                     OverloadType::Forall(forall) => {
                         let (qs2, func) =
                             self.fresh_quantified_function(&forall.tparams, forall.body);
                         qs.extend(qs2);
-                        func.signature
+                        func
                     }
                 });
                 Some(CallTarget::forall(
                     qs,
-                    Target::FunctionOverload(sigs, *overload.metadata),
+                    Target::FunctionOverload(funcs, *overload.metadata),
                 ))
             }
             Type::BoundMethod(box BoundMethod { obj, mut func }) => {
@@ -394,13 +399,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Based on https://typing.readthedocs.io/en/latest/spec/constructors.html.
         let instance_ty = Type::ClassType(cls.clone());
         let mut overall_ret = None;
-        if let Some(ret) = self.call_metaclass(&cls, range, args, keywords, errors, context, hint) {
-            if self.is_compatible_constructor_return(&ret, cls.class_object()) {
-                overall_ret = Some(ret);
-            } else {
-                // Got something other than an instance of the class under construction.
-                return ret;
-            }
+        if let Some(ret) = self.call_metaclass(&cls, range, args, keywords, errors, context, hint)
+            && !self.is_compatible_constructor_return(&ret, cls.class_object())
+        {
+            // Got something other than an instance of the class under construction.
+            return ret;
         }
         let (overrides_new, dunder_new_has_errors) =
             if let Some(new_method) = self.get_dunder_new(&cls) {
@@ -596,21 +599,18 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     signature,
                     metadata,
                 },
-            ) => {
-                let first_arg = CallArg::ty(&obj, range);
-                self.callable_infer(
-                    signature,
-                    Some(metadata.kind.as_func_id()),
-                    Some(first_arg),
-                    args,
-                    keywords,
-                    range,
-                    errors,
-                    errors,
-                    context,
-                    hint,
-                )
-            }
+            ) => self.callable_infer(
+                signature,
+                Some(metadata.kind.as_func_id()),
+                Some(obj),
+                args,
+                keywords,
+                range,
+                errors,
+                errors,
+                context,
+                hint,
+            ),
             Target::Callable(callable) => self.callable_infer(
                 callable, None, None, args, keywords, range, errors, errors, context, hint,
             ),
@@ -659,7 +659,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 self.call_overloads(
                     overloads,
                     meta,
-                    Some(CallArg::ty(&obj, range)),
+                    Some(obj),
                     args,
                     keywords,
                     range,
@@ -671,11 +671,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             Target::Union(targets) => {
                 let call = CallWithTypes::new();
+                let args = call.vec_call_arg(args, self, errors);
+                let keywords = call.vec_call_keyword(keywords, self, errors);
                 self.unions(targets.into_map(|t| {
                     self.call_infer(
                         CallTarget::new(t),
-                        &call.vec_call_arg(args, self, errors),
-                        &call.vec_call_keyword(keywords, self, errors),
+                        &args,
+                        &keywords,
                         range,
                         errors,
                         context,
@@ -719,9 +721,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     /// Calls an overloaded function, returning the return type and the closest matching overload signature.
     pub fn call_overloads(
         &self,
-        overloads: Vec1<Callable>,
+        overloads: Vec1<Function>,
         metadata: FuncMetadata,
-        self_arg: Option<CallArg>,
+        self_obj: Option<Type>,
         args: &[CallArg],
         keywords: &[CallKeyword],
         range: TextRange,
@@ -729,25 +731,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         context: Option<&dyn Fn() -> ErrorContext>,
         hint: Option<&Type>,
     ) -> (Type, Callable) {
-        // There may be Expr values in self_arg, args and keywords.
+        // There may be Expr values in args and keywords.
         // If we infer them for each overload, we may end up infering them multiple times.
         // If those overloads contain nested overloads, then we can easily end up with O(2^n) perf.
         // Therefore, flatten all TypeOrExpr's into Type before we start
         let call = CallWithTypes::new();
-        let self_arg = call.opt_call_arg(self_arg.as_ref(), self, errors);
         let method_name = metadata.kind.as_func_id().func;
-        // If this is an TypedDict "update" method, then preserve argument expressions so we can
-        // contextually type them using the parameter types.
-        // Specifically, skipping vec_call_arg in the `update` case means we will not turn expressions into types here
-        // We will instead turn them into types as we evaluate them against the type hints that we synthesized for the update method.
-
-        let args = if let Some(CallArg::Arg(TypeOrExpr::Type(Type::TypedDict(_), _))) = &self_arg
-            && method_name == "update"
-        {
-            args
-        } else {
-            &call.vec_call_arg(args, self, errors)
-        };
+        let args = call.vec_call_arg(args, self, errors);
         let keywords = call.vec_call_keyword(keywords, self, errors);
 
         let mut closest_overload: Option<CalledOverload> = None;
@@ -755,10 +745,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             let arg_errors = self.error_collector();
             let call_errors = self.error_collector();
             let res = self.callable_infer(
-                callable.clone(),
+                callable.signature.clone(),
                 Some(metadata.kind.as_func_id()),
-                self_arg.clone(),
-                args,
+                self_obj.clone(),
+                &args,
                 &keywords,
                 range,
                 &arg_errors,
@@ -771,18 +761,34 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             );
             if arg_errors.is_empty() && call_errors.is_empty() {
                 // An overload is chosen, we should record it to power IDE services.
-                self.record_overload_trace(range, overloads.as_slice(), callable, true);
+                self.record_overload_trace(
+                    range,
+                    overloads.map(|Function { signature, .. }| signature),
+                    &callable.signature,
+                    true,
+                );
                 // It's only safe to return immediately if both arg_errors and call_errors are
                 // empty, as parameter types from the overload signature may be used as hints when
                 // evaluating arguments, producing arg_errors for some overloads but not others.
                 // See test::overload::test_pass_generic_class_to_overload for an example.
-                return (res, callable.clone());
+
+                // If the selected overload is deprecated, we log a deprecation error.
+                if callable.metadata.flags.is_deprecated {
+                    self.error(
+                        errors,
+                        range,
+                        ErrorInfo::new(ErrorKind::Deprecated, context),
+                        format!("Call to deprecated overload `{method_name}`"),
+                    );
+                }
+                return (res, callable.signature.clone());
             }
             let called_overload = CalledOverload {
-                signature: callable.clone(),
+                signature: callable.signature.clone(),
                 arg_errors,
                 call_errors,
                 return_type: res,
+                is_deprecated: callable.metadata.flags.is_deprecated,
             };
             match &closest_overload {
                 Some(overload)
@@ -796,7 +802,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let closest_overload = closest_overload.unwrap();
         self.record_overload_trace(
             range,
-            overloads.as_slice(),
+            overloads.map(|Function { signature, .. }| signature),
             &closest_overload.signature,
             false,
         );
@@ -814,6 +820,16 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             //
             // the call to f should match the first overload, even though `1 + "2"` generates an
             // arg error for both overloads.
+
+            // If the closest overload is deprecated, we log a deprecation error.
+            if closest_overload.is_deprecated {
+                self.error(
+                    errors,
+                    range,
+                    ErrorInfo::new(ErrorKind::Deprecated, context),
+                    format!("Call to deprecated overload `{method_name}`"),
+                );
+            }
             (closest_overload.return_type, closest_overload.signature)
         } else {
             let mut msg = vec1![
@@ -824,14 +840,17 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 "Possible overloads:".to_owned(),
             ];
             for overload in overloads {
-                let suffix = if overload == closest_overload.signature {
+                let suffix = if overload.signature == closest_overload.signature {
                     " [closest match]"
                 } else {
                     ""
                 };
-                let signature = match self_arg {
-                    Some(_) => overload.drop_first_param().unwrap_or(overload),
-                    None => overload,
+                let signature = match self_obj {
+                    Some(_) => overload
+                        .signature
+                        .drop_first_param()
+                        .unwrap_or(overload.signature),
+                    None => overload.signature,
                 };
                 let signature = self
                     .solver()
@@ -1009,7 +1028,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         // Check the __new__ method and whether it comes from object or has been overridden
         let (new_attr_ty, overrides_new) = if let Some(t) = self
             .get_dunder_new(cls)
-            .and_then(|t| t.to_unbound_callable())
+            .and_then(|t| t.drop_first_param_of_unbound_callable())
         {
             if t.callable_return_type()
                 .is_some_and(|ret| !self.is_compatible_constructor_return(&ret, cls.class_object()))

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,11 +30,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 HostRecord(
     {
-        "hostname": "localhost",
         "source": "Files",
-        "host": "127.0.0.1",
+        "hostname": "localhost",
+        "svm": {"uuid": "77e23bd4-a8fe-11eb-99e0-0050568e14ff", "name": "svm1"},
         "ipv4_addresses": ["127.0.0.1"],
-        "svm": {"name": "svm1", "uuid": "77e23bd4-a8fe-11eb-99e0-0050568e14ff"},
+        "host": "127.0.0.1",
     }
 )
 
@@ -64,13 +64,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 HostRecord(
     {
-        "hostname": "localhost",
         "source": "Files",
-        "host": "localhost",
-        "ipv4_addresses": ["127.0.0.1"],
-        "svm": {"name": "svm1", "uuid": "77e23bd4-a8fe-11eb-99e0-0050568e14ff"},
-        "ipv6_addresses": ["::1"],
         "canonical_name": "localhost",
+        "hostname": "localhost",
+        "ipv6_addresses": ["::1"],
+        "svm": {"uuid": "77e23bd4-a8fe-11eb-99e0-0050568e14ff", "name": "svm1"},
+        "ipv4_addresses": ["127.0.0.1"],
+        "host": "localhost",
     }
 )
 

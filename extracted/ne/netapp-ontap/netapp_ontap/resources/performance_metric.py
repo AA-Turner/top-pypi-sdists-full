@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -66,11 +66,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     PerformanceMetric(
         {
-            "status": "ok",
-            "iops": {"total": 6, "write": 5, "other": 0, "read": 1},
-            "latency": {"total": 199, "write": 216, "other": 0, "read": 148},
             "timestamp": "2019-01-01T23:33:00+00:00",
-            "throughput": {"total": 212718, "write": 205892, "other": 0, "read": 6826},
+            "throughput": {"read": 6826, "total": 212718, "other": 0, "write": 205892},
+            "iops": {"read": 1, "total": 6, "other": 0, "write": 5},
+            "status": "ok",
+            "latency": {"read": 148, "total": 199, "other": 0, "write": 216},
             "duration": "PT15S",
         }
     )
@@ -109,61 +109,61 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     PerformanceMetric(
         {
-            "status": "ok",
-            "iops": {"total": 45, "write": 26, "other": 0, "read": 18},
-            "latency": {"total": 318, "write": 430, "other": 0, "read": 156},
             "timestamp": "2019-01-01T23:30:00+00:00",
             "throughput": {
-                "total": 5824584,
-                "write": 5556255,
-                "other": 0,
                 "read": 268328,
+                "total": 5824584,
+                "other": 0,
+                "write": 5556255,
             },
+            "iops": {"read": 18, "total": 45, "other": 0, "write": 26},
+            "status": "ok",
+            "latency": {"read": 156, "total": 318, "other": 0, "write": 430},
             "duration": "PT30M",
         }
     ),
     PerformanceMetric(
         {
-            "status": "ok",
-            "iops": {"total": 76, "write": 28, "other": 0, "read": 48},
-            "latency": {"total": 262, "write": 448, "other": 0, "read": 154},
             "timestamp": "2019-01-01T23:00:00+00:00",
             "throughput": {
-                "total": 6596175,
-                "write": 6121908,
-                "other": 0,
                 "read": 474266,
+                "total": 6596175,
+                "other": 0,
+                "write": 6121908,
             },
+            "iops": {"read": 48, "total": 76, "other": 0, "write": 28},
+            "status": "ok",
+            "latency": {"read": 154, "total": 262, "other": 0, "write": 448},
             "duration": "PT30M",
         }
     ),
     PerformanceMetric(
         {
-            "status": "ok",
-            "iops": {"total": 548, "write": 16, "other": 437, "read": 94},
-            "latency": {"total": 193, "write": 394, "other": 192, "read": 159},
             "timestamp": "2019-01-01T22:30:00+00:00",
             "throughput": {
-                "total": 29196206,
-                "write": 2411356,
-                "other": 26244685,
                 "read": 540164,
+                "total": 29196206,
+                "other": 26244685,
+                "write": 2411356,
             },
+            "iops": {"read": 94, "total": 548, "other": 437, "write": 16},
+            "status": "ok",
+            "latency": {"read": 159, "total": 193, "other": 192, "write": 394},
             "duration": "PT30M",
         }
     ),
     PerformanceMetric(
         {
-            "status": "ok",
-            "iops": {"total": 13, "write": 13, "other": 0, "read": 0},
-            "latency": {"total": 523, "write": 540, "other": 0, "read": 189},
             "timestamp": "2019-01-01T22:00:00+00:00",
             "throughput": {
-                "total": 2768249,
-                "write": 2765407,
-                "other": 0,
                 "read": 2842,
+                "total": 2768249,
+                "other": 0,
+                "write": 2765407,
             },
+            "iops": {"read": 0, "total": 13, "other": 0, "write": 13},
+            "status": "ok",
+            "latency": {"read": 189, "total": 523, "other": 0, "write": 540},
             "duration": "PT30M",
         }
     ),

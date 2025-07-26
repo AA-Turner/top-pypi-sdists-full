@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "taskiq-redis"
-version = "1.0.9"
+version = "1.1.0"
 description = "Redis integration for taskiq"
 authors = ["taskiq-team <taskiq@norely.com>"]
 readme = "README.md"
@@ -27,7 +27,7 @@ keywords = [
 [tool.poetry.dependencies]
 python = "^3.9"
 taskiq = ">=0.11.12,<1"
-redis = "^5"
+redis = "^6"
 
 [tool.poetry.group.dev.dependencies]
 pytest = "^8"

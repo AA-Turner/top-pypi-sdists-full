@@ -3,6 +3,8 @@ Tests for "typed_settings.cls_utils".
 """
 
 import dataclasses
+import typing
+from collections.abc import Mapping, Sequence
 from typing import Callable, Optional
 
 import attrs
@@ -63,6 +65,59 @@ def test_deep_options(cls: type) -> None:
             default_is_factory=False,
         ),
     )
+
+
+class TestNestedOptions:
+    """
+    Tests for "nested_options()".
+    """
+
+    @pytest.mark.parametrize("cls", [AttrsCls, DataclassCls, PydanticCls])
+    def test_valid_mappings(self, cls: type) -> None:
+        """
+        "dict", "typing.Mapping" and "collections.abc.Mapping" are equivalent mapping
+        types for "CollectionChildOptions".
+        """
+        nested_mapping = cls_utils.nested_options(Mapping[str, cls])  # type: ignore[valid-type]
+        nested_typing_mapping = cls_utils.nested_options(typing.Mapping[str, cls])  # type: ignore[valid-type]
+        nested_dict = cls_utils.nested_options(dict[str, cls])  # type: ignore[valid-type]
+
+        assert nested_mapping == nested_dict == nested_typing_mapping
+        assert isinstance(nested_mapping, types.CollectionChildOptions)
+        assert nested_mapping.collection == "mapping"
+
+    @pytest.mark.parametrize("cls", [AttrsCls, DataclassCls, PydanticCls])
+    def test_valid_sequences(self, cls: type) -> None:
+        """
+        "list", "tuple[T, ...]" and "collections.abc.Sequence" are equivalent sequence
+        types for "CollectionChildOptions".
+        """
+        nested_list = cls_utils.nested_options(list[cls])  # type: ignore[valid-type]
+        nested_sequence = cls_utils.nested_options(Sequence[cls])  # type: ignore[valid-type]
+        nested_tuple = cls_utils.nested_options(tuple[cls, ...])  # type: ignore[valid-type]
+
+        assert nested_list == nested_sequence == nested_tuple
+        assert isinstance(nested_list, types.CollectionChildOptions)
+        assert nested_list.collection == "sequence"
+
+    @pytest.mark.parametrize(
+        "cls",
+        [
+            pytest.param(dict, id="untyped-dict"),
+            pytest.param(list[int], id="scalar-list"),
+            pytest.param(tuple[int, AttrsCls], id="struct-like-tuple"),
+            pytest.param(dict[object, AttrsCls], id="dict-non-str-key"),
+            pytest.param(dict[str, int], id="dict-scalar-value"),
+            pytest.param(dict[str, NormalClass], id="dict-non-settings-cls-value"),
+            pytest.param(dict[Sequence[str], int], id="dict-sequence-key"),
+            pytest.param(typing.Mapping, id="untyped-mapping"),
+        ],
+    )
+    def test_invalid_nested(self, cls: type) -> None:
+        """
+        For any invalid nested option the result is None.
+        """
+        assert cls_utils.nested_options(cls) is None
 
 
 def test_deep_options_typerror() -> None:
@@ -373,7 +428,7 @@ class TestAttrs:
         class Parent:
             x: str
             y: Child
-            z: list[str] = ["default"]
+            z: list[str] = ["default"]  # noqa: RUF008
 
         option_infos = cls_utils.Attrs.iter_fields(Parent)
         assert option_infos == (
@@ -491,8 +546,8 @@ class TestAttrs:
         class Settings:
             a: int = 0
             na: int = attrs.field(init=False)
-            n1: Nested1 = Nested1()
-            n2: Nested2 = Nested2()
+            n1: Nested1 = Nested1()  # noqa: RUF009
+            n2: Nested2 = Nested2()  # noqa: RUF009
 
         options = [o.path for o in cls_utils.Attrs.iter_fields(Settings)]
         assert options == ["a", "n1.a", "n2.a"]
@@ -524,6 +579,19 @@ class TestAttrs:
             "c": Child2,
             "d": Parent,
         }
+
+    def test_collection_child_options(self) -> None:
+        """
+        OptionInfo has a "collection_child_options" attribute.
+        """
+
+        @attrs.define
+        class Nested:
+            a: dict[str, AttrsCls]
+
+        result = cls_utils.Attrs.iter_fields(Nested)
+        assert result[0].collection_child_options is not None
+        assert result[0].collection_child_options.collection == "mapping"
 
 
 class TestDataclasses:
@@ -737,6 +805,19 @@ class TestDataclasses:
             "d": Parent,
         }
 
+    def test_collection_child_options(self) -> None:
+        """
+        OptionInfo has a "collection_child_options" attribute.
+        """
+
+        @dataclasses.dataclass
+        class Nested:
+            a: dict[str, AttrsCls]
+
+        result = cls_utils.Dataclasses.iter_fields(Nested)
+        assert result[0].collection_child_options is not None
+        assert result[0].collection_child_options.collection == "mapping"
+
 
 class TestPydantic:
     """Tests for Pydantic classes."""
@@ -920,3 +1001,15 @@ class TestPydantic:
             "c": Child2,
             "d": Parent,
         }
+
+    def test_collection_child_options(self) -> None:
+        """
+        OptionInfo has a "collection_child_options" attribute.
+        """
+
+        class Nested(pydantic.BaseModel):
+            a: dict[str, PydanticCls]
+
+        result = cls_utils.Pydantic.iter_fields(Nested)
+        assert result[0].collection_child_options is not None
+        assert result[0].collection_child_options.collection == "mapping"

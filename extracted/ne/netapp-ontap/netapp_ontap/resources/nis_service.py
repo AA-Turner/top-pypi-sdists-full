@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,41 +28,41 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NisService(
         {
-            "servers": ["10.10.10.10", "example.com"],
             "domain": "domainA.example.com",
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/nis/179d3c85-7053-11e8-b9b8-005056b41bd1"
-                }
-            },
+            "servers": ["10.10.10.10", "example.com"],
             "svm": {
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/nis/179d3c85-7053-11e8-b9b8-005056b41bd1"
+                }
             },
         }
     ),
     NisService(
         {
-            "servers": ["2.2.2.2", "3.3.3.3", "4.4.4.4"],
             "domain": "domainB.example.com",
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/nis/6a52023b-7066-11e8-b9b8-005056b41bd1"
-                }
-            },
+            "servers": ["2.2.2.2", "3.3.3.3", "4.4.4.4"],
             "svm": {
+                "uuid": "6a52023b-7066-11e8-b9b8-005056b41bd1",
                 "name": "vs2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6a52023b-7066-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "6a52023b-7066-11e8-b9b8-005056b41bd1",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/nis/6a52023b-7066-11e8-b9b8-005056b41bd1"
+                }
             },
         }
     ),
@@ -91,19 +91,19 @@ with HostConnection("<mgmt-ip", username="admin", password="password", verify=Fa
 [
     NisService(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/nis/6a52023b-7066-11e8-b9b8-005056b41bd1"
-                }
-            },
             "svm": {
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/nis/6a52023b-7066-11e8-b9b8-005056b41bd1"
+                }
             },
         }
     )
@@ -133,10 +133,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NisService(
     {
-        "servers": ["10.10.10.10", "example.com"],
-        "bound_servers": ["10.10.10.10"],
         "domain": "domainA.example.com",
-        "svm": {"name": "vs1", "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1"},
+        "bound_servers": ["10.10.10.10"],
+        "servers": ["10.10.10.10", "example.com"],
+        "svm": {"uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1", "name": "vs1"},
     }
 )
 

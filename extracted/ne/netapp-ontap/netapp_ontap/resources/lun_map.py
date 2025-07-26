@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -43,20 +43,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     LunMap(
         {
             "igroup": {
-                "name": "ig1",
                 "uuid": "40d98b2c-24c5-11e9-9ec1-005056bba643",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/igroups/40d98b2c-24c5-11e9-9ec1-005056bba643"
                     }
                 },
+                "name": "ig1",
             },
-            "lun": {
-                "name": "/vol/vol1/lun1",
-                "uuid": "a60d9862-9bee-49a6-8162-20d2421bb1a6",
+            "svm": {
+                "uuid": "03157e81-24c5-11e9-9ec1-005056bba643",
+                "name": "svm1",
                 "_links": {
                     "self": {
-                        "href": "/api/storage/luns/a60d9862-9bee-49a6-8162-20d2421bb1a6"
+                        "href": "/api/svm/svms/03157e81-24c5-11e9-9ec1-005056bba643"
                     }
                 },
             },
@@ -65,14 +65,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643"
                 }
             },
-            "svm": {
-                "name": "svm1",
+            "lun": {
+                "uuid": "a60d9862-9bee-49a6-8162-20d2421bb1a6",
                 "_links": {
                     "self": {
-                        "href": "/api/svm/svms/03157e81-24c5-11e9-9ec1-005056bba643"
+                        "href": "/api/storage/luns/a60d9862-9bee-49a6-8162-20d2421bb1a6"
                     }
                 },
-                "uuid": "03157e81-24c5-11e9-9ec1-005056bba643",
+                "name": "/vol/vol1/lun1",
             },
         }
     )
@@ -107,74 +107,74 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 LunMap(
     {
         "igroup": {
-            "replicated": False,
             "os_type": "linux",
             "protocol": "mixed",
-            "name": "ig1",
+            "replicated": False,
             "uuid": "40d98b2c-24c5-11e9-9ec1-005056bba643",
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/igroups/40d98b2c-24c5-11e9-9ec1-005056bba643"
                 }
             },
+            "name": "ig1",
         },
-        "lun": {
-            "name": "/vol/vol1/lun1",
-            "node": {
-                "name": "node1",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/7d8607ea-24c1-11e9-9ec1-005056bba643"
-                    }
-                },
-                "uuid": "7d8607ea-24c1-11e9-9ec1-005056bba643",
-            },
-            "uuid": "a60d9862-9bee-49a6-8162-20d2421bb1a6",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/luns/a60d9862-9bee-49a6-8162-20d2421bb1a6"
-                }
-            },
-            "smbc": {"replicated": False},
-        },
-        "logical_unit_number": 0,
         "reporting_nodes": [
             {
-                "name": "node1",
                 "uuid": "11a465f5-2ac0-11eb-a303-005056bb1e81",
                 "_links": {
-                    "self": {
-                        "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643/reporting-nodes/11a465f5-2ac0-11eb-a303-005056bb1e81"
-                    },
                     "node": {
                         "href": "/cluster/nodes/11a465f5-2ac0-11eb-a303-005056bb1e81"
                     },
+                    "self": {
+                        "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643/reporting-nodes/11a465f5-2ac0-11eb-a303-005056bb1e81"
+                    },
                 },
+                "name": "node1",
             },
             {
-                "name": "node2",
                 "uuid": "6c7cb50f-2abf-11eb-9840-005056bbd490",
                 "_links": {
-                    "self": {
-                        "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643/reporting-nodes/6c7cb50f-2abf-11eb-9840-005056bbd490"
-                    },
                     "node": {
                         "href": "/cluster/nodes/6c7cb50f-2abf-11eb-9840-005056bbd490"
                     },
+                    "self": {
+                        "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643/reporting-nodes/6c7cb50f-2abf-11eb-9840-005056bbd490"
+                    },
                 },
+                "name": "node2",
             },
         ],
+        "svm": {
+            "uuid": "03157e81-24c5-11e9-9ec1-005056bba643",
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/03157e81-24c5-11e9-9ec1-005056bba643"}
+            },
+        },
         "_links": {
             "self": {
                 "href": "/api/protocols/san/lun-maps/a60d9862-9bee-49a6-8162-20d2421bb1a6/40d98b2c-24c5-11e9-9ec1-005056bba643"
             }
         },
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/03157e81-24c5-11e9-9ec1-005056bba643"}
+        "logical_unit_number": 0,
+        "lun": {
+            "smbc": {"replicated": False},
+            "uuid": "a60d9862-9bee-49a6-8162-20d2421bb1a6",
+            "node": {
+                "uuid": "7d8607ea-24c1-11e9-9ec1-005056bba643",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/7d8607ea-24c1-11e9-9ec1-005056bba643"
+                    }
+                },
+                "name": "node1",
             },
-            "uuid": "03157e81-24c5-11e9-9ec1-005056bba643",
+            "_links": {
+                "self": {
+                    "href": "/api/storage/luns/a60d9862-9bee-49a6-8162-20d2421bb1a6"
+                }
+            },
+            "name": "/vol/vol1/lun1",
         },
     }
 )

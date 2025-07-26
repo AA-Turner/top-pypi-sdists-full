@@ -3,7 +3,14 @@
 import typing as t
 
 import pytest
-from connector.generated import (
+from connector.oai.capability import CapabilityCallableProto, CustomRequest, CustomResponse
+from connector.oai.integration import (
+    DescriptionData,
+    Integration,
+    InvalidCapabilityNameError,
+    ReservedCapabilityNameError,
+)
+from connector_sdk_types.generated import (
     AccountStatus,
     Amount,
     BasicCredential,
@@ -23,13 +30,6 @@ from connector.generated import (
     SpendUser,
     StandardCapabilityName,
     Vendor,
-)
-from connector.oai.capability import CapabilityCallableProto, CustomRequest, CustomResponse
-from connector.oai.integration import (
-    DescriptionData,
-    Integration,
-    InvalidCapabilityNameError,
-    ReservedCapabilityNameError,
 )
 
 from .shared_types import (

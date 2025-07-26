@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -59,109 +59,109 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Disk(
     {
-        "physical_size": 438804988000,
-        "bytes_per_sector": 512,
-        "name": "1.24.3",
-        "shelf": {"uid": "10318311901725526608"},
+        "serial_number": "EC47PC5021SW",
         "error": [
             {
-                "type": "notallflashdisk",
                 "reason": {
                     "message": '"The node is configured with All-Flash Optimized personality and this disk is not an SSD. The disk needs to be removed from the system."',
                     "code": "721082",
                 },
+                "type": "notallflashdisk",
             }
         ],
+        "rpm": 10000,
+        "container_type": "aggregate",
+        "state": "present",
+        "usable_size": 438304768000,
+        "type": "sas",
+        "firmware_version": "NA02",
+        "sector_count": 1172123568,
+        "model": "X421_FAL12450A10",
+        "paths": [
+            {
+                "wwpn": "5000cca02f0e676a",
+                "initiator": "3a",
+                "port_name": "B",
+                "port_type": "sas",
+                "wwnn": "5000cca02f0e6768",
+            },
+            {
+                "wwpn": "5000cca02f0e6769",
+                "initiator": "3d",
+                "port_name": "A",
+                "port_type": "sas",
+                "wwnn": "5000cca02f0e6768",
+            },
+            {
+                "wwpn": "5000cca02f0e6769",
+                "initiator": "3d",
+                "port_name": "A",
+                "port_type": "sas",
+                "wwnn": "5000cca02f0e6768",
+            },
+            {
+                "wwpn": "5000cca02f0e676a",
+                "initiator": "3a",
+                "port_name": "B",
+                "port_type": "sas",
+                "wwnn": "5000cca02f0e6768",
+            },
+        ],
+        "pool": "pool0",
+        "bytes_per_sector": 512,
+        "effective_type": "sas",
+        "home_node": {
+            "uuid": "3a89ed49-8c6d-11e8-93bc-00a0985a64b6",
+            "name": "node-2",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/3a89ed49-8c6d-11e8-93bc-00a0985a64b6"
+                }
+            },
+        },
+        "node": {
+            "uuid": "3a89ed49-8c6d-11e8-93bc-00a0985a64b6",
+            "name": "node-2",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/3a89ed49-8c6d-11e8-93bc-00a0985a64b6"
+                }
+            },
+        },
+        "stats": {
+            "iops_total": 12854,
+            "throughput": 1957888,
+            "path_error_count": 0,
+            "average_latency": 6,
+            "power_on_hours": 11797,
+        },
+        "name": "1.24.3",
+        "physical_size": 438804988000,
+        "class": "performance",
+        "right_size_sector_count": 5579776,
+        "bay": 3,
+        "uid": "50000394:0808AA88:00000000:00000000:00000000:00000000:00000000:00000000:00000000:00000000",
+        "vendor": "NETAPP",
+        "shelf": {"uid": "10318311901725526608"},
         "aggregates": [
             {
+                "uuid": "3fd9c345-ba91-4949-a7b1-6e2b898d74e3",
                 "name": "node_2_SAS_1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/aggregates/3fd9c345-ba91-4949-a7b1-6e2b898d74e3"
                     }
                 },
-                "uuid": "3fd9c345-ba91-4949-a7b1-6e2b898d74e3",
             }
         ],
-        "sector_count": 1172123568,
-        "firmware_version": "NA02",
-        "uid": "50000394:0808AA88:00000000:00000000:00000000:00000000:00000000:00000000:00000000:00000000",
-        "right_size_sector_count": 5579776,
-        "paths": [
-            {
-                "port_type": "sas",
-                "initiator": "3a",
-                "port_name": "B",
-                "wwpn": "5000cca02f0e676a",
-                "wwnn": "5000cca02f0e6768",
-            },
-            {
-                "port_type": "sas",
-                "initiator": "3d",
-                "port_name": "A",
-                "wwpn": "5000cca02f0e6769",
-                "wwnn": "5000cca02f0e6768",
-            },
-            {
-                "port_type": "sas",
-                "initiator": "3d",
-                "port_name": "A",
-                "wwpn": "5000cca02f0e6769",
-                "wwnn": "5000cca02f0e6768",
-            },
-            {
-                "port_type": "sas",
-                "initiator": "3a",
-                "port_name": "B",
-                "wwpn": "5000cca02f0e676a",
-                "wwnn": "5000cca02f0e6768",
-            },
-        ],
-        "node": {
-            "name": "node-2",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/3a89ed49-8c6d-11e8-93bc-00a0985a64b6"
-                }
-            },
-            "uuid": "3a89ed49-8c6d-11e8-93bc-00a0985a64b6",
-        },
         "outage": {
-            "persistently_failed": True,
             "reason": {
                 "message": 'Failed disk. Reason: "admin failed".',
                 "code": "721081",
             },
+            "persistently_failed": True,
         },
-        "stats": {
-            "iops_total": 12854,
-            "path_error_count": 0,
-            "throughput": 1957888,
-            "average_latency": 6,
-            "power_on_hours": 11797,
-        },
-        "model": "X421_FAL12450A10",
-        "bay": 3,
-        "class": "performance",
-        "pool": "pool0",
-        "state": "present",
-        "effective_type": "sas",
-        "rpm": 10000,
         "local": True,
-        "container_type": "aggregate",
-        "serial_number": "EC47PC5021SW",
-        "home_node": {
-            "name": "node-2",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/3a89ed49-8c6d-11e8-93bc-00a0985a64b6"
-                }
-            },
-            "uuid": "3a89ed49-8c6d-11e8-93bc-00a0985a64b6",
-        },
-        "vendor": "NETAPP",
-        "usable_size": 438304768000,
-        "type": "sas",
     }
 )
 
@@ -190,70 +190,70 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Disk(
     {
-        "physical_size": 204808,
-        "bytes_per_sector": 512,
-        "name": "NET-3.2",
-        "sector_count": 204808,
+        "serial_number": "3234363765386464",
+        "container_type": "mediator",
+        "type": "vmdisk",
         "firmware_version": "0001",
-        "uid": "32343637:65386464:00000000:00000000:00000000:00000000:00000000:00000000:00000000:00000000",
-        "right_size_sector_count": 5579776,
+        "sector_count": 204808,
+        "model": "PHA-DISK",
         "paths": [
             {
-                "port_type": "sas",
-                "vmdisk_hypervisor_file_name": "LUN 4.0",
+                "wwpn": "53059d50444f5476",
                 "initiator": "0f",
                 "port_name": "A",
-                "wwpn": "53059d50444f5476",
+                "port_type": "sas",
+                "vmdisk_hypervisor_file_name": "LUN 4.0",
                 "wwnn": "53059d50444f5476",
             },
             {
-                "port_type": "sas",
-                "vmdisk_hypervisor_file_name": "LUN 2.0",
+                "wwpn": "53059d50444f5476",
                 "initiator": "0f",
                 "port_name": "A",
-                "wwpn": "53059d50444f5476",
+                "port_type": "sas",
+                "vmdisk_hypervisor_file_name": "LUN 2.0",
                 "wwnn": "53059d50444f5476",
             },
         ],
-        "node": {
+        "pool": "pool0",
+        "self_encrypting": False,
+        "bytes_per_sector": 512,
+        "home_node": {
+            "uuid": "f4cb78ba-5841-11ec-80c4-916f62b4cd44",
             "name": "example_node_name",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/f4cb78ba-5841-11ec-80c4-916f62b4cd44"
                 }
             },
-            "uuid": "f4cb78ba-5841-11ec-80c4-916f62b4cd44",
         },
-        "outage": {
-            "persistently_failed": False,
-            "reason": {"message": 'Failed disk. Reason: "".', "code": "721081"},
+        "node": {
+            "uuid": "f4cb78ba-5841-11ec-80c4-916f62b4cd44",
+            "name": "example_node_name",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/f4cb78ba-5841-11ec-80c4-916f62b4cd44"
+                }
+            },
         },
         "stats": {
             "iops_total": 1,
-            "path_error_count": 0,
             "throughput": 4096,
+            "path_error_count": 0,
             "average_latency": 2157188883,
             "power_on_hours": 0,
         },
-        "model": "PHA-DISK",
+        "name": "NET-3.2",
+        "physical_size": 204808,
         "class": "virtual",
-        "fips_certified": False,
-        "pool": "pool0",
-        "local": True,
-        "container_type": "mediator",
-        "serial_number": "3234363765386464",
-        "self_encrypting": False,
-        "home_node": {
-            "name": "example_node_name",
-            "_links": {
-                "self": {
-                    "href": "/api/cluster/nodes/f4cb78ba-5841-11ec-80c4-916f62b4cd44"
-                }
-            },
-            "uuid": "f4cb78ba-5841-11ec-80c4-916f62b4cd44",
-        },
+        "right_size_sector_count": 5579776,
+        "uid": "32343637:65386464:00000000:00000000:00000000:00000000:00000000:00000000:00000000:00000000",
         "vendor": "NETAPP",
-        "type": "vmdisk",
+        "fips_certified": False,
+        "outage": {
+            "reason": {"message": 'Failed disk. Reason: "".', "code": "721081"},
+            "persistently_failed": False,
+        },
+        "local": True,
     }
 )
 

@@ -1,6 +1,6 @@
 [project]
 name = "maxminddb"
-version = "2.7.0"
+version = "2.8.2"
 description = "Reader for the MaxMind DB format"
 authors = [
     {name = "Gregory Oschwald", email = "goschwald@maxmind.com"},
@@ -20,6 +20,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Topic :: Internet",
     "Topic :: Internet :: Proxy Servers",
 ]
@@ -35,9 +36,7 @@ dev = [
     "pytest>=8.3.5",
 ]
 lint = [
-    "black>=25.1.0",
     "mypy>=1.15.0",
-    "pylint>=3.3.6",
     "ruff>=0.11.6",
 ]
 
@@ -49,13 +48,12 @@ requires = [
 ]
 build-backend = "setuptools.build_meta"
 
-[tool.setuptools.package-data]
-maxminddb = ["py.typed"]
+[tool.setuptools]
+include-package-data = true
+packages = ["maxminddb"]
 
-[tool.black]
-# src is showing up in our GitHub linting builds. It seems to
-# contain deps.
-extend-exclude = '^/src/'
+[tool.setuptools.package-data]
+maxminddb = ["extension.pyi", "py.typed"]
 
 [tool.ruff.lint]
 select = ["ALL"]
@@ -63,14 +61,17 @@ ignore = [
     # Skip type annotation on **_
     "ANN003",
 
+    # Redundant as the formatter handles missing trailing commas.
+    "COM812",
+
     # documenting magic methods
     "D105",
 
-    # Line length. We let black handle this for now.
-    "E501",
+    # Conflicts with D211
+    "D203",
 
-    # Don't bother with future imports for type annotations
-    "FA100",
+    # Conflicts with D212
+    "D213",
 
     # Magic numbers for HTTP status codes seem ok most of the time.
     "PLR2004",
@@ -78,7 +79,56 @@ ignore = [
     # pytest rules
     "PT009",
     "PT027",
+    # Using the built-in open is more appropriate for this library.
+    "PTH123",
 ]
 
 [tool.ruff.lint.per-file-ignores]
+"docs/*" = ["ALL"]
+"maxminddb/extension.pyi" = [
+    # This is a stub for extension and having the docs here is useful.
+    "PYI021",
+]
+"setup.py" = ["ALL"]
 "tests/*" = ["ANN201", "D"]
+
+[tool.tox]
+env_list = [
+    "3.9",
+    "3.10",
+    "3.11",
+    "3.12",
+    "3.13",
+    "3.14",
+    "lint",
+]
+skip_missing_interpreters = false
+
+[tool.tox.env_run_base]
+dependency_groups = [
+  "dev",
+]
+commands = [
+    ["pytest", "tests"],
+]
+
+[tool.tox.env.lint]
+description = "Code linting"
+python = "3.14"
+dependency_groups = [
+    "dev",
+    "lint",
+]
+commands = [
+    ["mypy", "maxminddb", "tests"],
+    ["ruff", "check"],
+    ["ruff", "format", "--check", "--diff", "."],
+]
+
+[tool.tox.gh.python]
+"3.14" = ["3.14", "lint"]
+"3.13" = ["3.13"]
+"3.12" = ["3.12"]
+"3.11" = ["3.11"]
+"3.10" = ["3.10"]
+"3.9" = ["3.9"]

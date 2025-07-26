@@ -697,7 +697,7 @@ class KMSClient(BaseClient):
     ) -> EmptyResponseMetadataTypeDef:
         """
         Adds or edits tags on a <a
-        href="https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk">customer
+        href="https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-mgn-key">customer
         managed key</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/tag_resource.html)
@@ -709,7 +709,7 @@ class KMSClient(BaseClient):
     ) -> EmptyResponseMetadataTypeDef:
         """
         Deletes tags from a <a
-        href="https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-cmk">customer
+        href="https://docs.aws.amazon.com/kms/latest/developerguide/concepts.html#customer-mgn-key">customer
         managed key</a>.
 
         [Show boto3 documentation](https://boto3.amazonaws.com/v1/documentation/api/latest/reference/services/kms/client/untag_resource.html)

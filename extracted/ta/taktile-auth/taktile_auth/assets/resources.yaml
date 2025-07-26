@@ -180,4 +180,3 @@ workspace_case_template:
   # write: can create, update and delete case templates
   org_id: wildcard
   ws_id: wildcard
-  env: wildcard

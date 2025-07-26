@@ -14,21 +14,22 @@ using namespace kuzu::transaction;
 namespace kuzu {
 namespace storage {
 
-LocalTable* LocalStorage::getOrCreateLocalTable(const Table& table) {
+LocalTable* LocalStorage::getOrCreateLocalTable(Table& table) {
     const auto tableID = table.getTableID();
     auto catalog = clientContext.getCatalog();
     auto transaction = clientContext.getTransaction();
+    auto& mm = *clientContext.getMemoryManager();
     if (!tables.contains(tableID)) {
         switch (table.getTableType()) {
         case TableType::NODE: {
             auto tableEntry = catalog->getTableCatalogEntry(transaction, table.getTableID());
-            tables[tableID] = std::make_unique<LocalNodeTable>(tableEntry, table);
+            tables[tableID] = std::make_unique<LocalNodeTable>(tableEntry, table, mm);
         } break;
         case TableType::REL: {
             // We have to fetch the rel group entry from the catalog to based on the relGroupID.
             auto tableEntry =
                 catalog->getTableCatalogEntry(transaction, table.cast<RelTable>().getRelGroupID());
-            tables[tableID] = std::make_unique<LocalRelTable>(tableEntry, table);
+            tables[tableID] = std::make_unique<LocalRelTable>(tableEntry, table, mm);
         } break;
         default:
             KU_UNREACHABLE;
@@ -49,7 +50,7 @@ PageAllocator* LocalStorage::addOptimisticAllocator() {
     if (dataFH->isInMemoryMode()) {
         return dataFH->getPageManager();
     }
-    common::UniqLock lck{mtx};
+    UniqLock lck{mtx};
     optimisticAllocators.emplace_back(
         std::make_unique<OptimisticAllocator>(*dataFH->getPageManager()));
     return optimisticAllocators.back().get();
@@ -80,13 +81,14 @@ void LocalStorage::commit() {
 }
 
 void LocalStorage::rollback() {
+    auto mm = clientContext.getMemoryManager();
     for (auto& [_, localTable] : tables) {
-        localTable->clear();
+        localTable->clear(*mm);
     }
     for (auto& optimisticAllocator : optimisticAllocators) {
         optimisticAllocator->rollback();
     }
-    auto* bufferManager = clientContext.getMemoryManager()->getBufferManager();
+    auto* bufferManager = mm->getBufferManager();
     clientContext.getStorageManager()->getDataFH()->getPageManager()->clearEvictedBMEntriesIfNeeded(
         bufferManager);
 }

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -46,6 +46,9 @@ Example: CN=Test """
 
 Example: testpwd """
 
+    security = marshmallow_fields.Nested("netapp_ontap.models.active_directory_security.ActiveDirectorySecuritySchema", unknown=EXCLUDE, data_key="security", allow_none=True)
+    r""" The security field of the cluster_active_directory. """
+
     username = marshmallow_fields.Str(data_key="username", allow_none=True)
     r""" Administrator username required for Active Directory account creation, modification, and deletion.
 
@@ -59,8 +62,9 @@ Example: admin """
         "fqdn",
         "name",
         "organizational_unit",
+        "security",
     ]
-    """fqdn,name,organizational_unit,"""
+    """fqdn,name,organizational_unit,security,"""
 
     patchable_fields = [
         "force_account_overwrite",
@@ -68,9 +72,10 @@ Example: admin """
         "name",
         "organizational_unit",
         "password",
+        "security",
         "username",
     ]
-    """force_account_overwrite,fqdn,name,organizational_unit,password,username,"""
+    """force_account_overwrite,fqdn,name,organizational_unit,password,security,username,"""
 
     postable_fields = [
         "force_account_overwrite",
@@ -78,9 +83,10 @@ Example: admin """
         "name",
         "organizational_unit",
         "password",
+        "security",
         "username",
     ]
-    """force_account_overwrite,fqdn,name,organizational_unit,password,username,"""
+    """force_account_overwrite,fqdn,name,organizational_unit,password,security,username,"""
 
 
 class ClusterActiveDirectory(Resource):

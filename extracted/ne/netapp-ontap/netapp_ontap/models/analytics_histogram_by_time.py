@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -20,6 +20,11 @@ __pdoc__ = {
 
 class AnalyticsHistogramByTimeSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AnalyticsHistogramByTime object"""
+
+    aged_data_metric = marshmallow_fields.Number(data_key="aged_data_metric", allow_none=True)
+    r""" A score summarizing how old the data is. A higher value means the data is older.
+
+Example: 15.23 """
 
     labels = marshmallow_fields.List(marshmallow_fields.Str, data_key="labels", allow_none=True)
     r""" The labels field of the analytics_histogram_by_time. """
@@ -45,31 +50,34 @@ Example: [15925248,1735569408,27672576,2430595072,116105216,12889948160,0] """
         return AnalyticsHistogramByTime
 
     gettable_fields = [
+        "aged_data_metric",
         "labels",
         "newest_label",
         "oldest_label",
         "percentages",
         "values",
     ]
-    """labels,newest_label,oldest_label,percentages,values,"""
+    """aged_data_metric,labels,newest_label,oldest_label,percentages,values,"""
 
     patchable_fields = [
+        "aged_data_metric",
         "labels",
         "newest_label",
         "oldest_label",
         "percentages",
         "values",
     ]
-    """labels,newest_label,oldest_label,percentages,values,"""
+    """aged_data_metric,labels,newest_label,oldest_label,percentages,values,"""
 
     postable_fields = [
+        "aged_data_metric",
         "labels",
         "newest_label",
         "oldest_label",
         "percentages",
         "values",
     ]
-    """labels,newest_label,oldest_label,percentages,values,"""
+    """aged_data_metric,labels,newest_label,oldest_label,percentages,values,"""
 
 
 class AnalyticsHistogramByTime(Resource):

@@ -1,10 +1,59 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
-"""
+## Overview
+You can use this API to retrieve the history details for software installation requests.
+<br/>
+## Examples
+### Retrieving software installation history information
+The following example shows how to:<br/>
+   - Retrieve the software package installation history information.<br/>
+   - Display specific node level software installation history information.<br/>
+   - Provide all the attributes by default in response when the self referential link is not present.
+<br/>
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SoftwareHistory
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    print(list(SoftwareHistory.get_collection()))
+
+```
+<div class="try_it_out">
+<input id="example0_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example0_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example0_result" class="try_it_out_content">
+```
+SoftwareHistory(
+    {
+        "start_time": "2018-09-03T16:18:46+05:30",
+        "to_version": "9.5.0",
+        "state": "successful",
+        "node": {
+            "uuid": "58cd3a2b-af63-11e8-8b0d-0050568e7279",
+            "name": "sti70-vsim-ucs165n",
+            "_links": {
+                "self": {
+                    "href": "/api/cluster/nodes/58cd3a2b-af63-11e8-8b0d-0050568e7279"
+                }
+            },
+        },
+        "from_version": "9.4.0",
+        "end_time": "2018-05-21T10:14:51+05:30",
+    }
+)
+
+```
+</div>
+</div>
+
+---
+### Learn more
+
+* [`DOC /cluster/software/history`](#docs-cluster-cluster_software_history)"""
 
 import asyncio
 from datetime import datetime
@@ -122,7 +171,7 @@ class SoftwareHistory(Resource):
 ### Related ONTAP commands
 * `cluster image show-update-history`
 ### Learn more
-* [`DOC /cluster/software`](#docs-cluster-cluster_software)
+* [`DOC /cluster/software/history`](#docs-cluster-cluster_software_history)
 """
         return super()._get_collection(*args, connection=connection, max_records=max_records, **kwargs)
 
@@ -165,7 +214,7 @@ class SoftwareHistory(Resource):
 ### Related ONTAP commands
 * `cluster image show-update-history`
 ### Learn more
-* [`DOC /cluster/software`](#docs-cluster-cluster_software)
+* [`DOC /cluster/software/history`](#docs-cluster-cluster_software_history)
 """
         return super()._find(*args, connection=connection, **kwargs)
 

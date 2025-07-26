@@ -11,6 +11,7 @@ from collections.abc import Generator
 from pathlib import Path
 from typing import (
     TYPE_CHECKING,
+    Any,
     Callable,
     ClassVar,
     Optional,
@@ -56,7 +57,11 @@ def invoke_(monkeypatch: pytest.MonkeyPatch) -> Callable[..., None]:
 
 
 @pytest.fixture(autouse=True)
-def add_np(doctest_namespace, invoke, monkeypatch):
+def _setup(
+    doctest_namespace: dict[str, Any],
+    invoke: Callable[..., None],
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
     """
     Inject pytest fixtures into the doctest's namespace.
 
@@ -144,8 +149,9 @@ class ExampleItem(pytest.Item):
     ) -> Union[TerminalRepr, str]:
         if excinfo.errisinstance(ValueError):
             # Output is mismatching. Create a nice diff as failure description.
+            highlighter = self.config.get_terminal_writer()._highlight
             cmd, output, expected = excinfo.value.args
-            diff_text = _diff_text(output, expected, 2)
+            diff_text = _diff_text(output, expected, highlighter, verbose=2)
             return ReprFailExample(self, cmd, diff_text)
 
         elif excinfo.errisinstance(subprocess.CalledProcessError):

@@ -3,6 +3,7 @@ import click_config_file
 
 from montecarlodata import settings
 from montecarlodata.common import create_mc_client
+from montecarlodata.errors import complain_and_abort
 from montecarlodata.iac.mc_config_service import MonteCarloConfigService
 from montecarlodata.monitors.monitor_service import MonitorService
 
@@ -243,6 +244,12 @@ def generate_from_dbt_tests(ctx, dbt_manifest, output_path, test_type, label):
     help="Path to a directory to export a MC monitor config project to.",
 )
 @click.option(
+    "--monitor-uuids",
+    required=False,
+    type=click.STRING,
+    help="Comma separated list of monitor UUIDs to export.",
+)
+@click.option(
     "--monitors-file",
     required=False,
     type=click.STRING,
@@ -258,7 +265,7 @@ def generate_from_dbt_tests(ctx, dbt_manifest, output_path, test_type, label):
     "but do not convert existing ones).",
 )
 @click.pass_obj
-def convert_to_mac(ctx, namespace, dry_run, project_dir, monitors_file):
+def convert_to_mac(ctx, namespace, dry_run, project_dir, monitor_uuids, monitors_file):
     MonteCarloConfigService(
         config=ctx["config"],
         pycarlo_client=create_mc_client(ctx),
@@ -266,8 +273,9 @@ def convert_to_mac(ctx, namespace, dry_run, project_dir, monitors_file):
     ).convert_to_mac(
         namespace,
         project_dir,
+        monitor_uuids.split(",") if monitor_uuids else None,
         monitors_file,
-        all_monitors=not monitors_file,
+        all_monitors=not monitors_file and not monitor_uuids,
         dry_run=dry_run,
     )
 
@@ -320,6 +328,44 @@ def export_as_latest(ctx, namespace, monitors_file):
         pycarlo_client=create_mc_client(ctx),
         command_name="monitors export_as_latest",
     ).export_as_latest(namespace, monitors_file=monitors_file)
+
+
+@monitors.command(help="Export monitors as monitor as code.")
+@click.option(
+    "--monitor-uuids",
+    required=False,
+    type=click.STRING,
+    help="Comma separated list of monitor UUIDs to export.",
+)
+@click.option(
+    "--monitors-file",
+    required=False,
+    type=click.STRING,
+    help="File with monitor UUIDs to export. One line per monitor.",
+)
+@click.option(
+    "--export-name",
+    required=False,
+    type=click.BOOL,
+    default=True,
+    show_default=True,
+    help="Export the monitor name in the output.",
+)
+@click.pass_obj
+def export(ctx, monitor_uuids, monitors_file, export_name):
+    if monitors_file and monitor_uuids:
+        complain_and_abort("Cannot use both --monitor-uuids and --monitors-file")
+    if not monitor_uuids and not monitors_file:
+        complain_and_abort("You must provide either --monitor-uuids or --monitors-file")
+    MonteCarloConfigService(
+        config=ctx["config"],
+        pycarlo_client=create_mc_client(ctx),
+        command_name="monitors export",
+    ).export(
+        monitor_uuids.split(",") if monitor_uuids else None,
+        monitors_file=monitors_file,
+        export_name=export_name,
+    )
 
 
 @monitors.command(help="Get the monitors configuration for a given namespace.")

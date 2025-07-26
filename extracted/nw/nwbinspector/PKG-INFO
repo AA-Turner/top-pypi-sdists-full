@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: nwbinspector
-Version: 0.6.3
+Version: 0.6.5
 Summary: Tool to inspect NWB files for best practices compliance.
 Project-URL: Homepage, https://github.com/NeurodataWithoutBorders/nwbinspector
 Author: Cody Baker, Steph Prince, Szonja Weigl, Heberto Mayorquin, Paul Adkisson, Luiz Tauffer, Ryan Ly
@@ -38,7 +38,7 @@ Requires-Dist: isodate
 Requires-Dist: jsonschema
 Requires-Dist: natsort
 Requires-Dist: packaging
-Requires-Dist: pynwb>=2.8
+Requires-Dist: pynwb>=3.1
 Requires-Dist: pyyaml
 Requires-Dist: requests
 Requires-Dist: tqdm

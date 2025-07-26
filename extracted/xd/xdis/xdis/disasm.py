@@ -1,4 +1,4 @@
-# Copyright (c) 2016-2018, 2020-2021, 2023-2024
+# Copyright (c) 2016-2018, 2020-2021, 2023-2025
 # by Rocky Bernstein
 #
 #  This program is free software; you can redistribute it and/or
@@ -334,6 +334,8 @@ def disassemble_file(
             source_size,
             sip_hash,
         ) = load_module(pyc_filename)
+    except (ImportError, NotImplementedError):
+        raise
     except Exception:
         # Hack alert: we're using pyc_filename set as a proxy for whether the filename exists.
         # check_object_path() will succeed if the file exists.

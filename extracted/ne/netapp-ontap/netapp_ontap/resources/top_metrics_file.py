@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -47,71 +47,71 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsFile(
         {
-            "volume": {"name": "fv"},
+            "path": "/d5/f5",
+            "throughput": {
+                "error": {"upper_bound": 29, "lower_bound": 24},
+                "write": 24,
+            },
+            "svm": {
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
+                "name": "vs0",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
+                    }
+                },
+            },
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/4ec6d1ea-d5da-11eb-a25f-005056ac0f77/files/d5%2Ff5?return_metadata=true"
                 }
             },
+            "volume": {"name": "fv"},
+        }
+    ),
+    TopMetricsFile(
+        {
+            "path": "/d6/f6",
+            "throughput": {
+                "error": {"upper_bound": 22, "lower_bound": 12},
+                "write": 12,
+            },
             "svm": {
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
                     }
                 },
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
             },
-            "throughput": {
-                "error": {"lower_bound": 24, "upper_bound": 29},
-                "write": 24,
-            },
-            "path": "/d5/f5",
-        }
-    ),
-    TopMetricsFile(
-        {
-            "volume": {"name": "fv"},
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/4ec6d1ea-d5da-11eb-a25f-005056ac0f77/files/d6%2Ff6?return_metadata=true"
                 }
             },
+            "volume": {"name": "fv"},
+        }
+    ),
+    TopMetricsFile(
+        {
+            "path": "/d3/f3",
+            "throughput": {"error": {"upper_bound": 10, "lower_bound": 8}, "write": 8},
             "svm": {
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
                     }
                 },
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
             },
-            "throughput": {
-                "error": {"lower_bound": 12, "upper_bound": 22},
-                "write": 12,
-            },
-            "path": "/d6/f6",
-        }
-    ),
-    TopMetricsFile(
-        {
-            "volume": {"name": "fv"},
             "_links": {
                 "metadata": {
                     "href": "/api/storage/volumes/4ec6d1ea-d5da-11eb-a25f-005056ac0f77/files/d3%2Ff3?return_metadata=true"
                 }
             },
-            "svm": {
-                "name": "vs0",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
-                    }
-                },
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
-            },
-            "throughput": {"error": {"lower_bound": 8, "upper_bound": 10}, "write": 8},
-            "path": "/d3/f3",
+            "volume": {"name": "fv"},
         }
     ),
 ]
@@ -143,56 +143,56 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsFile(
         {
-            "volume": {"name": "fv"},
-            "svm": {
-                "name": "vs0",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
-                    }
-                },
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
-            },
+            "path": "{4ec6d1ea-d5da-11eb-a25f-005056ac0f77:1232}",
             "throughput": {
-                "error": {"lower_bound": 24, "upper_bound": 29},
+                "error": {"upper_bound": 29, "lower_bound": 24},
                 "write": 24,
             },
-            "path": "{4ec6d1ea-d5da-11eb-a25f-005056ac0f77:1232}",
-        }
-    ),
-    TopMetricsFile(
-        {
-            "volume": {"name": "fv"},
             "svm": {
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
                     }
                 },
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
             },
+            "volume": {"name": "fv"},
+        }
+    ),
+    TopMetricsFile(
+        {
+            "path": "{4ec6d1ea-d5da-11eb-a25f-005056ac0f77:6754}",
             "throughput": {
-                "error": {"lower_bound": 12, "upper_bound": 22},
+                "error": {"upper_bound": 22, "lower_bound": 12},
                 "write": 12,
             },
-            "path": "{4ec6d1ea-d5da-11eb-a25f-005056ac0f77:6754}",
-        }
-    ),
-    TopMetricsFile(
-        {
-            "volume": {"name": "fv"},
             "svm": {
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
                 "name": "vs0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
                     }
                 },
-                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
             },
-            "throughput": {"error": {"lower_bound": 8, "upper_bound": 10}, "write": 8},
+            "volume": {"name": "fv"},
+        }
+    ),
+    TopMetricsFile(
+        {
             "path": "{4ec6d1ea-d5da-11eb-a25f-005056ac0f77:8654}",
+            "throughput": {"error": {"upper_bound": 10, "lower_bound": 8}, "write": 8},
+            "svm": {
+                "uuid": "0ba74c3e-d5ca-11eb-8fbb-005056ac0f77",
+                "name": "vs0",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/0ba74c3e-d5ca-11eb-8fbb-005056ac0f77"
+                    }
+                },
+            },
+            "volume": {"name": "fv"},
         }
     ),
 ]
@@ -323,9 +323,6 @@ class TopMetricsFile(Resource):
         **kwargs
     ) -> Iterable["Resource"]:
         r"""Retrieves a list of files with the most I/O activity.
-### Platform Specifics
-* **Unified ONTAP**: GET must be used to retrieve a list of files with the most I/O activity.
-* **ASA**: GET is not supported.
 
 ### Learn more
 * [`DOC /storage/volumes/{volume.uuid}/top-metrics/files`](#docs-storage-storage_volumes_{volume.uuid}_top-metrics_files)"""
@@ -367,9 +364,6 @@ class TopMetricsFile(Resource):
     @classmethod
     def find(cls, *args, connection: HostConnection = None, **kwargs) -> Resource:
         r"""Retrieves a list of files with the most I/O activity.
-### Platform Specifics
-* **Unified ONTAP**: GET must be used to retrieve a list of files with the most I/O activity.
-* **ASA**: GET is not supported.
 
 ### Learn more
 * [`DOC /storage/volumes/{volume.uuid}/top-metrics/files`](#docs-storage-storage_volumes_{volume.uuid}_top-metrics_files)"""

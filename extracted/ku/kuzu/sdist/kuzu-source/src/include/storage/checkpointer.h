@@ -4,6 +4,9 @@
 #include "storage/page_range.h"
 
 namespace kuzu {
+namespace transaction {
+class Transaction;
+}
 namespace catalog {
 class Catalog;
 }
@@ -44,7 +47,8 @@ public:
 
     void readCheckpoint();
 
-    static bool canAutoCheckpoint(const main::ClientContext& clientContext);
+    static bool canAutoCheckpoint(const main::ClientContext& clientContext,
+        const transaction::Transaction& transaction);
 
 protected:
     virtual bool checkpointStorage();
@@ -54,8 +58,8 @@ protected:
     virtual void logCheckpointAndApplyShadowPages();
 
 private:
-    static void readCheckpoint(const std::string& dbPath, main::ClientContext* context,
-        common::VirtualFileSystem* vfs, catalog::Catalog* catalog, StorageManager* storageManager);
+    static void readCheckpoint(main::ClientContext* context, catalog::Catalog* catalog,
+        StorageManager* storageManager);
 
     DatabaseHeader getCurrentDatabaseHeader() const;
     PageRange serializeCatalog(const catalog::Catalog& catalog, StorageManager& storageManager);
@@ -64,7 +68,6 @@ private:
 protected:
     main::ClientContext& clientContext;
     bool isInMemory;
-    OptimisticAllocator pageAllocator;
 };
 
 } // namespace storage

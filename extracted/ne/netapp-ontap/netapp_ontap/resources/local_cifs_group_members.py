@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -17,7 +17,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     print(
         list(
             LocalCifsGroupMembers.get_collection(
-                "S-1-5-21-256008430-3394229847-3930036330-1257"
+                "2ebec9c7-28be-11eb-95f4-0050568ed0a2",
+                "S-1-5-21-256008430-3394229847-3930036330-1257",
             )
         )
     )
@@ -45,7 +46,10 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import LocalCifsGroupMembers
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = LocalCifsGroupMembers("S-1-5-21-256008430-3394229847-3930036330-1001")
+    resource = LocalCifsGroupMembers(
+        "179d3c85-7053-11e8-b9b8-005056b41bd1",
+        "S-1-5-21-256008430-3394229847-3930036330-1001",
+    )
     resource.records = [{"name": "user1"}, {"name": "user2"}]
     resource.post(hydrate=True)
     print(resource)
@@ -60,7 +64,10 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import LocalCifsGroupMembers
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = LocalCifsGroupMembers("S-1-5-21-256008430-3394229847-3930036330-1001")
+    resource = LocalCifsGroupMembers(
+        "179d3c85-7053-11e8-b9b8-005056b41bd1",
+        "S-1-5-21-256008430-3394229847-3930036330-1001",
+    )
     resource.delete(body={"records": [{"name": "user1"}, {"name": "user2"}]})
 
 ```

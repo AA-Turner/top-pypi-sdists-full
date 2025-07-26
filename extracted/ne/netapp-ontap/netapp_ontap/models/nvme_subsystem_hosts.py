@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -42,6 +42,10 @@ Valid choices:
 * regular
 * high """
 
+    proximity = marshmallow_fields.Nested("netapp_ontap.models.nvme_host_proximity.NvmeHostProximitySchema", unknown=EXCLUDE, data_key="proximity", allow_none=True)
+    r""" Properties that define the SVMs to which the host is proximal. This information is used to properly report active optimized and active non-optimized network paths using an NVMe controller. If no configuration has been specified for the host, the sub-object is not present in GET requests.<br/>
+These properties apply to all instances of the host in the NVMe subsystem in the SVM and its peers. """
+
     tls = marshmallow_fields.Nested("netapp_ontap.models.nvme_tcp_tls.NvmeTcpTlsSchema", unknown=EXCLUDE, data_key="tls", allow_none=True)
     r""" A container for the configuration for NVMe/TCP-TLS transport session for the host. """
 
@@ -54,9 +58,10 @@ Valid choices:
         "dh_hmac_chap",
         "nqn",
         "priority",
+        "proximity",
         "tls",
     ]
-    """links,dh_hmac_chap,nqn,priority,tls,"""
+    """links,dh_hmac_chap,nqn,priority,proximity,tls,"""
 
     patchable_fields = [
     ]
@@ -66,9 +71,10 @@ Valid choices:
         "dh_hmac_chap",
         "nqn",
         "priority",
+        "proximity",
         "tls",
     ]
-    """dh_hmac_chap,nqn,priority,tls,"""
+    """dh_hmac_chap,nqn,priority,proximity,tls,"""
 
 
 class NvmeSubsystemHosts(Resource):

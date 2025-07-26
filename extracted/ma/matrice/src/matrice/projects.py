@@ -2,6 +2,7 @@
 
 import sys
 import logging
+from typing import Dict, List, Optional, Tuple
 from matrice.action import Action
 from matrice.annotation import Annotation
 from matrice.dataset import Dataset
@@ -11,29 +12,6 @@ from matrice.models import Model
 from matrice.utils import handle_response
 from collections import OrderedDict
 from datetime import datetime, timedelta
-from matrice.dataset import (
-    get_dataset_size_in_mb_from_url,
-)
-from matrice.data_processing.client import (
-    handle_client_processing_pipelines,
-    handle_client_video_processing_pipelines,
-    get_partition_status,
-    get_video_partition_status,
-)
-from matrice.data_processing.client_utils import (
-    get_size_mb,
-    upload_compressed_dataset,
-    is_file_compressed,
-    complete_dataset_items_upload,
-    get_youtube_bb_partitions,
-    get_mot_partitions,
-    get_davis_partitions,
-    get_video_imagenet_partitions,
-    get_kinetics_partitions,
-    get_video_mscoco_partitions,
-    extract_frames_from_videos,
-    scan_dataset,
-)
 
 
 class Projects:
@@ -337,242 +315,30 @@ class Projects:
         ... )
         >>> print(f"Dataset created: {dataset}")
         """
-        logging.info("Creating dataset: %s", dataset_name)
-        if not (source_url or dataset_path):
-            raise ValueError("Either source_url or dataset_path must be provided")
-        dataset_version = "v1.0"
-        source_type = "lu" if dataset_path else "url" if source_url else None
-        dataset_size = get_size_mb(dataset_path) if source_type == "lu" else 0.0
-        partition_stats = []
-        is_dataset_compressed = is_file_compressed(dataset_path) if dataset_path else False
-        rename_annotation_files = False
-        if source_type == "lu":
-            logging.info("Processing local dataset upload")
-            if not is_dataset_compressed:
-                skip_annotation_pipeline = (
-                    input_type
-                    in [
-                        "imagenet",
-                        "unlabeled",
-                        "video_imagenet",
-                    ]
-                    or "labelbox" in input_type
-                )
-                if dataset_type.lower() in [
-                    "video_detection",
-                    "frames",
-                    "video",
-                ]:
-                    logging.info("Processing video detection dataset")
-                    if input_type.lower() == "youtube_bb":
-                        get_partitions_fn = get_youtube_bb_partitions
-                    elif input_type.lower() == "mot":
-                        get_partitions_fn = get_mot_partitions
-                        rename_annotation_files = True
-                    elif input_type.lower() == "davis":
-                        rename_annotation_files = True
-                        # restructure_davis_dataset(dataset_path)
-                        get_partitions_fn = get_davis_partitions
-                    elif input_type.lower() == "video_imagenet":
-                        get_partitions_fn = get_video_imagenet_partitions
-                    elif input_type.lower() == "kinetics":
-                        get_partitions_fn = get_kinetics_partitions
-                    elif input_type.lower() == "mscoco_video":
-                        ann_paths, im_paths = scan_dataset(dataset_path)
-                        paths = ann_paths + im_paths
-                        extract_frames_from_videos(paths)
-                        get_partitions_fn = get_video_mscoco_partitions
-                    logging.debug(
-                        "calling get_video_partition_status with input_type: %s",
-                        input_type,
-                    )
-                    (
-                        annotation_partition,
-                        images_partitions,
-                        unique_videos
-                    ) = get_video_partition_status(
-                        dataset_path,
-                        skip_annotation_pipeline,
-                        get_partitions_fn,
-                        rename_annotation_files=rename_annotation_files,
-                        input_type=input_type.lower(),
-                    )
-                    partition_stats = (
-                        [*images_partitions]
-                        if annotation_partition is None
-                        else [
-                            annotation_partition,
-                            *images_partitions,
-                        ]
-                    )
-                    logging.debug(
-                        "partition stats: %s",
-                        partition_stats,
-                    )
-                else:
-                    logging.info("Processing image dataset")
-                    (
-                        annotation_partition,
-                        images_partitions,
-                    ) = get_partition_status(
-                        dataset_path,
-                        skip_annotation_pipeline,
-                    )
-                    partition_stats = (
-                        [*images_partitions]
-                        if annotation_partition is None
-                        else [
-                            annotation_partition,
-                            *images_partitions,
-                        ]
-                    )
-                    logging.debug(
-                        "partition stats: %s",
-                        partition_stats,
-                    )
-            else:
-                logging.info("Processing compressed dataset")
-                source_url = upload_compressed_dataset(
-                    self.session.rpc,
-                    dataset_path,
-                    project_id=self.project_id
-                )
-        elif source_type == "url":
-            try:
-                dataset_size, err, msg = get_dataset_size_in_mb_from_url(
-                    self.session,
-                    source_url,
-                    self.project_id,
-                )
-                if err:
-                    dataset_size = 0
-                    logging.warning(
-                        "Could not get dataset size: %s",
-                        msg,
-                    )
-            except Exception as e:
-                logging.error(
-                    "Error getting dataset size: %s",
-                    e,
-                )
-                dataset_size = 0
-        create_dataset_request = {
-            "name": dataset_name,
-            "datasetDescription": "",
-            "_idProject": self.project_id,
-            "_idUser": "",
-            "accountNumber": self.account_number,
-            "type": project_type,
-            "isUnlabeled": (True if input_type == "unlabeled" else False),
-            "isCreateNew": True,
-            "datasetType": dataset_type,
-            "source": source_type,
-            "isCompressedFileProvided": is_dataset_compressed,
-            "sourceUrl": source_url,
-            "urlType": url_type,
-            "inputType": input_type,
-            "datasetSize": dataset_size,
-            "newDatasetVersion": dataset_version,
-            "partitionsInfo": {
-                "totalSizeMB": dataset_size,
-                "partitionStats": [
-                    {
-                        "partitionNum": p["partitionNum"],
-                        "sampleCount": p["sampleCount"],
-                        "diskSizeMB": p["diskSizeMB"],
-                        "type": p["type"],
-                    }
-                    for p in partition_stats
-                ],
-            },
-            "computeAlias": compute_alias,
-            "targetCloudStorage": target_cloud_storage,
-            "bucketAlias": bucket_alias,
-            "bucketAliasServiceProvider": bucket_alias_service_provider,
-            "sourceCredentialAlias": source_credential_alias,
-        }
-        path = f"/v2/dataset/create/new?projectId={self.project_id}"
-        headers = {"Content-Type": "application/json"}
-        logging.debug(
-            "Create dataset request: %s",
-            create_dataset_request,
+        from matrice.data_processing.create_dataset import create_dataset
+        return create_dataset(
+            self.session,
+            self.project_id,
+            self.account_number,
+            project_type,
+            dataset_name,
+            dataset_type=dataset_type,
+            input_type=input_type,
+            dataset_path=dataset_path,
+            source_url=source_url,
+            url_type=url_type,
+            bucket_alias=bucket_alias,
+            compute_alias=compute_alias,
+            target_cloud_storage=target_cloud_storage,
+            source_credential_alias=source_credential_alias,
+            bucket_alias_service_provider=bucket_alias_service_provider
         )
-        if input_type in ['youtube_bb', 'mot', 'davis', 'mscoco_video']:
-            create_dataset_request["segmentLength"] = 16
-        resp = self.rpc.post(
-            path=path,
-            headers=headers,
-            payload=create_dataset_request,
-        )
-        logging.debug("Create dataset response: %s", resp)
-        if not resp["success"]:
-            error_msg = resp.get("message", "Unknown error")
-            logging.error(
-                "Dataset creation failed: %s",
-                error_msg,
-            )
-            raise Exception(f"Dataset creation failed: {error_msg}")
-        dataset_id = resp["data"]["_id"]
-        logging.info(
-            "Dataset created successfully with ID: %s",
-            dataset_id,
-        )
-        if source_type == "lu" and not is_dataset_compressed:
-            if dataset_type.lower() in [
-                "video_detection",
-                "frames",
-                "video",
-            ]:
-                logging.debug(
-                    "handle_client_video_processing_pipelines with input type: %s",
-                    input_type,
-                )
-                handle_client_video_processing_pipelines(
-                    project_id=self.project_id,
-                    rpc=self.rpc,
-                    dataset_id=dataset_id,
-                    source_dataset_version="",
-                    target_dataset_version=dataset_version,
-                    input_type=input_type,
-                    source_URL=source_url,
-                    dataset_path=dataset_path,
-                    destination_bucket_alias=bucket_alias,
-                    account_number=self.account_number,
-                    skip_partition_status=True,
-                    annotation_partition_status=annotation_partition,
-                    images_partition_status=images_partitions,
-                    unique_videos=unique_videos,
-                )
-            else:
-                handle_client_processing_pipelines(
-                    rpc=self.rpc,
-                    dataset_id=dataset_id,
-                    source_dataset_version="",
-                    target_dataset_version=dataset_version,
-                    input_type=input_type,
-                    source_URL=source_url,
-                    dataset_path=dataset_path,
-                    destination_bucket_alias=bucket_alias,
-                    account_number=self.account_number,
-                    skip_partition_status=True,
-                    annotation_partition_status=annotation_partition,
-                    images_partition_status=images_partitions,
-                    project_id=self.project_id,
-                )
-            complete_dataset_items_upload(
-                rpc=self.rpc,
-                dataset_id=dataset_id,
-                partition_stats=partition_stats,
-            )
-            logging.info("Dataset items uploaded successfully")
-        return Dataset(self.session, dataset_id=dataset_id)
 
     def import_local_dataset(
         self,
         dataset_name,
         file_path,
         dataset_type,
-        project_type="detection",
         input_type="image",
         bucket_alias="",
         compute_alias="",
@@ -615,7 +381,6 @@ class Projects:
         >>> print(f"Dataset created: {dataset}")
         """
         return self._create_dataset(
-            project_type=project_type,
             dataset_name=dataset_name,
             dataset_type=dataset_type,
             input_type=input_type,
@@ -633,7 +398,6 @@ class Projects:
         source_url,
         cloud_provider,
         dataset_type,
-        project_type="detection",
         input_type="image",
         bucket_alias="",
         compute_alias="",
@@ -679,7 +443,6 @@ class Projects:
         >>> print(f"Dataset created: {dataset}")
         """
         return self._create_dataset(
-            project_type,
             dataset_name=dataset_name,
             dataset_type=dataset_type,
             input_type=input_type,
@@ -1094,6 +857,8 @@ class Projects:
         custom_schedule=False,
         schedule_deployment=[],
         post_processing_config=None,
+        create_deployment_config={},
+        return_id_only=False,
     ):
         """
         Create a deployment for a model.
@@ -1152,6 +917,10 @@ class Projects:
             List of scheduled deployments (default is an empty list).
         post_processing_config : dict, optional
             The post-processing configuration (default is None).
+        create_deployment_config : dict, optional
+            The deployment configuration (default is None).
+        return_id_only : bool, optional
+            Flag to indicate if only the deployment ID is returned (default is False).
         Returns
         -------
         tuple
@@ -1213,6 +982,8 @@ class Projects:
             "scheduleDeployment": schedule_deployment,
             "deploymentParams": deployment_params,
         }
+        if create_deployment_config:
+            body.update(create_deployment_config)
         headers = {"Content-Type": "application/json"}
         path = f"/v1/deployment?projectId={self.project_id}"
         resp = self.rpc.post(
@@ -1225,9 +996,88 @@ class Projects:
             "Deployment created successfully.",
             "An error occurred while trying to create deployment.",
         )
-        service_id, action_id = self._get_service_and_action_ids(resp, error, message)
-        return Deployment(self.session, service_id), Action(self.session, action_id)
+        if resp and resp.get("success"):
+            if return_id_only:
+                return resp["data"]["_id"]
+            service_id, action_id = self._get_service_and_action_ids(resp, error, message)
+            return Deployment(self.session, service_id), Action(self.session, action_id)
+        else:
+            logging.error(f"Deployment creation failed: {resp}")
+            return None, None
 
+    def create_inference_pipeline(
+        self, 
+        name: str = None, 
+        description: str = None, 
+        applications: List[Dict] = None
+    ) -> Tuple[Optional[Dict], Optional[str], str]:
+        """
+        Create a new inference pipeline with model configuration.
+
+        Args:
+            name: pipeline name
+            description: pipeline description
+            applications: List of application IDs
+
+        Returns:
+            tuple: (result, error, message)
+                - result: API response data if successful, None otherwise
+                - error: Error message if failed, None otherwise
+                - message: Status message
+        """
+        
+        if not applications:
+            return (
+                None,
+                "At least one application is required",
+                "No applications specified",
+            )
+
+        path = "/v1/deployment/inference_pipeline"
+        payload = {
+            "name": name,
+            "description": description,
+            "applications": applications,
+            "_idProject": self.project_id,
+        }
+
+        resp = self.rpc.post(path=path, payload=payload)
+        return handle_response(
+            resp,
+            "Inference pipeline created successfully",
+            "Failed to create inference pipeline",
+        )
+
+    def list_inference_pipelines(
+        self, page: int = 1, limit: int = 10, status: str = None, search: str = None
+    ) -> Tuple[Optional[Dict], Optional[str], str]:
+        """
+        Retrieve all inference pipelines for the authenticated user.
+
+        Args:
+            page: Page number for pagination
+            limit: Items per page (max 100)
+            status: Filter by status ("deploying", "ready", "active", "stopped", "error")
+            search: Search term for name/description
+
+        Returns:
+            tuple: (result, error, message)
+        """
+        path = f"/v1/deployment/list_inference_pipelines/{self.project_id}"
+        params = {"page": page, "limit": min(limit, 100)}
+
+        if status:
+            params["status"] = status
+        if search:
+            params["search"] = search
+
+        resp = self.rpc.get(path=path, params=params)
+        return  handle_response(
+            resp,
+            "User pipelines retrieved successfully",
+            "Failed to retrieve user pipelines",
+        )
+    
     def delete(self):
         """
         Delete a project by project ID.

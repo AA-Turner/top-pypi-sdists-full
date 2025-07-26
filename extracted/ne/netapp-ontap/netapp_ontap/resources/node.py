@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -65,8 +65,14 @@ Possible values for the node state are:
 <br/>
 ---
 ## HA
-The "ha" field in the /cluster/nodes API shows the takeover and giveback states of the node along with the current values of the HA fields "enabled"and "auto_giveback".
+<personalities supports=aiml>
+The "ha" field in the /cluster/nodes API shows the takeover and giveback states of the node along with the current values of the HA fields "enable_takeover_of" and "auto_giveback_of".
+You can modify the "auto_giveback_of" field.
+</personalities>
+<personalities supports=unified,asar2>
+The "ha" field in the /cluster/nodes API shows the takeover and giveback states of the node along with the current values of the HA fields "enabled" and "auto_giveback".
 You can modify the HA fields "enabled" and "auto_giveback", which will change the HA states of the node.
+</personalities>
 ### Takeover
 The takeover "state" field shows the different takeover states of the node. When the state is "failed", the "code" and "message" fields display.
 Possible values for takeover states are:
@@ -209,26 +215,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
+            "state": "up",
+            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
             "name": "node2",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/54440ec3-6127-11e9-a959-005056bb76f9"
                 }
             },
-            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
-            "state": "up",
         }
     ),
     Node(
         {
+            "state": "up",
+            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/e02dbef1-6126-11e9-b8fb-005056bb9ce4"
                 }
             },
-            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
-            "state": "up",
         }
     ),
 ]
@@ -255,24 +261,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
+            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
             "name": "node2",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/54440ec3-6127-11e9-a959-005056bb76f9"
                 }
             },
-            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
         }
     ),
     Node(
         {
+            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/e02dbef1-6126-11e9-b8fb-005056bb9ce4"
                 }
             },
-            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
         }
     ),
 ]
@@ -300,17 +306,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
-            "name": "example_node_name",
             "metric": {
+                "timestamp": "2019-12-19T15:50:45+00:00",
                 "status": "ok",
                 "processor_utilization": 3,
-                "timestamp": "2019-12-19T15:50:45+00:00",
                 "duration": "PT15S",
             },
             "uuid": "6b29327b-21ca-11ea-99aa-005056bb420b",
+            "name": "example_node_name",
             "statistics": {
-                "status": "ok",
                 "processor_utilization_raw": 6409411622,
+                "status": "ok",
                 "processor_utilization_base": 74330229886,
                 "timestamp": "2019-12-19T15:50:48+00:00",
             },
@@ -340,9 +346,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
+            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
             "ha": {
-                "auto_giveback": False,
-                "ports": [{}, {}],
+                "enabled": False,
+                "partners": [
+                    {"uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4", "name": "node1"}
+                ],
                 "takeover": {
                     "failure": {
                         "message": "Takeover cannot be completed. Reason: disabled.",
@@ -350,11 +359,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     },
                     "state": "not_possible",
                 },
-                "enabled": False,
-                "partners": [
-                    {"name": "node1", "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4"}
-                ],
                 "giveback": {"state": "nothing_to_giveback"},
+                "ports": [{}, {}],
+                "auto_giveback": False,
             },
             "name": "node2",
             "_links": {
@@ -362,14 +369,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/cluster/nodes/54440ec3-6127-11e9-a959-005056bb76f9"
                 }
             },
-            "uuid": "54440ec3-6127-11e9-a959-005056bb76f9",
         }
     ),
     Node(
         {
+            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
             "ha": {
-                "auto_giveback": False,
-                "ports": [{}, {}],
+                "enabled": False,
+                "partners": [
+                    {"uuid": "54440ec3-6127-11e9-a959-005056bb76f9", "name": "node2"}
+                ],
                 "takeover": {
                     "failure": {
                         "message": "Takeover cannot be completed. Reason: disabled.",
@@ -377,11 +386,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     },
                     "state": "not_possible",
                 },
-                "enabled": False,
-                "partners": [
-                    {"name": "node2", "uuid": "54440ec3-6127-11e9-a959-005056bb76f9"}
-                ],
                 "giveback": {"state": "nothing_to_giveback"},
+                "ports": [{}, {}],
+                "auto_giveback": False,
             },
             "name": "node1",
             "_links": {
@@ -389,7 +396,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/cluster/nodes/e02dbef1-6126-11e9-b8fb-005056bb9ce4"
                 }
             },
-            "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4",
         }
     ),
 ]
@@ -417,36 +423,36 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
+            "external_cache": {
+                "is_rewarm_enabled": False,
+                "is_hya_enabled": True,
+                "is_enabled": False,
+                "pcs_size": 256,
+            },
+            "uuid": "71af8235-bea9-11eb-874a-005056bbab13",
             "name": "node2",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/71af8235-bea9-11eb-874a-005056bbab13"
                 }
             },
-            "external_cache": {
-                "pcs_size": 256,
-                "is_hya_enabled": True,
-                "is_rewarm_enabled": False,
-                "is_enabled": False,
-            },
-            "uuid": "71af8235-bea9-11eb-874a-005056bbab13",
         }
     ),
     Node(
         {
+            "external_cache": {
+                "is_rewarm_enabled": False,
+                "is_hya_enabled": True,
+                "is_enabled": False,
+                "pcs_size": 256,
+            },
+            "uuid": "8c4cbf08-bea9-11eb-b8ae-005056bb16aa",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/8c4cbf08-bea9-11eb-b8ae-005056bb16aa"
                 }
             },
-            "external_cache": {
-                "pcs_size": 256,
-                "is_hya_enabled": True,
-                "is_rewarm_enabled": False,
-                "is_enabled": False,
-            },
-            "uuid": "8c4cbf08-bea9-11eb-b8ae-005056bb16aa",
         }
     ),
 ]
@@ -515,6 +521,9 @@ Example: 2019-04-17T15:49:26.000+0000"""
     external_cache = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_external_cache.ClusterNodesExternalCacheSchema", data_key="external_cache", unknown=EXCLUDE, allow_none=True)
     r""" Cache used for buffer management."""
 
+    external_cache_bypass = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_external_cache_bypass.ClusterNodesExternalCacheBypassSchema", data_key="external_cache_bypass", unknown=EXCLUDE, allow_none=True)
+    r""" External cache bypass management."""
+
     ha = marshmallow_fields.Nested("netapp_ontap.models.node_ha.NodeHaSchema", data_key="ha", unknown=EXCLUDE, allow_none=True)
     r""" The ha field of the node."""
 
@@ -581,6 +590,9 @@ Example: FAS3070"""
 
 Example: node-01"""
 
+    nvlog = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_nvlog.ClusterNodesNvlogSchema", data_key="nvlog", unknown=EXCLUDE, allow_none=True)
+    r""" Non-volatile write log settings."""
+
     nvram = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_nvram.ClusterNodesNvramSchema", data_key="nvram", unknown=EXCLUDE, allow_none=True)
     r""" The nvram field of the node."""
 
@@ -635,7 +647,7 @@ Valid choices:
     statistics = marshmallow_fields.Nested("netapp_ontap.models.node_statistics.NodeStatisticsSchema", data_key="statistics", unknown=EXCLUDE, allow_none=True)
     r""" Raw CPU performance for the nodes."""
 
-    storage_availability_zones = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_storage_availability_zones.ClusterNodesStorageAvailabilityZonesSchema", unknown=EXCLUDE, allow_none=True), data_key="storage_availability_zones", allow_none=True)
+    storage_availability_zones = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.storage_availability_zone.StorageAvailabilityZoneSchema", unknown=EXCLUDE, allow_none=True), data_key="storage_availability_zones", allow_none=True)
     r""" Storage availability zones associated with the node."""
 
     storage_configuration = marshmallow_fields.Str(
@@ -737,6 +749,7 @@ Example: 791603000068"""
         "controller",
         "date",
         "external_cache",
+        "external_cache_bypass",
         "ha",
         "hw_assist",
         "is_spares_low",
@@ -750,6 +763,7 @@ Example: 791603000068"""
         "metrocluster",
         "model",
         "name",
+        "nvlog",
         "nvram",
         "owner",
         "serial_number",
@@ -757,9 +771,7 @@ Example: 791603000068"""
         "snaplock",
         "state",
         "statistics",
-        "storage_availability_zones.links",
-        "storage_availability_zones.name",
-        "storage_availability_zones.uuid",
+        "storage_availability_zones",
         "storage_configuration",
         "system_aggregate.links",
         "system_aggregate.name",
@@ -772,31 +784,35 @@ Example: 791603000068"""
         "version",
         "vm",
     ]
-    """links,anti_ransomware_version,cluster_interfaces.links,cluster_interfaces.ip,cluster_interfaces.name,cluster_interfaces.uuid,controller,date,external_cache,ha,hw_assist,is_spares_low,location,management_interfaces.links,management_interfaces.ip,management_interfaces.name,management_interfaces.uuid,membership,metric,metrocluster,model,name,nvram,owner,serial_number,service_processor,snaplock,state,statistics,storage_availability_zones.links,storage_availability_zones.name,storage_availability_zones.uuid,storage_configuration,system_aggregate.links,system_aggregate.name,system_aggregate.uuid,system_id,system_machine_type,uptime,uuid,vendor_serial_number,version,vm,"""
+    """links,anti_ransomware_version,cluster_interfaces.links,cluster_interfaces.ip,cluster_interfaces.name,cluster_interfaces.uuid,controller,date,external_cache,external_cache_bypass,ha,hw_assist,is_spares_low,location,management_interfaces.links,management_interfaces.ip,management_interfaces.name,management_interfaces.uuid,membership,metric,metrocluster,model,name,nvlog,nvram,owner,serial_number,service_processor,snaplock,state,statistics,storage_availability_zones,storage_configuration,system_aggregate.links,system_aggregate.name,system_aggregate.uuid,system_id,system_machine_type,uptime,uuid,vendor_serial_number,version,vm,"""
 
     patchable_fields = [
+        "external_cache_bypass",
         "ha",
         "location",
         "name",
+        "nvlog",
         "owner",
         "service_processor",
         "system_aggregate.name",
         "system_aggregate.uuid",
     ]
-    """ha,location,name,owner,service_processor,system_aggregate.name,system_aggregate.uuid,"""
+    """external_cache_bypass,ha,location,name,nvlog,owner,service_processor,system_aggregate.name,system_aggregate.uuid,"""
 
     postable_fields = [
         "cluster_interface",
+        "external_cache_bypass",
         "ha",
         "location",
         "management_interface",
         "name",
+        "nvlog",
         "owner",
         "service_processor",
         "system_aggregate.name",
         "system_aggregate.uuid",
     ]
-    """cluster_interface,ha,location,management_interface,name,owner,service_processor,system_aggregate.name,system_aggregate.uuid,"""
+    """cluster_interface,external_cache_bypass,ha,location,management_interface,name,nvlog,owner,service_processor,system_aggregate.name,system_aggregate.uuid,"""
 
 class Node(Resource):
     r""" Complete node information """

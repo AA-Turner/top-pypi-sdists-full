@@ -23,7 +23,7 @@ from ..core.config import BaseConfig, AlertConfig, ZoneConfig
 
 @dataclass
 class ShoppingCartConfig(BaseConfig):
-    """Configuration for Shopping cart detection use case in Shopping cart monitoring."""
+    """Configuration for ShoppingCart detection use case in ShoppingCart monitoring."""
     # Smoothing configuration
     enable_smoothing: bool = True
     smoothing_algorithm: str = "observability"  # "window" or "observability"
@@ -46,8 +46,8 @@ class ShoppingCartConfig(BaseConfig):
 
     index_to_category: Optional[Dict[int, str]] = field(
         default_factory=lambda: {
-            0:"Shelf",
-            1:"Shopping-trolley",
+            0: 'Shopping-trolley', 
+            1: 'Shelf'
         }
     )
 
@@ -196,7 +196,7 @@ class ShoppingCartUseCase(BaseProcessor):
         self.category = "retail"
 
         # List of  categories to track
-        self.target_categories = ["Shelf","Shopping-trolley"]
+        self.target_categories = ['Shelf','Shopping-trolley']
 
 
 
@@ -418,7 +418,7 @@ class ShoppingCartUseCase(BaseProcessor):
                     "max_value": 10,
                     "level_settings": {"info": 2, "warning": 5, "critical": 7}
                 },
-                "application_name": "Shopping Cart Analysis System",
+                "application_name": "shopping_cart detection System",
                 "application_version": "1.2",
                 "location_info": None,
                 "human_text": human_text
@@ -535,7 +535,7 @@ class ShoppingCartUseCase(BaseProcessor):
 
         tracking_stat = {
             "type": "shopping_cart_analysis",
-            "category": "retail",
+            "category": "infrastructure",
             "count": total_detections,
             "insights": insights,
             "summary": summary,
@@ -637,7 +637,7 @@ class ShoppingCartUseCase(BaseProcessor):
     # Human-friendly display names for  categories
     CATEGORY_DISPLAY = {
         "Shelf": "Shelf",
-        "Shopping-trolley": "Shopping-trolley"
+        "Shopping-trolley": "Shopping-trolley",
     }
 
     def _generate_insights(self, summary: dict, config: ShoppingCartConfig) -> List[str]:

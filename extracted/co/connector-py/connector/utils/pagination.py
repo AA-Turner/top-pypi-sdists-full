@@ -68,8 +68,7 @@ import typing as t
 
 import msgpack  # type: ignore[import-untyped]
 import pydantic
-
-from connector.generated import Page
+from connector_sdk_types.generated import Page
 
 
 class PaginationBase(pydantic.BaseModel):

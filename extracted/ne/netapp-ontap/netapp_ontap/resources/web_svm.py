@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -33,26 +33,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 WebSvm(
     {
+        "ocsp_enabled": False,
         "certificate": {
-            "name": "cert1",
+            "uuid": "a3bb219d-4382-1fe0-9c06-1070568ea23d",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/a3bb219d-4382-1fe0-9c06-1070568ea23d"
                 }
             },
-            "uuid": "a3bb219d-4382-1fe0-9c06-1070568ea23d",
-        },
-        "ocsp_enabled": False,
-        "client_enabled": False,
-        "_links": {
-            "self": {"href": "/api/svm/svms/3c1b259d-5789-a2eb-9301-10705682b34f/web"}
+            "name": "cert1",
         },
         "svm": {
+            "uuid": "3c1b259d-5789-a2eb-9301-10705682b34f",
             "name": "svm2",
             "_links": {
                 "self": {"href": "/api/svm/svms/3c1b259d-5789-a2eb-9301-10705682b34f"}
             },
-            "uuid": "3c1b259d-5789-a2eb-9301-10705682b34f",
+        },
+        "client_enabled": False,
+        "_links": {
+            "self": {"href": "/api/svm/svms/3c1b259d-5789-a2eb-9301-10705682b34f/web"}
         },
     }
 )

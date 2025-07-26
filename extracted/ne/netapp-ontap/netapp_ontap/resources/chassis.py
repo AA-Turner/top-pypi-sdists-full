@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -49,46 +49,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Chassis(
     {
-        "state": "ok",
         "id": "021352005981",
         "frus": [
-            {"type": "psu", "id": "PSU2", "state": "ok"},
-            {"type": "psu", "id": "PSU1", "state": "ok"},
-            {"type": "fan", "id": "Fan2", "state": "ok"},
-            {"type": "fan", "id": "Fan3", "state": "ok"},
-            {"type": "fan", "id": "Fan1", "state": "ok"},
+            {"id": "PSU2", "state": "ok", "type": "psu"},
+            {"id": "PSU1", "state": "ok", "type": "psu"},
+            {"id": "Fan2", "state": "ok", "type": "fan"},
+            {"id": "Fan3", "state": "ok", "type": "fan"},
+            {"id": "Fan1", "state": "ok", "type": "fan"},
         ],
         "nodes": [
             {
-                "position": "top",
                 "pcis": {
                     "cards": [
                         {
-                            "device": "Gigabit Ethernet I210",
                             "slot": "0",
+                            "device": "Gigabit Ethernet I210",
                             "info": "\t  e0M MAC Address:    d0:39:ea:3f:06:2b (auto-1000t-fd-up) \n\t  e0S MAC Address:    d0:39:ea:3f:06:2c (auto-1000t-fd-up) \n\t  Device Type:        1533\n\t  Firmware Version:   3.25-0.0 0x800005D1\n",
                         },
                         {
-                            "device": "Intel Lewisburg series chipset SATA Controller",
                             "slot": "0",
+                            "device": "Intel Lewisburg series chipset SATA Controller",
                             "info": "\t  Additional Info: 0 (0xaaf00000)   \n\t  SHM2S86Q120GLM22NP FW1146 114473MB 512B/sect (SPG190108HJ)  \n",
                         },
                     ]
                 },
                 "name": "node-1",
-                "usbs": {
-                    "enabled": True,
-                    "ports": [{"connected": False}],
-                    "supported": True,
-                },
+                "position": "top",
                 "uuid": "6ede364b-c3d0-11e8-a86a-00a098567f31",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/6ede364b-c3d0-11e8-a86a-00a098567f31"
                     }
                 },
+                "usbs": {
+                    "ports": [{"connected": False}],
+                    "supported": True,
+                    "enabled": True,
+                },
             }
         ],
+        "state": "ok",
     }
 )
 

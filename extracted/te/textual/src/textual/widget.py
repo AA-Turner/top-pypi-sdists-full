@@ -66,7 +66,7 @@ from textual.content import Content, ContentType
 from textual.css.match import match
 from textual.css.parse import parse_selectors
 from textual.css.query import NoMatches, WrongType
-from textual.css.scalar import ScalarOffset
+from textual.css.scalar import Scalar, ScalarOffset
 from textual.dom import DOMNode, NoScreen
 from textual.geometry import (
     NULL_REGION,
@@ -756,7 +756,7 @@ class Widget(DOMNode):
         except NoScreen:
             pass
 
-    def with_tooltip(self, tooltip: RenderableType | None) -> Self:
+    def with_tooltip(self, tooltip: Visual | RenderableType | None) -> Self:
         """Chainable method to set a tooltip.
 
         Example:
@@ -1140,9 +1140,15 @@ class Widget(DOMNode):
                     text_background = background + styles.background.tint(
                         styles.background_tint
                     )
-                    background += (
-                        styles.background.tint(styles.background_tint)
-                    ).multiply_alpha(opacity)
+                    if partial:
+                        background_tint = styles.background.tint(styles.background_tint)
+                        background = background.blend(
+                            background_tint, 1 - background_tint.a
+                        ).multiply_alpha(opacity)
+                    else:
+                        background += (
+                            styles.background.tint(styles.background_tint)
+                        ).multiply_alpha(opacity)
                 else:
                     text_background = background
                 if has_rule("color"):
@@ -1162,6 +1168,35 @@ class Widget(DOMNode):
             )
             self._visual_style_cache[cache_key] = visual_style
 
+        return visual_style
+
+    def _get_style(self, style: VisualStyle | str) -> VisualStyle:
+        """A get_style method for use in Content.
+
+        Args:
+            style: A style prefixed with a dot.
+
+        Returns:
+            A visual style if one is fund, otherwise `None`.
+        """
+        if isinstance(style, VisualStyle):
+            return style
+        if style.startswith("."):
+            for node in self.ancestors_with_self:
+                if not isinstance(node, Widget):
+                    break
+                try:
+                    visual_style = node.get_visual_style(style[1:], partial=True)
+                    break
+                except KeyError:
+                    continue
+            else:
+                raise KeyError(f"No matching component class found for '{style}'")
+            return visual_style
+        try:
+            visual_style = VisualStyle.parse(style)
+        except Exception:
+            visual_style = VisualStyle.null()
         return visual_style
 
     @overload
@@ -1185,7 +1220,7 @@ class Widget(DOMNode):
             return text_content
         return Content.from_markup(text_content)
 
-    def _arrange(self, size: Size) -> DockArrangeResult:
+    def _arrange(self, size: Size, optimal: bool = False) -> DockArrangeResult:
         """Arrange children.
 
         Args:
@@ -1194,13 +1229,13 @@ class Widget(DOMNode):
         Returns:
             Widget locations.
         """
-        cache_key = (size, self._nodes._updates)
+        cache_key = (size, self._nodes._updates, optimal)
         cached_result = self._arrangement_cache.get(cache_key)
         if cached_result is not None:
             return cached_result
 
         arrangement = self._arrangement_cache[cache_key] = arrange(
-            self, self._nodes, size, self.screen.size
+            self, self._nodes, size, self.screen.size, optimal=optimal
         )
 
         return arrangement
@@ -1541,6 +1576,7 @@ class Widget(DOMNode):
         width_fraction: Fraction,
         height_fraction: Fraction,
         constrain_width: bool = False,
+        greedy: bool = True,
     ) -> BoxModel:
         """Process the box model for this widget.
 
@@ -1555,14 +1591,14 @@ class Widget(DOMNode):
             The size and margin for this widget.
         """
         styles = self.styles
-        _content_width, _content_height = container
-        content_width = Fraction(_content_width)
-        content_height = Fraction(_content_height)
         is_border_box = styles.box_sizing == "border-box"
         gutter = styles.gutter  # Padding plus border
         margin = styles.margin
 
-        is_auto_width = styles.width and styles.width.is_auto
+        styles_width = styles.width
+        if not greedy and styles_width is not None and styles_width.is_fraction:
+            styles_width = Scalar.parse("auto")
+        is_auto_width = styles_width and styles_width.is_auto
         is_auto_height = styles.height and styles.height.is_auto
 
         # Container minus padding and border
@@ -1573,7 +1609,7 @@ class Widget(DOMNode):
         )
         min_width, max_width, min_height, max_height = extrema
 
-        if styles.width is None:
+        if styles_width is None:
             # No width specified, fill available space
             content_width = Fraction(content_container.width - margin.width)
         elif is_auto_width:
@@ -1592,7 +1628,6 @@ class Widget(DOMNode):
                 content_width = Fraction(content_container.width)
         else:
             # An explicit width
-            styles_width = styles.width
             content_width = styles_width.resolve(
                 container - margin.totals, viewport, width_fraction
             )
@@ -2171,6 +2206,14 @@ class Widget(DOMNode):
         return Offset(round(self.scroll_x), round(self.scroll_y))
 
     @property
+    def container_scroll_offset(self) -> Offset:
+        """The scroll offset the nearest container ancestor."""
+        for node in self.ancestors:
+            if isinstance(node, Widget) and node.is_scrollable:
+                return node.scroll_offset
+        return Offset()
+
+    @property
     def _console(self) -> Console:
         """Get the current console.
 
@@ -2185,6 +2228,8 @@ class Widget(DOMNode):
         if not self.is_container:
             return False
         for child in self.children:
+            if child.styles.expand == "optimal":
+                continue
             styles = child.styles
             if styles.display == "none":
                 continue
@@ -3318,6 +3363,8 @@ class Widget(DOMNode):
         scrolled = False
 
         if not region.size:
+            if on_complete is not None:
+                self.call_after_refresh(on_complete)
             return False
 
         while isinstance(widget.parent, Widget) and widget is not self:
@@ -3410,6 +3457,8 @@ class Widget(DOMNode):
             window = window.shrink(spacing)
 
         if window in region and not (top or center):
+            if on_complete is not None:
+                self.call_after_refresh(on_complete)
             return Offset()
 
         def clamp_delta(delta: Offset) -> Offset:
@@ -3463,6 +3512,9 @@ class Widget(DOMNode):
                 level=level,
                 immediate=immediate,
             )
+        else:
+            if on_complete is not None:
+                self.call_after_refresh(on_complete)
         return delta
 
     def scroll_visible(
@@ -3652,6 +3704,8 @@ class Widget(DOMNode):
             yield "id", self.id, None
             if self.name:
                 yield "name", self.name
+            if self.classes:
+                yield "classes", " ".join(self.classes)
         except AttributeError:
             pass
 

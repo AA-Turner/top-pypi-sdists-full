@@ -52,37 +52,37 @@ def __getattr__(name: str) -> Any:
 
 
 __all__ = [
-    # Core
-    "SettingsState",
-    "default_loaders",
-    "load",
-    "load_settings",
-    "convert",
-    # Types
-    "Secret",
-    "SecretStr",
-    # Class utils
-    "resolve_types",
-    # File utils
-    "find",
     # Loaders
     "EnvLoader",
     "FileLoader",
+    # Types
+    "Secret",
+    "SecretStr",
+    # Core
+    "SettingsState",
     "TomlFormat",
-    # Cattrs converters/helpers
-    "default_converter",
-    "register_strlist_hook",
     # Argparse utils
     "cli",
-    # Optional: attrs
-    "combine",
-    "evolve",
-    "option",
-    "secret",
-    "settings",
     # Optional: click
     "click_options",
+    # Optional: attrs
+    "combine",
+    "convert",
+    # Cattrs converters/helpers
+    "default_converter",
+    "default_loaders",
+    "evolve",
+    # File utils
+    "find",
+    "load",
+    "load_settings",
+    "option",
     "pass_settings",
+    "register_strlist_hook",
+    # Class utils
+    "resolve_types",
+    "secret",
+    "settings",
 ]
 
 

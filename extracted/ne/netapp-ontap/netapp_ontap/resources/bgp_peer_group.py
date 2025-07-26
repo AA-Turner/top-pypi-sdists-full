@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -33,8 +33,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <div id="example0_result" class="try_it_out_content">
 ```
 [
-    BgpPeerGroup({"name": "pg1", "uuid": "5f22ae9d-87b2-11e9-a3a6-005056bb81a4"}),
-    BgpPeerGroup({"name": "pg2", "uuid": "5fd08be3-87b2-11e9-952f-005056bb2170"}),
+    BgpPeerGroup({"uuid": "5f22ae9d-87b2-11e9-a3a6-005056bb81a4", "name": "pg1"}),
+    BgpPeerGroup({"uuid": "5fd08be3-87b2-11e9-952f-005056bb2170", "name": "pg2"}),
 ]
 
 ```
@@ -63,31 +63,31 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 BgpPeerGroup(
     {
+        "state": "up",
+        "uuid": "5fd08be3-87b2-11e9-952f-005056bb2170",
         "ipspace": {
-            "name": "Default",
+            "uuid": "84fd3375-879a-11e9-a3a6-005056bb81a4",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/84fd3375-879a-11e9-a3a6-005056bb81a4"
                 }
             },
-            "uuid": "84fd3375-879a-11e9-a3a6-005056bb81a4",
+            "name": "Default",
         },
-        "name": "pg2",
-        "state": "up",
-        "peer": {"asn": 65501, "address": "10.10.10.1"},
-        "uuid": "5fd08be3-87b2-11e9-952f-005056bb2170",
         "local": {
+            "port": {
+                "uuid": "f8ff73de-879a-11e9-952f-005056bb2170",
+                "node": {"name": "node1"},
+                "name": "e0h",
+            },
             "interface": {
-                "name": "bgp2",
                 "uuid": "5e76a305-87b2-11e9-952f-005056bb2170",
                 "ip": {"address": "10.10.10.2"},
-            },
-            "port": {
-                "name": "e0h",
-                "node": {"name": "node1"},
-                "uuid": "f8ff73de-879a-11e9-952f-005056bb2170",
+                "name": "bgp2",
             },
         },
+        "name": "pg2",
+        "peer": {"address": "10.10.10.1", "asn": 65501},
     }
 )
 
@@ -122,13 +122,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     BgpPeerGroup(
         {
-            "name": "pg1",
-            "peer": {"asn": 65501, "address": "10.10.10.2"},
             "uuid": "5f22ae9d-87b2-11e9-a3a6-005056bb81a4",
             "local": {
-                "interface": {"ip": {"address": "10.10.10.1"}},
                 "port": {"node": {"name": "node1"}},
+                "interface": {"ip": {"address": "10.10.10.1"}},
             },
+            "name": "pg1",
+            "peer": {"address": "10.10.10.2", "asn": 65501},
         }
     )
 ]
@@ -168,11 +168,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 BgpPeerGroup(
     {
+        "uuid": "e3faacc6-87cb-11e9-a3a6-005056bb81a4",
         "ipspace": {"name": "Default"},
+        "local": {"interface": {"name": "bgp1"}},
         "name": "newPg",
         "peer": {"address": "10.10.10.10"},
-        "uuid": "e3faacc6-87cb-11e9-a3a6-005056bb81a4",
-        "local": {"interface": {"name": "bgp1"}},
     }
 )
 
@@ -210,14 +210,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 BgpPeerGroup(
     {
+        "uuid": "c292f069-8872-11e9-a3a6-005056bb81a4",
         "ipspace": {"name": "Default"},
+        "local": {
+            "port": {"node": {"name": "node1"}, "name": "e0f"},
+            "interface": {"name": "newlif"},
+        },
         "name": "newPg1",
         "peer": {"address": "10.10.10.10"},
-        "uuid": "c292f069-8872-11e9-a3a6-005056bb81a4",
-        "local": {
-            "interface": {"name": "newlif"},
-            "port": {"name": "e0f", "node": {"name": "node1"}},
-        },
     }
 )
 

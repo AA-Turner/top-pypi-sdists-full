@@ -16,7 +16,7 @@
 
 # pylint: disable=invalid-name
 
-__version__ = '0.16.0'
+__version__ = '0.17.0'
 __license__ = 'Apache-2.0'
 __author__ = 'OpTree Contributors'
 __release__ = True
@@ -38,6 +38,7 @@ if not __release__:
                 cwd=root_dir,
                 stderr=subprocess.DEVNULL,
                 text=True,
+                encoding='utf-8',
             )
             .strip()
             .lstrip('v')

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -40,85 +40,85 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StoragePool(
     {
-        "name": "new_sp",
-        "storage_type": "ssd",
-        "uuid": "8255fef7-4737-11ec-bd1b-005056bbb879",
         "capacity": {
-            "remaining": 1846542336,
             "spare_allocation_units": [
                 {
-                    "node": {
-                        "name": "node-1",
-                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
-                    },
-                    "syncmirror_pool": "pool0",
-                    "count": 1,
                     "available_size": 1846542336,
+                    "count": 1,
                     "size": 1846542336,
+                    "syncmirror_pool": "pool0",
+                    "node": {
+                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
+                        "name": "node-1",
+                    },
                 },
                 {
-                    "node": {
-                        "name": "node-2",
-                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
-                    },
-                    "syncmirror_pool": "pool0",
-                    "count": 0,
                     "available_size": 0,
+                    "count": 0,
                     "size": 1846542336,
+                    "syncmirror_pool": "pool0",
+                    "node": {
+                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
+                        "name": "node-2",
+                    },
                 },
             ],
             "disk_count": 4,
             "total": 7386169344,
-            "used_allocation_units": [
-                {
-                    "aggregate": {
-                        "name": "test_a",
-                        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
-                    },
-                    "node": {
-                        "name": "node-1",
-                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
-                    },
-                },
-                {
-                    "aggregate": {
-                        "name": "test_b",
-                        "uuid": "f4cc30d5-b052-493a-a49f-19781425f987",
-                    },
-                    "node": {
-                        "name": "node-2",
-                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
-                    },
-                },
-            ],
             "disks": [
                 {
-                    "usable_size": 1902379008,
+                    "total_size": 1908871168,
                     "disk": {"name": "VMw-1.11"},
-                    "total_size": 1908871168,
+                    "usable_size": 1902379008,
                 },
                 {
-                    "usable_size": 1902379008,
+                    "total_size": 1908871168,
                     "disk": {"name": "VMw-1.12"},
-                    "total_size": 1908871168,
+                    "usable_size": 1902379008,
                 },
                 {
-                    "usable_size": 1902379008,
+                    "total_size": 1908871168,
                     "disk": {"name": "VMw-1.23"},
-                    "total_size": 1908871168,
+                    "usable_size": 1902379008,
                 },
                 {
-                    "usable_size": 1902379008,
-                    "disk": {"name": "VMw-1.24"},
                     "total_size": 1908871168,
+                    "disk": {"name": "VMw-1.24"},
+                    "usable_size": 1902379008,
                 },
             ],
+            "used_allocation_units": [
+                {
+                    "node": {
+                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
+                        "name": "node-1",
+                    },
+                    "aggregate": {
+                        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
+                        "name": "test_a",
+                    },
+                },
+                {
+                    "node": {
+                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
+                        "name": "node-2",
+                    },
+                    "aggregate": {
+                        "uuid": "f4cc30d5-b052-493a-a49f-19781425f987",
+                        "name": "test_b",
+                    },
+                },
+            ],
+            "remaining": 1846542336,
         },
-        "nodes": [
-            {"name": "node-1", "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1"},
-            {"name": "node-2", "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47"},
-        ],
         "health": {"is_healthy": True, "state": "normal"},
+        "nodes": [
+            {"uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1", "name": "node-1"},
+            {"uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47", "name": "node-2"},
+        ],
+        "storage_type": "ssd",
+        "uuid": "8255fef7-4737-11ec-bd1b-005056bbb879",
+        "name": "new_sp",
     }
 )
 
@@ -166,9 +166,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StoragePool(
     {
-        "name": "sp1",
-        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
         "capacity": {"disk_count": 4},
+        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
+        "name": "sp1",
     }
 )
 
@@ -206,9 +206,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StoragePool(
     {
-        "name": "sp1",
-        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
         "capacity": {"disk_count": 6},
+        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
+        "name": "sp1",
     }
 )
 
@@ -235,32 +235,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StoragePool(
     {
-        "name": "sp1",
-        "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
         "capacity": {
             "spare_allocation_units": [
                 {
-                    "node": {
-                        "name": "node-1",
-                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
-                    },
-                    "syncmirror_pool": "pool0",
-                    "count": 1,
                     "available_size": 1846542336,
+                    "count": 1,
                     "size": 1846542336,
+                    "syncmirror_pool": "pool0",
+                    "node": {
+                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
+                        "name": "node-1",
+                    },
                 },
                 {
-                    "node": {
-                        "name": "node-2",
-                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
-                    },
-                    "syncmirror_pool": "pool0",
-                    "count": 0,
                     "available_size": 0,
+                    "count": 0,
                     "size": 1846542336,
+                    "syncmirror_pool": "pool0",
+                    "node": {
+                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
+                        "name": "node-2",
+                    },
                 },
             ]
         },
+        "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
+        "name": "sp1",
     }
 )
 
@@ -303,32 +303,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StoragePool(
     {
-        "name": "sp1",
-        "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
         "capacity": {
             "spare_allocation_units": [
                 {
-                    "node": {
-                        "name": "node-1",
-                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
-                    },
-                    "syncmirror_pool": "pool0",
-                    "count": 0,
                     "available_size": 0,
+                    "count": 0,
                     "size": 1846542336,
+                    "syncmirror_pool": "pool0",
+                    "node": {
+                        "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1",
+                        "name": "node-1",
+                    },
                 },
                 {
-                    "node": {
-                        "name": "node-2",
-                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
-                    },
-                    "syncmirror_pool": "pool0",
-                    "count": 1,
                     "available_size": 1846542336,
+                    "count": 1,
                     "size": 1846542336,
+                    "syncmirror_pool": "pool0",
+                    "node": {
+                        "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47",
+                        "name": "node-2",
+                    },
                 },
             ]
         },
+        "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
+        "name": "sp1",
     }
 )
 

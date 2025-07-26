@@ -22941,16 +22941,6 @@ class MetricUnit(sgqlc.types.Type):
     """Plural unit. For example, rows"""
 
 
-class MetricValueByTable(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("value", "full_table_id", "resource_id")
-    value = sgqlc.types.Field(DateTime, graphql_name="value")
-
-    full_table_id = sgqlc.types.Field(String, graphql_name="fullTableId")
-
-    resource_id = sgqlc.types.Field(String, graphql_name="resourceId")
-
-
 class Metrics(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("metrics", "is_partial_date_range", "metrics_json")
@@ -41148,16 +41138,6 @@ class PipelineData(sgqlc.types.Type):
     """Number of tables left orphaned in the pipeline"""
 
 
-class PipelineFreshness(sgqlc.types.Type):
-    __schema__ = schema
-    __field_names__ = ("metric_values_by_table", "is_partial_date_range")
-    metric_values_by_table = sgqlc.types.Field(
-        sgqlc.types.list_of(MetricValueByTable), graphql_name="metricValuesByTable"
-    )
-
-    is_partial_date_range = sgqlc.types.Field(Boolean, graphql_name="isPartialDateRange")
-
-
 class PipelinesData(sgqlc.types.Type):
     __schema__ = schema
     __field_names__ = ("total_count", "offset", "pipeline_data")
@@ -41951,7 +41931,6 @@ class Query(sgqlc.types.Type):
         "search_tables_for_dynamic_schedule",
         "get_object",
         "get_metadata",
-        "get_metrics_v3",
         "get_metrics_v4",
         "get_field_metric_definitions",
         "get_comparison_monitor_field_metric_definitions",
@@ -41984,7 +41963,6 @@ class Query(sgqlc.types.Type):
         "get_related_users",
         "get_lineage_node_properties",
         "get_digraph",
-        "get_pipeline_freshness_v2",
         "get_custom_sql_output_sample",
         "get_custom_sql_output_download",
         "get_fh_sampling",
@@ -52698,52 +52676,6 @@ class Query(sgqlc.types.Type):
     * `mcons` (`[String]`)None
     """
 
-    get_metrics_v3 = sgqlc.types.Field(
-        Metrics,
-        graphql_name="getMetricsV3",
-        args=sgqlc.types.ArgDict(
-            (
-                ("dw_id", sgqlc.types.Arg(UUID, graphql_name="dwId", default=None)),
-                (
-                    "full_table_id",
-                    sgqlc.types.Arg(String, graphql_name="fullTableId", default=None),
-                ),
-                ("mcon", sgqlc.types.Arg(String, graphql_name="mcon", default=None)),
-                ("metric", sgqlc.types.Arg(String, graphql_name="metric", default=None)),
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("field", sgqlc.types.Arg(String, graphql_name="field", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-                ("first", sgqlc.types.Arg(Int, graphql_name="first", default=None)),
-                (
-                    "dimension_filters",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(MetricDimensionFilter),
-                        graphql_name="dimensionFilters",
-                        default=None,
-                    ),
-                ),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. Retrieves field-level metric values in
-    a given time range AND in a given measurement time range
-
-    Arguments:
-
-    * `dw_id` (`UUID`): Warehouse the table is contained in. Required
-      when using a fullTableId
-    * `full_table_id` (`String`): Deprecated - use mcon. Ignored if
-      mcon is present
-    * `mcon` (`String`): Mcon for table to get details for
-    * `metric` (`String`): Type of metric (e.g. row_count)
-    * `start_time` (`DateTime`): Filter for data newer than this
-    * `field` (`String`): Filter by a specific field
-    * `end_time` (`DateTime`): Filter for data older than this
-    * `first` (`Int`): Number of metrics to retrieve
-    * `dimension_filters` (`[MetricDimensionFilter]`): Filter by a
-      list of key/value dimension pairs
-    """
-
     get_metrics_v4 = sgqlc.types.Field(
         Metrics,
         graphql_name="getMetricsV4",
@@ -53910,43 +53842,6 @@ class Query(sgqlc.types.Type):
     """Arguments:
 
     * `metadata_version` (`String`)None
-    """
-
-    get_pipeline_freshness_v2 = sgqlc.types.Field(
-        PipelineFreshness,
-        graphql_name="getPipelineFreshnessV2",
-        args=sgqlc.types.ArgDict(
-            (
-                ("dw_id", sgqlc.types.Arg(UUID, graphql_name="dwId", default=None)),
-                (
-                    "full_table_ids",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(String), graphql_name="fullTableIds", default=None
-                    ),
-                ),
-                (
-                    "mcons",
-                    sgqlc.types.Arg(
-                        sgqlc.types.list_of(String), graphql_name="mcons", default=None
-                    ),
-                ),
-                ("start_time", sgqlc.types.Arg(DateTime, graphql_name="startTime", default=None)),
-                ("end_time", sgqlc.types.Arg(DateTime, graphql_name="endTime", default=None)),
-            )
-        ),
-    )
-    """(experimental) DEPRECATED. Get latest freshness for multiple
-    tables
-
-    Arguments:
-
-    * `dw_id` (`UUID`): Warehouse the tables are contained in.
-      Required when using fullTableIds
-    * `full_table_ids` (`[String]`): Deprecated - use mcons. Ignored
-      if mcons are present
-    * `mcons` (`[String]`): List of mcons to get details for
-    * `start_time` (`DateTime`): Filter for data newer than this
-    * `end_time` (`DateTime`): Filter for data older than this
     """
 
     get_custom_sql_output_sample = sgqlc.types.Field(

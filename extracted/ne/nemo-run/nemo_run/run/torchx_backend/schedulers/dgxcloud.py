@@ -87,7 +87,7 @@ class DGXCloudScheduler(SchedulerMixin, Scheduler[dict[str, str]]):  # type: ign
         cfg: Executor,
     ) -> AppDryRunInfo[DGXRequest]:
         assert isinstance(cfg, DGXCloudExecutor), (
-            f"{cfg.__class__} not supported for skypilot scheduler."
+            f"{cfg.__class__} not supported for DGXCloud scheduler."
         )
         executor = cfg
 
@@ -204,6 +204,7 @@ def _save_job_dir(app_id: str, job_status: str, executor: DGXCloudExecutor) -> N
     original_apps = {}
     os.makedirs(os.path.dirname(DGX_JOB_DIRS), exist_ok=True)
     if not os.path.isfile(DGX_JOB_DIRS):
+        os.makedirs(os.path.dirname(DGX_JOB_DIRS), exist_ok=True)
         Path(DGX_JOB_DIRS).touch()
 
     serializer = ZlibJSONSerializer()

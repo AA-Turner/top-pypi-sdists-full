@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,20 +27,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 EmsRoleConfig(
     {
-        "event_filter": {
-            "name": "storage-admin-events",
-            "_links": {
-                "self": {"href": "/api/support/ems/filters/storage-admin-events"}
-            },
-        },
-        "_links": {"self": {"href": "/api/support/ems/role-configs/storage-admin"}},
         "access_control_role": {
-            "name": "storage-admin",
             "_links": {
                 "self": {
                     "href": "/api/security/roles/0b2580c8-de36-4213-bfca-88cdaaaf3ae6/storage-admin"
                 }
             },
+            "name": "storage-admin",
+        },
+        "_links": {"self": {"href": "/api/support/ems/role-configs/storage-admin"}},
+        "event_filter": {
+            "_links": {
+                "self": {"href": "/api/support/ems/filters/storage-admin-events"}
+            },
+            "name": "storage-admin-events",
         },
     }
 )

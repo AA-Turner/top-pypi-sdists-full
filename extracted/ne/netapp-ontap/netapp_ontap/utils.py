@@ -1,6 +1,6 @@
 # pylint: disable=line-too-long
 """
-Copyright &copy; 2024 NetApp Inc. All rights reserved.
+Copyright &copy; 2025 NetApp Inc. All rights reserved.
 
 This module contains some of the common utility functions used in the library.
 """
@@ -284,7 +284,7 @@ def _get_job_status(
     """
 
     url = f"{connection.origin}{job_link}"
-    response = connection.session.get(url, params={"fields": "message,state"})
+    response = connection.session.get(url, params={"fields": "message,state,error"})
     try:
         response.raise_for_status()
         return response, response.json()

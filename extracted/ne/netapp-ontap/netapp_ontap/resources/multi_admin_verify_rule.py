@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -37,19 +37,19 @@ with HostConnection(
 ```
 MultiAdminVerifyRule(
     {
-        "create_time": "2022-01-07T22:14:03-05:00",
         "operation": "volume delete",
         "system_defined": False,
-        "query": "-vserver vs0",
         "owner": {
-            "name": "cluster1",
+            "uuid": "52b75787-7011-11ec-a23d-005056a78fd5",
             "_links": {
                 "self": {"href": "/api/svm/svms/52b75787-7011-11ec-a23d-005056a78fd5"}
             },
-            "uuid": "52b75787-7011-11ec-a23d-005056a78fd5",
+            "name": "cluster1",
         },
-        "required_approvers": 1,
+        "create_time": "2022-01-07T22:14:03-05:00",
+        "query": "-vserver vs0",
         "auto_request_create": True,
+        "required_approvers": 1,
     }
 )
 

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -174,6 +174,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         "name": "adaccount",
         "fqdn": "test.com",
         "force_account_overwrite": True,
+        "security": {"advertised_kdc_encryptions": ["des"]},
     }
     resource.patch()
 
@@ -326,15 +327,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Node(
         {
-            "name": "cluster1",
+            "state": "up",
             "uptime": 134555,
+            "uuid": "6dce4710-c860-11e9-b5bc-005056bb6135",
+            "name": "cluster1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/6dce4710-c860-11e9-b5bc-005056bb6135"
                 }
             },
-            "uuid": "6dce4710-c860-11e9-b5bc-005056bb6135",
-            "state": "up",
         }
     )
 ]
@@ -374,7 +375,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         }
     }
     resource.password = "mypassword"
-    resource.license = {"keys": ["AMEPOSOIKLKGEEEEDGNDEKSJDE"]}
+    resource.license = {"keys": ["AMEPOSOIKLKGEEEEDGNDEKSJDEEE"]}
     resource.nodes = [
         {
             "cluster_interface": {"ip": {"address": "169.254.245.113"}},
@@ -398,40 +399,40 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Cluster(
     {
-        "license": {"keys": ["AMEPOSOIKLKGEEEEDGNDEKSJDE"]},
-        "name_servers": ["10.224.223.130", "10.224.223.131", "10.224.223.132"],
-        "name": "cluster1",
-        "management_interface": {
-            "ip": {
-                "gateway": "10.224.64.1",
-                "netmask": "255.255.192.0",
-                "address": "10.224.82.25",
-            }
-        },
-        "ntp_servers": ["time.nist.gov"],
-        "password": "mypassword",
-        "location": "datacenter1",
-        "active_directory": {
-            "fqdn": "test.com",
-            "name": "adaccount",
-            "password": "password",
-            "username": "administrator",
-            "force_account_overwrite": True,
-        },
+        "license": {"keys": ["AMEPOSOIKLKGEEEEDGNDEKSJDEEE"]},
         "dns_domains": ["example.com"],
-        "contact": "me",
         "nodes": [
             {
                 "cluster_interface": {"ip": {"address": "169.254.245.113"}},
-                "name": "node1",
                 "management_interface": {"ip": {"address": "10.224.82.29"}},
+                "name": "node1",
             },
             {
                 "cluster_interface": {"ip": {"address": "169.254.217.95"}},
-                "name": "node2",
                 "management_interface": {"ip": {"address": "10.224.82.31"}},
+                "name": "node2",
             },
         ],
+        "management_interface": {
+            "ip": {
+                "gateway": "10.224.64.1",
+                "address": "10.224.82.25",
+                "netmask": "255.255.192.0",
+            }
+        },
+        "active_directory": {
+            "password": "password",
+            "force_account_overwrite": True,
+            "fqdn": "test.com",
+            "username": "administrator",
+            "name": "adaccount",
+        },
+        "contact": "me",
+        "ntp_servers": ["time.nist.gov"],
+        "name": "cluster1",
+        "password": "mypassword",
+        "location": "datacenter1",
+        "name_servers": ["10.224.223.130", "10.224.223.131", "10.224.223.132"],
     }
 )
 
@@ -460,10 +461,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Job(
     {
-        "description": "POST /api/cluster",
-        "code": 0,
         "message": "success",
         "state": "success",
+        "code": 0,
+        "description": "POST /api/cluster",
         "uuid": "b5bc07e2-19e9-11e9-a751-005056bbd95f",
         "_links": {
             "self": {"href": "/api/cluster/jobs/b5bc07e2-19e9-11e9-a751-005056bbd95f"}
@@ -496,79 +497,79 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Cluster(
     {
-        "name_servers": ["192.0.2.1", "192.0.2.2"],
-        "name": "C1_sti44-vsim-ucs515w_1621957038",
-        "_links": {"self": {"href": "/api/cluster"}},
-        "ntp_servers": ["192.0.2.3"],
+        "dns_domains": ["example.com"],
         "metric": {
-            "status": "ok",
-            "iops": {"total": 0, "write": 0, "other": 0, "read": 0},
-            "latency": {"total": 0, "write": 0, "other": 0, "read": 0},
             "timestamp": "2021-05-26T20:36:15+00:00",
-            "throughput": {"total": 0, "write": 0, "other": 0, "read": 0},
+            "throughput": {"read": 0, "total": 0, "other": 0, "write": 0},
+            "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
+            "status": "ok",
+            "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
             "duration": "PT15S",
         },
         "uuid": "5f7f57c7-bd67-11eb-95f4-005056a7b9b1",
-        "location": "sti",
+        "active_directory": {
+            "fqdn": "TEST.COM",
+            "organizational_unit": "CN=Computers",
+            "name": "ADACCOUNT",
+        },
+        "contact": "example_name",
+        "version": {
+            "generation": 9,
+            "major": 10,
+            "full": "NetApp Release 9.10.1: Mon May 24 08:07:35 UTC 2021",
+            "minor": 1,
+        },
+        "ntp_servers": ["192.0.2.3"],
+        "name": "C1_sti44-vsim-ucs515w_1621957038",
+        "san_optimized": False,
+        "statistics": {
+            "timestamp": "2021-05-26T20:36:25+00:00",
+            "latency_raw": {"read": 0, "total": 0, "other": 0, "write": 0},
+            "iops_raw": {"read": 0, "total": 0, "other": 0, "write": 0},
+            "status": "ok",
+            "throughput_raw": {"read": 0, "total": 0, "other": 0, "write": 0},
+        },
         "management_interfaces": [
             {
+                "uuid": "beef2db7-bd67-11eb-95f4-005056a7b9b1",
+                "ip": {"address": "192.0.2.4"},
                 "name": "clus_mgmt",
                 "_links": {
                     "self": {
                         "href": "/api/network/ip/interfaces/beef2db7-bd67-11eb-95f4-005056a7b9b1"
                     }
                 },
-                "uuid": "beef2db7-bd67-11eb-95f4-005056a7b9b1",
-                "ip": {"address": "192.0.2.4"},
             },
             {
+                "uuid": "cb63e02c-bd72-11eb-95f4-005056a7b9b1",
+                "ip": {"address": "2001:db8:ef56:gh78::ij90"},
                 "name": "sti44-vsim-ucs515w_cluster_mgmt_inet6",
                 "_links": {
                     "self": {
                         "href": "/api/network/ip/interfaces/cb63e02c-bd72-11eb-95f4-005056a7b9b1"
                     }
                 },
-                "uuid": "cb63e02c-bd72-11eb-95f4-005056a7b9b1",
-                "ip": {"address": "2001:db8:ef56:gh78::ij90"},
             },
             {
+                "uuid": "ea13dec1-bd72-11eb-bd00-005056a7f50e",
+                "ip": {"address": "2001:db8:ef56:gh78::ij91"},
                 "name": "sti44-vsim-ucs515x_cluster_mgmt_inet6",
                 "_links": {
                     "self": {
                         "href": "/api/network/ip/interfaces/ea13dec1-bd72-11eb-bd00-005056a7f50e"
                     }
                 },
-                "uuid": "ea13dec1-bd72-11eb-bd00-005056a7f50e",
-                "ip": {"address": "2001:db8:ef56:gh78::ij91"},
             },
         ],
         "peering_policy": {
-            "authentication_required": True,
             "encryption_required": False,
+            "authentication_required": True,
             "minimum_passphrase_length": 8,
         },
-        "san_optimized": False,
-        "statistics": {
-            "status": "ok",
-            "iops_raw": {"total": 0, "write": 0, "other": 0, "read": 0},
-            "latency_raw": {"total": 0, "write": 0, "other": 0, "read": 0},
-            "throughput_raw": {"total": 0, "write": 0, "other": 0, "read": 0},
-            "timestamp": "2021-05-26T20:36:25+00:00",
-        },
-        "active_directory": {
-            "fqdn": "TEST.COM",
-            "name": "ADACCOUNT",
-            "organizational_unit": "CN=Computers",
-        },
-        "dns_domains": ["example.com"],
-        "version": {
-            "generation": 9,
-            "full": "NetApp Release 9.10.1: Mon May 24 08:07:35 UTC 2021",
-            "minor": 1,
-            "major": 10,
-        },
-        "contact": "example_name",
         "timezone": {"name": "America/New_York"},
+        "location": "sti",
+        "_links": {"self": {"href": "/api/cluster"}},
+        "name_servers": ["192.0.2.1", "192.0.2.2"],
     }
 )
 
@@ -887,6 +888,7 @@ class Cluster(Resource):
 * `vserver active-directory create`
 * `vserver active-directory modify`
 * `vserver active-directory delete`
+* `vserver cifs security modify`
 
 ### Learn more
 * [`DOC /cluster`](#docs-cluster-cluster)"""
@@ -898,4 +900,21 @@ class Cluster(Resource):
     patch.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._patch.__doc__)
 
 
+    def mediator_ping(
+        self,
+        body: Union[Resource, dict] = None,
+        poll: bool = True,
+        poll_interval: Optional[int] = None,
+        poll_timeout: Optional[int] = None,
+        **kwargs
+    ) -> NetAppResponse:
+        r"""Pings BlueXP cloud service.
+### Learn more
+* [`DOC /cluster/mediator-ping`](#docs-cluster-cluster_mediator-ping)"""
+        return super()._action(
+            "mediator-ping", body=body, poll=poll, poll_interval=poll_interval,
+            poll_timeout=poll_timeout, **kwargs
+        )
+
+    mediator_ping.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._action.__doc__)
 

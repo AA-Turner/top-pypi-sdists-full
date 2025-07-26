@@ -23,6 +23,7 @@ STEP = 2
 MINIMAX_VIDEO = 3
 
 FAL = 3
+FAL_ = 5
 FAL_MODELS = {
     'fal-kling-video-lipsync-audio-to-video': 0.5,
 
@@ -57,14 +58,36 @@ FAL_MODELS = {
     "fal-ai/minimax/voice-clone": 5,
 
     # vidu
-    "fal-ai/vidu/q1/text-to-video": 0.4 * FAL,
-    "fal-ai/vidu/q1/image-to-video": 0.4 * FAL,
-    "fal-ai/vidu/q1/start-end-to-video": 0.4 * FAL,
-    "fal-ai/vidu/q1/reference-to-video": 0.4 * FAL,
+    "fal-ai/vidu/q1/text-to-video": 0.4 * FAL_,
+    "fal-ai/vidu/q1/image-to-video": 0.4 * FAL_,
+    "fal-ai/vidu/q1/start-end-to-video": 0.4 * FAL_,
+    "fal-ai/vidu/q1/reference-to-video": 0.4 * FAL_,
 
-    "fal-ai/vidu/image-to-video": 0.2 * FAL,
-    "fal-ai/vidu/start-end-to-video": 0.2 * FAL,
-    "fal-ai/vidu/reference-to-video": 0.4 * FAL,
+    "fal-ai/vidu/image-to-video": 0.2 * FAL_,
+    "fal-ai/vidu/start-end-to-video": 0.2 * FAL_,
+    "fal-ai/vidu/reference-to-video": 0.4 * FAL_,
+
+    # ideogram
+    "fal-ai/ideogram/v3/edit": 0.06 * FAL_,
+    "fal-ai/ideogram/v3/remix": 0.06 * FAL_,
+    "fal-ai/ideogram/v3/reframe": 0.06 * FAL_,
+    "fal-ai/ideogram/v3/replace-background": 0.06 * FAL_,
+
+    # recraft
+    "fal-ai/recraft/upscale/crisp": 0.004 * FAL_,
+    "fal-ai/recraft/upscale/creative": 0.25 * FAL_,
+    "fal-ai/recraft/v3/image-to-image": 0.006 * FAL_,  # 0.04 0.08 vec
+    "fal-ai/recraft/v3/text-to-image": 0.006 * FAL_,
+
+    # veo
+    "fal-ai/veo3/fast": 3.2 * FAL_,  # 2 3.2
+
+    # seedance
+    "fal-ai/bytedance/seedance/v1/lite/text-to-video": 1,
+    "fal-ai/bytedance/seedance/v1/lite/image-to-video": 1,
+    "fal-ai/bytedance/seedance/v1/pro/text-to-video": 3,
+    "fal-ai/bytedance/seedance/v1/pro/image-to-video": 3,
+
 }
 
 FAL_MODELS = {
@@ -73,6 +96,9 @@ FAL_MODELS = {
 
 MODEL_PRICE = {
     **FAL_MODELS,
+
+    "wan-ai-wan2.1-t2v-14b": 1,
+    "wan-ai-wan2.1-t2v-14b-turbo": 1,
 
     "async-task": 0.0001,
     "chatfire-claude": 0.02,
@@ -89,6 +115,7 @@ MODEL_PRICE = {
     "indextts-1.5": 0.02,
     "cosyvoice2": 0.02,
     "step-audio-tts-3b": 0.02,
+    "f5-tts": 0.02,
 
     # 谷歌
     "gemini-2.0-flash-search": 0.01,
@@ -490,6 +517,7 @@ MODEL_RATIO = {
     'fal-elevenlabs-tts-multilingual-v2': 3 * 0.1 * 1000 / 2,
 
     # fal 按量计费
+    "fal-ffmpeg-api-compose": 3 * 0.1 * 1000 / 2,
     "fal-topaz-upscale-video": 3 * 0.1 * 1000 / 2,
     "fal-luma-dream-machine-ray-2-reframe": 3 * 0.2 * 1000 / 2,
     "fal-luma-dream-machine-ray-2-flash-reframe": 3 * 0.06 * 1000 / 2,
@@ -611,9 +639,12 @@ MODEL_RATIO = {
     "qwen-vl-max-latest": 1.5,
     "qwen-vl-plus-latest": 0.75,
 
+    "qwen2.5-vl-3b-instruct": 0.1,
     "qwen2.5-vl-7b-instruct": 0.15,
     "qwen2.5-vl-32b-instruct": 0.5,
     "qwen2.5-vl-72b-instruct": 1.5,
+
+
 
     "qwen2.5-coder-7b-instruct": 0.05,
     "qwen2.5-7b-instruct": 0.05,
@@ -630,8 +661,12 @@ MODEL_RATIO = {
     "qwen3-14b": 0.5,
     "qwen3-32b": 1,
     "qwen3-30b-a3b": 0.75,
-    "qwen3-235b-a22b": 2,
+    "qwen3-235b-a22b": 1,
     "qwen-math-plus": 2,
+    "qwen3-coder-480b-a35b-instruct": 3,
+    "qwen3-235b-a22b-instruct-2507": 1,
+    "qwen3-coder-plus": 2,
+    "qwen3-coder-plus-2025-07-22": 2,
 
     "qwq-32b": 0.5,
     "qwq-plus": 0.8,
@@ -767,9 +802,11 @@ MODEL_RATIO = {
     "meta-deepresearch": 2,
 
     # 豆包
+    "seed-x-ppo-7b": 0.3,
     "doubao-seed-1-6-flash-250615": 0.075,
     "doubao-seed-1-6-250615": 0.4,
     "doubao-seed-1-6-thinking-250615": 0.4,
+    "doubao-seed-1-6-thinking-250715": 0.4,
 
     "doubao-1-5-ui-tars-250428": 1.75,
     "ui-tars-72b": 1.75,
@@ -941,9 +978,10 @@ MODEL_RATIO = {
     "gemini-2.0-flash-thinking-exp-1219": 0.075,
     "gemini-2.0-flash-thinking-exp-01-21": 0.075,
     "gemini-2.5-flash": 0.15,
+    "gemini-2.5-flash-preview-05-20": 0.075,
+    "gemini-2.5-flash-preview-05-20-nothinking": 0.075,
 
     "gemini-2.5-flash-preview-04-17": 0.075,
-    "gemini-2.5-flash-preview-05-20": 0.075,
 
     "gemini-2.0-pro": 0.625,
     "gemini-2.0-pro-exp": 0.625,
@@ -1279,10 +1317,11 @@ COMPLETION_RATIO = {
     "google/gemma-3-27b-it": 4,
     # thinking
     "gemini-2.5-flash-thinking": 23,
+
     "gemini-2.5-flash-preview-04-17-thinking": 23,
     "gemini-2.5-flash-preview-05-20-thinking": 23,
-    "gemini-2.5-flash-preview-05-20":8.333,
-
+    "gemini-2.5-flash-preview-05-20": 8.33333,
+    "gemini-2.5-flash-preview-05-20-nothinking": 8.33333,
     "gemini-2.5-pro-think": 4,
 
     "gemini-2.5-pro-thinking": 4,
@@ -1328,6 +1367,11 @@ COMPLETION_RATIO = {
     "qwen2.5-72b-instruct": 4,
     "qwen2.5-math-72b-instruct": 4,
 
+    "qwen2.5-7b-instruct-1m": 3,
+    "qwen2.5-14b-instruct-1m": 3,
+
+    "qwen2.5-vl-3b-instruct": 3,
+
     "qwen3-0.6b": 4,
     "qwen3-1.7b": 4,
     "qwen3-4b": 4,
@@ -1336,17 +1380,22 @@ COMPLETION_RATIO = {
     "qwen3-14b": 4,
     "qwen3-32b": 4,
     "qwen3-30b-a3b": 4,
-    "qwen3-235b-a22b": 3,
+    "qwen3-235b-a22b": 4,
     "qwenlong-l1-32b": 4,
+    "qwen3-235b-a22b-instruct-2507": 4,
+    "qwen3-coder-480b-a35b-instruct": 4,
 
-    "deepseek-vl2": 4,
-    "deepseek-ai/deepseek-vl2": 4,
+    "qwen3-coder-plus": 4,
+    "qwen3-coder-plus-2025-07-22": 4,
 
     # 豆包
+    "seed-x-ppo-7b": 1,
+
     "doubao-seed-1-6-flash-250615": 10,
     # doubao-seed-1-6-flash-250615,doubao-seed-1-6-250615,doubao-seed-1-6-thinking-250615
     "doubao-seed-1-6-250615": 10,
     "doubao-seed-1-6-thinking-250615": 10,
+    "doubao-seed-1-6-thinking-250715": 10,
 
     "doubao-1-5-ui-tars-250428": 3.43,
     "ui-tars-72b": 4,
@@ -1674,7 +1723,5 @@ if __name__ == '__main__':
 
     print([k for k in MODEL_PRICE if k.startswith(('chat-',))] | xjoin(","))
 
-
-
-
-    print(','.join(FAL_MODELS)) #  fal 按次
+    print("FAL按次")
+    print(','.join(FAL_MODELS))  # fal 按次

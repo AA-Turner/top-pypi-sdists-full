@@ -1,11 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: netapp_ontap
-Version: 9.16.1.0
+Version: 9.17.1.0
 Summary: A library for working with ONTAP's REST APIs simply in Python
 Home-page: https://www.netapp.com/developer/
 Author: NetApp
 Author-email: ng-ontap-rest-python-lib@netapp.com
-Project-URL: Documentation, https://library.netapp.com/ecmdocs/ECMLP3331665/html/index.html
+Project-URL: Documentation, https://library.netapp.com/ecmdocs/ECMLP3351667/html/index.html
 Keywords: NetApp ONTAP REST API development
 Classifier: Programming Language :: Python :: 3.9
 Classifier: License :: OSI Approved :: BSD License
@@ -13,11 +13,23 @@ Classifier: Operating System :: OS Independent
 Requires-Python: >=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: marshmallow>=3.21.3
-Requires-Dist: requests>=2.32.3
-Requires-Dist: requests-toolbelt>=1.0.0
-Requires-Dist: urllib3>=1.26.7
+Requires-Dist: marshmallow<4.0.0,>=3.21.3
+Requires-Dist: requests<3.0.0,>=2.32.3
+Requires-Dist: requests-toolbelt<2.0.0,>=1.0.0
+Requires-Dist: urllib3<3.0.0,>=1.26.7
 Requires-Dist: certifi>=2022.12.7
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license-file
+Dynamic: project-url
+Dynamic: requires-dist
+Dynamic: requires-python
+Dynamic: summary
 
 # NetApp ONTAP
 
@@ -38,9 +50,9 @@ Before installing the Python client library, you must make sure the following pa
 installed on your system:
 
 * python 3.9 or later
-* requests 2.26.0 or later
-* requests-toolbelt 1.0.0 or later
-* marshmallow 3.21.3 or later
+* requests 2.26.0 or later, but earlier than 3.0.0
+* requests-toolbelt 1.0.0 or later, but earlier than 2.0.0
+* marshmallow 3.21.3 or later, but earlier than 4.0.0
 
 The library strongly suggests version 2.2.3 or later of urllib3 due to outstanding CVEs against
 older versions. It also recommends version 2024.8.30 or later of certifi due to a CVE that removed
@@ -446,6 +458,111 @@ The following behaviors would be seen with different libraries and ONTAP combina
 # Changelog
 
 There are several changes to the Python Client Library and the ONTAP REST API, which are organized by release below.
+
+## 9.17.1 library updates
+
+**Changes to library dependencies**
+
+The library now requires:
+
+* marshmallow version later than 3.21.3 but earlier than 4.0.0
+
+**New endpoints**
+
+* Endpoint: /cluster/mediator-ping  
+  Object: `netapp_ontap.resources.cluster.Cluster`  
+  HTTP methods: POST  
+  This API pings BlueXP cloud service.
+
+* Endpoint: /cluster/mediators/{uuid}  
+  Object: `netapp_ontap.resources.mediator.Mediator`  
+  HTTP methods: PATCH  
+  This API modifies mediator configurations based on their uuid.
+
+* Endpoint: /protocols/nvme/subsystems/{subsystem.uuid}/hosts/{nqn}  
+  Object: `netapp_ontap.resources.nvme_subsystem_host.NvmeSubsystemHost`  
+  HTTP methods: PATCH  
+  This API updates an NVMe subsystem host based on their uuid.
+
+* Endpoint: /application/containers  
+  Object: `netapp_ontap.resources.container.Container`  
+  HTTP methods: POST  
+  This API creates application containers.
+
+* Endpoint: /security/anti-ransomware/storage-unit/entropy-stats  
+  Object: `netapp_ontap.resources.storage_unit_anti_ransomware_entropy_stats.StorageUnitAntiRansomwareEntropyStats`  
+  HTTP methods: GET  
+  This API retrieves the data-entropy statistics for the storage units.
+
+* Endpoint: /security/anti-ransomware/storage-unit/entropy-stats/{storage_unit.uuid}/{entropy_stats_type}/{timestamp}  
+  Object: `netapp_ontap.resources.storage_unit_anti_ransomware_entropy_stats.StorageUnitAntiRansomwareEntropyStats`  
+  HTTP methods: GET  
+  This API retrieves a data-entropy statistic for the storage unit.
+
+* Endpoint: /security/anti-ransomware/storage-unit/suspects  
+  Object: `netapp_ontap.resources.storage_unit_anti_ransomware_suspect.StorageUnitAntiRansomwareSuspect`  
+  HTTP methods: GET  
+  This API retrieves information about the storage units on which a ransomware attack is detected.
+
+* Endpoint: /security/anti-ransomware/storage-unit/suspects/{storage_unit.uuid}  
+  Object: `netapp_ontap.resources.storage_unit_anti_ransomware_suspect.StorageUnitAntiRansomwareSuspect`  
+  HTTP methods: GET, DELETE  
+  This API retrieves and clears the ransomware attack detected on a storage unit specified by the UUID.
+
+* Endpoint: /security/anti-ransomware/volume/entropy-stats  
+  Object: `netapp_ontap.resources.anti_ransomware_volume_entropy_stats.AntiRansomwareVolumeEntropyStats`  
+  HTTP methods: GET  
+  This API retrieves the data-entropy statistics for the volumes.
+
+* Endpoint: /security/anti-ransomware/volume/entropy-stats/{volume.uuid}/{entropy_stats_type}/{timestamp}  
+  Object: `netapp_ontap.resources.anti_ransomware_volume_entropy_stats.AntiRansomwareVolumeEntropyStats`  
+  HTTP methods: GET  
+  This API retrieves a data-entropy statistic for the volumes.
+
+* Endpoint: /security/authentication/cluster/saml-sp/default-metadata  
+  Object: `netapp_ontap.resources.security_saml_def_metadata.SecuritySamlDefMetadata`  
+  HTTP methods: GET, POST, DELETE  
+  This API retrieves, creates and deletes the SAML default metadata configuration.
+
+* Endpoint: /security/barbican-kms  
+  Object: `netapp_ontap.resources.barbican.Barbican`  
+  HTTP methods: GET, POST  
+  This API retrieves and creates a Barbican KMS configuration for the SVM.
+
+* Endpoint: /security/barbican-kms/{uuid}  
+  Object: `netapp_ontap.resources.barbican.Barbican`  
+  HTTP methods: GET, PATCH  
+  This API retrieves and updates the Barbican KMS configuration for the SVM specified by the UUID.
+
+* Endpoint: /security/barbican-kms/{uuid}/rekey-internal  
+  Object: `netapp_ontap.resources.barbican.Barbican`  
+  HTTP methods: POST  
+  This API rekeys the internal key in the key hierarchy for an SVM with a Barbican KMS configuration.
+
+* Endpoint: /security/barbican-kms/{uuid}/restore 
+  Object: `netapp_ontap.resources.barbican.Barbican`  
+  HTTP methods: POST  
+  This API restores the keys for an SVM from a configured Barbican KMS.
+
+* Endpoint: /security/jit-privilege-users  
+  Object: `netapp_ontap.resources.security_jit_privilege_user.SecurityJitPrivilegeUser`  
+  HTTP methods: GET, POST  
+  This API retrieves and creates the JIT privilege user configurations for an SVM.
+
+* Endpoint: /security/jit-privilege-users/{owner.uuid}/{account.name}/{application}  
+  Object: `netapp_ontap.resources.security_jit_privilege_user.SecurityJitPrivilegeUser`  
+  HTTP methods: GET, DELETE  
+  This API retrieves and deletes the JIT privilege user configurations for an SVM.
+
+* Endpoint: /security/jit-privileges  
+  Object: `netapp_ontap.resources.security_jit_privilege.SecurityJitPrivilege`  
+  HTTP methods: GET  
+  This API retrieves global JIT privilege configurations on an SVM.
+
+* Endpoint: /security/jit-privileges/{owner.uuid}/{application}  
+  Object: `netapp_ontap.resources.security_jit_privilege.SecurityJitPrivilege`  
+  HTTP methods: GET, PATCH  
+  This API retrieves and modifies the JIT privilege configurations for an SVM.
 
 ## 9.16.1 library updates
 
@@ -2179,7 +2296,7 @@ Initial release of the library
 
 # Copyright, trademarks, and feedback
 ## Copyright information
-Copyright &copy; 2024 NetApp, Inc. All Rights Reserved. Printed in the U.S.
+Copyright &copy; 2025 NetApp, Inc. All Rights Reserved. Printed in the U.S.
 
 No part of this document covered by copyright may be reproduced in any form or by any means—graphic,
 electronic, or mechanical, including photocopying, recording, taping, or storage in an electronic

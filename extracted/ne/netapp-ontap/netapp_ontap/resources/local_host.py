@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,17 +27,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LocalHost(
         {
-            "hostname": "host.sales.foo.com",
-            "aliases": ["host1.sales.foo.com", "host2.sakes.foo.com"],
             "address": "1.1.1.1",
+            "aliases": ["host1.sales.foo.com", "host2.sakes.foo.com"],
+            "hostname": "host.sales.foo.com",
             "owner": {
+                "uuid": "6cdf045c-87ae-11eb-a56a-0050568e0287",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/6cdf045c-87ae-11eb-a56a-0050568e0287"
                     }
                 },
-                "uuid": "6cdf045c-87ae-11eb-a56a-0050568e0287",
             },
             "_links": {
                 "self": {
@@ -48,16 +48,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     ),
     LocalHost(
         {
-            "hostname": "samplehost2",
             "address": "2.2.2.2",
+            "hostname": "samplehost2",
             "owner": {
+                "uuid": "9d080552-7bff-11eb-a56a-0050568e0287",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/9d080552-7bff-11eb-a56a-0050568e0287"
                     }
                 },
-                "uuid": "9d080552-7bff-11eb-a56a-0050568e0287",
             },
             "_links": {
                 "self": {
@@ -94,15 +94,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LocalHost(
     {
-        "hostname": "samplehost3",
-        "aliases": ["host1.sales.foo.com", "host2.sakes.foo.com"],
         "address": "3.3.3.3",
+        "aliases": ["host1.sales.foo.com", "host2.sakes.foo.com"],
+        "hostname": "samplehost3",
         "owner": {
+            "uuid": "9d080552-7bff-11eb-a56a-0050568e0287",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/9d080552-7bff-11eb-a56a-0050568e0287"}
             },
-            "uuid": "9d080552-7bff-11eb-a56a-0050568e0287",
         },
         "_links": {
             "self": {

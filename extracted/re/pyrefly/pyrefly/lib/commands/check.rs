@@ -13,6 +13,8 @@ use std::io::BufWriter;
 use std::io::Write;
 use std::path::Path;
 use std::path::PathBuf;
+use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 use std::time::Instant;
 
@@ -28,6 +30,7 @@ use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
 use pyrefly_python::sys_info::SysInfo;
 use pyrefly_util::display;
+use pyrefly_util::display::count;
 use pyrefly_util::display::number_thousands;
 use pyrefly_util::events::CategorizedEvents;
 use pyrefly_util::forgetter::Forgetter;
@@ -100,7 +103,12 @@ async fn run_check(
     allow_forget: bool,
 ) -> anyhow::Result<CommandExitStatus> {
     if watch {
-        let watcher = Watcher::notify(&files_to_check.roots())?;
+        let roots = files_to_check.roots();
+        info!(
+            "Watching for files in {}",
+            display::intersperse_iter(";", || roots.iter().map(|p| p.display()))
+        );
+        let watcher = Watcher::notify(&roots)?;
         args.run_watch(watcher, files_to_check, config_finder)
             .await?;
         Ok(CommandExitStatus::Success)
@@ -138,6 +146,48 @@ pub struct CheckArgs {
     /// Configuration override options
     #[command(flatten, next_help_heading = "Config Overrides")]
     pub config_override: ConfigOverrideArgs,
+}
+
+/// Arguments for snippet checking (excludes behavior args that don't apply to snippets)
+#[deny(clippy::missing_docs_in_private_items)]
+#[derive(Debug, Parser, Clone)]
+pub struct SnippetCheckArgs {
+    /// Python code to type check
+    code: String,
+
+    /// Explicitly set the Pyrefly configuration to use when type checking.
+    /// When not set, Pyrefly will perform an upward-filesystem-walk approach to find the nearest
+    /// pyrefly.toml or pyproject.toml with `tool.pyrefly` section'. If no config is found, Pyrefly exits with error.
+    /// If both a pyrefly.toml and valid pyproject.toml are found, pyrefly.toml takes precedence.
+    #[arg(long, short, value_name = "FILE")]
+    config: Option<PathBuf>,
+
+    /// Output related configuration options
+    #[command(flatten, next_help_heading = "Output")]
+    output: OutputArgs,
+    /// Configuration override options
+    #[command(flatten, next_help_heading = "Config Overrides")]
+    pub config_override: ConfigOverrideArgs,
+}
+
+impl SnippetCheckArgs {
+    pub async fn run(self, allow_forget: bool) -> anyhow::Result<CommandExitStatus> {
+        let (_, config_finder) = FilesArgs::get(vec![], self.config, &self.config_override)?;
+        let check_args = CheckArgs {
+            output: self.output,
+            behavior: BehaviorArgs {
+                check_all: false,
+                suppress_errors: false,
+                expectations: false,
+                remove_unused_ignores: false,
+            },
+            config_override: self.config_override,
+        };
+        match check_args.run_once_with_snippet(self.code, config_finder, allow_forget) {
+            Ok((status, _)) => Ok(status),
+            Err(e) => Err(e),
+        }
+    }
 }
 
 /// how/what should Pyrefly output
@@ -188,9 +238,31 @@ struct OutputArgs {
         value_name = "INDEX",
     )]
     summarize_errors: Option<usize>,
+
+    /// By default show the number of errors. Pass `--summary` to show information about lines checked and time/memory,
+    /// or `--summary=none` to hide the summary line entirely.
+    #[arg(
+        long,
+        default_missing_value = "full",
+        require_equals = true,
+        num_args = 0..=1,
+        value_enum,
+        default_value_t
+    )]
+    summary: Summary,
+
     /// Omit the summary in the last line of the output.
+    /// Deprecated: will be removed in the next release. Use `--summary=none` instead.
     #[arg(long)]
     no_summary: bool,
+}
+
+#[derive(Clone, Debug, ValueEnum, Default, PartialEq, Eq)]
+enum Summary {
+    None,
+    #[default]
+    Default,
+    Full,
 }
 
 /// non-config type checker behavior
@@ -350,7 +422,12 @@ struct RequireLevels {
 
 async fn get_watcher_events(watcher: &mut Watcher) -> anyhow::Result<CategorizedEvents> {
     loop {
-        let events = CategorizedEvents::new(watcher.wait().await?);
+        let events = CategorizedEvents::new(
+            watcher
+                .wait()
+                .await
+                .context("When waiting for watched files")?,
+        );
         if !events.is_empty() {
             return Ok(events);
         }
@@ -374,7 +451,7 @@ struct Timings {
 
 impl Display for Timings {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        const THRESHOLD: Duration = Duration::from_millis(300);
+        const THRESHOLD: Duration = Duration::from_millis(100);
         let total = self.start.elapsed();
         write!(f, "{}", Self::show(total))?;
 
@@ -396,7 +473,7 @@ impl Display for Timings {
             write!(
                 f,
                 " ({})",
-                display::intersperse_iter("; ", || steps
+                display::intersperse_iter(", ", || steps
                     .iter()
                     .rev()
                     .map(|(lbl, dur)| format!("{lbl} {}", Self::show(*dur))))
@@ -466,6 +543,48 @@ impl CheckArgs {
             timings,
             transaction.as_mut(),
             &handles.all(require_levels.specified),
+        )
+    }
+
+    pub fn run_once_with_snippet(
+        self,
+        code: String,
+        config_finder: ConfigFinder,
+        allow_forget: bool,
+    ) -> anyhow::Result<(CommandExitStatus, Vec<Error>)> {
+        // Create a virtual module path for the snippet
+        let path = PathBuf::from_str("snippet")?;
+        let module_path = ModulePath::memory(path);
+        let module_name = ModuleName::from_str("__main__");
+
+        let holder = Forgetter::new(State::new(config_finder), allow_forget);
+
+        // Create a single handle for the virtual module
+        let sys_info = holder
+            .as_ref()
+            .config_finder()
+            .python_file(module_name, &module_path)
+            .get_sys_info();
+        let handle = Handle::new(module_name, module_path.clone(), sys_info);
+
+        let require_levels = self.get_required_levels();
+        let mut transaction = Forgetter::new(
+            holder
+                .as_ref()
+                .new_transaction(require_levels.default, None),
+            allow_forget,
+        );
+
+        // Add the snippet source to the transaction's memory
+        transaction.as_mut().set_memory(vec![(
+            PathBuf::from(module_path.as_path()),
+            Some(Arc::new(code)),
+        )]);
+
+        self.run_inner(
+            Timings::new(),
+            transaction.as_mut(),
+            &[(handle, require_levels.specified)],
         )
     }
 
@@ -584,14 +703,27 @@ impl CheckArgs {
         }
         timings.report_errors = report_errors_start.elapsed();
 
-        if !self.output.no_summary {
+        if self.output.summary != Summary::None && !self.output.no_summary {
+            let ignored = errors.disabled.len() + errors.suppressed.len();
+            if ignored == 0 {
+                info!("{}", count(shown_errors_count, "error"))
+            } else {
+                info!(
+                    "{} ({} ignored)",
+                    count(shown_errors_count, "error"),
+                    number_thousands(ignored)
+                )
+            };
+        }
+        if self.output.summary == Summary::Full {
             info!(
-                "errors shown: {}, errors ignored: {}, modules: {}, transitive dependencies: {}, lines: {}, time: {timings}, peak memory: {}",
-                number_thousands(shown_errors_count),
-                number_thousands(errors.disabled.len() + errors.suppressed.len()),
-                number_thousands(handles.len()),
-                number_thousands(transaction.module_count() - handles.len()),
-                number_thousands(transaction.line_count()),
+                "{} ({}, {}); took {timings}; memory ({})",
+                count(handles.len(), "module"),
+                count(
+                    transaction.module_count() - handles.len(),
+                    "dependent module"
+                ),
+                count(transaction.line_count(), "line"),
                 memory_trace.peak()
             );
         }

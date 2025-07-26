@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -44,7 +44,8 @@ Example: HR Department Share """
 
     continuously_available = marshmallow_fields.Boolean(data_key="continuously_available", allow_none=True)
     r""" Specifies whether or not the clients connecting to this share can open files in a persistent manner.
-Files opened in this way are protected from disruptive events, such as, failover and giveback. """
+Files opened in this way are protected from disruptive events, such as, failover and giveback.
+If the Vscan ONTAP feature is used, it is not supported in continuous availability (CA) shares. """
 
     dir_umask = Size(data_key="dir_umask", allow_none=True)
     r""" Directory mode creation mask to be viewed as an octal number.

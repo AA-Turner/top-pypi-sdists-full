@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -8,9 +8,6 @@ This file has been automatically generated based on the ONTAP REST API documenta
 A storage unit snapshot is the view of the storage unit as it exists at the time when the snapshot is created.<br/>
 In ONTAP, different types of storage unit snapshots are supported, such as scheduled snapshots, user requested snapshots, SnapMirror snapshots, and so on. <br/>
 ONTAP storage unit snapshot APIs allow you to create, modify, delete and retrieve snapshots. Scheduled snapshots may be operated on, but snapshot schedules are not supported from these APIs.<br/>
-## Platform Specifics
-### Unified ONTAP
-This endpoint is not available.
 ## Examples
 ### Creating a snapshot
 The POST operation is used to create a snapshot with the specified attributes.
@@ -264,6 +261,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageUnitSnapshot(
         {
+            "delta": {"time_elapsed": "PT4H12M47S", "size_consumed": 1642496},
             "name": "hourly.2024-06-05_0705",
             "uuid": "0bd1ca63-dbf8-41c3-a7ef-2023f28e622b",
             "_links": {
@@ -271,11 +269,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/0bd1ca63-dbf8-41c3-a7ef-2023f28e622b"
                 }
             },
-            "delta": {"size_consumed": 1642496, "time_elapsed": "PT4H12M47S"},
         }
     ),
     StorageUnitSnapshot(
         {
+            "delta": {"time_elapsed": "PT3H12M47S", "size_consumed": 1331200},
             "name": "hourly.2024-06-05_0805",
             "uuid": "71bdab1e-22b3-4b2f-9b2c-0d2072ab321a",
             "_links": {
@@ -283,11 +281,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/71bdab1e-22b3-4b2f-9b2c-0d2072ab321a"
                 }
             },
-            "delta": {"size_consumed": 1331200, "time_elapsed": "PT3H12M47S"},
         }
     ),
     StorageUnitSnapshot(
         {
+            "delta": {"time_elapsed": "PT2H12M47S", "size_consumed": 1052672},
             "name": "hourly.2024-06-05_0905",
             "uuid": "1341b465-e582-4b30-aa87-d4642fe9db51",
             "_links": {
@@ -295,7 +293,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/1341b465-e582-4b30-aa87-d4642fe9db51"
                 }
             },
-            "delta": {"size_consumed": 1052672, "time_elapsed": "PT2H12M47S"},
         }
     ),
 ]
@@ -327,33 +324,33 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageUnitSnapshot(
     {
-        "create_time": "2024-06-02T00:15:00-04:00",
         "version_uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
+        "logical_size": 11259904,
         "storage_unit": {
+            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
             "name": "lun1",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b"
                 }
             },
-            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
         },
-        "logical_size": 11259904,
         "name": "weekly.2024-06-02_0015",
         "uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
         "size": 720896,
-        "_links": {
-            "self": {
-                "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/f712e3ff-d958-47ba-89eb-d2a46bad7bd7"
-            }
-        },
+        "create_time": "2024-06-02T00:15:00-04:00",
         "snapmirror_label": "weekly",
         "svm": {
+            "uuid": "7cb65b79-1a0f-11ef-bd09-005056bbbc7b",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/7cb65b79-1a0f-11ef-bd09-005056bbbc7b"}
             },
-            "uuid": "7cb65b79-1a0f-11ef-bd09-005056bbbc7b",
+        },
+        "_links": {
+            "self": {
+                "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/f712e3ff-d958-47ba-89eb-d2a46bad7bd7"
+            }
         },
     }
 )
@@ -385,36 +382,36 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageUnitSnapshot(
     {
-        "create_time": "2024-06-02T00:15:00-04:00",
+        "reclaimable_space": 503808,
+        "delta": {"time_elapsed": "P3DT11H16M8S", "size_consumed": 3395584},
         "version_uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
+        "logical_size": 11259904,
         "storage_unit": {
+            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
             "name": "lun1",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b"
                 }
             },
-            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
         },
-        "logical_size": 11259904,
         "name": "weekly.2024-06-02_0015",
         "uuid": "f712e3ff-d958-47ba-89eb-d2a46bad7bd7",
         "size": 720896,
+        "create_time": "2024-06-02T00:15:00-04:00",
+        "snapmirror_label": "weekly",
+        "svm": {
+            "uuid": "7cb65b79-1a0f-11ef-bd09-005056bbbc7b",
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/7cb65b79-1a0f-11ef-bd09-005056bbbc7b"}
+            },
+        },
         "_links": {
             "self": {
                 "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b/snapshots/f712e3ff-d958-47ba-89eb-d2a46bad7bd7?fields=**"
             }
         },
-        "snapmirror_label": "weekly",
-        "reclaimable_space": 503808,
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/7cb65b79-1a0f-11ef-bd09-005056bbbc7b"}
-            },
-            "uuid": "7cb65b79-1a0f-11ef-bd09-005056bbbc7b",
-        },
-        "delta": {"size_consumed": 3395584, "time_elapsed": "P3DT11H16M8S"},
     }
 )
 
@@ -442,13 +439,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     StorageUnitSnapshot(
         {
             "storage_unit": {
+                "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
                 "name": "ns1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/storage-units/3d9c001f-227e-11ef-97b9-005056bbbc7b"
                     }
                 },
-                "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
             },
             "name": "daily.2024-06-05_0010",
             "uuid": "387d7ec5-1c56-4cbc-b50e-07ea67396712",
@@ -462,13 +459,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     StorageUnitSnapshot(
         {
             "storage_unit": {
+                "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
                 "name": "ns1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/storage-units/3d9c001f-227e-11ef-97b9-005056bbbc7b"
                     }
                 },
-                "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
             },
             "name": "hourly.2024-06-05_0805",
             "uuid": "44bfa234-c978-423c-a0d5-14fe5427e7ab",
@@ -482,13 +479,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     StorageUnitSnapshot(
         {
             "storage_unit": {
+                "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
                 "name": "lun1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b"
                     }
                 },
-                "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
             },
             "name": "daily.2024-06-05_0010",
             "uuid": "e9f28652-9460-4eef-a8fd-fa0b0bfa97f3",
@@ -502,13 +499,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     StorageUnitSnapshot(
         {
             "storage_unit": {
+                "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
                 "name": "lun1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b"
                     }
                 },
-                "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
             },
             "name": "hourly.2024-06-05_0805",
             "uuid": "71bdab1e-22b3-4b2f-9b2c-0d2072ab321a",

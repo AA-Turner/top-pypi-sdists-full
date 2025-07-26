@@ -17,7 +17,7 @@ from typing import (
 
 from . import cls_utils, dict_utils
 from .converters import Converter, default_converter
-from .exceptions import InvalidSettingsError
+from .exceptions import ConfigFileLoadError, InvalidSettingsError, InvalidValueError
 from .loaders import EnvLoader, FileLoader, Loader, TomlFormat, _DefaultsLoader
 from .processors import Processor
 from .types import (
@@ -37,10 +37,10 @@ from .types import (
 __all__ = [
     "LOGGER",
     "SettingsState",
+    "convert",
     "default_loaders",
     "load",
     "load_settings",
-    "convert",
 ]
 
 
@@ -281,9 +281,14 @@ def load(
         ConfigFileLoadError: If *path* cannot be read/loaded/decoded.
         InvalidOptionsError: If invalid settings have been found.
         InvalidValueError: If a value cannot be converted to the correct type.
+        InvalidSettingsError: With :exc:`.InvalidValueError` exceptions if an instance
+            of *cls* cannot be created from the loaded settings.
 
     .. versionchanged:: 23.1.0
        Added the *base_dir* argument
+
+    .. versionchanged:: 25.0.0
+       Raise :exc:`.InvalidSettingsError` is now an :exc:`ExceptionGroup`.
     """
     loaders = default_loaders(
         appname=appname,
@@ -384,11 +389,14 @@ def convert(
         An instance of *cls*.
 
     Raise:
-        InvalidSettingsError: If an instance of *cls* cannot be created for the given
-            settings.
+        InvalidSettingsError: With :exc:`.InvalidValueError` exceptions if an instance
+            of *cls* cannot be created from the loaded settings.
+
+    .. versionchanged:: 25.0.0
+       Raise :exc:`.InvalidSettingsError` is now an :exc:`ExceptionGroup`.
     """
     settings_dict: SettingsDict = {}
-    errors: list[str] = []
+    errors: list[Exception] = []
     loaded_settings_paths: set[str] = set()
     oi_by_path = state.options_by_path
     for path, (value, meta) in merged_settings.items():
@@ -396,10 +404,11 @@ def convert(
         try:
             converted_value = convert_value(oinfo, value, meta, state.converter)
         except Exception as e:
-            errors.append(
+            msg = (
                 f"Could not convert value {value!r} for option "
                 f"{path!r} from loader {meta.name}: {e!r}"
             )
+            errors.append(InvalidValueError(msg).with_traceback(e.__traceback__))
             continue
         dict_utils.set_path(settings_dict, path, converted_value)
         loaded_settings_paths.add(path)
@@ -409,19 +418,21 @@ def convert(
             continue
         if option_info.has_default:
             continue
-        errors.append(f"No value set for required option {option_info.path!r}")
+        msg = f"No value set for required option {option_info.path!r}"
+        errors.append(InvalidValueError(msg))
 
     try:
         settings = state.converter.structure(settings_dict, state.settings_class)
     except Exception as e:
-        errors.append(f"Could not convert loaded settings: {e!r}")
+        msg = f"Could not convert loaded settings: {e!r}"
+        errors.append(InvalidValueError(msg).with_traceback(e.__traceback__))
 
     if errors:
-        errs = "".join(f"\n- {e}" for e in errors)
-        raise InvalidSettingsError(
+        msg = (
             f"{len(errors)} errors occured while converting the loaded option values "
-            f"to an instance of {state.settings_class.__name__!r}:{errs}"
+            f"to an instance of {state.settings_class.__name__!r}"
         )
+        raise InvalidSettingsError(msg, errors)
 
     return settings
 
@@ -469,7 +480,15 @@ def _set_context(meta: LoaderMeta) -> Generator[None, None, None]:
         A context manager (that yields ``None``)
     """
     old_cwd = os.getcwd()
-    os.chdir(meta.base_dir)
+    try:
+        os.chdir(meta.base_dir)
+    except OSError as e:
+        # This is a rare case where a config file can be read but were we are not
+        # allowed to chdir into its parent directory.
+        # See: https://gitlab.com/sscherfke/typed-settings/-/issues/71
+        raise ConfigFileLoadError(
+            f"Cannot chdir into '{meta.base_dir}': {e.strerror}"
+        ) from e
     try:
         yield
     finally:

@@ -12,6 +12,7 @@ description = "Typed settings based on attrs classes"
 dynamic = ["version"]
 readme = "README.md"
 license = "MIT"
+license-files = ["LICENSE"]
 requires-python = ">=3.9"
 authors = [
     { name = "Stefan Scherfke", email = "stefan@sofa-rockers.org" },
@@ -39,9 +40,11 @@ classifiers = [
     "Programming Language :: Python :: Implementation :: PyPy",
     "Programming Language :: Python",
     "Topic :: Software Development :: Libraries :: Python Modules",
+    "Typing :: Typed",
 ]
 dependencies = [
     "tomli>=2; python_version<'3.11'",
+    "exceptiongroup>=1.3.0; python_version<'3.11'",
 ]
 
 [project.optional-dependencies]
@@ -117,6 +120,7 @@ exclude_lines = [
     "\\.\\.\\.",
     "if TYPE_CHECKING",
     "pytest.fail",
+    "assert_never\\(.*\\)"
 ]
 fail_under = 100
 omit = [  # This is also (dynamically) set/overridden in noxfile.py!
@@ -144,6 +148,10 @@ disallow_untyped_defs = true
 
 [tool.pytest.ini_options]
 addopts = "--ignore=README.md --ignore=docs/_build"
+filterwarnings = [
+    # "error",
+    "ignore:.*\\-\\-a is used more than once.*:UserWarning"
+]
 
 [tool.ruff]
 line-length = 88

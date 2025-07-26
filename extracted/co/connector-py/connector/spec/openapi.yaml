@@ -1206,7 +1206,7 @@ paths:
               description: Authenticated request.
   /{connector_id}/list_activity_records:
     post:
-      operationId: listActivityRecords
+      operationId: list_activity_records
       description: |-
         List activity records for a given connector within a time window.
 
@@ -4206,11 +4206,9 @@ components:
         service_type:
           allOf:
             - $ref: '#/components/schemas/ServiceAccountType'
-          description: |-
-            The type of service.
-            Currently only Google is supported.
+          description: The type of service.
           x-field_type: HIDDEN
-          default: google
+          default: google_cloud
         key:
           type: object
           additionalProperties: {}
@@ -4235,7 +4233,8 @@ components:
     ServiceAccountType:
       type: string
       enum:
-        - google
+        - google_cloud
+        - google_drive
         - aws
     SpendUser:
       type: object

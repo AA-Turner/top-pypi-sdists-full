@@ -14,10 +14,8 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 setup(
     name="matrice",
 
-    version = "1.0.99031",
-
-
-
+    version = "1.0.99042",
+    
     description="SDK for connecting to matrice.ai services",
     long_description=long_description,
     long_description_content_type="text/markdown",

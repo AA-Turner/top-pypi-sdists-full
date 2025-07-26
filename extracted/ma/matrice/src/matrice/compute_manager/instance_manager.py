@@ -5,27 +5,18 @@ import logging
 import os
 import threading
 import time
-from typing import List, Dict, Optional
-from matrice.compute_manager.actions_manager import (
-    ActionsManager,
-)
-from matrice.compute_manager.actions_scaledown_manager import (
-    ActionsScaleDownManager,
-)
+from matrice.compute_manager.actions_manager import ActionsManager
+from matrice.compute_manager.actions_scaledown_manager import ActionsScaleDownManager
 from matrice.compute_manager.instance_utils import (
     get_instance_info,
-    get_decrypted_access_key_pair
+    get_decrypted_access_key_pair,
 )
 from matrice.compute_manager.resources_tracker import (
     MachineResourcesTracker,
     ActionsResourcesTracker,
 )
-from matrice.compute_manager.scaling import (
-    Scaling,
-)
-from matrice.compute_manager.shutdown_manager import (
-    ShutdownManager,
-)
+from matrice.compute_manager.scaling import Scaling
+from matrice.compute_manager.shutdown_manager import ShutdownManager
 from matrice.session import Session
 from matrice.utils import log_errors
 
@@ -46,10 +37,6 @@ class InstanceManager:
         env="",
         gpus="",
         workspace_dir="matrice_workspace",
-        auto_streaming_deployment_ids: Optional[List[str]] = None,
-        auto_streaming_output_configs: Dict[str, Dict] = None,
-        auto_streaming_model_input_type: str = "frames",
-        auto_streaming_enabled: bool = False,
     ):
         """Initialize an instance manager.
 
@@ -70,13 +57,6 @@ class InstanceManager:
                 Defaults to empty string.
             workspace_dir (str): Directory for workspace files.
                 Defaults to "matrice_workspace".
-            auto_streaming_deployment_ids (List[str], optional): List of deployment IDs
-                to enable auto streaming for. Defaults to None.
-            auto_streaming_output_dir (str): Directory to save streaming results.
-                Defaults to "streaming_results".
-            auto_streaming_model_input_type (str): Model input type for auto streaming
-                (frames or video). Defaults to frames.
-            auto_streaming_enabled (bool): Whether to enable auto streaming. Defaults to False.
         """
         self.session = self._setup_env_credentials(
             env,
@@ -112,51 +92,7 @@ class InstanceManager:
         logging.info("InstanceManager initialized with actions resources tracker")
         self.poll_interval = 10
         self.encryption_key = None
-
-        # Auto streaming configuration
-        self.auto_streaming_enabled = auto_streaming_enabled
-        self.auto_streaming_deployment_ids = auto_streaming_deployment_ids or []
-
-        # Initialize AutoStreaming if enabled
-        self.auto_streaming = None
-        if self.auto_streaming_enabled and self.auto_streaming_deployment_ids:
-            from matrice.deploy.client.streaming_gateway.auto_streaming import AutoStreaming
-            self.auto_streaming = AutoStreaming(
-                session=self.session,
-                deployment_ids=self.auto_streaming_deployment_ids,
-                model_input_type=auto_streaming_model_input_type,
-                output_configs=auto_streaming_output_configs,
-            )
-
         logging.info("InstanceManager initialized.")
-
-    def start_auto_streaming(self):
-        """Start auto streaming for all deployments."""
-        if self.auto_streaming:
-            return self.auto_streaming.start()
-        else:
-            logging.warning("Auto streaming is not configured")
-            return False
-
-    def stop_auto_streaming(self):
-        """Stop auto streaming for all deployments."""
-        if self.auto_streaming:
-            self.auto_streaming.stop()
-        else:
-            logging.warning("Auto streaming is not configured")
-
-    def get_auto_streaming_statistics(self) -> Dict:
-        """Get auto streaming statistics."""
-        if self.auto_streaming:
-            return self.auto_streaming.get_statistics()
-        else:
-            return {
-                "enabled": False,
-                "deployment_ids": [],
-                "active_streams": {},
-                "failed_streams": {},
-                "total_deployments": 0,
-            }
 
     @log_errors(default_return=None, raise_exception=True, log_error=True)
     def _setup_env_credentials(
@@ -269,7 +205,7 @@ class InstanceManager:
             encryption_key,
         )
 
-    @log_errors(raise_exception=False, log_error=True)
+    @log_errors(raise_exception=True, log_error=True)
     def start_instance_manager(self):
         """Run the instance manager loop."""
         while True:
@@ -306,27 +242,23 @@ class InstanceManager:
 
             time.sleep(self.poll_interval)
 
-    @log_errors(default_return=(None, None), raise_exception=False)
+    @log_errors(default_return=(None, None), raise_exception=True)
     def start(self):
         """Start the instance manager threads.
 
         Returns:
             tuple: (instance_manager_thread, actions_manager_thread)
         """
-        # Start auto streaming if enabled
-        if self.auto_streaming_enabled and self.auto_streaming_deployment_ids:
-            try:
-                self.start_auto_streaming()
-                logging.info("Auto streaming started successfully")
-            except Exception as exc:
-                logging.error(f"Failed to start auto streaming: {exc}")
-
         # Create and start threads
-        instance_manager_thread = threading.Thread(target=self.start_instance_manager)
+        instance_manager_thread = threading.Thread(
+            target=self.start_instance_manager,
+            name="InstanceManager",
+        )
         instance_manager_thread.start()
 
         actions_manager_thread = threading.Thread(
-            target=self.actions_manager.start_actions_manager
+            target=self.actions_manager.start_actions_manager,
+            name="ActionsManager",
         )
         actions_manager_thread.start()
 
@@ -334,14 +266,3 @@ class InstanceManager:
             instance_manager_thread,
             actions_manager_thread,
         )
-
-    def stop(self):
-        """Stop the instance manager and cleanup resources."""
-        if self.auto_streaming_enabled and self.auto_streaming_deployment_ids:
-            try:
-                self.stop_auto_streaming()
-                logging.info("Auto streaming stopped successfully")
-            except Exception as exc:
-                logging.error(f"Failed to stop auto streaming: {exc}")
-
-        logging.info("InstanceManager stopped")

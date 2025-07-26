@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta, timezone
 
 import jwt
-from connector.generated import JWTClaims, JWTCredential, JWTHeaders
 from connector.utils.jwt_utils import sign_jwt
+from connector_sdk_types.generated import JWTClaims, JWTCredential, JWTHeaders
 
 # Create test credentials
 test_claims = JWTClaims(

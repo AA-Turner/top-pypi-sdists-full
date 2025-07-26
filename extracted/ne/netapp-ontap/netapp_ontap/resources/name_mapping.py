@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -37,10 +37,10 @@ NameMapping(
     {
         "pattern": "ENGCIFS_AD_USER",
         "replacement": "unix_user1",
-        "index": 1,
         "direction": "win_unix",
-        "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
+        "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
         "client_match": "10.254.101.111/28",
+        "index": 1,
     }
 )
 
@@ -76,10 +76,10 @@ NameMapping(
     {
         "pattern": "ENGCIFS_AD_USER",
         "replacement": "unix_user1",
-        "index": 2,
         "direction": "win_unix",
-        "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
+        "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
         "client_match": "google.com",
+        "index": 2,
     }
 )
 
@@ -106,20 +106,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "pattern": "ENGCIFS_AD_USER",
             "replacement": "unix_user1",
-            "index": 1,
             "direction": "win_unix",
-            "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
+            "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
             "client_match": "10.254.101.111/28",
+            "index": 1,
         }
     ),
     NameMapping(
         {
             "pattern": "ENGCIFS_AD_USER",
             "replacement": "unix_user1",
-            "index": 2,
             "direction": "win_unix",
-            "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
+            "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
             "client_match": "google.com",
+            "index": 2,
         }
     ),
 ]
@@ -153,10 +153,10 @@ NameMapping(
     {
         "pattern": "ENGCIFS_AD_USER",
         "replacement": "unix_user1",
-        "index": 1,
         "direction": "win_unix",
-        "svm": {"name": "vs1", "uuid": "f71d3640-0226-11e9-8526-000c290a8c4b"},
+        "svm": {"uuid": "f71d3640-0226-11e9-8526-000c290a8c4b", "name": "vs1"},
         "client_match": "10.254.101.111/28",
+        "index": 1,
     }
 )
 
@@ -437,6 +437,7 @@ Swapping is not allowed for entries that have `client_match` property configured
 * `client_match` - Hostname or IP address added to match the pattern to the client's workstation IP address.
 ### Related ONTAP commands
 * `vserver name-mapping create`
+* `vserver name-mapping insert`
 ### Learn more
 * [`DOC /name-services/name-mappings`](#docs-name-services-name-services_name-mappings)
 """
@@ -514,6 +515,7 @@ Swapping is not allowed for entries that have `client_match` property configured
 * `client_match` - Hostname or IP address added to match the pattern to the client's workstation IP address.
 ### Related ONTAP commands
 * `vserver name-mapping create`
+* `vserver name-mapping insert`
 ### Learn more
 * [`DOC /name-services/name-mappings`](#docs-name-services-name-services_name-mappings)
 """

@@ -14,7 +14,7 @@ use crate::state::handle::Handle;
 use crate::state::state::State;
 use crate::test::util::get_batched_lsp_operations_report_allow_error;
 
-fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String {
+fn get_test_report_ignoring_keywords(state: &State, handle: &Handle, position: TextSize) -> String {
     let mut report = "Completion Results:".to_owned();
     for CompletionItem {
         label,
@@ -43,6 +43,37 @@ fn get_test_report(state: &State, handle: &Handle, position: TextSize) -> String
     report
 }
 
+fn get_test_report_including_keywords(
+    state: &State,
+    handle: &Handle,
+    position: TextSize,
+) -> String {
+    let mut report = "Completion Results:".to_owned();
+    for CompletionItem {
+        label,
+        detail,
+        kind,
+        insert_text,
+        ..
+    } in state.transaction().completion(handle, position)
+    {
+        report.push_str("\n- (");
+        report.push_str(&format!("{:?}", kind.unwrap()));
+        report.push_str(") ");
+        report.push_str(&label);
+        if let Some(detail) = detail {
+            report.push_str(": ");
+            report.push_str(&detail);
+        }
+        if let Some(insert_text) = insert_text {
+            report.push_str(" inserting `");
+            report.push_str(&insert_text);
+            report.push('`');
+        }
+    }
+    report
+}
+
 #[test]
 fn dot_complete_basic_test() {
     let code = r#"
@@ -57,7 +88,10 @@ bar = Bar()
 bar.
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -69,8 +103,8 @@ Completion Results:
 10 | bar.
          ^
 Completion Results:
-- (Field) y: int
 - (Field) x: int
+- (Field) y: int
 "#
         .trim(),
         report.trim(),
@@ -91,17 +125,20 @@ foo = Foo()
 foo.
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
 10 | foo.
          ^
 Completion Results:
-- (Field) x: int
+- (Method) class_method: BoundMethod[type[Foo], (cls: type[Self@Foo]) -> None]
 - (Method) method: BoundMethod[Foo, (self: Self@Foo) -> None]
 - (Function) static_method: () -> None
-- (Method) class_method: BoundMethod[type[Foo], (cls: type[Self@Foo]) -> None]
+- (Field) x: int
 "#
         .trim(),
         report.trim(),
@@ -121,15 +158,18 @@ foo = Foo()
 foo.
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
 9 | foo.
         ^
 Completion Results:
-- (Field) y: int
 - (Field) x: int
+- (Field) y: int
 - (Field) _private: bool
 - (Field) __special__: str
 "#
@@ -145,29 +185,93 @@ def foo():
   xxxx = 3
   x
 # ^
+  y
+# ^
+  f
+# ^
+  b
+# ^
   def bar():
     yyyy = 4;
+    x
+#   ^
     y
 #   ^
+    f
+#   ^
+    b
+#   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
 4 |   x
       ^
 Completion Results:
-- (Function) bar: () -> None
 - (Variable) xxxx: Literal[3]
+
+6 |   y
+      ^
+Completion Results:
+
+8 |   f
+      ^
+Completion Results:
 - (Function) foo: () -> None
 
-8 |     y
-        ^
+10 |   b
+       ^
+Completion Results:
+- (Function) bar: () -> None
+
+14 |     x
+         ^
+Completion Results:
+- (Variable) xxxx: Literal[3]
+
+16 |     y
+         ^
 Completion Results:
 - (Variable) yyyy: Literal[4]
-- (Variable) xxxx: Literal[3]
-- (Function) bar: () -> None
+
+18 |     f
+         ^
+Completion Results:
 - (Function) foo: () -> None
+
+20 |     b
+         ^
+Completion Results:
+- (Function) bar: () -> None
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn variable_with_globals_complete_test() {
+    let code = r#"
+FileExistsOrNot = 1
+FileExist
+#        ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
+    assert_eq!(
+        r#"
+# main.py
+3 | FileExist
+             ^
+Completion Results:
+- (Class) FileExistsError
+- (Variable) FileExistsOrNot: Literal[1]
 "#
         .trim(),
         report.trim(),
@@ -202,7 +306,7 @@ class Foo:
 
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", code), ("lib", lib)],
-        get_test_report,
+        get_test_report_ignoring_keywords,
     );
     assert_eq!(
         r#"
@@ -232,7 +336,7 @@ from foo imp
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", main_code), ("foo", foo_code)],
-        get_test_report,
+        get_test_report_ignoring_keywords,
     );
     assert_eq!(
         r#"
@@ -246,13 +350,13 @@ Completion Results:
 - (Variable) __cached__
 - (Variable) __debug__
 - (Variable) __dict__
+- (Variable) __doc__
 - (Variable) __file__
 - (Variable) __loader__
 - (Variable) __name__
 - (Variable) __package__
 - (Variable) __path__
 - (Variable) __spec__
-- (Variable) __doc__
 
 
 # foo.py
@@ -273,7 +377,7 @@ from foo import
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", main_code), ("foo", foo_code)],
-        get_test_report,
+        get_test_report_ignoring_keywords,
     );
     assert_eq!(
         r#"
@@ -301,7 +405,7 @@ from foo import imperial
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", main_code), ("foo", foo_code)],
-        get_test_report,
+        get_test_report_ignoring_keywords,
     );
     assert_eq!(
         r#"
@@ -319,13 +423,13 @@ Completion Results:
 - (Variable) __cached__
 - (Variable) __debug__
 - (Variable) __dict__
+- (Variable) __doc__
 - (Variable) __file__
 - (Variable) __loader__
 - (Variable) __name__
 - (Variable) __package__
 - (Variable) __path__
 - (Variable) __spec__
-- (Variable) __doc__
 
 
 # foo.py
@@ -346,7 +450,7 @@ from .foo import imperial
 "#;
     let report = get_batched_lsp_operations_report_allow_error(
         &[("main", main_code), ("foo", foo_code)],
-        get_test_report,
+        get_test_report_ignoring_keywords,
     );
     assert_eq!(
         r#"
@@ -360,13 +464,13 @@ Completion Results:
 - (Variable) __cached__
 - (Variable) __debug__
 - (Variable) __dict__
+- (Variable) __doc__
 - (Variable) __file__
 - (Variable) __loader__
 - (Variable) __name__
 - (Variable) __package__
 - (Variable) __path__
 - (Variable) __spec__
-- (Variable) __doc__
 
 
 # foo.py
@@ -384,7 +488,10 @@ xyz = 5
 foo(x
 #    ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -393,7 +500,6 @@ foo(x
 Completion Results:
 - (Variable) a=: int
 - (Variable) b=: str
-- (Function) foo: (a: int, b: str) -> None
 - (Variable) xyz: Literal[5]
 "#
         .trim(),
@@ -408,7 +514,10 @@ def foo(a: int, b: str, c: bool): ...
 foo(1, 
 #      ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -434,7 +543,10 @@ foo = Foo()
 foo.method(
 #          ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -456,7 +568,10 @@ def foo(a: int, *, b: str, c: bool): ...
 foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -479,7 +594,10 @@ def foo(a: int, b: str = "default", *, c: bool, d: float = 1.0): ...
 foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -505,7 +623,10 @@ class Foo:
 Foo().test(
 #          ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -530,7 +651,10 @@ class Foo:
 Foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -551,7 +675,10 @@ def inner(b: str): ...
 outer(inner(
 #           ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -572,7 +699,10 @@ x = 42
 x(
 # ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -591,7 +721,10 @@ fn builtins_doesnt_autoimport() {
 isins
 #    ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -599,17 +732,17 @@ isins
          ^
 Completion Results:
 - (Function) isinstance
-- (Function) timerfd_settime_ns: from os import timerfd_settime_ns
-
-- (Function) distributions: from importlib.metadata import distributions
-
-- (Function) packages_distributions: from importlib.metadata import packages_distributions
+- (Class) FirstHeaderLineIsContinuationDefect: from email.errors import FirstHeaderLineIsContinuationDefect
 
 - (Class) MissingHeaderBodySeparatorDefect: from email.errors import MissingHeaderBodySeparatorDefect
 
+- (Function) distributions: from importlib.metadata import distributions
+
 - (Function) fix_missing_locations: from ast import fix_missing_locations
 
-- (Class) FirstHeaderLineIsContinuationDefect: from email.errors import FirstHeaderLineIsContinuationDefect
+- (Function) packages_distributions: from importlib.metadata import packages_distributions
+
+- (Function) timerfd_settime_ns: from os import timerfd_settime_ns
 "#
         .trim(),
         report.trim(),
@@ -625,7 +758,10 @@ def foo(x: Literal['foo']): ...
 foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -648,7 +784,10 @@ x = {"a": 3, "b", 4}
 x["
 # ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
@@ -676,11 +815,37 @@ def foo(y: bool):
 foo(
 #   ^
 "#;
-    let report = get_batched_lsp_operations_report_allow_error(&[("main", code)], get_test_report);
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_ignoring_keywords,
+    );
     assert_eq!(
         r#"
 # main.py
 9 | foo(
+        ^
+Completion Results:
+"#
+        .trim(),
+        report.trim(),
+    );
+}
+
+#[test]
+fn no_keywords_on_dot_complete() {
+    let code = r#"
+class Foo: ...
+Foo.
+#   ^
+"#;
+    let report = get_batched_lsp_operations_report_allow_error(
+        &[("main", code)],
+        get_test_report_including_keywords,
+    );
+    assert_eq!(
+        r#"
+# main.py
+3 | Foo.
         ^
 Completion Results:
 "#

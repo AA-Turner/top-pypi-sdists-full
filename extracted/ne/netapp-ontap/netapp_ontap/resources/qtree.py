@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -57,19 +57,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Qtree(
     {
-        "group": {"name": "unix_group1"},
-        "export_policy": {"name": "default"},
-        "volume": {"name": "fv"},
-        "user": {"name": "unix_user1"},
-        "name": "qt1",
         "qos_policy": {
-            "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
             "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+            "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
         },
-        "security_style": "unix",
         "unix_permissions": 744,
-        "_links": {"self": {"href": "/api/storage/qtrees/?volume.name=fv&name=qt1"}},
+        "volume": {"name": "fv"},
+        "export_policy": {"name": "default"},
         "svm": {"name": "svm1"},
+        "user": {"name": "unix_user1"},
+        "_links": {"self": {"href": "/api/storage/qtrees/?volume.name=fv&name=qt1"}},
+        "group": {"name": "unix_group1"},
+        "name": "qt1",
+        "security_style": "unix",
     }
 )
 
@@ -99,89 +99,89 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Qtree(
         {
+            "id": 0,
             "volume": {
+                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
                 "name": "fv",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
                     }
                 },
-                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
             },
-            "name": "",
+            "svm": {
+                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
+                "name": "svm1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/b68f961b-4cee-11e9-930a-005056a7f717"
+                    }
+                },
+            },
             "_links": {
                 "self": {
                     "href": "/api/storage/qtrees/cb20da45-4f6b-11e9-9a71-005056a7f717/0"
                 }
             },
-            "id": 0,
-            "svm": {
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/b68f961b-4cee-11e9-930a-005056a7f717"
-                    }
-                },
-                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
-            },
+            "name": "",
         }
     ),
     Qtree(
         {
+            "id": 1,
             "volume": {
+                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
                 "name": "fv",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
                     }
                 },
-                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
             },
-            "name": "qt1",
+            "svm": {
+                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
+                "name": "svm1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/b68f961b-4cee-11e9-930a-005056a7f717"
+                    }
+                },
+            },
             "_links": {
                 "self": {
                     "href": "/api/storage/qtrees/cb20da45-4f6b-11e9-9a71-005056a7f717/1"
                 }
             },
-            "id": 1,
-            "svm": {
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/b68f961b-4cee-11e9-930a-005056a7f717"
-                    }
-                },
-                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
-            },
+            "name": "qt1",
         }
     ),
     Qtree(
         {
+            "id": 2,
             "volume": {
+                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
                 "name": "fv",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717"
                     }
                 },
-                "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
             },
-            "name": "qt2",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/qtrees/cb20da45-4f6b-11e9-9a71-005056a7f717/2"
-                }
-            },
-            "id": 2,
             "svm": {
+                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/b68f961b-4cee-11e9-930a-005056a7f717"
                     }
                 },
-                "uuid": "b68f961b-4cee-11e9-930a-005056a7f717",
             },
+            "_links": {
+                "self": {
+                    "href": "/api/storage/qtrees/cb20da45-4f6b-11e9-9a71-005056a7f717/2"
+                }
+            },
+            "name": "qt2",
         }
     ),
 ]
@@ -455,8 +455,10 @@ Example: 493"""
         "nas",
         "path",
         "qos_policy.links",
+        "qos_policy.max_throughput",
         "qos_policy.max_throughput_iops",
         "qos_policy.max_throughput_mbps",
+        "qos_policy.min_throughput",
         "qos_policy.min_throughput_iops",
         "qos_policy.min_throughput_mbps",
         "qos_policy.name",
@@ -476,7 +478,7 @@ Example: 493"""
         "volume.name",
         "volume.uuid",
     ]
-    """links,tags,export_policy.links,export_policy.id,export_policy.name,ext_performance_monitoring,group,id,metric,name,nas,path,qos_policy.links,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,security_style,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,svm.links,svm.name,svm.uuid,unix_permissions,user,volume.links,volume.name,volume.uuid,"""
+    """links,tags,export_policy.links,export_policy.id,export_policy.name,ext_performance_monitoring,group,id,metric,name,nas,path,qos_policy.links,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,security_style,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,svm.links,svm.name,svm.uuid,unix_permissions,user,volume.links,volume.name,volume.uuid,"""
 
     patchable_fields = [
         "tags",
@@ -486,8 +488,10 @@ Example: 493"""
         "group",
         "name",
         "nas",
+        "qos_policy.max_throughput",
         "qos_policy.max_throughput_iops",
         "qos_policy.max_throughput_mbps",
+        "qos_policy.min_throughput",
         "qos_policy.min_throughput_iops",
         "qos_policy.min_throughput_mbps",
         "qos_policy.name",
@@ -496,7 +500,7 @@ Example: 493"""
         "unix_permissions",
         "user",
     ]
-    """tags,export_policy.id,export_policy.name,ext_performance_monitoring,group,name,nas,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,security_style,unix_permissions,user,"""
+    """tags,export_policy.id,export_policy.name,ext_performance_monitoring,group,name,nas,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,security_style,unix_permissions,user,"""
 
     postable_fields = [
         "tags",
@@ -506,8 +510,10 @@ Example: 493"""
         "group",
         "name",
         "nas",
+        "qos_policy.max_throughput",
         "qos_policy.max_throughput_iops",
         "qos_policy.max_throughput_mbps",
+        "qos_policy.min_throughput",
         "qos_policy.min_throughput_iops",
         "qos_policy.min_throughput_mbps",
         "qos_policy.name",
@@ -520,7 +526,7 @@ Example: 493"""
         "volume.name",
         "volume.uuid",
     ]
-    """tags,export_policy.id,export_policy.name,ext_performance_monitoring,group,name,nas,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,security_style,svm.name,svm.uuid,unix_permissions,user,volume.name,volume.uuid,"""
+    """tags,export_policy.id,export_policy.name,ext_performance_monitoring,group,name,nas,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,security_style,svm.name,svm.uuid,unix_permissions,user,volume.name,volume.uuid,"""
 
 class Qtree(Resource):
     r""" A qtree is a directory at the top level of a volume to which a custom export policy (for fine-grained access control) and a quota rule can be applied, if required. """

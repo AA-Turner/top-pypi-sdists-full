@@ -10,9 +10,9 @@ use std::path::PathBuf;
 
 use anyhow::Context as _;
 use clap::Parser;
-use path_absolutize::Absolutize;
 use pyrefly_python::sys_info::PythonPlatform;
 use pyrefly_python::sys_info::PythonVersion;
+use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::arc_id::ArcId;
 use pyrefly_util::display;
 
@@ -29,10 +29,7 @@ use crate::util::ConfigOrigin;
 /// Parser function to convert paths to absolute paths
 fn absolute_path_parser(s: &str) -> Result<PathBuf, String> {
     let path = PathBuf::from(s);
-    match path.absolutize() {
-        Ok(abs_path) => Ok(abs_path.into_owned()),
-        Err(_) => Ok(path),
-    }
+    Ok(path.absolutize())
 }
 
 /// config overrides
@@ -43,6 +40,13 @@ pub struct ConfigOverrideArgs {
     /// type checked files.
     #[arg(long, value_parser = absolute_path_parser)]
     search_path: Option<Vec<PathBuf>>,
+
+    /// Disable Pyrefly default heuristics, specifically those around
+    /// constructing a modified search path. Setting this flag will instruct
+    /// Pyrefly to use the exact `search_path` you give it through your config
+    /// file and CLI args.
+    #[arg(long)]
+    disable_search_path_heuristics: Option<bool>,
 
     /// The Python version any `sys.version` checks should evaluate against.
     #[arg(long)]
@@ -156,6 +160,9 @@ impl ConfigOverrideArgs {
         }
         if let Some(x) = &self.search_path {
             config.search_path_from_args = x.clone();
+        }
+        if let Some(x) = &self.disable_search_path_heuristics {
+            config.disable_search_path_heuristics = *x;
         }
         if let Some(x) = &self.site_package_path {
             config.python_environment.site_package_path = Some(x.clone());

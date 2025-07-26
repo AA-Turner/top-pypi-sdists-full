@@ -2,7 +2,9 @@ import json
 import typing as t
 
 import httpx
-from connector.generated import (
+from connector.oai.errors import HTTPHandler
+from connector.oai.integration import DescriptionData, Integration
+from connector_sdk_types.generated import (
     BasicCredential,
     Error,
     ErrorCode,
@@ -11,8 +13,6 @@ from connector.generated import (
     ListAccountsResponse,
     StandardCapabilityName,
 )
-from connector.oai.errors import HTTPHandler
-from connector.oai.integration import DescriptionData, Integration
 
 Case = tuple[
     Integration,

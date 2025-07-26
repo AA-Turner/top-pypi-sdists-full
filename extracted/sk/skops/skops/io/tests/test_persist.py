@@ -6,6 +6,7 @@ import operator
 import sys
 import warnings
 from collections import Counter, OrderedDict, defaultdict
+from datetime import datetime
 from functools import partial, wraps
 from pathlib import Path
 from zipfile import ZIP_DEFLATED, ZipFile
@@ -43,7 +44,11 @@ from sklearn.preprocessing import (
 )
 from sklearn.utils import all_estimators, check_random_state
 from sklearn.utils._testing import SkipTest, set_random_state
-from sklearn.utils.estimator_checks import _get_check_estimator_ids
+from sklearn.utils.estimator_checks import (
+    _enforce_estimator_tags_X,
+    _enforce_estimator_tags_y,
+    _get_check_estimator_ids,
+)
 from sklearn.utils.fixes import parse_version, sp_version
 
 import skops
@@ -61,12 +66,7 @@ from skops.io._trusted_types import (
 from skops.io._utils import LoadContext, SaveContext, _get_state, get_state, gettype
 from skops.io.exceptions import UnsupportedTypeException, UntrustedTypesFoundException
 from skops.io.tests._utils import assert_method_outputs_equal, assert_params_equal
-from skops.utils._fixes import (
-    _enforce_estimator_tags_X,
-    _enforce_estimator_tags_y,
-    construct_instances,
-    get_tags,
-)
+from skops.utils._fixes import construct_instances, get_tags
 
 # Default settings for X
 N_SAMPLES = 120
@@ -897,7 +897,7 @@ def test_disk_and_memory_are_identical(tmp_path):
                 ("scale", MinMaxScaler()),
             ])),
         ])),
-        ("clf", LogisticRegression(random_state=0, solver="liblinear")),
+        ("clf", LogisticRegression(random_state=0, solver="saga")),
     ]).fit([[0, 1], [2, 3], [4, 5]], [0, 1, 2])
     # fmt: on
 
@@ -1120,3 +1120,45 @@ def test_dictionary(cls):
     loaded_obj = loads(dumps(obj))
     assert obj == loaded_obj
     assert type(obj) is cls
+
+
+def test_datetime():
+    obj = datetime.now()
+    loaded_obj = loads(dumps(obj), trusted=[datetime])
+    assert obj == loaded_obj
+    assert type(obj) is datetime
+
+
+def test_slice():
+    obj = slice(1, 2, 3)
+    loaded_obj = loads(dumps(obj))
+    assert obj == loaded_obj
+    assert type(obj) is slice
+
+
+# This class is here as opposed to inside the test because it needs to be importable.
+reduce_calls = 0
+
+
+class CustomReduce:
+    def __init__(self, value):
+        self.value = value
+
+    def __reduce__(self):
+        global reduce_calls
+        reduce_calls += 1
+        return (type(self), (self.value,))
+
+
+def test_custom_reduce():
+    obj = CustomReduce(10)
+    dumped = dumps(obj)
+
+    # make sure __reduce__ is called, once.
+    assert reduce_calls == 1
+
+    with pytest.raises(TypeError, match="Untrusted types found"):
+        loads(dumped)
+
+    loaded_obj = loads(dumps(obj), trusted=[CustomReduce])
+    assert obj.value == loaded_obj.value

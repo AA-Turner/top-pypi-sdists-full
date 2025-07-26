@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,26 +27,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     VscanOnDemand(
         {
             "schedule": {
-                "name": "schedule",
                 "uuid": "f6d0843e-f159-11e8-8e22-0050568e0945",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/schedules/f6d0843e-f159-11e8-8e22-0050568e0945"
                     }
                 },
+                "name": "schedule",
             },
-            "name": "on-demand-policy1",
-            "log_path": "/vol0/report_dir",
             "scan_paths": ["/vol1/", "/vol2/cifs/"],
-            "svm": {
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/86fbc414-f140-11e8-8e22-0050568e0945"
-                    }
-                },
-                "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
-            },
             "scope": {
                 "exclude_paths": ["/vol1/cold-files/", "/vol1/cifs/names"],
                 "scan_without_extension": False,
@@ -54,27 +43,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 "max_file_size": 10737418240,
                 "exclude_extensions": ["mp3", "mp4"],
             },
-        }
-    ),
-    VscanOnDemand(
-        {
-            "name": "on-demand-policy2",
-            "log_path": "/report",
-            "scan_paths": ["/vol1/", "/vol2/cifs/"],
+            "log_path": "/vol0/report_dir",
             "svm": {
+                "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/86fbc414-f140-11e8-8e22-0050568e0945"
                     }
                 },
-                "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
             },
+            "name": "on-demand-policy1",
+        }
+    ),
+    VscanOnDemand(
+        {
+            "scan_paths": ["/vol1/", "/vol2/cifs/"],
             "scope": {
                 "scan_without_extension": True,
                 "include_extensions": ["mp*"],
                 "max_file_size": 10737418240,
             },
+            "log_path": "/report",
+            "svm": {
+                "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
+                "name": "vs1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/86fbc414-f140-11e8-8e22-0050568e0945"
+                    }
+                },
+            },
+            "name": "on-demand-policy2",
         }
     ),
 ]
@@ -105,21 +105,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnDemand(
     {
-        "name": "on-demand-policy",
-        "log_path": "/report",
         "scan_paths": ["/vol1/cifs"],
-        "svm": {
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/86fbc414-f140-11e8-8e22-0050568e0945"}
-            },
-            "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
-        },
         "scope": {
             "scan_without_extension": True,
             "include_extensions": ["vmdk", "mp*"],
             "max_file_size": 10737418240,
         },
+        "log_path": "/report",
+        "svm": {
+            "uuid": "86fbc414-f140-11e8-8e22-0050568e0945",
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/86fbc414-f140-11e8-8e22-0050568e0945"}
+            },
+        },
+        "name": "on-demand-policy",
     }
 )
 
@@ -163,10 +163,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 VscanOnDemand(
     {
         "schedule": {"name": "weekly"},
-        "name": "on-demand-policy",
-        "log_path": "/vol0/report_dir",
         "scan_paths": ["/vol1/", "/vol2/cifs/"],
-        "svm": {"name": "vs1"},
         "scope": {
             "exclude_paths": ["/vol/cold-files/"],
             "scan_without_extension": True,
@@ -174,6 +171,9 @@ VscanOnDemand(
             "max_file_size": 1073741824,
             "exclude_extensions": ["mp3"],
         },
+        "log_path": "/vol0/report_dir",
+        "svm": {"name": "vs1"},
+        "name": "on-demand-policy",
     }
 )
 
@@ -205,15 +205,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnDemand(
     {
-        "name": "on-demand-policy",
-        "log_path": "/report",
         "scan_paths": ["vol1/cifs/"],
-        "svm": {"name": "vs1"},
         "scope": {
             "scan_without_extension": True,
             "include_extensions": ["vmdk", "mp*"],
             "max_file_size": 10737418240,
         },
+        "log_path": "/report",
+        "svm": {"name": "vs1"},
+        "name": "on-demand-policy",
     }
 )
 

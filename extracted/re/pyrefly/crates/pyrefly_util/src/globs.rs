@@ -8,6 +8,7 @@
 use std::ffi::OsStr;
 use std::fmt;
 use std::fmt::Display;
+use std::hash::Hash;
 use std::path::Component;
 use std::path::MAIN_SEPARATOR;
 use std::path::MAIN_SEPARATOR_STR;
@@ -19,7 +20,6 @@ use anyhow::Context;
 use bstr::ByteSlice;
 use glob::Pattern;
 use itertools::Itertools;
-use path_absolutize::Absolutize;
 use serde::Deserialize;
 use serde::Serialize;
 use serde::de;
@@ -27,41 +27,44 @@ use serde::de::Visitor;
 use starlark_map::small_set::SmallSet;
 use tracing::debug;
 
+use crate::absolutize::Absolutize as _;
 use crate::fs_anyhow;
 use crate::prelude::SliceExt;
 use crate::prelude::VecExt;
 
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Default)]
+#[derive(Debug, Clone, Eq, Default)]
 
 /// A glob pattern for matching files.
 ///
-/// Only matches Python files (.py, .pyi) and automatically excludes:
-/// - Files that don't have .py or .pyi extensions
+/// Only matches Python files (.py, .pyi, .pyw) and automatically excludes:
+/// - Files that don't have .py, .pyi, or .pyw extensions
 /// - Files whose names start with '.' (dot files)
-pub struct Glob(PathBuf);
+pub struct Glob(Pattern);
 
 impl Glob {
     /// Create a new `Glob`, but do not do absolutizing (since we don't want to do
     /// that until rewriting with a root)
-    pub fn new(mut pattern: String) -> Self {
+    pub fn new(mut pattern: String) -> anyhow::Result<Self> {
         if pattern.ends_with("**") {
             pattern.push_str(&format!("{MAIN_SEPARATOR_STR}*"));
         } else if pattern.ends_with("**/") || pattern.ends_with(r"**\") {
             pattern.push('*');
         }
-        Self(PathBuf::from(pattern))
+        Ok(Self(Pattern::new(&pattern).with_context(|| {
+            format!("While constructing glob pattern from {pattern}")
+        })?))
     }
 
     /// Create a new `Glob`, with the pattern relative to `root`.
     /// `root` should be an absolute path.
-    pub fn new_with_root(root: &Path, pattern: String) -> Self {
-        Self::new(pattern).from_root(root)
+    pub fn new_with_root(root: &Path, pattern: String) -> anyhow::Result<Self> {
+        Self::new(pattern)?.from_root(root)
     }
 
     /// Rewrite the current `Glob` relative to `root`.
     /// `root` should be an absolute path.
-    pub fn from_root(self, root: &Path) -> Self {
-        Self(Self::pattern_relative_to_root(root, &self.0))
+    pub fn from_root(self, root: &Path) -> anyhow::Result<Self> {
+        Ok(Self(Self::pattern_relative_to_root(root, &self.0)?))
     }
 
     fn contains_glob_char(part: &OsStr) -> bool {
@@ -69,12 +72,10 @@ impl Glob {
         bytes.contains(&b'*') || bytes.contains(&b'?') || bytes.contains(&b'[')
     }
 
-    fn pattern_relative_to_root(root: &Path, pattern: &Path) -> PathBuf {
-        // absolutize_from always returns `Ok()`
-        pattern
-            .absolutize_from(Pattern::escape(root.to_string_lossy().as_ref()))
-            .unwrap()
-            .into_owned()
+    fn pattern_relative_to_root(root: &Path, pattern: &Pattern) -> anyhow::Result<Pattern> {
+        let from_root = Path::new(pattern.as_str())
+            .absolutize_from(Path::new(&Pattern::escape(root.to_string_lossy().as_ref())));
+        Ok(Pattern::new(&from_root.to_string_lossy())?)
     }
 
     fn get_glob_root(&self) -> PathBuf {
@@ -82,7 +83,7 @@ impl Glob {
 
         // we need to add any path prefix and root items (there should be at most one of each,
         // and prefix only exists on windows) to the root we're building
-        self.0
+        self.as_path()
             .components()
             .take_while(|comp| {
                 match comp {
@@ -102,8 +103,16 @@ impl Glob {
         path
     }
 
+    pub fn as_path(&self) -> &Path {
+        Path::new(self.0.as_str())
+    }
+
+    pub fn as_str(&self) -> &str {
+        self.0.as_str()
+    }
+
     fn is_python_extension(ext: Option<&OsStr>) -> bool {
-        ext.is_some_and(|e| e == "py" || e == "pyi")
+        ext.is_some_and(|e| e == "py" || e == "pyi" || e == "pyw")
     }
 
     /// Returns true if the given file should be included in results.
@@ -129,7 +138,7 @@ impl Glob {
         results: &mut Vec<PathBuf>,
         filter: &Globs,
     ) -> anyhow::Result<()> {
-        if filter.matches(&path)? {
+        if filter.matches(&path) {
             return Ok(());
         }
         if path.is_dir() {
@@ -163,29 +172,31 @@ impl Glob {
     /// Returns true if the given file matches any of the contained globs.
     /// We always attempt to append `**` in case
     /// the pattern is meant to be a directory wildcard.
-    pub fn matches(&self, file: &Path) -> anyhow::Result<bool> {
-        let pattern_path = &self.0;
-        let mut pattern_str = pattern_path.to_string_lossy().to_string();
-        let pattern = Pattern::new(&pattern_str)
-            .with_context(|| format!("When resolving pattern `{pattern_str}`"))?;
-        if pattern.matches_path(file) {
-            return Ok(true);
+    pub fn matches(&self, file: &Path) -> bool {
+        if self.0.matches_path(file) {
+            return true;
         }
+
+        // if we could match before, see if it's because of some matching semantics
+        // around the glob library we're using, where the end MUST be a wildcard
+        let pattern_path = &self.0;
+        let mut pattern_str = pattern_path.as_str().to_owned();
         if !pattern_str.ends_with(['/', '\\']) {
             pattern_str.push(MAIN_SEPARATOR);
         }
         pattern_str.push_str("**");
+
         // don't return an error if we fail to construct a glob here, since it's something
         // we automatically attempted and failed at. We should ignore failure here, since
         // we attempted to do this automatically, and the pattern we're constructing should be valid
         // (i.e. the previous pattern we constructed should have failed before we get to here).
-        Ok(glob::Pattern::new(&pattern_str).is_ok_and(|pattern| pattern.matches_path(file)))
+        glob::Pattern::new(&pattern_str).is_ok_and(|pattern| pattern.matches_path(file))
     }
 }
 
 impl Display for Glob {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.0.display())
+        write!(f, "{}", self.0.as_str())
     }
 }
 
@@ -204,7 +215,12 @@ impl<'de> Deserialize<'de> for Glob {
             }
 
             fn visit_string<E: de::Error>(self, value: String) -> Result<Self::Value, E> {
-                Ok(Glob::new(value))
+                match Glob::new(value) {
+                    Ok(ok) => Ok(ok),
+                    Err(error) => Err(E::custom(
+                        format!("Failed to deserialize as Glob: {error}",),
+                    )),
+                }
             }
 
             fn visit_str<E: de::Error>(self, v: &str) -> Result<Self::Value, E> {
@@ -216,17 +232,40 @@ impl<'de> Deserialize<'de> for Glob {
     }
 }
 
+impl Serialize for Glob {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        serializer.serialize_str(self.as_str())
+    }
+}
+
+impl Hash for Glob {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        self.as_path().hash(state);
+    }
+}
+
+impl PartialEq for Glob {
+    fn eq(&self, other: &Self) -> bool {
+        // we want to use path equality, since we don't want to have to worry about
+        // platform-dependent path separators
+        self.as_path() == other.as_path()
+    }
+}
+
 impl Glob {
     fn files(&self, filter: &Globs) -> anyhow::Result<Vec<PathBuf>> {
         let pattern = &self.0;
-        if filter.matches(pattern)? {
+        if filter.matches(self.as_path()) {
             return Err(anyhow::anyhow!(
                 "Pattern {} is matched by `project-excludes`.\n`project-excludes`: {}",
-                pattern.display(),
+                pattern.as_str(),
                 filter.0.iter().map(|p| p.to_string()).join(", "),
             ));
         }
-        let pattern_str = pattern.to_string_lossy().to_string();
+        let pattern_str = pattern.as_str().to_owned();
         let result = Self::resolve_pattern(&pattern_str, filter)
             .with_context(|| format!("When resolving pattern `{pattern_str}`"))?;
         if result.is_empty() {
@@ -244,52 +283,48 @@ pub struct Globs(Vec<Glob>);
 
 impl Globs {
     pub fn empty() -> Self {
-        Self::new(vec![])
+        Self(vec![])
     }
 
     /// Create a new `Globs` from the given patterns. If you want them to be relative
     /// to a root, please use `Globs::new_with_root()` instead.
-    pub fn new(patterns: Vec<String>) -> Self {
-        Self(patterns.into_map(Glob::new))
+    pub fn new(patterns: Vec<String>) -> anyhow::Result<Self> {
+        Ok(Self(patterns.into_try_map(Glob::new)?))
     }
 
     /// Create a new `Globs`, rewriting all patterns to be relative to `root`.
     /// `root` should be an absolute path.
-    pub fn new_with_root(root: &Path, patterns: Vec<String>) -> Self {
-        Self::rewrite_with_root(root, patterns.into_map(Glob::new))
+    pub fn new_with_root(root: &Path, patterns: Vec<String>) -> anyhow::Result<Self> {
+        Self::rewrite_with_root(root, patterns.into_try_map(Glob::new)?)
     }
 
-    fn rewrite_with_root(root: &Path, patterns: Vec<Glob>) -> Self {
-        Self(
-            patterns
-                .into_iter()
-                .map(|pattern| pattern.from_root(root))
-                .collect(),
-        )
+    fn rewrite_with_root(root: &Path, patterns: Vec<Glob>) -> anyhow::Result<Self> {
+        Ok(Self(
+            patterns.into_try_map(|pattern| pattern.from_root(root))?,
+        ))
     }
 
     /// Rewrite the existing `Globs` to be relative to `root`.
     /// `root` should be an absolute path.
-    pub fn from_root(self, root: &Path) -> Self {
+    pub fn from_root(self, root: &Path) -> anyhow::Result<Self> {
         // TODO(connernilsen): store root as part of globs to make it easier to rewrite later on
         Self::rewrite_with_root(root, self.0)
     }
 
     /// Given a glob pattern, return the directories that can contain files that match the pattern.
     pub fn roots(&self) -> Vec<PathBuf> {
-        self.0.map(|s| s.get_glob_root())
+        let mut res = self.0.map(|s| s.get_glob_root());
+        res.sort();
+        res.dedup();
+        // We could dedup more in future, if there is `/foo` and `/foo/bar` then the second is redundant.
+        res
     }
 
     /// Returns true if the given file matches any of the contained globs.
     /// We always attempt to append `**` if a pattern ends in `/` in case
     /// the pattern is meant to be a directory wildcard.
-    fn matches(&self, file: &Path) -> anyhow::Result<bool> {
-        for pattern in &self.0 {
-            if pattern.matches(file)? {
-                return Ok(true);
-            }
-        }
-        Ok(false)
+    fn matches(&self, file: &Path) -> bool {
+        self.0.iter().any(|pattern| pattern.matches(file))
     }
 
     pub fn is_empty(&self) -> bool {
@@ -318,7 +353,7 @@ impl Display for Globs {
 const USE_EDEN: bool = cfg!(fbcode_build);
 
 impl Globs {
-    pub fn files_eden(&self) -> anyhow::Result<Vec<PathBuf>> {
+    pub fn files_eden(&self, filter: &Globs) -> anyhow::Result<Vec<PathBuf>> {
         fn hg_root() -> anyhow::Result<PathBuf> {
             let output = Command::new("hg")
                 .arg("root")
@@ -363,19 +398,19 @@ impl Globs {
         }
 
         let root = hg_root()?;
-        let globs = self.0.try_map(|g| g.0.strip_prefix(&root))?;
-        eden_glob(root, globs)
+        let globs = self.0.try_map(|g| g.as_path().strip_prefix(&root))?;
+        let mut result = eden_glob(root, globs)?;
+        result.retain(|p| !filter.matches(p));
+        Ok(result)
     }
 
     fn filtered_files(&self, filter: &Globs) -> anyhow::Result<Vec<PathBuf>> {
         if USE_EDEN {
-            match self.files_eden() {
+            match self.files_eden(filter) {
                 Ok(files) if files.is_empty() => {
                     return Err(anyhow::anyhow!(
                         "No Python files matched pattern(s) {}",
-                        self.0
-                            .map(|p| format!("`{}`", p.0.to_string_lossy()))
-                            .join(", "),
+                        self.0.map(|p| format!("`{}`", p.as_str())).join(", "),
                     ));
                 }
                 Ok(files) => return Ok(files),
@@ -395,7 +430,7 @@ impl Globs {
     }
 
     pub fn covers(&self, path: &Path) -> bool {
-        self.matches(path).unwrap_or(false)
+        self.matches(path)
     }
 }
 
@@ -435,7 +470,7 @@ mod tests {
     #[test]
     fn test_roots() {
         fn f(pattern: &str, root: &str) {
-            let globs = Globs::new(vec![pattern.to_owned()]);
+            let globs = Globs::new(vec![pattern.to_owned()]).unwrap();
             assert_eq!(
                 globs.roots(),
                 vec![PathBuf::from(root)],
@@ -525,9 +560,10 @@ mod tests {
                 );
             }
             let globs: Vec<PathBuf> = Globs::new_with_root(Path::new(&root), inputs)
+                .unwrap()
                 .0
                 .into_iter()
-                .map(|g| g.0)
+                .map(|g| g.as_path().to_path_buf())
                 .collect();
             assert_eq!(globs, expected, "with root {root:?}");
         };
@@ -609,65 +645,62 @@ mod tests {
         let patterns = Globs::new(vec![
             "**/__pycache__/**".to_owned(),
             "**/.[!/.]*".to_owned(),
-        ]);
+        ])
+        .unwrap();
 
-        assert!(patterns.matches(Path::new("__pycache__/")).unwrap());
-        assert!(
-            patterns
-                .matches(Path::new("__pycache__/some/cached/file.pyc"))
-                .unwrap()
-        );
-        assert!(patterns.matches(Path::new("path/to/__pycache__/")).unwrap());
-        assert!(patterns.matches(Path::new(".hidden")).unwrap());
-        assert!(patterns.matches(Path::new("path/to/.hidden")).unwrap());
-        assert!(!patterns.matches(Path::new("./test")).unwrap());
-        assert!(!patterns.matches(Path::new("../test")).unwrap());
-        assert!(!patterns.matches(Path::new("a/.")).unwrap());
-        assert!(!patterns.matches(Path::new("a/..")).unwrap());
-        assert!(!patterns.matches(Path::new("a/./")).unwrap());
-        assert!(!patterns.matches(Path::new("a/../")).unwrap());
-        assert!(!patterns.matches(Path::new("a/./test")).unwrap());
-        assert!(!patterns.matches(Path::new("a/../test")).unwrap());
-        assert!(patterns.matches(Path::new("a/.a/")).unwrap());
-        assert!(patterns.matches(Path::new("a/.ab/")).unwrap());
-        assert!(patterns.matches(Path::new("a/.a/")).unwrap());
-        assert!(patterns.matches(Path::new("a/.ab/")).unwrap());
-        assert!(!patterns.matches(Path::new("just/a/regular.file")).unwrap());
-        assert!(!patterns.matches(Path::new("file/with/a.dot")).unwrap());
+        assert!(patterns.matches(Path::new("__pycache__/")));
+        assert!(patterns.matches(Path::new("__pycache__/some/cached/file.pyc")));
+        assert!(patterns.matches(Path::new("path/to/__pycache__/")));
+        assert!(patterns.matches(Path::new(".hidden")));
+        assert!(patterns.matches(Path::new("path/to/.hidden")));
+        assert!(!patterns.matches(Path::new("./test")));
+        assert!(!patterns.matches(Path::new("../test")));
+        assert!(!patterns.matches(Path::new("a/.")));
+        assert!(!patterns.matches(Path::new("a/..")));
+        assert!(!patterns.matches(Path::new("a/./")));
+        assert!(!patterns.matches(Path::new("a/../")));
+        assert!(!patterns.matches(Path::new("a/./test")));
+        assert!(!patterns.matches(Path::new("a/../test")));
+        assert!(patterns.matches(Path::new("a/.a/")));
+        assert!(patterns.matches(Path::new("a/.ab/")));
+        assert!(patterns.matches(Path::new("a/.a/")));
+        assert!(patterns.matches(Path::new("a/.ab/")));
+        assert!(!patterns.matches(Path::new("just/a/regular.file")));
+        assert!(!patterns.matches(Path::new("file/with/a.dot")));
         assert!(
             Globs::new(vec!["**/__pycache__".to_owned()])
-                .matches(Path::new("__pycache__/some/file.pyc"))
                 .unwrap()
+                .matches(Path::new("__pycache__/some/file.pyc"))
         );
         assert!(
             Globs::new(vec!["**/__pycache__/".to_owned()])
+                .unwrap()
                 .matches(Path::new("__pycache__/some/file.pyc"))
-                .unwrap()
         );
         assert!(
             Globs::new(vec!["**/__pycache__".to_owned()])
+                .unwrap()
                 .matches(Path::new("__pycache__/"))
-                .unwrap()
         );
         assert!(
             Globs::new(vec!["**/__pycache__".to_owned()])
+                .unwrap()
                 .matches(Path::new("__pycache__"))
-                .unwrap()
         );
         assert!(
             Globs::new(vec!["**/__pycache__/".to_owned()])
-                .matches(Path::new("__pycache__/"))
                 .unwrap()
+                .matches(Path::new("__pycache__/"))
         );
         assert!(
             !Globs::new(vec!["**/__pycache__/".to_owned()])
-                .matches(Path::new("__pycache__"))
                 .unwrap()
+                .matches(Path::new("__pycache__"))
         );
         assert!(
             !Globs::new(vec!["**/__pycache__/**".to_owned()])
-                .matches(Path::new("__pycache__"))
                 .unwrap()
+                .matches(Path::new("__pycache__"))
         );
     }
 
@@ -675,15 +708,15 @@ mod tests {
     fn test_globs_match_file() {
         fn glob_matches(pattern: &str, equal: bool) {
             let root = std::env::current_dir().unwrap();
-            let root = root.absolutize().unwrap();
+            let root = root.absolutize();
             let escaped_root = Pattern::escape(root.to_string_lossy().as_ref());
             let escaped_root = Path::new(&escaped_root);
 
             let file_to_match = escaped_root.join("path/to/my/file.py");
 
-            let glob = Glob::new_with_root(&root, pattern.to_owned());
+            let glob = Glob::new_with_root(&root, pattern.to_owned()).unwrap();
             assert!(
-                glob.matches(file_to_match.as_ref()).unwrap() == equal,
+                glob.matches(file_to_match.as_ref()) == equal,
                 "glob `{}` failed (`{}` expanded, `{}` file)",
                 pattern,
                 glob,
@@ -763,7 +796,9 @@ mod tests {
         );
 
         let glob_files_match = |pattern: &str, expected: &[&str]| -> anyhow::Result<()> {
-            let glob_files = Glob::new_with_root(root, pattern.to_owned()).files(&Globs::empty())?;
+            let glob_files = Glob::new_with_root(root, pattern.to_owned())
+                .unwrap()
+                .files(&Globs::empty())?;
             let mut glob_files = glob_files
                 .iter()
                 .map(|p| p.strip_prefix(root))
@@ -928,6 +963,7 @@ mod tests {
         // Helper function to assert that a glob pattern returns no files
         let assert_empty_glob = |pattern_str: &str, description: &str| {
             let found_files = Glob::new_with_root(root, pattern_str.to_owned())
+                .unwrap()
                 .files(&Globs::empty())
                 .unwrap_or_else(|_| Vec::new());
             assert!(
@@ -945,6 +981,7 @@ mod tests {
 
         // Verify that normal files are still found
         let normal_files = Glob::new_with_root(root, "**/*.py".to_owned())
+            .unwrap()
             .files(&Globs::empty())
             .unwrap();
         assert!(
@@ -983,30 +1020,28 @@ mod tests {
         assert_eq!(
             Glob::resolve_pattern(
                 &pattern,
-                &Globs::new(vec![root.join("**").to_string_lossy().to_string()])
+                &Globs::new(vec![root.join("**").to_string_lossy().to_string()]).unwrap()
             )
             .unwrap(),
             Vec::<PathBuf>::new()
         );
         assert!(
             Glob::new(pattern.clone())
-                .files(&Globs::new(vec![
-                    root.join("**").to_string_lossy().to_string()
-                ]))
+                .unwrap()
+                .files(&Globs::new(vec![root.join("**").to_string_lossy().to_string()]).unwrap())
                 .is_err()
         );
         // double check that <path>/** will also match <path>
         assert!(
             Glob::new(root.to_string_lossy().to_string())
-                .files(&Globs::new(vec![
-                    root.join("**").to_string_lossy().to_string()
-                ]))
+                .unwrap()
+                .files(&Globs::new(vec![root.join("**").to_string_lossy().to_string()]).unwrap())
                 .is_err()
         );
         assert_eq!(
             Glob::resolve_pattern(
                 &pattern,
-                &Globs::new(vec![root.join("a/c.py").to_string_lossy().to_string()])
+                &Globs::new(vec![root.join("a/c.py").to_string_lossy().to_string()]).unwrap()
             )
             .unwrap(),
             vec![root.join("a/b.py")],
@@ -1014,7 +1049,7 @@ mod tests {
         assert_eq!(
             Glob::resolve_pattern(
                 &pattern,
-                &Globs::new(vec![root.join("a").to_string_lossy().to_string()])
+                &Globs::new(vec![root.join("a").to_string_lossy().to_string()]).unwrap()
             )
             .unwrap(),
             Vec::<PathBuf>::new()
@@ -1022,7 +1057,7 @@ mod tests {
         assert_eq!(
             Glob::resolve_pattern(
                 &pattern,
-                &Globs::new(vec![root.join("a/b*").to_string_lossy().to_string()])
+                &Globs::new(vec![root.join("a/b*").to_string_lossy().to_string()]).unwrap()
             )
             .unwrap(),
             vec![root.join("a/c.py")],

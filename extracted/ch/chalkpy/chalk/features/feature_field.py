@@ -234,6 +234,7 @@ class Feature(Generic[_TPrim, _TRich]):
         "last",
         "last_for",
         "max_staleness",
+        "online_store_max_items",
         "name",
         "namespace",
         "no_display",
@@ -270,6 +271,7 @@ class Feature(Generic[_TPrim, _TRich]):
         default: _TRich | ellipsis = ...,
         underscore_expression: Underscore | None = None,
         max_staleness: Duration | None | ellipsis = ...,
+        online_store_max_items: int | None = None,
         cache_strategy: CacheStrategy = CacheStrategy.ALL,
         etl_offline_to_online: bool | None = None,
         encoder: TEncoder[_TPrim, _TRich] | None = None,
@@ -389,6 +391,8 @@ class Feature(Generic[_TPrim, _TRich]):
             max_staleness = parse_chalk_duration(max_staleness)
         if max_staleness is not ...:
             self.max_staleness = max_staleness
+
+        self.online_store_max_items = online_store_max_items
 
         if offline_ttl is None:
             offline_ttl = timedelta(0)
@@ -2107,6 +2111,7 @@ def has_one(f: Callable[[], Any]) -> Any:
 def has_many(
     f: Callable[[], Any],
     max_staleness: Union[Duration, None, ellipsis] = ...,
+    online_store_max_items: int | None = None
 ) -> Any:
     """Specify a feature that represents a one-to-many relationship.
 
@@ -2121,7 +2126,10 @@ def has_many(
         The maximum staleness of the joined feature. The items in the
         joined feature aggregate, storing the latest values of the joined
         feature for each primary key in the joined feature.
-
+    online_store_max_items
+        The maximum number of items to cache for the joined feature. The
+        items in the joined feature aggregate, storing the latest values
+        of the joined feature for each primary key in the joined feature.
     Examples
     --------
     >>> from chalk.features import DataFrame, features, has_many
@@ -2137,7 +2145,7 @@ def has_many(
     ...         lambda: User.id == Card.user_id
     ...     )
     """
-    return Feature(join=f, max_staleness=max_staleness, join_type="has_many")
+    return Feature(join=f, max_staleness=max_staleness,online_store_max_items=online_store_max_items, join_type="has_many")
 
 
 __all__ = (

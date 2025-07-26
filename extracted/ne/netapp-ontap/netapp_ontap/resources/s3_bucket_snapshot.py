@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -56,8 +56,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <div id="example1_result" class="try_it_out_content">
 ```
 [
-    S3BucketSnapshot({"name": "ss1", "uuid": "20837456-3c8b-405a-aa3a-5300c048f87d"}),
-    S3BucketSnapshot({"name": "ss2", "uuid": "c67cd056-d386-477a-8378-fcc06987bedf"}),
+    S3BucketSnapshot({"uuid": "20837456-3c8b-405a-aa3a-5300c048f87d", "name": "ss1"}),
+    S3BucketSnapshot({"uuid": "c67cd056-d386-477a-8378-fcc06987bedf", "name": "ss2"}),
 ]
 
 ```
@@ -89,17 +89,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     S3BucketSnapshot(
         {
             "create_time": "2024-08-22T14:23:54-04:00",
-            "name": "ss1",
-            "uuid": "20837456-3c8b-405a-aa3a-5300c048f87d",
             "svm": {"uuid": "148b9bbd-58d8-11ef-b7ca-005056ae1130"},
+            "uuid": "20837456-3c8b-405a-aa3a-5300c048f87d",
+            "name": "ss1",
         }
     ),
     S3BucketSnapshot(
         {
             "create_time": "2024-08-22T14:30:42-04:00",
-            "name": "ss2",
-            "uuid": "c67cd056-d386-477a-8378-fcc06987bedf",
             "svm": {"uuid": "148b9bbd-58d8-11ef-b7ca-005056ae1130"},
+            "uuid": "c67cd056-d386-477a-8378-fcc06987bedf",
+            "name": "ss2",
         }
     ),
 ]
@@ -128,9 +128,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 S3BucketSnapshot(
     {
         "create_time": "2024-08-22T14:30:42-04:00",
-        "name": "ss2",
-        "uuid": "c67cd056-d386-477a-8378-fcc06987bedf",
         "svm": {"uuid": "148b9bbd-58d8-11ef-b7ca-005056ae1130"},
+        "uuid": "c67cd056-d386-477a-8378-fcc06987bedf",
+        "name": "ss2",
     }
 )
 

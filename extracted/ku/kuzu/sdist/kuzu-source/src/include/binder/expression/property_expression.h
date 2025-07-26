@@ -22,7 +22,7 @@ private:
         : exists{other.exists}, isPrimaryKey{other.isPrimaryKey} {}
 };
 
-class PropertyExpression final : public Expression {
+class KUZU_API PropertyExpression final : public Expression {
     static constexpr common::ExpressionType expressionType_ = common::ExpressionType::PROPERTY;
 
 public:
@@ -58,7 +58,7 @@ public:
 
     std::string toStringInternal() const override { return rawVariableName + "." + propertyName; }
 
-    std::unique_ptr<Expression> copy() const override {
+    std::unique_ptr<PropertyExpression> copy() const {
         return std::make_unique<PropertyExpression>(*this);
     }
 

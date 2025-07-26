@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -61,16 +61,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeSubsystem(
         {
-            "name": "subsystem1",
+            "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
             "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
-            "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
+            "name": "subsystem1",
         }
     ),
     NvmeSubsystem(
         {
-            "name": "subsystem2",
+            "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
             "uuid": "bcde901a-a379-4a91-9ea6-1b728ed6696f",
-            "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
+            "name": "subsystem2",
         }
     ),
 ]
@@ -100,9 +100,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     NvmeSubsystem(
         {
             "os_type": "linux",
-            "name": "subsystem1",
+            "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
             "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
-            "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
+            "name": "subsystem1",
         }
     )
 ]
@@ -132,11 +132,11 @@ NvmeSubsystem(
     {
         "serial_number": "wtJNKNKD-uPLAAAAAAAD",
         "os_type": "linux",
-        "name": "subsystem1",
-        "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
-        "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
-        "target_nqn": "nqn.1992-08.com.netapp:sn.d04594ef915b4c73b642169e72e4c0b1:subsystem.subsystem1",
         "io_queue": {"default": {"depth": 32, "count": 4}},
+        "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
+        "target_nqn": "nqn.1992-08.com.netapp:sn.d04594ef915b4c73b642169e72e4c0b1:subsystem.subsystem1",
+        "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
+        "name": "subsystem1",
     }
 )
 
@@ -165,27 +165,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeSubsystem(
     {
-        "name": "subsystem1",
-        "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
+        "svm": {"uuid": "a009a9e7-4081-b576-7575-ada21efcaf16", "name": "svm1"},
         "subsystem_maps": [
             {
-                "namespace": {
-                    "name": "/vol/vol1/namespace1",
-                    "uuid": "eeaaca23-128d-4a7d-be4a-dc9106705799",
-                },
-                "nsid": "00000001h",
                 "anagrpid": "00000001h",
+                "nsid": "00000001h",
+                "namespace": {
+                    "uuid": "eeaaca23-128d-4a7d-be4a-dc9106705799",
+                    "name": "/vol/vol1/namespace1",
+                },
             },
             {
-                "namespace": {
-                    "name": "/vol/vol1/namespace2",
-                    "uuid": "feaaca23-83a0-4a7d-beda-dc9106705799",
-                },
-                "nsid": "00000002h",
                 "anagrpid": "00000002h",
+                "nsid": "00000002h",
+                "namespace": {
+                    "uuid": "feaaca23-83a0-4a7d-beda-dc9106705799",
+                    "name": "/vol/vol1/namespace2",
+                },
             },
         ],
-        "svm": {"name": "svm1", "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16"},
+        "uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f",
+        "name": "subsystem1",
     }
 )
 
@@ -327,10 +327,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeSubsystemHost(
     {
-        "subsystem": {"uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f"},
         "priority": "regular",
-        "nqn": "nqn.1992-01.com.example:subsys1.host1",
         "dh_hmac_chap": {},
+        "subsystem": {"uuid": "acde901a-a379-4a91-9ea6-1b728ed6696f"},
+        "nqn": "nqn.1992-01.com.example:subsys1.host1",
     }
 )
 
@@ -427,6 +427,9 @@ Valid choices:
 * vmware
 * windows"""
 
+    replication = marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_replication.NvmeSubsystemReplicationSchema", data_key="replication", unknown=EXCLUDE, allow_none=True)
+    r""" Properties related to subsystem replication."""
+
     serial_number = marshmallow_fields.Str(
         data_key="serial_number",
         validate=len_validation(minimum=20, maximum=20),
@@ -439,7 +442,7 @@ Example: wCVsgFMiuMhVAAAAAAAB"""
 
     subsystem_maps = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_subsystem_maps.NvmeSubsystemSubsystemMapsSchema", unknown=EXCLUDE, allow_none=True), data_key="subsystem_maps", allow_none=True)
     r""" The NVMe namespaces mapped to the NVMe subsystem.<br/>
-There is an added computational cost to retrieving property values for `subsystem_maps`. They are not populated for either a collection GET or an instance GET unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more."""
+There is an added computational cost to retrieving property values for `subsystem_maps`. They are not populated for a GET request unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more."""
 
     svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
     r""" The svm field of the nvme_subsystem."""
@@ -478,6 +481,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "io_queue",
         "name",
         "os_type",
+        "replication",
         "serial_number",
         "subsystem_maps",
         "svm.links",
@@ -487,13 +491,14 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "uuid",
         "vendor_uuids",
     ]
-    """links,comment,delete_on_unmap,hosts,io_queue,name,os_type,serial_number,subsystem_maps,svm.links,svm.name,svm.uuid,target_nqn,uuid,vendor_uuids,"""
+    """links,comment,delete_on_unmap,hosts,io_queue,name,os_type,replication,serial_number,subsystem_maps,svm.links,svm.name,svm.uuid,target_nqn,uuid,vendor_uuids,"""
 
     patchable_fields = [
         "comment",
         "delete_on_unmap",
+        "replication",
     ]
-    """comment,delete_on_unmap,"""
+    """comment,delete_on_unmap,replication,"""
 
     postable_fields = [
         "comment",
@@ -501,11 +506,12 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "hosts",
         "name",
         "os_type",
+        "replication",
         "svm.name",
         "svm.uuid",
         "vendor_uuids",
     ]
-    """comment,delete_on_unmap,hosts,name,os_type,svm.name,svm.uuid,vendor_uuids,"""
+    """comment,delete_on_unmap,hosts,name,os_type,replication,svm.name,svm.uuid,vendor_uuids,"""
 
 class NvmeSubsystem(Resource):
     r""" An NVMe subsystem maintains configuration state and namespace access control for a set of NVMe-connected hosts. """
@@ -602,7 +608,7 @@ class NvmeSubsystem(Resource):
         r"""Creates an NVMe subsystem.
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the NVMe subsystem.
-* `name` - Name for NVMe subsystem. Once created, an NVMe subsytem cannot be renamed.
+* `name` - Name for NVMe subsystem. Once created, an NVMe subsystem cannot be renamed.
 * `os_type` - Operating system of the NVMe subsystem's hosts.
 ### Related ONTAP commands
 * `vserver nvme subsystem create`
@@ -682,7 +688,7 @@ There is an added computational cost to retrieving values for these properties. 
         r"""Creates an NVMe subsystem.
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the NVMe subsystem.
-* `name` - Name for NVMe subsystem. Once created, an NVMe subsytem cannot be renamed.
+* `name` - Name for NVMe subsystem. Once created, an NVMe subsystem cannot be renamed.
 * `os_type` - Operating system of the NVMe subsystem's hosts.
 ### Related ONTAP commands
 * `vserver nvme subsystem create`

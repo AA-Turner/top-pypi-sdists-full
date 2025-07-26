@@ -50,7 +50,15 @@ async def get_valid_token(tokens: Optional[list] = None):
 @retrying(max_retries=5)
 async def create_task(request: Union[CompletionRequest, VideoRequest], api_key: Optional[str] = None):
     # api_key = api_key or await get_next_token_for_polling(feishu_url=FEISHU_URL, check_token=check)
-    api_key = api_key or await get_valid_token()
+    # api_key = api_key or await get_valid_token()
+
+    feishu_url = "https://xchatllm.feishu.cn/sheets/Z59Js10DbhT8wdt72LachSDlnlf?sheet=rcoDg7"
+    api_key = api_key or await get_next_token_for_polling(
+        feishu_url=feishu_url,
+        from_redis=True,
+        ttl=15 * 60,
+        check_token=check
+    )
 
     logger.debug(f"api_key: {api_key}")
     if isinstance(request, VideoRequest):  # 兼容jimeng

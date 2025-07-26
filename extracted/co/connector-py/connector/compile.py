@@ -55,12 +55,17 @@ def compile_executable_for_onprem(
     # Find path to nearest __about__.py from path
     version = get_version_from_package(connector_root_dir)
 
+    # Find the connector-sdk-types package directory
+    current_dir = Path(__file__).parent  # connector/
+    sdk_types_path = current_dir.parent.parent / "connector-sdk-types"
+
     print(f"Compiling executable for {app_id} in {compile_directory}", file=sys.stderr)
     PyInstaller.__main__.run(
         [
             str(connector_main_path.absolute()),
             "--clean",
             f"--paths={sdk_root.absolute()}",
+            f"--paths={sdk_types_path.absolute()}",
             "-y",
             f"--distpath={compile_directory / 'dist'}",
             f"--workpath={compile_directory / 'work'}",

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -7,9 +7,6 @@ This file has been automatically generated based on the ONTAP REST API documenta
 ## Overview
 Storage units is an aggregated view of LUNs and NVMe namespaces. See [`/storage/luns`](#docs-SAN-storage_luns) or [`/storage/namespaces`](#docs-NVMe-storage_namespaces) to learn more about each storage unit type.<br/>
 The storage unit REST API allows you to clone, restore, and discover storage units.<br/>
-## Platform Specifics
-### Unified ONTAP
-This endpoint is not available.
 ## Examples
 ### Retrieving storage units
 This example retrieves summary information for all online storage units. The `status.state` query parameter is used to find the desired storage units.<br/>
@@ -29,26 +26,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageUnit(
         {
+            "status": {"state": "online"},
+            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
             "name": "lun1",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b"
                 }
             },
-            "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
-            "status": {"state": "online"},
         }
     ),
     StorageUnit(
         {
+            "status": {"state": "online"},
+            "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
             "name": "ns1",
             "_links": {
                 "self": {
                     "href": "/api/storage/storage-units/3d9c001f-227e-11ef-97b9-005056bbbc7b"
                 }
             },
-            "uuid": "3d9c001f-227e-11ef-97b9-005056bbbc7b",
-            "status": {"state": "online"},
         }
     ),
 ]
@@ -59,14 +56,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ---
 ### Retrieving details for a specific storage unit
-In this example, the `fields` query parameter is used to request all fields, including advanced fields, that would not otherwise be returned by default for the storage unit.
-<br/>
+In this example, the `fields` query parameter is used to request all properties including advanced properties that would not otherwise be returned by default for the storage unit. The example storage unit was recently moved, therefore the `movement` properties are populated.
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import StorageUnit
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = StorageUnit(uuid="9034e72c-1d07-11ef-bd09-005056bbbc7b")
+    resource = StorageUnit(uuid="55150b5f-a365-11ef-be6a-005056a74d48")
     resource.get(fields="**")
     print(resource)
 
@@ -78,61 +74,97 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageUnit(
     {
-        "name": "lun1",
-        "enabled": True,
-        "_links": {
-            "self": {
-                "href": "/api/storage/storage-units/9034e72c-1d07-11ef-bd09-005056bbbc7b?fields=**"
-            }
-        },
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/7cb65b79-1a0f-11ef-bd09-005056bbbc7b"}
-            },
-            "uuid": "7cb65b79-1a0f-11ef-bd09-005056bbbc7b",
+        "serial_number": "wqUc6?XQp8Cn",
+        "status": {
+            "mapped": False,
+            "read_only": False,
+            "container_state": "online",
+            "state": "online",
         },
         "clone": {"is_flexclone": False},
-        "uuid": "9034e72c-1d07-11ef-bd09-005056bbbc7b",
+        "movement": {
+            "start_time": "2024-11-18T20:39:38+00:00",
+            "source": {
+                "storage_availability_zone": {
+                    "uuid": "c5a5d316-a2ca-11ef-a7d1-005056a77440",
+                    "_links": {
+                        "self": {
+                            "href": "/api/storage/availability-zones/c5a5d316-a2ca-11ef-a7d1-005056a77440"
+                        }
+                    },
+                    "name": "storage_availability_zone_1",
+                }
+            },
+            "percent_complete": 100,
+            "state": "success",
+            "destination": {
+                "storage_availability_zone": {
+                    "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
+                    "_links": {
+                        "self": {
+                            "href": "/api/storage/availability-zones/2b52fd40-a2ca-11ef-be6a-005056a74d48"
+                        }
+                    },
+                    "name": "storage_availability_zone_0",
+                }
+            },
+        },
+        "svm": {
+            "uuid": "8b8bb0c5-a2ca-11ef-be6a-005056a74d48",
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/8b8bb0c5-a2ca-11ef-be6a-005056a74d48"}
+            },
+        },
+        "uuid": "55150b5f-a365-11ef-be6a-005056a74d48",
+        "space": {
+            "physical_used": 40960,
+            "used": 0,
+            "efficiency_ratio": 1.0,
+            "size": 31457280,
+            "physical_used_by_snapshots": 3407872,
+        },
+        "type": "lun",
+        "os_type": "linux",
+        "create_time": "2024-11-15T10:22:00-05:00",
+        "name": "lun1",
+        "enabled": True,
+        "encryption": {"state": "unencrypted"},
         "class": "regular",
-        "create_time": "2024-05-28T11:33:03-04:00",
         "location": {
+            "node": {
+                "uuid": "a5fd8f06-a2c9-11ef-aec3-005056a7f0ed",
+                "name": "sti40-vsim-ucs507f",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/a5fd8f06-a2c9-11ef-aec3-005056a7f0ed"
+                    }
+                },
+            },
             "volume": {
+                "uuid": "55cf6ff7-a365-11ef-be6a-005056a74d48",
                 "name": "lun1",
                 "_links": {
                     "self": {
-                        "href": "/api/storage/volumes/906d2f70-1d07-11ef-bd09-005056bbbc7b"
+                        "href": "/api/storage/volumes/55cf6ff7-a365-11ef-be6a-005056a74d48"
                     }
                 },
-                "uuid": "906d2f70-1d07-11ef-bd09-005056bbbc7b",
             },
-            "node": {
-                "name": "node1",
+            "storage_availability_zone": {
+                "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
                 "_links": {
                     "self": {
-                        "href": "/api/cluster/nodes/7925ce48-1a0e-11ef-bd09-005056bbbc7b"
+                        "href": "/api/storage/availability-zones/2b52fd40-a2ca-11ef-be6a-005056a74d48"
                     }
                 },
-                "uuid": "7925ce48-1a0e-11ef-bd09-005056bbbc7b",
+                "name": "storage_availability_zone_0",
             },
         },
-        "os_type": "linux",
-        "status": {
-            "read_only": False,
-            "state": "online",
-            "mapped": False,
-            "container_state": "online",
+        "_links": {
+            "self": {
+                "href": "/api/storage/storage-units/55150b5f-a365-11ef-be6a-005056a74d48?fields=**"
+            }
         },
-        "serial_number": "z-iC3$WZtL1H",
-        "space": {
-            "efficiency_ratio": 1.0,
-            "physical_used_by_snapshots": 3248128,
-            "used": 0,
-            "physical_used": 28672,
-            "size": 10485760,
-        },
-        "encryption": {"state": "unencrypted"},
-        "type": "lun",
     }
 )
 
@@ -142,7 +174,8 @@ StorageUnit(
 
 ---
 ### Restoring a storage unit from a snapshot
-A snapshot restore operation is initiated by PATCH request to [`/storage/storage-units/{uuid}`](#/SAN/storage_unit_modify). Set `restore_to.snapshot.uuid` or `restore_to.snapshot.name` to identify the source snapshot to restore the storage unit to in order to begin the operation.<br/>
+A snapshot restore operation is initiated by a PATCH request to [`/storage/storage-units/{uuid}`](#/SAN/storage_unit_modify). Set the query parameter `restore_to.snapshot.uuid` or `restore_to.snapshot.name` to identify the source snapshot to which to restore the storage unit in order to begin the operation. By default, snapshots created after the snapshot chosen as the restore point are deleted; the query parameter `restore_to.keep_snapshots` can be used to retain snapshots created after the snapshot chosen as the restore point. A partial restore from a snapshot is supported via the query parameters `restore_to.start_byte` and `restore_to.byte_count`.<br/>
+#### This example restores the storage unit from snapshot `snap1` and deletes snapshots created after `snap1`.
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import StorageUnit
@@ -150,17 +183,54 @@ from netapp_ontap.resources import StorageUnit
 with HostConnection("10.63.26.53", username="admin", password="password", verify=False):
     resource = StorageUnit(uuid="eaebc659-237b-11ef-a1bc-005056bbf4ce")
     resource.patch(
-        hydrate=True, return_timeout=90, **{"restore_to.snapshot.name": "mySnap"}
+        hydrate=True, return_timeout=90, **{"restore_to.snapshot.name": "snap1"}
     )
 
 ```
 
 ---
-## Cloning storage units
+#### This example restores the storage unit from snapshot `snap1` and retains snapshots created after `snap1`.
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import StorageUnit
+
+with HostConnection("10.63.26.53", username="admin", password="password", verify=False):
+    resource = StorageUnit(uuid="eaebc659-237b-11ef-a1bc-005056bbf4ce")
+    resource.patch(
+        hydrate=True,
+        return_timeout=90,
+        **{"restore_to.snapshot.name": "snap1", "restore_to.keep_snapshots": "true"}
+    )
+
+```
+
+---
+#### This example restores the first 4096 bytes of the storage unit from snapshot `snap1` and retains snapshots created after `snap1`.
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import StorageUnit
+
+with HostConnection("10.63.26.53", username="admin", password="password", verify=False):
+    resource = StorageUnit(uuid="eaebc659-237b-11ef-a1bc-005056bbf4ce")
+    resource.patch(
+        hydrate=True,
+        return_timeout=90,
+        **{
+            "restore_to.snapshot.name": "snap1",
+            "restore_to.keep_snapshots": "true",
+            "restore_to.start_byte": "0",
+            "restore_to.byte_count": "4096",
+        }
+    )
+
+```
+
+---
+### Cloning storage units
 A clone of a storage unit is an independent "copy" of the storage unit that shares unchanged data blocks with the original. As blocks of the source and the clone are modified, unique blocks are written for each. Storage unit clones can be created quickly and consume very little space initially. They can be created for the purpose of back-up, or to replicate data for multiple consumers.<br/>
 ### Creating a new storage unit clone
 You create a new storage unit clone by POST request to [`/storage/storage-units/`](#/SAN/storage_unit_create). Set `clone.source.storage_unit.uuid` or `clone.source.storage_unit.name` to identify the source storage unit from which the clone is created. The storage unit clone and its source must reside on the same SVM.<br/>
-The source storage unit can reside in a snapshot, in which case the `clone.source.snapshot.name` field must be used to identify it.<br/>
+The source storage unit can reside in a snapshot, in which case the `clone.source.snapshot.name` property must be used to identify it.<br/>
 By default, storage unit clones do not inherit the Quality of Service (QoS) policy of the source storage unit; a QoS policy should be set for the clone by setting the `qos_policy` property by PATCH request to [`/storage/luns/`](#/SAN/lun_modify) or [`/storage/namespaces/`](#/NVMe/nvme_namespace_modify)<br/>
 ```python
 from netapp_ontap import HostConnection
@@ -178,17 +248,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example3_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example3_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example3_result" class="try_it_out_content">
+<input id="example5_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example5_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example5_result" class="try_it_out_content">
 ```
 StorageUnit(
     {
-        "name": "lun1Clone1",
-        "svm": {"name": "svm1"},
         "clone": {
-            "source": {"svm": {"name": "svm1"}, "storage_unit": {"name": "lun1"}}
+            "source": {"storage_unit": {"name": "lun1"}, "svm": {"name": "svm1"}}
         },
+        "svm": {"name": "svm1"},
+        "name": "lun1Clone1",
     }
 )
 
@@ -198,7 +268,7 @@ StorageUnit(
 
 ---
 ### Splitting a storage unit clone
-A clone split operation is initiated by PATCH request to [`/storage/storage-units/{uuid}`](#/SAN/storage_unit_modify). Set the `clone.split_initiated` property to `true` to initiate the clone split operation. The clone split operation is asynchronous and might take some time to complete. The clone split operation is complete when the `clone.split_initiated` property is set to `false`.<br/>
+A clone split operation is initiated by a PATCH request to [`/storage/storage-units/{uuid}`](#/SAN/storage_unit_modify). Set the `clone.split_initiated` property to `true` to initiate the clone split operation. The clone split operation is asynchronous and might take some time to complete. The clone split operation is complete when the `clone.split_initiated` property is set to `false`.<br/>
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import StorageUnit
@@ -206,6 +276,99 @@ from netapp_ontap.resources import StorageUnit
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = StorageUnit(uuid="9034e72c-1d07-11ef-bd09-005056bbbc7b")
     resource.clone = {"split_initiated": "true"}
+    resource.patch()
+
+```
+
+---
+## Moving storage units
+A storage unit can be non-disruptively moved to a different storage availability zone in order to balance consumption of space and I/O resources between storage availability zones. Storage unit move operations can be started using the REST API and continue asynchronously until completion. The REST API can also be used to monitor the progress of an on-going storage unit move operation and pause and resume a storage unit move operation.<br/>
+### Starting a storage unit move operation
+To start a storage unit move operation, update one of the `location.data_availability_zone` properties of a storage unit to the destination storage availability zone.
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import StorageUnit
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = StorageUnit(uuid="55150b5f-a365-11ef-be6a-005056a74d48")
+    resource.location = {
+        "storage_availability_zone": {"name": "storage_availability_zone_0"}
+    }
+    resource.patch()
+
+```
+
+---
+### Monitoring a storage unit move operation
+Monitor the state of a storage unit move operation by retrieving the `movement` properties of the storage unit.
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import StorageUnit
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = StorageUnit(uuid="55150b5f-a365-11ef-be6a-005056a74d48")
+    resource.get(fields="movement")
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example8_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example8_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example8_result" class="try_it_out_content">
+```
+StorageUnit(
+    {
+        "movement": {
+            "start_time": "2024-11-18T20:35:13+00:00",
+            "source": {
+                "storage_availability_zone": {
+                    "uuid": "2b52fd40-a2ca-11ef-be6a-005056a74d48",
+                    "_links": {
+                        "self": {
+                            "href": "/api/storage/availability-zones/2b52fd40-a2ca-11ef-be6a-005056a74d48"
+                        }
+                    },
+                    "name": "storage_availability_zone_0",
+                }
+            },
+            "state": "replicating",
+            "destination": {
+                "storage_availability_zone": {
+                    "uuid": "c5a5d316-a2ca-11ef-a7d1-005056a77440",
+                    "_links": {
+                        "self": {
+                            "href": "/api/storage/availability-zones/c5a5d316-a2ca-11ef-a7d1-005056a77440"
+                        }
+                    },
+                    "name": "storage_availability_zone_1",
+                }
+            },
+        },
+        "uuid": "55150b5f-a365-11ef-be6a-005056a74d48",
+        "name": "lun1",
+        "_links": {
+            "self": {
+                "href": "/api/storage/storage-units/55150b5f-a365-11ef-be6a-005056a74d48"
+            }
+        },
+    }
+)
+
+```
+</div>
+</div>
+
+---
+### Pausing or resuming a storage unit move operation
+To pause an on-going storage unit move operation, update the `movement.state` property of the storage unit to `paused`.<br/>
+Similarly, to resume a paused storage unit move operation, update the `movement.state` property of the storage unit to `replicating`.
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import StorageUnit
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = StorageUnit(uuid="55150b5f-a365-11ef-be6a-005056a74d48")
+    resource.movement = {"state": "paused"}
     resource.patch()
 
 ```
@@ -240,6 +403,9 @@ class StorageUnitSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
     links = marshmallow_fields.Nested("netapp_ontap.models.self_link.SelfLinkSchema", data_key="_links", unknown=EXCLUDE, allow_none=True)
     r""" The links field of the storage_unit."""
+
+    anti_ransomware = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_storage_unit.AntiRansomwareStorageUnitSchema", data_key="anti_ransomware", unknown=EXCLUDE, allow_none=True)
+    r""" The anti-ransomware properties of a storage unit."""
 
     class_ = marshmallow_fields.Str(
         data_key="class",
@@ -341,6 +507,12 @@ Valid choices:
     )
     r""" The LUN serial number. The serial number is generated by ONTAP when the LUN is created."""
 
+    serial_number_hex = marshmallow_fields.Str(
+        data_key="serial_number_hex",
+        allow_none=True,
+    )
+    r""" The LUN serial number encoded in hexadecimal format. The serial number is generated by ONTAP when the LUN is created."""
+
     space = marshmallow_fields.Nested("netapp_ontap.models.storage_unit_space.StorageUnitSpaceSchema", data_key="space", unknown=EXCLUDE, allow_none=True)
     r""" The storage space related properties of the storage unit."""
 
@@ -381,6 +553,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
 
     gettable_fields = [
         "links",
+        "anti_ransomware",
         "class_",
         "clone",
         "comment",
@@ -396,6 +569,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "os_type",
         "qos_policy",
         "serial_number",
+        "serial_number_hex",
         "space",
         "statistics.iops_raw",
         "statistics.latency_raw",
@@ -409,14 +583,15 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "type",
         "uuid",
     ]
-    """links,class_,clone,comment,consistency_group,create_time,enabled,encryption,location,maps,metric,movement,name,os_type,qos_policy,serial_number,space,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,status,svm.links,svm.name,svm.uuid,type,uuid,"""
+    """links,anti_ransomware,class_,clone,comment,consistency_group,create_time,enabled,encryption,location,maps,metric,movement,name,os_type,qos_policy,serial_number,serial_number_hex,space,statistics.iops_raw,statistics.latency_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,status,svm.links,svm.name,svm.uuid,type,uuid,"""
 
     patchable_fields = [
+        "anti_ransomware",
         "clone",
         "location",
         "movement",
     ]
-    """clone,location,movement,"""
+    """anti_ransomware,clone,location,movement,"""
 
     postable_fields = [
         "clone",
@@ -456,6 +631,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `metric.*`
 * `movement.percent_complete`
 * `movement.start_time`
+* `movement.state`
 * `space.physical_used_by_snapshots`
 * `space.physical_used`
 * `statistics.*`
@@ -566,6 +742,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `metric.*`
 * `movement.percent_complete`
 * `movement.start_time`
+* `movement.state`
 * `space.physical_used_by_snapshots`
 * `space.physical_used`
 * `statistics.*`
@@ -592,6 +769,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `metric.*`
 * `movement.percent_complete`
 * `movement.start_time`
+* `movement.state`
 * `space.physical_used_by_snapshots`
 * `space.physical_used`
 * `statistics.*`

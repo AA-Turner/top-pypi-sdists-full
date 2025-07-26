@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -94,6 +94,9 @@ Valid choices:
     )
     r""" IPsec policy name."""
 
+    ppk = marshmallow_fields.Nested("netapp_ontap.models.ppk.PpkSchema", data_key="ppk", unknown=EXCLUDE, allow_none=True)
+    r""" Post-quantum pre-shared key information."""
+
     protocol = marshmallow_fields.Str(
         data_key="protocol",
         allow_none=True,
@@ -152,6 +155,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "local_endpoint",
         "local_identity",
         "name",
+        "ppk",
         "protocol",
         "remote_endpoint",
         "remote_identity",
@@ -161,7 +165,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "svm.uuid",
         "uuid",
     ]
-    """action,authentication_method,certificate.links,certificate.name,certificate.uuid,enabled,ipspace.links,ipspace.name,ipspace.uuid,local_endpoint,local_identity,name,protocol,remote_endpoint,remote_identity,scope,svm.links,svm.name,svm.uuid,uuid,"""
+    """action,authentication_method,certificate.links,certificate.name,certificate.uuid,enabled,ipspace.links,ipspace.name,ipspace.uuid,local_endpoint,local_identity,name,ppk,protocol,remote_endpoint,remote_identity,scope,svm.links,svm.name,svm.uuid,uuid,"""
 
     patchable_fields = [
         "certificate.name",
@@ -169,12 +173,13 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "enabled",
         "local_endpoint",
         "local_identity",
+        "ppk",
         "protocol",
         "remote_endpoint",
         "remote_identity",
         "scope",
     ]
-    """certificate.name,certificate.uuid,enabled,local_endpoint,local_identity,protocol,remote_endpoint,remote_identity,scope,"""
+    """certificate.name,certificate.uuid,enabled,local_endpoint,local_identity,ppk,protocol,remote_endpoint,remote_identity,scope,"""
 
     postable_fields = [
         "action",
@@ -187,6 +192,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "local_endpoint",
         "local_identity",
         "name",
+        "ppk",
         "protocol",
         "remote_endpoint",
         "remote_identity",
@@ -195,7 +201,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "svm.name",
         "svm.uuid",
     ]
-    """action,authentication_method,certificate.name,certificate.uuid,enabled,ipspace.name,ipspace.uuid,local_endpoint,local_identity,name,protocol,remote_endpoint,remote_identity,scope,secret_key,svm.name,svm.uuid,"""
+    """action,authentication_method,certificate.name,certificate.uuid,enabled,ipspace.name,ipspace.uuid,local_endpoint,local_identity,name,ppk,protocol,remote_endpoint,remote_identity,scope,secret_key,svm.name,svm.uuid,"""
 
 class IpsecPolicy(Resource):
     r""" IPsec policy object. """

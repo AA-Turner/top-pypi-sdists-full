@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -43,14 +43,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AutoUpdateInfo(
     {
-        "enabled": True,
-        "_links": {"self": {}},
         "eula": {
-            "accepted_timestamp": "2020-12-01T21:24:44-04:00",
-            "user_id_accepted": "admin",
-            "accepted": True,
             "accepted_ip_address": "192.168.1.125",
+            "user_id_accepted": "admin",
+            "accepted_timestamp": "2020-12-01T21:24:44-04:00",
+            "accepted": True,
         },
+        "_links": {"self": {}},
+        "enabled": True,
     }
 )
 

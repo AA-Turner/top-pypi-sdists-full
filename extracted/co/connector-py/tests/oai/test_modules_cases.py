@@ -1,14 +1,14 @@
 import typing as t
 
-from connector.generated import (
+from connector.oai.integration import DescriptionData, Integration
+from connector.oai.modules.base_module import BaseIntegrationModule
+from connector_sdk_types.generated import (
     BasicCredential,
     StandardCapabilityName,
     ValidateCredentialsRequest,
     ValidateCredentialsResponse,
     ValidatedCredentials,
 )
-from connector.oai.integration import DescriptionData, Integration
-from connector.oai.modules.base_module import BaseIntegrationModule
 
 Case: t.TypeAlias = tuple[
     Integration,

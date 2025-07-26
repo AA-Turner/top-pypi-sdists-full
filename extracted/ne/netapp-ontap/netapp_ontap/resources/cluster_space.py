@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,69 +30,69 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterSpace(
     {
-        "efficiency": {
-            "ratio": 1.134099616858238,
-            "savings": 143360,
-            "logical_used": 1212416,
+        "block_storage": {
+            "physical_used": 1838284800,
+            "used": 6269812736,
+            "medias": [
+                {
+                    "physical_used": 1832886272,
+                    "used": 6163390464,
+                    "available": 3728039936,
+                    "efficiency_without_snapshots_flexclones": {
+                        "ratio": 1.0,
+                        "logical_used": 0,
+                        "savings": 0,
+                    },
+                    "efficiency_without_snapshots": {
+                        "ratio": 1.0,
+                        "logical_used": 0,
+                        "savings": 0,
+                    },
+                    "size": 9891430400,
+                    "efficiency": {"ratio": 1.0, "logical_used": 0, "savings": 0},
+                    "type": "ssd",
+                },
+                {
+                    "physical_used": 5398528,
+                    "used": 106422272,
+                    "available": 46127759360,
+                    "efficiency_without_snapshots_flexclones": {
+                        "ratio": 1.0,
+                        "logical_used": 167936,
+                        "savings": 0,
+                    },
+                    "efficiency_without_snapshots": {
+                        "ratio": 1.0,
+                        "logical_used": 167936,
+                        "savings": 0,
+                    },
+                    "size": 46234181632,
+                    "efficiency": {
+                        "ratio": 1.303964757709251,
+                        "logical_used": 1212416,
+                        "savings": 282624,
+                    },
+                    "type": "vmdisk",
+                },
+            ],
+            "available": 49855799296,
+            "inactive_data": 0,
+            "size": 56125612032,
         },
         "efficiency_without_snapshots_flexclones": {
             "ratio": 1.0,
-            "savings": 0,
             "logical_used": 167936,
+            "savings": 0,
         },
         "efficiency_without_snapshots": {
             "ratio": 1.0,
-            "savings": 0,
             "logical_used": 167936,
+            "savings": 0,
         },
-        "block_storage": {
-            "used": 6269812736,
-            "inactive_data": 0,
-            "size": 56125612032,
-            "available": 49855799296,
-            "medias": [
-                {
-                    "efficiency": {"ratio": 1.0, "savings": 0, "logical_used": 0},
-                    "efficiency_without_snapshots_flexclones": {
-                        "ratio": 1.0,
-                        "savings": 0,
-                        "logical_used": 0,
-                    },
-                    "used": 6163390464,
-                    "size": 9891430400,
-                    "efficiency_without_snapshots": {
-                        "ratio": 1.0,
-                        "savings": 0,
-                        "logical_used": 0,
-                    },
-                    "available": 3728039936,
-                    "type": "ssd",
-                    "physical_used": 1832886272,
-                },
-                {
-                    "efficiency": {
-                        "ratio": 1.303964757709251,
-                        "savings": 282624,
-                        "logical_used": 1212416,
-                    },
-                    "efficiency_without_snapshots_flexclones": {
-                        "ratio": 1.0,
-                        "savings": 0,
-                        "logical_used": 167936,
-                    },
-                    "used": 106422272,
-                    "size": 46234181632,
-                    "efficiency_without_snapshots": {
-                        "ratio": 1.0,
-                        "savings": 0,
-                        "logical_used": 167936,
-                    },
-                    "available": 46127759360,
-                    "type": "vmdisk",
-                    "physical_used": 5398528,
-                },
-            ],
-            "physical_used": 1838284800,
+        "efficiency": {
+            "ratio": 1.134099616858238,
+            "logical_used": 1212416,
+            "savings": 143360,
         },
     }
 )
@@ -103,7 +103,7 @@ ClusterSpace(
 
 ---
 </personalities>
-<personalities supports=asar2>
+<personalities supports=asar2,aiml>
 <br/>
 ---
 ```python
@@ -123,20 +123,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterSpace(
     {
-        "efficiency_without_snapshots": {
-            "ratio": 1.0,
-            "savings": 73728,
-            "logical_used": 73728,
-        },
         "block_storage": {
+            "physical_used": 58679865344,
+            "nearly_full_threshold_percent": 85,
+            "available": 66677788672,
+            "log_and_recovery_metadata": 58678050816,
+            "physical_used_percent": 46,
             "delayed_frees": 57139200,
             "total_metadata_used": 58679865344,
-            "full_threshold_percent": 98,
-            "nearly_full_threshold_percent": 85,
-            "physical_used_percent": 46,
             "size": 125357654016,
-            "available": 66677788672,
-            "physical_used": 58679865344,
+            "full_threshold_percent": 98,
+        },
+        "efficiency_without_snapshots": {
+            "ratio": 1.0,
+            "logical_used": 73728,
+            "savings": 73728,
         },
     }
 )
@@ -203,6 +204,9 @@ class ClusterSpaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     efficiency_without_snapshots_flexclones = marshmallow_fields.Nested("netapp_ontap.models.space_efficiency.SpaceEfficiencySchema", data_key="efficiency_without_snapshots_flexclones", unknown=EXCLUDE, allow_none=True)
     r""" The efficiency_without_snapshots_flexclones field of the cluster_space."""
 
+    metric = marshmallow_fields.Nested("netapp_ontap.models.cluster_space_metrics.ClusterSpaceMetricsSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
+    r""" Cluster capacity numbers, such as total size, used size, and available size."""
+
     @property
     def resource(self):
         return ClusterSpace
@@ -213,8 +217,9 @@ class ClusterSpaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         "efficiency",
         "efficiency_without_snapshots",
         "efficiency_without_snapshots_flexclones",
+        "metric",
     ]
-    """block_storage,cloud_storage,efficiency,efficiency_without_snapshots,efficiency_without_snapshots_flexclones,"""
+    """block_storage,cloud_storage,efficiency,efficiency_without_snapshots,efficiency_without_snapshots_flexclones,metric,"""
 
     patchable_fields = [
         "block_storage",

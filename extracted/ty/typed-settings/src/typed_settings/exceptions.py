@@ -2,6 +2,12 @@
 Exceptions raised by Typed Settings.
 """
 
+from ._compat import PY_311
+
+
+if not PY_311:
+    from exceptiongroup import ExceptionGroup
+
 
 class TsError(Exception):
     """
@@ -40,8 +46,12 @@ class InvalidValueError(TsError):
     """
 
 
-class InvalidSettingsError(TsError):
+class InvalidSettingsError(TsError, ExceptionGroup):
     """
     Raised when the loaded settings cannot be converted to an instances of the
     settings class.
+
+    This is a subclass of both, :exc:`TsError` and :exc:`ExceptionGroup`.
+
+    .. versionadded:: 25.0.0
     """

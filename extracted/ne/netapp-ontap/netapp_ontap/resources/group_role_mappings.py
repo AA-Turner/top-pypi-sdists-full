@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -39,7 +39,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example1_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example1_result" class="try_it_out_content">
 ```
-[GroupRoleMappings({"ontap_role": {"name": "admin"}, "group_id": 1})]
+[GroupRoleMappings({"group_id": 1, "ontap_role": {"name": "admin"}})]
 
 ```
 </div>

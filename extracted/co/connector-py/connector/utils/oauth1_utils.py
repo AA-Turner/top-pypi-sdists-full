@@ -8,8 +8,7 @@ import urllib.parse
 from typing import Any
 
 import httpx
-
-from connector.generated import OAuth1Credential
+from connector_sdk_types.generated import OAuth1Credential
 
 
 def generate_nonce(length: int = 16) -> str:

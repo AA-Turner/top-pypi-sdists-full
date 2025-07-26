@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -22,14 +22,11 @@ class ConsistencyGroupResponseRecordsConsistencyGroupsNamespacesSchema(ResourceS
     """The fields of the ConsistencyGroupResponseRecordsConsistencyGroupsNamespaces object"""
 
     auto_delete = marshmallow_fields.Boolean(data_key="auto_delete", allow_none=True)
-    r""" * **Unified ONTAP**:
-This property marks the NVMe namespace for auto deletion when the volume containing the namespace runs out of space. This is most commonly set on namespace clones.<br/>
+    r""" <personalities supports=unified>This property marks the NVMe namespace for auto deletion when the volume containing the namespace runs out of space. This is most commonly set on namespace clones.<br/>
 When set to _true_, the NVMe namespace becomes eligible for automatic deletion when the volume runs out of space. Auto deletion only occurs when the volume containing the namespace is also configured for auto deletion and free space in the volume decreases below a particular threshold.<br/>
 This property is optional in POST and PATCH. The default value for a new NVMe namespace is _false_.<br/>
-There is an added computational cost to retrieving this property's value. It is not populated for either a collection GET or an instance GET unless it is explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
-
-* **ASA r2**:
-This property is not supported. It cannot be set in POST or PATCH and will not be returned by GET. """
+There is an added computational cost to retrieving this property's value. It is not populated for a GET request unless it is explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.</personalities>
+<personalities supports=asar2>This property is not supported. It cannot be set in POST or PATCH and will not be returned by GET.</personalities> """
 
     comment = marshmallow_fields.Str(data_key="comment", allow_none=True)
     r""" A configurable comment available for use by the administrator. Valid in POST and PATCH. """
@@ -44,16 +41,11 @@ Example: 2018-06-04T19:00:00.000+0000 """
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
     r""" The name of the NVMe namespace.
-### Platform Specifics
-
-* **Unified ONTAP**:
-An NVMe namespace is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
+<personalities supports=unified>An NVMe namespace is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
 NVMe namespace names are paths of the form "/vol/\<volume>[/\<qtree>]/\<namespace>" where the qtree name is optional.<br/>
-Renaming an NVMe namespace is not supported. Valid in POST.
-
-* **ASA r2**:
-NVMe namespace names are simple names that share a namespace with LUNs within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
-Renaming an NVMe namespace is supported. Valid in POST and PATCH.
+Renaming an NVMe namespace is not supported. Valid in POST.</personalities>
+<personalities supports=asar2>NVMe namespace names are simple names that share a namespace with LUNs within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
+Renaming an NVMe namespace is supported. Valid in POST and PATCH.</personalities>
 
 
 Example: /vol/volume1/qtree1/namespace1 """

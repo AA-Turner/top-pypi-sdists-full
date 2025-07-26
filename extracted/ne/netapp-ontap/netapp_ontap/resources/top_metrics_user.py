@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -45,62 +45,62 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsUser(
         {
-            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1001",
-            "volume": {"name": "vol1"},
+            "throughput": {
+                "read": 1495,
+                "error": {"upper_bound": 1502, "lower_bound": 1495},
+            },
             "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
-            },
-            "throughput": {
-                "error": {"lower_bound": 1495, "upper_bound": 1502},
-                "read": 1495,
             },
             "user_name": "John",
+            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1001",
+            "volume": {"name": "vol1"},
         }
     ),
     TopMetricsUser(
         {
-            "user_id": "1988",
-            "volume": {"name": "vol1"},
+            "throughput": {
+                "read": 1022,
+                "error": {"upper_bound": 1025, "lower_bound": 1022},
+            },
             "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
-            },
-            "throughput": {
-                "error": {"lower_bound": 1022, "upper_bound": 1025},
-                "read": 1022,
             },
             "user_name": "Ryan",
+            "user_id": "1988",
+            "volume": {"name": "vol1"},
         }
     ),
     TopMetricsUser(
         {
-            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1003",
-            "volume": {"name": "vol1"},
+            "throughput": {
+                "read": 345,
+                "error": {"upper_bound": 348, "lower_bound": 345},
+            },
             "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
-            },
-            "throughput": {
-                "error": {"lower_bound": 345, "upper_bound": 348},
-                "read": 345,
             },
             "user_name": "Julie",
+            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1003",
+            "volume": {"name": "vol1"},
         }
     ),
 ]
@@ -236,9 +236,6 @@ class TopMetricsUser(Resource):
         **kwargs
     ) -> Iterable["Resource"]:
         r"""Retrieves a list of users with the most I/O activity.
-### Platform Specifics
-* **Unified ONTAP**: GET must be used to retrieve a list of users with the most I/O activity.
-* **ASA**: GET is not supported.
 
 ### Learn more
 * [`DOC /storage/volumes/{volume.uuid}/top-metrics/users`](#docs-storage-storage_volumes_{volume.uuid}_top-metrics_users)"""
@@ -280,9 +277,6 @@ class TopMetricsUser(Resource):
     @classmethod
     def find(cls, *args, connection: HostConnection = None, **kwargs) -> Resource:
         r"""Retrieves a list of users with the most I/O activity.
-### Platform Specifics
-* **Unified ONTAP**: GET must be used to retrieve a list of users with the most I/O activity.
-* **ASA**: GET is not supported.
 
 ### Learn more
 * [`DOC /storage/volumes/{volume.uuid}/top-metrics/users`](#docs-storage-storage_volumes_{volume.uuid}_top-metrics_users)"""

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -23,28 +23,18 @@ class ConsistencyGroupConsistencyGroupsLunsCloneSourceSchema(ResourceSchema, met
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
     r""" The name of the clone source LUN.
-### Platform Specifics
-
-* **Unified ONTAP**:
-A LUN is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
+<personalities supports=unified>A LUN is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
 LUN names are paths of the form "/vol/\<volume>[/\<qtree>]/\<namespace>" where the qtree name is optional.<br/>
-Valid in POST and PATCH.
-
-* **ASA r2**:
-This property is not supported. Cloning is supported through the /ap/storage/storage-units endpoint. See the [`POST /ap/storage/storage-units`](#/SAN/storage_unit_create) to learn more about cloning LUNs.
+Valid in POST and PATCH.</personalities>
+<personalities supports=asar2>This property is not supported. Cloning is supported through the /api/storage/storage-units endpoint. See the [`POST /api/storage/storage-units`](#/SAN/storage_unit_create) to learn more about cloning LUNs.</personalities>
 
 
 Example: /vol/volume1/lun1 """
 
     uuid = marshmallow_fields.Str(data_key="uuid", allow_none=True)
     r""" The unique identifier of the clone source LUN.
-### Platform Specifics
-
-* **Unified ONTAP**:
-Valid in POST and PATCH.
-
-* **ASA r2**:
-This property is not supported. Cloning is supported through the /ap/storage/storage-units endpoint. See the [`POST /ap/storage/storage-units`](#/SAN/storage_unit_create) to learn more about cloning LUNs.
+<personalities supports=unified>Valid in POST and PATCH.</personalities>
+<personalities supports=asar2>This property is not supported. Cloning is supported through the /api/storage/storage-units endpoint. See the [`POST /api/storage/storage-units`](#/SAN/storage_unit_create) to learn more about cloning LUNs.</personalities>
 
 
 Example: 1cd8a442-86d1-11e0-ae1c-123478563412 """

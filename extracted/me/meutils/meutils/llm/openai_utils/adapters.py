@@ -65,6 +65,7 @@ async def chat_for_image(
     return chunks
 
 
+
 async def chat_for_video(
         get_task: Callable,  # response
         taskid: str,

@@ -698,10 +698,16 @@ class MonteCarloConfigService:
         self,
         namespace: str,
         project_dir: str,
+        monitor_uuids: Optional[List[UUID]] = None,
         monitors_file: Optional[str] = None,
         all_monitors: bool = False,
         dry_run: bool = False,
     ):
+        if monitor_uuids and monitors_file:
+            complain_and_abort(
+                "You cannot provide both --monitor-uuids and --monitors-file at the same time."
+            )
+
         if all_monitors and monitors_file:
             complain_and_abort(
                 "You cannot export all monitors and provide a monitors file at the same time."
@@ -710,7 +716,7 @@ class MonteCarloConfigService:
         if monitors_file:
             monitors_uuids = self._read_monitors_uuids_from_file(monitors_file)
         else:
-            monitors_uuids = None
+            monitors_uuids = monitor_uuids or None
 
         if not dry_run:
             if not click.confirm(
@@ -806,6 +812,52 @@ class MonteCarloConfigService:
             },
         )
         export_result = response.export_latest_version_monitor_replacement_templates  # type: ignore
+        errors = export_result.errors
+        if errors:
+            complain_and_abort(f"There were errors exporting the monitors: {errors}")
+            return
+
+        self._print_func(export_result.config_template_as_yaml)
+
+    @manage_errors
+    def export(
+        self,
+        monitor_uuids: Optional[List[UUID]] = None,
+        monitors_file: Optional[str] = None,
+        export_name: bool = True,
+    ):
+        if monitors_file:
+            monitor_uuids = self._read_monitors_uuids_from_file(monitors_file)
+        else:
+            monitor_uuids = monitor_uuids or []
+
+        if not monitor_uuids:
+            complain_and_abort("You must provide at least one monitor UUID.")
+
+        export_as_latest = """
+            query exportMonteCarloConfigTemplates(
+                $monitorUuids: [UUID!]!
+                $exportName: Boolean!
+            ) {
+              exportMonteCarloConfigTemplates(
+                monitorUuids: $monitorUuids
+                exportName: $exportName
+              ) {
+                configTemplateAsYaml
+                errors
+              }
+            }
+        """
+        response = self._pycarlo_client(
+            export_as_latest,
+            {"exportName": export_name, "monitorUuids": [str(m) for m in monitor_uuids]},
+            additional_headers={
+                "x-mcd-telemetry-reason": "cli",
+                "x-mcd-telemetry-service": "iac_service",
+                "x-mcd-telemetry-command": self._command_name,
+            },
+        )
+        export_result = response.export_monte_carlo_config_templates  # type: ignore
         errors = export_result.errors
         if errors:
             complain_and_abort(f"There were errors exporting the monitors: {errors}")

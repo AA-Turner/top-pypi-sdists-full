@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -37,15 +37,15 @@ with HostConnection(
 MultiAdminVerifyApprovalGroup(
     {
         "owner": {
-            "name": "cluster1",
+            "uuid": "52b75787-7011-11ec-a23d-005056a78fd5",
             "_links": {
                 "self": {"href": "/api/svm/svms/52b75787-7011-11ec-a23d-005056a78fd5"}
             },
-            "uuid": "52b75787-7011-11ec-a23d-005056a78fd5",
+            "name": "cluster1",
         },
-        "name": "group1",
         "email": ["group1.approvers@email.com"],
         "approvers": ["admin"],
+        "name": "group1",
     }
 )
 

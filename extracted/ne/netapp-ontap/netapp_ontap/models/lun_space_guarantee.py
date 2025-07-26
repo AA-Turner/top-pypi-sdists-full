@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -23,10 +23,8 @@ class LunSpaceGuaranteeSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
     requested = marshmallow_fields.Boolean(data_key="requested", allow_none=True)
     r""" The requested space reservation policy for the LUN. If _true_, a space reservation is requested for the LUN; if _false_, the LUN is thin provisioned. Guaranteeing a space reservation request for a LUN requires that the volume in which the LUN resides is also space reserved and that the fractional reserve for the volume is 100%. Valid in POST and PATCH.
-### Platform Specifics
-
-* **Unified ONTAP**: This property is caller settable as described above.
-* **ASA r2**: This property cannot be set. All LUNs are provisioned without a space reservation. """
+<personalities supports=unified>This property is caller settable as described above.</personalities>
+<personalities supports=asar2>This property cannot be set. All LUNs are provisioned without a space reservation.</personalities> """
 
     reserved = marshmallow_fields.Boolean(data_key="reserved", allow_none=True)
     r""" Reports if the LUN is space guaranteed.<br/>

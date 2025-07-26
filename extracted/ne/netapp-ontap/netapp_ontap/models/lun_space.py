@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -23,10 +23,8 @@ class LunSpaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
     efficiency_ratio = marshmallow_fields.Number(data_key="efficiency_ratio", allow_none=True)
     r""" The storage efficiency ratio of the LUN without snapshots. (Logical Used / Used)
-### Platform Specifics
-
-* **Unified ONTAP**: This property is not available on the LUN object in the REST API and is not reported for GET requests. See the containing volume object for this information.
-* **ASA r2**: Available for GET.
+<personalities supports=unified>This property is not available on the LUN object in the REST API and is not reported for GET requests. See the containing volume object for this information.</personalities>
+<personalities supports=asar2>Available for GET.</personalities>
 
 
 Example: 2.5 """
@@ -36,20 +34,16 @@ Example: 2.5 """
 
     physical_used = Size(data_key="physical_used", allow_none=True)
     r""" The number of bytes consumed on the disk by the LUN, excluding snapshots.
-### Platform Specifics
-
-* **Unified ONTAP**: This property is not available on the LUN object in the REST API and is not reported for GET requests. See the containing volume object for this information.
-* **ASA r2**: Available for GET.
+<personalities supports=unified>This property is not available on the LUN object in the REST API and is not reported for GET requests. See the containing volume object for this information.</personalities>
+<personalities supports=asar2>Available for GET.</personalities>
 
 
 Example: 1073741824 """
 
     physical_used_by_snapshots = Size(data_key="physical_used_by_snapshots", allow_none=True)
     r""" The number of bytes consumed on the disk by the LUN's snapshots.
-### Platform Specifics
-
-* **Unified ONTAP**: This property is not available on the LUN object in the REST API and is not reported for GET requests. See the containing volume object for this information.
-* **ASA r2**: Available for GET.
+<personalities supports=unified>This property is not available on the LUN object in the REST API and is not reported for GET requests. See the containing volume object for this information.</personalities>
+<personalities supports=asar2>Available for GET.</personalities>
 
 
 Example: 1073741824 """
@@ -61,11 +55,8 @@ When you disable SCSI thin provisioning support in ONTAP, you turn off the follo
 - Reporting resource exhaustion errors
 <p/>
 The value of this property is not propagated to the destination when a LUN is cloned as a new LUN or copied; it is reset to false. The value of this property is maintained from the destination LUN when a LUN is overwritten as a clone.<br/>
-<h3>Platform Specifics</h3>
-<ul>
-  <li>Unified ONTAP: Valid in POST and PATCH.</li>
-  <li>ASA r2: This property cannot be set. All LUNs are provisioned with SCSI thin provisioning enabled.</li>
-</ul> """
+<personalities supports=unified>Valid in POST and PATCH.</personalities>
+<personalities supports=asar2>This property cannot be set. All LUNs are provisioned with SCSI thin provisioning enabled.</personalities> """
 
     size = Size(data_key="size", allow_none=True)
     r""" The total provisioned size of the LUN. The LUN size can be increased but not decreased using the REST interface.<br/>

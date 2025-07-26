@@ -1,5 +1,13 @@
 import time
 import pyautogui
+from datetime import datetime
+import sys
+import os
+import sys
+import os
+from pywinauto.keyboard import send_keys
+sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..', '..')))
+
 
 from worker_automate_hub.utils.logger import logger
 from worker_automate_hub.models.dto.rpa_historico_request_dto import (
@@ -99,10 +107,45 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             )
         return_login = await login_emsys_fiscal(config.conConfiguracao, app, task)
         if return_login.sucesso:
-            await worker_sleep(2)
+            try:
+                ##### Janela Confirm #####
+                app = Application().connect(class_name="TMessageForm", timeout=5)
+                main_window = app["TMessageForm"]
+                main_window.set_focus()
+                
+                # Clicar em Não
+                console.print("Navegando nos elementos...\n")
+                main_window.child_window(class_name="TButton", found_index=0).click()
+                await worker_sleep(2)
+            except:
+                pass
+
+            ##### Janela Principal ####
+            console.print("Navegando para Livros Fiscais")
+            app = Application().connect(class_name="TFrmPrincipalFiscal", timeout=60)
+            main_window = app["TFrmPrincipalFiscal"]
+            main_window.set_focus()
+            input_livros = main_window.child_window(class_name="TEdit", found_index=0)
             type_text_into_field(
-                "Livros Fiscais", app["TFrmMenuPrincipal"]["Edit"], True, "50"
+                "Livros Fiscais", input_livros, True, "50"
             )
+            await worker_sleep(5)
+
+            try:
+                ##### Janela Confirm #####
+                app = Application().connect(class_name="TMessageForm", timeout=5)
+                main_window = app["TMessageForm"]
+                main_window.set_focus()
+                
+                # Clicar em Não
+                console.print("Navegando nos elementos...\n")
+                main_window.child_window(class_name="TButton", found_index=0).click()
+                await worker_sleep(2)
+            except:
+                pass
+
+            # Clicar no input inicial 
+            input_livros = main_window.child_window(class_name="TEdit", found_index=0).click_input()
             pyautogui.press("enter")
             await worker_sleep(2)
             pyautogui.press("down")
@@ -112,8 +155,53 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                 "\nPesquisa: 'Livros Fiscais' realizada com sucesso.",
                 style="bold green",
             )
+            
+            await worker_sleep(10) 
+                               
+            try:
+                ##### Janela Confirm #####
+                app = Application().connect(class_name="TMessageForm", timeout=5)
+                main_window = app["TMessageForm"]
+                main_window.set_focus()
+                
+                # Clicar em Não
+                console.print("Navegando nos elementos...\n")
+                main_window.child_window(class_name="TButton", found_index=0).click()
+                await worker_sleep(2)
+            except:
+                pass
+            
+            await worker_sleep(2)
+
+            ##### Janela Principal ####
+            app = Application().connect(class_name="TFrmPrincipalFiscal", timeout=60)
+            main_window = app["TFrmPrincipalFiscal"]
+            main_window.set_focus()
+            
+            # Clicar no input inicial 
+            input_livros = main_window.child_window(class_name="TEdit", found_index=0).click_input()
+            pyautogui.press("enter")
+            await worker_sleep(2)
+            pyautogui.press("down")
+            await worker_sleep(2)
+            pyautogui.press("enter")
+            console.print(
+                "\nPesquisa: 'Livros Fiscais' realizada com sucesso.",
+                style="bold green",
+            )
+            
             await worker_sleep(10)
-            livros_fiscais_window = app.top_window()
+            
+            ##### janela Movimento de Livro Fiscal #####
+            app = Application().connect(class_name="TFrmMovtoLivroFiscal", timeout=20)
+            main_window = app["TFrmMovtoLivroFiscal"]
+            main_window.set_focus()
+            data_input = main_window.child_window(class_name="TDBIEditDate", found_index=0)
+            competencia = task.configEntrada.get("periodo")
+            type_text_into_field(
+                competencia, data_input, True, "50"
+            )
+
             # Preenchendo campo competencia
             console.print("Preenchendo campo competencia...")
             pyautogui.press("tab")
@@ -121,27 +209,20 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
             pyautogui.write(competencia)
             await worker_sleep(3)
 
-            # Resetando tabs
-            console.print("Levando cursor para campo competencia")
-            pyautogui.click(729, 321)
-            await worker_sleep(2)
-
             # Marcando caixa Entrada
             console.print("Marcando caixa entrada")
-            pyautogui.press("tab")
-            pyautogui.press("space")
-            await worker_sleep(2)
+            entrada = main_window.child_window(class_name="TcxCheckBox", found_index=9).click_input()
 
             # Marcando caixa Saida
             console.print("Marcando caixa saida")
-            pyautogui.press("tab")
-            pyautogui.press("space")
+            saida = main_window.child_window(class_name="TcxCheckBox", found_index=8).click_input()
+        
             await worker_sleep(2)
 
             # Clicando em incluir livro
             try:
                 console.print("Clicando em incluir livro")
-                cords = (676, 716)
+                cords = (695, 729)
                 pyautogui.click(x=cords[0], y=cords[1])
                 await worker_sleep(5)
             except:
@@ -152,141 +233,257 @@ async def abertura_livros_fiscais(task: RpaProcessoEntradaDTO) -> RpaRetornoProc
                     tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
                 )
 
-            # Clicando em sim na janela de gerar registros após incluir
-            console.print("Clicando em sim na janela de gerar registros após incluir")
-            cords = (942, 603)
-            pyautogui.click(x=cords[0], y=cords[1])
+            ##### Janela Pergunta das Geração dos Livros Fiscais #####
             await worker_sleep(5)
-
-            # Clicando nao na tela de somar icms outros
-            console.print("Clicando em nao na janela de calcular icms Outros.")
-            cords = (1000, 570)
-            pyautogui.click(x=cords[0], y=cords[1])
-            await worker_sleep(5)
-
-            # Clicando sim em janela de confirmar observacao
-            console.print("Clicando sim em janela de confirmar observacao")
-            cords = (920, 560)
-            pyautogui.click(x=cords[0], y=cords[1])
-            await worker_sleep(5)
-
-            # Esperando janela aguarde
-            console.print("Aguardando tela de aguarde ser finalizada")
-            await wait_aguarde_window_closed(app)
-            await worker_sleep(5)
-
-            # Clicando sim em janela gerar Num Serie
-            console.print("Clicando sim em janela gerar Numero de Serie")
-            cords = (920, 560)
-            pyautogui.click(x=cords[0], y=cords[1])
-            await worker_sleep(5)
-
-            # Clicando sim em janela somar os valores de IPI, Frete..
+            app = Application().connect(class_name="TPerguntasLivrosFiscaisForm", timeout=20)
+            main_window = app["TPerguntasLivrosFiscaisForm"]
+            main_window.set_focus()
             console.print("Clicando sim em janela somar os valores de IPI Frete")
-            cords = (920, 560)
-            pyautogui.click(x=cords[0], y=cords[1])
+            main_window.child_window(class_name="TDBIComboBoxValues", found_index=0).click_input()
+
+            await worker_sleep(1)        
+            send_keys("Sim{ENTER}")
+            await worker_sleep(2)  
+            
+            console.print("Clicando sim em janela gerar Numero de Serie do SAT")
+            main_window.child_window(class_name="TDBIComboBoxValues", found_index=4).click_input() 
+        
+            await worker_sleep(1)       
+            send_keys("Sim{ENTER}")
+            await worker_sleep(2)  
+
+            console.print("Clicando sim em janela gerar Numero de Serie a partir da chave do documento")
+            main_window.child_window(class_name="TDBIComboBoxValues", found_index=1).click_input()
+            
+            await worker_sleep(1)      
+            send_keys("Sim{ENTER}")
+            await worker_sleep(2)  
+
+            console.print("Clicando sim em janela gerar livro com observação da nota fiscal")
+            main_window.child_window(class_name="TDBIComboBoxValues", found_index=3).click_input() 
+        
+            await worker_sleep(1)       
+            send_keys("Sim{ENTER}")
+            await worker_sleep(2)  
+
+            console.print("Clicando sim em janela somar valores de ICMS...")
+            main_window.child_window(class_name="TDBIComboBoxValues", found_index=2).click_input()
+            
+            await worker_sleep(1)    
+            send_keys("Sim{ENTER}")  
+
+            await worker_sleep(2)
+
+            # Clicar em confirmar
+            main_window.child_window(class_name="TButton", found_index=1).click_input()
+
+            await worker_sleep(5)
+            ##### Janela Gerar Registro ####
+            console.print("Confirmar Registro")
+            app = Application().connect(title="Gerar Registros", timeout=60)
+            main_window = app["Gerar Registros"]
+            main_window.set_focus()
+            
+            # Clicar em Sim
+            main_window.child_window(class_name="Button", found_index=0).click_input()
+
+            # try:
+            #     # Esperando janela aguarde
+            #     console.print("Aguardando tela de aguarde ser finalizada")
+            #     await wait_aguarde_window_closed(app)
+            #     await worker_sleep(5)
+            # except:
+            #     pass
+            
             await worker_sleep(5)
 
-            # Esperando janela aguarde
-            console.print("Aguardando tela de aguarde ser finalizada")
-            await wait_aguarde_window_closed(app)
-            await worker_sleep(5)
+            ##### Janela Pré-visualizando Relatório #####
+            console.print("Fechar Janela Pré-visualizando Relatório ")
+            app = Application().connect(class_name="TFrmPreviewRelatorio", timeout=60)
+            main_window = app["TFrmPreviewRelatorio"]
+            main_window.set_focus()
 
-            app.top_window().set_focus()
-            await worker_sleep(5)
+            # Clicar em fechar
+            main_window.close()
 
-            # Clicando OK em janela de livro incluido
-            console.print("Clicando em OK em janela de livro incluido")
-            await emsys.verify_warning_and_error("Informação", "OK")
-            await worker_sleep(5)
+            await worker_sleep(3)
 
-            console.print("Selecionando primeira linha da tabela")
-            # Selecionando primeira linha da tabela
-            pyautogui.click(604, 485)
-            # Iterando apenas as 2 primeiras linhas da tabela para procurar entrada/saida
-            for _ in range(2):
-                conteudo = ctrl_c().lower()
-                if (
-                    "entrada" in conteudo
-                    and "confirmado" in conteudo
-                    and competencia in conteudo
-                ):
-                    console.print(f"Clicando em desconfirmar entrada na tabela...")
-                    click_desconfirmar()
-                    await worker_sleep(2)
-                if (
-                    "saida" in conteudo
-                    and "confirmado" in conteudo
-                    and competencia in conteudo
-                ):
-                    console.print(f"Clicando em desconfirmar saida na tabela...")
-                    click_desconfirmar()
-                    await worker_sleep(2)
-                pyautogui.press("down")
-            await worker_sleep(5)
-
-            # Fechando janela de livro fiscal
-            console.print("Fechando janela de livro fiscal")
-            livros_fiscais_window.close()
-            await worker_sleep(5)
-
-            # Abrindo janela de apuracao de ICMS
-            console.print("Abrindo janela de apuracao de ICMS")
+            ##### Janela Principal ####
+            console.print("Navegando para Livro de Apuração ICMS... ")
+            app = Application().connect(class_name="TFrmPrincipalFiscal", timeout=60)
+            input_principal = main_window = app["TFrmPrincipalFiscal"]
+            input_principal.set_focus()
+            input_livros = input_principal.child_window(class_name="TEdit", found_index=0)
             type_text_into_field(
-                "Livro de Apuração ICMS", app["TFrmMenuPrincipal"]["Edit"], True, "50"
+                "Livro de Apuração ICMS", input_livros, True, "50"
             )
+            await worker_sleep(5)
+
+            try:
+                ##### Janela Confirm #####
+                app = Application().connect(class_name="TMessageForm", timeout=60)
+                main_window = app["TMessageForm"]
+                main_window.set_focus()
+                main_window.child_window(class_name="TButton", found_index=0).click_input()
+            except:
+                pass
+            console.print("Selecionar Livro de Apuração")
+            input_livros = input_principal.child_window(class_name="TEdit", found_index=0).click_input()
+            pyautogui.press("enter")
+            await worker_sleep(1)
+            pyautogui.press("enter")
 
             await worker_sleep(5)
 
-            pyautogui.press("enter", presses=2)
+            ##### Janela Movimentação de Apuração ICMS #####
+            app = Application().connect(class_name="TFrmMovtoApuraIcmsNew", timeout=60)
+            main_window = app["TFrmMovtoApuraIcmsNew"]
+            main_window.set_focus()
 
+            console.print("Clicando no último livro, primeira linha")
+            pyautogui.click(599,410)
+            
+            await worker_sleep(1)
+
+            console.print("Clicando em Estornar Livro")   
+            pyautogui.click(667,742)
+
+            await worker_sleep(3)
+
+            main_window.close()
+
+            await worker_sleep(2)
+
+            console.print("Selecionar Livro Saída aberto")
+            
+            # Selecionar linha livro de saída aberto
+            imagem = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\abertura_livros\livro_saida_aberto.png"
+
+            # Tenta localizar a imagem na tela
+            localizacao = pyautogui.locateCenterOnScreen(imagem, confidence=0.9)
+
+            if localizacao:
+                print(f"Imagem livro de saída aberto encontrado em: {localizacao}")
+                pyautogui.moveTo(localizacao)
+                pyautogui.click()
+            else:
+                console.print("Imagem livro de saída aberto não encontrado na tela.")
+
+            # Clicar em alterar livro
+            imagem = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\abertura_livros\alterar_livro.png"
+
+            # Tenta localizar a imagem na tela
+            localizacao = pyautogui.locateCenterOnScreen(imagem, confidence=0.9)  # você pode ajustar o confidence
+
+            if localizacao:
+                print(f"Imagem alterar livro encontrado em: {localizacao}")
+                pyautogui.moveTo(localizacao)
+                pyautogui.click()
+            else:
+                console.print("Imagem alterar livro não encontrada na tela.")
+
+            await worker_sleep(4)
+
+            # Clicar em Livro fiscal
+            imagem = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\abertura_livros\livro_fiscal.png"
+
+            # Tenta localizar a imagem na tela
+            localizacao = pyautogui.locateCenterOnScreen(imagem, confidence=0.9)  # você pode ajustar o confidence
+
+            if localizacao:
+                print(f"Imagem Livro fiscal encontrado em: {localizacao}")
+                pyautogui.moveTo(localizacao)
+                pyautogui.click()
+            else:
+                console.print("Imagem Livro fiscal não encontrada na tela.")
+            
+            await worker_sleep(4)
+            
+            # Clicar em Gerar Relatório
+            imagem = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\abertura_livros\gerar_registros.png"
+
+            # Tenta localizar a imagem na tela
+            localizacao = pyautogui.locateCenterOnScreen(imagem, confidence=0.9)  # você pode ajustar o confidence
+
+            if localizacao:
+                print(f"Imagem gerar relatório encontrado em: {localizacao}")
+                pyautogui.moveTo(localizacao)
+                pyautogui.click()
+            else:
+                console.print("Imagem gerar relatório não encontrada na tela.")
+
+            ##### Janela Gerar Registro ####
+            console.print("Confirmar Registro")
+            app = Application().connect(class_name="TMsgBox", timeout=60)
+            main_window = app["TMsgBox"]
+            main_window.set_focus()
+            
+            # Clicar em Sim
+            main_window.child_window(class_name="TBitBtn", found_index=1).click_input()
+
+            await worker_sleep(4)
+
+            console.print("Clicar em confirmar")
+            app = Application().connect(class_name="TPerguntasLivrosFiscaisForm", timeout=60)
+            main_window = app["TPerguntasLivrosFiscaisForm"]
+            main_window.set_focus()
+            main_window.child_window(class_name="TButton", found_index=1).click_input()
+
+            # Caminho da imagem que deve desaparecer
+            imagem = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\abertura_livros\janela_carregada.png"
+
+            # Tempo máximo de espera (em segundos)
+            tempo_limite = 600  # 10 minutos
+            intervalo = 2  # segundos entre as verificações
+
+            inicio = time.time()
+
+            while True:
+                localizacao = pyautogui.locateOnScreen(imagem, confidence=0.9)
+
+                if not localizacao:
+                    print("Imagem desapareceu da tela.")
+                    break  # A imagem sumiu, podemos seguir
+
+                if time.time() - inicio > tempo_limite:
+                    print("Tempo esgotado. A imagem não desapareceu.")
+                    break
+
+                print("Imagem ainda presente... aguardando")
+                time.sleep(intervalo)
+
+            ##### Janela Principal ####
+            console.print("Navegando para Livro de Apuração ICMS... ")
+            app = Application().connect(class_name="TFrmPrincipalFiscal", timeout=60)
+            input_principal = main_window = app["TFrmPrincipalFiscal"]
+            input_principal.set_focus()
+            input_livros = input_principal.child_window(class_name="TEdit", found_index=0)
+            type_text_into_field(
+                "Livro de Apuração ICMS", input_livros, True, "50"
+            )
             await worker_sleep(5)
-            titulo_atual = app.top_window().window_text().lower()
-            if "apuração icms" not in titulo_atual:
-                return RpaRetornoProcessoDTO(
-                    sucesso=False,
-                    retorno=f"Erro, ocorreu um problema ao tentar interagir com a janela de apuração.",
-                    status=RpaHistoricoStatusEnum.Falha,
-                    tags=[RpaTagDTO(descricao=RpaTagEnum.Tecnico)],
-                )
 
-            pyautogui.click(x=601, y=406)
-            primeira_entrada = ctrl_c().lower()
-            if "encerrado" in primeira_entrada:
-                # Clicando em estornar livro
-                console.print("Clicando em estornar livro")
-                cords = (662, 739)
-                pyautogui.click(x=cords[0], y=cords[1])
-                await worker_sleep(4)
-
-            # Clicando no campo competencia antes de preencher
-            cords = (670, 329)
-            pyautogui.click(x=cords[0], y=cords[1])
-            await worker_sleep(4)
-
-            # Preenchendo campo competencia
-            console.print("Preenchendo campo competencia")
-            pyautogui.write(competencia)
-
-            # Clicando em incluir apuracao
-            console.print("Clicando em incluir apuracao")
-            cords = (659, 688)
-            pyautogui.click(x=cords[0], y=cords[1])
-            await worker_sleep(4)
-
-            console.print("Operacao finalizada com sucesso")
-            return RpaRetornoProcessoDTO(
-                sucesso=True,
-                retorno="Abertura de livro fiscal concluida com sucesso",
-                status=RpaHistoricoStatusEnum.Sucesso,
+            app = Application().connect(class_name="TFrmMovtoApuraIcmsNew", timeout=60)
+            main_window = app["TFrmMovtoApuraIcmsNew"]
+            main_window.set_focus()
+            data_input = main_window.child_window(class_name="TDBIEditDate", found_index=0)
+            competencia = competencia #task.configEntrada.get("periodo")
+            type_text_into_field(
+                competencia, data_input, True, "50"
             )
+            
+            # Clicar em incluir apuração
+            imagem = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\assets\abertura_livros\btn_incluir_apuracao.png"
 
-        else:
-            logger.info(f"\nError Message: {return_login.retorno}")
-            console.print(
-                "\nError Messsage: {return_login.retorno}", style="bold green"
-            )
-            return return_login
+            # Tenta localizar a imagem na tela
+            localizacao = pyautogui.locateCenterOnScreen(imagem, confidence=0.9)  # você pode ajustar o confidence
+
+            if localizacao:
+                print(f"Imagem incluir apuração encontrado em: {localizacao}")
+                pyautogui.moveTo(localizacao)
+                pyautogui.click()
+            else:
+                console.print("Imagem incluir apuração não encontrada na tela.")
 
     except Exception as erro:
         console.print(f"Erro ao executar abertura de livros fiscais, erro : {erro}")

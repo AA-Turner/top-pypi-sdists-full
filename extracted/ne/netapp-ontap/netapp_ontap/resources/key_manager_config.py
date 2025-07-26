@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -29,18 +29,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 KeyManagerConfig(
     {
-        "health_monitor_policy": {
-            "aws": {"enabled": True, "manage_volume_offline": True},
-            "akv": {"enabled": True, "manage_volume_offline": True},
-            "kmip": {"enabled": True, "manage_volume_offline": True},
-            "ikp": {"enabled": True, "manage_volume_offline": True},
-            "okm": {"enabled": True, "manage_volume_offline": True},
-            "gcp": {"enabled": True, "manage_volume_offline": True},
-        },
-        "cc_mode_enabled": False,
-        "_links": {"self": {"href": "/api/security/key-manager-configs"}},
-        "health_monitor_polling_interval": 15,
         "cloud_kms_retry_count": 3,
+        "health_monitor_policy": {
+            "ikp": {"manage_volume_offline": True, "enabled": True},
+            "aws": {"manage_volume_offline": True, "enabled": True},
+            "kmip": {"manage_volume_offline": True, "enabled": True},
+            "akv": {"manage_volume_offline": True, "enabled": True},
+            "okm": {"manage_volume_offline": True, "enabled": True},
+            "gcp": {"manage_volume_offline": True, "enabled": True},
+        },
+        "health_monitor_polling_interval": 15,
+        "_links": {"self": {"href": "/api/security/key-manager-configs"}},
+        "cc_mode_enabled": False,
     }
 )
 
@@ -99,8 +99,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 KeyManagerConfig(
     {
         "health_monitor_policy": {
-            "aws": {"enabled": False, "manage_volume_offline": False},
-            "gcp": {"enabled": False, "manage_volume_offline": False},
+            "aws": {"manage_volume_offline": False, "enabled": False},
+            "gcp": {"manage_volume_offline": False, "enabled": False},
         },
         "_links": {"self": {"href": "/api/security/key-manager-configs"}},
     }

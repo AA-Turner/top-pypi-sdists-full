@@ -67,7 +67,6 @@ struct StorageConstants {
     static constexpr page_idx_t DB_HEADER_PAGE_IDX = 0;
     static constexpr char WAL_FILE_SUFFIX[] = "wal";
     static constexpr char SHADOWING_SUFFIX[] = "shadow";
-    static constexpr char LOCK_FILE_SUFFIX[] = "lock";
     static constexpr char TEMP_FILE_SUFFIX[] = "tmp";
 
     // The number of pages that we add at one time when we need to grow a file.
@@ -189,7 +188,7 @@ struct ParquetConstants {
 };
 
 struct ExportCSVConstants {
-    static constexpr const char* DEFAULT_CSV_NEWLINE = "\n";
+    static constexpr const char* DEFAULT_CSV_NEWLINE = "\n\r";
     static constexpr const char* DEFAULT_NULL_STR = "";
     static constexpr bool DEFAULT_FORCE_QUOTE = false;
     static constexpr uint64_t DEFAULT_CSV_FLUSH_SIZE = 4096 * 8;

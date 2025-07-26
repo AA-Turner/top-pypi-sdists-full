@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -42,11 +42,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     NvmeSubsystemMap(
         {
             "subsystem": {
-                "name": "subsystem1",
                 "uuid": "580a6b1e-fe43-11e8-91a0-005056a79967",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/nvme/subsystems/580a6b1e-fe43-11e8-91a0-005056a79967"
+                    }
+                },
+                "name": "subsystem1",
+            },
+            "namespace": {
+                "uuid": "3ccdedc6-2519-4206-bc1f-b0f4adab6f89",
+                "_links": {
+                    "self": {
+                        "href": "/api/storage/namespaces/3ccdedc6-2519-4206-bc1f-b0f4adab6f89"
+                    }
+                },
+                "name": "/vol/vol1/namespace1",
+            },
+            "svm": {
+                "uuid": "0e91b214-fe40-11e8-91a0-005056a79967",
+                "name": "svm1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/0e91b214-fe40-11e8-91a0-005056a79967"
                     }
                 },
             },
@@ -54,24 +72,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 "self": {
                     "href": "/api/protocols/nvme/subsystem-maps/580a6b1e-fe43-11e8-91a0-005056a79967/3ccdedc6-2519-4206-bc1f-b0f4adab6f89"
                 }
-            },
-            "svm": {
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/0e91b214-fe40-11e8-91a0-005056a79967"
-                    }
-                },
-                "uuid": "0e91b214-fe40-11e8-91a0-005056a79967",
-            },
-            "namespace": {
-                "name": "/vol/vol1/namespace1",
-                "_links": {
-                    "self": {
-                        "href": "/api/storage/namespaces/3ccdedc6-2519-4206-bc1f-b0f4adab6f89"
-                    }
-                },
-                "uuid": "3ccdedc6-2519-4206-bc1f-b0f4adab6f89",
             },
         }
     )
@@ -108,44 +108,44 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 NvmeSubsystemMap(
     {
         "subsystem": {
-            "name": "subsystem1",
             "uuid": "580a6b1e-fe43-11e8-91a0-005056a79967",
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/subsystems/580a6b1e-fe43-11e8-91a0-005056a79967"
                 }
             },
-        },
-        "_links": {
-            "self": {
-                "href": "/api/protocols/nvme/subsystem-maps/580a6b1e-fe43-11e8-91a0-005056a79967/3ccdedc6-2519-4206-bc1f-b0f4adab6f89"
-            }
+            "name": "subsystem1",
         },
         "nsid": "00000001h",
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/0e91b214-fe40-11e8-91a0-005056a79967"}
-            },
-            "uuid": "0e91b214-fe40-11e8-91a0-005056a79967",
-        },
         "namespace": {
-            "name": "/vol/vol1/namespace1",
-            "_links": {
-                "self": {
-                    "href": "/api/storage/namespaces/3ccdedc6-2519-4206-bc1f-b0f4adab6f89"
-                }
-            },
+            "uuid": "3ccdedc6-2519-4206-bc1f-b0f4adab6f89",
             "node": {
+                "uuid": "012b4508-67d6-4788-8c2d-801f254ce976",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/012b4508-67d6-4788-8c2d-801f254ce976"
                     }
                 },
-                "uuid": "012b4508-67d6-4788-8c2d-801f254ce976",
             },
-            "uuid": "3ccdedc6-2519-4206-bc1f-b0f4adab6f89",
+            "_links": {
+                "self": {
+                    "href": "/api/storage/namespaces/3ccdedc6-2519-4206-bc1f-b0f4adab6f89"
+                }
+            },
+            "name": "/vol/vol1/namespace1",
+        },
+        "svm": {
+            "uuid": "0e91b214-fe40-11e8-91a0-005056a79967",
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/0e91b214-fe40-11e8-91a0-005056a79967"}
+            },
+        },
+        "_links": {
+            "self": {
+                "href": "/api/protocols/nvme/subsystem-maps/580a6b1e-fe43-11e8-91a0-005056a79967/3ccdedc6-2519-4206-bc1f-b0f4adab6f89"
+            }
         },
     }
 )
@@ -207,7 +207,7 @@ class NvmeSubsystemMapSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" The Asymmetric Namespace Access Group ID (ANAGRPID) of the NVMe namespace.<br/>
 The format for an ANAGRPID is 8 hexadecimal digits (zero-filled) followed by a lower case "h".<br/>
-There is an added computational cost to retrieving this property's value. It is not populated for either a collection GET or an instance GET unless it is explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
+There is an added computational cost to retrieving this property's value. It is not populated for a GET request unless it is explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
 
 
 Example: 00103050h"""

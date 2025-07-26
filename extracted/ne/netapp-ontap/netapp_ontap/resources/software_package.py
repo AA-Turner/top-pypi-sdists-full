@@ -1,10 +1,132 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
-"""
+## Overview
+You can use this API to retrieve the software packages for a cluster.
+<br/>
+## Examples
+### Retrieving cluster software packages information
+The following example shows how to retrieve the ONTAP software packages in a cluster.
+<br/>
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SoftwarePackage
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    print(list(SoftwarePackage.get_collection(return_timeout=15)))
+
+```
+<div class="try_it_out">
+<input id="example0_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example0_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example0_result" class="try_it_out_content">
+```
+[
+    SoftwarePackage(
+        {
+            "_links": {"self": {"href": "/api/cluster/software/packages/9.7.0"}},
+            "version": "9.7.0",
+        }
+    ),
+    SoftwarePackage(
+        {
+            "_links": {"self": {"href": "/api/cluster/software/packages/9.5.0"}},
+            "version": "9.5.0",
+        }
+    ),
+]
+
+```
+</div>
+</div>
+
+---
+### Retrieves the software package information for a particular version
+The following example shows how to retrieve the details of a given cluster software package.
+<br/>
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SoftwarePackage
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = SoftwarePackage(version="9.7.0")
+    resource.get()
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example1_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example1_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example1_result" class="try_it_out_content">
+```
+SoftwarePackage(
+    {
+        "create_time": "2018-05-21T10:06:59+05:30",
+        "_links": {"self": {"href": "/api/cluster/software/packages/9.7.0"}},
+        "version": "9.7.0",
+    }
+)
+
+```
+</div>
+</div>
+
+---
+### Deleting a cluster software package
+The following example shows how to delete a package from the cluster. You need to provide the package version that you want to delete. The software package delete creates a job to perform the delete operation.
+<br/>
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SoftwarePackage
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = SoftwarePackage(version="9.6.0")
+    resource.delete()
+
+```
+
+---
+The call to delete the package returns the job UUID, including a HAL link to retrieve details about the job. The job object includes a `state` field and a message to indicate the progress of the job. When the job is complete and the application is fully created, the message indicates success and the job `state` field is set to `success`.
+<br/>
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Job
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Job(uuid="f587d316-5feb-11e8-b0e0-005056956dfc")
+    resource.get()
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example3_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example3_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example3_result" class="try_it_out_content">
+```
+Job(
+    {
+        "message": "success",
+        "state": "success",
+        "code": 0,
+        "description": "DELETE /api/cluster/software/packages/9.6.0",
+        "uuid": "f587d316-5feb-11e8-b0e0-005056956dfc",
+        "_links": {
+            "self": {"href": "/api/cluster/jobs/f587d316-5feb-11e8-b0e0-005056956dfc"}
+        },
+    }
+)
+
+```
+</div>
+</div>
+
+---
+### Learn more
+
+* [`DOC /cluster/software/packages`](#docs-cluster-cluster_software_packages)"""
 
 import asyncio
 from datetime import datetime
@@ -89,7 +211,7 @@ class SoftwarePackage(Resource):
 ### Related ONTAP commands
 * `cluster image package show-repository`
 ### Learn more
-* [`DOC /cluster/software`](#docs-cluster-cluster_software)
+* [`DOC /cluster/software/packages`](#docs-cluster-cluster_software_packages)
 """
         return super()._get_collection(*args, connection=connection, max_records=max_records, **kwargs)
 
@@ -141,7 +263,7 @@ class SoftwarePackage(Resource):
 ### Related ONTAP commands
 * `cluster image package delete`
 ### Learn more
-* [`DOC /cluster/software`](#docs-cluster-cluster_software)
+* [`DOC /cluster/software/packages`](#docs-cluster-cluster_software_packages)
 """
         return super()._delete_collection(
             *args, body=body, records=records, poll=poll, poll_interval=poll_interval,
@@ -156,7 +278,7 @@ class SoftwarePackage(Resource):
 ### Related ONTAP commands
 * `cluster image package show-repository`
 ### Learn more
-* [`DOC /cluster/software`](#docs-cluster-cluster_software)
+* [`DOC /cluster/software/packages`](#docs-cluster-cluster_software_packages)
 """
         return super()._find(*args, connection=connection, **kwargs)
 
@@ -167,7 +289,7 @@ class SoftwarePackage(Resource):
 ### Related ONTAP commands
 * `cluster image package show-repository`
 ### Learn more
-* [`DOC /cluster/software`](#docs-cluster-cluster_software)
+* [`DOC /cluster/software/packages`](#docs-cluster-cluster_software_packages)
 """
         return super()._get(**kwargs)
 
@@ -187,7 +309,7 @@ class SoftwarePackage(Resource):
 ### Related ONTAP commands
 * `cluster image package delete`
 ### Learn more
-* [`DOC /cluster/software`](#docs-cluster-cluster_software)
+* [`DOC /cluster/software/packages`](#docs-cluster-cluster_software_packages)
 """
         return super()._delete(
             body=body, poll=poll, poll_interval=poll_interval,

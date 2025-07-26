@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -55,130 +55,130 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsSvmUser(
         {
-            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1001",
             "volumes": [
                 {
-                    "name": "fv1",
+                    "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
                     "_links": {
                         "self": {
                             "href": "/api/storage/volumes/73b293df-e9d7-46cc-a9ce-2df8e52ef864"
                         }
                     },
-                    "uuid": "73b293df-e9d7-46cc-a9ce-2df8e52ef864",
+                    "name": "fv1",
                 },
                 {
-                    "name": "fv2",
+                    "uuid": "2ea74c3e-d5ca-11eb-8fbb-005056ac0f33",
                     "_links": {
                         "self": {
                             "href": "/api/storage/volumes/2ea74c3e-d5ca-11eb-8fbb-005056ac0f33"
                         }
                     },
-                    "uuid": "2ea74c3e-d5ca-11eb-8fbb-005056ac0f33",
+                    "name": "fv2",
                 },
                 {
-                    "name": "fv4",
+                    "uuid": "5bbfc226-3fd8-42c9-a651-fa6167c2cf84",
                     "_links": {
                         "self": {
                             "href": "/api/storage/volumes/5bbfc226-3fd8-42c9-a651-fa6167c2cf84"
                         }
                     },
-                    "uuid": "5bbfc226-3fd8-42c9-a651-fa6167c2cf84",
+                    "name": "fv4",
                 },
             ],
             "iops": {
-                "error": {"lower_bound": 1495, "upper_bound": 1505},
+                "error": {"upper_bound": 1505, "lower_bound": 1495},
                 "write": 1495,
             },
             "svm": {"name": "vs1"},
             "user_name": "user1",
+            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1001",
         }
     ),
     TopMetricsSvmUser(
         {
-            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1002",
             "volumes": [
                 {
-                    "name": "fv2",
+                    "uuid": "2ea74c3e-d5ca-11eb-8fbb-005056ac0f33",
                     "_links": {
                         "self": {
                             "href": "/api/storage/volumes/2ea74c3e-d5ca-11eb-8fbb-005056ac0f33"
                         }
                     },
-                    "uuid": "2ea74c3e-d5ca-11eb-8fbb-005056ac0f33",
+                    "name": "fv2",
                 },
                 {
-                    "name": "fv3",
+                    "uuid": "1ca74c3e-d5ca-11eb-8fbb-005056ac0f88",
                     "_links": {
                         "self": {
                             "href": "/api/storage/volumes/1ca74c3e-d5ca-11eb-8fbb-005056ac0f88"
                         }
                     },
-                    "uuid": "1ca74c3e-d5ca-11eb-8fbb-005056ac0f88",
+                    "name": "fv3",
                 },
             ],
             "iops": {
-                "error": {"lower_bound": 1022, "upper_bound": 1032},
+                "error": {"upper_bound": 1032, "lower_bound": 1022},
                 "write": 1022,
             },
             "svm": {"name": "vs1"},
             "user_name": "user2",
+            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1002",
         }
     ),
     TopMetricsSvmUser(
         {
-            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1003",
             "volumes": [
                 {
-                    "name": "fv3",
+                    "uuid": "1ca74c3e-d5ca-11eb-8fbb-005056ac0f88",
                     "_links": {
                         "self": {
                             "href": "/api/storage/volumes/1ca74c3e-d5ca-11eb-8fbb-005056ac0f88"
                         }
                     },
-                    "uuid": "1ca74c3e-d5ca-11eb-8fbb-005056ac0f88",
+                    "name": "fv3",
                 }
             ],
-            "iops": {"error": {"lower_bound": 345, "upper_bound": 355}, "write": 345},
+            "iops": {"error": {"upper_bound": 355, "lower_bound": 345}, "write": 345},
             "svm": {"name": "vs1"},
             "user_name": "user3",
+            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1003",
         }
     ),
     TopMetricsSvmUser(
         {
-            "user_id": "1988",
             "volumes": [
                 {
-                    "name": "fv4",
+                    "uuid": "5bbfc226-3fd8-42c9-a651-fa6167c2cf84",
                     "_links": {
                         "self": {
                             "href": "/api/storage/volumes/5bbfc226-3fd8-42c9-a651-fa6167c2cf84"
                         }
                     },
-                    "uuid": "5bbfc226-3fd8-42c9-a651-fa6167c2cf84",
+                    "name": "fv4",
                 }
             ],
-            "iops": {"error": {"lower_bound": 235, "upper_bound": 245}, "write": 235},
+            "iops": {"error": {"upper_bound": 245, "lower_bound": 235}, "write": 235},
             "svm": {"name": "vs1"},
             "user_name": "user4",
+            "user_id": "1988",
         }
     ),
     TopMetricsSvmUser(
         {
-            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1005",
             "volumes": [
                 {
-                    "name": "fv5",
+                    "uuid": "5bbfc227-3fd8-42c9-a651-fa6167c2cf85",
                     "_links": {
                         "self": {
                             "href": "/api/storage/volumes/5bbfc227-3fd8-42c9-a651-fa6167c2cf85"
                         }
                     },
-                    "uuid": "5bbfc227-3fd8-42c9-a651-fa6167c2cf85",
+                    "name": "fv5",
                 }
             ],
-            "iops": {"error": {"lower_bound": 235, "upper_bound": 245}, "write": 235},
+            "iops": {"error": {"upper_bound": 245, "lower_bound": 235}, "write": 235},
             "svm": {"name": "vs1"},
             "user_name": "user5",
+            "user_id": "S-1-5-21-256008430-3394229847-3930036330-1005",
         }
     ),
 ]

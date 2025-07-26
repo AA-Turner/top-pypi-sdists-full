@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: mistral_common
-Version: 1.8.2
+Version: 1.8.3
 Summary: Mistral-common is a library of common utilities for Mistral AI.
 Author-email: bam4d <bam4d@mistral.ai>
 License-Expression: Apache-2.0
@@ -13,8 +13,7 @@ Requires-Dist: typing-extensions>=4.11.0
 Requires-Dist: tiktoken>=0.7.0
 Requires-Dist: pillow>=10.3.0
 Requires-Dist: requests>=2.0.0
-Requires-Dist: numpy<1.25,>=1.22; python_version < "3.9"
-Requires-Dist: numpy>=1.25; python_version >= "3.9"
+Requires-Dist: numpy>=1.25
 Requires-Dist: pydantic-extra-types[pycountry]>=2.10.5
 Provides-Extra: opencv
 Requires-Dist: opencv-python-headless>=4.0.0; extra == "opencv"
@@ -29,6 +28,10 @@ Provides-Extra: image
 Requires-Dist: mistral_common[opencv]; extra == "image"
 Provides-Extra: hf-hub
 Requires-Dist: huggingface-hub>=0.32.4; extra == "hf-hub"
+Provides-Extra: server
+Requires-Dist: fastapi[standard]>=0.115.12; extra == "server"
+Requires-Dist: pydantic-settings>=2.9.1; extra == "server"
+Requires-Dist: click>=8.1.0; extra == "server"
 
 <div align="center">
 

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -32,35 +32,35 @@ with HostConnection(
 [
     CifsConnection(
         {
-            "node": {
-                "name": "example_node_name",
-                "uuid": "85d46998-4e5d-11ea-afb1-0050568ec4e4",
-            },
-            "server_ip": "10.140.70.197",
-            "client_port": 12345,
-            "sessions": [{"identifier": 625718873227788312}],
-            "network_context_id": 3,
             "identifier": 91842,
+            "server_ip": "10.140.70.197",
+            "network_context_id": 3,
+            "svm": {"uuid": "fc824aa8-4e60-11ea-afb1-0050568ec4e4", "name": "vs1"},
+            "sessions": [{"identifier": 625718873227788312}],
             "client_ip": "10.74.7.182",
-            "svm": {"name": "vs1", "uuid": "fc824aa8-4e60-11ea-afb1-0050568ec4e4"},
+            "node": {
+                "uuid": "85d46998-4e5d-11ea-afb1-0050568ec4e4",
+                "name": "example_node_name",
+            },
+            "client_port": 12345,
         }
     ),
     CifsConnection(
         {
-            "node": {
-                "name": "example_node_name",
-                "uuid": "85d46998-4e5d-11ea-afb1-0050568ec4e4",
-            },
+            "identifier": 92080,
             "server_ip": "10.140.70.197",
-            "client_port": 23413,
+            "network_context_id": 5,
+            "svm": {"uuid": "fc824aa8-4e60-11ea-afb1-0050568ec4e4", "name": "vs1"},
             "sessions": [
                 {"identifier": 625718873227788579},
                 {"identifier": 625718873227788577},
             ],
-            "network_context_id": 5,
-            "identifier": 92080,
             "client_ip": "10.140.133.97",
-            "svm": {"name": "vs1", "uuid": "fc824aa8-4e60-11ea-afb1-0050568ec4e4"},
+            "node": {
+                "uuid": "85d46998-4e5d-11ea-afb1-0050568ec4e4",
+                "name": "example_node_name",
+            },
+            "client_port": 23413,
         }
     ),
 ]

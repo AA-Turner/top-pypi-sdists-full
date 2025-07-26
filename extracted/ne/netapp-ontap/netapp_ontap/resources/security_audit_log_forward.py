@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -102,15 +102,15 @@ with HostConnection(
 ```
 SecurityAuditLogForward(
     {
-        "timestamp_format_override": "no_override",
-        "facility": "kern",
-        "verify_server": False,
-        "protocol": "udp_unencrypted",
-        "ipspace": {"name": "Default", "uuid": "a97a3549-f7ae-11ec-b6bc-005056a7c8ff"},
         "address": "1.1.1.1",
-        "message_format": "legacy_netapp",
-        "hostname_format_override": "no_override",
+        "timestamp_format_override": "no_override",
         "port": 514,
+        "facility": "kern",
+        "message_format": "legacy_netapp",
+        "protocol": "udp_unencrypted",
+        "verify_server": False,
+        "hostname_format_override": "no_override",
+        "ipspace": {"uuid": "a97a3549-f7ae-11ec-b6bc-005056a7c8ff", "name": "Default"},
     }
 )
 

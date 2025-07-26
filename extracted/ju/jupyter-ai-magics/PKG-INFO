@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jupyter_ai_magics
-Version: 2.31.5
+Version: 2.31.6
 Dynamic: Keywords
 Summary: Jupyter AI magics Python package. Not published on NPM.
 Project-URL: Homepage, https://github.com/jupyterlab/jupyter-ai
@@ -56,13 +56,15 @@ Requires-Dist: pydantic<3,>=2.10.0
 Provides-Extra: all
 Requires-Dist: ai21; extra == 'all'
 Requires-Dist: boto3; extra == 'all'
+Requires-Dist: cohere<5.16,>=5.5.6; extra == 'all'
 Requires-Dist: gpt4all; extra == 'all'
 Requires-Dist: huggingface-hub; extra == 'all'
 Requires-Dist: ipywidgets; extra == 'all'
 Requires-Dist: langchain-anthropic; extra == 'all'
-Requires-Dist: langchain-aws; extra == 'all'
-Requires-Dist: langchain-cohere; extra == 'all'
+Requires-Dist: langchain-aws<0.3,>=0.2; extra == 'all'
+Requires-Dist: langchain-cohere>=0.3; extra == 'all'
 Requires-Dist: langchain-google-genai; extra == 'all'
+Requires-Dist: langchain-google-vertexai; extra == 'all'
 Requires-Dist: langchain-mistralai; extra == 'all'
 Requires-Dist: langchain-nvidia-ai-endpoints; extra == 'all'
 Requires-Dist: langchain-ollama; extra == 'all'

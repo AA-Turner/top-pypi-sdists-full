@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,13 +27,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "message": {"name": "raid.aggr.log.CP.count"},
             "node": {
+                "uuid": "f087b8e3-99ac-11e8-b5a5-005056bb4ec7",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/f087b8e3-99ac-11e8-b5a5-005056bb4ec7"
                     }
                 },
-                "uuid": "f087b8e3-99ac-11e8-b5a5-005056bb4ec7",
             },
             "_links": {"self": {"href": "/api/support/ems/events/node1/661"}},
             "index": 661,
@@ -152,6 +152,8 @@ class EmsEvent(Resource):
         **kwargs
     ) -> Iterable["Resource"]:
         r"""Retrieves a collection of observed events.
+###
+Note: The default behavior is to filter 'DEBUG' severity events. If those events are required, a severity query must be provided.
 ### Related ONTAP commands
 * `event log show`
 
@@ -195,6 +197,8 @@ class EmsEvent(Resource):
     @classmethod
     def find(cls, *args, connection: HostConnection = None, **kwargs) -> Resource:
         r"""Retrieves a collection of observed events.
+###
+Note: The default behavior is to filter 'DEBUG' severity events. If those events are required, a severity query must be provided.
 ### Related ONTAP commands
 * `event log show`
 

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -29,15 +29,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SnmpUser(
     {
         "engine_id": "80000315056622e52625a9e911a981005056bb1dcb",
-        "name": "snmpv1user2",
+        "scope": "cluster",
+        "owner": {"uuid": "26e52266-a925-11e9-a981-005056bb1dcb", "name": "cluster-1"},
         "_links": {
             "self": {
                 "href": "/api/support/snmp/users/80000315056622e52625a9e911a981005056bb1dcb/snmpv1user2"
             }
         },
-        "owner": {"name": "cluster-1", "uuid": "26e52266-a925-11e9-a981-005056bb1dcb"},
         "authentication_method": "community",
-        "scope": "cluster",
+        "name": "snmpv1user2",
     }
 )
 
@@ -301,11 +301,11 @@ class SnmpUser(Resource):
     ) -> Union[List["SnmpUser"], NetAppResponse]:
         r"""Creates either a cluster-scoped or an SVM-scoped SNMP user. This user can be an SNMPv1 or SNMPv2c community user or an SNMPv3 user. An SNMPv3 user can be a local SNMPv3 user or a remote SNMPv3 user.
 ### Required properties
+* `name` - SNMP user name
+### Optional properties
 * `owner` - Name and UUID of owning SVM.
 * `engine_id` - Engine ID of owning SVM or remote switch.
-* `name` - SNMP user name
 * `authentication_method` - Authentication method
-### Optional properties
 * `switch_address` - Optional remote switch address
 * `snmpv3` - SNMPv3-specific credentials
 * `comment` - Comment text
@@ -386,11 +386,11 @@ class SnmpUser(Resource):
     ) -> NetAppResponse:
         r"""Creates either a cluster-scoped or an SVM-scoped SNMP user. This user can be an SNMPv1 or SNMPv2c community user or an SNMPv3 user. An SNMPv3 user can be a local SNMPv3 user or a remote SNMPv3 user.
 ### Required properties
+* `name` - SNMP user name
+### Optional properties
 * `owner` - Name and UUID of owning SVM.
 * `engine_id` - Engine ID of owning SVM or remote switch.
-* `name` - SNMP user name
 * `authentication_method` - Authentication method
-### Optional properties
 * `switch_address` - Optional remote switch address
 * `snmpv3` - SNMPv3-specific credentials
 * `comment` - Comment text

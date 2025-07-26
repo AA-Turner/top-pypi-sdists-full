@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "nwbinspector"
-version = "0.6.3"
+version = "0.6.5"
 description = "Tool to inspect NWB files for best practices compliance."
 readme = "README.md"
 authors = [
@@ -34,7 +34,7 @@ classifiers = [
 ]
 requires-python = ">=3.9"
 dependencies = [
-    "pynwb>=2.8",   # NWB Inspector should always be used with most recent minor versions of PyNWB
+    "pynwb>=3.1",   # NWB Inspector should always be used with most recent minor versions of PyNWB
     "hdmf-zarr",
     "fsspec",
     "requests",
@@ -54,8 +54,17 @@ dandi = [
     "remfile",
 ]
 
-[tool.setuptools.packages.find]
-where = ["src"]
+[tool.hatch.build.targets.sdist]
+exclude = [
+    ".git*",
+    "codecov.yml",
+    ".pre-commit-config.yaml",
+]
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/nwbinspector"]
+
+
 
 [project.scripts]
 nwbinspector = "nwbinspector._nwbinspector_cli:_nwbinspector_cli"

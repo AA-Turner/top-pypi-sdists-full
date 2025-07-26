@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,20 +28,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VscanScannerPool(
         {
-            "servers": ["1.1.1.1", "10.72.204.27"],
-            "name": "scanner-1",
-            "role": "primary",
+            "cluster": {
+                "uuid": "3af387d8-6131-11ef-92d9-005056bbd354",
+                "name": "clus1",
+            },
             "privileged_users": ["cifs\\u1", "cifs\\u2"],
-            "svm": {"uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06"},
+            "servers": ["1.1.1.1", "10.72.204.27"],
+            "svm": {"uuid": "1ccbefd6-6132-11ef-92d9-005056bbd354", "name": "vs1"},
+            "role": "primary",
+            "name": "scanner-1",
         }
     ),
     VscanScannerPool(
         {
-            "servers": ["1.1.1.1", "10.72.204.27"],
-            "name": "scanner-2",
-            "role": "secondary",
+            "cluster": {
+                "uuid": "3af387d8-6131-11ef-92d9-005056bbd354",
+                "name": "clus1",
+            },
             "privileged_users": ["cifs\\u1", "cifs\\u2"],
-            "svm": {"uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06"},
+            "servers": ["1.1.1.1", "10.72.204.27"],
+            "svm": {"uuid": "1ccbefd6-6132-11ef-92d9-005056bbd354", "name": "vs1"},
+            "role": "secondary",
+            "name": "scanner-2",
         }
     ),
 ]
@@ -74,14 +82,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     VscanScannerPool(
         {
             "cluster": {
-                "name": "Cluster3",
                 "uuid": "0933f9b5-f226-11e8-9601-0050568ecc06",
+                "name": "Cluster3",
             },
-            "servers": ["1.1.1.1", "10.72.204.27"],
-            "name": "scanner-2",
-            "role": "secondary",
             "privileged_users": ["cifs\\u1", "cifs\\u2"],
-            "svm": {"name": "vs1", "uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06"},
+            "servers": ["1.1.1.1", "10.72.204.27"],
+            "svm": {"uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06", "name": "vs1"},
+            "role": "secondary",
+            "name": "scanner-2",
         }
     )
 ]
@@ -110,12 +118,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanScannerPool(
     {
-        "cluster": {"name": "Cluster3", "uuid": "0933f9b5-f226-11e8-9601-0050568ecc06"},
-        "servers": ["1.1.1.1", "10.72.204.27"],
-        "name": "scanner-1",
-        "role": "primary",
+        "cluster": {"uuid": "0933f9b5-f226-11e8-9601-0050568ecc06", "name": "Cluster3"},
         "privileged_users": ["cifs\\u1", "cifs\\u2"],
-        "svm": {"name": "vs1", "uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06"},
+        "servers": ["1.1.1.1", "10.72.204.27"],
+        "svm": {"uuid": "0e2f7c91-f227-11e8-9601-0050568ecc06", "name": "vs1"},
+        "role": "primary",
+        "name": "scanner-1",
     }
 )
 
@@ -149,11 +157,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanScannerPool(
     {
-        "cluster": {"name": "Cluster1", "uuid": "ab746d77-17b7-11e9-b450-0050568ecd85"},
-        "servers": ["1.1.1.1", "10.72.204.27"],
-        "name": "test-scanner",
-        "role": "primary",
+        "cluster": {"uuid": "ab746d77-17b7-11e9-b450-0050568ecd85", "name": "Cluster1"},
         "privileged_users": ["cifs\\u1", "cifs\\u2"],
+        "servers": ["1.1.1.1", "10.72.204.27"],
+        "role": "primary",
+        "name": "test-scanner",
     }
 )
 
@@ -182,9 +190,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanScannerPool(
     {
+        "privileged_users": ["cifs\\u1", "cifs\\u2"],
         "servers": ["1.1.1.1", "10.72.204.27"],
         "name": "test-scanner-1",
-        "privileged_users": ["cifs\\u1", "cifs\\u2"],
     }
 )
 

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,7 +27,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LoginMessages(
         {
-            "banner": "*** WARNING: DO NOT PROCEED IF YOU ARE NOT AUTHORIZED! ****\n",
+            "scope": "cluster",
             "show_cluster_message": True,
             "message": "#### Welcome to Cluster X ####\n",
             "uuid": "2581e5aa-9fe3-11e8-b309-005056bbef18",
@@ -36,46 +36,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/security/login/messages/2581e5aa-9fe3-11e8-b309-005056bbef18"
                 }
             },
-            "scope": "cluster",
+            "banner": "*** WARNING: DO NOT PROCEED IF YOU ARE NOT AUTHORIZED! ****\n",
         }
     ),
     LoginMessages(
         {
+            "scope": "svm",
             "show_cluster_message": True,
             "message": "#### Welcome to SVM1 ####\n",
+            "svm": {"uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18", "name": "svm1"},
             "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18",
             "_links": {
                 "self": {
                     "href": "/api/security/login/messages/7b1b3715-9ffa-11e8-a5dd-005056bbef18"
                 }
             },
-            "svm": {"name": "svm1", "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18"},
-            "scope": "svm",
         }
     ),
     LoginMessages(
         {
-            "banner": "*** WARNING: This system is for the use of authorized users only. ****\n",
+            "scope": "svm",
+            "svm": {"uuid": "8ddee11e-a58c-11e8-85e0-005056bbef18", "name": "svm3"},
             "uuid": "8ddee11e-a58c-11e8-85e0-005056bbef18",
             "_links": {
                 "self": {
                     "href": "/api/security/login/messages/8ddee11e-a58c-11e8-85e0-005056bbef18"
                 }
             },
-            "svm": {"name": "svm3", "uuid": "8ddee11e-a58c-11e8-85e0-005056bbef18"},
-            "scope": "svm",
+            "banner": "*** WARNING: This system is for the use of authorized users only. ****\n",
         }
     ),
     LoginMessages(
         {
+            "scope": "svm",
+            "svm": {"uuid": "f7e41c99-9ffa-11e8-a5dd-005056bbef18", "name": "svm2"},
             "uuid": "f7e41c99-9ffa-11e8-a5dd-005056bbef18",
             "_links": {
                 "self": {
                     "href": "/api/security/login/messages/f7e41c99-9ffa-11e8-a5dd-005056bbef18"
                 }
             },
-            "svm": {"name": "svm2", "uuid": "f7e41c99-9ffa-11e8-a5dd-005056bbef18"},
-            "scope": "svm",
         }
     ),
 ]
@@ -103,7 +103,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LoginMessages(
         {
-            "banner": "*** WARNING: DO NOT PROCEED IF YOU ARE NOT AUTHORIZED! ****\n",
+            "scope": "cluster",
             "show_cluster_message": True,
             "message": "#### Welcome to Cluster X ####\n",
             "uuid": "2581e5aa-9fe3-11e8-b309-005056bbef18",
@@ -112,7 +112,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/security/login/messages/2581e5aa-9fe3-11e8-b309-005056bbef18"
                 }
             },
-            "scope": "cluster",
+            "banner": "*** WARNING: DO NOT PROCEED IF YOU ARE NOT AUTHORIZED! ****\n",
         }
     )
 ]
@@ -140,14 +140,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LoginMessages(
         {
-            "banner": "*** WARNING: DO NOT PROCEED IF YOU ARE NOT AUTHORIZED! ****\n",
+            "scope": "cluster",
             "uuid": "2581e5aa-9fe3-11e8-b309-005056bbef18",
             "_links": {
                 "self": {
                     "href": "/api/security/login/messages/2581e5aa-9fe3-11e8-b309-005056bbef18"
                 }
             },
-            "scope": "cluster",
+            "banner": "*** WARNING: DO NOT PROCEED IF YOU ARE NOT AUTHORIZED! ****\n",
         }
     )
 ]
@@ -175,16 +175,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LoginMessages(
         {
+            "scope": "svm",
             "show_cluster_message": True,
             "message": "#### Welcome to SVM1 ####\n",
+            "svm": {"uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18", "name": "svm1"},
             "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18",
             "_links": {
                 "self": {
                     "href": "/api/security/login/messages/7b1b3715-9ffa-11e8-a5dd-005056bbef18"
                 }
             },
-            "svm": {"name": "svm1", "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18"},
-            "scope": "svm",
         }
     )
 ]
@@ -213,16 +213,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LoginMessages(
     {
+        "scope": "svm",
         "show_cluster_message": True,
         "message": "#### Welcome to SVM1 ####\n",
+        "svm": {"uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18", "name": "svm1"},
         "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18",
         "_links": {
             "self": {
                 "href": "/api/security/login/messages/7b1b3715-9ffa-11e8-a5dd-005056bbef18"
             }
         },
-        "svm": {"name": "svm1", "uuid": "7b1b3715-9ffa-11e8-a5dd-005056bbef18"},
-        "scope": "svm",
     }
 )
 

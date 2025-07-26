@@ -31,9 +31,7 @@ import re
 import typing as t
 from dataclasses import asdict, dataclass
 
-from pydantic import BaseModel, ValidationError
-
-from connector.generated import (
+from connector_sdk_types.generated import (
     AppCategory,
     AuthCredential,
     AuthModel,
@@ -55,6 +53,8 @@ from connector.generated import (
     StandardCapabilityName,
     TokenCredential,
 )
+from pydantic import BaseModel, ValidationError
+
 from connector.oai.capability import (
     CapabilityCallableProto,
     capability_requires_authentication,
@@ -67,6 +67,7 @@ from connector.oai.modules.base_module import BaseIntegrationModule
 from connector.oai.modules.info_module import InfoModule
 from connector.oai.modules.oauth_module import OAuthModule
 from connector.oai.modules.oauth_module_types import OAuthConfig, OAuthSettings
+from connector.utils.validation_utils import get_missing_field_titles
 
 AuthSetting: t.TypeAlias = (
     type[OAuthCredential]
@@ -183,7 +184,6 @@ def _validate_capability_name(capability_name: str) -> None:
 
 
 class Integration:
-    # TODO: Remove this comment, just need to trigger an sdk change
     app_id: str
     settings_model: type[BaseModel]
 
@@ -619,10 +619,17 @@ class Integration:
             try:
                 self.settings_model.model_validate(request.settings)
             except ValidationError as e:
+                msg = "Invalid settings passed on request."
+
+                # Check if the validation error is due to missing required fields
+                missing_titles, _ = get_missing_field_titles(e, self.settings_model)
+                if missing_titles:
+                    msg += " Missing required settings: " + ", ".join(missing_titles)
+
                 return ErrorResponse(
                     is_error=True,
                     error=Error(
-                        message=f"Invalid settings passed on request - {repr(e.errors())}",
+                        message=msg,
                         error_code=ErrorCode.BAD_REQUEST,
                         app_id=self.app_id,
                     ),

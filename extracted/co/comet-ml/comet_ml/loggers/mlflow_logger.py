@@ -161,6 +161,22 @@ def mlflow_log_artifacts(
         )
 
 
+def mlflow_log_model_artifacts(
+    experiment, original, return_value, model_id: str, local_dir: str, *args, **kwargs
+):
+    mlflow_log_artifacts(
+        experiment, original, return_value, local_dir, artifact_path=None
+    )
+
+
+def mlflow_log_model_artifact(
+    experiment, original, return_value, model_id: str, local_path: str, *args, **kwargs
+):
+    mlflow_log_artifact(
+        experiment, original, return_value, local_path, artifact_path=None
+    )
+
+
 def mlflow_model_log_before(
     experiment,
     original,
@@ -168,7 +184,7 @@ def mlflow_model_log_before(
     artifact_path,
     flavor,
     registered_model_name=None,
-    **kwargs
+    **kwargs,
 ):
     global LOG_MODEL_MODEL_NAME
     if registered_model_name is not None:
@@ -305,6 +321,22 @@ def patch(module_finder):
         "mlflow.tracking.fluent",
         "_get_or_start_run",
         mlflow_get_or_start_run_after,
+        allow_empty_experiment=True,
+    )
+
+    # we need to do this before the original method invocation
+    # for model files to be properly logged
+    # This needed to properly log model files since mlflow 3.1.4
+    module_finder.register_before(
+        "mlflow.tracking.client",
+        "MlflowClient.log_model_artifacts",
+        mlflow_log_model_artifacts,
+        allow_empty_experiment=True,
+    )
+    module_finder.register_before(
+        "mlflow.tracking.client",
+        "MlflowClient.log_model_artifact",
+        mlflow_log_model_artifact,
         allow_empty_experiment=True,
     )
 

@@ -1,5 +1,6 @@
 #pragma once
 
+#include "storage/buffer_manager/spill_result.h"
 #include "storage/table/column_chunk_data.h"
 #include "storage/table/update_info.h"
 
@@ -37,11 +38,11 @@ struct ColumnCheckpointState {
 
 class ColumnChunk {
 public:
-    ColumnChunk(MemoryManager& memoryManager, common::LogicalType&& dataType, uint64_t capacity,
+    ColumnChunk(MemoryManager& mm, common::LogicalType&& dataType, uint64_t capacity,
         bool enableCompression, ResidencyState residencyState, bool initializeToZero = true);
-    ColumnChunk(MemoryManager& memoryManager, common::LogicalType&& dataType,
-        bool enableCompression, ColumnChunkMetadata metadata);
-    ColumnChunk(bool enableCompression, std::unique_ptr<ColumnChunkData> data);
+    ColumnChunk(MemoryManager& mm, common::LogicalType&& dataType, bool enableCompression,
+        ColumnChunkMetadata metadata);
+    ColumnChunk(MemoryManager& mm, bool enableCompression, std::unique_ptr<ColumnChunkData> data);
 
     void initializeScanState(ChunkState& state, const Column* column) const;
     void scan(const transaction::Transaction* transaction, const ChunkState& state,
@@ -60,8 +61,7 @@ public:
         return getResidencyState() == ResidencyState::ON_DISK ? 0 : data->getEstimatedMemoryUsage();
     }
     void serialize(common::Serializer& serializer) const;
-    static std::unique_ptr<ColumnChunk> deserialize(MemoryManager& memoryManager,
-        common::Deserializer& deSer);
+    static std::unique_ptr<ColumnChunk> deserialize(MemoryManager& mm, common::Deserializer& deSer);
 
     uint64_t getNumValues() const { return data->getNumValues(); }
     void setNumValues(const uint64_t numValues) const { data->setNumValues(numValues); }
@@ -96,7 +96,7 @@ public:
     }
 
     void loadFromDisk() { data->loadFromDisk(); }
-    uint64_t spillToDisk() { return data->spillToDisk(); }
+    SpillResult spillToDisk() { return data->spillToDisk(); }
 
     MergedColumnChunkStats getMergedColumnChunkStats(
         const transaction::Transaction* transaction) const;
@@ -109,6 +109,7 @@ private:
         common::row_idx_t numRows) const;
 
 private:
+    MemoryManager& mm;
     // TODO(Guodong): This field should be removed. Ideally it shouldn't be cached anywhere in
     // storage structures, instead should be fed into functions needed from ClientContext dbConfig.
     bool enableCompression;

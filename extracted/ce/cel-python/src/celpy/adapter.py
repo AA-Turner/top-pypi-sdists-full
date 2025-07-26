@@ -12,15 +12,16 @@
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and limitations under the License.
+
 """
-Type Adapter to convert Python-native types into CEL structures.
+Adapters to convert some Python-native types into CEL structures.
 
-Currently, Atomic Python objects have direct use of types in :mod:`celpy.celtypes`.
+Currently, atomic Python objects have direct use of types in :mod:`celpy.celtypes`.
 
-Non-Atomic Python objects are characterized by JSON and Protobuf
-objects. This module has functions to convert JSON objects to CEL.
+Non-atomic Python objects are characterized by JSON and Protobuf messages.
+This module has functions to convert JSON objects to CEL.
 
-The protobuf decoder is TBD.
+A proper protobuf decoder is TBD.
 
 A more sophisticated type injection capability may be needed to permit
 additional types or extensions to :mod:`celpy.celtypes`.
@@ -101,9 +102,30 @@ class CELJSONDecoder(json.JSONDecoder):
 
 
 def json_to_cel(document: JSON) -> celtypes.Value:
-    """Convert parsed JSON object from Python to CEL to the extent possible.
+    """
+    Converts parsed JSON object from Python to CEL to the extent possible.
 
-    It's difficult to distinguish strings which should be timestamps or durations.
+    Note that it's difficult to distinguish strings which should be timestamps or durations.
+    Using the :py:mod:`json` package ``objecthook`` can help do these conversions.
+
+    ..  csv-table::
+        :header: python, CEL
+
+        bool, :py:class:`celpy.celtypes.BoolType`
+        float, :py:class:`celpy.celtypes.DoubleType`
+        int, :py:class:`celpy.celtypes.IntType`
+        str, :py:class:`celpy.celtypes.StringType`
+        None, None
+        "tuple, list", :py:class:`celpy.celtypes.ListType`
+        dict, :py:class:`celpy.celtypes.MapType`
+        datetime.datetime, :py:class:`celpy.celtypes.TimestampType`
+        datetime.timedelta, :py:class:`celpy.celtypes.DurationType`
+
+    :param document: A JSON document.
+    :returns: :py:class:`celpy.celtypes.Value`.
+    :raises: internal :exc:`ValueError` or :exc:`TypeError` for failed conversions.
+
+    Example:
 
     ::
 

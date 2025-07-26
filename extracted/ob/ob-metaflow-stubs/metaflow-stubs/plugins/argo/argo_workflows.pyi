@@ -1,13 +1,13 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.3+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-21T18:19:17.294244                                                            #
+# MF version: 2.15.21.4+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-25T18:05:14.992186                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
     import metaflow.graph
     import metaflow.exception
@@ -114,7 +114,7 @@ class ArgoWorkflows(object, metaclass=type):
     def deploy(self):
         ...
     @staticmethod
-    def list_templates(flow_name, all = False):
+    def list_templates(flow_name, all = False, page_size = 100):
         ...
     @staticmethod
     def delete(name):

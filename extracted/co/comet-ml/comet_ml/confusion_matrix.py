@@ -107,6 +107,7 @@ class ConfusionMatrix(object):
         cache=True,
         selected=None,
         images=None,
+        images_annotations=None,
         experiment=None,
         examples=None,
         **kwargs  # keyword args for index_to_example_function
@@ -123,6 +124,17 @@ class ConfusionMatrix(object):
                 not provided, then matrix may be provided.
             images: (optional) a list of data that can be passed to
                 CometExperiment.log_image()
+            images_annotations: (optional) Specifies annotation layers for images.
+                This parameter expects a list of lists, where each inner list defines an
+                annotation layer, potentially containing bounding boxes and/or polygons.
+
+                For a comprehensive understanding of how annotations are utilized and structured,
+                please consult the documentation for `Experiment.log_image()`.
+
+                **Important Note for Custom `index_to_example_function` Implementations:**
+                If you provide your own implementation for `index_to_example_function` (bypassing the default),
+                it is critical to ensure that every `images_annotations` entry is consistently passed alongside its corresponding image within each `log_image()` call.
+                Furthermore, the metadata associated with these annotations must precisely align with the expectations and requirements of the `Experiment.log_image()` call.
             labels: (optional) a list of strings that name of the
                 columns and rows, in order. By default, it will be
                 "0" through the number of categories (e.g., rows/columns).
@@ -222,6 +234,7 @@ class ConfusionMatrix(object):
         [comet_ml.CometExperiment.log_confusion_matrix][]
         """
         self.images = images
+        self.images_annotations = images_annotations
         self.experiment = experiment
         if self.images is not None:
             if index_to_example_function is None:
@@ -256,13 +269,18 @@ class ConfusionMatrix(object):
         self.use_cache = cache
         self.clear_cache()
         self.clear()
-        self.images = None
         self._need_init = True
         self._example_matrix = {}
         self._dimension = None  # type: Optional[int]
 
         if y_true is not None and y_predicted is not None:
-            self.compute_matrix(y_true, y_predicted, images=images, **kwargs)
+            self.compute_matrix(
+                y_true,
+                y_predicted,
+                images=images,
+                images_annotations=images_annotations,
+                **kwargs
+            )
         elif matrix is not None:
             if self._need_init:
                 self.initialize()
@@ -297,6 +315,7 @@ class ConfusionMatrix(object):
         self._matrix = None
         self._dimension = None  # type: Optional[int]
         self.images = None
+        self.images_annotations = None
 
     def clear_cache(self):
         """
@@ -410,8 +429,14 @@ class ConfusionMatrix(object):
             return None
 
         image_array = self.images[index]
+        image_annotations = (
+            self.images_annotations[index] if self.images_annotations else None
+        )
+
         image_name = "confusion-matrix-%05d.png" % index
-        result = self.experiment.log_image(image_array, name=image_name, **kwargs)
+        result = self.experiment.log_image(
+            image_array, name=image_name, annotations=image_annotations, **kwargs
+        )
         if result is None:
             log_once_at_level(
                 logging.INFO, CONFUSION_MATRIX_IMAGE_INDEX_FAILED_TO_GENERATE_IMAGE_INFO
@@ -697,7 +722,13 @@ class ConfusionMatrix(object):
         return matrix
 
     def compute_matrix(
-        self, y_true, y_predicted, index_to_example_function=None, images=None, **kwargs
+        self,
+        y_true,
+        y_predicted,
+        index_to_example_function=None,
+        images=None,
+        images_annotations=None,
+        **kwargs
     ):
         """
         Compute the confusion matrix.
@@ -709,6 +740,17 @@ class ConfusionMatrix(object):
                 values, or a list of integers representing the output
             images: (optional) a list of data that can be passed to
                 [comet_ml.CometExperiment.log_image][]
+            images_annotations: (optional) Specifies annotation layers for images.
+                This parameter expects a list of lists, where each inner list defines an
+                annotation layer, potentially containing bounding boxes and/or polygons.
+
+                For a comprehensive understanding of how annotations are utilized and structured,
+                please consult the documentation for `Experiment.log_image()`.
+
+                **Important Note for Custom `index_to_example_function` Implementations:**
+                If you provide your own implementation for `index_to_example_function` (bypassing the default),
+                it is critical to ensure that every `images_annotations` entry is consistently passed alongside its corresponding image within each `log_image()` call.
+                Furthermore, the metadata associated with these annotations must precisely align with the expectations and requirements of the `Experiment.log_image()` call.
             index_to_example_function: (optional) a function
                 that takes an index and returns either
                 a number, a string, a URL, or a {"sample": str,
@@ -721,6 +763,7 @@ class ConfusionMatrix(object):
             y_true and y_predicted, if they are vectors.
         """
         self.images = images
+        self.images_annotations = images_annotations
         if self.images is not None:
             if index_to_example_function is None:
                 index_to_example_function = self.image_index_to_example_function

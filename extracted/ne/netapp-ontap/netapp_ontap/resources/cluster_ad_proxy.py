@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -50,14 +50,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterAdProxy(
     {
+        "_links": {"self": {"href": "/api/security/authentication/cluster/ad-proxy"}},
         "svm": {
+            "uuid": "512eab7a-6bf9-11e9-a896-005056bb9ce1",
             "name": "vs2",
             "_links": {
                 "self": {"href": "/api/svm/svms/512eab7a-6bf9-11e9-a896-005056bb9ce1"}
             },
-            "uuid": "512eab7a-6bf9-11e9-a896-005056bb9ce1",
         },
-        "_links": {"self": {"href": "/api/security/authentication/cluster/ad-proxy"}},
     }
 )
 

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,10 +26,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Job(
     {
-        "description": "Cluster Backup Job",
-        "code": 0,
         "message": "creating_node_backups",
         "state": "running",
+        "code": 0,
+        "description": "Cluster Backup Job",
         "uuid": "b5145e1d-b53b-11e8-8252-005056bbd8f5",
         "_links": {
             "self": {"href": "/api/cluster/jobs/b5145e1d-b53b-11e8-8252-005056bbd8f5"}

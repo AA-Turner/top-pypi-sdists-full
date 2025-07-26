@@ -222,6 +222,12 @@ class Column:
             else:
                 value = value.astimezone(datetime.timezone.utc).isoformat(sep=" ")
                 return cls(exp.cast(exp.Literal.string(value), exp.DataType.Type.TIMESTAMPTZ))
+        elif isinstance(value, datetime.timedelta):
+            return cls(
+                exp.Interval(
+                    this=exp.Literal.string(int(value.total_seconds())), unit=exp.Var(this="SECOND")
+                )
+            )
         return cls(exp.convert(value))
 
     @classmethod
@@ -413,8 +419,9 @@ class Column:
         return self.invoke_expression_over_column(self, exp.StartsWith, expression=value.expression)
 
     def endswith(self, value: t.Union[str, Column]) -> Column:
+        ends_with_func = get_func_from_session("endswith")
         value = self._lit(value) if not isinstance(value, Column) else value
-        return self.invoke_anonymous_function(self, "ENDSWITH", value)
+        return ends_with_func(self, value)
 
     def rlike(self, regexp: str) -> Column:
         return self.invoke_expression_over_column(

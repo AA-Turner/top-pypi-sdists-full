@@ -4,6 +4,7 @@ Tests for "typed_settings._core".
 
 import json
 import logging
+import os
 import re
 from pathlib import Path
 from typing import Any, cast
@@ -12,7 +13,7 @@ import attrs
 import cattrs
 import pytest
 
-from typed_settings import _core, dict_utils, exceptions
+from typed_settings import _core, dict_utils
 from typed_settings._compat import PY_310
 from typed_settings.cls_attrs import option, settings
 from typed_settings.converters import (
@@ -20,6 +21,7 @@ from typed_settings.converters import (
     get_default_cattrs_converter,
     register_strlist_hook,
 )
+from typed_settings.exceptions import ConfigFileLoadError, InvalidSettingsError
 from typed_settings.loaders import DictLoader, EnvLoader, FileLoader, Loader, TomlFormat
 from typed_settings.types import (
     LoadedSettings,
@@ -496,50 +498,50 @@ class TestLoadSettings:
                 {"url": "u"},
                 (
                     "3 errors occured while converting the loaded option values to an "
-                    "instance of 'Settings':\n"
-                    "- No value set for required option 'host.name'\n"
-                    "- No value set for required option 'host.port'\n"
-                    "- Could not convert loaded settings: "
+                    "instance of 'Settings'",
+                    "No value set for required option 'host.name'",
+                    "No value set for required option 'host.port'",
+                    "Could not convert loaded settings: "
                     'TypeError("Settings.__init__() missing 1 required positional '
-                    "argument: 'host'\")"
+                    "argument: 'host'\")",
                 ),
             ),
             (
                 {"host": {"name": "h"}, "url": "u"},
                 (
                     "2 errors occured while converting the loaded option values to an "
-                    "instance of 'Settings':\n"
-                    "- No value set for required option 'host.port'\n"
-                    '- Could not convert loaded settings: TypeError("Host.__init__() '
-                    "missing 1 required positional argument: 'port'\")"
+                    "instance of 'Settings'",
+                    "No value set for required option 'host.port'",
+                    'Could not convert loaded settings: TypeError("Host.__init__() '
+                    "missing 1 required positional argument: 'port'\")",
                 ),
             ),
             (
                 {"host": {"name": "h", "port": "spam"}, "url": "u"},
                 (
                     "3 errors occured while converting the loaded option values to an "
-                    "instance of 'Settings':\n"
-                    "- Could not convert value 'spam' for option 'host.port' from "
+                    "instance of 'Settings'",
+                    "Could not convert value 'spam' for option 'host.port' from "
                     'loader test: ValueError("invalid literal for int() with base 10: '
-                    "'spam'\")\n"
-                    "- No value set for required option 'host.port'\n"
-                    "- Could not convert loaded settings: "
+                    "'spam'\")",
+                    "No value set for required option 'host.port'",
+                    "Could not convert loaded settings: "
                     'TypeError("Host.__init__() missing 1 required positional '
-                    "argument: 'port'\")"
+                    "argument: 'port'\")",
                 ),
             ),
             (
                 {"host": {"name": "h", "port": 1}, "url": "u", "default": -1},
                 (
                     "1 errors occured while converting the loaded option values to an "
-                    "instance of 'Settings':\n"
-                    "- Could not convert loaded settings: "
-                    "ValueError(\"'default' must be > 0: -1\")"
+                    "instance of 'Settings'",
+                    "Could not convert loaded settings: ValueError(\"'default' must be "
+                    '> 0: -1")',
                 ),
             ),
         ],
     )
-    def test_convert_errors(self, settings: dict, err: str) -> None:
+    def test_convert_errors(self, settings: dict, err: tuple[str, ...]) -> None:
         state = _core.SettingsState(Settings, [], [], default_converter(), Path())
         meta = LoaderMeta("test")
         merged = dict_utils.merge_settings(
@@ -547,9 +549,11 @@ class TestLoadSettings:
         )
         # convert() error: Could not convert value
         # No value set for required option
-        # Could convert loaded settings to instance
-        with pytest.raises(exceptions.InvalidSettingsError, match=re.escape(err)):
+        # Could not convert loaded settings to instance
+        msg, *msgs = err
+        with pytest.raises(InvalidSettingsError, match=re.escape(msg)) as exc_info:
             _core.convert(merged, state)
+        assert [e.args[0] for e in exc_info.value.exceptions] == msgs
 
     def test_load_resolve_default_paths(self, tmp_path: Path) -> None:
         """
@@ -706,3 +710,24 @@ class TestLogging:
                 f"Mandatory config file not found: {sf1}",
             ),
         ]
+
+
+def test_set_context_permissionerror(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """
+    If "chdir()" fails, the PermissionError is wrapped with a clearer exception.
+    """
+
+    def chdir(path: str) -> None:
+        raise PermissionError(13, "Permission denied")
+
+    monkeypatch.setattr(os, "chdir", chdir)
+
+    meta = _core.LoaderMeta("test", tmp_path)
+    with pytest.raises(
+        ConfigFileLoadError,
+        match=f"Cannot chdir into '{tmp_path}': Permission denied",
+    ):
+        with _core._set_context(meta):
+            pass

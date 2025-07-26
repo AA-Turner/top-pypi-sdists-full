@@ -1,5 +1,5 @@
 """
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This module defines the RawResource class. This class is meant to store

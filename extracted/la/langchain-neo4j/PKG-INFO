@@ -1,10 +1,10 @@
 Metadata-Version: 2.1
 Name: langchain-neo4j
-Version: 0.4.0
+Version: 0.5.0
 Summary: An integration package connecting Neo4j and LangChain
 Home-page: https://github.com/langchain-ai/langchain-neo4j
 License: MIT
-Requires-Python: >=3.9,<4.0
+Requires-Python: >=3.9,<3.14
 Classifier: License :: OSI Approved :: MIT License
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3.9
@@ -12,9 +12,9 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Requires-Dist: langchain (>=0.3.7,<0.4.0)
-Requires-Dist: langchain-core (>=0.3.8,<0.4.0)
+Requires-Dist: langchain-core (>=0.3.39,<0.4.0)
 Requires-Dist: neo4j (>=5.25.0,<6.0.0)
-Requires-Dist: neo4j-graphrag (>=1.5.0,<2.0.0)
+Requires-Dist: neo4j-graphrag (>=1.9.0,<2.0.0)
 Project-URL: Repository, https://github.com/langchain-ai/langchain-neo4j
 Project-URL: Release Notes, https://github.com/langchain-ai/langchain-neo4j/releases
 Project-URL: Source Code, https://github.com/langchain-ai/langchain-neo4j/tree/main/libs/neo4j
@@ -123,7 +123,7 @@ chain.run("Who starred in Top Gun?")
 Install the test dependencies to run the tests:
 
 ```bash
-poetry install --with test,test_integration
+poetry install --with test,test_integration,mmr
 ```
 
 ### Unit Tests
@@ -154,7 +154,7 @@ make tests
 Install the codespell, lint, and typing dependencies to lint and format your code:
 
 ```bash
-poetry install --with codespell,lint,typing
+poetry install --with codespell,lint,typing,mmr
 ```
 
 To format your code, run:

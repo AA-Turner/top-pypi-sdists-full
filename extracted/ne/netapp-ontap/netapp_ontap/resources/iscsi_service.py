@@ -1,15 +1,13 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
 An iSCSI service defines the properties of the iSCSI target for an SVM. There can be at most one iSCSI service for an SVM. An SVM's iSCSI service must be created before iSCSI initiators can log in to the SVM.<br/>
-The iSCSI service REST API allows you to create, update, delete, and discover iSCSI services for SVMs.
-### Platform Specifics
-
-* **ASA r2**: An iSCSI service is always present for each data SVM. The service can be disabled, but not created or deleted.
+The iSCSI service REST API allows you to create, update, delete, and discover iSCSI services for SVMs.</br>
+<personalities supports=asar2>An iSCSI service is always present for each data SVM. The service can be enabled and disabled, but not created or deleted.</personalities>
 ## Performance monitoring
 Performance of the SVM can be monitored by the `metric.*` and `statistics.*` properties. These show the performance of the SVM in terms of IOPS, latency and throughput. The `metric.*` properties denote an average whereas `statistics.*` properties denote a real-time monotonically increasing value aggregated across all nodes.
 ## Examples
@@ -36,6 +34,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 IscsiService(
     {
         "enabled": True,
+        "svm": {
+            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
+            },
+        },
         "target": {
             "alias": "svm1",
             "name": "iqn.1992-08.com.netapp:sn.19d04b8e94d711e88370005056b48fd2:vs.4",
@@ -44,13 +49,6 @@ IscsiService(
             "self": {
                 "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
             }
-        },
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
-            },
-            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
         },
     }
 )
@@ -77,37 +75,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     IscsiService(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
-                }
-            },
             "svm": {
+                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
+                }
             },
         }
     ),
     IscsiService(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/services/25f617cf-94d7-11e8-8370-005056b48fd2"
-                }
-            },
             "svm": {
+                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/services/25f617cf-94d7-11e8-8370-005056b48fd2"
+                }
             },
         }
     ),
@@ -139,6 +137,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 IscsiService(
     {
         "enabled": True,
+        "svm": {
+            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
+            },
+        },
         "target": {
             "alias": "svm1",
             "name": "iqn.1992-08.com.netapp:sn.19d04b8e94d711e88370005056b48fd2:vs.4",
@@ -147,13 +152,6 @@ IscsiService(
             "self": {
                 "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
             }
-        },
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
-            },
-            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
         },
     }
 )
@@ -200,17 +198,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 IscsiService(
     {
         "enabled": False,
-        "_links": {
-            "self": {
-                "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
-            }
-        },
         "svm": {
+            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"}
             },
-            "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+        },
+        "_links": {
+            "self": {
+                "href": "/api/protocols/san/iscsi/services/19d04b8e-94d7-11e8-8370-005056b48fd2"
+            }
         },
     }
 )
@@ -421,9 +419,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> Union[List["IscsiService"], NetAppResponse]:
         r"""Creates an iSCSI service.
-### Platform Specifics
-* **Unified ONTAP**: POST and DELETE must be used to manage the iSCSI service for access to the iSCSI protocol.
-* **ASA r2**: POST and DELETE are not supported. The iSCSI service is automatically created and deleted with the SVM.
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the iSCSI service.
 ### Related ONTAP commands
@@ -451,9 +446,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes an iSCSI service. An iSCSI service must be disabled before it can be deleted.
-### Platform Specifics
-* **Unified ONTAP**: POST and DELETE must be used to manage the iSCSI service for access to the iSCSI protocol.
-* **ASA r2**: POST and DELETE are not supported. The iSCSI service is automatically created and deleted with the SVM.
 ### Related ONTAP commands
 * `vserver iscsi delete`
 ### Learn more
@@ -502,9 +494,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Creates an iSCSI service.
-### Platform Specifics
-* **Unified ONTAP**: POST and DELETE must be used to manage the iSCSI service for access to the iSCSI protocol.
-* **ASA r2**: POST and DELETE are not supported. The iSCSI service is automatically created and deleted with the SVM.
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the iSCSI service.
 ### Related ONTAP commands
@@ -551,9 +540,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes an iSCSI service. An iSCSI service must be disabled before it can be deleted.
-### Platform Specifics
-* **Unified ONTAP**: POST and DELETE must be used to manage the iSCSI service for access to the iSCSI protocol.
-* **ASA r2**: POST and DELETE are not supported. The iSCSI service is automatically created and deleted with the SVM.
 ### Related ONTAP commands
 * `vserver iscsi delete`
 ### Learn more

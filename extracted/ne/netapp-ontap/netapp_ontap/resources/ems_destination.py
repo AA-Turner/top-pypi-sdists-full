@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -44,18 +44,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 EmsDestination(
     {
-        "destination": "",
         "filters": [
             {
-                "name": "default-trap-events",
                 "_links": {
                     "self": {"href": "/api/support/ems/filters/default-trap-events"}
                 },
+                "name": "default-trap-events",
             }
         ],
-        "name": "snmp-traphost",
         "_links": {"self": {"href": "/api/support/ems/destinations/snmp-traphost"}},
+        "destination": "",
         "type": "snmp",
+        "name": "snmp-traphost",
     }
 )
 
@@ -81,7 +81,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 EmsDestination(
     {
-        "name": "rest-api-destination",
         "connectivity": {
             "errors": [
                 {
@@ -91,8 +90,8 @@ EmsDestination(
                         "code": "4",
                     },
                     "node": {
-                        "name": "node1",
                         "uuid": "1cd8a442-86d1-11e0-ae1c-123478563412",
+                        "name": "node1",
                     },
                 }
             ],
@@ -103,6 +102,7 @@ EmsDestination(
                 "href": "/api/support/ems/destinations/rest-api-destination?fields=name,connectivity.*"
             }
         },
+        "name": "rest-api-destination",
     }
 )
 

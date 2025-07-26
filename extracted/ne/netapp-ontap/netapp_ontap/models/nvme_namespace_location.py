@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -22,13 +22,10 @@ class NvmeNamespaceLocationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the NvmeNamespaceLocation object"""
 
     namespace = marshmallow_fields.Str(data_key="namespace", allow_none=True)
-    r""" * **Unified ONTAP**:
-The base name component of the NVMe namespace. Valid in POST.<br/>
+    r""" <personalities supports=unified>The base name component of the NVMe namespace. Valid in POST.<br/>
 If properties `name` and `location.namespace` are specified in the same request, they must refer to the base name.<br/>
-NVMe namespaces do not support rename.
-
-* **ASA r2**:
-The namespace property is read-only and cannot be set in POST or PATCH. Use the `name` property for POST and PATCH.
+NVMe namespaces do not support rename.</personalities>
+<personalities supports=asar2>The namespace property is read-only and cannot be set in POST or PATCH. Use the `name` property for POST and PATCH.</personalities>
 
 
 Example: namespace1 """

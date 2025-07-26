@@ -4,7 +4,7 @@ from abc import abstractmethod
 from collections.abc import Callable
 from typing import Any
 
-from connector.generated import Error, ErrorCode, ErrorResponse
+from connector_sdk_types.generated import Error, ErrorCode, ErrorResponse
 
 logger = logging.getLogger("integration-connectors.sdk")
 

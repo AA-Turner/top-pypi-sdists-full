@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,16 +28,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ConfigurationBackupFile(
         {
-            "name": "backup1.7z",
             "node": {
+                "uuid": "5cafe0f6-499f-11e9-b644-005056bbcf93",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/5cafe0f6-499f-11e9-b644-005056bbcf93"
                     }
                 },
-                "uuid": "5cafe0f6-499f-11e9-b644-005056bbcf93",
             },
+            "name": "backup1.7z",
         }
     )
 ]
@@ -68,23 +68,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConfigurationBackupFile(
     {
-        "download_link": "https://10.224.66.113/backups/backup1.7z",
+        "version": "9.7.0",
         "backup_nodes": [{"name": "node1"}, {"name": "node2"}],
         "auto": False,
-        "name": "backup1.7z",
-        "version": "9.7.0",
+        "size": 6058408,
+        "download_link": "https://10.224.66.113/backups/backup1.7z",
+        "time": "2019-06-10T13:35:06-04:00",
         "node": {
+            "uuid": "bc2f15d0-8b93-11e9-90e9-005056bb6a30",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/bc2f15d0-8b93-11e9-90e9-005056bb6a30"
                 }
             },
-            "uuid": "bc2f15d0-8b93-11e9-90e9-005056bb6a30",
         },
-        "time": "2019-06-10T13:35:06-04:00",
         "type": "cluster",
-        "size": 6058408,
+        "name": "backup1.7z",
     }
 )
 
@@ -114,8 +114,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ConfigurationBackupFile(
     {
+        "node": {"uuid": "ac13c636-4fc9-11e9-94c2-005056bb2516", "name": "node1"},
         "name": "backup3.7z",
-        "node": {"name": "node1", "uuid": "ac13c636-4fc9-11e9-94c2-005056bb2516"},
     }
 )
 

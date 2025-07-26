@@ -1,9 +1,9 @@
 from typing import Any
 
 import httpx
+from connector_sdk_types.generated import ErrorCode
 
 from connector.error import ConnectorError
-from connector.generated import ErrorCode
 
 
 class BearerAuth(httpx.Auth):

@@ -1,11 +1,11 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
-Displays DNS information and controls the DNS subsytem. DNS domain name and DNS servers are required parameters.
+Displays DNS information and controls the DNS subsystem. DNS domain name and DNS servers are required parameters.
 ## Retrieving DNS information
 The DNS GET endpoint retrieves all of the DNS configurations for all SVMs.
 DNS configuration for the cluster is retrieved via [`/api/cluster`](#docs-cluster-cluster).
@@ -27,83 +27,83 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Dns(
         {
+            "scope": "cluster",
+            "attempts": 1,
             "timeout": 2,
             "servers": ["44.44.44.44"],
-            "attempts": 1,
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/dns/27eff5d8-22b2-11eb-8038-0050568ed32c"
-                }
-            },
-            "domains": ["domain.example.com"],
             "svm": {
+                "uuid": "27eff5d8-22b2-11eb-8038-0050568ed32c",
                 "name": "clust-1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "27eff5d8-22b2-11eb-8038-0050568ed32c",
             },
-            "scope": "cluster",
+            "domains": ["domain.example.com"],
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/dns/27eff5d8-22b2-11eb-8038-0050568ed32c"
+                }
+            },
         }
     ),
     Dns(
         {
-            "timeout": 2,
-            "servers": ["10.10.10.10"],
+            "scope": "svm",
             "attempts": 1,
-            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
             "dynamic_dns": {
                 "use_secure": False,
                 "enabled": False,
                 "time_to_live": "PT1H",
             },
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/dns/179d3c85-7053-11e8-b9b8-005056b41bd1"
-                }
-            },
-            "domains": ["domainA.example.com"],
+            "timeout": 2,
+            "servers": ["10.10.10.10"],
             "svm": {
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
             },
-            "scope": "svm",
+            "domains": ["domainA.example.com"],
+            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/dns/179d3c85-7053-11e8-b9b8-005056b41bd1"
+                }
+            },
         }
     ),
     Dns(
         {
-            "timeout": 2,
-            "servers": ["11.11.11.11", "22.22.22.22", "33.33.33.33"],
+            "scope": "svm",
             "attempts": 2,
-            "uuid": "19076d35-6e27-11e8-b9b8-005056b41bd1",
             "dynamic_dns": {
                 "use_secure": False,
                 "enabled": True,
                 "time_to_live": "PT3H",
             },
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/dns/19076d35-6e27-11e8-b9b8-005056b41bd1"
-                }
-            },
-            "domains": ["sample.example.com"],
+            "timeout": 2,
+            "servers": ["11.11.11.11", "22.22.22.22", "33.33.33.33"],
             "svm": {
+                "uuid": "19076d35-6e27-11e8-b9b8-005056b41bd1",
                 "name": "vs2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/19076d35-6e27-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "19076d35-6e27-11e8-b9b8-005056b41bd1",
             },
-            "scope": "svm",
+            "domains": ["sample.example.com"],
+            "uuid": "19076d35-6e27-11e8-b9b8-005056b41bd1",
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/dns/19076d35-6e27-11e8-b9b8-005056b41bd1"
+                }
+            },
         }
     ),
 ]
@@ -129,21 +129,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Dns(
         {
-            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
-            "_links": {
-                "self": {
-                    "href": "/api/name-services/dns/179d3c85-7053-11e8-b9b8-005056b41bd1"
-                }
-            },
-            "domains": ["domainA.example.com"],
             "svm": {
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+            },
+            "domains": ["domainA.example.com"],
+            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+            "_links": {
+                "self": {
+                    "href": "/api/name-services/dns/179d3c85-7053-11e8-b9b8-005056b41bd1"
+                }
             },
         }
     )
@@ -171,28 +171,28 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Dns(
     {
+        "packet_query_match": True,
+        "scope": "svm",
+        "source_address_match": True,
+        "attempts": 1,
+        "dynamic_dns": {"use_secure": False, "enabled": False, "time_to_live": "P1D"},
         "timeout": 2,
         "servers": ["10.10.10.10"],
-        "attempts": 1,
+        "svm": {
+            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
+            },
+        },
+        "domains": ["domainA.example.com"],
         "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
-        "packet_query_match": True,
-        "dynamic_dns": {"use_secure": False, "enabled": False, "time_to_live": "P1D"},
+        "tld_query_enabled": True,
         "_links": {
             "self": {
                 "href": "/api/name-services/dns/179d3c85-7053-11e8-b9b8-005056b41bd1"
             }
         },
-        "domains": ["domainA.example.com"],
-        "source_address_match": True,
-        "svm": {
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
-            },
-            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
-        },
-        "tld_query_enabled": True,
-        "scope": "svm",
     }
 )
 
@@ -218,36 +218,36 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Dns(
     {
+        "packet_query_match": True,
+        "scope": "svm",
+        "source_address_match": True,
         "status": [
             {
                 "message": "Response time (msec): ",
+                "name_server": "10.10.10.10",
                 "state": "up",
                 "code": 0,
-                "name_server": "10.10.10.10",
             }
         ],
+        "attempts": 1,
+        "dynamic_dns": {"use_secure": False, "enabled": False, "time_to_live": "P1D"},
         "timeout": 2,
         "servers": ["10.10.10.10"],
-        "attempts": 1,
+        "svm": {
+            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
+            },
+        },
+        "domains": ["domainA.example.com"],
         "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
-        "packet_query_match": True,
-        "dynamic_dns": {"use_secure": False, "enabled": False, "time_to_live": "P1D"},
+        "tld_query_enabled": True,
         "_links": {
             "self": {
                 "href": "/api/name-services/dns/179d3c85-7053-11e8-b9b8-005056b41bd1"
             }
         },
-        "domains": ["domainA.example.com"],
-        "source_address_match": True,
-        "svm": {
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
-            },
-            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
-        },
-        "tld_query_enabled": True,
-        "scope": "svm",
     }
 )
 
@@ -273,37 +273,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Dns(
     {
+        "packet_query_match": True,
+        "scope": "svm",
+        "source_address_match": True,
         "status": [
             {
                 "message": "Response time (msec): 218",
+                "name_server": "10.10.10.10",
                 "state": "up",
                 "code": 0,
-                "name_server": "10.10.10.10",
             }
         ],
+        "attempts": 1,
+        "dynamic_dns": {"use_secure": False, "enabled": False, "time_to_live": "P1D"},
+        "service_ips": ["10.10.10.10", "2001:db08:a0b:12f0::1"],
         "timeout": 2,
         "servers": ["10.10.10.10"],
-        "attempts": 1,
+        "svm": {
+            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+            "name": "vs0",
+            "_links": {
+                "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
+            },
+        },
+        "domains": ["domainA.example.com"],
         "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
-        "packet_query_match": True,
-        "dynamic_dns": {"use_secure": False, "enabled": False, "time_to_live": "P1D"},
+        "tld_query_enabled": True,
         "_links": {
             "self": {
                 "href": "/api/name-services/dns/179d3c85-7053-11e8-b9b8-005056b41bd1?fields=**"
             }
         },
-        "domains": ["domainA.example.com"],
-        "source_address_match": True,
-        "svm": {
-            "name": "vs0",
-            "_links": {
-                "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
-            },
-            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
-        },
-        "service_ips": ["10.10.10.10", "2001:db08:a0b:12f0::1"],
-        "tld_query_enabled": True,
-        "scope": "svm",
     }
 )
 
@@ -335,37 +335,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Dns(
     {
+        "packet_query_match": True,
+        "scope": "svm",
+        "source_address_match": True,
         "status": [
             {
                 "message": "Response time (msec): 218",
+                "name_server": "10.10.10.10",
                 "state": "up",
                 "code": 0,
-                "name_server": "10.10.10.10",
             }
         ],
+        "attempts": 1,
+        "dynamic_dns": {"use_secure": False, "enabled": False, "time_to_live": "P1D"},
+        "service_ips": ["10.10.10.10"],
         "timeout": 2,
         "servers": ["10.10.10.10"],
-        "attempts": 1,
+        "svm": {
+            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+            "name": "vs0",
+            "_links": {
+                "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
+            },
+        },
+        "domains": ["domainA.example.com"],
         "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
-        "packet_query_match": True,
-        "dynamic_dns": {"use_secure": False, "enabled": False, "time_to_live": "P1D"},
+        "tld_query_enabled": True,
         "_links": {
             "self": {
                 "href": "/api/name-services/dns/179d3c85-7053-11e8-b9b8-005056b41bd1?fields=**"
             }
         },
-        "domains": ["domainA.example.com"],
-        "source_address_match": True,
-        "svm": {
-            "name": "vs0",
-            "_links": {
-                "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
-            },
-            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
-        },
-        "service_ips": ["10.10.10.10"],
-        "tld_query_enabled": True,
-        "scope": "svm",
     }
 )
 

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,66 +28,66 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CapacityPool(
         {
-            "serial_number": "390000100",
-            "_links": {
-                "self": {"href": "/api/cluster/licensing/capacity-pools/390000100"}
-            },
-            "nodes": [
-                {
-                    "used_size": 1099511627776,
-                    "node": {
-                        "name": "node-1",
-                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563411",
-                    },
-                },
-                {
-                    "used_size": 1099511627776,
-                    "node": {
-                        "name": "node-2",
-                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563412",
-                    },
-                },
-            ],
             "license_manager": {
+                "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/licensing/license-managers/4ea7a442-86d1-11e0-ae1c-112233445566"
                     }
                 },
-                "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
             },
+            "nodes": [
+                {
+                    "node": {
+                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563411",
+                        "name": "node-1",
+                    },
+                    "used_size": 1099511627776,
+                },
+                {
+                    "node": {
+                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563412",
+                        "name": "node-2",
+                    },
+                    "used_size": 1099511627776,
+                },
+            ],
+            "_links": {
+                "self": {"href": "/api/cluster/licensing/capacity-pools/390000100"}
+            },
+            "serial_number": "390000100",
         }
     ),
     CapacityPool(
         {
-            "serial_number": "390000101",
-            "_links": {
-                "self": {"href": "/api/cluster/licensing/capacity-pools/390000101"}
-            },
-            "nodes": [
-                {
-                    "used_size": 2199023255552,
-                    "node": {
-                        "name": "node-3",
-                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563413",
-                    },
-                },
-                {
-                    "used_size": 2199023255552,
-                    "node": {
-                        "name": "node-4",
-                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563414",
-                    },
-                },
-            ],
             "license_manager": {
+                "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/licensing/license-managers/4ea7a442-86d1-11e0-ae1c-112233445566"
                     }
                 },
-                "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
             },
+            "nodes": [
+                {
+                    "node": {
+                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563413",
+                        "name": "node-3",
+                    },
+                    "used_size": 2199023255552,
+                },
+                {
+                    "node": {
+                        "uuid": "4ea7a442-86d1-11e0-ae1c-123478563414",
+                        "name": "node-4",
+                    },
+                    "used_size": 2199023255552,
+                },
+            ],
+            "_links": {
+                "self": {"href": "/api/cluster/licensing/capacity-pools/390000101"}
+            },
+            "serial_number": "390000101",
         }
     ),
 ]
@@ -116,32 +116,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CapacityPool(
     {
-        "serial_number": "390000100",
-        "_links": {"self": {"href": "/api/cluster/licensing/capacity-pools/390000100"}},
-        "nodes": [
-            {
-                "used_size": 1099511627776,
-                "node": {
-                    "name": "node-1",
-                    "uuid": "4ea7a442-86d1-11e0-ae1c-123478563411",
-                },
-            },
-            {
-                "used_size": 1099511627776,
-                "node": {
-                    "name": "node-2",
-                    "uuid": "4ea7a442-86d1-11e0-ae1c-123478563412",
-                },
-            },
-        ],
         "license_manager": {
+            "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
             "_links": {
                 "self": {
                     "href": "/api/cluster/licensing/license-managers/4ea7a442-86d1-11e0-ae1c-112233445566"
                 }
             },
-            "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
         },
+        "nodes": [
+            {
+                "node": {
+                    "uuid": "4ea7a442-86d1-11e0-ae1c-123478563411",
+                    "name": "node-1",
+                },
+                "used_size": 1099511627776,
+            },
+            {
+                "node": {
+                    "uuid": "4ea7a442-86d1-11e0-ae1c-123478563412",
+                    "name": "node-2",
+                },
+                "used_size": 1099511627776,
+            },
+        ],
+        "_links": {"self": {"href": "/api/cluster/licensing/capacity-pools/390000100"}},
+        "serial_number": "390000100",
     }
 )
 

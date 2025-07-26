@@ -36,6 +36,10 @@ from typing import (
     Union,
     get_args,
     get_origin,
+    ForwardRef,
+    Set,
+    Tuple,
+    FrozenSet,
 )
 
 import fiddle as fdl
@@ -43,6 +47,18 @@ import fiddle as fdl
 from nemo_run.config import Config, Partial
 
 logger = logging.getLogger(__name__)
+
+
+BUILTIN_TO_TYPING = {
+    list: List,
+    dict: Dict,
+    tuple: tuple,
+    set: set,
+    type: Type,
+}
+
+# Add the reverse mapping for normalization
+TYPING_TO_BUILTIN = {v: k for k, v in BUILTIN_TO_TYPING.items()}
 
 
 class Operation(Enum):
@@ -604,11 +620,14 @@ class TypeParser:
             str: self.parse_str,
             bool: self.parse_bool,
             list: self.parse_list,
+            # List: self.parse_list,
             dict: self.parse_dict,
+            # Dict: self.parse_dict,
             Union: self.parse_union,
             Optional: self.parse_optional,
             Literal: self.parse_literal,
             Path: self.parse_path,
+            ForwardRef: self.parse_forward_ref,
         }
         self.custom_parsers = {}
         self.strict_mode = strict_mode
@@ -645,8 +664,57 @@ class TypeParser:
         Returns:
             Callable[[str, Type], Any]: The parser function for the given type.
         """
-        origin = get_origin(annotation) or annotation
-        return self.custom_parsers.get(origin) or self.parsers.get(origin) or self.parse_unknown
+        # Try to get the origin safely for both Python 3.8 and 3.9+
+        try:
+            origin = get_origin(annotation)
+        except (TypeError, AttributeError):
+            origin = None
+
+        # Handle direct type references (int, str, etc.)
+        if annotation in self.parsers:
+            return self.parsers[annotation]
+
+        # Handle custom parsers
+        if annotation in self.custom_parsers:
+            return self.custom_parsers[annotation]
+
+        # If we have an origin, map it to the correct parser
+        if origin is not None:
+            # Map built-in container origins to their corresponding parser
+            if origin in (list, List):
+                return self.parse_list
+            elif origin in (dict, Dict):
+                return self.parse_dict
+            elif origin is Union:
+                return self.parse_union
+            # Add other mappings as needed
+
+            # Check for custom parsers for the origin
+            if origin in self.custom_parsers:
+                return self.custom_parsers[origin]
+            if origin in self.parsers:
+                return self.parsers[origin]
+
+        # Handle older-style generic aliases
+        if hasattr(annotation, "__origin__"):
+            origin = annotation.__origin__
+
+            # Map older-style typing module generics
+            if origin is list or origin is List:
+                return self.parse_list
+            elif origin is dict or origin is Dict:
+                return self.parse_dict
+            elif origin is Union:
+                return self.parse_union
+
+            # Check for parsers registered for the origin
+            if origin in self.custom_parsers:
+                return self.custom_parsers[origin]
+            if origin in self.parsers:
+                return self.parsers[origin]
+
+        # Fall back to the unknown type parser
+        return self.parse_unknown
 
     def parse(self, value: str, annotation: Type) -> Any:
         """Parse a string value according to the given type annotation.
@@ -950,6 +1018,9 @@ class TypeParser:
             raise ParseError(value, Path, "Invalid path: contains null character")
         return Path(value.strip("'\" "))
 
+    def parse_forward_ref(self, value: str, annotation) -> Any:
+        return value
+
     def infer_type(self, value: str) -> Type:
         """Infer the type of a string value.
 
@@ -980,7 +1051,9 @@ def parse_value(value: str, annotation: Type = None) -> Any:
 
 @cli_exception_handler
 def parse_cli_args(
-    fn: Callable, args: List[str], output_type: Type[TypeVar("OutputT", Partial, Config)] = Partial
+    fn: Callable,
+    args: List[str],
+    output_type: Type[TypeVar("OutputT", Partial, Config)] = Partial,
 ) -> TypeVar("OutputT", Partial, Config):
     """Parse command-line arguments and apply them to a function or class.
 
@@ -1046,6 +1119,11 @@ def parse_cli_args(
         key, (op, value) = next(iter(parsed.items()))
         logger.debug(f"Parsed key: {key}, op: {op}, value: {value}")
 
+        # Skip the internal _target_ argument used for serialization
+        if key == "_target_":
+            logger.debug(f"Skipping internal '_target_' argument: {arg}")
+            continue
+
         if "." not in key:
             if isinstance(fn, (Config, Partial)):
                 signature = inspect.signature(fn.__fn_or_cls__)
@@ -1104,6 +1182,10 @@ def parse_cli_args(
             annotation = param.annotation
         logger.debug(f"Parsing value {value} as {annotation}")
 
+        annotation = _maybe_resolve_annotation(
+            getattr(nested, "__fn_or_cls__", nested), arg_name, annotation
+        )
+
         if annotation:
             try:
                 parsed_value = parse_factory(fn, arg_name, annotation, value)
@@ -1127,7 +1209,9 @@ def parse_cli_args(
             else:
                 if not hasattr(nested, arg_name):
                     raise UndefinedVariableError(
-                        f"Cannot use '{op.value}' on undefined variable", arg, {"key": key}
+                        f"Cannot use '{op.value}' on undefined variable",
+                        arg,
+                        {"key": key},
                     )
                 setattr(
                     nested,
@@ -1154,6 +1238,7 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
     """Parse a factory-style argument and instantiate the corresponding object(s).
 
     This function handles single factory calls, lists of factory calls, and dotted imports.
+    Configuration files using the @ syntax are handled by load_config_from_path in lazy.py.
 
     Args:
         parent (Type): The parent class or function where the argument is defined.
@@ -1167,26 +1252,11 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
 
     Raises:
         ValueError: If the factory format is invalid or no matching factory is found.
-
-    Example:
-        >>> parse_factory(MyClass, "optimizer", OptimizerType, "Adam(lr=0.001)")
-        <Adam optimizer object>
-        >>> parse_factory(MyClass, "layers", List[LayerType], "[Conv2D(64), MaxPool2D(), Dense(128)]")
-        [<Conv2D layer>, <MaxPool2D layer>, <Dense layer>]
-        >>> parse_factory(MyClass, "custom_fn", Callable, "my_module.my_function(arg1=10)")
-        <result of my_function with arg1=10>
-
-    Notes:
-        - This function uses the catalogue library to look up registered factory functions.
-        - It supports nested factory calls and argument passing to the factory function.
-        - The function is designed to work with the NeMo Run configuration system.
-        - It supports parsing lists of factories.
-        - It supports dotted imports with or without arguments.
-        - It checks sys.modules["__main__"] if the factory is not found in the registry.
     """
     import catalogue
 
-    from nemo_run.config import Partial, get_type_namespace, get_underlying_types
+    from nemo_run.config import Partial, get_type_namespace
+    from nemo_run.cli.api import extract_constituent_types
 
     def _get_from_registry(val, annotation, name):
         if catalogue.check_exists(get_type_namespace(annotation), val):
@@ -1228,7 +1298,7 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
             try:
                 factory_fn = _get_from_registry(factory_name, parent, name=arg_name)
             except catalogue.RegistryError:
-                types = get_underlying_types(arg_type)
+                types = extract_constituent_types(arg_type)
                 for t in types:
                     try:
                         factory_fn = _get_from_registry(factory_name, t, name=factory_name)
@@ -1253,13 +1323,35 @@ def parse_factory(parent: Type, arg_name: str, arg_type: Type, value: str) -> An
         return factory_fn()
 
     # Check if the value is a list
-    list_match = re.match(r"^\s*\[(.*)\]\s*$", value)
-    if list_match:
+    if value.startswith("[") and value.endswith("]"):
         # Check if arg_type is List[T], if so get T
         if get_origin(arg_type) is list:
             arg_type = get_args(arg_type)[0]
-        items = re.findall(r"([^,]+(?:\([^)]*\))?)", list_match.group(1))
-        return [parse_single_factory(item.strip()) for item in items]
+
+        # Parse list with nested structure handling
+        inner = value.strip("[] ")
+        elements = []
+        current = ""
+        nesting = 0
+
+        # Parse character by character to handle nested structures
+        for char in inner:
+            if char == "," and nesting == 0:
+                if current.strip():
+                    elements.append(current.strip())
+                current = ""
+            else:
+                if char in "([{":
+                    nesting += 1
+                elif char in ")]}":
+                    nesting -= 1
+                current += char
+
+        # Add the last element if it exists
+        if current.strip():
+            elements.append(current.strip())
+
+        return [parse_single_factory(item.strip()) for item in elements]
 
     return parse_single_factory(value)
 
@@ -1287,7 +1379,9 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
         for arg in args:
             if "=" not in arg:
                 raise ArgumentParsingError(
-                    "Positional argument found after keyword argument", arg, {"position": len(args)}
+                    "Positional argument found after keyword argument",
+                    arg,
+                    {"position": len(args)},
                 )
 
         return args
@@ -1314,7 +1408,9 @@ def _args_to_kwargs(fn: Callable, args: List[str]) -> List[str]:
                 positional_count += 1
             else:
                 raise ArgumentParsingError(
-                    "Too many positional arguments", arg, {"max_positional": len(params)}
+                    "Too many positional arguments",
+                    arg,
+                    {"max_positional": len(params)},
                 )
 
     return updated_args
@@ -1344,3 +1440,92 @@ def parse_attribute(attr, nested):
                 ) from e
 
     return result
+
+
+def _maybe_resolve_annotation(fn: Callable, arg_name: str, annotation: Any) -> Any:
+    """Internal function to resolve an annotation to its actual type.
+
+    This function handles string annotations, ForwardRef, and generic types (e.g., Optional, List)
+    by resolving string annotations within them, using TYPE_CHECKING blocks and their imports.
+
+    Args:
+        fn (Callable): The function containing the annotation
+        arg_name (str): The name of the parameter with the annotation
+        annotation (Any): The annotation to resolve (string, ForwardRef, or type)
+
+    Returns:
+        Any: The resolved type, or the original annotation if resolution fails
+    """
+    # Case 1: Annotation is a string
+    if isinstance(annotation, str):
+        resolved = _resolve_type_checking_annotation(fn, annotation)
+        return resolved if resolved != annotation else annotation
+
+    # Case 2: Annotation is a ForwardRef
+    elif isinstance(annotation, ForwardRef):
+        return _resolve_type_checking_annotation(fn, annotation.__forward_arg__)
+
+    # Case 3: Annotation is a generic type (e.g., Optional, List, Union)
+    elif (origin := get_origin(annotation)) is not None:
+        args = get_args(annotation)
+        resolved_args = tuple(_maybe_resolve_annotation(fn, arg_name, arg) for arg in args)
+        if origin is list:
+            return List[resolved_args[0]]
+        elif origin is dict:
+            return Dict[resolved_args[0], resolved_args[1]]
+        elif origin is tuple:
+            return Tuple[resolved_args]
+        elif origin is set:
+            return Set[resolved_args[0]]
+        elif origin is frozenset:
+            return FrozenSet[resolved_args[0]]
+        elif origin is Union:
+            return Union[resolved_args]
+        else:
+            return annotation  # Unhandled generic types return as-is
+
+    # Case 4: Annotation is a non-generic type (e.g., int, str)
+    else:
+        return annotation
+
+
+def _resolve_type_checking_annotation(fn: Callable, annotation: str) -> Any:
+    """Helper function to resolve a string annotation to its actual type using TYPE_CHECKING imports."""
+    if hasattr(fn, "__fn_or_cls__"):
+        fn = fn.__fn_or_cls__
+
+    try:
+        source_file = inspect.getsourcefile(fn)
+        if not source_file:
+            return annotation
+        with open(source_file, "r") as f:
+            source = f.read()
+        tree = ast.parse(source)
+        type_checking_imports = {}
+        for node in ast.walk(tree):
+            if (
+                isinstance(node, ast.If)
+                and isinstance(node.test, ast.Name)
+                and node.test.id == "TYPE_CHECKING"
+            ):
+                for stmt in node.body:
+                    if isinstance(stmt, (ast.Import, ast.ImportFrom)):
+                        if isinstance(stmt, ast.Import):
+                            for name in stmt.names:
+                                type_checking_imports[name.asname or name.name] = name.name
+                        else:  # ImportFrom
+                            module = stmt.module or ""
+                            for name in stmt.names:
+                                full_name = f"{module}.{name.name}" if module else name.name
+                                type_checking_imports[name.asname or name.name] = full_name
+        if annotation in type_checking_imports:
+            try:
+                full_path = type_checking_imports[annotation]
+                module_name, type_name = full_path.rsplit(".", 1)
+                module = importlib.import_module(module_name)
+                return getattr(module, type_name)
+            except (ImportError, AttributeError):
+                pass
+    except Exception:
+        pass
+    return annotation

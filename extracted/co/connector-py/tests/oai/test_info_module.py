@@ -2,7 +2,8 @@
 
 import json
 
-from connector.generated import (
+from connector.oai.integration import DescriptionData, Integration
+from connector_sdk_types.generated import (
     AppCategory,
     AppInfoRequest,
     AppInfoRequestPayload,
@@ -10,7 +11,6 @@ from connector.generated import (
     ResourceType,
     StandardCapabilityName,
 )
-from connector.oai.integration import DescriptionData, Integration
 
 
 async def test_app_info_capability_is_active():

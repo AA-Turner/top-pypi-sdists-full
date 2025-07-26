@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -36,9 +36,9 @@ with HostConnection(
 MultiAdminVerifyConfig(
     {
         "enabled": False,
+        "execution_expiry": "PT1H",
         "approval_groups": [],
         "required_approvers": 1,
-        "execution_expiry": "PT1H",
         "approval_expiry": "PT1H",
     }
 )

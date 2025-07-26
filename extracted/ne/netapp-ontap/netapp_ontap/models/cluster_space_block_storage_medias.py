@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -51,11 +51,7 @@ Valid choices:
 * vmdisk """
 
     used = Size(data_key="used", allow_none=True)
-    r""" Used space across the cluster based on media type.
-### Platform Specifics
-
-* **Unified ONTAP**: Available for GET requests.
-* **ASA r2**: This property is not applicable, it is not available in the REST API and is not reported for GET requests. """
+    r""" Used space across the cluster based on media type. """
 
     @property
     def resource(self):

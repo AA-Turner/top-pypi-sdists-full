@@ -3,7 +3,7 @@
 # SPDX-License-Identifier: MIT
 
 # version
-__version__ = "v4.7.0"
+__version__ = "v4.8.0"
 
 # entry point for the deepgram python sdk
 import logging

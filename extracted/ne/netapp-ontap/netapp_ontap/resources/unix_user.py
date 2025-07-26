@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,38 +27,38 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UnixUser(
         {
+            "id": 7,
             "full_name": "string",
+            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
             "primary_gid": 0,
             "name": "string",
-            "id": 7,
-            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     UnixUser(
         {
+            "id": 65535,
             "full_name": "",
+            "svm": {"uuid": "3f479a01-2971-11eb-88e1-0050568eefd4", "name": "vs2"},
             "primary_gid": 65535,
             "name": "nobody",
-            "id": 65535,
-            "svm": {"name": "vs2", "uuid": "3f479a01-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     UnixUser(
         {
+            "id": 65534,
             "full_name": "",
+            "svm": {"uuid": "3f479a01-2971-11eb-88e1-0050568eefd4", "name": "vs2"},
             "primary_gid": 65534,
             "name": "pcuser",
-            "id": 65534,
-            "svm": {"name": "vs2", "uuid": "3f479a01-2971-11eb-88e1-0050568eefd4"},
         }
     ),
     UnixUser(
         {
+            "id": 0,
             "full_name": "",
+            "svm": {"uuid": "3f479a01-2971-11eb-88e1-0050568eefd4", "name": "vs2"},
             "primary_gid": 1,
             "name": "root",
-            "id": 0,
-            "svm": {"name": "vs2", "uuid": "3f479a01-2971-11eb-88e1-0050568eefd4"},
         }
     ),
 ]
@@ -92,11 +92,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UnixUser(
         {
+            "id": 1,
             "full_name": "Full User Name for user1",
+            "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
             "primary_gid": 1,
             "name": "user1",
-            "id": 1,
-            "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
         }
     )
 ]
@@ -127,11 +127,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 UnixUser(
     {
+        "id": 1,
         "full_name": "Full User Name for user1",
+        "svm": {"uuid": "25b363a6-2971-11eb-88e1-0050568eefd4", "name": "vs1"},
         "primary_gid": 1,
         "name": "user1",
-        "id": 1,
-        "svm": {"name": "vs1", "uuid": "25b363a6-2971-11eb-88e1-0050568eefd4"},
     }
 )
 

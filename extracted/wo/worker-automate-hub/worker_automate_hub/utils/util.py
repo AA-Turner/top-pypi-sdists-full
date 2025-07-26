@@ -4509,49 +4509,45 @@ async def cadastro_pre_venda_header(
 
         console.print("Navegando nos elementos...\n")
         panel_TPage = main_window.child_window(class_name="TPage", found_index=0)
-        panel_TGroup_Box = panel_TPage.child_window(
-            class_name="TGroupBox", found_index=0
-        )
+        panel_TGroup_Box = panel_TPage.child_window(class_name="TGroupBox", found_index=0)
 
         console.print("Selecionando a condição de pagamento...\n")
-        condicao_select = panel_TGroup_Box.child_window(
-            class_name="TDBIComboBox", found_index=2
-        )
+        condicao_select = panel_TGroup_Box.child_window(class_name="TDBIComboBox", found_index=2)
         condicao_select.click_input()
-        await worker_sleep(3)
+        await worker_sleep(2)
+
+        condicao_desejada = ""
+
         if "vista" in cod_pagamento.lower():
-            try:
-                # Verifica mensagem sem lote pra integrar
-                imagem_alvo ="assets\\entrada_notas\\a_vista.png" #ALTERAR CAMINHO PARA ASSETS
-
-                localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
-
-                if localizacao:
-                    centro = pyautogui.center(localizacao)
-                    await worker_sleep(1)
-                    pyautogui.click(centro)
-
-            except ImageNotFoundException:
-                console.print(
-                    "Imagem não encontrada (exceção capturada). Tentando clicar no OK."
-                )
-        
+            condicao_desejada = "A VISTA"
         elif "21 dias" in cod_pagamento.lower():
+            condicao_desejada = "21 DIAS"
+
+        if condicao_desejada:
+            # Opcional: capturar os itens disponíveis, para debug
             try:
-                # Verifica mensagem sem lote pra integrar
-                imagem_alvo = "assets\\entrada_notas\\21_dias.png"
-                # imagem_alvo = r"C:\Users\automatehub\Documents\GitHub\worker-automate-hub\worker_automate_hub\assets\entrada_notas\21_dias.png"    
-                localizacao = pyautogui.locateOnScreen(imagem_alvo, confidence=0.9)
+                itens_disponiveis = condicao_select.texts()
+                console.print(f"Opções disponíveis: {itens_disponiveis}")
+            except:
+                itens_disponiveis = []
 
-                if localizacao:
-                    centro = pyautogui.center(localizacao)
-                    await worker_sleep(1)
-                    pyautogui.click(centro)
+            # Digita parte inicial para ajudar no filtro (por exemplo "21" ou "A")
+            condicao_select.type_keys(condicao_desejada[:2], with_spaces=True)
+            await worker_sleep(1)
 
-            except ImageNotFoundException:
-                console.print(
-                    "Imagem não encontrada (exceção capturada). Tentando clicar no OK."
-                )
+            # Percorre até encontrar o valor exato
+            for _ in range(10):
+                texto_atual = condicao_select.window_text()
+                if condicao_desejada.lower() in texto_atual.lower():
+                    condicao_select.type_keys("{ENTER}")
+                    break
+                else:
+                    condicao_select.type_keys("{DOWN}")
+                    await worker_sleep(0.5)
+
+            # Confirma e sai do campo
+            condicao_select.type_keys("{TAB}")
+
         await worker_sleep(2)
 
         console.print("Inserindo codigo do cliente...\n")

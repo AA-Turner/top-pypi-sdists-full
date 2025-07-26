@@ -1,4 +1,4 @@
-from .generated import (
+from connector_sdk_types.generated import (
     AppCategory,
     BasicCredential,
     JWTCredential,
@@ -9,9 +9,17 @@ from .generated import (
     StandardCapabilityName,
     TokenCredential,
 )
+
 from .oai.capability import AuthRequest, CustomRequest, CustomResponse, Request
 from .oai.integration import CapabilityMetadata, DescriptionData, Integration
-from .serializers.request import Discriminator, FieldType, HiddenField, SecretField, SemanticType
+from .serializers.request import (
+    AnnotatedField,
+    Discriminator,
+    FieldType,
+    HiddenField,
+    SecretField,
+    SemanticType,
+)
 
 __all__ = [
     "AppCategory",
@@ -35,4 +43,5 @@ __all__ = [
     "HiddenField",
     "SecretField",
     "SemanticType",
+    "AnnotatedField",
 ]

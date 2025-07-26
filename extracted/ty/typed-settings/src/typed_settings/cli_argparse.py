@@ -19,6 +19,8 @@ from typing import (
     Union,
 )
 
+from ._compat import PY_311
+
 
 if TYPE_CHECKING:
     from argparse import FileType
@@ -47,18 +49,26 @@ from .types import (
 )
 
 
+if PY_311:
+    from enum import IntEnum, StrEnum
+else:
+    IntEnum = StrEnum = None  # type: ignore
+
+
 __all__ = [
-    "cli",
-    "make_parser",
-    "namespace2settings",
-    "handle_datetime",
-    "handle_enum",
-    "handle_path",
     "DEFAULT_TYPES",
     "ArgparseHandler",
     "BooleanOptionalAction",
-    "ListAction",
     "DictItemAction",
+    "ListAction",
+    "cli",
+    "handle_datetime",
+    "handle_enum",
+    "handle_enum_by_name",
+    "handle_enum_by_value",
+    "handle_path",
+    "make_parser",
+    "namespace2settings",
 ]
 
 
@@ -112,14 +122,35 @@ def handle_timedelta(type: type, default: Default, is_optional: bool) -> StrDict
     return kwargs
 
 
-def handle_enum(type: type[Enum], default: Default, is_optional: bool) -> StrDict:
+def handle_enum_by_name(
+    type: type[Enum], default: Default, is_optional: bool
+) -> StrDict:
     """
     Use *choices* as option type and use the enum value's name as default.
     """
-    kwargs: StrDict = {"choices": list(type.__members__)}
+    kwargs: StrDict = {"choices": [str(k) for k in type.__members__]}
     if isinstance(default, type):
         # Convert Enum instance to string
         kwargs["default"] = default.name
+    elif is_optional:
+        kwargs["default"] = None
+
+    return kwargs
+
+
+handle_enum = handle_enum_by_name
+
+
+def handle_enum_by_value(
+    type: type[Enum], default: Default, is_optional: bool
+) -> StrDict:
+    """
+    Use *choices* as option type and use the enum value's name as default.
+    """
+    kwargs: StrDict = {"choices": [str(v) for v in type.__members__.values()]}
+    if isinstance(default, type):
+        # Convert Enum instance to string
+        kwargs["default"] = default.value
     elif is_optional:
         kwargs["default"] = None
 
@@ -144,7 +175,15 @@ DEFAULT_TYPES: dict[type, TypeHandlerFunc] = {
     datetime: handle_datetime,
     date: handle_date,
     timedelta: handle_timedelta,
-    Enum: handle_enum,
+    **(
+        {
+            IntEnum: handle_enum_by_value,
+            StrEnum: handle_enum_by_value,
+        }
+        if PY_311
+        else {}
+    ),
+    Enum: handle_enum_by_name,
     Path: handle_path,
 }
 

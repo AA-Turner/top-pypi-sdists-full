@@ -2,7 +2,10 @@
 
 import typing as t
 
-from connector.generated import (
+from connector.oai.capability import CustomRequest, CustomResponse
+from connector.oai.integration import DescriptionData, Integration
+from connector.oai.modules.oauth_module_types import OAuthSettings
+from connector_sdk_types.generated import (
     AuthModel,
     BasicCredential,
     CapabilitySchema,
@@ -14,9 +17,6 @@ from connector.generated import (
     OAuthCredential,
     StandardCapabilityName,
 )
-from connector.oai.capability import CustomRequest, CustomResponse
-from connector.oai.integration import DescriptionData, Integration
-from connector.oai.modules.oauth_module_types import OAuthSettings
 
 from .shared_types import (
     AccioRequest,

@@ -203,19 +203,6 @@ class MetaflowEnvironment(object):
                     "mfcontent_version": 1,
                 }
             )
-
-        extra_exports = []
-        for k, v in MetaflowPackage.get_post_extract_env_vars(
-            code_package_metadata, dest_dir="$(pwd)"
-        ).items():
-            if k.endswith(":"):
-                # If the value ends with a colon, we override the existing value
-                extra_exports.append("export %s=%s" % (k[:-1], v))
-            else:
-                extra_exports.append(
-                    "export %s=%s:$(printenv %s)" % (k, v.replace('"', '\\"'), k)
-                )
-
         cmds = (
             [
                 BASH_MFLOG,
@@ -239,7 +226,12 @@ class MetaflowEnvironment(object):
             + MetaflowPackage.get_extract_commands(
                 code_package_metadata, "job.tar", dest_dir="."
             )
-            + extra_exports
+            + [
+                "export %s=%s:$(printenv %s)" % (k, v.replace('"', '\\"'), k)
+                for k, v in MetaflowPackage.get_post_extract_env_vars(
+                    code_package_metadata, dest_dir="."
+                ).items()
+            ]
             + [
                 "mflog 'Task is starting.'",
                 "flush_mflogs",

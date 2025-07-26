@@ -5,6 +5,7 @@
 #include <mutex>
 
 #include "common/enums/rel_multiplicity.h"
+#include "storage/buffer_manager/memory_manager.h"
 #include "storage/enums/residency_state.h"
 #include "storage/table/column_chunk.h"
 #include "storage/table/column_chunk_data.h"
@@ -120,9 +121,8 @@ public:
 
     bool delete_(const transaction::Transaction* transaction, common::row_idx_t rowIdxInChunk);
 
-    void addColumn(const transaction::Transaction* transaction,
-        const TableAddColumnState& addColumnState, bool enableCompression,
-        PageAllocator* pageAllocator, ColumnStats* newColumnStats);
+    void addColumn(MemoryManager& mm, const TableAddColumnState& addColumnState,
+        bool enableCompression, PageAllocator* pageAllocator, ColumnStats* newColumnStats);
 
     bool isDeleted(const transaction::Transaction* transaction, common::row_idx_t rowInChunk) const;
     bool isInserted(const transaction::Transaction* transaction,
@@ -143,7 +143,8 @@ public:
     }
 
     virtual std::unique_ptr<ChunkedNodeGroup> flushAsNewChunkedNodeGroup(
-        transaction::Transaction* transaction, PageAllocator& pageAllocator) const;
+        transaction::Transaction* transaction, MemoryManager& mm,
+        PageAllocator& pageAllocator) const;
     virtual void flush(PageAllocator& pageAllocator);
 
     void commitInsert(common::row_idx_t startRow, common::row_idx_t numRowsToCommit,
@@ -176,7 +177,7 @@ public:
     void loadFromDisk(const MemoryManager& mm);
 
     // returns the amount of space reclaimed in bytes
-    uint64_t spillToDisk();
+    SpillResult spillToDisk();
 
     void setUnused(const MemoryManager& mm);
 

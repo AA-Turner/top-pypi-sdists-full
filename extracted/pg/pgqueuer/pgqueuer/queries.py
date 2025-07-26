@@ -21,7 +21,8 @@ from pydantic_core import to_json
 
 from pgqueuer.types import CronEntrypoint
 
-from . import db, errors, helpers, models, qb, query_helpers
+from . import db, errors, helpers, models, qb, query_helpers, tracing
+from .helpers import merge_tracing_headers
 
 
 def is_unique_violation(exc: Exception) -> bool:
@@ -206,6 +207,24 @@ class Queries:
         (row,) = rows
         return row["exists"]
 
+    async def has_function(self, function: str) -> bool:
+        rows = await self.driver.fetch(
+            self.qbe.build_has_function_query(),
+            function,
+        )
+        assert len(rows) == 1
+        (row,) = rows
+        return row["exists"]
+
+    async def has_trigger(self, trigger: str) -> bool:
+        rows = await self.driver.fetch(
+            self.qbe.build_has_trigger_query(),
+            trigger,
+        )
+        assert len(rows) == 1
+        (row,) = rows
+        return row["exists"]
+
     async def dequeue(
         self,
         batch_size: int,
@@ -301,6 +320,13 @@ class Queries:
         normed_params = query_helpers.normalize_enqueue_params(
             entrypoint, payload, priority, execute_after, dedupe_key, headers
         )
+        if tracing.TRACER.tracer:
+            normed_params.headers = list(
+                merge_tracing_headers(
+                    normed_params.headers,
+                    tracing.TRACER.tracer.trace_publish(normed_params.entrypoint),
+                )
+            )
 
         try:
             return [
@@ -702,6 +728,14 @@ class SyncQueries:
             dedupe_key,
             headers,
         )
+
+        if tracing.TRACER.tracer:
+            normed_params.headers = list(
+                merge_tracing_headers(
+                    normed_params.headers,
+                    tracing.TRACER.tracer.trace_publish(normed_params.entrypoint),
+                )
+            )
 
         try:
             return [

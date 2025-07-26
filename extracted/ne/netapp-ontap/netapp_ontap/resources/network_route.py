@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -31,112 +31,112 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NetworkRoute(
         {
-            "destination": {"netmask": "18", "family": "ipv4", "address": "10.4.3.14"},
+            "gateway": "10.4.3.1",
+            "scope": "svm",
+            "svm": {
+                "uuid": "3243312c-62f8-11e8-853d-005056b4c971",
+                "name": "vs1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/3243312c-62f8-11e8-853d-005056b4c971"
+                    }
+                },
+            },
+            "uuid": "5fdffb0b-62f8-11e8-853d-005056b4c971",
             "ipspace": {
-                "name": "Default",
+                "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
                 "_links": {
                     "self": {
                         "href": "/api/network/ipspaces/84f4beb2-616c-11e8-a4df-005056b4c971"
                     }
                 },
-                "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
+                "name": "Default",
             },
-            "uuid": "5fdffb0b-62f8-11e8-853d-005056b4c971",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/routes/5fdffb0b-62f8-11e8-853d-005056b4c971"
                 }
             },
-            "svm": {
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/3243312c-62f8-11e8-853d-005056b4c971"
-                    }
-                },
-                "uuid": "3243312c-62f8-11e8-853d-005056b4c971",
-            },
-            "gateway": "10.4.3.1",
-            "scope": "svm",
+            "destination": {"address": "10.4.3.14", "netmask": "18", "family": "ipv4"},
         }
     ),
     NetworkRoute(
         {
-            "destination": {"netmask": "0", "family": "ipv6", "address": "::"},
+            "gateway": "fd20:8b1e:b255:814e::1",
+            "scope": "cluster",
+            "uuid": "84c128d2-62f9-11e8-853d-005056b4c971",
             "ipspace": {
-                "name": "ips1",
+                "uuid": "cc71aadc-62f7-11e8-853d-005056b4c971",
                 "_links": {
                     "self": {
                         "href": "/api/network/ipspaces/cc71aadc-62f7-11e8-853d-005056b4c971"
                     }
                 },
-                "uuid": "cc71aadc-62f7-11e8-853d-005056b4c971",
+                "name": "ips1",
             },
-            "uuid": "84c128d2-62f9-11e8-853d-005056b4c971",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/routes/84c128d2-62f9-11e8-853d-005056b4c971"
                 }
             },
-            "gateway": "fd20:8b1e:b255:814e::1",
-            "scope": "cluster",
+            "destination": {"address": "::", "netmask": "0", "family": "ipv6"},
         }
     ),
     NetworkRoute(
         {
-            "destination": {"netmask": "0", "family": "ipv4", "address": "0.0.0.0"},
+            "gateway": "10.224.64.1",
+            "scope": "cluster",
+            "uuid": "8cc72bcd-616c-11e8-a4df-005056b4c971",
             "ipspace": {
-                "name": "Default",
+                "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
                 "_links": {
                     "self": {
                         "href": "/api/network/ipspaces/84f4beb2-616c-11e8-a4df-005056b4c971"
                     }
                 },
-                "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
+                "name": "Default",
             },
-            "uuid": "8cc72bcd-616c-11e8-a4df-005056b4c971",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/routes/8cc72bcd-616c-11e8-a4df-005056b4c971"
                 }
             },
-            "gateway": "10.224.64.1",
-            "scope": "cluster",
+            "destination": {"address": "0.0.0.0", "netmask": "0", "family": "ipv4"},
         }
     ),
     NetworkRoute(
         {
-            "destination": {
-                "netmask": "64",
-                "family": "ipv6",
-                "address": "fd20:8b1e:b255:814e::",
-            },
-            "ipspace": {
-                "name": "Default",
-                "_links": {
-                    "self": {
-                        "href": "/api/network/ipspaces/84f4beb2-616c-11e8-a4df-005056b4c971"
-                    }
-                },
-                "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
-            },
-            "uuid": "d63b6eee-62f9-11e8-853d-005056b4c971",
-            "_links": {
-                "self": {
-                    "href": "/api/network/ip/routes/d63b6eee-62f9-11e8-853d-005056b4c971"
-                }
-            },
+            "gateway": "fd20:8b1e:b255:814e::1",
+            "scope": "svm",
             "svm": {
+                "uuid": "3243312c-62f8-11e8-853d-005056b4c971",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/3243312c-62f8-11e8-853d-005056b4c971"
                     }
                 },
-                "uuid": "3243312c-62f8-11e8-853d-005056b4c971",
             },
-            "gateway": "fd20:8b1e:b255:814e::1",
-            "scope": "svm",
+            "uuid": "d63b6eee-62f9-11e8-853d-005056b4c971",
+            "ipspace": {
+                "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
+                "_links": {
+                    "self": {
+                        "href": "/api/network/ipspaces/84f4beb2-616c-11e8-a4df-005056b4c971"
+                    }
+                },
+                "name": "Default",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/ip/routes/d63b6eee-62f9-11e8-853d-005056b4c971"
+                }
+            },
+            "destination": {
+                "address": "fd20:8b1e:b255:814e::",
+                "netmask": "64",
+                "family": "ipv6",
+            },
         }
     ),
 ]
@@ -167,24 +167,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NetworkRoute(
     {
-        "destination": {"netmask": "0", "family": "ipv6", "address": "::"},
+        "gateway": "fd20:8b1e:b255:814e::1",
+        "scope": "cluster",
+        "uuid": "84c128d2-62f9-11e8-853d-005056b4c971",
         "ipspace": {
-            "name": "ips1",
+            "uuid": "cc71aadc-62f7-11e8-853d-005056b4c971",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/cc71aadc-62f7-11e8-853d-005056b4c971"
                 }
             },
-            "uuid": "cc71aadc-62f7-11e8-853d-005056b4c971",
+            "name": "ips1",
         },
-        "uuid": "84c128d2-62f9-11e8-853d-005056b4c971",
         "_links": {
             "self": {
                 "href": "/api/network/ip/routes/84c128d2-62f9-11e8-853d-005056b4c971"
             }
         },
-        "gateway": "fd20:8b1e:b255:814e::1",
-        "scope": "cluster",
+        "destination": {"address": "::", "netmask": "0", "family": "ipv6"},
     }
 )
 
@@ -214,35 +214,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NetworkRoute(
     {
-        "destination": {
-            "netmask": "64",
-            "family": "ipv6",
-            "address": "fd20:8b1e:b255:814e::",
+        "gateway": "fd20:8b1e:b255:814e::1",
+        "scope": "svm",
+        "svm": {
+            "uuid": "3243312c-62f8-11e8-853d-005056b4c971",
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/3243312c-62f8-11e8-853d-005056b4c971"}
+            },
         },
+        "uuid": "d63b6eee-62f9-11e8-853d-005056b4c971",
         "ipspace": {
-            "name": "Default",
+            "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/84f4beb2-616c-11e8-a4df-005056b4c971"
                 }
             },
-            "uuid": "84f4beb2-616c-11e8-a4df-005056b4c971",
+            "name": "Default",
         },
-        "uuid": "d63b6eee-62f9-11e8-853d-005056b4c971",
         "_links": {
             "self": {
                 "href": "/api/network/ip/routes/d63b6eee-62f9-11e8-853d-005056b4c971"
             }
         },
-        "svm": {
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/3243312c-62f8-11e8-853d-005056b4c971"}
-            },
-            "uuid": "3243312c-62f8-11e8-853d-005056b4c971",
+        "destination": {
+            "address": "fd20:8b1e:b255:814e::",
+            "netmask": "64",
+            "family": "ipv6",
         },
-        "gateway": "fd20:8b1e:b255:814e::1",
-        "scope": "svm",
     }
 )
 
@@ -277,9 +277,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NetworkRoute(
     {
-        "ipspace": {"name": "ips1"},
-        "uuid": "ae583c9e-9ac7-11e8-8bc9-005056bbd531",
         "gateway": "10.10.10.1",
+        "uuid": "ae583c9e-9ac7-11e8-8bc9-005056bbd531",
+        "ipspace": {"name": "ips1"},
     }
 )
 
@@ -311,9 +311,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NetworkRoute(
     {
-        "uuid": "38805a91-9ac9-11e8-8bc9-005056bbd531",
-        "svm": {"name": "vs0"},
         "gateway": "10.10.10.1",
+        "svm": {"name": "vs0"},
+        "uuid": "38805a91-9ac9-11e8-8bc9-005056bbd531",
     }
 )
 

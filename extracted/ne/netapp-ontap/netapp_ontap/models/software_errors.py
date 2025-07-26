@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -29,7 +29,7 @@ Example: 177 """
     message = marshmallow_fields.Str(data_key="message", allow_none=True)
     r""" Error message
 
-Example: Giveback of CFO aggregate is vetoed. Action: Use the "storage failover show-giveback" command to view detailed veto status information. Correct the vetoed update check. Use the "storage failover giveback -ofnode "node1" command to complete the giveback. """
+Example: Giveback of aggregate is vetoed. Action: Use the "storage failover show-giveback" command to view detailed veto status information. Correct the vetoed update check. Use the "storage failover giveback -ofnode "node1" command to complete the giveback. """
 
     severity = marshmallow_fields.Str(data_key="severity", allow_none=True)
     r""" Severity of error

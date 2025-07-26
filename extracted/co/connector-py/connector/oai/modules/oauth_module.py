@@ -6,10 +6,7 @@ from collections.abc import Callable, Sequence
 from typing import TYPE_CHECKING, Any
 from urllib.parse import quote_plus, urlencode
 
-from httpx import BasicAuth
-
-from connector.auth_helper import parse_auth_code_and_redirect_uri
-from connector.generated import (
+from connector_sdk_types.generated import (
     AuthorizationUrl,
     ErrorCode,
     GetAuthorizationUrlRequest,
@@ -23,6 +20,9 @@ from connector.generated import (
     RefreshAccessTokenResponse,
     StandardCapabilityName,
 )
+from httpx import BasicAuth
+
+from connector.auth_helper import parse_auth_code_and_redirect_uri
 from connector.httpx_rewrite import AsyncClient
 from connector.oai.capability import AuthRequest
 from connector.oai.errors import ConnectorError

@@ -137,7 +137,7 @@ def default_data_fn(data, target, model, dataset):
 def train_epoch(epoch, train_loader, model, optimizer, loss_fn, log_fn=default_log_fn, data_fn=default_data_fn,
                 scheduler=None, device="cpu", completed_steps=0, train_steps=None,
                 checkpoint_dir="", model_name=None, val_loader=None,
-                wandb_logging=False, wandb_metrics=["acc", "loss"],
+                wandb_logging=False,
                 grad_clip_norm=None, accumulation_steps=1,
                 mixed_precision=False, loss_backoff=InvalidLossBackoff(10, "consecutive"),
                 checkpoint_freq=None, val_freq=None, info_freq=None):
@@ -215,7 +215,7 @@ def train_epoch(epoch, train_loader, model, optimizer, loss_fn, log_fn=default_l
             
             # Validation
             if val_loader is not None and val_freq is not None and completed_steps % val_freq == 0 and completed_steps > 0:
-                val_epoch(model, val_loader, loss_fn=loss_fn, log_fn=log_fn, data_fn=data_fn, device=device, wandb_logging=wandb_logging, wandb_metrics=wandb_metrics)
+                val_epoch(model, val_loader, loss_fn=loss_fn, log_fn=log_fn, data_fn=data_fn, device=device, wandb_logging=wandb_logging)
                 model.train()
             
             accumulated_batch_metrics.reset_metrics()
@@ -254,7 +254,7 @@ def train_epoch(epoch, train_loader, model, optimizer, loss_fn, log_fn=default_l
     
     return completed_steps
 
-@ torch.no_grad()
+@ torch.inference_mode()
 def val_epoch(model, val_loader, loss_fn, log_fn=default_log_fn, data_fn=default_data_fn,
               device="cpu",
               wandb_logging=False,):
@@ -284,7 +284,7 @@ def val_epoch(model, val_loader, loss_fn, log_fn=default_log_fn, data_fn=default
     if wandb_logging:
         wandb.log(val_metrics.to_dict(prefix="val/"))
 
-@ torch.no_grad()
+@ torch.inference_mode()
 def test_epoch(model, test_loader, loss_fn, log_fn=default_log_fn, data_fn=default_data_fn,
                device="cpu",
                wandb_logging=False,):
@@ -358,7 +358,7 @@ def train(epochs, train_steps, benchmark_name, model, train_loader, optimizer, l
             model = allocate_dynamic_memory(model, train_loader.batch_size, min_len, max_len, compile_backend, device)
         else:
             # Compile the model for faster training
-            model = compile_model(model, train_loader.dataset[0][0].shape, compile_backend, device)
+            model = compile_model(model, next(iter(train_loader))[0].shape, compile_backend, device)
         
         # Train loop
         if epochs is not None:

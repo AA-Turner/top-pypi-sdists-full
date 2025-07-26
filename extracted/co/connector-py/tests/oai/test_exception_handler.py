@@ -2,8 +2,8 @@ import json
 import typing as t
 
 import pytest_cases
-from connector.generated import StandardCapabilityName
 from connector.oai.integration import Integration
+from connector_sdk_types.generated import StandardCapabilityName
 
 
 @pytest_cases.parametrize_with_cases(

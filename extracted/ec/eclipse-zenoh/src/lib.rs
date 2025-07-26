@@ -21,6 +21,7 @@ mod handlers;
 mod key_expr;
 mod liveliness;
 mod macros;
+mod matching;
 mod pubsub;
 mod qos;
 mod query;
@@ -57,15 +58,16 @@ pub(crate) mod zenoh {
         handlers::Handler,
         key_expr::{KeyExpr, SetIntersectionLevel},
         liveliness::{Liveliness, LivelinessToken},
+        matching::{MatchingListener, MatchingStatus},
         pubsub::{Publisher, Subscriber},
         qos::{CongestionControl, Priority, Reliability},
         query::{
             ConsolidationMode, Parameters, Querier, Query, QueryConsolidation, QueryTarget,
             Queryable, Reply, ReplyError, Selector,
         },
-        sample::{Sample, SampleKind},
+        sample::{Locality, Sample, SampleKind},
         scouting::{scout, Hello, Scout},
-        session::{open, Session, SessionInfo},
+        session::{open, EntityGlobalId, Session, SessionInfo},
         time::Timestamp,
         ZError,
     };
@@ -80,7 +82,11 @@ pub(crate) mod zenoh {
     #[pymodule]
     mod _ext {
         #[pymodule_export]
-        use crate::ext::{z_deserialize, z_serialize};
+        use crate::ext::{
+            declare_advanced_publisher, declare_advanced_subscriber, z_deserialize, z_serialize,
+            AdvancedPublisher, AdvancedSubscriber, CacheConfig, HistoryConfig, Miss,
+            MissDetectionConfig, RecoveryConfig, RepliesConfig, SampleMissListener,
+        };
         #[pymodule_export]
         use crate::ZDeserializeError;
     }

@@ -2,7 +2,6 @@
 
 #include "common/assert.h"
 #include "common/types/types.h"
-#include "main/client_context.h"
 #include "storage/buffer_manager/buffer_manager.h"
 #include "storage/buffer_manager/memory_manager.h"
 #include "storage/buffer_manager/spiller.h"
@@ -368,13 +367,11 @@ bool ChunkedNodeGroup::delete_(const Transaction* transaction, row_idx_t rowIdxI
     return versionInfo->delete_(transaction->getID(), rowIdxInChunk);
 }
 
-void ChunkedNodeGroup::addColumn(const Transaction* transaction,
-    const TableAddColumnState& addColumnState, bool enableCompression, PageAllocator* pageAllocator,
-    ColumnStats* newColumnStats) {
+void ChunkedNodeGroup::addColumn(MemoryManager& mm, const TableAddColumnState& addColumnState,
+    bool enableCompression, PageAllocator* pageAllocator, ColumnStats* newColumnStats) {
     auto& dataType = addColumnState.propertyDefinition.getType();
-    chunks.push_back(
-        std::make_unique<ColumnChunk>(*transaction->getClientContext()->getMemoryManager(),
-            dataType.copy(), capacity, enableCompression, ResidencyState::IN_MEMORY));
+    chunks.push_back(std::make_unique<ColumnChunk>(mm, dataType.copy(), capacity, enableCompression,
+        ResidencyState::IN_MEMORY));
     auto& chunkData = chunks.back()->getData();
     auto numExistingRows = getNumRows();
     chunkData.populateWithDefaultVal(addColumnState.defaultEvaluator, numExistingRows,
@@ -419,11 +416,12 @@ void ChunkedNodeGroup::finalize() const {
 }
 
 std::unique_ptr<ChunkedNodeGroup> ChunkedNodeGroup::flushAsNewChunkedNodeGroup(
-    Transaction* transaction, PageAllocator& pageAllocator) const {
+    Transaction* transaction, MemoryManager& mm, PageAllocator& pageAllocator) const {
     std::vector<std::unique_ptr<ColumnChunk>> flushedChunks(getNumColumns());
     for (auto i = 0u; i < getNumColumns(); i++) {
-        flushedChunks[i] = std::make_unique<ColumnChunk>(getColumnChunk(i).isCompressionEnabled(),
-            Column::flushChunkData(getColumnChunk(i).getData(), pageAllocator));
+        flushedChunks[i] =
+            std::make_unique<ColumnChunk>(mm, getColumnChunk(i).isCompressionEnabled(),
+                Column::flushChunkData(getColumnChunk(i).getData(), pageAllocator));
     }
     auto flushedChunkedGroup =
         std::make_unique<ChunkedNodeGroup>(std::move(flushedChunks), 0 /*startRowIdx*/);
@@ -553,8 +551,9 @@ void ChunkedNodeGroup::loadFromDisk(const MemoryManager& mm) {
     });
 }
 
-uint64_t ChunkedNodeGroup::spillToDisk() {
+SpillResult ChunkedNodeGroup::spillToDisk() {
     uint64_t reclaimedSpace = 0;
+    uint64_t nowEvictableMemory = 0;
     std::unique_lock lock{spillToDiskMutex};
     // Its possible that the chunk may be loaded and marked as in-use between when it is selected to
     // be spilled to disk and actually spilled
@@ -564,10 +563,12 @@ uint64_t ChunkedNodeGroup::spillToDisk() {
         // good idea to make the interface more generic, which would open up the possibility of
         // spilling to disk during node table copies too.
         for (size_t i = 0; i < getNumColumns(); i++) {
-            reclaimedSpace += getColumnChunk(i).spillToDisk();
+            auto [reclaimed, nowEvictable] = getColumnChunk(i).spillToDisk();
+            reclaimedSpace += reclaimed;
+            nowEvictableMemory += nowEvictable;
         }
     }
-    return reclaimedSpace;
+    return SpillResult{reclaimedSpace, nowEvictableMemory};
 }
 
 void ChunkedNodeGroup::handleAppendException() {

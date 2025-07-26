@@ -2,6 +2,7 @@
 Converters and structure hooks for various data types.
 """
 
+import collections.abc
 import dataclasses
 import re
 from collections.abc import Iterable, Mapping, Sequence
@@ -28,27 +29,17 @@ if PY_310:
 else:
     from typing import Union as UnionType  # type: ignore
 
+if PY_311:
+    from enum import IntEnum, StrEnum
+else:
+    IntEnum = StrEnum = None  # type: ignore
+
 from .types import ET, T
 
 
 if TYPE_CHECKING:
     import cattrs
     import pydantic
-#
-#
-# __all__ = [
-#     "Converter",
-#     "TSConverter",
-#     "default_converter",
-#     "get_default_structure_hooks",
-#     "register_attrs_hook_factory",
-#     "register_strlist_hook",
-#     "to_datetime",
-#     "to_bool",
-#     "to_enum",
-#     "to_path",
-#     "to_resolved_path",
-# ]
 
 
 class Converter(Protocol):
@@ -97,6 +88,15 @@ class TSConverter:
 
         self.scalar_converters: dict[Any, Callable[[Any, type], Any]] = {
             Any: to_any,
+            **(
+                {
+                    IntEnum: to_enum_by_value,
+                    StrEnum: to_enum_by_value,
+                }
+                if PY_311
+                else {}
+            ),
+            Enum: to_enum_by_name,
             bool: to_bool,
             int: to_type,
             float: to_type,
@@ -104,7 +104,6 @@ class TSConverter:
             datetime: to_datetime,
             date: to_date,  # Must come after "datetime" b/c of subclassing!
             timedelta: to_timedelta,
-            Enum: to_enum,
             Path: to_resolved_path if resolve_paths else to_path,
         }
         try:
@@ -184,12 +183,15 @@ def default_converter(*, resolve_paths: bool = True) -> Converter:
         - :class:`datetime.datetime` (see :func:`to_datetime()`)
         - :class:`datetime.date` (see :func:`to_date()`)
         - :class:`datetime.timedelta` (see :func:`to_timedelta()`)
-        - :class:`enum.Enum` using (see :func:`to_enum()`)
+        - :class:`enum.Enum` using (see :func:`to_enum_by_name()`)
+        - :class:`enum.IntEnum` using (see :func:`to_enum_by_value()`)
+        - :class:`enum.StrEnum` using (see :func:`to_enum_by_value()`)
         - :class:`pathlib.Path` (see :func:`to_path()` and :func:`to_resolved_path()`)
         - :class:`list`
         - :class:`tuple`
         - :class:`dict`
-        - :class:`types.MappingProxyType` ("read-only" dicts)
+        - :class:`types.MappingProxyType`/:class:`collections.abc.Mapping` ("read-only"
+          dicts)
         - :class:`set`
         - :class:`frozenset`
         - :data:`typing.Optional`
@@ -281,11 +283,19 @@ def get_default_structure_hooks(
     """
     path_hook = to_resolved_path if resolve_paths else to_path
     hooks: list[tuple[type, Callable[[Any, type], Any]]] = [
+        *(
+            [
+                (IntEnum, to_enum_by_value),
+                (StrEnum, to_enum_by_value),
+            ]
+            if PY_311
+            else []
+        ),
+        (Enum, to_enum_by_name),
         (bool, to_bool),
         (datetime, to_datetime),
         (date, to_date),
         (timedelta, to_timedelta),
-        (Enum, to_enum),
         (Path, path_hook),
     ]
     try:
@@ -385,7 +395,12 @@ def register_mappingproxy_hook(converter: "cattrs.Converter") -> None:
     """
 
     def check(cls: type) -> bool:
-        return cls is MappingProxyType or get_origin(cls) is MappingProxyType
+        return (
+            cls is MappingProxyType
+            or cls is collections.abc.Mapping
+            or get_origin(cls) is MappingProxyType
+            or get_origin(cls) is collections.abc.Mapping
+        )
 
     def convert(val: Mapping, cls: type[T]) -> T:
         args = get_args(cls)
@@ -504,8 +519,8 @@ def to_bool(value: Any, _cls: type = bool) -> bool:
     """
     if isinstance(value, str):
         value = value.lower()
-    truthy = {True, "true", "t", "yes", "y", "on", "1", 1}
-    falsy = {False, "false", "f", "no", "n", "off", "0", 0}
+    truthy = {True, "true", "t", "yes", "y", "on", "1"}
+    falsy = {False, "false", "f", "no", "n", "off", "0"}
     try:
         if value in truthy:
             return True
@@ -539,7 +554,7 @@ def to_date(value: Union[datetime, str], cls: type[date] = date) -> date:
     """
     if not isinstance(value, (date, str)):
         raise TypeError(
-            f"Invalid type {type(value).__name__!r}; expected 'date' or " f"'str'."
+            f"Invalid type {type(value).__name__!r}; expected 'date' or 'str'."
         )
     if isinstance(value, str):
         return cls.fromisoformat(value)
@@ -570,7 +585,7 @@ def to_datetime(
     """
     if not isinstance(value, (datetime, str)):
         raise TypeError(
-            f"Invalid type {type(value).__name__!r}; expected 'datetime' or " f"'str'."
+            f"Invalid type {type(value).__name__!r}; expected 'datetime' or 'str'."
         )
     if isinstance(value, str):
         if not PY_311 and value[-1] == "Z":
@@ -716,7 +731,7 @@ def timedelta_to_str(td: timedelta) -> str:
     return result
 
 
-def to_enum(value: Any, cls: type[ET]) -> ET:
+def to_enum_by_name(value: Any, cls: type[ET]) -> ET:
     """
     Return an instance of the enum *cls* for *value*.
 
@@ -737,6 +752,35 @@ def to_enum(value: Any, cls: type[ET]) -> ET:
         return value
 
     return cls[value]
+
+
+#: Alias for :func:`to_enum_by_name()`.
+to_enum = to_enum_by_name
+
+
+def to_enum_by_value(value: Any, cls: type[ET]) -> ET:
+    """
+    Return an instance of the enum *cls* for *value*.
+
+    If the to be converted value is not already an enum, the converter will
+    create one by value (``MyEnum(val)``).
+
+    Args:
+        value: The input data
+        cls: The enum type
+
+    Return:
+        An instance of *cls*
+
+    Raise:
+        KeyError: If *value* is not a valid member of *cls*
+    """
+    if isinstance(value, cls):
+        return value
+
+    if PY_311 and issubclass(cls, IntEnum):
+        value = int(value)
+    return cls(value)
 
 
 def to_path(value: Union[Path, str], _cls: type) -> Path:
@@ -1091,7 +1135,13 @@ class MappingProxyTypeHookFactory:
 
     @staticmethod
     def match(cls: type, origin: Optional[Any], args: tuple[Any, ...]) -> bool:
-        return cls is MappingProxyType or origin is MappingProxyType
+        mapping_types = (MappingProxyType, Mapping, collections.abc.Mapping)
+
+        for type_ in (cls, origin):
+            for mapping_type in mapping_types:
+                if type_ is mapping_type:
+                    return True
+        return False
 
     @staticmethod
     def get_structure_hook(

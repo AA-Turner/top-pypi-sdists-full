@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -18,9 +18,9 @@ Currently, in ONTAP CLI, creating and applying NTFS ACLs is a 5-step process:
  * Add DACLs and SACLs to the NTFS SD. If you want to audit file and directory events, you must configure auditing on the Vserver, in addition, to adding a SACL to the SD.
  * Create a file/directory security policy. This step associates the policy with a SVM.
  * Create a policy task. A policy task refers to a single operation to apply to a file (or folder) or to a set of files (or folders). Among other things, the task defines which SD to apply to a path.
- * Apply a policy to the associated SVM.
+ * Apply a policy to the associated SVM. If a permission denied error occurs while applying the policy, the policy is skipped for the relevant files (or folders) and the job continues.
 ####
-This REST API to set the DACL/SACL is similar to the windows GUI. The approach used here has been simplified by combining all steps into a single step. The REST API uses only minimal and mandatory parameters to create access control entries (ACEs), which can be added to the discretionary access control list (DACL) and the system access control list (SACL). Based on information provided, SD is created and  applied on the target path.</br>
+This REST API to set the DACL/SACL is similar to the windows GUI. The approach used here has been simplified by combining all steps into a single step. The REST API uses only minimal and mandatory parameters to create access control entries (ACEs), which can be added to the discretionary access control list (DACL) and the system access control list (SACL). Based on information provided, SD is created and  applied on the target path. A path within the FlexCache volume is not supported</br>
 Beginning with ONTAP 9.10.1, SLAG (Storage-Level Access Guard) ACLs can also be configured through these endpoints. SLAG is designed to be set on a volume or qtree. Storage-level security cannot be revoked from a client, not even by a system (Windows or UNIX) administrator. It is designed to be modified by storage administrators only, which precedes the share/export permission and the Windows ACLs or UNIX mode bits. Similar to configuring file-directory ACLs, configuring SLAG ACLs is also simplified by combining all steps into a single step.
 ## Examples
 ### Creating a new SD
@@ -74,34 +74,34 @@ with HostConnection(
 ```
 FileDirectorySecurity(
     {
-        "group": "S-1-5-21-2233347455-2266964949-1780268902-69700",
-        "control_flags": "32788",
-        "ignore_paths": ["/parent/child2"],
-        "owner": "S-1-5-21-2233347455-2266964949-1780268902-69304",
         "acls": [
             {
-                "user": "administrator",
-                "apply_to": {"sub_folders": True, "files": True, "this_folder": True},
-                "access": "access_allow",
                 "advanced_rights": {
-                    "read_attr": True,
-                    "read_ea": True,
-                    "delete_child": True,
-                    "append_data": True,
-                    "write_data": True,
                     "delete": True,
+                    "write_data": True,
+                    "full_control": True,
+                    "read_ea": True,
+                    "write_owner": True,
+                    "read_attr": True,
                     "write_ea": True,
                     "write_perm": True,
-                    "write_attr": True,
-                    "write_owner": True,
-                    "read_data": True,
-                    "execute_file": True,
+                    "append_data": True,
+                    "delete_child": True,
                     "read_perm": True,
-                    "full_control": True,
+                    "execute_file": True,
+                    "read_data": True,
+                    "write_attr": True,
                 },
+                "access": "access_allow",
+                "apply_to": {"files": True, "sub_folders": True, "this_folder": True},
+                "user": "administrator",
             }
         ],
+        "owner": "S-1-5-21-2233347455-2266964949-1780268902-69304",
+        "ignore_paths": ["/parent/child2"],
         "propagation_mode": "propagate",
+        "control_flags": "32788",
+        "group": "S-1-5-21-2233347455-2266964949-1780268902-69700",
     }
 )
 
@@ -180,46 +180,46 @@ FileDirectorySecurity(
     {
         "acls": [
             {
-                "user": "user1",
-                "apply_to": {"sub_folders": True, "files": True, "this_folder": True},
-                "access": "access_allow",
                 "advanced_rights": {
-                    "read_attr": True,
-                    "read_ea": True,
-                    "delete_child": True,
-                    "append_data": True,
-                    "write_data": True,
                     "delete": True,
+                    "write_data": True,
+                    "full_control": True,
+                    "read_ea": True,
+                    "write_owner": True,
+                    "read_attr": True,
                     "write_ea": True,
                     "write_perm": True,
-                    "write_attr": True,
-                    "write_owner": True,
-                    "read_data": True,
-                    "execute_file": True,
+                    "append_data": True,
+                    "delete_child": True,
                     "read_perm": True,
-                    "full_control": True,
+                    "execute_file": True,
+                    "read_data": True,
+                    "write_attr": True,
                 },
+                "access": "access_allow",
+                "apply_to": {"files": True, "sub_folders": True, "this_folder": True},
+                "user": "user1",
             },
             {
-                "user": "user2",
-                "apply_to": {"sub_folders": True, "files": True, "this_folder": True},
-                "access": "audit_success",
                 "advanced_rights": {
-                    "read_attr": True,
-                    "read_ea": True,
-                    "delete_child": True,
-                    "append_data": True,
-                    "write_data": True,
                     "delete": True,
+                    "write_data": True,
+                    "full_control": True,
+                    "read_ea": True,
+                    "write_owner": True,
+                    "read_attr": True,
                     "write_ea": True,
                     "write_perm": True,
-                    "write_attr": True,
-                    "write_owner": True,
-                    "read_data": True,
-                    "execute_file": True,
+                    "append_data": True,
+                    "delete_child": True,
                     "read_perm": True,
-                    "full_control": True,
+                    "execute_file": True,
+                    "read_data": True,
+                    "write_attr": True,
                 },
+                "access": "audit_success",
+                "apply_to": {"files": True, "sub_folders": True, "this_folder": True},
+                "user": "user2",
             },
         ],
         "access_control": "slag",
@@ -254,227 +254,295 @@ with HostConnection(
 ```
 FileDirectorySecurity(
     {
-        "effective_style": "ntfs",
-        "group": "BUILTIN\\Administrators",
-        "user_id": "0",
-        "group_id": "0",
-        "text_dos_attr": "----D---",
-        "inode": 64,
-        "mode_bits": 777,
-        "control_flags": "0x8014",
-        "owner": "BUILTIN\\Administrators",
-        "security_style": "mixed",
-        "text_mode_bits": "rwxrwxrwx",
         "acls": [
             {
+                "access_control": "file_directory",
+                "advanced_rights": {
+                    "delete": True,
+                    "write_data": True,
+                    "full_control": True,
+                    "read_ea": True,
+                    "write_owner": True,
+                    "read_attr": True,
+                    "synchronize": True,
+                    "write_ea": True,
+                    "write_perm": True,
+                    "append_data": True,
+                    "delete_child": True,
+                    "read_perm": True,
+                    "execute_file": True,
+                    "read_data": True,
+                    "write_attr": True,
+                },
+                "access": "access_allow",
+                "apply_to": {"files": True, "sub_folders": True, "this_folder": True},
                 "user": "BUILTIN\\Administrators",
-                "apply_to": {"sub_folders": True, "files": True, "this_folder": True},
-                "access_control": "file_directory",
-                "access": "access_allow",
-                "advanced_rights": {
-                    "read_attr": True,
-                    "read_ea": True,
-                    "delete_child": True,
-                    "append_data": True,
-                    "write_data": True,
-                    "synchronize": True,
-                    "delete": True,
-                    "write_ea": True,
-                    "write_perm": True,
-                    "write_attr": True,
-                    "write_owner": True,
-                    "read_data": True,
-                    "execute_file": True,
-                    "read_perm": True,
-                    "full_control": True,
-                },
             },
             {
+                "access_control": "file_directory",
+                "advanced_rights": {
+                    "delete": True,
+                    "write_data": True,
+                    "full_control": True,
+                    "read_ea": True,
+                    "write_owner": True,
+                    "read_attr": True,
+                    "synchronize": True,
+                    "write_ea": True,
+                    "write_perm": True,
+                    "append_data": True,
+                    "delete_child": True,
+                    "read_perm": True,
+                    "execute_file": True,
+                    "read_data": True,
+                    "write_attr": True,
+                },
+                "access": "access_allow",
+                "apply_to": {"files": True, "sub_folders": True, "this_folder": True},
                 "user": "BUILTIN\\Users",
-                "apply_to": {"sub_folders": True, "files": True, "this_folder": True},
-                "access_control": "file_directory",
-                "access": "access_allow",
-                "advanced_rights": {
-                    "read_attr": True,
-                    "read_ea": True,
-                    "delete_child": True,
-                    "append_data": True,
-                    "write_data": True,
-                    "synchronize": True,
-                    "delete": True,
-                    "write_ea": True,
-                    "write_perm": True,
-                    "write_attr": True,
-                    "write_owner": True,
-                    "read_data": True,
-                    "execute_file": True,
-                    "read_perm": True,
-                    "full_control": True,
-                },
             },
             {
+                "access_control": "file_directory",
+                "advanced_rights": {
+                    "delete": True,
+                    "write_data": True,
+                    "full_control": True,
+                    "read_ea": True,
+                    "write_owner": True,
+                    "read_attr": True,
+                    "synchronize": True,
+                    "write_ea": True,
+                    "write_perm": True,
+                    "append_data": True,
+                    "delete_child": True,
+                    "read_perm": True,
+                    "execute_file": True,
+                    "read_data": True,
+                    "write_attr": True,
+                },
+                "access": "access_allow",
+                "apply_to": {"files": True, "sub_folders": True, "this_folder": True},
                 "user": "CREATOR OWNER",
-                "apply_to": {"sub_folders": True, "files": True, "this_folder": True},
-                "access_control": "file_directory",
-                "access": "access_allow",
-                "advanced_rights": {
-                    "read_attr": True,
-                    "read_ea": True,
-                    "delete_child": True,
-                    "append_data": True,
-                    "write_data": True,
-                    "synchronize": True,
-                    "delete": True,
-                    "write_ea": True,
-                    "write_perm": True,
-                    "write_attr": True,
-                    "write_owner": True,
-                    "read_data": True,
-                    "execute_file": True,
-                    "read_perm": True,
-                    "full_control": True,
-                },
             },
             {
+                "access_control": "file_directory",
+                "advanced_rights": {
+                    "delete": True,
+                    "write_data": True,
+                    "full_control": True,
+                    "read_ea": True,
+                    "write_owner": True,
+                    "read_attr": True,
+                    "synchronize": True,
+                    "write_ea": True,
+                    "write_perm": True,
+                    "append_data": True,
+                    "delete_child": True,
+                    "read_perm": True,
+                    "execute_file": True,
+                    "read_data": True,
+                    "write_attr": True,
+                },
+                "access": "access_allow",
+                "apply_to": {"files": True, "sub_folders": True, "this_folder": True},
                 "user": "Everyone",
-                "apply_to": {"sub_folders": True, "files": True, "this_folder": True},
-                "access_control": "file_directory",
-                "access": "access_allow",
-                "advanced_rights": {
-                    "read_attr": True,
-                    "read_ea": True,
-                    "delete_child": True,
-                    "append_data": True,
-                    "write_data": True,
-                    "synchronize": True,
-                    "delete": True,
-                    "write_ea": True,
-                    "write_perm": True,
-                    "write_attr": True,
-                    "write_owner": True,
-                    "read_data": True,
-                    "execute_file": True,
-                    "read_perm": True,
-                    "full_control": True,
-                },
             },
             {
+                "access_control": "file_directory",
+                "advanced_rights": {
+                    "delete": True,
+                    "write_data": True,
+                    "full_control": True,
+                    "read_ea": True,
+                    "write_owner": True,
+                    "read_attr": True,
+                    "synchronize": True,
+                    "write_ea": True,
+                    "write_perm": True,
+                    "append_data": True,
+                    "delete_child": True,
+                    "read_perm": True,
+                    "execute_file": True,
+                    "read_data": True,
+                    "write_attr": True,
+                },
+                "access": "access_allow",
+                "apply_to": {"files": True, "sub_folders": True, "this_folder": True},
                 "user": "NT AUTHORITY\\SYSTEM",
-                "apply_to": {"sub_folders": True, "files": True, "this_folder": True},
-                "access_control": "file_directory",
-                "access": "access_allow",
-                "advanced_rights": {
-                    "read_attr": True,
-                    "read_ea": True,
-                    "delete_child": True,
-                    "append_data": True,
-                    "write_data": True,
-                    "synchronize": True,
-                    "delete": True,
-                    "write_ea": True,
-                    "write_perm": True,
-                    "write_attr": True,
-                    "write_owner": True,
-                    "read_data": True,
-                    "execute_file": True,
-                    "read_perm": True,
-                    "full_control": True,
-                },
             },
             {
-                "user": "user1",
+                "access_control": "slag",
+                "advanced_rights": {
+                    "delete": True,
+                    "write_data": True,
+                    "full_control": True,
+                    "read_ea": True,
+                    "write_owner": True,
+                    "read_attr": True,
+                    "synchronize": True,
+                    "write_ea": True,
+                    "write_perm": True,
+                    "append_data": True,
+                    "delete_child": True,
+                    "read_perm": True,
+                    "execute_file": True,
+                    "read_data": True,
+                    "write_attr": True,
+                },
+                "access": "access_allow",
                 "apply_to": {"sub_folders": True, "this_folder": True},
-                "access_control": "slag",
-                "access": "access_allow",
-                "advanced_rights": {
-                    "read_attr": True,
-                    "read_ea": True,
-                    "delete_child": True,
-                    "append_data": True,
-                    "write_data": True,
-                    "synchronize": True,
-                    "delete": True,
-                    "write_ea": True,
-                    "write_perm": True,
-                    "write_attr": True,
-                    "write_owner": True,
-                    "read_data": True,
-                    "execute_file": True,
-                    "read_perm": True,
-                    "full_control": True,
-                },
-            },
-            {
                 "user": "user1",
-                "apply_to": {"files": True},
+            },
+            {
                 "access_control": "slag",
+                "advanced_rights": {
+                    "delete": True,
+                    "write_data": True,
+                    "full_control": True,
+                    "read_ea": True,
+                    "write_owner": True,
+                    "read_attr": True,
+                    "synchronize": True,
+                    "write_ea": True,
+                    "write_perm": True,
+                    "append_data": True,
+                    "delete_child": True,
+                    "read_perm": True,
+                    "execute_file": True,
+                    "read_data": True,
+                    "write_attr": True,
+                },
                 "access": "access_allow",
-                "advanced_rights": {
-                    "read_attr": True,
-                    "read_ea": True,
-                    "delete_child": True,
-                    "append_data": True,
-                    "write_data": True,
-                    "synchronize": True,
-                    "delete": True,
-                    "write_ea": True,
-                    "write_perm": True,
-                    "write_attr": True,
-                    "write_owner": True,
-                    "read_data": True,
-                    "execute_file": True,
-                    "read_perm": True,
-                    "full_control": True,
-                },
-            },
-            {
-                "user": "user2",
-                "apply_to": {"sub_folders": True, "this_folder": True},
-                "access_control": "slag",
-                "access": "audit_success",
-                "advanced_rights": {
-                    "read_attr": True,
-                    "read_ea": True,
-                    "delete_child": True,
-                    "append_data": True,
-                    "write_data": True,
-                    "synchronize": True,
-                    "delete": True,
-                    "write_ea": True,
-                    "write_perm": True,
-                    "write_attr": True,
-                    "write_owner": True,
-                    "read_data": True,
-                    "execute_file": True,
-                    "read_perm": True,
-                    "full_control": True,
-                },
-            },
-            {
-                "user": "user2",
                 "apply_to": {"files": True},
+                "user": "user1",
+            },
+            {
                 "access_control": "slag",
-                "access": "audit_success",
                 "advanced_rights": {
-                    "read_attr": True,
-                    "read_ea": True,
-                    "delete_child": True,
-                    "append_data": True,
-                    "write_data": True,
-                    "synchronize": True,
                     "delete": True,
+                    "write_data": True,
+                    "full_control": True,
+                    "read_ea": True,
+                    "write_owner": True,
+                    "read_attr": True,
+                    "synchronize": True,
                     "write_ea": True,
                     "write_perm": True,
-                    "write_attr": True,
-                    "write_owner": True,
-                    "read_data": True,
-                    "execute_file": True,
+                    "append_data": True,
+                    "delete_child": True,
                     "read_perm": True,
-                    "full_control": True,
+                    "execute_file": True,
+                    "read_data": True,
+                    "write_attr": True,
                 },
+                "access": "audit_success",
+                "apply_to": {"sub_folders": True, "this_folder": True},
+                "user": "user2",
+            },
+            {
+                "access_control": "slag",
+                "advanced_rights": {
+                    "delete": True,
+                    "write_data": True,
+                    "full_control": True,
+                    "read_ea": True,
+                    "write_owner": True,
+                    "read_attr": True,
+                    "synchronize": True,
+                    "write_ea": True,
+                    "write_perm": True,
+                    "append_data": True,
+                    "delete_child": True,
+                    "read_perm": True,
+                    "execute_file": True,
+                    "read_data": True,
+                    "write_attr": True,
+                },
+                "access": "audit_success",
+                "apply_to": {"files": True},
+                "user": "user2",
             },
         ],
+        "effective_style": "ntfs",
+        "user_id": "0",
+        "inode": 64,
+        "group_id": "0",
+        "owner": "BUILTIN\\Administrators",
         "dos_attributes": "10",
+        "text_dos_attr": "----D---",
+        "mode_bits": 777,
+        "text_mode_bits": "rwxrwxrwx",
+        "control_flags": "0x8014",
+        "group": "BUILTIN\\Administrators",
+        "security_style": "mixed",
+    }
+)
+
+```
+</div>
+</div>
+
+---
+### Configuring lookup_names in a GET request
+When the value of lookup_names is set to false (the default value is true), the SID aren't translated into names:
+<br/>
+---
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import FileDirectorySecurity
+
+with HostConnection(
+    "10.140.101.39", username="admin", password="password", verify=False
+):
+    resource = FileDirectorySecurity("bea90fd8-dc69-11ef-9cbd-005056aeb209", "/vol01")
+    resource.get(lookup_names=False, fields="*")
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example3_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example3_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example3_result" class="try_it_out_content">
+```
+FileDirectorySecurity(
+    {
+        "acls": [
+            {
+                "access_control": "file_directory",
+                "advanced_rights": {
+                    "delete": True,
+                    "write_data": True,
+                    "full_control": True,
+                    "read_ea": True,
+                    "write_owner": True,
+                    "read_attr": True,
+                    "synchronize": True,
+                    "write_ea": True,
+                    "write_perm": True,
+                    "append_data": True,
+                    "delete_child": True,
+                    "read_perm": True,
+                    "execute_file": True,
+                    "read_data": True,
+                    "write_attr": True,
+                },
+                "access": "audit_failure",
+                "apply_to": {"files": True, "sub_folders": True, "this_folder": True},
+                "user": "S-1-5-21-1328775103-872486983-3699758552-1002",
+            }
+        ],
+        "effective_style": "ntfs",
+        "user_id": "0",
+        "inode": 64,
+        "group_id": "0",
+        "owner": "S-1-1-0",
+        "dos_attributes": "10",
+        "text_dos_attr": "----D---",
+        "mode_bits": 777,
+        "text_mode_bits": "rwxrwxrwx",
+        "control_flags": "0x8014",
+        "group": "S-1-1-0",
+        "security_style": "mixed",
     }
 )
 
@@ -549,18 +617,18 @@ with HostConnection(
 
 ```
 <div class="try_it_out">
-<input id="example5_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example5_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example5_result" class="try_it_out_content">
+<input id="example6_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example6_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example6_result" class="try_it_out_content">
 ```
 FileDirectorySecurityAcl(
     {
         "rights": "read",
-        "user": "example_user",
-        "apply_to": {"sub_folders": True, "files": True, "this_folder": True},
         "ignore_paths": ["/parent/child2"],
-        "propagation_mode": "propagate",
         "access": "access_allow",
+        "propagation_mode": "propagate",
+        "apply_to": {"files": True, "sub_folders": True, "this_folder": True},
+        "user": "example_user",
     }
 )
 
@@ -606,32 +674,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example6_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example6_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example6_result" class="try_it_out_content">
+<input id="example7_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example7_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example7_result" class="try_it_out_content">
 ```
 FileDirectorySecurityAcl(
     {
-        "user": "user1",
-        "apply_to": {"sub_folders": True, "files": True, "this_folder": True},
         "access_control": "slag",
-        "access": "access_allow",
         "advanced_rights": {
-            "read_attr": True,
-            "read_ea": True,
-            "delete_child": True,
-            "append_data": True,
-            "write_data": True,
             "delete": True,
+            "write_data": True,
+            "full_control": True,
+            "read_ea": True,
+            "write_owner": True,
+            "read_attr": True,
             "write_ea": True,
             "write_perm": True,
-            "write_attr": True,
-            "write_owner": True,
-            "read_data": True,
-            "execute_file": True,
+            "append_data": True,
+            "delete_child": True,
             "read_perm": True,
-            "full_control": True,
+            "execute_file": True,
+            "read_data": True,
+            "write_attr": True,
         },
+        "access": "access_allow",
+        "apply_to": {"files": True, "sub_folders": True, "this_folder": True},
+        "user": "user1",
     }
 )
 
@@ -1018,7 +1086,7 @@ class FileDirectorySecurity(Resource):
 
 
     def get(self, **kwargs) -> NetAppResponse:
-        r"""Retrieves  file permissions
+        r"""Retrieves file permissions.
 ### Related ONTAP commands
 * `vserver security file-directory show`
 

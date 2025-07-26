@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -24,7 +24,7 @@ class IgroupInitiatorsProximitySchema(ResourceSchema, metaclass=ResourceSchemaMe
     local_svm = marshmallow_fields.Boolean(data_key="local_svm", allow_none=True)
     r""" A boolean that indicates if the initiator is proximal to the SVM of the containing initiator group. This is required for any POST or PATCH that includes the `proximity` sub-object. """
 
-    peer_svms = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.svm_peer.SvmPeerSchema", unknown=EXCLUDE, allow_none=True), data_key="peer_svms", allow_none=True)
+    peer_svms = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.consistency_group_nvme_host_proximity_peer_svms.ConsistencyGroupNvmeHostProximityPeerSvmsSchema", unknown=EXCLUDE, allow_none=True), data_key="peer_svms", allow_none=True)
     r""" An array of remote peer SVMs to which the initiator is proximal. """
 
     @property

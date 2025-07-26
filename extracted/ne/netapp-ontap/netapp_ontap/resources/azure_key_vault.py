@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -36,17 +36,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AzureKeyVault(
     {
+        "svm": {"uuid": "4f7abf4c-9a07-11ea-8d52-005056bbeba5", "name": "vs0"},
+        "uuid": "024cd3cf-9a08-11ea-8d52-005056bbeba5",
+        "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
+        "tenant_id": "tenant1",
+        "client_id": "client1",
         "name": "https:://mykeyvault.azure.vault.net/",
         "_links": {
             "self": {
                 "href": "/api/security/azure-key-vaults/024cd3cf-9a08-11ea-8d52-005056bbeba5"
             }
         },
-        "svm": {"name": "vs0", "uuid": "4f7abf4c-9a07-11ea-8d52-005056bbeba5"},
-        "uuid": "024cd3cf-9a08-11ea-8d52-005056bbeba5",
-        "tenant_id": "tenant1",
-        "client_id": "client1",
-        "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
     }
 )
 
@@ -83,17 +83,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AzureKeyVault(
     {
+        "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
+        "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
         "configuration": {"name": "myConfiguration"},
+        "tenant_id": "tenant1",
+        "client_id": "client1",
         "name": "https:://mykeyvault.azure.vault.net/",
         "_links": {
             "self": {
                 "href": "/api/security/azure-key-vaults/85619643-9a06-11ea-8d52-005056bbeba5"
             }
         },
-        "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
-        "tenant_id": "tenant1",
-        "client_id": "client1",
-        "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
     }
 )
 
@@ -120,45 +120,45 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     AzureKeyVault(
         {
+            "svm": {"uuid": "4f7abf4c-9a07-11ea-8d52-005056bbeba5", "name": "vs0"},
+            "uuid": "024cd3cf-9a08-11ea-8d52-005056bbeba5",
+            "authentication_method": "client_secret",
+            "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
             "configuration": {
-                "name": "default",
                 "uuid": "024cd3cf-9a08-11ea-8d52-005056bbeba5",
+                "name": "default",
             },
+            "tenant_id": "tenant1",
+            "client_id": "client1",
             "name": "https:://mykeyvault.azure.vault.net/",
+            "scope": "svm",
             "enabled": True,
             "_links": {
                 "self": {
                     "href": "/api/security/azure-key-vaults/024cd3cf-9a08-11ea-8d52-005056bbeba5"
                 }
             },
-            "authentication_method": "client_secret",
-            "svm": {"name": "vs0", "uuid": "4f7abf4c-9a07-11ea-8d52-005056bbeba5"},
-            "uuid": "024cd3cf-9a08-11ea-8d52-005056bbeba5",
-            "tenant_id": "tenant1",
-            "client_id": "client1",
-            "scope": "svm",
-            "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
         }
     ),
     AzureKeyVault(
         {
+            "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
+            "authentication_method": "certificate",
+            "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
             "configuration": {
-                "name": "new-config",
                 "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
+                "name": "new-config",
             },
+            "tenant_id": "tenant1",
+            "client_id": "client1",
             "name": "https:://mykeyvault.azure.vault.net/",
+            "scope": "cluster",
             "enabled": False,
             "_links": {
                 "self": {
                     "href": "/api/security/azure-key-vaults/85619643-9a06-11ea-8d52-005056bbeba5"
                 }
             },
-            "authentication_method": "certificate",
-            "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
-            "tenant_id": "tenant1",
-            "client_id": "client1",
-            "scope": "cluster",
-            "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
         }
     ),
 ]
@@ -187,23 +187,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AzureKeyVault(
     {
+        "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
+        "authentication_method": "client_secret",
+        "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
         "configuration": {
-            "name": "default",
             "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
+            "name": "default",
         },
+        "tenant_id": "tenant1",
+        "client_id": "client1",
         "name": "https:://mykeyvault.azure.vault.net/",
+        "scope": "cluster",
         "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/security/azure-key-vaults/85619643-9a06-11ea-8d52-005056bbeba5"
             }
         },
-        "authentication_method": "client_secret",
-        "uuid": "85619643-9a06-11ea-8d52-005056bbeba5",
-        "tenant_id": "tenant1",
-        "client_id": "client1",
-        "scope": "cluster",
-        "key_id": "https://keyvault-test.vault.azure.net/keys/key1/a8e619fd8f234db3b0b95c59540e2a74",
     }
 )
 

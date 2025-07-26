@@ -124,6 +124,7 @@ async def get_user_for_quota(api_key):
 
 
 if __name__ == '__main__':
+    pass
     # api-key => get_one_log => get_user => put_user
     # arun(get_user(10988))
     # payload = arun(get_user(1))

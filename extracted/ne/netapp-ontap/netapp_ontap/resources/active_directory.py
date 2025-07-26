@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,9 +28,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ActiveDirectory(
     {
         "fqdn": "EXAMPLE.COM",
-        "name": "ACCOUNT1",
+        "svm": {"uuid": "6dd78167-c907-11eb-b2bf-0050568e7324", "name": "vs1"},
         "organizational_unit": "CN=Computers",
-        "svm": {"name": "vs1", "uuid": "6dd78167-c907-11eb-b2bf-0050568e7324"},
+        "security": {"advertised_kdc_encryptions": ["des"]},
+        "name": "ACCOUNT1",
     }
 )
 
@@ -141,6 +142,9 @@ Example: testpwd"""
     preferred_dcs = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.active_directory_preferred_dc.ActiveDirectoryPreferredDcSchema", unknown=EXCLUDE, allow_none=True), data_key="preferred_dcs", allow_none=True)
     r""" Specifies the preferred domain controller (DC) records."""
 
+    security = marshmallow_fields.Nested("netapp_ontap.models.active_directory_security.ActiveDirectorySecuritySchema", data_key="security", unknown=EXCLUDE, allow_none=True)
+    r""" The security field of the active_directory."""
+
     svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
     r""" The svm field of the active_directory."""
 
@@ -163,19 +167,21 @@ Example: admin"""
         "name",
         "organizational_unit",
         "preferred_dcs",
+        "security",
         "svm.links",
         "svm.name",
         "svm.uuid",
     ]
-    """discovered_servers,fqdn,name,organizational_unit,preferred_dcs,svm.links,svm.name,svm.uuid,"""
+    """discovered_servers,fqdn,name,organizational_unit,preferred_dcs,security,svm.links,svm.name,svm.uuid,"""
 
     patchable_fields = [
         "force_account_overwrite",
         "fqdn",
         "password",
+        "security",
         "username",
     ]
-    """force_account_overwrite,fqdn,password,username,"""
+    """force_account_overwrite,fqdn,password,security,username,"""
 
     postable_fields = [
         "force_account_overwrite",
@@ -183,11 +189,12 @@ Example: admin"""
         "name",
         "organizational_unit",
         "password",
+        "security",
         "svm.name",
         "svm.uuid",
         "username",
     ]
-    """force_account_overwrite,fqdn,name,organizational_unit,password,svm.name,svm.uuid,username,"""
+    """force_account_overwrite,fqdn,name,organizational_unit,password,security,svm.name,svm.uuid,username,"""
 
 class ActiveDirectory(Resource):
     """Allows interaction with ActiveDirectory objects on the host"""
@@ -209,6 +216,7 @@ class ActiveDirectory(Resource):
 * `vserver active-directory show`
 * `vserver active-directory preferred-dc show`
 * `vserver active-directory discovered-servers show`
+* `vserver cifs security show`
 
 ### Learn more
 * [`DOC /protocols/active-directory`](#docs-NAS-protocols_active-directory)"""
@@ -259,6 +267,7 @@ class ActiveDirectory(Resource):
         r"""Modifies the Active Directory account for a given SVM.
 ### Related ONTAP commands
 * `vserver active-directory modify`
+* `vserver cifs security modify`
 ### Important notes
 * Patching Active Directory account is asynchronous. Response contains Task UUID and Link that can be queried to get the status.
 
@@ -332,6 +341,7 @@ class ActiveDirectory(Resource):
 * `vserver active-directory show`
 * `vserver active-directory preferred-dc show`
 * `vserver active-directory discovered-servers show`
+* `vserver cifs security show`
 
 ### Learn more
 * [`DOC /protocols/active-directory`](#docs-NAS-protocols_active-directory)"""
@@ -346,6 +356,7 @@ class ActiveDirectory(Resource):
 * `vserver active-directory preferred-dc show`
 * `vserver active-directory discovered-servers show`
 * `vserver active-directory discovered-servers reset-servers`
+* `vserver cifs security show`
 
 ### Learn more
 * [`DOC /protocols/active-directory/{svm.uuid}`](#docs-NAS-protocols_active-directory_{svm.uuid})"""
@@ -387,6 +398,7 @@ class ActiveDirectory(Resource):
         r"""Modifies the Active Directory account for a given SVM.
 ### Related ONTAP commands
 * `vserver active-directory modify`
+* `vserver cifs security modify`
 ### Important notes
 * Patching Active Directory account is asynchronous. Response contains Task UUID and Link that can be queried to get the status.
 

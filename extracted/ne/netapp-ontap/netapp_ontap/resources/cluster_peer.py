@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,16 +27,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "ip_address": "0.0.0.0",
-        "name": "Clus_fghf",
-        "uuid": "86de6c46-bdad-11eb-83cd-005056bb267e",
         "authentication": {
-            "expiry_time": "2021-05-25T20:04:15-04:00",
             "passphrase": "pLznaom1ctesJFq4kt5Qfghf",
+            "expiry_time": "2021-05-25T20:04:15-04:00",
         },
+        "uuid": "86de6c46-bdad-11eb-83cd-005056bb267e",
+        "ip_address": "0.0.0.0",
         "_links": {
             "self": {"href": "/api/cluster/peers/86de6c46-bdad-11eb-83cd-005056bb267e"}
         },
+        "name": "Clus_fghf",
     }
 )
 
@@ -66,16 +66,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "ip_address": "0.0.0.0",
-        "name": "Clus_F6ht",
-        "uuid": "14c817c7-bdad-11eb-83cd-005056bb267e",
         "authentication": {
-            "expiry_time": "2021-05-26T12:34:56-04:00",
             "passphrase": "dZNOKkpVfntNZHf3MjpNF6ht",
+            "expiry_time": "2021-05-26T12:34:56-04:00",
         },
+        "uuid": "14c817c7-bdad-11eb-83cd-005056bb267e",
+        "ip_address": "0.0.0.0",
         "_links": {
             "self": {"href": "/api/cluster/peers/14c817c7-bdad-11eb-83cd-005056bb267e"}
         },
+        "name": "Clus_F6ht",
     }
 )
 
@@ -102,15 +102,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "name": "",
-        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
         "authentication": {
-            "expiry_time": "2021-05-25T20:28:12-04:00",
             "passphrase": "yDhdOteVGEOhkeXF+DJYwDro",
+            "expiry_time": "2021-05-25T20:28:12-04:00",
         },
+        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
         "_links": {
             "self": {"href": "/api/cluster/peers/b404cc52-bdae-11eb-812c-005056bb0af1"}
         },
+        "name": "",
     }
 )
 
@@ -138,16 +138,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "ip_address": "1.2.3.5",
-        "name": "cp_xyz123",
-        "uuid": "125f8dc6-bdb1-11eb-83cd-005056bb267e",
         "authentication": {
-            "expiry_time": "2021-05-25T20:29:38-04:00",
             "passphrase": "eeGTerZlh2qSAt2akpYEcM1c",
+            "expiry_time": "2021-05-25T20:29:38-04:00",
         },
+        "uuid": "125f8dc6-bdb1-11eb-83cd-005056bb267e",
+        "ip_address": "1.2.3.5",
         "_links": {
             "self": {"href": "/api/cluster/peers/125f8dc6-bdb1-11eb-83cd-005056bb267e"}
         },
+        "name": "cp_xyz123",
     }
 )
 
@@ -176,8 +176,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
         "authentication": {"expiry_time": "2021-05-25T20:32:49-04:00"},
+        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
         "_links": {
             "self": {"href": "/api/cluster/peers/b404cc52-bdae-11eb-812c-005056bb0af1"}
         },
@@ -207,16 +207,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
-        "ip_address": "1.2.3.5",
-        "name": "Clus_Pslc",
-        "uuid": "b33a23a6-bdb1-11eb-83cd-005056bb267e",
         "authentication": {
-            "expiry_time": "2021-05-25T20:34:07-04:00",
             "passphrase": "Gy8SqsXVhcUkS1AfepH7Pslc",
+            "expiry_time": "2021-05-25T20:34:07-04:00",
         },
+        "uuid": "b33a23a6-bdb1-11eb-83cd-005056bb267e",
+        "ip_address": "1.2.3.5",
         "_links": {
             "self": {"href": "/api/cluster/peers/b33a23a6-bdb1-11eb-83cd-005056bb267e"}
         },
+        "name": "Clus_Pslc",
     }
 )
 
@@ -266,6 +266,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
+        "authentication": {"expiry_time": "2021-05-25T21:28:26-04:00"},
+        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
         "local_network": {
             "interfaces": [
                 {"ip_address": "1.2.3.4"},
@@ -273,8 +275,6 @@ ClusterPeer(
                 {"ip_address": "1.2.3.6"},
             ]
         },
-        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
-        "authentication": {"expiry_time": "2021-05-25T21:28:26-04:00"},
         "_links": {
             "self": {"href": "/api/cluster/peers/b404cc52-bdae-11eb-812c-005056bb0af1"}
         },
@@ -306,30 +306,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ClusterPeer(
         {
-            "name": "Clus_bH6l",
             "uuid": "a6001076-bdb2-11eb-83cd-005056bb267e",
             "_links": {
-                "self": {
-                    "href": "/api/cluster/peers/a6001076-bdb2-11eb-83cd-005056bb267e"
-                },
                 "interfaces": {
                     "href": "/api/network/ip/interfaces?services=intercluster_core&ipspace.uuid=0bac5ced-a911-11eb-83cd-005056bb267e"
                 },
+                "self": {
+                    "href": "/api/cluster/peers/a6001076-bdb2-11eb-83cd-005056bb267e"
+                },
             },
+            "name": "Clus_bH6l",
         }
     ),
     ClusterPeer(
         {
-            "name": "remote-cluster",
             "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
             "_links": {
-                "self": {
-                    "href": "/api/cluster/peers/b404cc52-bdae-11eb-812c-005056bb0af1"
-                },
                 "interfaces": {
                     "href": "/api/network/ip/interfaces?services=intercluster_core&ipspace.uuid=0bac5ced-a911-11eb-83cd-005056bb267e"
                 },
+                "self": {
+                    "href": "/api/cluster/peers/b404cc52-bdae-11eb-812c-005056bb0af1"
+                },
             },
+            "name": "remote-cluster",
         }
     ),
 ]
@@ -356,16 +356,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     ClusterPeer(
         {
             "status": {"state": "unidentified"},
-            "name": "Clus_bH6l",
             "uuid": "a6001076-bdb2-11eb-83cd-005056bb267e",
             "_links": {
-                "self": {
-                    "href": "/api/cluster/peers/a6001076-bdb2-11eb-83cd-005056bb267e"
-                },
                 "interfaces": {
                     "href": "/api/network/ip/interfaces?services=intercluster_core&ipspace.uuid=0bac5ced-a911-11eb-83cd-005056bb267e"
                 },
+                "self": {
+                    "href": "/api/cluster/peers/a6001076-bdb2-11eb-83cd-005056bb267e"
+                },
             },
+            "name": "Clus_bH6l",
         }
     )
 ]
@@ -392,37 +392,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterPeer(
     {
+        "authentication": {"state": "ok", "in_use": "ok"},
+        "encryption": {"state": "tls_psk"},
+        "version": {
+            "generation": 9,
+            "major": 10,
+            "full": "NetApp Release 9.10.1: Tue May 25 08:08:44 UTC 2021",
+            "minor": 1,
+        },
         "status": {"update_time": "2021-05-25T19:38:55-04:00", "state": "available"},
+        "remote": {
+            "ip_addresses": ["1.2.3.4"],
+            "serial_number": "1-80-000011",
+            "name": "remote-cluster",
+        },
+        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
         "ipspace": {
-            "name": "Default",
+            "uuid": "0bac5ced-a911-11eb-83cd-005056bb267e",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/0bac5ced-a911-11eb-83cd-005056bb267e"
                 }
             },
-            "uuid": "0bac5ced-a911-11eb-83cd-005056bb267e",
+            "name": "Default",
         },
-        "name": "remote-cluster",
-        "version": {
-            "generation": 9,
-            "full": "NetApp Release 9.10.1: Tue May 25 08:08:44 UTC 2021",
-            "minor": 1,
-            "major": 10,
-        },
-        "uuid": "b404cc52-bdae-11eb-812c-005056bb0af1",
-        "authentication": {"in_use": "ok", "state": "ok"},
         "_links": {
-            "self": {"href": "/api/cluster/peers/b404cc52-bdae-11eb-812c-005056bb0af1"},
             "interfaces": {
                 "href": "/api/network/ip/interfaces?services=intercluster_core&ipspace.uuid=0bac5ced-a911-11eb-83cd-005056bb267e"
             },
+            "self": {"href": "/api/cluster/peers/b404cc52-bdae-11eb-812c-005056bb0af1"},
         },
-        "encryption": {"state": "tls_psk"},
-        "remote": {
-            "ip_addresses": ["1.2.3.4"],
-            "name": "remote-cluster",
-            "serial_number": "1-80-000011",
-        },
+        "name": "remote-cluster",
     }
 )
 

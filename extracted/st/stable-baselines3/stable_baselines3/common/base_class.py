@@ -25,9 +25,9 @@ from stable_baselines3.common.preprocessing import check_for_nested_spaces, is_i
 from stable_baselines3.common.save_util import load_from_zip_file, recursive_getattr, recursive_setattr, save_to_zip_file
 from stable_baselines3.common.type_aliases import GymEnv, MaybeCallback, Schedule, TensorDict
 from stable_baselines3.common.utils import (
+    FloatSchedule,
     check_for_correct_spaces,
     get_device,
-    get_schedule_fn,
     get_system_info,
     set_random_seed,
     update_learning_rate,
@@ -273,7 +273,7 @@ class BaseAlgorithm(ABC):
 
     def _setup_lr_schedule(self) -> None:
         """Transform to callable if needed."""
-        self.lr_schedule = get_schedule_fn(self.learning_rate)
+        self.lr_schedule = FloatSchedule(self.learning_rate)
 
     def _update_current_progress_remaining(self, num_timesteps: int, total_timesteps: int) -> None:
         """
@@ -316,7 +316,6 @@ class BaseAlgorithm(ABC):
             "replay_buffer",
             "rollout_buffer",
             "_vec_normalize_env",
-            "_episode_storage",
             "_logger",
             "_custom_logger",
         ]
@@ -523,6 +522,7 @@ class BaseAlgorithm(ABC):
         Return a trained model.
 
         :param total_timesteps: The total number of samples (env steps) to train on
+            Note: it is a lower bound, see `issue #1150 <https://github.com/DLR-RM/stable-baselines3/issues/1150>`_
         :param callback: callback(s) called at every step with state of the algorithm.
         :param log_interval: for on-policy algos (e.g., PPO, A2C, ...) this is the number of
             training iterations (i.e., log_interval * n_steps * n_envs timesteps) before logging;

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -49,20 +49,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     EmsEvent(
         {
-            "message": {"name": "app.log.emerg", "severity": "emergency"},
+            "log_message": "app.log.emerg: iMac: iPad ipad3: (10001) handheld: TestLine1",
+            "message": {"severity": "emergency", "name": "app.log.emerg"},
+            "time": "2021-09-17T09:36:28-04:00",
             "node": {
+                "uuid": "d96d5d8d-118a-11ec-aad8-005056bb974c",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/d96d5d8d-118a-11ec-aad8-005056bb974c"
                     }
                 },
-                "uuid": "d96d5d8d-118a-11ec-aad8-005056bb974c",
             },
             "_links": {"self": {"href": "/api/support/ems/events/node1/7865"}},
             "index": 7865,
-            "log_message": "app.log.emerg: iMac: iPad ipad3: (10001) handheld: TestLine1",
-            "time": "2021-09-17T09:36:28-04:00",
         }
     )
 ]

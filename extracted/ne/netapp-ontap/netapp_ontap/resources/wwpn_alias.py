@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -52,41 +52,41 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     WwpnAlias(
         {
-            "svm": {
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
-                    }
-                },
-                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
-            },
-            "alias": "alias1",
             "_links": {
                 "self": {
                     "href": "/api/network/fc/wwpn-aliases/68589d3d-7efa-11e8-9eed-005056b43025/alias1"
                 }
             },
-            "wwpn": "20:00:00:50:56:b4:30:25",
-        }
-    ),
-    WwpnAlias(
-        {
             "svm": {
+                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
                     }
                 },
-                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
             },
-            "alias": "alias2",
+            "alias": "alias1",
+            "wwpn": "20:00:00:50:56:b4:30:25",
+        }
+    ),
+    WwpnAlias(
+        {
             "_links": {
                 "self": {
                     "href": "/api/network/fc/wwpn-aliases/68589d3d-7efa-11e8-9eed-005056b43025/alias2"
                 }
             },
+            "svm": {
+                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
+                "name": "svm1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
+                    }
+                },
+            },
+            "alias": "alias2",
             "wwpn": "50:0a:09:82:b4:30:25:00",
         }
     ),
@@ -116,21 +116,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     WwpnAlias(
         {
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/wwpn-aliases/68589d3d-7efa-11e8-9eed-005056b43025/alias1"
+                }
+            },
             "svm": {
+                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
                     }
                 },
-                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
             },
             "alias": "alias1",
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/wwpn-aliases/68589d3d-7efa-11e8-9eed-005056b43025/alias1"
-                }
-            },
             "wwpn": "20:00:00:50:56:b4:30:25",
         }
     )
@@ -164,21 +164,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     WwpnAlias(
         {
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/wwpn-aliases/68589d3d-7efa-11e8-9eed-005056b43025/alias1"
+                }
+            },
             "svm": {
+                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/68589d3d-7efa-11e8-9eed-005056b43025"
                     }
                 },
-                "uuid": "68589d3d-7efa-11e8-9eed-005056b43025",
             },
             "alias": "alias2",
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/wwpn-aliases/68589d3d-7efa-11e8-9eed-005056b43025/alias1"
-                }
-            },
             "wwpn": "50:0a:09:82:b4:30:25:00",
         }
     )

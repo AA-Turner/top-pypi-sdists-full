@@ -357,7 +357,7 @@ def _is_package_installed(package_name):
     try:
         importlib.import_module(package_name.replace('-', '_'))
         return True
-    except ImportError:
+    except (ImportError, OSError):
         return False
 
 

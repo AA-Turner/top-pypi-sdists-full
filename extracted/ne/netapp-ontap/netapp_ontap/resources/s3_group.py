@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,22 +30,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Group(
         {
-            "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
-            "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
-            "name": "Admin-Group",
-            "comment": "Admin group",
             "id": 5,
-            "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
+            "comment": "Admin group",
+            "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
+            "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
+            "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
+            "name": "Admin-Group",
         }
     ),
     S3Group(
         {
-            "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User6"}],
-            "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
-            "name": "Admin-Group1",
-            "comment": "Admin group",
             "id": 6,
-            "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
+            "comment": "Admin group",
+            "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
+            "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User6"}],
+            "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
+            "name": "Admin-Group1",
         }
     ),
 ]
@@ -72,12 +72,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Group(
     {
-        "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
-        "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
-        "name": "Admin-Group",
-        "comment": "Admin group",
         "id": 5,
-        "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
+        "comment": "Admin group",
+        "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
+        "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
+        "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
+        "name": "Admin-Group",
     }
 )
 
@@ -107,12 +107,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Group(
     {
-        "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
-        "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
-        "name": "Admin-Group",
-        "comment": "Admin group",
         "id": 5,
-        "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
+        "comment": "Admin group",
+        "policies": [{"name": "Policy1"}, {"name": "Policy2"}, {"name": "Policy3"}],
+        "users": [{"name": "User1"}, {"name": "User2"}, {"name": "User3"}],
+        "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
+        "name": "Admin-Group",
     }
 )
 

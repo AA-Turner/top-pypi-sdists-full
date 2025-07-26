@@ -5,7 +5,8 @@ Those cases should lead to raised error.
 
 import json
 
-from connector.generated import (
+from connector.oai.integration import DescriptionData, Integration
+from connector_sdk_types.generated import (
     BasicCredential,
     Error,
     ErrorCode,
@@ -14,7 +15,7 @@ from connector.generated import (
     ListAccountsResponse,
     StandardCapabilityName,
 )
-from connector.oai.integration import DescriptionData, Integration
+from connector_sdk_types.serializers.field import AnnotatedField
 from pydantic import BaseModel
 
 Case = tuple[
@@ -26,7 +27,10 @@ Case = tuple[
 
 
 class SettingsFixture(BaseModel):
-    host: str
+    host: str = AnnotatedField(
+        title="Hostname",
+        description="The hostname of the settings",
+    )
 
 
 def new_integration(
@@ -92,7 +96,7 @@ def case_no_settings_are_fine_for_no_model() -> Case:
     return integration, capability_name, request, expected_response
 
 
-def case_invalid_settings_are_error() -> Case:
+def case_invalid_settings_are_error_missing_field() -> Case:
     """If the caller passes an invalid settings object, dispatching should return an error."""
     integration = new_integration(settings_model=SettingsFixture)
 
@@ -114,7 +118,39 @@ def case_invalid_settings_are_error() -> Case:
         is_error=True,
         error=Error(
             error_code=ErrorCode.BAD_REQUEST,
-            message="Invalid settings passed on request - [{'type': 'missing', 'loc': ('host',), 'msg': 'Field required', 'input': {'something': 'incorrect'}, 'url': 'https://errors.pydantic.dev/2.9/v/missing'}]",
+            message="Invalid settings passed on request. Missing required settings: Hostname",
+            raised_by=None,
+            raised_in=None,
+            status_code=None,
+            app_id="test",
+        ),
+    )
+    return integration, capability_name, request, expected_response
+
+
+def case_invalid_settings_are_error_other_errors() -> Case:
+    """If the caller passes an invalid settings object, dispatching should return an error."""
+    integration = new_integration(settings_model=SettingsFixture)
+
+    @integration.register_capability(StandardCapabilityName.LIST_ACCOUNTS)
+    def list_accounts(
+        args: ListAccountsRequest,
+    ) -> ListAccountsResponse:
+        return ListAccountsResponse(response=[])
+
+    capability_name = StandardCapabilityName.LIST_ACCOUNTS
+    request = json.dumps(
+        {
+            "auth": {"basic": {"username": "foo", "password": "bar"}},
+            "request": {},
+            "settings": {"host": 3},
+        }
+    )
+    expected_response = ErrorResponse(
+        is_error=True,
+        error=Error(
+            error_code=ErrorCode.BAD_REQUEST,
+            message="Invalid settings passed on request.",
             raised_by=None,
             raised_in=None,
             status_code=None,

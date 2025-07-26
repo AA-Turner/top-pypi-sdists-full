@@ -318,6 +318,7 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
         main_window.set_focus()
         modelo_select = main_window.child_window(class_name="TDBIComboBox", found_index=1)
         modelo_select.click()
+        await worker_sleep(3)
         try:
             # Verifica mensagem danfe 077
             imagem_alvo = "assets\\entrada_notas\\danfe077.png"
@@ -375,67 +376,86 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
         else:
             field_fornecedor.set_edit_text(cod_empresa)
         field_fornecedor.click()
-        pyautogui.press("tab")
+        pyautogui.press("enter")
         await worker_sleep(2)
 
 
         itens = nota.get('itens', [])
         itens_arla = [item for item in itens if item['descricao'].lower() == 'arla']
 
-        #SELECIONAO A NOP 
+        # SELECIONA A NOP
         console.print("SELECIONANDO A NOP...\n")
         select_box_nop_select = main_window.child_window(class_name="TDBIComboBox", found_index=0)
         select_box_nop_select.click()
 
+        await worker_sleep(3)
+
         itens_to_select = select_box_nop_select.texts()
         nop_to_be_select = ''
 
-        if len(itens_arla) == len(itens):
-            for item in itens_to_select:
-                if ('1202' in item and ('s/ est' in item.lower() or 's/est' in item.lower()) and ('c/ fin' in item.lower() or 'c/fin' in item.lower())):
-                    nop_to_be_select = item
-                    break
-                elif '2202' in item and (('s/ est' in item.lower() or 's/est' in item.lower()) and ('c/ fin' in item.lower() or 'c/fin' in item.lower())):
-                    nop_to_be_select = item
-                    break
-        else:        
-            for item in itens_to_select:
-                if uf_posto:
-                    if uf_posto != uf_cliente:
-                        if '2662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
-                            nop_to_be_select = item
-                            break
-                    else:
-                        if '1662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
-                            nop_to_be_select = item
-                            break
-                else:
-                    if '1662' in item and (('c/fi' in item.lower() or 'c /fi' in item.lower())):
-                        nop_to_be_select = item
-                        break        
-        
+        def normaliza(texto):
+            return texto.lower().replace(" ", "").strip()
 
+        # Função para buscar a NOP com sufixo prioritariamente
+        def buscar_nop(itens, codigo, sufixo_normalizado=None):
+            for item in itens:
+                if codigo in item:
+                    item_normalizado = normaliza(item)
+                    if sufixo_normalizado and sufixo_normalizado in item_normalizado:
+                        return item  # prioriza item com sufixo
+            for item in itens:
+                if codigo in item:
+                    return item  # fallback para item com mesmo código
+            return ''
+
+        # Lógica de seleção da NOP
+        if len(itens_arla) == len(itens):
+            nop_to_be_select = buscar_nop(itens_to_select, '1202', 's/estc/fin')
+            if not nop_to_be_select:
+                nop_to_be_select = buscar_nop(itens_to_select, '2202', 's/estc/fin')
+        else:
+            if uf_posto and uf_posto != uf_cliente:
+                nop_to_be_select = buscar_nop(itens_to_select, '2662', 'devcombc/fi')
+            else:
+                nop_to_be_select = buscar_nop(itens_to_select, '1662', 'devcombc/fi')
+
+        # Se encontrou, faz a seleção precisa no combobox
         if nop_to_be_select != '':
             console.print(f"Nop a ser considerada: {nop_to_be_select}...\n")
             await worker_sleep(1)
             try:
-                set_combobox("||List", nop_to_be_select)
-            except:
+                # Clica para ativar o combobox
                 select_box_nop_select.click()
                 await worker_sleep(1)
-                select_box_nop_select.click()
-                await worker_sleep(1)
-                select_box_nop_select.select(nop_to_be_select)
-                #set_combobox("||List", nop_to_be_select)
 
+                # Digita apenas o código inicial (ex: "1662") para posicionar
+                codigo_nop = nop_to_be_select.split('-')[0].strip()
+                select_box_nop_select.type_keys(codigo_nop)
+                await worker_sleep(1)
+
+                # Navega pela lista até encontrar o texto exato
+                for _ in range(10):  # tenta até 10 movimentos para baixo
+                    current_text = select_box_nop_select.window_text()
+                    if nop_to_be_select.strip().lower() in current_text.strip().lower():
+                        select_box_nop_select.type_keys('{ENTER}')
+                        break
+                    else:
+                        select_box_nop_select.type_keys('{DOWN}')
+                        await worker_sleep(0.5)
+
+                await worker_sleep(1)
+                select_box_nop_select.type_keys('{TAB}')
+            except Exception as e:
+                console.print(f"[red]Erro ao selecionar a NOP: {e}[/red]")
         else:
-            retorno = f"Não foi possivel encontrar a nop \nEtapas Executadas:\n{steps}"
+            retorno = f"Não foi possível encontrar a NOP\nEtapas Executadas:\n{steps}"
             return RpaRetornoProcessoDTO(
                 sucesso=False,
                 retorno=retorno,
                 status=RpaHistoricoStatusEnum.Falha,
                 tags=[RpaTagDTO(descricao=RpaTagEnum.Negocio)]
             )
+
 
         await worker_sleep(7)
         try:
@@ -1020,7 +1040,7 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
         #STEP 3 
         type_text_into_field("Gerenciador de Notas Fiscais", app["TFrmMenuPrincipal"]["Edit"], True, "50")
         pyautogui.press("enter")
-        await worker_sleep(2)
+        await worker_sleep(5)
         pyautogui.press("enter")
         await worker_sleep(5)
         console.print(f"\nPesquisa: 'Gerenciador de Notas Fiscais' realizada com sucesso 1ª Etapa",style="bold green")
@@ -1198,7 +1218,7 @@ async def devolucao_prazo_a_faturar(task: RpaProcessoEntradaDTO) -> RpaRetornoPr
 
                         type_text_into_field("Gerenciador de Notas Fiscais", app["TFrmMenuPrincipal"]["Edit"], True, "50")
                         pyautogui.press("enter")
-                        await worker_sleep(2)
+                        await worker_sleep(5)
                         pyautogui.press("enter")
                         await worker_sleep(5)
                         console.print(f"\nPesquisa: 'Gerenciador de Notas Fiscais' realizada com sucesso 2ª Etapa",style="bold green")

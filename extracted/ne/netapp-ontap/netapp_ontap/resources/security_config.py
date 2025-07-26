@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -19,18 +19,16 @@ Contains software data encryption related information.<br/>
   * PATCH  /api/security -d '{ "software_data_encryption.disabled_by_default" : false }'
   * GET    /api/security
   * GET    /api/security?fields=software_data_encryption <br/>
-### Platform Specifics
-### Unified ONTAP
-A PATCH request on this API using the parameter "software_data_encryption.conversion_enabled" triggers the  conversion of all non-encrypted metadata volumes to encrypted metadata volumes and all non-NAE aggregates to NAE aggregates. For the conversion to start, the cluster must have either Onboard Key Manager or an external key manager set up and the aggregates should either be empty or have only metadata volumes. No data volumes should be present in any of the aggregates. For MetroCluster configurations, the PATCH request will fail if the cluster is in the switchover state.<br/>
-### ASA r2
-A PATCH request on this API using the parameter "software_data_encryption.conversion_enabled" triggers the  conversion of all non-encrypted volumes and LUNs to encrypted volumes and LUNs. For the conversion to start, the cluster must have either Onboard Key Manager or an external key manager set up. Newly created volumes and LUNs are encrypted by default after this PATCH request.
-A PATCH request on this API using the parameter "software_data_encryption.rekey" triggers the rekey of all encrypted volumes and LUNs.<br/>
+<personalities supports=unified>A PATCH request on this API using the parameter "software_data_encryption.conversion_enabled" triggers the  conversion of all non-encrypted metadata volumes to encrypted metadata volumes and all non-NAE aggregates to NAE aggregates. For the conversion to start, the cluster must have either Onboard Key Manager or an external key manager set up and the aggregates should either be empty or have only metadata volumes. No data volumes should be present in any of the aggregates. For MetroCluster configurations, the PATCH request will fail if the cluster is in the switchover state.<br/></personalities>
+<personalities supports=asar2,aiml>A PATCH request on this API using the parameter "software_data_encryption.conversion_enabled" triggers the  conversion of all non-encrypted volumes and LUNs to encrypted volumes and LUNs. For the conversion to start, the cluster must have either Onboard Key Manager or an external key manager set up. Newly created volumes and LUNs are encrypted by default after this PATCH request.
+A PATCH request on this API using the parameter "software_data_encryption.rekey" triggers the rekey of all encrypted volumes and LUNs.<br/></personalities>
 The following API can be used to initiate software data encryption conversion.
 
 * PATCH  /api/security -d '{ "software_data_encryption.conversion_enabled" : true }'<br/>
-The following API can be used to initiate software data encryption rekey on ASA r2 platforms.
+<personalities supports=asar2,aiml>The following API can be used to initiate software data encryption rekey.
 
 * PATCH  /api/security -d '{ "software_data_encryption.rekey" : true }'
+</personalities>
 ## "fips" object
 Contains FIPS mode information.<br/>
 A PATCH request on this API using the parameter "fips.enabled" switches the system from using the default cryptographic module software implementations to validated ones or vice versa, where applicable. If the value of the parameter is "true" and unapproved algorithms are configured as permitted in relevant subsystems, those algorithms will be disabled in the relevant subsystem configurations. If "false", there will be no implied change to the relevant subsystem configurations.
@@ -77,13 +75,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SecurityConfig(
     {
-        "onboard_key_manager_configurable_status": {
-            "message": "Onboard Key Manager cannot be configured on the cluster. There are no self-encrypting disks in the cluster, and the following nodes do not support volume granular encryption: ntap-vsim2.",
-            "code": 65537300,
-            "supported": False,
-        },
+        "management_protocols": {"telnet_enabled": False, "rsh_enabled": False},
         "tls": {
-            "protocol_versions": ["TLSv1.3", "TLSv1.2"],
             "cipher_suites": [
                 "TLS_RSA_WITH_AES_128_CCM",
                 "TLS_RSA_WITH_AES_128_CCM_8",
@@ -214,14 +207,19 @@ SecurityConfig(
                 "TLS_AES_256_GCM_SHA384",
                 "TLS_CHACHA20_POLY1305_SHA256",
             ],
+            "protocol_versions": ["TLSv1.3", "TLSv1.2"],
         },
         "fips": {"enabled": False},
+        "onboard_key_manager_configurable_status": {
+            "message": "Onboard Key Manager cannot be configured on the cluster. There are no self-encrypting disks in the cluster, and the following nodes do not support volume granular encryption: ntap-vsim2.",
+            "supported": False,
+            "code": 65537300,
+        },
         "software_data_encryption": {
+            "disabled_by_default": False,
             "encryption_state": "unencrypted",
             "conversion_enabled": False,
-            "disabled_by_default": False,
         },
-        "management_protocols": {"telnet_enabled": False, "rsh_enabled": False},
     }
 )
 
@@ -230,184 +228,220 @@ SecurityConfig(
 </div>
 
 ---
-```
----
 ## PATCH Examples
 ### Enabling software encryption conversion in the cluster
 The following example shows how to enable software encryption conversion in the cluster.
-# The API:
-PATCH /api/security
-# The call
-curl -X PATCH "https://<mgmt_ip>/api/security" -d '{ "software_data_encryption.conversion_enabled" : true }'
-# The response:
-{
-   "job": {
-       "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
-       "_links": {
-           "self": {
-               "href": "/api/cluster/jobs/ebcbd82d-1cd4-11ea-8f75-005056ac4adc"
-           }
-       }
-   }
-}
-This returns a job UUID. A subsequent GET for this job UUID returns details of the job.
-# The call
-curl -X GET "https://<mgmt_ip>/api/cluster/jobs/ebcbd82d-1cd4-11ea-8f75-005056ac4adc"
-# The response:
-{
-  "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
-  "description": "PATCH /api/security",
-  "state": "success",
-  "message": "success",
-  "code": 0,
-  "start_time": "2019-12-12T06:45:40-05:00",
-  "end_time": "2019-12-12T06:45:40-05:00",
-  "_links": {
-    "self": {
-      "href": "/api/cluster/jobs/ebcbd82d-1cd4-11ea-8f75-005056ac4adc"
-    }
-  }
-}
-### Triggering software encryption rekey in the cluster
-### Platform Specifics
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityConfig
 
-* **ASA r2**:
-The following example shows how to trigger software encryption rekey in the cluster.
-# The API:
-PATCH /api/security
-# The call
-curl -X PATCH "https://<mgmt_ip>/api/security" -d '{ "software_data_encryption.rekey" : true }'
-# The response:
-{
-   "job": {
-       "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
-       "_links": {
-           "self": {
-               "href": "/api/cluster/jobs/ebcbd82d-1cd4-11ea-8f75-005056ac4adc"
-           }
-       }
-   }
-}
+with HostConnection("<mgmt_ip>", username="admin", password="password", verify=False):
+    resource = SecurityConfig()
+    resource.software_data_encryption.conversion_enabled = True
+    resource.patch()
+
+```
+
 This returns a job UUID. A subsequent GET for this job UUID returns details of the job.
-# The call
-curl -X GET "https://<mgmt_ip>/api/cluster/jobs/ebcbd82d-1cd4-11ea-8f75-005056ac4adc"
-# The response:
-{
-  "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
-  "description": "PATCH /api/security",
-  "state": "success",
-  "message": "success",
-  "code": 0,
-  "start_time": "2019-12-12T06:45:40-05:00",
-  "end_time": "2019-12-12T06:45:40-05:00",
-  "_links": {
-    "self": {
-      "href": "/api/cluster/jobs/ebcbd82d-1cd4-11ea-8f75-005056ac4adc"
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Job
+
+with HostConnection("<mgmt_ip>", username="admin", password="password", verify=False):
+    resource = Job(uuid="ebcbd82d-1cd4-11ea-8f75-005056ac4adc")
+    resource.get()
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example2_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example2_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example2_result" class="try_it_out_content">
+```
+Job(
+    {
+        "start_time": "2019-12-12T06:45:40-05:00",
+        "message": "success",
+        "state": "success",
+        "code": 0,
+        "description": "PATCH /api/security",
+        "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
+        "_links": {
+            "self": {"href": "/api/cluster/jobs/ebcbd82d-1cd4-11ea-8f75-005056ac4adc"}
+        },
+        "end_time": "2019-12-12T06:45:40-05:00",
     }
-  }
-}
+)
+
+```
+</div>
+</div>
+
+<personalities supports=asar2,aiml>
+### Triggering software encryption rekey in the cluster
+The following example shows how to trigger software encryption rekey in the cluster.
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityConfig
+
+with HostConnection("<mgmt_ip>", username="admin", password="password", verify=False):
+    resource = SecurityConfig()
+    resource.software_data_encryption.rekey = True
+    resource.patch()
+
+```
+
+This returns a job UUID. A subsequent GET for this job UUID returns details of the job.
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Job
+
+with HostConnection("<mgmt_ip>", username="admin", password="password", verify=False):
+    resource = Job(uuid="ebcbd82d-1cd4-11ea-8f75-005056ac4adc")
+    resource.get()
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example2_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example2_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example2_result" class="try_it_out_content">
+```
+Job(
+    {
+        "start_time": "2019-12-12T06:45:40-05:00",
+        "message": "success",
+        "state": "success",
+        "code": 0,
+        "description": "PATCH /api/security",
+        "uuid": "ebcbd82d-1cd4-11ea-8f75-005056ac4adc",
+        "_links": {
+            "self": {"href": "/api/cluster/jobs/ebcbd82d-1cd4-11ea-8f75-005056ac4adc"}
+        },
+        "end_time": "2019-12-12T06:45:40-05:00",
+    }
+)
+
+```
+</div>
+</div>
+
+</personalities>
 ### Enabling FIPS mode in the cluster
 The following example shows how to enable FIPS mode in the cluster.
-# The API:
-PATCH /api/security
-# The call
-curl -X PATCH "https://<mgmt_ip>/api/security" -d '{ "fips.enabled" : true }'
-# The response:
-{
-   "job": {
-       "uuid": "8e7f59ee-a9c4-4faa-9513-bef689bbf2c2",
-       "_links": {
-           "self": {
-               "href": "/api/cluster/jobs/8e7f59ee-a9c4-4faa-9513-bef689bbf2c2"
-           }
-       }
-   }
-}
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityConfig
+
+with HostConnection("<mgmt_ip>", username="admin", password="password", verify=False):
+    resource = SecurityConfig()
+    resource.fips.enabled = True
+    resource.patch()
+
+```
+
 This returns a job UUID. A subsequent GET for this job UUID returns details of the job.
-# The call
-curl -X GET "https://<mgmt_ip>/api/cluster/jobs/8e7f59ee-a9c4-4faa-9513-bef689bbf2c2"
-# The response:
-{
-  "uuid": "8e7f59ee-a9c4-4faa-9513-bef689bbf2c2",
-  "description": "PATCH /api/security",
-  "state": "success",
-  "message": "success",
-  "code": 0,
-  "start_time": "2020-04-28T06:55:40-05:00",
-  "end_time": "2020-04-28T06:55:41-05:00",
-  "_links": {
-    "self": {
-      "href": "/api/cluster/jobs/8e7f59ee-a9c4-4faa-9513-bef689bbf2c2"
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Job
+
+with HostConnection("<mgmt_ip>", username="admin", password="password", verify=False):
+    resource = Job(uuid="8e7f59ee-a9c4-4faa-9513-bef689bbf2c2")
+    resource.get()
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example6_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example6_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example6_result" class="try_it_out_content">
+```
+Job(
+    {
+        "start_time": "2020-04-28T06:55:40-05:00",
+        "message": "success",
+        "state": "success",
+        "code": 0,
+        "description": "PATCH /api/security",
+        "uuid": "8e7f59ee-a9c4-4faa-9513-bef689bbf2c2",
+        "_links": {
+            "self": {"href": "/api/cluster/jobs/8e7f59ee-a9c4-4faa-9513-bef689bbf2c2"}
+        },
+        "end_time": "2020-04-28T06:55:41-05:00",
     }
-  }
-}
+)
+
+```
+</div>
+</div>
+
 ### Configuring permissible TLS protocols and cipher suites in the cluster
 The following example shows how to configure the cluster to only allow TLSv1.3 & TLSv1.2 with selected cipher suites.
-# The API:
-PATCH /api/security
-# The call
-curl -X PATCH "https://<mgmt_ip>/api/security" -d '{ "tls" : { "protocol_versions" : ["TLSv1.3", TLSv1.2"], "cipher_suites" : ["TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384", "TLS_AES_256_GCM_SHA384"] } }'
-# The response:
-{
-   "job": {
-       "uuid": "b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d",
-       "_links": {
-           "self": {
-               "href": "/api/cluster/jobs/b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d"
-           }
-       }
-   }
-}
-This returns a job UUID. A subsequent GET for this job UUID returns details of the job.
-# The call
-curl -X GET "https://<mgmt_ip>/api/cluster/jobs/b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d"
-# The response:
-{
-  "uuid": "b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d",
-  "description": "PATCH /api/security",
-  "state": "success",
-  "message": "success",
-  "code": 0,
-  "start_time": "2021-03-22T08:52:50-05:00",
-  "end_time": "2021-03-22T08:52:51-05:00",
-  "_links": {
-    "self": {
-      "href": "/api/cluster/jobs/b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d"
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityConfig
+
+with HostConnection("<mgmt_ip>", username="admin", password="password", verify=False):
+    resource = SecurityConfig()
+    resource.tls = {
+        "protocol_versions": ["TLSv1.3", "TLSv1.2"],
+        "cipher_suites": [
+            "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384",
+            "TLS_AES_256_GCM_SHA384",
+        ],
     }
-  }
-}
+    resource.patch()
+
+```
+
+This returns a job UUID. A subsequent GET for this job UUID returns details of the job.
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Job
+
+with HostConnection("<mgmt_ip>", username="admin", password="password", verify=False):
+    resource = Job(uuid="b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d")
+    resource.get()
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example8_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example8_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example8_result" class="try_it_out_content">
+```
+Job(
+    {
+        "start_time": "2021-03-22T08:52:50-05:00",
+        "message": "success",
+        "state": "success",
+        "code": 0,
+        "description": "PATCH /api/security",
+        "uuid": "b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d",
+        "_links": {
+            "self": {"href": "/api/cluster/jobs/b45b6290-f4f2-442a-aa0e-4d3ffefe5e0d"}
+        },
+        "end_time": "2021-03-22T08:52:51-05:00",
+    }
+)
+
+```
+</div>
+</div>
+
 ### Enabling security protocols in the cluster
 The following example shows how to enable the security protocol rsh in the cluster.
-# The API:
-PATCH /api/security
-# The call
-curl -X PATCH "https://<mgmt_ip>/api/security" -d '{ "management_protocols" : { "rsh_enabled" : true } }'
-# The response
-{
-  "job": {
-  "uuid": "2980ba28-adab-11eb-8fa3-005056bbfa84",
-  "_links": {
-    "self": {
-      "href": "/api/cluster/jobs/2980ba28-adab-11eb-8fa3-005056bbfa84"
-    }
-   }
- }
-}
-# The call:
-curl -H "accept: application/hal+json" -X GET "https://<mgmt-ip>/api/security/?fields=management_protocols"
-# The response:
-{
-  "management_protocols": {
-    "rsh_enabled": false,
-    "telnet_enabled": false
-  },
-  "_links": {
-    "self": {
-      "href": "/api/security"
-    }
-  }
-}
----"""
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import SecurityConfig
+
+with HostConnection("<mgmt_ip>", username="admin", password="password", verify=False):
+    resource = SecurityConfig()
+    resource.management_protocols = {"rsh_enabled": True}
+    resource.patch()
+
+```
+"""
 
 import asyncio
 from datetime import datetime
@@ -516,12 +550,11 @@ class SecurityConfig(Resource):
         **kwargs
     ) -> NetAppResponse:
         r"""Updates the software FIPS mode or modifies software data encryption.
-## Platform Specifics
-### Unified ONTAP
-The PATCH request can be used to enable conversion of non-encrypted metadata volumes to encrypted metadata volumes and non-NAE aggregates to NAE aggregates.
-### ASA r2
+<personalities supports=unified>The PATCH request can be used to enable conversion of non-encrypted metadata volumes to encrypted metadata volumes and non-NAE aggregates to NAE aggregates.</personalities>
+<personalities supports=asar2,aiml>
 The PATCH request can be used to enable conversion of all non-encrypted volumes and LUNs to encrypted volumes and LUNs.
 The PATCH request can also be used to start the rekey of all encrypted volumes and LUNs.
+</personalities>
 ### Related ONTAP commands
 * `security config modify`
 

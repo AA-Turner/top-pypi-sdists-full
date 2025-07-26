@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,22 +26,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     UnixUserSettings(
         {
-            "propagation_enabled": True,
-            "negative_cache_enabled": True,
-            "enabled": True,
-            "svm": {"name": "vs43", "uuid": "8a1a8730-2036-11ec-8457-005056bbcfdb"},
-            "ttl": "P1D",
             "negative_ttl": "PT1M",
+            "enabled": True,
+            "negative_cache_enabled": True,
+            "ttl": "P1D",
+            "svm": {"uuid": "8a1a8730-2036-11ec-8457-005056bbcfdb", "name": "vs43"},
+            "propagation_enabled": True,
         }
     ),
     UnixUserSettings(
         {
-            "propagation_enabled": True,
-            "negative_cache_enabled": True,
-            "enabled": True,
-            "svm": {"name": "vs34", "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef"},
-            "ttl": "P1D",
             "negative_ttl": "PT1M",
+            "enabled": True,
+            "negative_cache_enabled": True,
+            "ttl": "P1D",
+            "svm": {"uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef", "name": "vs34"},
+            "propagation_enabled": True,
         }
     ),
 ]
@@ -71,12 +71,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 UnixUserSettings(
     {
-        "propagation_enabled": True,
-        "negative_cache_enabled": True,
-        "enabled": True,
-        "svm": {"name": "vs34", "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef"},
-        "ttl": "P1D",
         "negative_ttl": "PT1M",
+        "enabled": True,
+        "negative_cache_enabled": True,
+        "ttl": "P1D",
+        "svm": {"uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef", "name": "vs34"},
+        "propagation_enabled": True,
     }
 )
 

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,8 +30,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsSearchPath(
     {
-        "svm": {"name": "vs1", "uuid": "a41fd873-ecf8-11e8-899d-0050568e9333"},
         "path": "/",
+        "svm": {"uuid": "a41fd873-ecf8-11e8-899d-0050568e9333", "name": "vs1"},
     }
 )
 
@@ -57,30 +57,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CifsSearchPath(
         {
-            "svm": {"name": "vs1", "uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e"},
-            "index": 1,
             "path": "/",
+            "svm": {"uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e", "name": "vs1"},
+            "index": 1,
         }
     ),
     CifsSearchPath(
         {
-            "svm": {"name": "vs1", "uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e"},
-            "index": 2,
             "path": "/a",
-        }
-    ),
-    CifsSearchPath(
-        {
-            "svm": {"name": "vs2", "uuid": "4f23449b-f4ce-11e8-b075-0050568e278e"},
-            "index": 1,
-            "path": "/",
-        }
-    ),
-    CifsSearchPath(
-        {
-            "svm": {"name": "vs2", "uuid": "4f23449b-f4ce-11e8-b075-0050568e278e"},
+            "svm": {"uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e", "name": "vs1"},
             "index": 2,
+        }
+    ),
+    CifsSearchPath(
+        {
+            "path": "/",
+            "svm": {"uuid": "4f23449b-f4ce-11e8-b075-0050568e278e", "name": "vs2"},
+            "index": 1,
+        }
+    ),
+    CifsSearchPath(
+        {
             "path": "/1",
+            "svm": {"uuid": "4f23449b-f4ce-11e8-b075-0050568e278e", "name": "vs2"},
+            "index": 2,
         }
     ),
 ]
@@ -110,9 +110,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsSearchPath(
     {
-        "svm": {"name": "vs1", "uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e"},
-        "index": 2,
         "path": "/a",
+        "svm": {"uuid": "2d96f9aa-f4ce-11e8-b075-0050568e278e", "name": "vs1"},
+        "index": 2,
     }
 )
 

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: chia_rs
-Version: 0.27.0
+Version: 0.28.0
 Requires-Dist: typing-extensions
 Summary: Code useful for implementing chia consensus.
 Home-Page: https://github.com/Chia-Network/chia_rs

@@ -2156,6 +2156,7 @@ class DataBase(Device):
         self.info_stream(
             "DataBase::AddDevice(): insert %s server with device %s", argin[0], argin[1]
         )
+        # TODO is this standard?
         server_name, d_name, klass_name = argin[:3]
         alias = argin[3] if len(argin) > 3 else None
 
@@ -2242,7 +2243,18 @@ def main(argv=None):
         help="logging_level 0:WARNING,1:INFO,2:DEBUG",
     )
     parser.add_argument(
-        "--port", dest="port", default=None, type=int, help="database port"
+        "--port",
+        dest="port",
+        default=None,
+        type=int,
+        help="database port (use port from TANGO_HOST if not set or 10000)",
+    )
+    parser.add_argument(
+        "--host",
+        dest="host",
+        default=None,
+        type=str,
+        help="database host (use host from TANGO_HOST if not set or 0.0.0.0)",
     )
     parser.add_argument("argv", nargs=argparse.REMAINDER)
     options = parser.parse_args(argv)
@@ -2252,13 +2264,19 @@ def main(argv=None):
     get_plugin(options.db_access)
 
     port = options.port
+    host = options.host
+    try:
+        th_host, th_port = tango.ApiUtil.get_env_var("TANGO_HOST").split(":")
+    except Exception:
+        th_host = "0.0.0.0"
+        th_port = 10000
+    # Do not use options.port or th_port as we might want to pass port 0 (which is false)
     if port is None:
-        try:
-            _, port = tango.ApiUtil.get_env_var("TANGO_HOST").split(":")
-        except Exception:
-            port = 10000
+        port = th_port
+    if host is None:
+        host = th_host
 
-    options.argv += ["-ORBendPoint", f"giop:tcp:0.0.0.0:{port}"]
+    options.argv += ["-ORBendPoint", f"giop:tcp:{host}:{port}"]
 
     log_fmt = "%(threadName)-14s %(levelname)-8s %(asctime)s %(name)s: %(message)s"
     if options.logging_level == 1:

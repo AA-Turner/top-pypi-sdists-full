@@ -102,6 +102,7 @@ output = "coverage.xml"
 # more places to look for types
 mypy_path = [
     "$MYPY_CONFIG_FILE_DIR/../../../../projects/libs/python/connector-sdk/",
+    "$MYPY_CONFIG_FILE_DIR/../../../../projects/libs/python/connector-sdk-types/"
 ]
 # Don't typecheck build artifacts
 exclude = [

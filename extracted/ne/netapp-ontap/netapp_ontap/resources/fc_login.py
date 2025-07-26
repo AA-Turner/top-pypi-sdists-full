@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,84 +26,84 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     FcLogin(
         {
             "interface": {
-                "name": "lif1",
                 "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/01056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
+                "name": "lif1",
             },
             "initiator": {"wwpn": "8b:21:2f:07:00:00:00:00"},
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
-            },
             "svm": {
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
             },
         }
     ),
     FcLogin(
         {
             "interface": {
-                "name": "lif2",
                 "uuid": "02056403-1383-bc4b-786a-93e8ea35969d",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/02056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
+                "name": "lif2",
             },
             "initiator": {"wwpn": "8c:21:2f:07:00:00:00:00"},
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/02056403-1383-bc4b-786a-93e8ea35969d/8c%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
-            },
             "svm": {
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/02056403-1383-bc4b-786a-93e8ea35969d/8c%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
             },
         }
     ),
     FcLogin(
         {
             "interface": {
-                "name": "lif3",
                 "uuid": "03056403-1383-bc4b-786a-93e8ea35969d",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/00056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
+                "name": "lif3",
             },
             "initiator": {"wwpn": "8a:21:2f:07:00:00:00:00"},
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/00056403-1383-bc4b-786a-93e8ea35969d/8a%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
-            },
             "svm": {
+                "uuid": "156403da-83a7-4b13-bc78-6a93e8ea3596",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/156403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-                "uuid": "156403da-83a7-4b13-bc78-6a93e8ea3596",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/00056403-1383-bc4b-786a-93e8ea35969d/8a%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
             },
         }
     ),
@@ -134,58 +134,58 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     FcLogin(
         {
             "interface": {
-                "name": "lif2",
                 "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/01056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
+                "name": "lif2",
             },
-            "protocol": "fcp",
             "initiator": {"wwpn": "8b:21:2f:07:00:00:00:00"},
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
-            },
+            "protocol": "fcp",
             "svm": {
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
             },
         }
     ),
     FcLogin(
         {
             "interface": {
-                "name": "lif3",
                 "uuid": "02056403-1383-bc4b-786a-93e8ea35969d",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/02056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
+                "name": "lif3",
             },
-            "protocol": "fcp",
             "initiator": {"wwpn": "8c:21:2f:07:00:00:00:00"},
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/02056403-1383-bc4b-786a-93e8ea35969d/8c%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
-            },
+            "protocol": "fcp",
             "svm": {
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/02056403-1383-bc4b-786a-93e8ea35969d/8c%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
             },
         }
     ),
@@ -216,16 +216,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     FcLogin(
         {
             "interface": {
-                "name": "lif2",
+                "wwpn": "8b:21:2f:07:00:00:00:00",
                 "uuid": "01056403-1383-bc4b-786a-93e8ea35969d",
                 "_links": {
                     "self": {
                         "href": "/api/network/fc/interfaces/01056403-1383-bc4b-786a-93e8ea35969d"
                     }
                 },
-                "wwpn": "8b:21:2f:07:00:00:00:00",
+                "name": "lif2",
             },
-            "protocol": "fcp",
             "initiator": {
                 "comment": "Example information about this initiator",
                 "wwpn": "8b:21:2f:07:00:00:00:00",
@@ -242,19 +241,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     },
                 }
             ],
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
-                }
-            },
+            "protocol": "fcp",
             "svm": {
+                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/056403da-83a7-4b13-bc78-6a93e8ea3596"
                     }
                 },
-                "uuid": "056403da-83a7-4b13-bc78-6a93e8ea3596",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/logins/01056403-1383-bc4b-786a-93e8ea35969d/8b%3A21%3A2f%3A07%3A00%3A00%3A00%3A00"
+                }
             },
         }
     )

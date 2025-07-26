@@ -3931,7 +3931,8 @@ class CometExperiment(CommonExperiment):
         cache: bool = True,
         selected: Optional[List[int]] = None,
         images: Optional[List] = None,
-        **kwargs: Any  # keyword args for index_to_example_function
+        images_annotations: Optional[List[List[Layer]]] = None,
+        **kwargs: Any,  # keyword args for index_to_example_function
     ):
         """Create a confusion matrix for use over multiple epochs.
 
@@ -3962,7 +3963,7 @@ class CometExperiment(CommonExperiment):
                 that takes an index and returns either
                 a number, a string, a URL, or a {"sample": str,
                 "assetId": str} dictionary. See below for more info. If left blank, the function
-                returns a number representing the index of the example.
+                returns a number representing the index of the example, and logs images if parameter is not None.
             cache (bool): Should the results of index_to_example_function
                 be cached and reused?
             selected (list): A list of selected category
@@ -3973,6 +3974,17 @@ class CometExperiment(CommonExperiment):
                 the most confused categories.
             images (list): A list of data that can be passed to
                 Experiment.log_image().
+            images_annotations (list, optional): Specifies annotation layers for images.
+                This parameter expects a list of lists, where each inner list defines an
+                annotation layer, potentially containing bounding boxes and/or polygons.
+
+                For a comprehensive understanding of how annotations are utilized and structured,
+                please consult the documentation for `Experiment.log_image()`.
+
+                **Important Note for Custom `index_to_example_function` Implementations:**
+                If you provide your own implementation for `index_to_example_function` (bypassing the default),
+                it is critical to ensure that every `images_annotations` entry is consistently passed alongside its corresponding image within each `log_image()` call.
+                Furthermore, the metadata associated with these annotations must precisely align with the expectations and requirements of the `Experiment.log_image()` call.
             kwargs (optional): Any extra keywords and their values will
                 be passed onto the index_to_example_function.
 
@@ -4015,8 +4027,9 @@ class CometExperiment(CommonExperiment):
             cache=cache,
             selected=selected,
             images=images,
+            images_annotations=images_annotations,
             experiment=self,
-            **kwargs
+            **kwargs,
         )
         return confusion_matrix
 
@@ -4041,8 +4054,9 @@ class CometExperiment(CommonExperiment):
         epoch: Optional[int] = None,
         images: Optional[List] = None,
         selected: Optional[List[int]] = None,
+        images_annotations: Optional[List[List[Layer]]] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ):
         """Logs a confusion matrix.
 
@@ -4094,6 +4108,17 @@ class CometExperiment(CommonExperiment):
                 then selected will be computed automatically by selecting
                 the most confused categories.
             metadata (dict): Some additional data to attach to the confusion matrix asset.
+            images_annotations (list, optional): Specifies annotation layers for images.
+                This parameter expects a list of lists, where each inner list defines an
+                annotation layer, potentially containing bounding boxes and/or polygons.
+
+                For a comprehensive understanding of how annotations are utilized and structured,
+                please consult the documentation for `Experiment.log_image()`.
+
+                **Important Note for Custom `index_to_example_function` Implementations:**
+                If you provide your own implementation for `index_to_example_function` (bypassing the default),
+                it is critical to ensure that every `images_annotations` entry is consistently passed alongside its corresponding image within each `log_image()` call.
+                Furthermore, the metadata associated with these annotations must precisely align with the expectations and requirements of the `Experiment.log_image()` call.
             kwargs (Any): Any extra keywords and their values will
                 be passed onto the index_to_example_function.
 
@@ -4124,6 +4149,25 @@ class CometExperiment(CommonExperiment):
             exp.end()
             ```
         """
+
+        if images_annotations is not None:
+            if not isinstance(images_annotations, list):
+                LOGGER.error(
+                    EXPERIMENT_LOG_IMAGE_ANNOTATION_VALIDATION_ERROR
+                    % f"images_annotations is not a list as expected, has a type of: {type(images_annotations)}"
+                )
+                return None
+
+            for image_annotations in images_annotations:
+                validator = ImageAnnotationValidator(annotations=image_annotations)
+                result = validator.validate()
+                if not result:
+                    LOGGER.error(
+                        EXPERIMENT_LOG_IMAGE_ANNOTATION_VALIDATION_ERROR
+                        % result.failure_reasons
+                    )
+                    return None
+
         if isinstance(matrix, ConfusionMatrix):
             confusion_matrix = matrix
             confusion_matrix.need_init()
@@ -4143,8 +4187,9 @@ class CometExperiment(CommonExperiment):
                     index_to_example_function=index_to_example_function,
                     cache=cache,
                     images=images,
+                    images_annotations=images_annotations,
                     selected=selected,
-                    **kwargs
+                    **kwargs,
                 )
             except Exception as exc:
                 LOGGER.error(
@@ -4183,7 +4228,7 @@ class CometExperiment(CommonExperiment):
         step: Optional[int] = None,
         epoch: Optional[int] = None,
         metadata: Optional[Dict[str, Any]] = None,
-        **kwargs: Any
+        **kwargs: Any,
     ) -> Optional[Dict[str, str]]:
         """Logs a histogram of values for a 3D chart as an asset for this
         experiment. Calling this method multiple times with the same
@@ -4909,7 +4954,7 @@ class CometExperiment(CommonExperiment):
         filename: str,
         tabular_data: Any = None,
         headers: Union[str, List[str]] = False,
-        **format_kwargs: Any
+        **format_kwargs: Any,
     ) -> Optional[Dict[str, str]]:
         """Log tabular data, including data, csv files, tsv files, and Pandas dataframes.
 
@@ -5363,7 +5408,7 @@ class CometExperiment(CommonExperiment):
         minimal: bool = False,
         log_raw_dataframe: bool = True,
         dataframe_format: str = "json",
-        **format_kwargs: Any
+        **format_kwargs: Any,
     ) -> Optional[Dict[str, Optional[Dict[str, str]]]]:
         """
         Log a pandas DataFrame profile as an asset. Optionally, can
@@ -5440,7 +5485,7 @@ class CometExperiment(CommonExperiment):
             results = self.log_table(
                 "%s.%s" % (name, dataframe_format),
                 tabular_data=dataframe,
-                **format_kwargs
+                **format_kwargs,
             )
             retval["dataframe"] = results
 

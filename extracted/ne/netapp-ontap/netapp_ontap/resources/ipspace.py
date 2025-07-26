@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,35 +27,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Ipspace(
         {
-            "name": "Default",
+            "uuid": "dcc7e79c-5acc-11e8-b9de-005056b42b32",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/dcc7e79c-5acc-11e8-b9de-005056b42b32"
                 }
             },
-            "uuid": "dcc7e79c-5acc-11e8-b9de-005056b42b32",
+            "name": "Default",
         }
     ),
     Ipspace(
         {
-            "name": "Cluster",
+            "uuid": "dfd3c1b2-5acc-11e8-b9de-005056b42b32",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/dfd3c1b2-5acc-11e8-b9de-005056b42b32"
                 }
             },
-            "uuid": "dfd3c1b2-5acc-11e8-b9de-005056b42b32",
+            "name": "Cluster",
         }
     ),
     Ipspace(
         {
-            "name": "Ipspace1",
+            "uuid": "dedec1be-5aec-1eee-beee-0eee56be2b3e",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/dedec1be-5aec-1eee-beee-0eee56be2b3e"
                 }
             },
-            "uuid": "dedec1be-5aec-1eee-beee-0eee56be2b3e",
+            "name": "Ipspace1",
         }
     ),
 ]
@@ -86,13 +86,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Ipspace(
     {
-        "name": "Default",
+        "uuid": "dcc7e79c-5acc-11e8-b9de-005056b42b32",
         "_links": {
             "self": {
                 "href": "/api/network/ipspaces/dcc7e79c-5acc-11e8-b9de-005056b42b32"
             }
         },
-        "uuid": "dcc7e79c-5acc-11e8-b9de-005056b42b32",
+        "name": "Default",
     }
 )
 
@@ -128,13 +128,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Ipspace(
     {
-        "name": "ipspace2",
+        "uuid": "4165655e-0528-11e9-bd68-005056bb046a",
         "_links": {
             "self": {
                 "href": "/api/network/ipspaces/4165655e-0528-11e9-bd68-005056bb046a"
             }
         },
-        "uuid": "4165655e-0528-11e9-bd68-005056bb046a",
+        "name": "ipspace2",
     }
 )
 

@@ -10,10 +10,10 @@ use std::path::Path;
 use std::path::PathBuf;
 
 use clap::Parser;
-use path_absolutize::Absolutize;
 use pyrefly_config::file_kind::ConfigFileKind;
 use pyrefly_config::migration::run::config_migration;
 use pyrefly_config::pyproject::PyProject;
+use pyrefly_util::absolutize::Absolutize as _;
 use pyrefly_util::display;
 use pyrefly_util::fs_anyhow;
 use tracing::error;
@@ -139,7 +139,7 @@ impl InitArgs {
                 "--suppress-errors",
                 "--output-format",
                 "omit-errors",
-                "--no-summary",
+                "--summary=none",
             ]);
 
             // Use get to get the filtered globs and config finder
@@ -194,7 +194,7 @@ impl InitArgs {
             let (mut existing_config, _) = ConfigFile::from_file(root_config_path);
 
             // Update only the project_includes field
-            existing_config.project_includes = pyrefly_util::globs::Globs::new(include_patterns);
+            existing_config.project_includes = pyrefly_util::globs::Globs::new(include_patterns)?;
 
             // Handle differently based on config file type
             if root_config_path.ends_with(ConfigFile::PYPROJECT_FILE_NAME) {
@@ -296,7 +296,7 @@ impl InitArgs {
             "--suppress-errors",
             "--output-format",
             "omit-errors",
-            "--no-summary",
+            "--summary=none",
         ]);
 
         // Collect file paths from errors in selected directories
@@ -347,7 +347,7 @@ impl InitArgs {
     }
 
     fn create_config(&self) -> anyhow::Result<(CommandExitStatus, Option<PathBuf>)> {
-        let path = self.path.absolutize()?.to_path_buf();
+        let path = self.path.absolutize();
 
         let dir: Option<&Path> = if path.is_dir() {
             Some(&path)

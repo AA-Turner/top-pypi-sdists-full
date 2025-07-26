@@ -182,9 +182,9 @@ if __name__ == '__main__':
         image_url="https://oss.ffire.cc/files/kling_watermark.png",  # 图生有问题
     )
 
-    # with timer():
-    #     r = arun(create_task(request, token))
-    #     print(r)
+    with timer():
+        r = arun(create_task(request))
+        print(r)
 
     # arun(get_task(r.task_id))
     # arun(get_task(r.task_id, "d2d142fc877e696484cc2fc521127b36"))

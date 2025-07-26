@@ -4,9 +4,9 @@ import io
 import sys
 
 import pytest_cases
-from connector.generated import StandardCapabilityName
 from connector.oai.integration import Integration
 from connector.oai.modules.base_module import BaseIntegrationModule
+from connector_sdk_types.generated import StandardCapabilityName
 
 from tests.oai.test_modules_cases import (
     case_add_module,

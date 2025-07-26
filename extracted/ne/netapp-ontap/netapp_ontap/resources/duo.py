@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,16 +26,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Duo(
     {
-        "status": "Ok",
-        "fail_mode": "safe",
-        "max_prompts": 1,
         "comment": "Duo profile for Cserver",
-        "push_info": True,
-        "owner": {"name": "cluster-1", "uuid": "f810005a-d908-11ed-a6e6-0050568e8ef2"},
-        "api_host": "api-******.duosecurity.com",
+        "max_prompts": 1,
+        "status": "Ok",
         "integration_key": "AAAA1A11A1AAA1AAA111",
-        "fingerprint": "xxxxxxxxxc8f58b1d52317e1212e9f067a958c387e5e2axxxxxxxxxxxxxxxxxx",
         "is_enabled": True,
+        "fingerprint": "xxxxxxxxxc8f58b1d52317e1212e9f067a958c387e5e2axxxxxxxxxxxxxxxxxx",
+        "owner": {"uuid": "f810005a-d908-11ed-a6e6-0050568e8ef2", "name": "cluster-1"},
+        "api_host": "api-******.duosecurity.com",
+        "push_info": True,
+        "fail_mode": "safe",
         "auto_push": True,
     }
 )

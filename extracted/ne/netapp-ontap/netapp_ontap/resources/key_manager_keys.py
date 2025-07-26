@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -32,23 +32,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 KeyManagerKeys(
     {
-        "encryption_algorithm": "XTS-AES-256",
+        "restored": False,
         "key_user": "datavs",
-        "key_type": "vek",
-        "svm": {"name": "cluster-1"},
-        "node": {"uuid": "00000000-0000-0000-0000-000000000000"},
         "key_manager": "onboard",
         "key_store": "onboard",
+        "key_store_type": "okm",
+        "key_tag": "vsim1",
+        "key_type": "vek",
+        "encryption_algorithm": "XTS-AES-256",
+        "node": {"uuid": "00000000-0000-0000-0000-000000000000"},
         "_links": {
             "self": {
                 "href": "/api/security/key-managers/f4f98a48-8a5c-c548-cd03-c6335f5803a8/keys/00000000-0000-0000-0000-000000000000/key-ids/000000000000000002000000000005009ad4da8fea2cafe2bed803078b780ebe0000000000000c01"
             }
         },
-        "restored": False,
-        "key_store_type": "okm",
-        "key_tag": "vsim1",
-        "key_id": "000000000000000002000000000005009ad4da8fea2cafe2bed803078b780ebe0000000000000c01",
         "security_key_manager": {"uuid": "f4f98a48-8a5c-c548-cd03-c6335f5803a8"},
+        "svm": {"name": "cluster-1"},
+        "key_id": "000000000000000002000000000005009ad4da8fea2cafe2bed803078b780ebe0000000000000c01",
     }
 )
 
@@ -164,7 +164,7 @@ Valid choices:
 
     key_store_type = marshmallow_fields.Str(
         data_key="key_store_type",
-        validate=enum_validation(['okm', 'kmip', 'akv', 'unset', 'gcp', 'aws', 'ikp']),
+        validate=enum_validation(['okm', 'kmip', 'akv', 'unset', 'gcp', 'aws', 'ikp', 'barbican']),
         allow_none=True,
     )
     r""" Security key manager keystore type. Keystore type can be onboard, external, or supported cloud key manager.
@@ -177,7 +177,8 @@ Valid choices:
 * unset
 * gcp
 * aws
-* ikp"""
+* ikp
+* barbican"""
 
     key_tag = marshmallow_fields.Str(
         data_key="key_tag",

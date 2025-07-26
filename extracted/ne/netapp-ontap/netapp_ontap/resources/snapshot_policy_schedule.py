@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -46,9 +46,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SnapshotPolicySchedule(
     {
         "schedule": {"uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c"},
-        "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
         "prefix": "new_monthly",
         "count": 5,
+        "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
     }
 )
 
@@ -81,8 +81,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     SnapshotPolicySchedule(
         {
             "schedule": {
-                "name": "5min",
                 "uuid": "63d017dc-818a-11e9-b4f4-005056bbab9c",
+                "name": "5min",
             },
             "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
         }
@@ -90,8 +90,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     SnapshotPolicySchedule(
         {
             "schedule": {
-                "name": "8hour",
                 "uuid": "64a5c5da-818a-11e9-b4f4-005056bbab9c",
+                "name": "8hour",
             },
             "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
         }
@@ -99,8 +99,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     SnapshotPolicySchedule(
         {
             "schedule": {
-                "name": "daily",
                 "uuid": "63e21a3e-818a-11e9-b4f4-005056bbab9c",
+                "name": "daily",
             },
             "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
         }
@@ -108,8 +108,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     SnapshotPolicySchedule(
         {
             "schedule": {
-                "name": "monthly",
                 "uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c",
+                "name": "monthly",
             },
             "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
         }
@@ -142,12 +142,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SnapshotPolicySchedule(
     {
-        "schedule": {"name": "monthly", "uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c"},
-        "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
+        "schedule": {"uuid": "7c985d80-818a-11e9-b4f4-005056bbab9c", "name": "monthly"},
         "prefix": "new_monthly",
         "count": 5,
-        "snapmirror_label": "-",
+        "snapshot_policy": {"uuid": "32a0841a-818e-11e9-b4f4-005056bbab9c"},
         "retention_period": "PT20M",
+        "snapmirror_label": "-",
     }
 )
 

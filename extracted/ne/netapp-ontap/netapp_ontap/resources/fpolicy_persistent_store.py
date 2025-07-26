@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -35,7 +35,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <div id="example0_result" class="try_it_out_content">
 ```
 FpolicyPersistentStore(
-    {"volume": "psvol", "name": "ps1", "autosize_mode": "off", "size": 1073741824}
+    {"autosize_mode": "off", "volume": "psvol", "size": 1073741824, "name": "ps1"}
 )
 
 ```
@@ -63,7 +63,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example1_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example1_result" class="try_it_out_content">
 ```
-FpolicyPersistentStore({"volume": "psvol", "name": "ps1", "size": 1073741824})
+FpolicyPersistentStore({"volume": "psvol", "size": 1073741824, "name": "ps1"})
 
 ```
 </div>
@@ -119,11 +119,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyPersistentStore(
     {
-        "volume": "psvol",
-        "name": "ps1",
         "autosize_mode": "off",
-        "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
+        "volume": "psvol",
         "size": 1073741824,
+        "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
+        "name": "ps1",
     }
 )
 

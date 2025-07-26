@@ -49,8 +49,11 @@ impl ZBytes {
         }
     }
 
-    fn to_bytes(&self) -> Cow<[u8]> {
-        self.0.to_bytes()
+    fn to_bytes<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+        // Not using `ZBytes::to_bytes`
+        PyBytes::new_bound_with(py, self.0.len(), |bytes| {
+            self.0.reader().read_exact(bytes).into_pyres()
+        })
     }
 
     fn to_string(&self) -> PyResult<Cow<str>> {
@@ -68,9 +71,11 @@ impl ZBytes {
     }
 
     fn __bytes__<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
-        PyBytes::new_bound_with(py, self.0.len(), |bytes| {
-            self.0.reader().read_exact(bytes).into_pyres()
-        })
+        self.to_bytes(py)
+    }
+
+    fn __str__(&self) -> PyResult<Cow<str>> {
+        self.to_string()
     }
 
     fn __eq__(&self, other: &Bound<PyAny>) -> PyResult<bool> {
@@ -92,8 +97,8 @@ downcast_or_new!(Encoding => Option<String>);
 #[pymethods]
 impl Encoding {
     #[new]
-    fn new(s: Option<String>) -> PyResult<Self> {
-        Ok(s.map_into().map(Self).unwrap_or_default())
+    fn new(s: Option<String>) -> Self {
+        s.map_into().map(Self).unwrap_or_default()
     }
 
     fn with_schema(&self, schema: String) -> Self {

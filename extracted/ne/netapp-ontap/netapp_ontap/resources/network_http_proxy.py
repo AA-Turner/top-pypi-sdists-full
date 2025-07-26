@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,27 +26,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NetworkHttpProxy(
         {
-            "uuid": "4133a1fc-7228-11e9-b40c-005056bb4f0c",
-            "svm": {"name": "vs1", "uuid": "4133a1fc-7228-11e9-b40c-005056bb4f0c"},
             "port": 3128,
             "authentication_enabled": False,
             "server": "server1.example.com",
+            "svm": {"uuid": "4133a1fc-7228-11e9-b40c-005056bb4f0c", "name": "vs1"},
+            "uuid": "4133a1fc-7228-11e9-b40c-005056bb4f0c",
         }
     ),
     NetworkHttpProxy(
         {
-            "ipspace": {
-                "name": "Default",
-                "uuid": "7433520f-7214-11e9-828c-005056bb4f0c",
-            },
-            "uuid": "96219ce3-7214-11e9-828c-005056bb4f0c",
-            "svm": {
-                "name": "cluster-1",
-                "uuid": "96219ce3-7214-11e9-828c-005056bb4f0c",
-            },
             "port": 3128,
             "authentication_enabled": True,
             "server": "1.1.1.",
+            "svm": {
+                "uuid": "96219ce3-7214-11e9-828c-005056bb4f0c",
+                "name": "cluster-1",
+            },
+            "uuid": "96219ce3-7214-11e9-828c-005056bb4f0c",
+            "ipspace": {
+                "uuid": "7433520f-7214-11e9-828c-005056bb4f0c",
+                "name": "Default",
+            },
         }
     ),
 ]
@@ -73,12 +73,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NetworkHttpProxy(
     {
-        "ipspace": {"name": "Default", "uuid": "7433520f-7214-11e9-828c-005056bb4f0c"},
-        "uuid": "96219ce3-7214-11e9-828c-005056bb4f0c",
-        "svm": {"name": "cluster-1", "uuid": "96219ce3-7214-11e9-828c-005056bb4f0c"},
         "port": 3128,
         "authentication_enabled": False,
         "server": "1.1.1.1",
+        "svm": {"uuid": "96219ce3-7214-11e9-828c-005056bb4f0c", "name": "cluster-1"},
+        "uuid": "96219ce3-7214-11e9-828c-005056bb4f0c",
+        "ipspace": {"uuid": "7433520f-7214-11e9-828c-005056bb4f0c", "name": "Default"},
     }
 )
 

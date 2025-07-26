@@ -370,7 +370,7 @@ class TestCombine:
         @attrs.define
         class BaseSettings:
             a: "bool" = False
-            p: "Path" = Path.cwd()
+            p: "Path" = Path()
 
         Composed = combine("Composed", BaseSettings, {"n1": Nested1()})
 

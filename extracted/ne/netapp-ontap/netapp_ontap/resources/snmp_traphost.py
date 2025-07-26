@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,17 +26,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SnmpTraphost(
     {
-        "ip_address": "10.235.36.62",
-        "_links": {"self": {"href": "/api/support/snmp/traphosts/10.235.36.62"}},
         "host": "example_host_name",
+        "_links": {"self": {"href": "/api/support/snmp/traphosts/10.235.36.62"}},
         "user": {
-            "name": "public",
             "_links": {
                 "self": {
                     "href": "/api/support/snmp/users/800003150558b57e8dbd9ce9119d82005056a7b4e5/public"
                 }
             },
+            "name": "public",
         },
+        "ip_address": "10.235.36.62",
     }
 )
 

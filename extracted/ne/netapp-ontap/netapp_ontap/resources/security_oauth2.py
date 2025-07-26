@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,27 +30,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SecurityOauth2(
     {
-        "outgoing_proxy": "https://johndoe:secretpass@proxy.example.com:8080",
-        "use_mutual_tls": "required",
+        "use_local_roles_if_present": False,
+        "issuer": "https://examplelab.customer.com",
         "name": "auth0",
-        "application": "http",
+        "audience": "aud",
+        "outgoing_proxy": "https://johndoe:secretpass@proxy.example.com:8080",
+        "remote_user_claim": "user_claim",
+        "client_id": "client_id",
         "introspection": {
             "interval": "PT1H",
             "endpoint_uri": "https://examplelab.customer.com/server/endpoint",
+        },
+        "application": "http",
+        "use_mutual_tls": "required",
+        "hashed_client_secret": "(hashed_client_secret)",
+        "_links": {
+            "self": {"href": "/api/security/authentication/cluster/oauth2/clients"}
         },
         "jwks": {
             "refresh_interval": "PT1H",
             "provider_uri": "https://examplelab.customer.com/pf/JWKS",
         },
-        "_links": {
-            "self": {"href": "/api/security/authentication/cluster/oauth2/clients"}
-        },
-        "issuer": "https://examplelab.customer.com",
-        "audience": "aud",
-        "use_local_roles_if_present": False,
-        "client_id": "client_id",
-        "remote_user_claim": "user_claim",
-        "hashed_client_secret": "(hashed_client_secret)",
     }
 )
 

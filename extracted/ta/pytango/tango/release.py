@@ -38,7 +38,7 @@ class Release:
     """
 
     name = "pytango"
-    version_info = (10, 0, 2)
+    version_info = (10, 0, 3)
     version = ".".join(map(str, version_info[:3]))
     release = "".join(map(str, version_info[3:]))
     separator = "." if "dev" in release or "post" in release else ""

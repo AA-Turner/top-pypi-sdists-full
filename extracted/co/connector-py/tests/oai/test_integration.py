@@ -4,9 +4,9 @@ import json
 import typing as t
 
 import pytest_cases
-from connector.generated import Info
 from connector.oai.capability import CapabilityCallableProto, StandardCapabilityName
 from connector.oai.integration import Integration
+from connector_sdk_types.generated import Info
 
 
 @pytest_cases.parametrize_with_cases(

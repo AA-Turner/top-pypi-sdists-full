@@ -21,11 +21,13 @@ import fiddle as fdl
 import fiddle._src.experimental.dataclasses as fdl_dc
 from torchx import specs
 
-from nemo_run.config import SCRIPTS_DIR, Partial, Script
+from nemo_run.config import SCRIPTS_DIR, USE_WITH_RAY_CLUSTER_KEY, Partial, Script
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.launcher import FaultTolerance, Torchrun
+from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
+from nemo_run.core.execution.slurm import SlurmExecutor
 from nemo_run.core.serialization.yaml import YamlSerializer
 from nemo_run.core.serialization.zlib_json import ZlibJSONSerializer
 from nemo_run.run.torchx_backend.components import ft_launcher, torchrun
@@ -130,10 +132,12 @@ def package(
 
     if isinstance(fn_or_script, Partial):
         role_args, args, m, no_python, script, entrypoint = _get_details_from_partial(fn_or_script)
+        metadata = {}
     else:
         role_args, args, m, no_python, script, entrypoint = _get_details_from_script(
             fn_or_script, serialize_configs=True
         )
+        metadata = fn_or_script.metadata
         env = env | fn_or_script.env
 
     launcher = executor.get_launcher()
@@ -145,6 +149,7 @@ def package(
                 transformed_script, serialize_configs=False
             )
 
+    use_env = isinstance(executor, LocalExecutor)
     if launcher and isinstance(launcher, Torchrun):
         app_def = torchrun.torchrun(
             *args,
@@ -160,11 +165,14 @@ def package(
             j=f"{executor.nnodes()}x{executor.nproc_per_node()}",
             rdzv_backend=launcher.rdzv_backend,
             rdzv_port=launcher.rdzv_port,
+            rdzv_id=launcher.rdzv_id,
             env=env,
             mounts=mounts,
             debug=executor.packager.debug,
             max_retries=executor.retries,
             dgxc=isinstance(executor, DGXCloudExecutor),
+            lepton=isinstance(executor, LeptonExecutor),
+            use_env=use_env,
         )
     elif launcher and isinstance(launcher, FaultTolerance):
         app_def = ft_launcher.ft_launcher(
@@ -181,6 +189,7 @@ def package(
             j=f"{executor.nnodes()}x{executor.nproc_per_node()}",
             rdzv_backend=launcher.rdzv_backend,
             rdzv_port=launcher.rdzv_port,
+            rdzv_id=launcher.rdzv_id,
             env=env,
             mounts=mounts,
             debug=executor.packager.debug,
@@ -191,6 +200,7 @@ def package(
             log_level=launcher.log_level,
             max_retries=executor.retries,
             max_restarts=launcher.max_restarts,
+            use_env=use_env,
         )
     else:
         app_def = specs.AppDef(
@@ -215,15 +225,28 @@ def package(
         nsys_prefix = executor.get_launcher_prefix()
         if nsys_prefix:
             role.args = [role.entrypoint] + role.args
-            role.entrypoint = "nsys"
-            role.args = nsys_prefix + role.args
+            role.entrypoint, nsys_postfix = executor.get_nsys_entrypoint()
+            role.args = nsys_prefix + role.args + [nsys_postfix]
 
+    if metadata:
+        if USE_WITH_RAY_CLUSTER_KEY in metadata:
+            assert isinstance(executor, SlurmExecutor), (
+                f"{USE_WITH_RAY_CLUSTER_KEY} is only supported for SlurmExecutor"
+            )
+
+    app_def.metadata = metadata
     return app_def
 
 
 def merge_executables(app_defs: Iterator[specs.AppDef], name: str) -> specs.AppDef:
     result = specs.AppDef(name=name, roles=[])
-    for app_def in app_defs:
+    result.metadata = {}
+    for idx, app_def in enumerate(app_defs):
+        metadata = app_def.metadata or {}
+        if USE_WITH_RAY_CLUSTER_KEY in metadata:
+            assert idx == 0, f"{USE_WITH_RAY_CLUSTER_KEY} is only supported for the first command"
+
+        result.metadata.update(metadata)
         result.roles.extend(app_def.roles)
     return result
 

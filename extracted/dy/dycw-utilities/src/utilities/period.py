@@ -1,7 +1,17 @@
 from __future__ import annotations
 
+import datetime as dt
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Self, TypedDict, assert_never, overload, override
+from typing import (
+    TYPE_CHECKING,
+    Any,
+    Self,
+    TypedDict,
+    TypeVar,
+    assert_never,
+    overload,
+    override,
+)
 from zoneinfo import ZoneInfo
 
 from whenever import Date, DateDelta, PlainDateTime, Time, TimeDelta, ZonedDateTime
@@ -15,8 +25,16 @@ from utilities.zoneinfo import UTC, ensure_time_zone, get_time_zone_name
 if TYPE_CHECKING:
     from utilities.types import TimeZoneLike
 
+_TDate_co = TypeVar("_TDate_co", bound=Date | dt.date, covariant=True)
+_TTime_co = TypeVar("_TTime_co", bound=Time | dt.time, covariant=True)
+_TDateTime_co = TypeVar(
+    "_TDateTime_co", bound=ZonedDateTime | dt.datetime, covariant=True
+)
 
-class _PeriodAsDict[T: (Date, Time, ZonedDateTime)](TypedDict):
+
+class PeriodDict[T: Date | Time | ZonedDateTime | dt.date | dt.time | dt.datetime](
+    TypedDict
+):
     start: T
     end: T
 
@@ -58,7 +76,7 @@ class DatePeriod:
                 start = end = time
             case Time() as start, Time() as end:
                 ...
-            case _ as never:
+            case never:
                 assert_never(never)
         tz = ensure_time_zone(time_zone).key
         return ZonedDateTimePeriod(
@@ -81,15 +99,34 @@ class DatePeriod:
             return f"{fc(start)}-{fc(end, fmt='%m%d')}"
         return f"{fc(start)}-{fc(end)}"
 
+    @classmethod
+    def from_dict(cls, mapping: PeriodDict[_TDate_co], /) -> Self:
+        """Convert the dictionary to a period."""
+        match mapping["start"]:
+            case Date() as start:
+                ...
+            case dt.date() as py_date:
+                start = Date.from_py_date(py_date)
+            case never:
+                assert_never(never)
+        match mapping["end"]:
+            case Date() as end:
+                ...
+            case dt.date() as py_date:
+                end = Date.from_py_date(py_date)
+            case never:
+                assert_never(never)
+        return cls(start=start, end=end)
+
     def replace(
         self, *, start: Date | Sentinel = sentinel, end: Date | Sentinel = sentinel
     ) -> Self:
         """Replace elements of the period."""
         return replace_non_sentinel(self, start=start, end=end)
 
-    def to_dict(self) -> _PeriodAsDict[Date]:
+    def to_dict(self) -> PeriodDict[Date]:
         """Convert the period to a dictionary."""
-        return _PeriodAsDict(start=self.start, end=self.end)
+        return PeriodDict(start=self.start, end=self.end)
 
 
 @dataclass(repr=False, order=True, unsafe_hash=True, kw_only=False)
@@ -104,12 +141,6 @@ class TimePeriod:
         cls = get_class_name(self)
         return f"{cls}({self.start}, {self.end})"
 
-    def replace(
-        self, *, start: Time | Sentinel = sentinel, end: Time | Sentinel = sentinel
-    ) -> Self:
-        """Replace elements of the period."""
-        return replace_non_sentinel(self, start=start, end=end)
-
     def at(
         self, obj: Date | tuple[Date, Date], /, *, time_zone: TimeZoneLike = UTC
     ) -> ZonedDateTimePeriod:
@@ -119,13 +150,38 @@ class TimePeriod:
                 start = end = date
             case Date() as start, Date() as end:
                 ...
-            case _ as never:
+            case never:
                 assert_never(never)
         return DatePeriod(start, end).at((self.start, self.end), time_zone=time_zone)
 
-    def to_dict(self) -> _PeriodAsDict[Time]:
+    @classmethod
+    def from_dict(cls, mapping: PeriodDict[_TTime_co], /) -> Self:
+        """Convert the dictionary to a period."""
+        match mapping["start"]:
+            case Time() as start:
+                ...
+            case dt.time() as py_time:
+                start = Time.from_py_time(py_time)
+            case never:
+                assert_never(never)
+        match mapping["end"]:
+            case Time() as end:
+                ...
+            case dt.time() as py_time:
+                end = Time.from_py_time(py_time)
+            case never:
+                assert_never(never)
+        return cls(start=start, end=end)
+
+    def replace(
+        self, *, start: Time | Sentinel = sentinel, end: Time | Sentinel = sentinel
+    ) -> Self:
+        """Replace elements of the period."""
+        return replace_non_sentinel(self, start=start, end=end)
+
+    def to_dict(self) -> PeriodDict[Time]:
         """Convert the period to a dictionary."""
-        return _PeriodAsDict(start=self.start, end=self.end)
+        return PeriodDict(start=self.start, end=self.end)
 
 
 @dataclass(repr=False, order=True, unsafe_hash=True, kw_only=False)
@@ -229,6 +285,25 @@ class ZonedDateTimePeriod:
             return f"{fc(start.to_plain())}-{fc(end, fmt='%Y%m%dT%H%M')}"
         return f"{fc(start.to_plain())}-{fc(end, fmt='%Y%m%dT%H')}"
 
+    @classmethod
+    def from_dict(cls, mapping: PeriodDict[_TDateTime_co], /) -> Self:
+        """Convert the dictionary to a period."""
+        match mapping["start"]:
+            case ZonedDateTime() as start:
+                ...
+            case dt.date() as py_datetime:
+                start = ZonedDateTime.from_py_datetime(py_datetime)
+            case never:
+                assert_never(never)
+        match mapping["end"]:
+            case ZonedDateTime() as end:
+                ...
+            case dt.date() as py_datetime:
+                end = ZonedDateTime.from_py_datetime(py_datetime)
+            case never:
+                assert_never(never)
+        return cls(start=start, end=end)
+
     def replace(
         self,
         *,
@@ -243,9 +318,9 @@ class ZonedDateTimePeriod:
         """The time zone of the period."""
         return ZoneInfo(self.start.tz)
 
-    def to_dict(self) -> _PeriodAsDict[ZonedDateTime]:
+    def to_dict(self) -> PeriodDict[ZonedDateTime]:
         """Convert the period to a dictionary."""
-        return _PeriodAsDict(start=self.start, end=self.end)
+        return PeriodDict(start=self.start, end=self.end)
 
     def to_tz(self, time_zone: TimeZoneLike, /) -> Self:
         """Convert the time zone."""
@@ -258,7 +333,7 @@ class PeriodError(Exception): ...
 
 
 @dataclass(kw_only=True, slots=True)
-class _PeriodInvalidError[T: (Date, ZonedDateTime)](PeriodError):
+class _PeriodInvalidError[T: Date | ZonedDateTime](PeriodError):
     start: T
     end: T
 
@@ -286,4 +361,10 @@ class _PeriodExactEqArgumentsError(PeriodError):
         return f"Invalid arguments; got {self.args}"
 
 
-__all__ = ["DatePeriod", "PeriodError", "TimePeriod", "ZonedDateTimePeriod"]
+__all__ = [
+    "DatePeriod",
+    "PeriodDict",
+    "PeriodError",
+    "TimePeriod",
+    "ZonedDateTimePeriod",
+]

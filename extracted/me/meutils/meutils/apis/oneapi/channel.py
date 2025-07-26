@@ -25,7 +25,7 @@ async def edit_channel(models, token: Optional[str] = None):
     token = token or os.environ.get("CHATFIRE_ONEAPI_TOKEN")
 
     models = ','.join(filter(lambda model: model.startswith(("api", "official-api", "ppu", "kling-v")), models))
-    models += ",suno-v3,indextts-1.5,cosyvoice2,step-audio-tts-3b"
+    models += ",suno-v3,indextts-1.5,cosyvoice2,step-audio-tts-3b,f5-tts"
 
     payload = {
         "id": 289,

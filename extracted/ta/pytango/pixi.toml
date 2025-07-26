@@ -81,7 +81,7 @@ python = ">=3.9"
 pip = "*"
 scikit-build-core = ">=0.10.0"
 pybind11-stubgen = "*"
-numpy = ">=1.19.3"
+numpy = ">=1.19.3,<2.3"
 # run dependencies
 packaging = ">=24.0"
 psutil = ">=5.9"

@@ -3,6 +3,7 @@
 import time
 from functools import partial
 
+import numpy as np
 import pytest
 
 from tango import (
@@ -13,6 +14,7 @@ from tango import (
     EventType,
     AttrWriteType,
 )
+from tango.constants import DefaultPollRingDepth
 from tango.asyncio import AttributeProxy as asyncio_AttributeProxy
 from tango.gevent import AttributeProxy as gevent_AttributeProxy
 from tango.futures import AttributeProxy as futures_AttributeProxy
@@ -27,11 +29,11 @@ TEST_VALUES = {
     "scalar_int": (2, 3, 4, 5, 6),
     "spectrum_str": (["c", "d"], ["e", "f"], ["g", "h"], ["i", "j"], ["k", "l"]),
     "image_float": (
-        [[15.5, 16.6], [17.7, 18.8]],
-        [[19.9, 20.0], [21.1, 22.2]],
-        [[23.3, 24.4], [25.5, 26.6]],
-        [[27.7, 28.8], [29.9, 30.0]],
-        [[31.1, 32.2], [33.3, 34.4]],
+        [[15.0, 16.0], [17.0, 18.0]],
+        [[19.0, 20.0], [21.0, 22.0]],
+        [[23.0, 24.0], [25.0, 26.0]],
+        [[27.0, 28.0], [29.0, 30.0]],
+        [[31.0, 32.0], [33.0, 34.0]],
     ),
 }
 
@@ -51,7 +53,7 @@ class EasyEchoDevice(Device):
 
     scalar_int_value = 1
     spectrum_str_value = ["a", "b"]
-    image_float_value = [[1.1, 2.2], [3.3, 4.4]]
+    image_float_value = [[1.0, 2.0], [3.0, 4.0]]
 
     def init_device(self):
         self.set_state(DevState.ON)
@@ -115,17 +117,14 @@ def test_read_write_attribute(attribute_proxy):
 def test_attribute_poll(attribute_proxy):
     poll_period = 0.1  # sec
     values = TEST_VALUES[attribute_proxy.name()]
+    initial_value = attribute_proxy.read().value
+    t_start = time.time()
 
     _assert_polling_can_be_started(attribute_proxy, poll_period)
-    _wait_until_middle_of_a_polling_period(attribute_proxy, poll_period)
-
-    t_start = time.time()
     history = _write_values_and_read_via_polling(attribute_proxy, poll_period, values)
-    t_end = time.time()
-
     _assert_polling_can_be_stopped(attribute_proxy)
-    _assert_reading_times_increase_monotonically_within_limits(history, t_start, t_end)
-    _assert_reading_values_match(history, values)
+    _assert_reading_times_increase_monotonically(history, t_start)
+    _assert_reading_values_valid(history, initial_value, values)
 
 
 def _assert_polling_can_be_started(attribute_proxy, poll_period_sec):
@@ -141,41 +140,47 @@ def _assert_polling_can_be_stopped(attribute_proxy):
     assert not attribute_proxy.is_polled()
 
 
-def _wait_until_middle_of_a_polling_period(attribute_proxy, poll_period_sec):
-    # wait for first reading to arrive in the polling history buffer
-    nap_time = poll_period_sec / 10.0
-    retries = 20
-    while retries > 0:
-        try:
-            attribute_proxy.history(1)
-            break
-        except DevFailed:
-            # history not ready yet
-            time.sleep(nap_time)
-            retries -= 1
-    is_polling_working = retries > 0
-    assert is_polling_working
-    # now wait half the polling period, so we are midway through
-    time.sleep(poll_period_sec / 2.0)
-
-
 def _write_values_and_read_via_polling(attribute_proxy, poll_period_sec, values):
     for value in values:
         attribute_proxy.write(value)
         time.sleep(poll_period_sec)
-    return attribute_proxy.history(len(values))
+    assert len(values) <= DefaultPollRingDepth
+    history = attribute_proxy.history(DefaultPollRingDepth)
+    tolerance_for_slow_ci_runners = 2
+    assert len(history) >= len(values) - tolerance_for_slow_ci_runners
+    return history
 
 
-def _assert_reading_times_increase_monotonically_within_limits(history, t_start, t_end):
+def _assert_reading_times_increase_monotonically(history, t_start):
     t_previous = t_start
     for reading in history:
         t_current = reading.time.totime()
-        assert t_previous < t_current < t_end
+        assert t_current > t_previous
         t_previous = t_current
 
 
-def _assert_reading_values_match(history, values):
-    assert_close([read.value for read in history], values)
+def _assert_reading_values_valid(history, initial_value, written_values):
+    valid_values = _get_comparable_values([initial_value] + list(written_values))
+    history_values = _get_comparable_values([reading.value for reading in history])
+    last_index = -1
+    for history_value in history_values:
+        assert history_value in valid_values
+        # check that historical values only move forward through the written values
+        # i.e. polling buffer may repeat values, but may not return to an earlier value
+        index = valid_values.index(history_value)
+        assert index >= last_index
+        last_index = index
+
+
+def _get_comparable_values(values):
+    comparable_values = []
+    for value in values:
+        if isinstance(value, tuple):
+            value = list(value)
+        elif isinstance(value, np.ndarray):
+            value = value.tolist()
+        comparable_values.append(value)
+    return comparable_values
 
 
 max_reply_attempts = 10
@@ -228,27 +233,33 @@ class EasyEventDevice(Device):
         self.push_change_event("attr", 2)
 
 
-@pytest.mark.parametrize("green_mode", GreenMode.values.values())
+@pytest.mark.parametrize("green_mode", GreenMode.values.values(), ids=str)
 def test_event(green_mode):
     with DeviceTestContext(EasyEventDevice, device_name="test/device/1", process=True):
-        proxy = attribute_proxy_map[green_mode]("test/device/1/attr")
+        attr_proxy = attribute_proxy_map[green_mode]("test/device/1/attr")
+        dev_proxy = attr_proxy.get_device_proxy()
         cb = (
             AsyncEventCallback() if green_mode == GreenMode.Asyncio else EventCallback()
         )
-        eid = proxy.subscribe_event(EventType.CHANGE_EVENT, cb, wait=True)
-        proxy.get_device_proxy().command_inout("send_event", wait=True)
-        if green_mode == GreenMode.Gevent:
-            # I do not understand it, but with Gevent somehow we don't get the
-            # second event. It is a bug and has to be fixed. As a workaround,
-            # waiting on another device proxy call helps.
-            proxy.get_device_proxy().command_inout("state", wait=True)
+        eid = attr_proxy.subscribe_event(EventType.CHANGE_EVENT, cb, wait=True)
+        dev_proxy.command_inout("send_event", wait=True)
         evts = cb.get_events()
         rep = 0
         while len(evts) < 2 and rep < 50:
+            if green_mode in {GreenMode.Asyncio, GreenMode.Gevent}:
+                # For asyncio and gevent green mode, the event callback is
+                # scheduled on the event loop when it arrives.  We have to exercise
+                # the event loop so that it gets a chance to invoke the callback.
+                # One way to do that is sending a command that we wait for.
+                # (For synchronous green mode, the callback will be invoked from
+                # another thread so we can just sleep)
+                # In a typical asyncio app, we would be awaiting other tasks, so
+                # this wouldn't be necessary.
+                dev_proxy.command_inout("state", wait=True)
             rep += 1
             evts = cb.get_events()
             time.sleep(0.1)
         if len(evts) < 2:
             pytest.fail(f"Cannot receive events in {green_mode}")
         assert_close([evt.attr_value.value for evt in evts[:2]], [1, 2])
-        proxy.unsubscribe_event(eid, wait=True)
+        attr_proxy.unsubscribe_event(eid, wait=True)

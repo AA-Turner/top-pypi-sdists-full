@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -58,543 +58,547 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Shelf(
     {
-        "name": "6.10",
-        "location_led": "off",
-        "voltage_sensors": [
-            {
-                "location": "rear of the shelf on the upper left power supply",
-                "installed": True,
-                "state": "ok",
-                "voltage": 5.11,
-                "id": 1,
-            },
-            {
-                "location": "rear of the shelf on the upper left power supply",
-                "installed": True,
-                "state": "ok",
-                "voltage": 12.38,
-                "id": 2,
-            },
-            {
-                "location": "rear of the shelf on the upper right power supply",
-                "installed": True,
-                "state": "ok",
-                "voltage": 5.11,
-                "id": 3,
-            },
-            {
-                "location": "rear of the shelf on the upper right power supply",
-                "installed": True,
-                "state": "ok",
-                "voltage": 12.26,
-                "id": 4,
-            },
-            {
-                "location": "rear of the shelf on the lower left power supply",
-                "installed": True,
-                "state": "ok",
-                "voltage": 5.7,
-                "id": 5,
-            },
-            {
-                "location": "rear of the shelf on the lower left power supply",
-                "installed": True,
-                "state": "ok",
-                "voltage": 12.26,
-                "id": 6,
-            },
-            {
-                "location": "rear of the shelf on the lower right power supply",
-                "installed": True,
-                "state": "ok",
-                "voltage": 5.15,
-                "id": 7,
-            },
-            {
-                "location": "rear of the shelf on the lower right power supply",
-                "installed": True,
-                "state": "ok",
-                "voltage": 12.3,
-                "id": 8,
-            },
-        ],
-        "uid": "3109174803597886800",
-        "ports": [
-            {
-                "module_id": "a",
-                "internal": False,
-                "state": "connected",
-                "designator": "square",
-                "id": 0,
-                "remote": {"wwn": "5001086000702488", "phy": "08"},
-                "cable": {
-                    "length": "2m",
-                    "identifier": "5001086000702488-500a098000c9edbf",
-                    "part_number": "112-00430+A0",
-                    "serial_number": "APF16510229807",
-                },
-                "wwn": "500A098000C9EDBF",
-            },
-            {
-                "module_id": "a",
-                "internal": False,
-                "state": "connected",
-                "designator": "circle",
-                "id": 1,
-                "remote": {"wwn": "500A098000D5C4BF", "phy": "00"},
-                "cable": {
-                    "length": "0.5-1.0m",
-                    "identifier": "500a098000d5c4bf-500a098000c9edbf",
-                    "part_number": "112-00176+A0",
-                    "serial_number": "APF133917610YT",
-                },
-                "wwn": "500A098000C9EDBF",
-            },
-            {
-                "module_id": "b",
-                "internal": False,
-                "state": "connected",
-                "designator": "square",
-                "id": 2,
-                "remote": {"wwn": "5001086000702648", "phy": "08"},
-                "cable": {
-                    "length": "2m",
-                    "identifier": "5001086000702648-500a098004f208bf",
-                    "part_number": "112-00430+A0",
-                    "serial_number": "APF16510229540",
-                },
-                "wwn": "500A098004F208BF",
-            },
-            {
-                "module_id": "b",
-                "internal": False,
-                "state": "connected",
-                "designator": "circle",
-                "id": 3,
-                "remote": {"wwn": "500A0980062BA33F", "phy": "00"},
-                "cable": {
-                    "length": "0.5-1.0m",
-                    "identifier": "500a0980062ba33f-500a098004f208bf",
-                    "part_number": "112-00176+20",
-                    "serial_number": "832210017",
-                },
-                "wwn": "500A098004F208BF",
-            },
-        ],
-        "disk_count": 24,
-        "fans": [
-            {
-                "location": "rear of the shelf on the upper left power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 1,
-                "rpm": 3150,
-            },
-            {
-                "location": "rear of the shelf on the upper left power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 2,
-                "rpm": 3000,
-            },
-            {
-                "location": "rear of the shelf on the upper right power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 3,
-                "rpm": 3220,
-            },
-            {
-                "location": "rear of the shelf on the upper right power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 4,
-                "rpm": 3000,
-            },
-            {
-                "location": "rear of the shelf on the lower left power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 5,
-                "rpm": 3000,
-            },
-            {
-                "location": "rear of the shelf on the lower left power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 6,
-                "rpm": 3150,
-            },
-            {
-                "location": "rear of the shelf on the lower right power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 7,
-                "rpm": 3150,
-            },
-            {
-                "location": "rear of the shelf on the lower right power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 8,
-                "rpm": 3000,
-            },
-        ],
-        "model": "DS4246",
-        "current_sensors": [
-            {
-                "current": 6990,
-                "location": "rear of the shelf on the upper left power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 1,
-            },
-            {
-                "current": 5150,
-                "location": "rear of the shelf on the upper left power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 2,
-            },
-            {
-                "current": 4600,
-                "location": "rear of the shelf on the upper right power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 3,
-            },
-            {
-                "current": 4800,
-                "location": "rear of the shelf on the upper right power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 4,
-            },
-            {
-                "current": 4140,
-                "location": "rear of the shelf on the lower left power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 5,
-            },
-            {
-                "current": 7770,
-                "location": "rear of the shelf on the lower left power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 6,
-            },
-            {
-                "current": 4140,
-                "location": "rear of the shelf on the lower right power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 7,
-            },
-            {
-                "current": 4720,
-                "location": "rear of the shelf on the lower right power supply",
-                "installed": True,
-                "state": "ok",
-                "id": 8,
-            },
-        ],
-        "bays": [
-            {"has_disk": True, "state": "ok", "id": 0, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 1, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 2, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 3, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 4, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 5, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 6, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 7, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 8, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 9, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 10, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 11, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 12, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 13, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 14, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 15, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 16, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 17, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 18, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 19, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 20, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 21, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 22, "type": "single_disk"},
-            {"has_disk": True, "state": "ok", "id": 23, "type": "single_disk"},
-        ],
-        "manufacturer": {"name": "NETAPP"},
-        "internal": False,
-        "state": "ok",
+        "id": "10",
+        "serial_number": "SHU0954292N0HAH",
         "acps": [
             {
+                "enabled": True,
                 "channel": "in_band",
                 "connection_state": "active",
                 "node": {
+                    "uuid": "cf62d23c-6100-11eb-9852-00a098fd725d",
                     "name": "cat33-01",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/cf62d23c-6100-11eb-9852-00a098fd725d"
                         }
                     },
-                    "uuid": "cf62d23c-6100-11eb-9852-00a098fd725d",
                 },
-                "enabled": True,
             },
             {
+                "enabled": True,
                 "channel": "in_band",
                 "connection_state": "active",
                 "node": {
+                    "uuid": "d0892dd7-6100-11eb-9cdb-d039ea010238",
                     "name": "cat33-02",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/d0892dd7-6100-11eb-9cdb-d039ea010238"
                         }
                     },
-                    "uuid": "d0892dd7-6100-11eb-9cdb-d039ea010238",
                 },
-                "enabled": True,
             },
         ],
         "frus": [
             {
+                "id": 0,
                 "serial_number": "8001900099",
                 "firmware_version": "0191",
                 "installed": True,
                 "part_number": "111-00690+B2",
                 "state": "ok",
-                "id": 0,
                 "type": "module",
             },
             {
+                "id": 1,
                 "serial_number": "7903785183",
                 "firmware_version": "0191",
                 "installed": True,
                 "part_number": "111-00190+B0",
                 "state": "ok",
-                "id": 1,
                 "type": "module",
             },
             {
-                "psu": {"model": "9C"},
+                "id": 1,
                 "serial_number": "PMW82562007513E",
                 "firmware_version": "0311",
+                "psu": {"model": "9C"},
                 "installed": True,
                 "part_number": "0082562-12",
                 "state": "ok",
-                "id": 1,
                 "type": "psu",
             },
             {
-                "psu": {"model": "9C"},
+                "id": 2,
                 "serial_number": "PMW825620075138",
                 "firmware_version": "0311",
+                "psu": {"model": "9C"},
                 "installed": True,
                 "part_number": "0082562-12",
                 "state": "ok",
-                "id": 2,
                 "type": "psu",
             },
             {
-                "psu": {"model": "9C"},
+                "id": 3,
                 "serial_number": "PMW8256200750BA",
                 "firmware_version": "0311",
+                "psu": {"model": "9C"},
                 "installed": True,
                 "part_number": "0082562-12",
                 "state": "ok",
-                "id": 3,
                 "type": "psu",
             },
             {
-                "psu": {"model": "9C"},
+                "id": 4,
                 "serial_number": "PMW8256200750A2",
                 "firmware_version": "0311",
+                "psu": {"model": "9C"},
                 "installed": True,
                 "part_number": "0082562-12",
                 "state": "ok",
-                "id": 4,
                 "type": "psu",
             },
         ],
-        "id": "10",
-        "connection_type": "sas",
-        "local": True,
-        "serial_number": "SHU0954292N0HAH",
-        "module_type": "iom6",
-        "paths": [
-            {
-                "name": "0e",
-                "node": {
-                    "name": "node-1",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
-                        }
-                    },
-                    "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
-                },
-            },
-            {
-                "name": "0g",
-                "node": {
-                    "name": "node-1",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
-                        }
-                    },
-                    "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
-                },
-            },
-        ],
+        "state": "ok",
         "temperature_sensors": [
             {
-                "threshold": {
-                    "low": {"critical": 0, "warning": 5},
-                    "high": {"critical": 42, "warning": 40},
-                },
-                "location": "front of the shelf on the left, on the OPS panel",
+                "id": 1,
+                "ambient": True,
                 "installed": True,
                 "state": "ok",
-                "ambient": True,
-                "id": 1,
+                "threshold": {
+                    "high": {"critical": 42, "warning": 40},
+                    "low": {"critical": 0, "warning": 5},
+                },
+                "location": "front of the shelf on the left, on the OPS panel",
                 "temperature": 20,
             },
             {
-                "threshold": {
-                    "low": {"critical": 5, "warning": 10},
-                    "high": {"critical": 55, "warning": 50},
-                },
-                "location": "inside of the shelf on the midplane",
+                "id": 2,
+                "ambient": False,
                 "installed": True,
                 "state": "ok",
-                "ambient": False,
-                "id": 2,
+                "threshold": {
+                    "high": {"critical": 55, "warning": 50},
+                    "low": {"critical": 5, "warning": 10},
+                },
+                "location": "inside of the shelf on the midplane",
                 "temperature": 29,
             },
             {
-                "threshold": {
-                    "low": {"critical": 5, "warning": 10},
-                    "high": {"critical": 55, "warning": 50},
-                },
-                "location": "rear of the shelf on the upper left power supply",
+                "id": 3,
+                "ambient": False,
                 "installed": True,
                 "state": "ok",
-                "ambient": False,
-                "id": 3,
+                "threshold": {
+                    "high": {"critical": 55, "warning": 50},
+                    "low": {"critical": 5, "warning": 10},
+                },
+                "location": "rear of the shelf on the upper left power supply",
                 "temperature": 33,
             },
             {
-                "threshold": {
-                    "low": {"critical": 5, "warning": 10},
-                    "high": {"critical": 70, "warning": 65},
-                },
-                "location": "rear of the shelf on the upper left power supply",
+                "id": 4,
+                "ambient": False,
                 "installed": True,
                 "state": "ok",
-                "ambient": False,
-                "id": 4,
+                "threshold": {
+                    "high": {"critical": 70, "warning": 65},
+                    "low": {"critical": 5, "warning": 10},
+                },
+                "location": "rear of the shelf on the upper left power supply",
                 "temperature": 41,
             },
             {
-                "threshold": {
-                    "low": {"critical": 5, "warning": 10},
-                    "high": {"critical": 55, "warning": 50},
-                },
-                "location": "rear of the shelf on the upper right power supply",
+                "id": 5,
+                "ambient": False,
                 "installed": True,
                 "state": "ok",
-                "ambient": False,
-                "id": 5,
+                "threshold": {
+                    "high": {"critical": 55, "warning": 50},
+                    "low": {"critical": 5, "warning": 10},
+                },
+                "location": "rear of the shelf on the upper right power supply",
                 "temperature": 32,
             },
             {
-                "threshold": {
-                    "low": {"critical": 5, "warning": 10},
-                    "high": {"critical": 70, "warning": 65},
-                },
-                "location": "rear of the shelf on the upper right power supply",
+                "id": 6,
+                "ambient": False,
                 "installed": True,
                 "state": "ok",
-                "ambient": False,
-                "id": 6,
+                "threshold": {
+                    "high": {"critical": 70, "warning": 65},
+                    "low": {"critical": 5, "warning": 10},
+                },
+                "location": "rear of the shelf on the upper right power supply",
                 "temperature": 41,
             },
             {
-                "threshold": {
-                    "low": {"critical": 5, "warning": 10},
-                    "high": {"critical": 55, "warning": 50},
-                },
-                "location": "rear of the shelf on the lower left power supply",
+                "id": 7,
+                "ambient": False,
                 "installed": True,
                 "state": "ok",
-                "ambient": False,
-                "id": 7,
+                "threshold": {
+                    "high": {"critical": 55, "warning": 50},
+                    "low": {"critical": 5, "warning": 10},
+                },
+                "location": "rear of the shelf on the lower left power supply",
                 "temperature": 34,
             },
             {
-                "threshold": {
-                    "low": {"critical": 5, "warning": 10},
-                    "high": {"critical": 70, "warning": 65},
-                },
-                "location": "rear of the shelf on the lower left power supply",
+                "id": 8,
+                "ambient": False,
                 "installed": True,
                 "state": "ok",
-                "ambient": False,
-                "id": 8,
+                "threshold": {
+                    "high": {"critical": 70, "warning": 65},
+                    "low": {"critical": 5, "warning": 10},
+                },
+                "location": "rear of the shelf on the lower left power supply",
                 "temperature": 45,
             },
             {
-                "threshold": {
-                    "low": {"critical": 5, "warning": 10},
-                    "high": {"critical": 55, "warning": 50},
-                },
-                "location": "rear of the shelf on the lower right power supply",
+                "id": 9,
+                "ambient": False,
                 "installed": True,
                 "state": "ok",
-                "ambient": False,
-                "id": 9,
+                "threshold": {
+                    "high": {"critical": 55, "warning": 50},
+                    "low": {"critical": 5, "warning": 10},
+                },
+                "location": "rear of the shelf on the lower right power supply",
                 "temperature": 30,
             },
             {
-                "threshold": {
-                    "low": {"critical": 5, "warning": 10},
-                    "high": {"critical": 70, "warning": 65},
-                },
-                "location": "rear of the shelf on the lower right power supply",
+                "id": 10,
+                "ambient": False,
                 "installed": True,
                 "state": "ok",
-                "ambient": False,
-                "id": 10,
+                "threshold": {
+                    "high": {"critical": 70, "warning": 65},
+                    "low": {"critical": 5, "warning": 10},
+                },
+                "location": "rear of the shelf on the lower right power supply",
                 "temperature": 40,
             },
             {
-                "threshold": {
-                    "low": {"critical": 5, "warning": 10},
-                    "high": {"critical": 60, "warning": 55},
-                },
-                "location": "rear of the shelf at the top left, on shelf module A",
+                "id": 11,
+                "ambient": False,
                 "installed": True,
                 "state": "ok",
-                "ambient": False,
-                "id": 11,
+                "threshold": {
+                    "high": {"critical": 60, "warning": 55},
+                    "low": {"critical": 5, "warning": 10},
+                },
+                "location": "rear of the shelf at the top left, on shelf module A",
                 "temperature": 30,
             },
             {
-                "threshold": {
-                    "low": {"critical": 5, "warning": 10},
-                    "high": {"critical": 60, "warning": 55},
-                },
-                "location": "rear of the shelf at the top right, on shelf module B",
+                "id": 12,
+                "ambient": False,
                 "installed": True,
                 "state": "ok",
-                "ambient": False,
-                "id": 12,
+                "threshold": {
+                    "high": {"critical": 60, "warning": 55},
+                    "low": {"critical": 5, "warning": 10},
+                },
+                "location": "rear of the shelf at the top right, on shelf module B",
                 "temperature": 33,
             },
         ],
+        "current_sensors": [
+            {
+                "id": 1,
+                "current": 6990,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the upper left power supply",
+            },
+            {
+                "id": 2,
+                "current": 5150,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the upper left power supply",
+            },
+            {
+                "id": 3,
+                "current": 4600,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the upper right power supply",
+            },
+            {
+                "id": 4,
+                "current": 4800,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the upper right power supply",
+            },
+            {
+                "id": 5,
+                "current": 4140,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the lower left power supply",
+            },
+            {
+                "id": 6,
+                "current": 7770,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the lower left power supply",
+            },
+            {
+                "id": 7,
+                "current": 4140,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the lower right power supply",
+            },
+            {
+                "id": 8,
+                "current": 4720,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the lower right power supply",
+            },
+        ],
+        "location_led": "off",
+        "model": "DS4246",
+        "paths": [
+            {
+                "node": {
+                    "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
+                    "name": "node-1",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
+                        }
+                    },
+                },
+                "name": "0e",
+            },
+            {
+                "node": {
+                    "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
+                    "name": "node-1",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
+                        }
+                    },
+                },
+                "name": "0g",
+            },
+        ],
+        "voltage_sensors": [
+            {
+                "id": 1,
+                "location": "rear of the shelf on the upper left power supply",
+                "installed": True,
+                "state": "ok",
+                "voltage": 5.11,
+            },
+            {
+                "id": 2,
+                "location": "rear of the shelf on the upper left power supply",
+                "installed": True,
+                "state": "ok",
+                "voltage": 12.38,
+            },
+            {
+                "id": 3,
+                "location": "rear of the shelf on the upper right power supply",
+                "installed": True,
+                "state": "ok",
+                "voltage": 5.11,
+            },
+            {
+                "id": 4,
+                "location": "rear of the shelf on the upper right power supply",
+                "installed": True,
+                "state": "ok",
+                "voltage": 12.26,
+            },
+            {
+                "id": 5,
+                "location": "rear of the shelf on the lower left power supply",
+                "installed": True,
+                "state": "ok",
+                "voltage": 5.7,
+            },
+            {
+                "id": 6,
+                "location": "rear of the shelf on the lower left power supply",
+                "installed": True,
+                "state": "ok",
+                "voltage": 12.26,
+            },
+            {
+                "id": 7,
+                "location": "rear of the shelf on the lower right power supply",
+                "installed": True,
+                "state": "ok",
+                "voltage": 5.15,
+            },
+            {
+                "id": 8,
+                "location": "rear of the shelf on the lower right power supply",
+                "installed": True,
+                "state": "ok",
+                "voltage": 12.3,
+            },
+        ],
+        "disk_count": 24,
+        "bays": [
+            {"id": 0, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 1, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 2, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 3, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 4, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 5, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 6, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 7, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 8, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 9, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 10, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 11, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 12, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 13, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 14, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 15, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 16, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 17, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 18, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 19, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 20, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 21, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 22, "has_disk": True, "state": "ok", "type": "single_disk"},
+            {"id": 23, "has_disk": True, "state": "ok", "type": "single_disk"},
+        ],
+        "connection_type": "sas",
+        "module_type": "iom6",
+        "fans": [
+            {
+                "id": 1,
+                "rpm": 3150,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the upper left power supply",
+            },
+            {
+                "id": 2,
+                "rpm": 3000,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the upper left power supply",
+            },
+            {
+                "id": 3,
+                "rpm": 3220,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the upper right power supply",
+            },
+            {
+                "id": 4,
+                "rpm": 3000,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the upper right power supply",
+            },
+            {
+                "id": 5,
+                "rpm": 3000,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the lower left power supply",
+            },
+            {
+                "id": 6,
+                "rpm": 3150,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the lower left power supply",
+            },
+            {
+                "id": 7,
+                "rpm": 3150,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the lower right power supply",
+            },
+            {
+                "id": 8,
+                "rpm": 3000,
+                "installed": True,
+                "state": "ok",
+                "location": "rear of the shelf on the lower right power supply",
+            },
+        ],
+        "name": "6.10",
+        "uid": "3109174803597886800",
+        "internal": False,
+        "manufacturer": {"name": "NETAPP"},
+        "ports": [
+            {
+                "id": 0,
+                "wwn": "500A098000C9EDBF",
+                "remote": {"wwn": "5001086000702488", "phy": "08"},
+                "internal": False,
+                "module_id": "a",
+                "cable": {
+                    "length": "2m",
+                    "serial_number": "APF16510229807",
+                    "identifier": "5001086000702488-500a098000c9edbf",
+                    "part_number": "112-00430+A0",
+                },
+                "designator": "square",
+                "state": "connected",
+                "speed": 100,
+            },
+            {
+                "id": 1,
+                "wwn": "500A098000C9EDBF",
+                "remote": {"wwn": "500A098000D5C4BF", "phy": "00"},
+                "internal": False,
+                "module_id": "a",
+                "cable": {
+                    "length": "0.5-1.0m",
+                    "serial_number": "APF133917610YT",
+                    "identifier": "500a098000d5c4bf-500a098000c9edbf",
+                    "part_number": "112-00176+A0",
+                },
+                "designator": "circle",
+                "state": "connected",
+                "speed": 100,
+            },
+            {
+                "id": 2,
+                "wwn": "500A098004F208BF",
+                "remote": {"wwn": "5001086000702648", "phy": "08"},
+                "internal": False,
+                "module_id": "b",
+                "cable": {
+                    "length": "2m",
+                    "serial_number": "APF16510229540",
+                    "identifier": "5001086000702648-500a098004f208bf",
+                    "part_number": "112-00430+A0",
+                },
+                "designator": "square",
+                "state": "connected",
+                "speed": 100,
+            },
+            {
+                "id": 3,
+                "wwn": "500A098004F208BF",
+                "remote": {"wwn": "500A0980062BA33F", "phy": "00"},
+                "internal": False,
+                "module_id": "b",
+                "cable": {
+                    "length": "0.5-1.0m",
+                    "serial_number": "832210017",
+                    "identifier": "500a0980062ba33f-500a098004f208bf",
+                    "part_number": "112-00176+20",
+                },
+                "designator": "circle",
+                "state": "connected",
+                "speed": 100,
+            },
+        ],
+        "local": True,
     }
 )
 
@@ -736,7 +740,7 @@ Example: DS2246"""
 
     module_type = marshmallow_fields.Str(
         data_key="module_type",
-        validate=enum_validation(['unknown', 'iom6', 'iom6e', 'iom12', 'iom12b', 'iom12c', 'iom12e', 'iom12f', 'iom12g', 'nsm100', 'nsm8e', 'nsm16e', 'psm3e', 'nsm100b']),
+        validate=enum_validation(['unknown', 'iom6', 'iom6e', 'iom12', 'iom12b', 'iom12c', 'iom12e', 'iom12f', 'iom12g', 'nsm100', 'nsm8e', 'nsm16e', 'psm3e', 'nsm100b', 'nsm140']),
         allow_none=True,
     )
     r""" The module_type field of the shelf.
@@ -756,7 +760,8 @@ Valid choices:
 * nsm8e
 * nsm16e
 * psm3e
-* nsm100b"""
+* nsm100b
+* nsm140"""
 
     name = marshmallow_fields.Str(
         data_key="name",
@@ -771,6 +776,14 @@ Example: 1.1"""
 
     ports = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.shelf_ports.ShelfPortsSchema", unknown=EXCLUDE, allow_none=True), data_key="ports", allow_none=True)
     r""" The ports field of the shelf."""
+
+    raw_capacity = Size(
+        data_key="raw_capacity",
+        allow_none=True,
+    )
+    r""" Raw capacity of drives in shelf in 4k blocks
+
+Example: 5157308772"""
 
     serial_number = marshmallow_fields.Str(
         data_key="serial_number",
@@ -836,6 +849,7 @@ Example: 7777841915827391056"""
         "paths.name",
         "paths.node",
         "ports",
+        "raw_capacity",
         "serial_number",
         "state",
         "temperature_sensors",
@@ -843,7 +857,7 @@ Example: 7777841915827391056"""
         "vendor",
         "voltage_sensors",
     ]
-    """acps,bays,connection_type,current_sensors,disk_count,drawers,errors,fans,frus,id,internal,local,location_led,manufacturer,model,module_type,name,paths.links,paths.name,paths.node,ports,serial_number,state,temperature_sensors,uid,vendor,voltage_sensors,"""
+    """acps,bays,connection_type,current_sensors,disk_count,drawers,errors,fans,frus,id,internal,local,location_led,manufacturer,model,module_type,name,paths.links,paths.name,paths.node,ports,raw_capacity,serial_number,state,temperature_sensors,uid,vendor,voltage_sensors,"""
 
     patchable_fields = [
         "location_led",

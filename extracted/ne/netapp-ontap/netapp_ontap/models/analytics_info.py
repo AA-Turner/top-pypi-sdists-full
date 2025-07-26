@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -40,6 +40,9 @@ Example: 21134 """
     incomplete_data = marshmallow_fields.Boolean(data_key="incomplete_data", allow_none=True)
     r""" Returns true if data collection is incomplete for this directory tree. """
 
+    report_time = ImpreciseDateTime(data_key="report_time", allow_none=True)
+    r""" The date and time analytics information was collected. """
+
     subdir_count = Size(data_key="subdir_count", allow_none=True)
     r""" Number of sub directories
 
@@ -55,9 +58,10 @@ Example: 35 """
         "bytes_used",
         "file_count",
         "incomplete_data",
+        "report_time",
         "subdir_count",
     ]
-    """by_accessed_time,by_modified_time,bytes_used,file_count,incomplete_data,subdir_count,"""
+    """by_accessed_time,by_modified_time,bytes_used,file_count,incomplete_data,report_time,subdir_count,"""
 
     patchable_fields = [
         "by_accessed_time",
@@ -65,9 +69,10 @@ Example: 35 """
         "bytes_used",
         "file_count",
         "incomplete_data",
+        "report_time",
         "subdir_count",
     ]
-    """by_accessed_time,by_modified_time,bytes_used,file_count,incomplete_data,subdir_count,"""
+    """by_accessed_time,by_modified_time,bytes_used,file_count,incomplete_data,report_time,subdir_count,"""
 
     postable_fields = [
         "by_accessed_time",
@@ -75,9 +80,10 @@ Example: 35 """
         "bytes_used",
         "file_count",
         "incomplete_data",
+        "report_time",
         "subdir_count",
     ]
-    """by_accessed_time,by_modified_time,bytes_used,file_count,incomplete_data,subdir_count,"""
+    """by_accessed_time,by_modified_time,bytes_used,file_count,incomplete_data,report_time,subdir_count,"""
 
 
 class AnalyticsInfo(Resource):

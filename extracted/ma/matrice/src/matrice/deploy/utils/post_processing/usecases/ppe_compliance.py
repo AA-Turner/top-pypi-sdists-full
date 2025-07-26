@@ -35,8 +35,8 @@ class PPEComplianceConfig(BaseConfig):
     ])
     alert_config: Optional[AlertConfig] = None
     index_to_category: Optional[Dict[int, str]] = field(default_factory=lambda: {
-        -1: 'Hardhat', 0: 'Mask', 1: 'NO-Hardhat', 2: 'NO-Mask', 3: 'NO-Safety Vest',
-        4: 'Person', 5: 'Safety Cone', 6: 'Safety Vest', 7: 'machinery', 8: 'vehicle'
+        0: 'Hardhat', 1: 'Mask', 2: 'NO-Hardhat', 3: 'NO-Mask', 4: 'NO-Safety Vest',
+        5: 'Person', 6: 'Safety Cone', 7: 'Safety Vest', 8: 'machinery', 9: 'vehicle'
     })
 
 class PPEComplianceUseCase(BaseProcessor):

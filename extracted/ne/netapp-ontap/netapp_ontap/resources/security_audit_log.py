@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -11,6 +11,7 @@ These APIs return audit log records. The GET requests retrieves all audit log re
 ## Example
 ### Retrieving audit log records
 The following example shows the audit log records.
+Note: The index field is used to order the audit log messages before they are displayed. If multiple entries for the same node and timestamp occur simultaneously, the index assigns an order to ensure logical consistency.
 <br />
 ---
 ```python
@@ -31,23 +32,24 @@ with HostConnection(
 [
     SecurityAuditLog(
         {
+            "timestamp": "2019-03-08T11:03:32-05:00",
+            "scope": "cluster",
+            "application": "http",
+            "state": "pending",
             "location": "172.21.16.89",
-            "user": "admin",
+            "role": "admin",
+            "input": "GET /api/security/audit/destinations/",
             "node": {
+                "uuid": "bc9af9da-41bb-11e9-a3db-005056bb27cf",
                 "name": "node1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/bc9af9da-41bb-11e9-a3db-005056bb27cf"
                     }
                 },
-                "uuid": "bc9af9da-41bb-11e9-a3db-005056bb27cf",
             },
-            "application": "http",
-            "state": "pending",
-            "input": "GET /api/security/audit/destinations/",
+            "user": "admin",
             "index": 4294967299,
-            "timestamp": "2019-03-08T11:03:32-05:00",
-            "scope": "cluster",
         }
     )
 ]
@@ -117,7 +119,7 @@ Each command received on a CLI session is assigned a command ID. This enables yo
         data_key="index",
         allow_none=True,
     )
-    r""" Internal index for accessing records with same time/node. This is a 64 bit unsigned value."""
+    r""" Internal index for accessing records with the same time and node. This is a 64-bit unsigned value that is used to order the audit log messages before they are displayed. If multiple entries for the same node and timestamp occur simultaneously, the index assigns an order to ensure logical consistency."""
 
     input = marshmallow_fields.Str(
         data_key="input",
@@ -139,6 +141,12 @@ Each command received on a CLI session is assigned a command ID. This enables yo
 
     node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", data_key="node", unknown=EXCLUDE, allow_none=True)
     r""" The node field of the security_audit_log."""
+
+    role = marshmallow_fields.Str(
+        data_key="role",
+        allow_none=True,
+    )
+    r""" Role of the remote user."""
 
     scope = marshmallow_fields.Str(
         data_key="scope",
@@ -202,6 +210,7 @@ Valid choices:
         "node.links",
         "node.name",
         "node.uuid",
+        "role",
         "scope",
         "session_id",
         "state",
@@ -209,7 +218,7 @@ Valid choices:
         "timestamp",
         "user",
     ]
-    """links,application,command_id,index,input,location,message,node.links,node.name,node.uuid,scope,session_id,state,svm,timestamp,user,"""
+    """links,application,command_id,index,input,location,message,node.links,node.name,node.uuid,role,scope,session_id,state,svm,timestamp,user,"""
 
     patchable_fields = [
         "scope",

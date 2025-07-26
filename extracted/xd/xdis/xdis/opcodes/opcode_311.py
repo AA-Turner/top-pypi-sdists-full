@@ -1,4 +1,4 @@
-# (C) Copyright 2024
+# (C) Copyright 2024-2025
 # by Rocky Bernstein
 #
 #  This program is free software; you can redistribute it and/or
@@ -24,6 +24,7 @@ of stack usage and information for formatting instructions.
 from typing import Dict, List, Optional, Tuple
 
 import xdis.opcodes.opcode_310 as opcode_310
+from xdis.instruction import Instruction
 from xdis.opcodes.base import (
     binary_op,
     def_op,
@@ -35,7 +36,11 @@ from xdis.opcodes.base import (
     store_op,
     update_pj3,
 )
-from xdis.opcodes.format.extended import extended_format_binary_op
+from xdis.opcodes.format.extended import (
+    NULL_EXTENDED_OP,
+    extended_format_binary_op,
+    extended_format_unary_op,
+)
 from xdis.opcodes.opcode_310 import opcode_arg_fmt310, opcode_extended_fmt310
 
 version_tuple = (3, 11)
@@ -57,7 +62,7 @@ _nb_ops = [
     ("NB_LSHIFT", "<<"),
     ("NB_MATRIX_MULTIPLY", "@"),
     ("NB_MULTIPLY", "*"),
-    ("NB_REMAINDER", "%"),
+    ("NB_MODULO", "%"),
     ("NB_OR", "|"),
     ("NB_POWER", "**"),
     ("NB_RSHIFT", ">>"),
@@ -70,7 +75,7 @@ _nb_ops = [
     ("NB_INPLACE_LSHIFT", "<<="),
     ("NB_INPLACE_MATRIX_MULTIPLY", "@="),
     ("NB_INPLACE_MULTIPLY", "*="),
-    ("NB_INPLACE_REMAINDER", "%="),
+    ("NB_INPLACE_MODULO", "%="),
     ("NB_INPLACE_OR", "|="),
     ("NB_INPLACE_POWER", "**="),
     ("NB_INPLACE_RSHIFT", ">>="),
@@ -241,11 +246,57 @@ def extended_format_BINARY_OP(opc, instructions) -> Tuple[str, Optional[int]]:
     opname = _nb_ops[instructions[0].argval][1]
     if opname == "%":
         opname = "%%"
+    elif opname == "%=":
+        opname = "%%="
     return extended_format_binary_op(opc, instructions, f"%s {opname} %s")
 
 
-def format_BINARY_OP(arg) -> str:
+def extended_format_COPY_OP(
+    opc, instructions: List[Instruction]
+) -> Tuple[str, Optional[int]]:
+    """Try to extract TOS value and show that surrounded in a "push() ".
+    The trailing space at the used as a sentinal for `get_instruction_tos_str()`
+    which tries to remove the push() part when the operand value string is needed.
+    """
+
+    # We add a space at the end as a sentinal to use in get_instruction_tos_str()
+    if instructions[1].optype not in ["jrel", "jabs"]:
+        return extended_format_unary_op(opc, instructions, "copy(%s) ")
+    else:
+        return NULL_EXTENDED_OP
+
+
+def extended_format_SWAP(
+    opc, instructions: List[Instruction]
+) -> Tuple[str, Optional[int]]:
+    """call_function_inst should be a "SWAP" instruction. See if
+    `we can find the two instructions to be swapped.  If not we'll
+    return None.
+
+    """
+    # From opcode description: argc indicates the total number of
+    # positional and keyword arguments.  Sometimes the function name
+    # is in the stack arg positions back.
+    # From opcode description: arg_count indicates the total number of
+    # positional and keyword arguments.
+
+    swap_instr = instructions[0]
+    i = swap_instr.argval
+    # s = ""
+
+    if i is None or not (0 < i < len(instructions)):
+        return "", None
+
+    # To be continued
+    return "", None
+
+
+def format_BINARY_OP(arg: int) -> str:
     return _nb_ops[arg][1]
+
+
+def format_SWAP_OP(arg: int) -> str:
+    return f"TOS <-> TOS{arg-1}"
 
 
 opcode_arg_fmt311 = opcode_arg_fmt310.copy()
@@ -257,13 +308,15 @@ opcode_arg_fmt = opcode_arg_fmt311 = {
     **opcode_arg_fmt310,
     **{
         "BINARY_OP": format_BINARY_OP,
+        "SWAP": format_SWAP_OP,
     },
 }
 
-opcode_extended_fmt311 = {
+opcode_extended_fmt = opcode_extended_fmt311 = {
     **opcode_extended_fmt310,
     **{
         "BINARY_OP": extended_format_BINARY_OP,
+        "COPY": extended_format_COPY_OP,
     },
 }
 

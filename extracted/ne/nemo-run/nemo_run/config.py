@@ -49,6 +49,9 @@ RUNDIR_NAME = "nemo_run"
 RUNDIR_SPECIAL_NAME = "/$nemo_run"
 SCRIPTS_DIR = "scripts"
 
+# Metadata keys
+USE_WITH_RAY_CLUSTER_KEY = "use_with_ray_cluster"
+
 
 def get_nemorun_home() -> str:
     """
@@ -97,13 +100,18 @@ def get_type_namespace(typ: Type | Callable) -> str:
     if isinstance(typ, fdl.Buildable):
         typ = typ.__fn_or_cls__
 
-    return f"{module}.{typ.__qualname__}"
+    _name = getattr(typ, "__qualname__", str(typ))
+    if _name.startswith("ForwardRef"):
+        _name = _name.split(".")[-1]
+    return f"{module}.{_name}"
 
 
 def get_underlying_types(type_hint: typing.Any) -> typing.Set[typing.Type]:
     if isinstance(type_hint, typing._GenericAlias):  # type: ignore
         if str(type_hint).startswith("typing.Annotated"):
-            origin = type_hint.__origin__.__origin__
+            origin = type_hint.__origin__
+            if hasattr(origin, "__origin__"):
+                origin = origin.__origin__
         else:
             origin = type_hint.__origin__
         if origin in RECURSIVE_TYPES:
@@ -339,11 +347,6 @@ class ConfigurableMixin(_VisualizeMixin):
 
     For classes that are not dataclasses, the `to_config` method needs to be
     overridden to provide custom conversion logic to Config instances.
-
-    Methods:
-        diff: Generate a visual difference between configurations.
-        to_config: Convert the current object to a Config instance.
-        _repr_svg_: Generate an SVG representation for Jupyter notebooks.
     """
 
     def diff(self, old: Self, trim=True, **kwargs):
@@ -448,6 +451,8 @@ class Script(ConfigurableMixin):
     entrypoint: str = "bash"
     #: Whether to use ``python -m`` when executing via python.
     m: bool = False
+
+    metadata: dict[str, Any] = dataclasses.field(default_factory=dict)
 
     def __post_init__(self):
         assert self.path or self.inline

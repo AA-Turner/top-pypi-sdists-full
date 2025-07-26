@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,50 +25,50 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VscanOnAccess(
         {
-            "name": "default_CIFS",
+            "scope": {
+                "scan_without_extension": True,
+                "include_extensions": ["*"],
+                "scan_readonly_volumes": False,
+                "only_execute_access": False,
+                "max_file_size": 2147483648,
+            },
             "enabled": True,
+            "mandatory": True,
             "svm": {
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
             },
-            "mandatory": True,
-            "scope": {
-                "scan_without_extension": True,
-                "include_extensions": ["*"],
-                "only_execute_access": False,
-                "max_file_size": 2147483648,
-                "scan_readonly_volumes": False,
-            },
+            "name": "default_CIFS",
         }
     ),
     VscanOnAccess(
         {
-            "name": "on-access-policy",
+            "scope": {
+                "exclude_paths": ["\\vol\\a b\\", "\\vol\\a,b\\"],
+                "scan_without_extension": True,
+                "include_extensions": ["mp*", "tx*"],
+                "scan_readonly_volumes": False,
+                "only_execute_access": True,
+                "max_file_size": 3221225472,
+                "exclude_extensions": ["mp3", "txt"],
+            },
             "enabled": False,
+            "mandatory": True,
             "svm": {
+                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"
                     }
                 },
-                "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
             },
-            "mandatory": True,
-            "scope": {
-                "exclude_paths": ["\\vol\\a b\\", "\\vol\\a,b\\"],
-                "scan_without_extension": True,
-                "include_extensions": ["mp*", "tx*"],
-                "only_execute_access": True,
-                "max_file_size": 3221225472,
-                "exclude_extensions": ["mp3", "txt"],
-                "scan_readonly_volumes": False,
-            },
+            "name": "on-access-policy",
         }
     ),
 ]
@@ -99,25 +99,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnAccess(
     {
-        "name": "on-access-policy",
-        "enabled": True,
-        "svm": {
-            "name": "vs1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
-            },
-            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
-        },
-        "mandatory": True,
         "scope": {
             "exclude_paths": ["\\vol\\a b\\", "\\vol\\a,b\\"],
             "scan_without_extension": True,
             "include_extensions": ["mp*", "tx*"],
+            "scan_readonly_volumes": False,
             "only_execute_access": True,
             "max_file_size": 3221225472,
             "exclude_extensions": ["mp3", "txt"],
-            "scan_readonly_volumes": False,
         },
+        "enabled": True,
+        "mandatory": True,
+        "svm": {
+            "uuid": "179d3c85-7053-11e8-b9b8-005056b41bd1",
+            "name": "vs1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/179d3c85-7053-11e8-b9b8-005056b41bd1"}
+            },
+        },
+        "name": "on-access-policy",
     }
 )
 
@@ -158,19 +158,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnAccess(
     {
-        "name": "on-access-policy",
-        "enabled": False,
-        "svm": {"name": "vs1"},
-        "mandatory": True,
         "scope": {
             "exclude_paths": ["\\dir1\\dir2\\ame", "\\vol\\a b"],
             "scan_without_extension": True,
             "include_extensions": ["mp*", "txt"],
+            "scan_readonly_volumes": False,
             "only_execute_access": True,
             "max_file_size": 3221225472,
             "exclude_extensions": ["txt", "mp3"],
-            "scan_readonly_volumes": False,
         },
+        "enabled": False,
+        "mandatory": True,
+        "svm": {"name": "vs1"},
+        "name": "on-access-policy",
     }
 )
 
@@ -206,15 +206,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VscanOnAccess(
     {
-        "name": "on-access-policy",
-        "enabled": False,
-        "svm": {"name": "vs1"},
-        "mandatory": True,
         "scope": {
             "exclude_paths": ["\\vol\\a b", "\\vol\\a,b\\"],
             "scan_without_extension": True,
             "max_file_size": 1073741824,
         },
+        "enabled": False,
+        "mandatory": True,
+        "svm": {"name": "vs1"},
+        "name": "on-access-policy",
     }
 )
 

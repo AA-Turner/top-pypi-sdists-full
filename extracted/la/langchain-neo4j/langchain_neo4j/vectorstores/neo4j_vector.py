@@ -17,7 +17,6 @@ from typing import (
 )
 
 import neo4j
-import numpy as np
 from langchain_core.documents import Document
 from langchain_core.embeddings import Embeddings
 from langchain_core.utils import get_from_dict_or_env
@@ -153,7 +152,7 @@ class Neo4jVector(VectorStore):
 
             url="bolt://localhost:7687"
             username="neo4j"
-            password="pleaseletmein"
+            password="password"
             embeddings = OpenAIEmbeddings()
             vectorestore = Neo4jVector.from_documents(
                 embedding=embeddings,
@@ -383,6 +382,7 @@ class Neo4jVector(VectorStore):
             index_name=self.index_name,
             label_or_type=self.node_label,
             embedding_property=self.embedding_node_property,
+            neo4j_database=self._database,
         )
         if index_information:
             try:
@@ -418,6 +418,7 @@ class Neo4jVector(VectorStore):
                 index_name=self.keyword_index_name,
                 label_or_type=self.node_label,
                 text_properties=text_node_properties or [self.text_node_property],
+                neo4j_database=self._database,
             )
         else:
             raise ValueError("keyword_index_name is not set.")
@@ -789,7 +790,7 @@ class Neo4jVector(VectorStore):
 
         results = self.query(read_query, params=parameters)
 
-        if any(result["text"] is None for result in results):
+        if any(result.get("text") is None for result in results):
             if not self.retrieval_query:
                 raise ValueError(
                     f"Make sure that none of the `{self.text_node_property}` "
@@ -1301,6 +1302,16 @@ class Neo4jVector(VectorStore):
         Returns:
             List of Documents selected by maximal marginal relevance.
         """
+        try:
+            import numpy as np
+        except ImportError as e:
+            msg = (
+                "max_marginal_relevance_search requires numpy to be installed. "
+                "Please install numpy with `pip install langchain-neo4j[mmr]` "
+                "or `pip install numpy`."
+            )
+            raise ImportError(msg) from e
+
         # Embed the query
         query_embedding = self.embedding.embed_query(query)
 

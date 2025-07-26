@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -188,7 +188,6 @@ Component snapshots are essentially more granular application snapshots. There i
         **kwargs
     ) -> Union[List["ApplicationComponentSnapshot"], NetAppResponse]:
         r"""Creates a snapshot of an application component.<br/>
-
 This endpoint is only supported for Maxdata template applications.<br/>
 ### Required properties
 * `name`
@@ -220,7 +219,6 @@ Component snapshots are essentially more granular application snapshots. There i
         **kwargs
     ) -> NetAppResponse:
         r"""Delete a snapshot of an application component.<br/>
-
 This endpoint is only supported for Maxdata template applications.<br/>
 Component snapshots are essentially more granular application snapshots. There is no difference beyond the scope of the operation.
 ### Learn more
@@ -271,7 +269,6 @@ Component snapshots are essentially more granular application snapshots. There i
         **kwargs
     ) -> NetAppResponse:
         r"""Creates a snapshot of an application component.<br/>
-
 This endpoint is only supported for Maxdata template applications.<br/>
 ### Required properties
 * `name`
@@ -300,7 +297,6 @@ Component snapshots are essentially more granular application snapshots. There i
         **kwargs
     ) -> NetAppResponse:
         r"""Delete a snapshot of an application component.<br/>
-
 This endpoint is only supported for Maxdata template applications.<br/>
 Component snapshots are essentially more granular application snapshots. There is no difference beyond the scope of the operation.
 ### Learn more
@@ -324,7 +320,6 @@ Component snapshots are essentially more granular application snapshots. There i
         **kwargs
     ) -> NetAppResponse:
         r"""Restore a snapshot of an application component.<br/>
-
 This endpoint is only supported for Maxdata template applications.<br/>
 Component snapshots are essentially more granular application snapshots. There is no difference beyond the scope of the operation.
 ### Learn more

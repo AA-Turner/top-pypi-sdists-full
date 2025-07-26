@@ -1,6 +1,6 @@
 from urllib.parse import parse_qs, urljoin, urlparse
 
-from connector.generated.models.handle_authorization_callback_request import (
+from connector_sdk_types.generated import (
     HandleAuthorizationCallbackRequest,
 )
 

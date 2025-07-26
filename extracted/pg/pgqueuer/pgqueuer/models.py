@@ -145,9 +145,21 @@ class Job(BaseModel):
     payload: bytes | None
     queue_manager_id: uuid.UUID | None
     headers: Annotated[
-        dict[str, str] | None,
+        dict[str, Any] | None,
         BeforeValidator(lambda x: None if x is None else from_json(x)),
     ]
+
+    def logfire_headers(self) -> dict[str, Any] | None:
+        """
+        Extracts logfire headers from the job headers if available.
+        """
+        return None if self.headers is None else self.headers.get("logfire")
+
+    def sentry_headers(self) -> dict[str, Any] | None:
+        """
+        Extracts sentry headers from the job headers if available.
+        """
+        return None if self.headers is None else self.headers.get("sentry")
 
 
 ###### Log ######

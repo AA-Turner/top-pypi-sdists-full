@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -8,16 +8,13 @@ This file has been automatically generated based on the ONTAP REST API documenta
 An NVMe namespace is a collection of addressable logical blocks presented to hosts connected to the storage virtual machine using the NVMe over Fabrics protocol.<br/>
 The NVMe namespace REST API allows you to create, update, delete and discover NVMe namespaces.<br/>
 An NVMe namespace must be mapped to an NVMe subsystem to grant access to the subsystem's hosts. Hosts can then access the NVMe namespace and perform I/O using the NVMe over Fabrics protocol.<br/>
-See the NVMe namespace object model to learn more about each of the properties supported by the NVMe namespace REST API.
-## Platform Specifics
-### Unified ONTAP
-An NVMe namespace is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
+See the NVMe namespace object model to learn more about each of the properties supported by the NVMe namespace REST API.<br/>
+<personalities supports=unified>An NVMe namespace is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
 NVMe namespace names are paths of the form "/vol/\<volume>[/\<qtree>]/\<namespace>" where the qtree name is optional.<br/>
-An NVMe namespace is created to a specified size using thin or thick provisioning as determined by the volume on which it is created. An NVMe namespace can then be resized or cloned. An NVMe namespace cannot be renamed, or moved to a different volume. NVMe namespaces do not support the assignment of a QoS policy for performance management, but a QoS policy can be assigned to the volume containing the namespace.
-### ASA r2
-NVMe namespace names are simple names that share a namespace with LUNs within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
+An NVMe namespace is created to a specified size using thin or thick provisioning as determined by the volume on which it is created. An NVMe namespace can then be resized or cloned. An NVMe namespace cannot be renamed, or moved to a different volume. NVMe namespaces do not support the assignment of a QoS policy for performance management, but a QoS policy can be assigned to the volume containing the namespace.</personalities>
+<personalities supports=asar2>NVMe namespace names are simple names that share a namespace with LUNs within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
 An NVMe namespace can be created to a specified size. An NVMe namespace can then be renamed, resized, or cloned. NVMe namespaces support the assignment of a QoS policy for performance management.<br/>
-**Note**: NVMe namespace related REST API examples use the Unified ONTAP form for NVMe namespace names. On ASA r2, the ASA r2 format must be used.
+**Note**: NVMe namespace related REST API examples use the Unified ONTAP form for NVMe namespace names. On ASA r2, the ASA r2 format must be used.</personalities>
 ## Performance monitoring
 Performance of an NVMe namespace can be monitored by observing the `metric.*` and `statistics.*` properties. These properties show the space utilization and performance of an NVMe namespace in terms of IOPS, latency, and throughput. The `metric.*` properties denote an average, whereas `statistics.*` properties denote a real-time monotonically increasing value aggregated across all nodes.
 ## Examples
@@ -45,40 +42,40 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeNamespace(
     {
-        "name": "/vol/vol1/namespace1",
-        "enabled": True,
-        "_links": {
-            "self": {
-                "href": "/api/storage/namespaces/dccdc3e6-cf4e-498f-bec6-f7897f945669"
-            }
-        },
+        "status": {"read_only": False, "container_state": "online", "state": "online"},
         "svm": {
+            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/6bf967fd-2a1c-11e9-b682-005056bbc17d"}
             },
-            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
         },
         "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
+        "space": {
+            "block_size": 4096,
+            "used": 0,
+            "guarantee": {"reserved": False, "requested": False},
+            "size": 322122547200,
+        },
+        "os_type": "linux",
+        "name": "/vol/vol1/namespace1",
+        "enabled": True,
         "location": {
+            "namespace": "namespace1",
             "volume": {
+                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
                 "name": "vol1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/71cd0dba-2a1c-11e9-b682-005056bbc17d"
                     }
                 },
-                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
             },
-            "namespace": "namespace1",
         },
-        "os_type": "linux",
-        "status": {"read_only": False, "state": "online", "container_state": "online"},
-        "space": {
-            "block_size": 4096,
-            "used": 0,
-            "guarantee": {"requested": False, "reserved": False},
-            "size": 322122547200,
+        "_links": {
+            "self": {
+                "href": "/api/storage/namespaces/dccdc3e6-cf4e-498f-bec6-f7897f945669"
+            }
         },
     }
 )
@@ -136,41 +133,41 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeNamespace(
         {
+            "status": {"state": "online"},
+            "svm": {"name": "svm1"},
+            "uuid": "5c254d22-96a6-42ac-aad8-0cd9ebd126b6",
             "name": "/vol/vol1/namespace2",
             "_links": {
                 "self": {
                     "href": "/api/storage/namespaces/5c254d22-96a6-42ac-aad8-0cd9ebd126b6"
                 }
             },
-            "svm": {"name": "svm1"},
-            "uuid": "5c254d22-96a6-42ac-aad8-0cd9ebd126b6",
-            "status": {"state": "online"},
         }
     ),
     NvmeNamespace(
         {
+            "status": {"state": "online"},
+            "svm": {"name": "svm1"},
+            "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
             "name": "/vol/vol1/namespace1",
             "_links": {
                 "self": {
                     "href": "/api/storage/namespaces/dccdc3e6-cf4e-498f-bec6-f7897f945669"
                 }
             },
-            "svm": {"name": "svm1"},
-            "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
-            "status": {"state": "online"},
         }
     ),
     NvmeNamespace(
         {
+            "status": {"state": "online"},
+            "svm": {"name": "svm1"},
+            "uuid": "be732687-20cf-47d2-a0e2-2a989d15661d",
             "name": "/vol/vol2/namespace3",
             "_links": {
                 "self": {
                     "href": "/api/storage/namespaces/be732687-20cf-47d2-a0e2-2a989d15661d"
                 }
             },
-            "svm": {"name": "svm1"},
-            "uuid": "be732687-20cf-47d2-a0e2-2a989d15661d",
-            "status": {"state": "online"},
         }
     ),
 ]
@@ -200,38 +197,56 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeNamespace(
     {
-        "name": "/vol/vol1/namespace1",
-        "enabled": True,
-        "_links": {
-            "self": {
-                "href": "/api/storage/namespaces/dccdc3e6-cf4e-498f-bec6-f7897f945669?fields=**"
-            }
+        "status": {
+            "mapped": True,
+            "read_only": False,
+            "container_state": "online",
+            "state": "online",
+        },
+        "metric": {
+            "timestamp": "2019-04-09T05:50:15+00:00",
+            "throughput": {"read": 0, "total": 0, "write": 0},
+            "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
+            "status": "ok",
+            "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
+            "duration": "PT15S",
         },
         "svm": {
+            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/6bf967fd-2a1c-11e9-b682-005056bbc17d"}
             },
-            "uuid": "6bf967fd-2a1c-11e9-b682-005056bbc17d",
-        },
-        "metric": {
-            "status": "ok",
-            "iops": {"total": 0, "write": 0, "other": 0, "read": 0},
-            "latency": {"total": 0, "write": 0, "other": 0, "read": 0},
-            "timestamp": "2019-04-09T05:50:15+00:00",
-            "throughput": {"total": 0, "write": 0, "read": 0},
-            "duration": "PT15S",
         },
         "uuid": "dccdc3e6-cf4e-498f-bec6-f7897f945669",
+        "space": {
+            "block_size": 4096,
+            "used": 0,
+            "guarantee": {"reserved": False, "requested": False},
+            "size": 322122547200,
+        },
+        "comment": "Data for the research department.",
+        "os_type": "linux",
+        "auto_delete": False,
+        "name": "/vol/vol1/namespace1",
+        "statistics": {
+            "timestamp": "2019-04-09T05:50:42+00:00",
+            "latency_raw": {"read": 0, "total": 38298, "other": 38298, "write": 0},
+            "iops_raw": {"read": 0, "total": 3, "other": 3, "write": 0},
+            "status": "ok",
+            "throughput_raw": {"read": 0, "total": 0, "write": 0},
+        },
+        "enabled": True,
         "subsystem_map": {
+            "anagrpid": "00000001h",
             "subsystem": {
-                "name": "subsystem1",
                 "uuid": "01f17d05-2be9-11e9-bed2-005056bbc17d",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/nvme/subsystems/01f17d05-2be9-11e9-bed2-005056bbc17d"
                     }
                 },
+                "name": "subsystem1",
             },
             "_links": {
                 "self": {
@@ -239,41 +254,23 @@ NvmeNamespace(
                 }
             },
             "nsid": "00000001h",
-            "anagrpid": "00000001h",
         },
         "location": {
+            "namespace": "namespace1",
             "volume": {
+                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
                 "name": "vol1",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/71cd0dba-2a1c-11e9-b682-005056bbc17d"
                     }
                 },
-                "uuid": "71cd0dba-2a1c-11e9-b682-005056bbc17d",
             },
-            "namespace": "namespace1",
         },
-        "os_type": "linux",
-        "statistics": {
-            "status": "ok",
-            "iops_raw": {"total": 3, "write": 0, "other": 3, "read": 0},
-            "latency_raw": {"total": 38298, "write": 0, "other": 38298, "read": 0},
-            "throughput_raw": {"total": 0, "write": 0, "read": 0},
-            "timestamp": "2019-04-09T05:50:42+00:00",
-        },
-        "comment": "Data for the research department.",
-        "status": {
-            "read_only": False,
-            "state": "online",
-            "mapped": True,
-            "container_state": "online",
-        },
-        "auto_delete": False,
-        "space": {
-            "block_size": 4096,
-            "used": 0,
-            "guarantee": {"requested": False, "reserved": False},
-            "size": 322122547200,
+        "_links": {
+            "self": {
+                "href": "/api/storage/namespaces/dccdc3e6-cf4e-498f-bec6-f7897f945669?fields=**"
+            }
         },
     }
 )
@@ -388,23 +385,17 @@ class NvmeNamespaceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         data_key="auto_delete",
         allow_none=True,
     )
-    r""" * **Unified ONTAP**:
-This property marks the NVMe namespace for auto deletion when the volume containing the namespace runs out of space. This is most commonly set on namespace clones.<br/>
+    r""" <personalities supports=unified>This property marks the NVMe namespace for auto deletion when the volume containing the namespace runs out of space. This is most commonly set on namespace clones.<br/>
 When set to _true_, the NVMe namespace becomes eligible for automatic deletion when the volume runs out of space. Auto deletion only occurs when the volume containing the namespace is also configured for auto deletion and free space in the volume decreases below a particular threshold.<br/>
 This property is optional in POST and PATCH. The default value for a new NVMe namespace is _false_.<br/>
-There is an added computational cost to retrieving this property's value. It is not populated for either a collection GET or an instance GET unless it is explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
-
-* **ASA r2**:
-This property is not supported. It cannot be set in POST or PATCH and will not be returned by GET."""
+There is an added computational cost to retrieving this property's value. It is not populated for a GET request unless it is explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.</personalities>
+<personalities supports=asar2>This property is not supported. It cannot be set in POST or PATCH and will not be returned by GET.</personalities>"""
 
     clone = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_clone.NvmeNamespaceCloneSchema", data_key="clone", unknown=EXCLUDE, allow_none=True)
-    r""" * **Unified ONTAP**:
-This sub-object is used in POST to create a new NVMe namespace as a clone of an existing namespace, or PATCH to overwrite an existing namespace as a clone of another. Setting a property in this sub-object indicates that a namespace clone is desired.<br/>
-When used in a PATCH, the patched NVMe namespace's data is over-written as a clone of the source and the following properties are preserved from the patched namespace unless otherwise specified as part of the PATCH: `auto_delete` (unless specified in the request), `subsystem_map`, `status.state`, and `uuid`.
-
-* **ASA r2**:
-This endpoint does not support clones. No properties in this sub-object can be set for POST or PATCH and none will be returned by GET.<br/>
-Cloning is supported through the /api/storage/storage-units endpoint. See the [`POST /ap/storage/storage-units`](#/SAN/storage_unit_create) to learn more about cloning NVMe namespaces."""
+    r""" <personalities supports=unified>This sub-object is used in POST to create a new NVMe namespace as a clone of an existing namespace, or PATCH to overwrite an existing namespace as a clone of another. Setting a property in this sub-object indicates that a namespace clone is desired.<br/>
+When used in a PATCH, the patched NVMe namespace's data is over-written as a clone of the source and the following properties are preserved from the patched namespace unless otherwise specified as part of the PATCH: `auto_delete` (unless specified in the request), `subsystem_map`, `status.state`, and `uuid`.</personalities>
+<personalities supports=asar2>This endpoint does not support clones. No properties in this sub-object can be set for POST or PATCH and none will be returned by GET.<br/>
+Cloning is supported through the /api/storage/storage-units endpoint. See the [`POST /api/storage/storage-units`](#/SAN/storage_unit_create) to learn more about cloning NVMe namespaces.</personalities>"""
 
     comment = marshmallow_fields.Str(
         data_key="comment",
@@ -415,10 +406,8 @@ Cloning is supported through the /api/storage/storage-units endpoint. See the [`
 
     consistency_group = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_consistency_group.NvmeNamespaceConsistencyGroupSchema", data_key="consistency_group", unknown=EXCLUDE, allow_none=True)
     r""" The namespace's consistency group. This property is populated for namespaces that are members of a consistency group. If the namespace is a member of a child consistency group, the parent consistency group is reported.
-### Platform Specifics
-
-* **Unified ONTAP**: A namespace's consistency group is the consistency group of its containing volume.
-* **ASA r2**: A namespace is optionally associated directly with a consistency group."""
+<personalities supports=unified>A namespace's consistency group is the consistency group of its containing volume.</personalities>
+<personalities supports=asar2>A namespace is optionally associated directly with a consistency group.</personalities>"""
 
     convert = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_convert.NvmeNamespaceConvertSchema", data_key="convert", unknown=EXCLUDE, allow_none=True)
     r""" This sub-object is used in POST to convert a valid in-place LUN to an NVMe namespace. Setting a property in this sub-object indicates that a conversion from the specified LUN to NVMe namespace is desired.<br/>"""
@@ -442,13 +431,8 @@ Example: 2018-06-04T19:00:00.000+0000"""
 
     location = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_location.NvmeNamespaceLocationSchema", data_key="location", unknown=EXCLUDE, allow_none=True)
     r""" The location of the NVMe namespace within the ONTAP cluster.
-### Platform Specifics
-
-* **Unified ONTAP**:
-NVMe namespaces do not support rename, or movement between volumes. Valid in POST.
-
-* **ASA r2**:
-The NVMe namespace name can be changed by PATCHing the `name` property. The `location` properties are read-only."""
+<personalities supports=unified>NVMe namespaces do not support rename, or movement between volumes. Valid in POST.</personalities>
+<personalities supports=asar2>The NVMe namespace name can be changed by PATCHing the `name` property. The `location` properties are read-only.</personalities>"""
 
     metric = marshmallow_fields.Nested("netapp_ontap.models.performance_metric_reduced_throughput.PerformanceMetricReducedThroughputSchema", data_key="metric", unknown=EXCLUDE, allow_none=True)
     r""" Performance numbers, such as IOPS latency and throughput"""
@@ -458,16 +442,11 @@ The NVMe namespace name can be changed by PATCHing the `name` property. The `loc
         allow_none=True,
     )
     r""" The name of the NVMe namespace.
-### Platform Specifics
-
-* **Unified ONTAP**:
-An NVMe namespace is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
+<personalities supports=unified>An NVMe namespace is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
 NVMe namespace names are paths of the form "/vol/\<volume>[/\<qtree>]/\<namespace>" where the qtree name is optional.<br/>
-Renaming an NVMe namespace is not supported. Valid in POST.
-
-* **ASA r2**:
-NVMe namespace names are simple names that share a namespace with LUNs within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
-Renaming an NVMe namespace is supported. Valid in POST and PATCH.
+Renaming an NVMe namespace is not supported. Valid in POST.</personalities>
+<personalities supports=asar2>NVMe namespace names are simple names that share a namespace with LUNs within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
+Renaming an NVMe namespace is supported. Valid in POST and PATCH.</personalities>
 
 
 Example: /vol/volume1/qtree1/namespace1"""
@@ -492,11 +471,7 @@ Valid choices:
     r""" Options that are applied to the operation."""
 
     qos_policy = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_qos_policy.NvmeNamespaceQosPolicySchema", data_key="qos_policy", unknown=EXCLUDE, allow_none=True)
-    r""" The QoS policy for the NVMe namspace. Both traditional and adaptive QoS policies are supported. If both property `qos_policy.uuid` and `qos_policy.name` are specified in the same request, they must refer to the same QoS policy. To remove the QoS policy from an NVMe namspace, leaving it with no QoS policy, set property `qos_policy.name` to an empty string ("") in a PATCH request. Valid in POST and PATCH.
-### Platform Specifics
-
-* **Unified ONTAP**: These properties are not available on the NVMe namespace object in the REST API and are not reported for GET requests. You can set a QoS policy on the containing volume.
-* **ASA r2**: An NVMe namespace is optionally associated directly with a QoS policy. To remove the QoS policy, set it to `null` in a PATCH request."""
+    r""" The QoS policy for the NVMe namespace. Both traditional and adaptive QoS policies are supported. If both property `qos_policy.uuid` and `qos_policy.name` are specified in the same request, they must refer to the same QoS policy. To remove the QoS policy from an NVMe namespace, leaving it with no QoS policy, set property `qos_policy.name` to an empty string ("") in a PATCH request. An NVMe namespace is optionally associated directly with a QoS policy. To remove the QoS policy, set it to `null` in a PATCH request. Valid in POST and PATCH."""
 
     space = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_space.NvmeNamespaceSpaceSchema", data_key="space", unknown=EXCLUDE, allow_none=True)
     r""" The storage space related properties of the NVMe namespace."""
@@ -509,11 +484,9 @@ Valid choices:
 
     subsystem_map = marshmallow_fields.Nested("netapp_ontap.models.nvme_namespace_subsystem_map.NvmeNamespaceSubsystemMapSchema", data_key="subsystem_map", unknown=EXCLUDE, allow_none=True)
     r""" The NVMe subsystem with which the NVMe namespace is associated. A namespace can be mapped to zero (0) or one (1) subsystems.<br/>
-There is an added computational cost to retrieving property values for `subsystem_map`. They are not populated for either a collection GET or an instance GET unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
-### Platform Specifics
-
-* **Unified ONTAP**: These properties are supported only for GET.
-* **ASA r2**: These properties are supported for GET and POST. During POST, a new or existing subsystem can be referenced. When referencing an existing subsystem, only the `name` and `uuid` properties are supported."""
+There is an added computational cost to retrieving property values for `subsystem_map`. They are not populated for a GET request unless explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
+<personalities supports=unified>These properties are supported only for GET.</personalities>
+<personalities supports=asar2>These properties are supported for GET and POST. During POST, a new or existing subsystem can be referenced. When referencing an existing subsystem, only the `name` and `uuid` properties are supported.</personalities>"""
 
     svm = marshmallow_fields.Nested("netapp_ontap.resources.svm.SvmSchema", data_key="svm", unknown=EXCLUDE, allow_none=True)
     r""" The svm field of the nvme_namespace."""
@@ -585,16 +558,13 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
 class NvmeNamespace(Resource):
     r""" An NVMe namespace is a collection of addressable logical blocks presented to hosts connected to the storage virtual machine using the NVMe over Fabrics protocol.<br/>
 An NVMe namespace must be mapped to an NVMe subsystem to grant access to the subsystem's hosts. Hosts can then access the NVMe namespace and perform I/O using the NVMe over Fabrics protocol.<br/>
-See the NVMe namespace object model to learn more about each of the properties supported by the NVMe namespace REST API.
-## Platform Specifics
-### Unified ONTAP
-An NVMe namespace is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
+See the NVMe namespace object model to learn more about each of the properties supported by the NVMe namespace REST API.<br/>
+<personalities supports=unified>An NVMe namespace is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
 NVMe namespace names are paths of the form "/vol/\<volume>[/\<qtree>]/\<namespace>" where the qtree name is optional.<br/>
-An NVMe namespace is created to a specified size using thin or thick provisioning as determined by the volume on which it is created. An NVMe namespace can then be resized or cloned. An NVMe namespace cannot be renamed, or moved to a different volume. NVMe namespaces do not support the assignment of a QoS policy for performance management, but a QoS policy can be assigned to the volume containing the namespace.
-### ASA r2
-NVMe namespace names are simple names that share a namespace with LUNs within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
+An NVMe namespace is created to a specified size using thin or thick provisioning as determined by the volume on which it is created. An NVMe namespace can then be resized or cloned. An NVMe namespace cannot be renamed, or moved to a different volume. NVMe namespaces do not support the assignment of a QoS policy for performance management, but a QoS policy can be assigned to the volume containing the namespace.</personalities>
+<personalities supports=asar2>NVMe namespace names are simple names that share a namespace with LUNs within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.<br/>
 An NVMe namespace can be created to a specified size. An NVMe namespace can then be renamed, resized, or cloned. NVMe namespaces support the assignment of a QoS policy for performance management.<br/>
-**Note**: NVMe namespace related REST API examples use the Unified ONTAP form for NVMe namespace names. On ASA r2, the ASA r2 format must be used. """
+**Note**: NVMe namespace related REST API examples use the Unified ONTAP form for NVMe namespace names. On ASA r2, the ASA r2 format must be used.</personalities> """
 
     _schema = NvmeNamespaceSchema
     _path = "/api/storage/namespaces"
@@ -673,8 +643,9 @@ There is an added computational cost to retrieving values for these properties. 
 ### Related ONTAP commands
 * `volume file clone autodelete`
 * `vserver nvme namespace modify`
-### Platform Specifics
-* **ASA r2**: PATCH is asynchronous when modifying `name` or `qos_policy`.
+<personalities supports=asar2>
+PATCH is asynchronous when modifying `name` or `qos_policy`.
+</personalities>
 ### Learn more
 * [`DOC /storage/namespaces`](#docs-NVMe-storage_namespaces)
 """
@@ -713,8 +684,9 @@ If not specified in POST, the following default property values are assigned:
 * `volume file clone create`
 * `vserver nvme namespace convert-from-lun`
 * `vserver nvme namespace create`
-### Platform Specifics
-* **ASA r2**: The `name` property is required when creating a new namespace. The name must start with an alphabetic character (a to z or A to Z) or an underscore (_). The name must be 203 characters or less in length. The `location` properties are not supported.
+<personalities supports=asar2>
+The `name` property is required when creating a new namespace. The name must start with an alphabetic character (a to z or A to Z) or an underscore (_). The name must be 203 characters or less in length. The `location` properties are not supported.
+</personalities>
 POST is asynchronous when creating a new namespace. It is synchronous when converting a LUN to a namespace via the `convert` property.
 ### Learn more
 * [`DOC /storage/namespaces`](#docs-NVMe-storage_namespaces)
@@ -741,8 +713,9 @@ POST is asynchronous when creating a new namespace. It is synchronous when conve
         r"""Deletes an NVMe namespace.
 ### Related ONTAP commands
 * `vserver nvme namespace delete`
-### Platform Specifics
-* **ASA r2**: DELETE is asynchronous.
+<personalities supports=asar2>
+DELETE is asynchronous.
+</personalities>
 ### Learn more
 * [`DOC /storage/namespaces`](#docs-NVMe-storage_namespaces)
 """
@@ -822,8 +795,9 @@ If not specified in POST, the following default property values are assigned:
 * `volume file clone create`
 * `vserver nvme namespace convert-from-lun`
 * `vserver nvme namespace create`
-### Platform Specifics
-* **ASA r2**: The `name` property is required when creating a new namespace. The name must start with an alphabetic character (a to z or A to Z) or an underscore (_). The name must be 203 characters or less in length. The `location` properties are not supported.
+<personalities supports=asar2>
+The `name` property is required when creating a new namespace. The name must start with an alphabetic character (a to z or A to Z) or an underscore (_). The name must be 203 characters or less in length. The `location` properties are not supported.
+</personalities>
 POST is asynchronous when creating a new namespace. It is synchronous when converting a LUN to a namespace via the `convert` property.
 ### Learn more
 * [`DOC /storage/namespaces`](#docs-NVMe-storage_namespaces)
@@ -847,8 +821,9 @@ POST is asynchronous when creating a new namespace. It is synchronous when conve
 ### Related ONTAP commands
 * `volume file clone autodelete`
 * `vserver nvme namespace modify`
-### Platform Specifics
-* **ASA r2**: PATCH is asynchronous when modifying `name` or `qos_policy`.
+<personalities supports=asar2>
+PATCH is asynchronous when modifying `name` or `qos_policy`.
+</personalities>
 ### Learn more
 * [`DOC /storage/namespaces`](#docs-NVMe-storage_namespaces)
 """
@@ -870,8 +845,9 @@ POST is asynchronous when creating a new namespace. It is synchronous when conve
         r"""Deletes an NVMe namespace.
 ### Related ONTAP commands
 * `vserver nvme namespace delete`
-### Platform Specifics
-* **ASA r2**: DELETE is asynchronous.
+<personalities supports=asar2>
+DELETE is asynchronous.
+</personalities>
 ### Learn more
 * [`DOC /storage/namespaces`](#docs-NVMe-storage_namespaces)
 """

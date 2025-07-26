@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -29,9 +29,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 AutoUpdateConfiguration(
     {
         "action": "confirm",
+        "category": "firmware",
         "description": {"message": "SP/BMC Firmware", "code": "131072402"},
         "uuid": "440ae2e4-fd8f-4225-9bee-94e2da3f8d9d",
-        "category": "firmware",
     }
 )
 

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -22,13 +22,10 @@ class LunLocationSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the LunLocation object"""
 
     logical_unit = marshmallow_fields.Str(data_key="logical_unit", allow_none=True)
-    r""" * **Unified ONTAP**:
-The base name component of the LUN. Valid in POST and PATCH.<br/>
+    r""" <personalities supports=unified>The base name component of the LUN. Valid in POST and PATCH.<br/>
 If properties `name` and `location.logical_unit` are specified in the same request, they must refer to the base name.<br/>
-A PATCH that modifies the base name of the LUN is considered a rename operation.
-
-* **ASA r2**:
-The volume logical unit property is read-only and cannot be set in POST or PATCH. Use the `name` property for POST.
+A PATCH that modifies the base name of the LUN is considered a rename operation.</personalities>
+<personalities supports=asar2>The volume logical unit property is read-only and cannot be set in POST or PATCH. Use the `name` property for POST.</personalities>
 
 
 Example: lun1 """

@@ -3,7 +3,13 @@
 import typing as t
 
 import pytest_cases
-from connector.generated import (
+from connector.oai.capability import (
+    CapabilityCallableProto,
+    CustomRequest,
+    Request,
+    Response,
+)
+from connector_sdk_types.generated import (
     AssignedEntitlement,
     AssignEntitlementRequest,
     AssignEntitlementResponse,
@@ -12,12 +18,6 @@ from connector.generated import (
     ValidateCredentialsRequest,
     ValidateCredentialsResponse,
     ValidatedCredentials,
-)
-from connector.oai.capability import (
-    CapabilityCallableProto,
-    CustomRequest,
-    Request,
-    Response,
 )
 
 Case: t.TypeAlias = tuple[

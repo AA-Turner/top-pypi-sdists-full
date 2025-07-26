@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -44,10 +44,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Flexcache(
     {
-        "name": "fc_333",
         "svm": {"name": "vs_1"},
+        "name": "fc_333",
+        "origins": [{"svm": {"name": "vs_3"}, "volume": {"name": "vol_o1"}}],
         "aggregates": [{"name": "aggr_1"}],
-        "origins": [{"volume": {"name": "vol_o1"}, "svm": {"name": "vs_3"}}],
     }
 )
 
@@ -55,18 +55,42 @@ Flexcache(
 </div>
 </div>
 
-curl -X POST "https://<mgmt-ip>/api/storage/flexcache/flexcaches" -H  "accept: application/json" -H  "Content-Type: application/json" -d "{ \"aggregates\": [ { \"name\": \"aggr_1\" } ], \"name\": \"fc_333\", \"origins\": [ {  \"svm\": { \"name\": \"vs_3\"  }, \"volume\": { \"name\": \"vol_o1\" } } ], \"svm\": { \"name\": \"vs_1\" },  \"path\": \"/fc_333\", \"prepopulate\": { \"dir_paths\": [ \"/dir1\" ] } }"
-# The response:
-{
-  "job": {
-    "uuid": "e751dd5d-0f3c-11e9-8b2b-0050568e0b79",
-    "_links": {
-      "self": {
-        "href": "/api/cluster/jobs/e751dd5d-0f3c-11e9-8b2b-0050568e0b79"
-      }
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Flexcache
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Flexcache()
+    resource.aggregates = [{"name": "aggr_1"}]
+    resource.name = "fc_333"
+    resource.origins = [{"svm": {"name": "vs_3"}, "volume": {"name": "vol_o1"}}]
+    resource.svm = {"name": "vs_1"}
+    resource.path = "/fc_333"
+    resource.prepopulate = {"dir_paths": ["/dir1"]}
+    resource.post(hydrate=True)
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example1_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example1_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example1_result" class="try_it_out_content">
+```
+Flexcache(
+    {
+        "svm": {"name": "vs_1"},
+        "prepopulate": {"dir_paths": ["/dir1"]},
+        "path": "/fc_333",
+        "name": "fc_333",
+        "origins": [{"svm": {"name": "vs_3"}, "volume": {"name": "vol_o1"}}],
+        "aggregates": [{"name": "aggr_1"}],
     }
-  }
-}
+)
+
+```
+</div>
+</div>
+
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Flexcache
@@ -87,38 +111,63 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example1_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example1_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example1_result" class="try_it_out_content">
+<input id="example2_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example2_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example2_result" class="try_it_out_content">
 ```
 Flexcache(
     {
-        "name": "fc_333",
         "svm": {"name": "vs_1"},
-        "aggregates": [{"name": "aggr_1"}],
-        "path": "/       fc_333",
         "prepopulate": {"dir_paths": ["/dir1"], "exclude_dir_paths": ["/dir1/dir11"]},
-        "origins": [{"volume": {"name": "vol_o1"}, "svm": {"name": "vs_3"}}],
+        "path": "/       fc_333",
+        "name": "fc_333",
+        "origins": [{"svm": {"name": "vs_3"}, "volume": {"name": "vol_o1"}}],
+        "aggregates": [{"name": "aggr_1"}],
     }
 )
 
 ```
 </div>
 </div>
-`
-curl -X POST "https://<mgmt-ip>/api/storage/flexcache/flexcaches" -H  "accept: application/json" -H  "Content-Type: application/json" -d "{ \"aggregates\": [ { \"name\": \"aggr_1\" } ], \"name\": \"fc_333\", \"origins\": [ {  \"svm\": { \"name\": \"vs_3\"  }, \"volume\": { \"name\": \"vol_o1\" } } ], \"svm\":{ \"name\": \"vs_1\" }, \"dr_cache\": true,  \"path\": \"/fc_333\", \"prepopulate\": { \"dir_paths\": [ \"/dir1\" ] } }"
-# The response:
-{
-  "job": {
-    "uuid": "e751dd5d-0f3c-11e9-8b2b-0050568e0b79",
-    "_links": {
-      "self": {
-        "href": "/api/cluster/jobs/e751dd5d-0f3c-11e9-8b2b-0050568e0b79"
-      }
-    }
-  }
-}
+
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Flexcache
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Flexcache()
+    resource.aggregates = [{"name": "aggr_1"}]
+    resource.name = "fc_333"
+    resource.origins = [{"svm": {"name": "vs_3"}, "volume": {"name": "vol_o1"}}]
+    resource.svm = {"name": "vs_1"}
+    resource.dr_cache = True
+    resource.path = "/fc_333"
+    resource.prepopulate = {"dir_paths": ["/dir1"]}
+    resource.post(hydrate=True)
+    print(resource)
+
 ```
+<div class="try_it_out">
+<input id="example3_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example3_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example3_result" class="try_it_out_content">
+```
+Flexcache(
+    {
+        "svm": {"name": "vs_1"},
+        "prepopulate": {"dir_paths": ["/dir1"]},
+        "path": "/fc_333",
+        "dr_cache": True,
+        "name": "fc_333",
+        "origins": [{"svm": {"name": "vs_3"}, "volume": {"name": "vol_o1"}}],
+        "aggregates": [{"name": "aggr_1"}],
+    }
+)
+
+```
+</div>
+</div>
+
 ### Retrieving FlexCache attributes
 The GET request is used to retrieve FlexCache attributes. The object includes a large set of fields which can be expensive to retrieve. Most notably, the fields size, guarantee.type, aggregates, path, origins.ip_address, origins.size, and origins.state are expensive to retrieve. The recommended method to use this API is to filter and retrieve only the required fields.
 ```python
@@ -130,64 +179,64 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example2_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example2_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example2_result" class="try_it_out_content">
+<input id="example4_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example4_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example4_result" class="try_it_out_content">
 ```
 [
     Flexcache(
         {
+            "uuid": "04d5e07b-0ebe-11e9-8180-0050568e0b79",
             "name": "fc_322",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/04d5e07b-0ebe-11e9-8180-0050568e0b79"
                 }
             },
-            "uuid": "04d5e07b-0ebe-11e9-8180-0050568e0b79",
         }
     ),
     Flexcache(
         {
+            "uuid": "47902654-0ea4-11e9-8180-0050568e0b79",
             "name": "fc_321",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/47902654-0ea4-11e9-8180-0050568e0b79"
                 }
             },
-            "uuid": "47902654-0ea4-11e9-8180-0050568e0b79",
         }
     ),
     Flexcache(
         {
+            "uuid": "77e911ff-0ebe-11e9-8180-0050568e0b79",
             "name": "fc_323",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/77e911ff-0ebe-11e9-8180-0050568e0b79"
                 }
             },
-            "uuid": "77e911ff-0ebe-11e9-8180-0050568e0b79",
         }
     ),
     Flexcache(
         {
+            "uuid": "ddb42bbc-0e95-11e9-8180-0050568e0b79",
             "name": "fc_32",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/ddb42bbc-0e95-11e9-8180-0050568e0b79"
                 }
             },
-            "uuid": "ddb42bbc-0e95-11e9-8180-0050568e0b79",
         }
     ),
     Flexcache(
         {
+            "uuid": "ec774932-0f3c-11e9-8b2b-0050568e0b79",
             "name": "fc_333",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/flexcaches/ec774932-0f3c-11e9-8b2b-0050568e0b79"
                 }
             },
-            "uuid": "ec774932-0f3c-11e9-8b2b-0050568e0b79",
         }
     ),
 ]
@@ -209,43 +258,43 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example3_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example3_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example3_result" class="try_it_out_content">
+<input id="example5_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example5_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example5_result" class="try_it_out_content">
 ```
 Flexcache(
     {
+        "svm": {"uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79", "name": "vs_1"},
+        "uuid": "ec774932-0f3c-11e9-8b2b-0050568e0b79",
+        "dr_cache": True,
         "name": "fc_333",
+        "guarantee": {"type": "volume"},
+        "origins": [
+            {
+                "cluster": {
+                    "uuid": "50733f81-0e90-11e9-b391-0050568e4115",
+                    "name": "node2",
+                },
+                "ip_address": "10.140.103.175",
+                "create_time": "2019-01-03T15:19:55+05:30",
+                "size": 20971520,
+                "svm": {"uuid": "8aa2cd28-0e92-11e9-b391-0050568e4115", "name": "vs_3"},
+                "state": "online",
+                "volume": {
+                    "uuid": "2bc957dd-2617-4afb-8d2f-66ac6070d313",
+                    "name": "vol_o1",
+                },
+            }
+        ],
+        "size": 4294967296,
+        "aggregates": [
+            {"uuid": "26f34b76-88f8-4a47-b5e0-d8e901fb1114", "name": "aggr_1"}
+        ],
         "_links": {
             "self": {
                 "href": "/api/storage/flexcache/flexcaches/ec774932-0f3c-11e9-8b2b-0050568e0b79"
             }
         },
-        "svm": {"name": "vs_1", "uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79"},
-        "aggregates": [
-            {"name": "aggr_1", "uuid": "26f34b76-88f8-4a47-b5e0-d8e901fb1114"}
-        ],
-        "uuid": "ec774932-0f3c-11e9-8b2b-0050568e0b79",
-        "guarantee": {"type": "volume"},
-        "dr_cache": True,
-        "size": 4294967296,
-        "origins": [
-            {
-                "volume": {
-                    "name": "vol_o1",
-                    "uuid": "2bc957dd-2617-4afb-8d2f-66ac6070d313",
-                },
-                "create_time": "2019-01-03T15:19:55+05:30",
-                "cluster": {
-                    "name": "node2",
-                    "uuid": "50733f81-0e90-11e9-b391-0050568e4115",
-                },
-                "ip_address": "10.140.103.175",
-                "state": "online",
-                "svm": {"name": "vs_3", "uuid": "8aa2cd28-0e92-11e9-b391-0050568e4115"},
-                "size": 20971520,
-            }
-        ],
     }
 )
 
@@ -278,20 +327,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 
-# The call
-curl -X PATCH "https://<mgmt-ip>/api/storage/flexcache/flexcaches/ec774932-0f3c-11e9-8b2b-0050568e0b79"  -H  "accept: application/json" -H  "Content-Type: application/json" -d "{ \"prepopulate\": { \"dir_paths\": [ \"/dir1\" ], \"exclude_dir_paths\": [ \"/dir1/dir11\" ] } }"
-# The response:
-{
-  "job": {
-    "uuid": "b574c48c-1da7-11eb-b006-005056ac6a93",
-    "_links": {
-      "self": {
-        "href": "/api/cluster/jobs/b574c48c-1da7-11eb-b006-005056ac6a93"
-      }
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Flexcache
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Flexcache(uuid="ec774932-0f3c-11e9-8b2b-0050568e0b79")
+    resource.prepopulate = {
+        "dir_paths": ["/dir1"],
+        "exclude_dir_paths": ["/dir1/dir11"],
     }
-  }
-}
-````python
+    resource.patch()
+
+```
+
+```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Flexcache
 
@@ -301,21 +351,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource.patch()
 
 ```
-`
-# The call
-curl -X PATCH "https://<mgmt-ip>/api/storage/flexcache/flexcaches/28f9734a-2fc2-11ed-a5d5-005056bb2b7" -H "accept: application/json" -H "Content-Type: application/json" -d '{ \"writeback\" : { \"enabled\": false } }'
-# The response:
-{
-  "job": {
-    "uuid": "17e193f3-304b-11ed-a5d5-005056bbb2b7",
-    "_links": {
-      "self": {
-        "href": "/api/cluster/jobs/17e193f3-304b-11ed-a5d5-005056bbb2b7"
-      }
-    }
-  }
-}
-````python
+
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Flexcache
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Flexcache(uuid="28f9734a-2fc2-11ed-a5d5-005056bb2b7")
+    resource.writeback = {"enabled": False}
+    resource.patch()
+
+```
+
+```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Flexcache
 
@@ -325,21 +373,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource.patch()
 
 ```
-`
-# The call
-curl -X PATCH "https://<mgmt-ip>/api/storage/flexcache/flexcaches/885dfd0f-ac37-11ed-a2ca-005056bb5573" -H "accept: application/json" -d '{"relative_size" : {"enabled":false}}'
-# The response:
-{
-  "job": {
-    "uuid": "14bfcc28-ac82-11ed-83bd-005056bb5573",
-    "_links": {
-      "self": {
-        "href": "/api/cluster/jobs/14bfcc28-ac82-11ed-83bd-005056bb5573"
-      }
-    }
-  }
-}
-````python
+
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Flexcache
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Flexcache(uuid="885dfd0f-ac37-11ed-a2ca-005056bb5573")
+    resource.relative_size = {"enabled": False}
+    resource.patch()
+
+```
+
+```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Flexcache
 
@@ -349,21 +395,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource.patch()
 
 ```
-`
-# The call
-curl -X PATCH "https://<mgmt-ip>/api/storage/flexcache/flexcaches/885dfd0f-ac37-11ed-a2ca-005056bb5573" -H "accept: application/json" -d '{"atime_scrub" : {"enabled":false}}'
-# The response:
-{
-  "job": {
-    "uuid": "14bfcc28-ac82-11ed-83bd-005056bb5573",
-    "_links": {
-      "self": {
-        "href": "/api/cluster/jobs/14bfcc28-ac82-11ed-83bd-005056bb5573"
-      }
-    }
-  }
-}
-````python
+
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Flexcache
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Flexcache(uuid="885dfd0f-ac37-11ed-a2ca-005056bb5573")
+    resource.atime_scrub = {"enabled": False}
+    resource.patch()
+
+```
+
+```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Flexcache
 
@@ -373,7 +417,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource.patch()
 
 ```
-`"""
+"""
 
 import asyncio
 from datetime import datetime
@@ -413,11 +457,22 @@ class FlexcacheSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     cifs_change_notify = marshmallow_fields.Nested("netapp_ontap.models.flexcache_cifs_change_notify.FlexcacheCifsChangeNotifySchema", data_key="cifs_change_notify", unknown=EXCLUDE, allow_none=True)
     r""" The cifs_change_notify field of the flexcache."""
 
+    constituent_count = Size(
+        data_key="constituent_count",
+        validate=integer_validation(minimum=1),
+        allow_none=True,
+    )
+    r""" Specifies the number of constituents in the FlexGroup volume upon FlexCache create (POST).
+
+Example: 8"""
+
     constituents_per_aggregate = Size(
         data_key="constituents_per_aggregate",
         allow_none=True,
     )
-    r""" Number of FlexCache constituents per aggregate when the 'aggregates' field is mentioned."""
+    r""" Number of FlexCache constituents per aggregate when the 'aggregates' field is mentioned.
+
+Example: 1"""
 
     dr_cache = marshmallow_fields.Boolean(
         data_key="dr_cache",
@@ -503,6 +558,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "aggregates.uuid",
         "atime_scrub",
         "cifs_change_notify",
+        "constituent_count",
         "constituents_per_aggregate",
         "dr_cache",
         "global_file_locking_enabled",
@@ -520,7 +576,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "uuid",
         "writeback",
     ]
-    """links,aggregates.links,aggregates.name,aggregates.uuid,atime_scrub,cifs_change_notify,constituents_per_aggregate,dr_cache,global_file_locking_enabled,guarantee,name,origins,override_encryption,path,relative_size,size,svm.links,svm.name,svm.uuid,use_tiered_aggregate,uuid,writeback,"""
+    """links,aggregates.links,aggregates.name,aggregates.uuid,atime_scrub,cifs_change_notify,constituent_count,constituents_per_aggregate,dr_cache,global_file_locking_enabled,guarantee,name,origins,override_encryption,path,relative_size,size,svm.links,svm.name,svm.uuid,use_tiered_aggregate,uuid,writeback,"""
 
     patchable_fields = [
         "atime_scrub",
@@ -536,6 +592,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "aggregates.uuid",
         "atime_scrub",
         "cifs_change_notify",
+        "constituent_count",
         "constituents_per_aggregate",
         "dr_cache",
         "global_file_locking_enabled",
@@ -552,7 +609,7 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "use_tiered_aggregate",
         "writeback",
     ]
-    """aggregates.name,aggregates.uuid,atime_scrub,cifs_change_notify,constituents_per_aggregate,dr_cache,global_file_locking_enabled,guarantee,name,origins,override_encryption,path,prepopulate,relative_size,size,svm.name,svm.uuid,use_tiered_aggregate,writeback,"""
+    """aggregates.name,aggregates.uuid,atime_scrub,cifs_change_notify,constituent_count,constituents_per_aggregate,dr_cache,global_file_locking_enabled,guarantee,name,origins,override_encryption,path,prepopulate,relative_size,size,svm.name,svm.uuid,use_tiered_aggregate,writeback,"""
 
 class Flexcache(Resource):
     r""" Defines the cache endpoint of FlexCache. """
@@ -629,9 +686,8 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Prepopulates a FlexCache volume in the cluster, or modifies configuration of the FlexCache volume.
-### Required properties
-* `uuid` - FlexCache volume UUID.
 ### Recommended optional properties
+* `uuid` - FlexCache volume UUID.
 * `prepopulate.exclude_dir_paths` - List of directory-paths to be excluded from prepopulation for the FlexCache volume.
 * `prepopulate.dir_paths` - List of directory-paths to be prepopulated for the FlexCache volume.
 * `writeback.enabled` - false. This property specifies whether writeback is enabled for the FlexCache volume.
@@ -671,7 +727,7 @@ If not specified in PATCH, the following default property value is assigned:
         r"""Creates a FlexCache in the cluster.
 ### Required properties
 * `name` - Name of FlexCache volume.
-* `origins.volume.name` or `origins.volume.uuid` - Name or UUID of origin volume.
+* `origins.volume.name` - Name of the origin volume. This volume can only be identified by its name, not by its UUID.
 * `origins.svm.name` - Name of origin Vserver.
 * `svm.name` or `svm.uuid` - Name or UUID of Vserver where FlexCache will be created.
 ### Recommended optional properties
@@ -693,7 +749,8 @@ If not specified in POST, the following default property values are assigned:
 * `override_encryption` - false. If true, this property is used to create a plaintext FlexCache volume for an encrypted origin volume.
 * `atime_scrub.enabled` - false. This property specifies whether scrubbing of inactive files based on atime is enabled for the FlexCache volume.
 * `atime_scrub.period` - 30. This property specifies the atime duration in days after which the file can be scrubbed from the FlexCache volume if it stays unused beyond the duration.
-* `cifs_change_notify.enabled` - false. This property specifies whether a CIFS change notification is enabled for the FlexCache volume.
+* `cifs_change_notify.enabled` - false. This property specifies whether a CIFS change notification is enabled for the FlexCache volume. <personalities supports=aiml>
+* `constituent_count` - 1. This property specifies the number of constituents in the FlexGroup volume upon Flexcache create. </personalities>
 ### Related ONTAP commands
 * `volume flexcache create`
 * `volume flexcache prepopulate start`
@@ -784,7 +841,7 @@ There is an added computational cost to retrieving values for these properties. 
         r"""Creates a FlexCache in the cluster.
 ### Required properties
 * `name` - Name of FlexCache volume.
-* `origins.volume.name` or `origins.volume.uuid` - Name or UUID of origin volume.
+* `origins.volume.name` - Name of the origin volume. This volume can only be identified by its name, not by its UUID.
 * `origins.svm.name` - Name of origin Vserver.
 * `svm.name` or `svm.uuid` - Name or UUID of Vserver where FlexCache will be created.
 ### Recommended optional properties
@@ -806,7 +863,8 @@ If not specified in POST, the following default property values are assigned:
 * `override_encryption` - false. If true, this property is used to create a plaintext FlexCache volume for an encrypted origin volume.
 * `atime_scrub.enabled` - false. This property specifies whether scrubbing of inactive files based on atime is enabled for the FlexCache volume.
 * `atime_scrub.period` - 30. This property specifies the atime duration in days after which the file can be scrubbed from the FlexCache volume if it stays unused beyond the duration.
-* `cifs_change_notify.enabled` - false. This property specifies whether a CIFS change notification is enabled for the FlexCache volume.
+* `cifs_change_notify.enabled` - false. This property specifies whether a CIFS change notification is enabled for the FlexCache volume. <personalities supports=aiml>
+* `constituent_count` - 1. This property specifies the number of constituents in the FlexGroup volume upon Flexcache create. </personalities>
 ### Related ONTAP commands
 * `volume flexcache create`
 * `volume flexcache prepopulate start`
@@ -829,9 +887,8 @@ If not specified in POST, the following default property values are assigned:
         **kwargs
     ) -> NetAppResponse:
         r"""Prepopulates a FlexCache volume in the cluster, or modifies configuration of the FlexCache volume.
-### Required properties
-* `uuid` - FlexCache volume UUID.
 ### Recommended optional properties
+* `uuid` - FlexCache volume UUID.
 * `prepopulate.exclude_dir_paths` - List of directory-paths to be excluded from prepopulation for the FlexCache volume.
 * `prepopulate.dir_paths` - List of directory-paths to be prepopulated for the FlexCache volume.
 * `writeback.enabled` - false. This property specifies whether writeback is enabled for the FlexCache volume.

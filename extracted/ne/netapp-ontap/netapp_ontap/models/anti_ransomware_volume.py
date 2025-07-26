@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -21,11 +21,19 @@ __pdoc__ = {
 class AntiRansomwareVolumeSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the AntiRansomwareVolume object"""
 
+    attack_detected_by = marshmallow_fields.Str(data_key="attack_detected_by", allow_none=True)
+    r""" This field specifies whether the attack was reported by `File Analysis` or `Encrypted data percentage analysis`.
+
+Valid choices:
+
+* file_analysis
+* encryption_percentage_analysis """
+
     attack_detection_parameters = marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_volume_attack_detection_parameters.AntiRansomwareVolumeAttackDetectionParametersSchema", unknown=EXCLUDE, data_key="attack_detection_parameters", allow_none=True)
     r""" The attack_detection_parameters field of the anti_ransomware_volume. """
 
     attack_probability = marshmallow_fields.Str(data_key="attack_probability", allow_none=True)
-    r""" Probability of a ransomware attack.<br>`none` No files are suspected of ransomware activity.<br>`low` A number of files are suspected of ransomware activity.<br>`moderate` A moderate number of files are suspected of ransomware activity.<br>`high` A large number of files are suspected of ransomware activity.
+    r""" Probability of a ransomware attack.<br>`none` No suspected ransomware activity.<br>`low` Minimally suspected ransomware activity.<br>`moderate` Moderately suspected ransomware activity.<br>`high` Significantly suspected ransomware activity.
 
 Valid choices:
 
@@ -37,6 +45,18 @@ Valid choices:
     attack_reports = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.anti_ransomware_attack_report.AntiRansomwareAttackReportSchema", unknown=EXCLUDE, allow_none=True), data_key="attack_reports", allow_none=True)
     r""" The attack_reports field of the anti_ransomware_volume. """
 
+    block_device_detection_start_time = ImpreciseDateTime(data_key="block_device_detection_start_time", allow_none=True)
+    r""" This field specifies the block device evaluation start time. """
+
+    block_device_detection_state = marshmallow_fields.Str(data_key="block_device_detection_state", allow_none=True)
+    r""" This field specifies the block device attack detection status. <br> `evaluation_period` Attack detection is currently in its evaluation phase. <br> `active_unsuitable_workload` Attack detection is active, but the current workload is not suitable for Anti-ransomware protection. <br> `active_suitable_workload` Attack detection is active, and the current workload is appropriate for Anti-ransomware protection.
+
+Valid choices:
+
+* evaluation_period
+* active_unsuitable_workload
+* active_suitable_workload """
+
     dry_run_start_time = ImpreciseDateTime(data_key="dry_run_start_time", allow_none=True)
     r""" Time when Anti-ransomware monitoring `state` is set to dry-run value for starting evaluation mode. """
 
@@ -47,7 +67,7 @@ Valid choices:
     r""" The space field of the anti_ransomware_volume. """
 
     state = marshmallow_fields.Str(data_key="state", allow_none=True)
-    r""" Anti-ransomware state.<br>`disabled` Anti-ransomware monitoring is disabled on the volume.  This is the default state in a POST operation.<br>`disable_in_progress` Anti-ransomware monitoring is being disabled and a cleanup operation is in effect. Valid in GET operation.<br>`dry_run` Anti-ransomware monitoring is enabled in the evaluation mode.<br>`enabled` Anti-ransomware monitoring is active on the volume.<br>`paused` Anti-ransomware monitoring is paused on the volume.<br>`enable_paused` Anti-ransomware monitoring is paused on the volume from its earlier enabled state. Valid in GET operation. <br>`dry_run_paused` Anti-ransomware monitoring is paused on the volume from its earlier dry_run state. Valid in GET operation. <br>For POST, the valid Anti-ransomware states are only `disabled`, `enabled` and `dry_run`, whereas for PATCH, `paused` is also valid along with the three valid states for POST.
+    r""" Anti-ransomware state.<br>`disabled` Anti-ransomware monitoring is disabled on the volume. This is the default state in a POST operation.<br>`disable_in_progress` Anti-ransomware monitoring is being disabled and a cleanup operation is in effect. Valid in GET operation.<br>`dry_run` Anti-ransomware monitoring is enabled in the evaluation mode.<br>`enabled` Anti-ransomware monitoring is active on the volume.<br>`paused` Anti-ransomware monitoring is paused on the volume.<br>`enable_paused` Anti-ransomware monitoring is paused on the volume from its earlier enabled state. Valid in GET operation. <br>`dry_run_paused` Anti-ransomware monitoring is paused on the volume from its earlier dry_run state. Valid in GET operation. <br>For POST, the valid Anti-ransomware states are only `disabled`, `enabled` and `dry_run`, whereas for PATCH, `paused` is also valid along with the three valid states for POST.
 
 Valid choices:
 
@@ -82,9 +102,12 @@ Valid choices:
         return AntiRansomwareVolume
 
     gettable_fields = [
+        "attack_detected_by",
         "attack_detection_parameters",
         "attack_probability",
         "attack_reports",
+        "block_device_detection_start_time",
+        "block_device_detection_state",
         "dry_run_start_time",
         "event_log",
         "space",
@@ -96,7 +119,7 @@ Valid choices:
         "update_baseline_from_surge",
         "workload",
     ]
-    """attack_detection_parameters,attack_probability,attack_reports,dry_run_start_time,event_log,space,state,surge_as_normal,surge_usage,suspect_files,typical_usage,update_baseline_from_surge,workload,"""
+    """attack_detected_by,attack_detection_parameters,attack_probability,attack_reports,block_device_detection_start_time,block_device_detection_state,dry_run_start_time,event_log,space,state,surge_as_normal,surge_usage,suspect_files,typical_usage,update_baseline_from_surge,workload,"""
 
     patchable_fields = [
         "attack_detection_parameters",

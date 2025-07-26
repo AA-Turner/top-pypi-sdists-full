@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -63,7 +63,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example0_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example0_result" class="try_it_out_content">
 ```
-Volume({"name": "vol1", "svm": {"name": "vs1"}, "aggregates": [{"name": "aggr1"}]})
+Volume({"svm": {"name": "vs1"}, "name": "vol1", "aggregates": [{"name": "aggr1"}]})
 
 ```
 </div>
@@ -91,10 +91,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
-        "name": "vol1",
         "svm": {"name": "vs1"},
-        "aggregates": [{"name": "aggr1"}],
         "snaplock": {"type": "compliance", "retention": {"default": "P20Y"}},
+        "name": "vol1",
+        "aggregates": [{"name": "aggr1"}],
     }
 )
 
@@ -130,16 +130,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
-        "efficiency": {"compression": "both"},
-        "name": "vol1",
+        "state": "online",
         "svm": {"name": "vs1"},
-        "aggregates": [{"name": "aggr1"}, {"name": "aggr2"}, {"name": "aggr3"}],
         "type": "RW",
         "constituents_per_aggregate": 1,
-        "autosize": {"minimum": 251658240, "maximum": 524288000},
-        "state": "online",
-        "size": 251658240,
+        "name": "vol1",
         "encryption": {"enabled": False},
+        "autosize": {"maximum": 524288000, "minimum": 251658240},
+        "size": 251658240,
+        "efficiency": {"compression": "both"},
+        "aggregates": [{"name": "aggr1"}, {"name": "aggr2"}, {"name": "aggr3"}],
     }
 )
 
@@ -173,14 +173,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
-        "efficiency": {"compression": "both"},
-        "name": "vol1",
+        "state": "online",
         "svm": {"name": "vs1"},
         "type": "RW",
-        "autosize": {"minimum": 263882790666240, "maximum": 549755813888000},
-        "state": "online",
-        "size": 263882790666240,
+        "name": "vol1",
         "encryption": {"enabled": False},
+        "autosize": {"maximum": 549755813888000, "minimum": 263882790666240},
+        "size": 263882790666240,
+        "efficiency": {"compression": "both"},
     }
 )
 
@@ -209,9 +209,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
-        "name": "vol1_clone",
+        "clone": {"parent_volume": {"name": "vol1"}, "is_flexclone": True},
         "svm": {"name": "vs0"},
-        "clone": {"is_flexclone": True, "parent_volume": {"name": "vol1"}},
+        "name": "vol1_clone",
     }
 )
 
@@ -252,57 +252,57 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Volume(
         {
+            "uuid": "2d1167cc-c3f2-495a-a23f-8f50b071b9b8",
             "name": "vsdata_root",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/2d1167cc-c3f2-495a-a23f-8f50b071b9b8"
                 }
             },
-            "uuid": "2d1167cc-c3f2-495a-a23f-8f50b071b9b8",
         }
     ),
     Volume(
         {
+            "uuid": "3969be7e-78b4-4b4c-82a4-fa86331f03df",
             "name": "vsfg_root",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/3969be7e-78b4-4b4c-82a4-fa86331f03df"
                 }
             },
-            "uuid": "3969be7e-78b4-4b4c-82a4-fa86331f03df",
         }
     ),
     Volume(
         {
+            "uuid": "59c03ac5-e708-4ce8-a676-278dc249fda2",
             "name": "svm_root",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/59c03ac5-e708-4ce8-a676-278dc249fda2"
                 }
             },
-            "uuid": "59c03ac5-e708-4ce8-a676-278dc249fda2",
         }
     ),
     Volume(
         {
+            "uuid": "6802635b-8036-11e8-aae5-0050569503ac",
             "name": "fgvol",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/6802635b-8036-11e8-aae5-0050569503ac"
                 }
             },
-            "uuid": "6802635b-8036-11e8-aae5-0050569503ac",
         }
     ),
     Volume(
         {
+            "uuid": "d0c3359c-5448-4a9b-a077-e3295a7e9057",
             "name": "datavol",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/d0c3359c-5448-4a9b-a077-e3295a7e9057"
                 }
             },
-            "uuid": "d0c3359c-5448-4a9b-a077-e3295a7e9057",
         }
     ),
 ]
@@ -330,98 +330,99 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
-        "name": "datavol",
-        "svm": {"name": "vsdata", "uuid": "d61b69f5-7458-11e8-ad3f-0050569503ac"},
-        "aggregates": [
-            {
-                "name": "data",
-                "_links": {"self": {"href": "/api/cluster/aggregates/data"}},
-                "uuid": "aa742322-36bc-4d98-bbc4-0a827534c035",
-            }
-        ],
-        "language": "en_us",
         "metric": {
-            "status": "ok",
-            "iops": {"total": 0, "write": 0, "other": 0, "read": 0},
-            "latency": {"total": 0, "write": 0, "other": 0, "read": 0},
             "timestamp": "2019-04-09T05:50:15+00:00",
-            "throughput": {"total": 0, "write": 0, "other": 0, "read": 0},
+            "throughput": {"read": 0, "total": 0, "other": 0, "write": 0},
             "flexcache": {
+                "timestamp": "2019-04-09T05:50:15+00:00",
                 "status": "ok",
-                "bandwidth_savings": 0,
                 "cache_miss_percent": 0,
-                "timestamp": "2019-04-09T05:50:15+00:00",
                 "duration": "PT1D",
+                "bandwidth_savings": 0,
             },
-            "duration": "PT15S",
+            "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
+            "status": "ok",
             "cloud": {
-                "status": "ok",
-                "iops": {"total": 0, "write": 0, "other": 0, "read": 0},
-                "latency": {"total": 0, "write": 0, "other": 0, "read": 0},
                 "timestamp": "2019-04-09T05:50:15+00:00",
+                "iops": {"read": 0, "total": 0, "other": 0, "write": 0},
+                "status": "ok",
+                "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
                 "duration": "PT15S",
             },
+            "latency": {"read": 0, "total": 0, "other": 0, "write": 0},
+            "duration": "PT15S",
         },
+        "state": "online",
+        "svm": {"uuid": "d61b69f5-7458-11e8-ad3f-0050569503ac", "name": "vsdata"},
+        "uuid": "d0c3359c-5448-4a9b-a077-e3295a7e9057",
         "type": "rw",
+        "comment": "This is a data volume",
+        "files": {"used": 96, "maximum": 566},
+        "style": "flexvol",
+        "snapshot_policy": {"name": "default"},
+        "language": "en_us",
+        "snaplock": {
+            "privileged_delete": "disabled",
+            "litigation_count": 0,
+            "type": "enterprise",
+            "is_audit_log": False,
+            "retention": {"minimum": "P0Y", "default": "P0Y", "maximum": "P30Y"},
+            "autocommit_period": "none",
+            "append_mode_enabled": False,
+            "compliance_clock_time": "2019-05-24T10:59:00+05:30",
+            "expiry_time": "2038-01-19T08:44:28+05:30",
+        },
+        "error_state": {"is_inconsistent": False, "has_bad_blocks": False},
+        "create_time": "2018-07-05T14:56:44+05:30",
         "nas": {
+            "uid": 1357,
+            "export_policy": {"id": 8589934593, "name": "default"},
+            "gid": 2468,
             "junction_parent": {
-                "name": "vol1",
+                "uuid": "a2564f80-25fb-41e8-9b49-44de2600991f",
                 "_links": {
                     "self": {
                         "href": "/api/storage/volumes/a2564f80-25fb-41e8-9b49-44de2600991f"
                     }
                 },
-                "uuid": "a2564f80-25fb-41e8-9b49-44de2600991f",
+                "name": "vol1",
             },
-            "export_policy": {"name": "default", "id": 8589934593},
-            "uid": 1357,
-            "gid": 2468,
-            "security_style": "unix",
             "unix_permissions": 4755,
+            "security_style": "unix",
         },
-        "qos": {
-            "policy": {"name": "pg1", "uuid": "228454af-5a8b-11e9-bd5b-005056ac6f1f"}
-        },
-        "uuid": "d0c3359c-5448-4a9b-a077-e3295a7e9057",
-        "create_time": "2018-07-05T14:56:44+05:30",
+        "name": "datavol",
         "statistics": {
-            "status": "ok",
-            "iops_raw": {"total": 3, "write": 0, "other": 3, "read": 0},
-            "latency_raw": {"total": 38298, "write": 0, "other": 38298, "read": 0},
+            "timestamp": "2019-04-09T05:50:42+00:00",
+            "latency_raw": {"read": 0, "total": 38298, "other": 38298, "write": 0},
             "flexcache_raw": {
                 "status": "ok",
-                "client_requested_blocks": 0,
                 "cache_miss_blocks": 0,
+                "client_requested_blocks": 0,
                 "timestamp": "2019-04-09T05:50:15+00:00",
             },
-            "throughput_raw": {"total": 0, "write": 0, "other": 0, "read": 0},
-            "timestamp": "2019-04-09T05:50:42+00:00",
+            "iops_raw": {"read": 0, "total": 3, "other": 3, "write": 0},
+            "status": "ok",
+            "throughput_raw": {"read": 0, "total": 0, "other": 0, "write": 0},
             "cloud": {
                 "status": "ok",
-                "iops_raw": {"total": 0, "write": 0, "other": 0, "read": 0},
-                "latency_raw": {"total": 0, "write": 0, "other": 0, "read": 0},
+                "latency_raw": {"read": 0, "total": 0, "other": 0, "write": 0},
+                "iops_raw": {"read": 0, "total": 0, "other": 0, "write": 0},
                 "timestamp": "2019-04-09T05:50:42+00:00",
             },
         },
-        "comment": "This is a data volume",
-        "state": "online",
-        "snaplock": {
-            "expiry_time": "2038-01-19T08:44:28+05:30",
-            "is_audit_log": False,
-            "compliance_clock_time": "2019-05-24T10:59:00+05:30",
-            "type": "enterprise",
-            "privileged_delete": "disabled",
-            "append_mode_enabled": False,
-            "retention": {"minimum": "P0Y", "default": "P0Y", "maximum": "P30Y"},
-            "litigation_count": 0,
-            "autocommit_period": "none",
+        "encryption": {"enabled": False, "state": "none", "type": "none", "key_id": ""},
+        "qos": {
+            "policy": {"uuid": "228454af-5a8b-11e9-bd5b-005056ac6f1f", "name": "pg1"}
         },
-        "snapshot_policy": {"name": "default"},
         "size": 20971520,
-        "files": {"used": 96, "maximum": 566},
-        "style": "flexvol",
-        "encryption": {"state": "none", "enabled": False, "type": "none", "key_id": ""},
-        "error_state": {"is_inconsistent": False, "has_bad_blocks": False},
+        "efficiency": {"ratio": 1.0},
+        "aggregates": [
+            {
+                "uuid": "aa742322-36bc-4d98-bbc4-0a827534c035",
+                "_links": {"self": {"href": "/api/cluster/aggregates/data"}},
+                "name": "data",
+            }
+        ],
     }
 )
 
@@ -447,14 +448,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
+        "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
+        "quota": {"state": "on"},
         "name": "fv",
         "_links": {
             "self": {
                 "href": "/api/storage/volumes/cb20da45-4f6b-11e9-9a71-005056a7f717/"
             }
         },
-        "uuid": "cb20da45-4f6b-11e9-9a71-005056a7f717",
-        "quota": {"state": "on"},
     }
 )
 
@@ -486,50 +487,50 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Volume(
         {
-            "name": "fg__0001",
+            "uuid": "fd877f7c-8876-11ec-94a3-005056a7484f",
             "flexgroup": {"uuid": "fd87d06f-8876-11ec-94a3-005056a7484f"},
+            "name": "fg__0001",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/fd877f7c-8876-11ec-94a3-005056a7484f?is_constituent=true"
                 }
             },
-            "uuid": "fd877f7c-8876-11ec-94a3-005056a7484f",
         }
     ),
     Volume(
         {
-            "name": "fg__0002",
+            "uuid": "fea631d6-8876-11ec-94a3-005056a7484f",
             "flexgroup": {"uuid": "fd87d06f-8876-11ec-94a3-005056a7484f"},
+            "name": "fg__0002",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/fea631d6-8876-11ec-94a3-005056a7484f?is_constituent=true"
                 }
             },
-            "uuid": "fea631d6-8876-11ec-94a3-005056a7484f",
         }
     ),
     Volume(
         {
-            "name": "fg__0003",
+            "uuid": "ff38a34e-8876-11ec-94a3-005056a7484f",
             "flexgroup": {"uuid": "fd87d06f-8876-11ec-94a3-005056a7484f"},
+            "name": "fg__0003",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/ff38a34e-8876-11ec-94a3-005056a7484f?is_constituent=true"
                 }
             },
-            "uuid": "ff38a34e-8876-11ec-94a3-005056a7484f",
         }
     ),
     Volume(
         {
-            "name": "fg__0004",
+            "uuid": "ffdbbd1f-8876-11ec-94a3-005056a7484f",
             "flexgroup": {"uuid": "fd87d06f-8876-11ec-94a3-005056a7484f"},
+            "name": "fg__0004",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/ffdbbd1f-8876-11ec-94a3-005056a7484f?is_constituent=true"
                 }
             },
-            "uuid": "ffdbbd1f-8876-11ec-94a3-005056a7484f",
         }
     ),
 ]
@@ -556,26 +557,27 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Volume(
     {
+        "uuid": "5f098ebc-32c8-11eb-8dde-005056ace228",
+        "name": "vol1",
         "efficiency": {
-            "dedupe": "background",
-            "progress": "Idle for 00:10:37",
             "compaction": "none",
+            "state": "enabled",
+            "type": "regular",
+            "cross_volume_dedupe": "none",
+            "dedupe": "background",
             "schedule": "sun-sat@0",
+            "ratio": 1.0,
+            "progress": "Idle for 00:10:37",
+            "last_op_state": "Success",
+            "last_op_size": 0,
             "compression": "both",
             "policy": {"name": "-"},
-            "last_op_state": "Success",
-            "state": "enabled",
-            "last_op_size": 0,
-            "cross_volume_dedupe": "none",
-            "type": "regular",
         },
-        "name": "vol1",
         "_links": {
             "self": {
                 "href": "/api/storage/volumes/5f098ebc-32c8-11eb-8dde-005056ace228"
             }
         },
-        "uuid": "5f098ebc-32c8-11eb-8dde-005056ace228",
     }
 )
 
@@ -734,120 +736,120 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Volume(
         {
-            "name": "fg__0001",
-            "flexgroup": {"uuid": "2b3323db-b916-11ec-b103-005056a79638"},
-            "_links": {
-                "self": {
-                    "href": "/api/storage/volumes/2b32fdf1-b916-11ec-b103-005056a79638?is_constituent=true"
-                }
-            },
             "uuid": "2b32fdf1-b916-11ec-b103-005056a79638",
             "rebalancing": {
                 "engine": {
                     "scanner": {
+                        "blocks_scanned": 1542675000,
                         "files_skipped": {
-                            "too_large": 199,
-                            "metadata": 85449,
-                            "other": 336,
-                            "incompatible": 9377,
-                            "too_small": 3812,
-                            "in_snapshot": 77499,
-                            "efficiency_percent": 355,
-                            "write_fenced": 28,
-                            "footprint_invalid": 12,
                             "fast_truncate": 22,
-                            "efficiency_blocks": 1823,
+                            "in_snapshot": 77499,
+                            "incompatible": 9377,
                             "remote_cache": 1912,
                             "on_demand_destination": 87,
+                            "footprint_invalid": 12,
+                            "metadata": 85449,
+                            "too_small": 3812,
+                            "other": 336,
+                            "efficiency_blocks": 1823,
+                            "too_large": 199,
+                            "write_fenced": 28,
+                            "efficiency_percent": 355,
                         },
+                        "files_scanned": 3522915,
                         "blocks_skipped": {
-                            "too_large": 865000,
-                            "metadata": 85673000,
-                            "other": 187000,
-                            "incompatible": 2287000,
-                            "too_small": 8744000,
-                            "in_snapshot": 7749000,
-                            "efficiency_percent": 366000,
-                            "write_fenced": 19000,
-                            "footprint_invalid": 98000,
                             "fast_truncate": 54000,
-                            "efficiency_blocks": 1472000,
+                            "in_snapshot": 7749000,
+                            "incompatible": 2287000,
                             "remote_cache": 9914000,
                             "on_demand_destination": 66000,
+                            "footprint_invalid": 98000,
+                            "metadata": 85673000,
+                            "too_small": 8744000,
+                            "other": 187000,
+                            "efficiency_blocks": 1472000,
+                            "too_large": 865000,
+                            "write_fenced": 19000,
+                            "efficiency_percent": 366000,
                         },
-                        "blocks_scanned": 1542675000,
-                        "files_scanned": 3522915,
                     },
                     "movement": {
-                        "most_recent_start_time": "2022-02-15T12:56:07-05:00",
+                        "file_moves_started": 9833,
                         "last_error": {
                             "destination": 1089,
+                            "time": "2022-02-15T09:09:27-05:00",
                             "file_id": 88,
                             "code": 60,
-                            "time": "2022-02-15T09:09:27-05:00",
                         },
-                        "file_moves_started": 9833,
+                        "most_recent_start_time": "2022-02-15T12:56:07-05:00",
                     },
+                }
+            },
+            "flexgroup": {"uuid": "2b3323db-b916-11ec-b103-005056a79638"},
+            "name": "fg__0001",
+            "_links": {
+                "self": {
+                    "href": "/api/storage/volumes/2b32fdf1-b916-11ec-b103-005056a79638?is_constituent=true"
                 }
             },
         }
     ),
     Volume(
         {
-            "name": "fg__0002",
-            "flexgroup": {"uuid": "2b3323db-b916-11ec-b103-005056a79638"},
-            "_links": {
-                "self": {
-                    "href": "/api/storage/volumes/2cc5da55-b916-11ec-b103-005056a79638?is_constituent=true"
-                }
-            },
             "uuid": "2cc5da55-b916-11ec-b103-005056a79638",
             "rebalancing": {
                 "engine": {
                     "scanner": {
+                        "blocks_scanned": 1542675000,
                         "files_skipped": {
-                            "too_large": 188,
-                            "metadata": 85449,
-                            "other": 336,
-                            "incompatible": 9377,
-                            "too_small": 3812,
-                            "in_snapshot": 77499,
-                            "efficiency_percent": 355,
-                            "write_fenced": 28,
-                            "footprint_invalid": 12,
                             "fast_truncate": 25,
-                            "efficiency_blocks": 1823,
+                            "in_snapshot": 77499,
+                            "incompatible": 9377,
                             "remote_cache": 1912,
                             "on_demand_destination": 87,
+                            "footprint_invalid": 12,
+                            "metadata": 85449,
+                            "too_small": 3812,
+                            "other": 336,
+                            "efficiency_blocks": 1823,
+                            "too_large": 188,
+                            "write_fenced": 28,
+                            "efficiency_percent": 355,
                         },
+                        "files_scanned": 3522915,
                         "blocks_skipped": {
-                            "too_large": 865000,
-                            "metadata": 85673000,
-                            "other": 187000,
-                            "incompatible": 2287000,
-                            "too_small": 8744000,
-                            "in_snapshot": 7749000,
-                            "efficiency_percent": 366000,
-                            "write_fenced": 19000,
-                            "footprint_invalid": 98000,
                             "fast_truncate": 54000,
-                            "efficiency_blocks": 1472000,
+                            "in_snapshot": 7749000,
+                            "incompatible": 2287000,
                             "remote_cache": 9914000,
                             "on_demand_destination": 66000,
+                            "footprint_invalid": 98000,
+                            "metadata": 85673000,
+                            "too_small": 8744000,
+                            "other": 187000,
+                            "efficiency_blocks": 1472000,
+                            "too_large": 865000,
+                            "write_fenced": 19000,
+                            "efficiency_percent": 366000,
                         },
-                        "blocks_scanned": 1542675000,
-                        "files_scanned": 3522915,
                     },
                     "movement": {
-                        "most_recent_start_time": "2022-02-15T12:56:07-05:00",
+                        "file_moves_started": 9833,
                         "last_error": {
                             "destination": 1089,
+                            "time": "2022-02-15T08:09:27-05:00",
                             "file_id": 88,
                             "code": 60,
-                            "time": "2022-02-15T08:09:27-05:00",
                         },
-                        "file_moves_started": 9833,
+                        "most_recent_start_time": "2022-02-15T12:56:07-05:00",
                     },
+                }
+            },
+            "flexgroup": {"uuid": "2b3323db-b916-11ec-b103-005056a79638"},
+            "name": "fg__0002",
+            "_links": {
+                "self": {
+                    "href": "/api/storage/volumes/2cc5da55-b916-11ec-b103-005056a79638?is_constituent=true"
                 }
             },
         }
@@ -953,7 +955,12 @@ Example: ["team:csi","environment:test"]"""
     r""" The activity_tracking field of the volume."""
 
     aggregates = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.svm_migration_volume_placement_aggregates.SvmMigrationVolumePlacementAggregatesSchema", unknown=EXCLUDE, allow_none=True), data_key="aggregates", allow_none=True)
-    r""" Aggregate hosting the volume. Required on POST."""
+    r""" <personalities supports=unified,asar2>
+Aggregate(s) hosting the volume. Optional.
+</personalities>
+<personalities supports=aiml>
+Optional. Only supported in volume create (POST), and must hold only the storage availability zone. If supplied, the constituents_per_aggregate must also be supplied. Provided for backward-compatibility only. Using constituent_count instead of it and constituents_per_aggregate is always preferred.
+</personalities>"""
 
     aggressive_readahead_mode = marshmallow_fields.Str(
         data_key="aggressive_readahead_mode",
@@ -1023,6 +1030,13 @@ This feature is only available on volumes in FabricPools."""
     consistency_group = marshmallow_fields.Nested("netapp_ontap.models.volume_consistency_group.VolumeConsistencyGroupSchema", data_key="consistency_group", unknown=EXCLUDE, allow_none=True)
     r""" Consistency group the volume is part of."""
 
+    constituent_count = Size(
+        data_key="constituent_count",
+        validate=integer_validation(minimum=1),
+        allow_none=True,
+    )
+    r""" Specifies the number of total constituents in the FlexGroup volume. Valid for POST, PATCH and GET requests. In volume create (POST), you can alternatively specify the number of constituents in the constituents_per_aggregate parameter and specify the storage availability zone in the aggregates parameter. If none of these values are specified, ONTAP determines the number of constituents to create based on the size of the FlexGroup volume."""
+
     constituents = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.volume_constituents.VolumeConstituentsSchema", unknown=EXCLUDE, allow_none=True), data_key="constituents", allow_none=True)
     r""" FlexGroup volume constituents. FlexGroup volume constituents can be retrieved more efficiently by specifying "is_constituent=true" or "is_constituent=true&flexgroup.uuid=<flexgroup.uuid>" as query parameters."""
 
@@ -1031,7 +1045,12 @@ This feature is only available on volumes in FabricPools."""
         validate=integer_validation(minimum=1, maximum=1000),
         allow_none=True,
     )
-    r""" Specifies the number of times to iterate over the aggregates listed with the "aggregates.name" or "aggregates.uuid" when creating or expanding a FlexGroup volume. If a volume is being created on a single aggregate, the system creates a flexible volume if the "constituents_per_aggregate" field is not specified, or a FlexGroup volume if it is specified. If a volume is being created on multiple aggregates, the system always creates a FlexGroup volume. If a volume is being created on multiple aggregates and the "constituents_per_aggregate" field is not specified, the default value of the "constituents_per_aggregate" field is 4. The root constituent of a FlexGroup volume is always placed on the first aggregate in the list, unless 'optimize_aggregates' is specified as 'true'. If the "aggregates.name" or "aggregates.uuid" is specified in a PATCH request to expand an existing FlexGroup volume, the default value of the "constituents_per_aggregate" field is 1. The volume expand operation is only supported on FlexGroup volumes."""
+    r""" <personalities supports=unified,asar2>
+Specifies the number of times to iterate over the aggregates listed with the "aggregates.name" or "aggregates.uuid" when creating or expanding a FlexGroup volume. If a volume is being created on a single aggregate, the system creates a flexible volume if the "constituents_per_aggregate" field is not specified, or a FlexGroup volume if it is specified. If a volume is being created on multiple aggregates, the system always creates a FlexGroup volume. If a volume is being created on multiple aggregates and the "constituents_per_aggregate" field is not specified, the default value of the "constituents_per_aggregate" field is 4. The root constituent of a FlexGroup volume is always placed on the first aggregate in the list, unless 'optimize_aggregates' is specified as 'true'. If the "aggregates.name" or "aggregates.uuid" is specified in a PATCH request to expand an existing FlexGroup volume, the default value of the "constituents_per_aggregate" field is 1. The volume expand operation is only supported on FlexGroup volumes.
+</personalities>
+<personalities supports=aiml>
+Optional. Only supported in volume create (POST), and specifies how many constituents the FlexGroup volume should have. If supplied, the aggregates must also be supplied, and it must contain only the storage availability zone. Provided for backward-compatibility only. Using constituent_count instead of it and aggregates is always preferred.
+</personalities>"""
 
     convert_unicode = marshmallow_fields.Boolean(
         data_key="convert_unicode",
@@ -1099,6 +1118,18 @@ Valid choices:
 
     guarantee = marshmallow_fields.Nested("netapp_ontap.models.volume_guarantee.VolumeGuaranteeSchema", data_key="guarantee", unknown=EXCLUDE, allow_none=True)
     r""" The guarantee field of the volume."""
+
+    has_dir_index_public = marshmallow_fields.Boolean(
+        data_key="has_dir_index_public",
+        allow_none=True,
+    )
+    r""" Specifies whether the volume has directories with public index files."""
+
+    is_dir_index_transfer_enabled = marshmallow_fields.Boolean(
+        data_key="is_dir_index_transfer_enabled",
+        allow_none=True,
+    )
+    r""" When set to true, this field enables support for directory index transfer."""
 
     is_object_store = marshmallow_fields.Boolean(
         data_key="is_object_store",
@@ -1221,6 +1252,9 @@ Example: vol_cs_dept"""
     nas = marshmallow_fields.Nested("netapp_ontap.models.volume_nas.VolumeNasSchema", data_key="nas", unknown=EXCLUDE, allow_none=True)
     r""" The nas field of the volume."""
 
+    nodes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", unknown=EXCLUDE, allow_none=True), data_key="nodes", allow_none=True)
+    r""" List of the nodes hosting the volume."""
+
     optimize_aggregates = marshmallow_fields.Boolean(
         data_key="optimize_aggregates",
         allow_none=True,
@@ -1263,6 +1297,18 @@ Valid choices:
         allow_none=True,
     )
     r""" Physical size of the volume, in bytes. The minimum size for a FlexVol volume is 20MB and the minimum size for a FlexGroup volume is 200MB per constituent. The recommended size for a FlexGroup volume is a minimum of 100GB per constituent. For all volumes, the default size is equal to the minimum size."""
+
+    sizing_method = marshmallow_fields.Str(
+        data_key="sizing_method",
+        validate=enum_validation(['use_existing_resources', 'add_new_resources']),
+        allow_none=True,
+    )
+    r""" When expanding a FlexGroup volume, this specifies whether to add new constituents, or to resize the current constituents.
+
+Valid choices:
+
+* use_existing_resources
+* add_new_resources"""
 
     snaplock = marshmallow_fields.Nested("netapp_ontap.models.volume_snaplock.VolumeSnaplockSchema", data_key="snaplock", unknown=EXCLUDE, allow_none=True)
     r""" The snaplock field of the volume."""
@@ -1391,6 +1437,7 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "cloud_write_enabled",
         "comment",
         "consistency_group",
+        "constituent_count",
         "constituents",
         "convert_unicode",
         "create_time",
@@ -1404,6 +1451,8 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "granular_data",
         "granular_data_mode",
         "guarantee",
+        "has_dir_index_public",
+        "is_dir_index_transfer_enabled",
         "is_object_store",
         "is_svm_root",
         "language",
@@ -1413,6 +1462,9 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "msid",
         "name",
         "nas",
+        "nodes.links",
+        "nodes.name",
+        "nodes.uuid",
         "qos",
         "queue_for_encryption",
         "quota",
@@ -1448,7 +1500,7 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "uuid",
         "validate_only",
     ]
-    """links,tags,access_time_enabled,activity_tracking,aggregates.links,aggregates.name,aggregates.uuid,aggressive_readahead_mode,analytics,anti_ransomware,application,asynchronous_directory_delete,autosize,clone,cloud_retrieval_policy,cloud_write_enabled,comment,consistency_group,constituents,convert_unicode,create_time,efficiency,encryption,error_state,files,flash_pool,flexcache_endpoint_type,flexgroup,granular_data,granular_data_mode,guarantee,is_object_store,is_svm_root,language,max_dir_size,metric,movement,msid,name,nas,qos,queue_for_encryption,quota,rebalancing,scheduled_snapshot_naming_scheme,size,snaplock,snapmirror,snapshot_count,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,space,state,statistics.cifs_ops_raw,statistics.cloud,statistics.flexcache_raw,statistics.iops_raw,statistics.latency_raw,statistics.nfs_ops_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,status,style,svm.links,svm.name,svm.uuid,tiering,type,uuid,validate_only,"""
+    """links,tags,access_time_enabled,activity_tracking,aggregates.links,aggregates.name,aggregates.uuid,aggressive_readahead_mode,analytics,anti_ransomware,application,asynchronous_directory_delete,autosize,clone,cloud_retrieval_policy,cloud_write_enabled,comment,consistency_group,constituent_count,constituents,convert_unicode,create_time,efficiency,encryption,error_state,files,flash_pool,flexcache_endpoint_type,flexgroup,granular_data,granular_data_mode,guarantee,has_dir_index_public,is_dir_index_transfer_enabled,is_object_store,is_svm_root,language,max_dir_size,metric,movement,msid,name,nas,nodes.links,nodes.name,nodes.uuid,qos,queue_for_encryption,quota,rebalancing,scheduled_snapshot_naming_scheme,size,snaplock,snapmirror,snapshot_count,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.links,snapshot_policy.name,snapshot_policy.uuid,space,state,statistics.cifs_ops_raw,statistics.cloud,statistics.flexcache_raw,statistics.iops_raw,statistics.latency_raw,statistics.nfs_ops_raw,statistics.status,statistics.throughput_raw,statistics.timestamp,status,style,svm.links,svm.name,svm.uuid,tiering,type,uuid,validate_only,"""
 
     patchable_fields = [
         "tags",
@@ -1467,6 +1519,7 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "cloud_write_enabled",
         "comment",
         "consistency_group",
+        "constituent_count",
         "constituents",
         "constituents_per_aggregate",
         "convert_unicode",
@@ -1479,17 +1532,22 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "granular_data",
         "granular_data_mode",
         "guarantee",
+        "has_dir_index_public",
+        "is_dir_index_transfer_enabled",
         "max_dir_size",
         "movement",
         "msid",
         "name",
         "nas",
+        "nodes.name",
+        "nodes.uuid",
         "qos",
         "queue_for_encryption",
         "quota",
         "rebalancing",
         "scheduled_snapshot_naming_scheme",
         "size",
+        "sizing_method",
         "snaplock",
         "snapmirror",
         "snapshot_directory_access_enabled",
@@ -1502,7 +1560,7 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "tiering",
         "validate_only",
     ]
-    """tags,access_time_enabled,activity_tracking,aggregates.name,aggregates.uuid,aggressive_readahead_mode,analytics,anti_ransomware,application,asynchronous_directory_delete,autosize,clone,cloud_retrieval_policy,cloud_write_enabled,comment,consistency_group,constituents,constituents_per_aggregate,convert_unicode,efficiency,encryption,error_state,files,flash_pool,flexgroup,granular_data,granular_data_mode,guarantee,max_dir_size,movement,msid,name,nas,qos,queue_for_encryption,quota,rebalancing,scheduled_snapshot_naming_scheme,size,snaplock,snapmirror,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.name,snapshot_policy.uuid,space,state,style,tiering,validate_only,"""
+    """tags,access_time_enabled,activity_tracking,aggregates.name,aggregates.uuid,aggressive_readahead_mode,analytics,anti_ransomware,application,asynchronous_directory_delete,autosize,clone,cloud_retrieval_policy,cloud_write_enabled,comment,consistency_group,constituent_count,constituents,constituents_per_aggregate,convert_unicode,efficiency,encryption,error_state,files,flash_pool,flexgroup,granular_data,granular_data_mode,guarantee,has_dir_index_public,is_dir_index_transfer_enabled,max_dir_size,movement,msid,name,nas,nodes.name,nodes.uuid,qos,queue_for_encryption,quota,rebalancing,scheduled_snapshot_naming_scheme,size,sizing_method,snaplock,snapmirror,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.name,snapshot_policy.uuid,space,state,style,tiering,validate_only,"""
 
     postable_fields = [
         "tags",
@@ -1520,6 +1578,7 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "cloud_write_enabled",
         "comment",
         "consistency_group",
+        "constituent_count",
         "constituents",
         "constituents_per_aggregate",
         "convert_unicode",
@@ -1532,12 +1591,16 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "granular_data",
         "granular_data_mode",
         "guarantee",
+        "has_dir_index_public",
+        "is_dir_index_transfer_enabled",
         "language",
         "max_dir_size",
         "movement",
         "msid",
         "name",
         "nas",
+        "nodes.name",
+        "nodes.uuid",
         "optimize_aggregates",
         "qos",
         "quota",
@@ -1560,7 +1623,7 @@ Example: 028baa66-41bd-11e9-81d5-00a0986138f7"""
         "use_mirrored_aggregates",
         "validate_only",
     ]
-    """tags,activity_tracking,aggregates.name,aggregates.uuid,aggressive_readahead_mode,analytics,anti_ransomware,application,asynchronous_directory_delete,autosize,clone,cloud_retrieval_policy,cloud_write_enabled,comment,consistency_group,constituents,constituents_per_aggregate,convert_unicode,efficiency,encryption,error_state,files,flash_pool,flexgroup,granular_data,granular_data_mode,guarantee,language,max_dir_size,movement,msid,name,nas,optimize_aggregates,qos,quota,rebalancing,scheduled_snapshot_naming_scheme,size,snaplock,snapmirror,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.name,snapshot_policy.uuid,space,state,style,svm.name,svm.uuid,tiering,type,use_mirrored_aggregates,validate_only,"""
+    """tags,activity_tracking,aggregates.name,aggregates.uuid,aggressive_readahead_mode,analytics,anti_ransomware,application,asynchronous_directory_delete,autosize,clone,cloud_retrieval_policy,cloud_write_enabled,comment,consistency_group,constituent_count,constituents,constituents_per_aggregate,convert_unicode,efficiency,encryption,error_state,files,flash_pool,flexgroup,granular_data,granular_data_mode,guarantee,has_dir_index_public,is_dir_index_transfer_enabled,language,max_dir_size,movement,msid,name,nas,nodes.name,nodes.uuid,optimize_aggregates,qos,quota,rebalancing,scheduled_snapshot_naming_scheme,size,snaplock,snapmirror,snapshot_directory_access_enabled,snapshot_locking_enabled,snapshot_policy.name,snapshot_policy.uuid,space,state,style,svm.name,svm.uuid,tiering,type,use_mirrored_aggregates,validate_only,"""
 
 class Volume(Resource):
     """Allows interaction with Volume objects on the host"""
@@ -1582,7 +1645,16 @@ class Volume(Resource):
 There is an added computational cost to retrieving values for these properties. They are not included by default in GET results and must be explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
 * `is_svm_root`
 * `aggressive_readahead_mode`
-* `analytics.*`
+* `analytics.by_accessed_time.bytes_used`
+* `analytics.by_modified_time.bytes_used`
+* `analytics.bytes_used`
+* `analytics.file_count`
+* `analytics.histogram_by_time_labels`
+* `analytics.incomplete_data`
+* `analytics.report_time`
+* `analytics.subdir_count`
+* `analytics.supported`
+* `analytics.unsupported_reason`
 * `anti_ransomware.*`
 * `application.*`
 * `encryption.*`
@@ -1654,9 +1726,13 @@ There is an added computational cost to retrieving values for these properties. 
 * `space.filesystem_size_fixed`
 * `guarantee.*`
 * `autosize.*`
+<personalities supports=unified>
 * `movement.*`
+</personalities>
 * `statistics.*`
 * `constituents.name`
+* `constituents.node.name`
+* `constituents.node.uuid`
 * `constituents.space.size`
 * `constituents.space.available`
 * `constituents.space.used`
@@ -1683,12 +1759,14 @@ There is an added computational cost to retrieving values for these properties. 
 * `constituents.space.total_metadata_footprint`
 * `constituents.aggregates.name`
 * `constituents.aggregates.uuid`
+<personalities supports=unified>
 * `constituents.movement.destination_aggregate.name`
 * `constituents.movement.destination_aggregate.uuid`
 * `constituents.movement.state`
 * `constituents.movement.percent_complete`
 * `constituents.movement.cutover_window`
 * `constituents.movement.tiering_policy`
+</personalities>
 * `asynchronous_directory_delete.*`
 * `rebalancing.*`
 * `metric.*`
@@ -1700,7 +1778,9 @@ There is an added computational cost to retrieving values for these properties. 
 * `volume encryption show`
 * `volume flexcache show`
 * `volume flexgroup show`
+<personalities supports=unified,aiml>
 * `volume move show`
+</personalities>
 * `volume quota show`
 * `volume show-space`
 * `volume snaplock show`
@@ -1755,11 +1835,10 @@ There is an added computational cost to retrieving values for these properties. 
         connection: HostConnection = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Updates the attributes of a volume. For movement, use the "validate_only" field on the request to validate but not perform the operation. The PATCH API can be used to enable or disable quotas for a FlexVol or a FlexGroup volume. The PATCH API can also be used to start or stop non-disruptive volume capacity rebalancing for FlexGroup volumes in addition to modifying capacity rebalancing properties. An empty path in PATCH deactivates and unmounts the volume. Taking a volume offline removes its junction path.
+        r"""Updates the attributes of a volume. <personalities supports=unified>For movement, use the "validate_only" field on the request to validate but not perform the operation. </personalities>The PATCH API can be used to enable or disable quotas for a FlexVol or a FlexGroup volume. The PATCH API can also be used to start or stop non-disruptive volume capacity rebalancing for FlexGroup volumes in addition to modifying capacity rebalancing properties. An empty path in PATCH deactivates and unmounts the volume. Taking a volume offline removes its junction path.
 <br>A PATCH request for volume encryption performs conversion/rekey operations asynchronously. You can retrieve the conversion/rekey progress details by calling a GET request on the corresponding volume endpoint.
-### Platform Specifics
-**Unified ONTAP**: PATCH must be used to update the attributes of a volume.
-**ASA r2**: PATCH is not supported for the following immutable properties.
+<personalities supports=asar2>
+PATCH is not supported for the following immutable properties:
 * `autosize.maximum`
 * `autosize.minimum`
 * `autosize.grow_threshold`
@@ -1812,6 +1891,14 @@ There is an added computational cost to retrieving values for these properties. 
 * `encryption.rekey`
 * `encryption.action`
 * `queue_for_encryption`
+* `movement.destination_aggregate`
+* `movement.state`
+* `movement.percent_complete`
+* `movement.cutover_window`
+* `movement.tiering_policy`
+* `movement.capacity_tier_optimized`
+* `movement.copy_free`
+</personalities>
 ### Optional properties
 * `queue_for_encryption` - Queue volumes for encryption when `encryption.enabled=true`.  If this option is not provided or is false, conversion of volumes starts immediately. When there are volumes in the queue and less than four encryptions are running, volumes are encrypted in the order in which they are queued.
 * `encryption.action` - You can pause an ongoing rekey/conversion operation or resume a paused rekey/conversion operation using this field.  The following actions are supported for this field: &dash; conversion_pause - Pause an encryption conversion operation currently in progress &dash; conversion_resume - Resume a paused encryption conversion operation &dash; rekey_pause - Pause an encryption rekey operation currently in progress &dash; rekey_resume - Resume a paused encryption rekey operation
@@ -1842,6 +1929,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `security anti-ransomware volume resume`
 * `volume file async-delete client disable`
 * `volume file async-delete client enable`
+* `volume move`
 
 ### Learn more
 * [`DOC /storage/volumes`](#docs-storage-storage_volumes)"""
@@ -1865,9 +1953,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> Union[List["Volume"], NetAppResponse]:
         r"""Creates a volume on a specified SVM and storage aggregates.
-### Platform Specifics
-* **Unified ONTAP**: POST must be used to create a volume.
-* **ASA r2**: POST is not supported.
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the volume.
 * `name` - Name of the volume.
@@ -1907,9 +1992,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes a volume. If the UUID belongs to a volume, all of its blocks are freed and returned to its containing aggregate. If a volume is online, it is offlined before deletion. If a volume is mounted, unmount the volume by specifying the nas.path as empty before deleting it using the DELETE operation.
-### Platform Specifics
-* **Unified ONTAP**: DELETE must be used to delete a volume.
-* **ASA r2**: DELETE is not supported.
 ### Optional parameters:
 * `force` - Bypasses the recovery-queue and completely removes the volume from the aggregate making it non-recoverable. By default, this flag is set to "false".
 ### Related ONTAP commands
@@ -1932,7 +2014,16 @@ There is an added computational cost to retrieving values for these properties. 
 There is an added computational cost to retrieving values for these properties. They are not included by default in GET results and must be explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
 * `is_svm_root`
 * `aggressive_readahead_mode`
-* `analytics.*`
+* `analytics.by_accessed_time.bytes_used`
+* `analytics.by_modified_time.bytes_used`
+* `analytics.bytes_used`
+* `analytics.file_count`
+* `analytics.histogram_by_time_labels`
+* `analytics.incomplete_data`
+* `analytics.report_time`
+* `analytics.subdir_count`
+* `analytics.supported`
+* `analytics.unsupported_reason`
 * `anti_ransomware.*`
 * `application.*`
 * `encryption.*`
@@ -2004,9 +2095,13 @@ There is an added computational cost to retrieving values for these properties. 
 * `space.filesystem_size_fixed`
 * `guarantee.*`
 * `autosize.*`
+<personalities supports=unified>
 * `movement.*`
+</personalities>
 * `statistics.*`
 * `constituents.name`
+* `constituents.node.name`
+* `constituents.node.uuid`
 * `constituents.space.size`
 * `constituents.space.available`
 * `constituents.space.used`
@@ -2033,12 +2128,14 @@ There is an added computational cost to retrieving values for these properties. 
 * `constituents.space.total_metadata_footprint`
 * `constituents.aggregates.name`
 * `constituents.aggregates.uuid`
+<personalities supports=unified>
 * `constituents.movement.destination_aggregate.name`
 * `constituents.movement.destination_aggregate.uuid`
 * `constituents.movement.state`
 * `constituents.movement.percent_complete`
 * `constituents.movement.cutover_window`
 * `constituents.movement.tiering_policy`
+</personalities>
 * `asynchronous_directory_delete.*`
 * `rebalancing.*`
 * `metric.*`
@@ -2050,7 +2147,9 @@ There is an added computational cost to retrieving values for these properties. 
 * `volume encryption show`
 * `volume flexcache show`
 * `volume flexgroup show`
+<personalities supports=unified,aiml>
 * `volume move show`
+</personalities>
 * `volume quota show`
 * `volume show-space`
 * `volume snaplock show`
@@ -2145,7 +2244,9 @@ There is an added computational cost to retrieving values for these properties. 
 * `space.filesystem_size_fixed`
 * `guarantee.*`
 * `autosize.*`
+<personalities supports=unified>
 * `movement.*`
+</personalities>
 * `statistics.*`
 * `asynchronous_directory_delete.*`
 * `rebalancing.*`
@@ -2158,7 +2259,9 @@ There is an added computational cost to retrieving values for these properties. 
 * `volume encryption show`
 * `volume flexcache show`
 * `volume flexgroup show`
+<personalities supports=unified,aiml>
 * `volume move show`
+</personalities>
 * `volume quota show`
 * `volume show-space`
 * `volume snaplock show`
@@ -2183,9 +2286,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Creates a volume on a specified SVM and storage aggregates.
-### Platform Specifics
-* **Unified ONTAP**: POST must be used to create a volume.
-* **ASA r2**: POST is not supported.
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the volume.
 * `name` - Name of the volume.
@@ -2220,11 +2320,10 @@ There is an added computational cost to retrieving values for these properties. 
         poll_timeout: Optional[int] = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Updates the attributes of a volume. For movement, use the "validate_only" field on the request to validate but not perform the operation. The PATCH API can be used to enable or disable quotas for a FlexVol or a FlexGroup volume. The PATCH API can also be used to start or stop non-disruptive volume capacity rebalancing for FlexGroup volumes in addition to modifying capacity rebalancing properties. An empty path in PATCH deactivates and unmounts the volume. Taking a volume offline removes its junction path.
+        r"""Updates the attributes of a volume. <personalities supports=unified>For movement, use the "validate_only" field on the request to validate but not perform the operation. </personalities>The PATCH API can be used to enable or disable quotas for a FlexVol or a FlexGroup volume. The PATCH API can also be used to start or stop non-disruptive volume capacity rebalancing for FlexGroup volumes in addition to modifying capacity rebalancing properties. An empty path in PATCH deactivates and unmounts the volume. Taking a volume offline removes its junction path.
 <br>A PATCH request for volume encryption performs conversion/rekey operations asynchronously. You can retrieve the conversion/rekey progress details by calling a GET request on the corresponding volume endpoint.
-### Platform Specifics
-**Unified ONTAP**: PATCH must be used to update the attributes of a volume.
-**ASA r2**: PATCH is not supported for the following immutable properties.
+<personalities supports=asar2>
+PATCH is not supported for the following immutable properties:
 * `autosize.maximum`
 * `autosize.minimum`
 * `autosize.grow_threshold`
@@ -2277,6 +2376,14 @@ There is an added computational cost to retrieving values for these properties. 
 * `encryption.rekey`
 * `encryption.action`
 * `queue_for_encryption`
+* `movement.destination_aggregate`
+* `movement.state`
+* `movement.percent_complete`
+* `movement.cutover_window`
+* `movement.tiering_policy`
+* `movement.capacity_tier_optimized`
+* `movement.copy_free`
+</personalities>
 ### Optional properties
 * `queue_for_encryption` - Queue volumes for encryption when `encryption.enabled=true`.  If this option is not provided or is false, conversion of volumes starts immediately. When there are volumes in the queue and less than four encryptions are running, volumes are encrypted in the order in which they are queued.
 * `encryption.action` - You can pause an ongoing rekey/conversion operation or resume a paused rekey/conversion operation using this field.  The following actions are supported for this field: &dash; conversion_pause - Pause an encryption conversion operation currently in progress &dash; conversion_resume - Resume a paused encryption conversion operation &dash; rekey_pause - Pause an encryption rekey operation currently in progress &dash; rekey_resume - Resume a paused encryption rekey operation
@@ -2307,6 +2414,7 @@ There is an added computational cost to retrieving values for these properties. 
 * `security anti-ransomware volume resume`
 * `volume file async-delete client disable`
 * `volume file async-delete client enable`
+* `volume move`
 
 ### Learn more
 * [`DOC /storage/volumes`](#docs-storage-storage_volumes)"""
@@ -2326,9 +2434,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes a volume. If the UUID belongs to a volume, all of its blocks are freed and returned to its containing aggregate. If a volume is online, it is offlined before deletion. If a volume is mounted, unmount the volume by specifying the nas.path as empty before deleting it using the DELETE operation.
-### Platform Specifics
-* **Unified ONTAP**: DELETE must be used to delete a volume.
-* **ASA r2**: DELETE is not supported.
 ### Optional parameters:
 * `force` - Bypasses the recovery-queue and completely removes the volume from the aggregate making it non-recoverable. By default, this flag is set to "false".
 ### Related ONTAP commands

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -32,46 +32,46 @@ with HostConnection(
 [
     CifsOpenFile(
         {
-            "volume": {
-                "name": "root_vs0",
-                "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5",
-            },
-            "continuously_available": "no",
-            "type": "regular",
-            "open_mode": "r",
-            "range_locks_count": 0,
-            "node": {
-                "name": "sti220-vsim-sr050u",
-                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
-            },
-            "session": {"identifier": 10878444899913433090},
-            "identifier": 109,
-            "svm": {"name": "vs0", "uuid": "80e795f4-3553-11ee-9f97-005056ae78de"},
-            "connection": {"count": 1, "identifier": 103985},
-            "path": "first_file.txt",
             "share": {"mode": "r", "name": "sh1"},
+            "path": "first_file.txt",
+            "identifier": 109,
+            "open_mode": "r",
+            "connection": {"count": 1, "identifier": 103985},
+            "continuously_available": "no",
+            "session": {"identifier": 10878444899913433090},
+            "svm": {"uuid": "80e795f4-3553-11ee-9f97-005056ae78de", "name": "vs0"},
+            "node": {
+                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
+                "name": "sti220-vsim-sr050u",
+            },
+            "range_locks_count": 0,
+            "type": "regular",
+            "volume": {
+                "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5",
+                "name": "root_vs0",
+            },
         }
     ),
     CifsOpenFile(
         {
-            "volume": {
-                "name": "root_vs0",
-                "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5",
-            },
-            "continuously_available": "no",
-            "type": "regular",
-            "open_mode": "r",
-            "range_locks_count": 0,
-            "node": {
-                "name": "sti220-vsim-sr050u",
-                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
-            },
-            "session": {"identifier": 10878444899913433090},
-            "identifier": 110,
-            "svm": {"name": "vs0", "uuid": "80e795f4-3553-11ee-9f97-005056ae78de"},
-            "connection": {"count": 1, "identifier": 103985},
-            "path": "second_file.txt",
             "share": {"mode": "r", "name": "sh1"},
+            "path": "second_file.txt",
+            "identifier": 110,
+            "open_mode": "r",
+            "connection": {"count": 1, "identifier": 103985},
+            "continuously_available": "no",
+            "session": {"identifier": 10878444899913433090},
+            "svm": {"uuid": "80e795f4-3553-11ee-9f97-005056ae78de", "name": "vs0"},
+            "node": {
+                "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
+                "name": "sti220-vsim-sr050u",
+            },
+            "range_locks_count": 0,
+            "type": "regular",
+            "volume": {
+                "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5",
+                "name": "root_vs0",
+            },
         }
     ),
 ]
@@ -110,21 +110,21 @@ with HostConnection(
 ```
 CifsOpenFile(
     {
-        "volume": {"name": "root_vs0", "uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5"},
-        "continuously_available": "no",
-        "type": "regular",
-        "open_mode": "r",
-        "range_locks_count": 0,
-        "node": {
-            "name": "sti220-vsim-sr050u",
-            "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
-        },
-        "session": {"identifier": 10878444899913433000},
-        "identifier": 109,
-        "svm": {"name": "vs0", "uuid": "80e795f4-3553-11ee-9f97-005056ae78de"},
-        "connection": {"count": 1, "identifier": 103985},
-        "path": "first_file.txt",
         "share": {"mode": "r", "name": "sh1"},
+        "path": "first_file.txt",
+        "identifier": 109,
+        "open_mode": "r",
+        "connection": {"count": 1, "identifier": 103985},
+        "continuously_available": "no",
+        "session": {"identifier": 10878444899913433000},
+        "svm": {"uuid": "80e795f4-3553-11ee-9f97-005056ae78de", "name": "vs0"},
+        "node": {
+            "uuid": "a5f65ec0-3550-11ee-93c5-005056ae78de",
+            "name": "sti220-vsim-sr050u",
+        },
+        "range_locks_count": 0,
+        "type": "regular",
+        "volume": {"uuid": "8384f6ae-3553-11ee-a3c3-005056ae0dd5", "name": "root_vs0"},
     }
 )
 

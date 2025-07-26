@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -58,20 +58,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     ResourceTagResource(
         {
-            "label": "storage_volumes",
             "href": "/api/storage/volumes/558949d1-d4cf-445e-ada5-e340dee6a581",
+            "label": "storage_volumes",
         }
     ),
     ResourceTagResource(
         {
-            "label": "storage_volumes",
             "href": "/api/storage/volumes/64750961-fda7-4327-9f16-00034c3f5ad2",
+            "label": "storage_volumes",
         }
     ),
     ResourceTagResource(
         {
-            "label": "storage_volumes",
             "href": "/api/storage/volumes/bee17b91-f90a-4854-b146-8b102a0a9882",
+            "label": "storage_volumes",
         }
     ),
 ]

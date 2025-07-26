@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,22 +26,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NetgroupsSettings(
         {
-            "negative_cache_enabled_byhost": True,
-            "ttl_byhost": "P1D",
             "negative_ttl_byhost": "PT30M",
-            "ttl_for_members": "PT30M",
+            "ttl_byhost": "P1D",
             "enabled": True,
-            "svm": {"name": "vs43", "uuid": "8a1a8730-2036-11ec-8457-005056bbcfdb"},
+            "ttl_for_members": "PT30M",
+            "svm": {"uuid": "8a1a8730-2036-11ec-8457-005056bbcfdb", "name": "vs43"},
+            "negative_cache_enabled_byhost": True,
         }
     ),
     NetgroupsSettings(
         {
-            "negative_cache_enabled_byhost": True,
-            "ttl_byhost": "PT2H",
             "negative_ttl_byhost": "PT30M",
-            "ttl_for_members": "PT30M",
+            "ttl_byhost": "PT2H",
             "enabled": True,
-            "svm": {"name": "vs34", "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef"},
+            "ttl_for_members": "PT30M",
+            "svm": {"uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef", "name": "vs34"},
+            "negative_cache_enabled_byhost": True,
         }
     ),
 ]
@@ -71,12 +71,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NetgroupsSettings(
     {
-        "negative_cache_enabled_byhost": True,
-        "ttl_byhost": "P1D",
         "negative_ttl_byhost": "PT30M",
-        "ttl_for_members": "PT30M",
+        "ttl_byhost": "P1D",
         "enabled": True,
-        "svm": {"name": "vs34", "uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef"},
+        "ttl_for_members": "PT30M",
+        "svm": {"uuid": "dc458b2f-2035-11ec-bfe2-005056bb6bef", "name": "vs34"},
+        "negative_cache_enabled_byhost": True,
     }
 )
 

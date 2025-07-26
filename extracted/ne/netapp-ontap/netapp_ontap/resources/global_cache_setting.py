@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,7 +25,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example0_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example0_result" class="try_it_out_content">
 ```
-GlobalCacheSetting({"eviction_time_interval": "P2D", "remote_fetch_enabled": True})
+GlobalCacheSetting({"remote_fetch_enabled": True, "eviction_time_interval": "P2D"})
 
 ```
 </div>

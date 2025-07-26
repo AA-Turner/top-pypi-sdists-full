@@ -30,7 +30,9 @@ dependencies = [
     "cryptography < 43.0.0",
     "networkx >= 3.3",
     "omegaconf>=2.3.0",
-    "packaging"
+    "leptonai>=0.25.0",
+    "packaging",
+    "toml",
 ]
 readme = "README.md"
 requires-python = ">= 3.10"
@@ -45,13 +47,17 @@ skypilot = "nemo_run.run.torchx_backend.schedulers.skypilot:create_scheduler"
 local_persistent = "nemo_run.run.torchx_backend.schedulers.local:create_scheduler"
 docker_persistent = "nemo_run.run.torchx_backend.schedulers.docker:create_scheduler"
 dgx_cloud = "nemo_run.run.torchx_backend.schedulers.dgxcloud:create_scheduler"
+lepton = "nemo_run.run.torchx_backend.schedulers.lepton:create_scheduler"
 
 [project.optional-dependencies]
 skypilot = [
-    "skypilot[kubernetes]>=0.8.0",
+    "skypilot[kubernetes]>=0.9.2",
 ]
 skypilot-all = [
-    "skypilot[all]>=0.8.0",
+    "skypilot[all]>=0.9.2",
+]
+ray = [
+    "kubernetes"
 ]
 
 [dependency-groups]
@@ -73,7 +79,13 @@ lint = [
 ]
 
 docs = [
-    "sphinx"
+    "astroid==3.3.8",
+    "colorama>=0.4.6",
+    "myst-parser",
+    "sphinx>=7",
+    "sphinx-autoapi>=3.0.0",
+    "nvidia-sphinx-theme",
+    "sphinxcontrib-mermaid",
 ]
 
 [build-system]
@@ -83,6 +95,13 @@ build-backend = "hatchling.build"
 [tool.uv]
 managed = true
 prerelease = "allow"
+conflicts = [
+    [
+        { group = "docs", name = "colorama" },
+        { extra = "skypilot", name = "colorama" },
+        { extra = "skypilot-all", name = "colorama" }
+    ]
+]
 
 [tool.pytest.ini_options]
 markers = [

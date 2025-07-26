@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: dicomweb-client
-Version: 0.60.0
+Version: 0.60.1
 Summary: Client for DICOMweb RESTful services.
 Project-URL: homepage, https://github.com/imagingdatacommons/dicomweb-client
 Project-URL: documentation, https://dicomweb-client.readthedocs.io/

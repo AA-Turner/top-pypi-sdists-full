@@ -414,3 +414,195 @@ class ListMetaQueryRunsResponse(_message.Message):
     QUERY_RUNS_FIELD_NUMBER: _ClassVar[int]
     query_runs: _containers.RepeatedCompositeFieldContainer[MetaQueryRunWithMeta]
     def __init__(self, query_runs: _Optional[_Iterable[_Union[MetaQueryRunWithMeta, _Mapping]]] = ...) -> None: ...
+
+class MetaQuery(_message.Message):
+    __slots__ = (
+        "id",
+        "query_name",
+        "input_features",
+        "output_features",
+        "output_root_fqns",
+        "query_features_count",
+        "query_resolvers",
+        "owner",
+        "tags",
+        "last_observed_at",
+        "created_at",
+        "archived_at",
+        "query_hash",
+    )
+    ID_FIELD_NUMBER: _ClassVar[int]
+    QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    INPUT_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_FEATURES_FIELD_NUMBER: _ClassVar[int]
+    OUTPUT_ROOT_FQNS_FIELD_NUMBER: _ClassVar[int]
+    QUERY_FEATURES_COUNT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_RESOLVERS_FIELD_NUMBER: _ClassVar[int]
+    OWNER_FIELD_NUMBER: _ClassVar[int]
+    TAGS_FIELD_NUMBER: _ClassVar[int]
+    LAST_OBSERVED_AT_FIELD_NUMBER: _ClassVar[int]
+    CREATED_AT_FIELD_NUMBER: _ClassVar[int]
+    ARCHIVED_AT_FIELD_NUMBER: _ClassVar[int]
+    QUERY_HASH_FIELD_NUMBER: _ClassVar[int]
+    id: str
+    query_name: str
+    input_features: _containers.RepeatedScalarFieldContainer[str]
+    output_features: _containers.RepeatedScalarFieldContainer[str]
+    output_root_fqns: _containers.RepeatedScalarFieldContainer[str]
+    query_features_count: int
+    query_resolvers: _containers.RepeatedScalarFieldContainer[str]
+    owner: str
+    tags: _containers.RepeatedScalarFieldContainer[str]
+    last_observed_at: _timestamp_pb2.Timestamp
+    created_at: _timestamp_pb2.Timestamp
+    archived_at: _timestamp_pb2.Timestamp
+    query_hash: str
+    def __init__(
+        self,
+        id: _Optional[str] = ...,
+        query_name: _Optional[str] = ...,
+        input_features: _Optional[_Iterable[str]] = ...,
+        output_features: _Optional[_Iterable[str]] = ...,
+        output_root_fqns: _Optional[_Iterable[str]] = ...,
+        query_features_count: _Optional[int] = ...,
+        query_resolvers: _Optional[_Iterable[str]] = ...,
+        owner: _Optional[str] = ...,
+        tags: _Optional[_Iterable[str]] = ...,
+        last_observed_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        created_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        archived_at: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        query_hash: _Optional[str] = ...,
+    ) -> None: ...
+
+class ListMetaQueriesRequest(_message.Message):
+    __slots__ = ("name_filter", "start", "end", "has_name", "cursor", "limit")
+    NAME_FILTER_FIELD_NUMBER: _ClassVar[int]
+    START_FIELD_NUMBER: _ClassVar[int]
+    END_FIELD_NUMBER: _ClassVar[int]
+    HAS_NAME_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    name_filter: str
+    start: _timestamp_pb2.Timestamp
+    end: _timestamp_pb2.Timestamp
+    has_name: bool
+    cursor: _timestamp_pb2.Timestamp
+    limit: int
+    def __init__(
+        self,
+        name_filter: _Optional[str] = ...,
+        start: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        end: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        has_name: bool = ...,
+        cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        limit: _Optional[int] = ...,
+    ) -> None: ...
+
+class ListMetaQueriesResponse(_message.Message):
+    __slots__ = ("meta_queries",)
+    META_QUERIES_FIELD_NUMBER: _ClassVar[int]
+    meta_queries: _containers.RepeatedCompositeFieldContainer[MetaQuery]
+    def __init__(self, meta_queries: _Optional[_Iterable[_Union[MetaQuery, _Mapping]]] = ...) -> None: ...
+
+class ListLatestMetaQueriesRequest(_message.Message):
+    __slots__ = ("has_name",)
+    HAS_NAME_FIELD_NUMBER: _ClassVar[int]
+    has_name: bool
+    def __init__(self, has_name: bool = ...) -> None: ...
+
+class ListLatestMetaQueriesResponse(_message.Message):
+    __slots__ = ("meta_queries",)
+    META_QUERIES_FIELD_NUMBER: _ClassVar[int]
+    meta_queries: _containers.RepeatedCompositeFieldContainer[MetaQuery]
+    def __init__(self, meta_queries: _Optional[_Iterable[_Union[MetaQuery, _Mapping]]] = ...) -> None: ...
+
+class GetMetaQueryRequest(_message.Message):
+    __slots__ = ("meta_query_id",)
+    META_QUERY_ID_FIELD_NUMBER: _ClassVar[int]
+    meta_query_id: str
+    def __init__(self, meta_query_id: _Optional[str] = ...) -> None: ...
+
+class GetMetaQueryResponse(_message.Message):
+    __slots__ = ("meta_query",)
+    META_QUERY_FIELD_NUMBER: _ClassVar[int]
+    meta_query: MetaQuery
+    def __init__(self, meta_query: _Optional[_Union[MetaQuery, _Mapping]] = ...) -> None: ...
+
+class GetMetaQueryByNameRequest(_message.Message):
+    __slots__ = ("meta_query_name",)
+    META_QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    meta_query_name: str
+    def __init__(self, meta_query_name: _Optional[str] = ...) -> None: ...
+
+class GetMetaQueryByNameResponse(_message.Message):
+    __slots__ = ("meta_query",)
+    META_QUERY_FIELD_NUMBER: _ClassVar[int]
+    meta_query: MetaQuery
+    def __init__(self, meta_query: _Optional[_Union[MetaQuery, _Mapping]] = ...) -> None: ...
+
+class ListMetaQueriesByIdsRequest(_message.Message):
+    __slots__ = ("meta_query_ids",)
+    META_QUERY_IDS_FIELD_NUMBER: _ClassVar[int]
+    meta_query_ids: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, meta_query_ids: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class ListMetaQueriesByIdsResponse(_message.Message):
+    __slots__ = ("meta_queries",)
+    META_QUERIES_FIELD_NUMBER: _ClassVar[int]
+    meta_queries: _containers.RepeatedCompositeFieldContainer[MetaQuery]
+    def __init__(self, meta_queries: _Optional[_Iterable[_Union[MetaQuery, _Mapping]]] = ...) -> None: ...
+
+class ListArchivedMetaQueriesRequest(_message.Message):
+    __slots__ = ()
+    def __init__(self) -> None: ...
+
+class ListArchivedMetaQueriesResponse(_message.Message):
+    __slots__ = ("meta_queries",)
+    META_QUERIES_FIELD_NUMBER: _ClassVar[int]
+    meta_queries: _containers.RepeatedCompositeFieldContainer[MetaQuery]
+    def __init__(self, meta_queries: _Optional[_Iterable[_Union[MetaQuery, _Mapping]]] = ...) -> None: ...
+
+class ListMetaQueriesForResolverRequest(_message.Message):
+    __slots__ = ("resolver_fqn",)
+    RESOLVER_FQN_FIELD_NUMBER: _ClassVar[int]
+    resolver_fqn: str
+    def __init__(self, resolver_fqn: _Optional[str] = ...) -> None: ...
+
+class ListMetaQueriesForResolverResponse(_message.Message):
+    __slots__ = ("meta_queries",)
+    META_QUERIES_FIELD_NUMBER: _ClassVar[int]
+    meta_queries: _containers.RepeatedCompositeFieldContainer[MetaQuery]
+    def __init__(self, meta_queries: _Optional[_Iterable[_Union[MetaQuery, _Mapping]]] = ...) -> None: ...
+
+class ListMetaQueriesForFeatureRequest(_message.Message):
+    __slots__ = ("feature_fqn",)
+    FEATURE_FQN_FIELD_NUMBER: _ClassVar[int]
+    feature_fqn: str
+    def __init__(self, feature_fqn: _Optional[str] = ...) -> None: ...
+
+class ListMetaQueriesForFeatureResponse(_message.Message):
+    __slots__ = ("meta_queries",)
+    META_QUERIES_FIELD_NUMBER: _ClassVar[int]
+    meta_queries: _containers.RepeatedCompositeFieldContainer[MetaQuery]
+    def __init__(self, meta_queries: _Optional[_Iterable[_Union[MetaQuery, _Mapping]]] = ...) -> None: ...
+
+class ListMetaQueryVersionsRequest(_message.Message):
+    __slots__ = ("meta_query_name", "cursor", "limit")
+    META_QUERY_NAME_FIELD_NUMBER: _ClassVar[int]
+    CURSOR_FIELD_NUMBER: _ClassVar[int]
+    LIMIT_FIELD_NUMBER: _ClassVar[int]
+    meta_query_name: str
+    cursor: _timestamp_pb2.Timestamp
+    limit: int
+    def __init__(
+        self,
+        meta_query_name: _Optional[str] = ...,
+        cursor: _Optional[_Union[_timestamp_pb2.Timestamp, _Mapping]] = ...,
+        limit: _Optional[int] = ...,
+    ) -> None: ...
+
+class ListMetaQueryVersionsResponse(_message.Message):
+    __slots__ = ("meta_query_versions",)
+    META_QUERY_VERSIONS_FIELD_NUMBER: _ClassVar[int]
+    meta_query_versions: _containers.RepeatedCompositeFieldContainer[MetaQuery]
+    def __init__(self, meta_query_versions: _Optional[_Iterable[_Union[MetaQuery, _Mapping]]] = ...) -> None: ...

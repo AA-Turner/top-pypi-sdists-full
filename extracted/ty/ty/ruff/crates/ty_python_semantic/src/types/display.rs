@@ -102,7 +102,7 @@ impl Display for DisplayRepresentation<'_> {
             },
             Type::PropertyInstance(_) => f.write_str("property"),
             Type::ModuleLiteral(module) => {
-                write!(f, "<module '{}'>", module.module(self.db).name())
+                write!(f, "<module '{}'>", module.module(self.db).name(self.db))
             }
             Type::ClassLiteral(class) => {
                 write!(f, "<class '{}'>", class.name(self.db))
@@ -511,7 +511,7 @@ impl TupleSpecialization {
     }
 
     fn from_class(db: &dyn Db, class: ClassLiteral) -> Self {
-        if class.is_known(db, KnownClass::Tuple) {
+        if class.is_tuple(db) {
             Self::Yes
         } else {
             Self::No

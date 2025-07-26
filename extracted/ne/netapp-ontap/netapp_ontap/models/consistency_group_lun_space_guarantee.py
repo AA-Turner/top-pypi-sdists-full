@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -22,7 +22,8 @@ class ConsistencyGroupLunSpaceGuaranteeSchema(ResourceSchema, metaclass=Resource
     """The fields of the ConsistencyGroupLunSpaceGuarantee object"""
 
     requested = marshmallow_fields.Boolean(data_key="requested", allow_none=True)
-    r""" The requested space reservation policy for the LUN. If _true_, a space reservation is requested for the LUN; if _false_, the LUN is thin provisioned. Guaranteeing a space reservation request for a LUN requires that the volume in which the LUN resides is also space reserved and that the fractional reserve for the volume is 100%. Valid in POST and PATCH. """
+    r""" The requested space reservation policy for the LUN. If _true_, a space reservation is requested for the LUN; if _false_, the LUN is thin provisioned. Guaranteeing a space reservation request for a LUN requires that the volume in which the LUN resides is also space reserved and that the fractional reserve for the volume is 100%. Valid in POST and PATCH.
+<personalities supports=asar2>All LUNs are provisioned without a space reservation.</personalities> """
 
     reserved = marshmallow_fields.Boolean(data_key="reserved", allow_none=True)
     r""" Reports if the LUN is space guaranteed.<br/>

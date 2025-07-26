@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -53,7 +53,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
             "client_ip": "172.28.71.128",
             "svm": {"name": "vs1"},
             "iops": {
-                "error": {"lower_bound": 1495, "upper_bound": 1505},
+                "error": {"upper_bound": 1505, "lower_bound": 1495},
                 "write": 1495,
             },
         }
@@ -63,7 +63,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
             "client_ip": "172.28.71.179",
             "svm": {"name": "vs1"},
             "iops": {
-                "error": {"lower_bound": 1022, "upper_bound": 1032},
+                "error": {"upper_bound": 1032, "lower_bound": 1022},
                 "write": 1022,
             },
         }
@@ -72,7 +72,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "client_ip": "172.28.51.62",
             "svm": {"name": "vs1"},
-            "iops": {"error": {"lower_bound": 345, "upper_bound": 355}, "write": 345},
+            "iops": {"error": {"upper_bound": 355, "lower_bound": 345}, "write": 345},
         }
     ),
 ]

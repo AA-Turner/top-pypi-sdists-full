@@ -24,7 +24,7 @@ def rolling_window(array: np.ndarray, window: int) -> np.ndarray:
     :param window: length of the rolling window
     :return: rolling window on the input array
     """
-    shape = array.shape[:-1] + (array.shape[-1] - window + 1, window)
+    shape = array.shape[:-1] + (array.shape[-1] - window + 1, window)  # noqa: RUF005
     strides = (*array.strides, array.strides[-1])
     return np.lib.stride_tricks.as_strided(array, shape=shape, strides=strides)
 
@@ -54,18 +54,18 @@ def ts2xy(data_frame: pd.DataFrame, x_axis: str) -> tuple[np.ndarray, np.ndarray
     :return: the x and y output
     """
     if x_axis == X_TIMESTEPS:
-        x_var = np.cumsum(data_frame.l.values)
+        x_var = np.cumsum(data_frame.l.values)  # type: ignore[arg-type]
         y_var = data_frame.r.values
     elif x_axis == X_EPISODES:
         x_var = np.arange(len(data_frame))
         y_var = data_frame.r.values
     elif x_axis == X_WALLTIME:
         # Convert to hours
-        x_var = data_frame.t.values / 3600.0
+        x_var = data_frame.t.values / 3600.0  # type: ignore[operator, assignment]
         y_var = data_frame.r.values
     else:
         raise NotImplementedError
-    return x_var, y_var
+    return x_var, y_var  # type: ignore[return-value]
 
 
 def plot_curves(

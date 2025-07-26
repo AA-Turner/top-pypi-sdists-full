@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,30 +25,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Sensors(
     {
-        "value_units": "mV",
         "value": 831,
-        "critical_high_threshold": 1683,
-        "critical_low_threshold": 297,
+        "warning_high_threshold": 1485,
+        "value_units": "mV",
         "name": "PVCCSA CPU FD",
+        "type": "voltage",
+        "warning_low_threshold": 396,
+        "threshold_state": "normal",
+        "critical_high_threshold": 1683,
         "node": {
+            "uuid": "19ec0b4a-4a4d-11ec-9036-d039ea4a991a",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/19ec0b4a-4a4d-11ec-9036-d039ea4a991a"
                 }
             },
-            "uuid": "19ec0b4a-4a4d-11ec-9036-d039ea4a991a",
         },
-        "warning_high_threshold": 1485,
         "_links": {
             "self": {
                 "href": "/api/cluster/sensors/19ec0b4a-4a4d-11ec-9036-d039ea4a991a/1"
             }
         },
-        "threshold_state": "normal",
         "index": 1,
-        "warning_low_threshold": 396,
-        "type": "voltage",
+        "critical_low_threshold": 297,
     }
 )
 

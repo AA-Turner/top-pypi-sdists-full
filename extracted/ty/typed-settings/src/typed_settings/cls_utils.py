@@ -11,6 +11,7 @@ Supported backends are:
 import dataclasses
 import functools
 import inspect
+from collections.abc import Mapping, Sequence
 from itertools import groupby
 from typing import (
     Any,
@@ -19,10 +20,13 @@ from typing import (
     Protocol,
     Union,
     cast,
+    get_args,
+    get_origin,
     overload,
 )
 
 from . import constants, types
+from .types import CollectionChildOptions
 
 
 class ClsHandler(Protocol):
@@ -145,6 +149,7 @@ class Attrs:
                                 and issubclass(field.type, types.SECRETS_TYPES)
                             )
                         ),
+                        collection_child_options=nested_options(field.type),
                         default=field.default,
                         has_no_default=is_nothing,
                         default_is_factory=is_factory,
@@ -223,6 +228,7 @@ class Dataclasses:
                             )
                         ),
                         default=field.default,
+                        collection_child_options=nested_options(field.type),  # type: ignore[arg-type]
                         has_no_default=is_nothing and not is_factory,
                         default_is_factory=is_factory,
                         converter=None,
@@ -299,7 +305,7 @@ class Pydantic:
                 if (
                     field.annotation is not None
                     and isinstance(field.annotation, type)
-                    and issubclass(field.annotation, pydantic.BaseModel)
+                    and safe_is_subclass(field.annotation, pydantic.BaseModel)
                 ):
                     iter_attribs(field.annotation, f"{prefix}{name}.")
                 else:
@@ -324,6 +330,7 @@ class Pydantic:
                                 )
                             )
                         ),
+                        collection_child_options=nested_options(field.annotation),  # type: ignore[arg-type]
                         default=field.default,
                         has_no_default=field.is_required(),
                         default_is_factory=False,
@@ -406,6 +413,49 @@ def find_handler(cls: type) -> type[ClsHandler]:
             return cls_handler
 
     raise TypeError(f"Cannot handle type: {cls}")
+
+
+def safe_is_subclass(cls: object, subclass: type) -> bool:
+    """
+    Return true if *cls* is a subclass of *subclass* but never raise TypeError.
+    """
+    try:
+        return issubclass(cls, subclass)  # type: ignore[arg-type]
+    except TypeError:
+        return False
+
+
+def nested_options(cls: type) -> Optional[CollectionChildOptions]:
+    """
+    Return a list of nested options if *cls* is either a mapping or a sequence of
+    settings classes.
+
+    Return ``None`` otherwise.
+    """
+    origin_cls = get_origin(cls)
+    if safe_is_subclass(origin_cls, Mapping):
+        try:
+            key_cls, value_cls = get_args(cls)
+            if safe_is_subclass(key_cls, str):
+                return CollectionChildOptions(deep_options(value_cls), "mapping")
+        except (TypeError, ValueError):
+            return None
+
+    elif safe_is_subclass(origin_cls, Sequence):
+        arg_cls = get_args(cls)
+        is_list_like = len(arg_cls) == 1  # list[Settings], Sequence[Settings]
+        is_tuple_list = (  # tuple[Settings, ...]
+            len(arg_cls) == 2
+            and safe_is_subclass(origin_cls, tuple)
+            and arg_cls[1] == ...
+        )
+        if is_list_like or is_tuple_list:
+            try:
+                return CollectionChildOptions(deep_options(arg_cls[0]), "sequence")
+            except TypeError:
+                return None
+
+    return None
 
 
 def deep_options(cls: type) -> types.OptionList:

@@ -54,7 +54,7 @@ def test_op_not_installed(monkeypatch: pytest.MonkeyPatch) -> None:
     orig_run = subprocess.run
 
     def fake_run(cmd: tuple[str, ...], **kwargs: Any):
-        cmd = ("xyz",) + cmd[1:]
+        cmd = ("xyz", *cmd[1:])
         return orig_run(cmd, **kwargs)
 
     monkeypatch.setattr(subprocess, "run", fake_run)

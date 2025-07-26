@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -36,6 +36,9 @@ class FirmwareSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     sp_bmc = marshmallow_fields.Nested("netapp_ontap.models.firmware_sp_bmc.FirmwareSpBmcSchema", unknown=EXCLUDE, data_key="sp_bmc", allow_none=True)
     r""" The sp_bmc field of the firmware. """
 
+    system_firmware = marshmallow_fields.Nested("netapp_ontap.models.system_firmware.SystemFirmwareSchema", unknown=EXCLUDE, data_key="system_firmware", allow_none=True)
+    r""" The system_firmware field of the firmware. """
+
     @property
     def resource(self):
         return Firmware
@@ -46,8 +49,9 @@ class FirmwareSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         "dqp",
         "shelf",
         "sp_bmc",
+        "system_firmware",
     ]
-    """cluster_fw_progress,disk,dqp,shelf,sp_bmc,"""
+    """cluster_fw_progress,disk,dqp,shelf,sp_bmc,system_firmware,"""
 
     patchable_fields = [
     ]

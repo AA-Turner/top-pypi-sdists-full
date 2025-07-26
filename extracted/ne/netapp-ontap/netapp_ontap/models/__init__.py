@@ -1,5 +1,5 @@
 """
-Copyright &copy; 2024 NetApp Inc. All rights reserved.
+Copyright &copy; 2025 NetApp Inc. All rights reserved.
 
 All of the modules in this package define the supporting objects used to
 organize the fields in the corresponding `netapp_ontap.resource.Resource`
@@ -41,6 +41,7 @@ from netapp_ontap.models.lun_lun_maps import LunLunMaps
 from netapp_ontap.models.consistency_group_application import ConsistencyGroupApplication
 from netapp_ontap.models.storage_bridge_sas_ports_cable import StorageBridgeSasPortsCable
 from netapp_ontap.models.iscsi_connection_interface import IscsiConnectionInterface
+from netapp_ontap.models.mediator_ping_error_error import MediatorPingErrorError
 from netapp_ontap.models.nvme_subsystem_controller_digest import NvmeSubsystemControllerDigest
 from netapp_ontap.models.igroup_nested_igroup import IgroupNestedIgroup
 from netapp_ontap.models.consistency_group_replication_relationships1 import ConsistencyGroupReplicationRelationships1
@@ -84,6 +85,7 @@ from netapp_ontap.models.license_compliance import LicenseCompliance
 from netapp_ontap.models.consistency_group_response_records_namespaces import ConsistencyGroupResponseRecordsNamespaces
 from netapp_ontap.models.shelf_voltage_sensors import ShelfVoltageSensors
 from netapp_ontap.models.key_server_readcreate import KeyServerReadcreate
+from netapp_ontap.models.cluster_nodes_nvlog import ClusterNodesNvlog
 from netapp_ontap.models.volume_metrics_response_records import VolumeMetricsResponseRecords
 from netapp_ontap.models.s3_bucket_svm_protection_status import S3BucketSvmProtectionStatus
 from netapp_ontap.models.tls import Tls
@@ -92,7 +94,9 @@ from netapp_ontap.models.vdi_on_nas import VdiOnNas
 from netapp_ontap.models.volume_nas import VolumeNas
 from netapp_ontap.models.nvme_service_metric import NvmeServiceMetric
 from netapp_ontap.models.security_certificate_ref_uuid import SecurityCertificateRefUuid
+from netapp_ontap.models.active_directory_security import ActiveDirectorySecurity
 from netapp_ontap.models.svm_fcp import SvmFcp
+from netapp_ontap.models.container_volumes_space import ContainerVolumesSpace
 from netapp_ontap.models.quota_report_group import QuotaReportGroup
 from netapp_ontap.models.svm_migration_volume_placement_aggregates import SvmMigrationVolumePlacementAggregates
 from netapp_ontap.models.cluster_nodes_controller_cpu import ClusterNodesControllerCpu
@@ -101,11 +105,13 @@ from netapp_ontap.models.cifs_domain_name_mapping import CifsDomainNameMapping
 from netapp_ontap.models.nfs_service_windows import NfsServiceWindows
 from netapp_ontap.models.volume_space_snapshot import VolumeSpaceSnapshot
 from netapp_ontap.models.chassis_nodes import ChassisNodes
+from netapp_ontap.models.anti_ransomware_storage_unit import AntiRansomwareStorageUnit
 from netapp_ontap.models.performance_fc_port_metric_response_records import PerformanceFcPortMetricResponseRecords
 from netapp_ontap.models.shelf_temperature_sensors_threshold_low import ShelfTemperatureSensorsThresholdLow
 from netapp_ontap.models.aggregate_block_storage_mirror import AggregateBlockStorageMirror
 from netapp_ontap.models.svm_migration_time_metrics import SvmMigrationTimeMetrics
 from netapp_ontap.models.fabric_cache import FabricCache
+from netapp_ontap.models.consistency_group_consistency_groups_volumes_provisioning_options_storage_service import ConsistencyGroupConsistencyGroupsVolumesProvisioningOptionsStorageService
 from netapp_ontap.models.peer import Peer
 from netapp_ontap.models.mongo_db_on_san_new_igroups import MongoDbOnSanNewIgroups
 from netapp_ontap.models.s3_bucket_lifecycle_management_rules import S3BucketLifecycleManagementRules
@@ -191,6 +197,7 @@ from netapp_ontap.models.storage_bridge_errors import StorageBridgeErrors
 from netapp_ontap.models.ems_event_parameter import EmsEventParameter
 from netapp_ontap.models.fc_interface_recommend_message import FcInterfaceRecommendMessage
 from netapp_ontap.models.nas_protection_type import NasProtectionType
+from netapp_ontap.models.consistency_group_nvme_host_proximity import ConsistencyGroupNvmeHostProximity
 from netapp_ontap.models.space_efficiency import SpaceEfficiency
 from netapp_ontap.models.self_link import SelfLink
 from netapp_ontap.models.ems_action_parameter_validation_error_message_arguments import EmsActionParameterValidationErrorMessageArguments
@@ -200,12 +207,14 @@ from netapp_ontap.models.cluster_management_interfaces import ClusterManagementI
 from netapp_ontap.models.iscsi_credentials_chap import IscsiCredentialsChap
 from netapp_ontap.models.performance_lun_metric_response_records import PerformanceLunMetricResponseRecords
 from netapp_ontap.models.node_ha import NodeHa
+from netapp_ontap.models.nvme_subsystem_replication import NvmeSubsystemReplication
 from netapp_ontap.models.zapp_s3_bucket import ZappS3Bucket
 from netapp_ontap.models.anti_ransomware_volume_workload_surge_usage_newly_observed_file_extensions import AntiRansomwareVolumeWorkloadSurgeUsageNewlyObservedFileExtensions
 from netapp_ontap.models.snapmirror_relationship_transfer import SnapmirrorRelationshipTransfer
 from netapp_ontap.models.igroup_connectivity_tracking_alerts import IgroupConnectivityTrackingAlerts
 from netapp_ontap.models.performance_qtree_metric_data import PerformanceQtreeMetricData
 from netapp_ontap.models.cifs_domain_trust_relationships import CifsDomainTrustRelationships
+from netapp_ontap.models.ppk import Ppk
 from netapp_ontap.models.performance_nvme_metric_response_records import PerformanceNvmeMetricResponseRecords
 from netapp_ontap.models.node_response_records_ha import NodeResponseRecordsHa
 from netapp_ontap.models.zapp_s3_bucket_application_components_access_policies import ZappS3BucketApplicationComponentsAccessPolicies
@@ -222,6 +231,7 @@ from netapp_ontap.models.volume_quota import VolumeQuota
 from netapp_ontap.models.aggregate_warning_warning import AggregateWarningWarning
 from netapp_ontap.models.aws_connectivity import AwsConnectivity
 from netapp_ontap.models.application_backing_storage import ApplicationBackingStorage
+from netapp_ontap.models.container_volume_s3_bucket_policy import ContainerVolumeS3BucketPolicy
 from netapp_ontap.models.ndmp_connect import NdmpConnect
 from netapp_ontap.models.metrocluster_svm_partner_svm import MetroclusterSvmPartnerSvm
 from netapp_ontap.models.nvme_namespace_space import NvmeNamespaceSpace
@@ -234,6 +244,7 @@ from netapp_ontap.models.performance_svm_nfs_metric_historical_v41 import Perfor
 from netapp_ontap.models.volume_analytics_scan_throttle_reason import VolumeAnalyticsScanThrottleReason
 from netapp_ontap.models.group_policy_object_registry_setting import GroupPolicyObjectRegistrySetting
 from netapp_ontap.models.anti_ransomware_volume_typical_usage import AntiRansomwareVolumeTypicalUsage
+from netapp_ontap.models.barbican_state import BarbicanState
 from netapp_ontap.models.rfc2307bis import Rfc2307bis
 from netapp_ontap.models.s3_bucket_svm_lifecycle_management_rules import S3BucketSvmLifecycleManagementRules
 from netapp_ontap.models.consistency_group_cifs_share import ConsistencyGroupCifsShare
@@ -260,6 +271,7 @@ from netapp_ontap.models.nas_application_components_flexcache import NasApplicat
 from netapp_ontap.models.cluster_nodes import ClusterNodes
 from netapp_ontap.models.consistency_group_lun import ConsistencyGroupLun
 from netapp_ontap.models.dr_node import DrNode
+from netapp_ontap.models.cluster_space_metrics_response_records import ClusterSpaceMetricsResponseRecords
 from netapp_ontap.models.cluster_peer_status import ClusterPeerStatus
 from netapp_ontap.models.ems_certificate import EmsCertificate
 from netapp_ontap.models.s3_group_policies import S3GroupPolicies
@@ -293,6 +305,7 @@ from netapp_ontap.models.security_association_ike import SecurityAssociationIke
 from netapp_ontap.models.tape_device_position import TapeDevicePosition
 from netapp_ontap.models.metrocluster_dr_pairs import MetroclusterDrPairs
 from netapp_ontap.models.security_key_manager_restore_keys import SecurityKeyManagerRestoreKeys
+from netapp_ontap.models.anti_ransomware_volume_entropy_stats_response_records import AntiRansomwareVolumeEntropyStatsResponseRecords
 from netapp_ontap.models.binding_details import BindingDetails
 from netapp_ontap.models.firmware_update_progress_state import FirmwareUpdateProgressState
 from netapp_ontap.models.mongo_db_on_san_dataset import MongoDbOnSanDataset
@@ -319,6 +332,7 @@ from netapp_ontap.models.svm_migration_destination import SvmMigrationDestinatio
 from netapp_ontap.models.nas_application_components_tiering import NasApplicationComponentsTiering
 from netapp_ontap.models.zapp_nvme_components_subsystem_hosts_dh_hmac_chap import ZappNvmeComponentsSubsystemHostsDhHmacChap
 from netapp_ontap.models.oracle_on_nfs_redo_log import OracleOnNfsRedoLog
+from netapp_ontap.models.container_volumes_s3_bucket_policy import ContainerVolumesS3BucketPolicy
 from netapp_ontap.models.sql_on_san_log_storage_service import SqlOnSanLogStorageService
 from netapp_ontap.models.storage_bridge_paths_source_port import StorageBridgePathsSourcePort
 from netapp_ontap.models.key_manager_state import KeyManagerState
@@ -338,6 +352,7 @@ from netapp_ontap.models.tape_device_aliases import TapeDeviceAliases
 from netapp_ontap.models.storage_switch_temperature_sensors import StorageSwitchTemperatureSensors
 from netapp_ontap.models.cluster_nodes_cluster_interface import ClusterNodesClusterInterface
 from netapp_ontap.models.anti_ransomware_node import AntiRansomwareNode
+from netapp_ontap.models.web_hsts import WebHsts
 from netapp_ontap.models.security_oauth2_introspection import SecurityOauth2Introspection
 from netapp_ontap.models.performance_network_metrics import PerformanceNetworkMetrics
 from netapp_ontap.models.nfs_service_exports import NfsServiceExports
@@ -387,6 +402,7 @@ from netapp_ontap.models.quota_report_qtree import QuotaReportQtree
 from netapp_ontap.models.fc_switch_ports_attached_device import FcSwitchPortsAttachedDevice
 from netapp_ontap.models.svm_migration_volume_aggregate_pair import SvmMigrationVolumeAggregatePair
 from netapp_ontap.models.consistency_group_child_volumes import ConsistencyGroupChildVolumes
+from netapp_ontap.models.container_volume_flexcache_relationship import ContainerVolumeFlexcacheRelationship
 from netapp_ontap.models.key_manager_config_health_monitor_policy import KeyManagerConfigHealthMonitorPolicy
 from netapp_ontap.models.volume_statistics_cloud import VolumeStatisticsCloud
 from netapp_ontap.models.shelf_drawers import ShelfDrawers
@@ -411,6 +427,7 @@ from netapp_ontap.models.volume_encryption import VolumeEncryption
 from netapp_ontap.models.file_move_files_to_move_destinations import FileMoveFilesToMoveDestinations
 from netapp_ontap.models.software_reference_metrocluster import SoftwareReferenceMetrocluster
 from netapp_ontap.models.schedule_cron import ScheduleCron
+from netapp_ontap.models.consistency_group_nvme_host_proximity1_peer_svms import ConsistencyGroupNvmeHostProximity1PeerSvms
 from netapp_ontap.models.consistency_group_clone1_storage_unit import ConsistencyGroupClone1StorageUnit
 from netapp_ontap.models.consistency_group_snaplock import ConsistencyGroupSnaplock
 from netapp_ontap.models.aggregate_block_storage_primary_simulated_raid_groups import AggregateBlockStoragePrimarySimulatedRaidGroups
@@ -481,6 +498,7 @@ from netapp_ontap.models.consistency_group_volume_space import ConsistencyGroupV
 from netapp_ontap.models.aggregate_block_storage import AggregateBlockStorage
 from netapp_ontap.models.fpolicy_engine_buffer_size import FpolicyEngineBufferSize
 from netapp_ontap.models.nfs_service_access_cache_config import NfsServiceAccessCacheConfig
+from netapp_ontap.models.consistency_group_snapshot_modify import ConsistencyGroupSnapshotModify
 from netapp_ontap.models.shelf_bays import ShelfBays
 from netapp_ontap.models.performance_namespace_metric_space import PerformanceNamespaceMetricSpace
 from netapp_ontap.models.software_validation_reference_action import SoftwareValidationReferenceAction
@@ -491,12 +509,14 @@ from netapp_ontap.models.lun_copy_destinations import LunCopyDestinations
 from netapp_ontap.models.metrocluster_partner import MetroclusterPartner
 from netapp_ontap.models.svm_cifs_service import SvmCifsService
 from netapp_ontap.models.analytics_collection_info_by_modified_time import AnalyticsCollectionInfoByModifiedTime
+from netapp_ontap.models.container_response_records_volumes_s3_bucket_policy_statements import ContainerResponseRecordsVolumesS3BucketPolicyStatements
 from netapp_ontap.models.cluster_nodes_ha_partners import ClusterNodesHaPartners
 from netapp_ontap.models.nvme_namespace_convert import NvmeNamespaceConvert
 from netapp_ontap.models.application_lun_object import ApplicationLunObject
 from netapp_ontap.models.s3_bucket_cors_rule import S3BucketCorsRule
 from netapp_ontap.models.s3_bucket_policy_condition import S3BucketPolicyCondition
 from netapp_ontap.models.volume_efficiency_policy_schedule import VolumeEfficiencyPolicySchedule
+from netapp_ontap.models.container_response_records_volumes_s3_bucket_policy import ContainerResponseRecordsVolumesS3BucketPolicy
 from netapp_ontap.models.consistency_group_consistency_groups_luns_lun_maps import ConsistencyGroupConsistencyGroupsLunsLunMaps
 from netapp_ontap.models.lun_vvol_bindings import LunVvolBindings
 from netapp_ontap.models.port_lag_active_ports import PortLagActivePorts
@@ -524,11 +544,13 @@ from netapp_ontap.models.aggregate_warning_action import AggregateWarningAction
 from netapp_ontap.models.nvme_subsystem_io_queue import NvmeSubsystemIoQueue
 from netapp_ontap.models.fc_port_transceiver import FcPortTransceiver
 from netapp_ontap.models.cluster_metrics_response_records import ClusterMetricsResponseRecords
+from netapp_ontap.models.cluster_nodes_external_cache_bypass import ClusterNodesExternalCacheBypass
 from netapp_ontap.models.storage_unit_movement_source import StorageUnitMovementSource
 from netapp_ontap.models.raid_group import RaidGroup
 from netapp_ontap.models.onboard_key_manager_configurable_status import OnboardKeyManagerConfigurableStatus
 from netapp_ontap.models.ems_filter_rules_message_criteria import EmsFilterRulesMessageCriteria
 from netapp_ontap.models.health_monitor_policy_fields import HealthMonitorPolicyFields
+from netapp_ontap.models.container_response_records import ContainerResponseRecords
 from netapp_ontap.models.fpolicy_event_file_operations import FpolicyEventFileOperations
 from netapp_ontap.models.autosupport_issues import AutosupportIssues
 from netapp_ontap.models.software_update_details import SoftwareUpdateDetails
@@ -546,6 +568,7 @@ from netapp_ontap.models.application_cifs_properties_backing_storage import Appl
 from netapp_ontap.models.consistency_group_igroup_igroups import ConsistencyGroupIgroupIgroups
 from netapp_ontap.models.cluster_nodes_controller_frus import ClusterNodesControllerFrus
 from netapp_ontap.models.software_status_details_reference_issue import SoftwareStatusDetailsReferenceIssue
+from netapp_ontap.models.zapp_s3_bucket_application_components_snapshot_policy import ZappS3BucketApplicationComponentsSnapshotPolicy
 from netapp_ontap.models.nfs_service_protocol_v42_features import NfsServiceProtocolV42Features
 from netapp_ontap.models.fpolicy_events import FpolicyEvents
 from netapp_ontap.models.qtree_group import QtreeGroup
@@ -579,6 +602,7 @@ from netapp_ontap.models.application_statistics_components_space import Applicat
 from netapp_ontap.models.performance_monitored_files_metric_response_records import PerformanceMonitoredFilesMetricResponseRecords
 from netapp_ontap.models.security_association_ipsec_outbound import SecurityAssociationIpsecOutbound
 from netapp_ontap.models.application_nfs_properties_export_policy import ApplicationNfsPropertiesExportPolicy
+from netapp_ontap.models.mediator_ping_error import MediatorPingError
 from netapp_ontap.models.nvme_service_statistics import NvmeServiceStatistics
 from netapp_ontap.models.consistency_group_lun_lun_maps_igroup_initiators import ConsistencyGroupLunLunMapsIgroupInitiators
 from netapp_ontap.models.firmware_update_progress import FirmwareUpdateProgress
@@ -586,6 +610,7 @@ from netapp_ontap.models.qtree_statistics_raw import QtreeStatisticsRaw
 from netapp_ontap.models.application_namespace_object import ApplicationNamespaceObject
 from netapp_ontap.models.consistency_group_map_to import ConsistencyGroupMapTo
 from netapp_ontap.models.consistency_group_replication_relationship import ConsistencyGroupReplicationRelationship
+from netapp_ontap.models.arw_vserver_event_log import ArwVserverEventLog
 from netapp_ontap.models.job_node import JobNode
 from netapp_ontap.models.lun_consistency_group import LunConsistencyGroup
 from netapp_ontap.models.performance_svm_nfs_metric_historical_v3 import PerformanceSvmNfsMetricHistoricalV3
@@ -633,6 +658,7 @@ from netapp_ontap.models.cifs_target import CifsTarget
 from netapp_ontap.models.s3_service_post import S3ServicePost
 from netapp_ontap.models.consistency_group_child_luns import ConsistencyGroupChildLuns
 from netapp_ontap.models.lun_map_lun_smbc import LunMapLunSmbc
+from netapp_ontap.models.cluster_space_metrics import ClusterSpaceMetrics
 from netapp_ontap.models.ems_connectivity_error import EmsConnectivityError
 from netapp_ontap.models.file_info_qos_policy import FileInfoQosPolicy
 from netapp_ontap.models.ipv4_interface import Ipv4Interface
@@ -646,6 +672,7 @@ from netapp_ontap.models.s3_log import S3Log
 from netapp_ontap.models.consistency_group_response_records_consistency_groups_luns_lun_maps_igroup_initiators import ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMapsIgroupInitiators
 from netapp_ontap.models.ems_event_action_parameters_help_arguments import EmsEventActionParametersHelpArguments
 from netapp_ontap.models.shelf_acps import ShelfAcps
+from netapp_ontap.models.anti_ransomware_storage_unit_attack_reports import AntiRansomwareStorageUnitAttackReports
 from netapp_ontap.models.s3_bucket_svm_cors import S3BucketSvmCors
 from netapp_ontap.models.top_metrics_svm_user_iops import TopMetricsSvmUserIops
 from netapp_ontap.models.volume_activity_tracking import VolumeActivityTracking
@@ -678,11 +705,11 @@ from netapp_ontap.models.interface_statistics import InterfaceStatistics
 from netapp_ontap.models.consistency_group_lun_map_igroup_igroups import ConsistencyGroupLunMapIgroupIgroups
 from netapp_ontap.models.zapp_nvme_components_subsystem import ZappNvmeComponentsSubsystem
 from netapp_ontap.models.top_metrics_svm_directory_excluded_volume import TopMetricsSvmDirectoryExcludedVolume
+from netapp_ontap.models.container_volumes_s3_bucket import ContainerVolumesS3Bucket
 from netapp_ontap.models.volume_files import VolumeFiles
 from netapp_ontap.models.nas_application_components_snaplock_retention import NasApplicationComponentsSnaplockRetention
 from netapp_ontap.models.metrocluster_interconnect_mirror import MetroclusterInterconnectMirror
 from netapp_ontap.models.storage_switch_fans import StorageSwitchFans
-from netapp_ontap.models.node_storage_availability_zones import NodeStorageAvailabilityZones
 from netapp_ontap.models.auto_update_info_eula import AutoUpdateInfoEula
 from netapp_ontap.models.storage_switch_connections import StorageSwitchConnections
 from netapp_ontap.models.consistency_group_clone1_parent_consistency_group import ConsistencyGroupClone1ParentConsistencyGroup
@@ -707,7 +734,6 @@ from netapp_ontap.models.firmware_history_update_state_error import FirmwareHist
 from netapp_ontap.models.nas_exclude_aggregates import NasExcludeAggregates
 from netapp_ontap.models.oracle_rac_on_san_new_igroups import OracleRacOnSanNewIgroups
 from netapp_ontap.models.portset_interface_no_records import PortsetInterfaceNoRecords
-from netapp_ontap.models.node_response_records_storage_availability_zones import NodeResponseRecordsStorageAvailabilityZones
 from netapp_ontap.models.igroup_nested_no_records import IgroupNestedNoRecords
 from netapp_ontap.models.oracle_on_nfs_ora_home import OracleOnNfsOraHome
 from netapp_ontap.models.application_links import ApplicationLinks
@@ -734,6 +760,7 @@ from netapp_ontap.models.top_metrics_client_iops import TopMetricsClientIops
 from netapp_ontap.models.returned_error import ReturnedError
 from netapp_ontap.models.mongo_db_on_san_protection_type import MongoDbOnSanProtectionType
 from netapp_ontap.models.consistency_group_child_luns_lun_maps import ConsistencyGroupChildLunsLunMaps
+from netapp_ontap.models.switch_port_identity_breakout import SwitchPortIdentityBreakout
 from netapp_ontap.models.qtree_nas import QtreeNas
 from netapp_ontap.models.volume_consistency_group import VolumeConsistencyGroup
 from netapp_ontap.models.cloud_storage_tier import CloudStorageTier
@@ -758,6 +785,7 @@ from netapp_ontap.models.application_cifs_properties_share import ApplicationCif
 from netapp_ontap.models.backup_node import BackupNode
 from netapp_ontap.models.nvme_subsystem_subsystem_maps import NvmeSubsystemSubsystemMaps
 from netapp_ontap.models.metrocluster_interconnect_interfaces import MetroclusterInterconnectInterfaces
+from netapp_ontap.models.nvme_subsystem_replication_peer_subsystem import NvmeSubsystemReplicationPeerSubsystem
 from netapp_ontap.models.node_response_records_ha_giveback import NodeResponseRecordsHaGiveback
 from netapp_ontap.models.ems_role_config_response_records import EmsRoleConfigResponseRecords
 from netapp_ontap.models.multi_admin_verify_rule_approval_groups import MultiAdminVerifyRuleApprovalGroups
@@ -767,6 +795,7 @@ from netapp_ontap.models.file_move_files_to_move import FileMoveFilesToMove
 from netapp_ontap.models.application_lun_mapping_object import ApplicationLunMappingObject
 from netapp_ontap.models.nas import Nas
 from netapp_ontap.models.webauthn_credentials_public_key import WebauthnCredentialsPublicKey
+from netapp_ontap.models.mediator_ping import MediatorPing
 from netapp_ontap.models.application_volume_object import ApplicationVolumeObject
 from netapp_ontap.models.fpolicy_event_filters import FpolicyEventFilters
 from netapp_ontap.models.volume_efficiency_idcs_scanner import VolumeEfficiencyIdcsScanner
@@ -782,8 +811,10 @@ from netapp_ontap.models.audit_schedule import AuditSchedule
 from netapp_ontap.models.account_application import AccountApplication
 from netapp_ontap.models.application_nvme_access_subsystem_map_subsystem_hosts_links import ApplicationNvmeAccessSubsystemMapSubsystemHostsLinks
 from netapp_ontap.models.share import Share
+from netapp_ontap.models.volume_constituents_node import VolumeConstituentsNode
 from netapp_ontap.models.windows_to_unix import WindowsToUnix
 from netapp_ontap.models.node_ha_partners import NodeHaPartners
+from netapp_ontap.models.nvme_subsystem_hosts_proximity_peer_svms import NvmeSubsystemHostsProximityPeerSvms
 from netapp_ontap.models.tape_device_storage_port import TapeDeviceStoragePort
 from netapp_ontap.models.node_statistics import NodeStatistics
 from netapp_ontap.models.top_metrics_directory_response_notice import TopMetricsDirectoryResponseNotice
@@ -815,6 +846,7 @@ from netapp_ontap.models.gcp_kms_key import GcpKmsKey
 from netapp_ontap.models.volume_rebalancing1_engine_movement import VolumeRebalancing1EngineMovement
 from netapp_ontap.models.consistency_group_namespace_space_guarantee import ConsistencyGroupNamespaceSpaceGuarantee
 from netapp_ontap.models.export_rules import ExportRules
+from netapp_ontap.models.container_volume_s3_bucket_policy_statements import ContainerVolumeS3BucketPolicyStatements
 from netapp_ontap.models.aggregate_space import AggregateSpace
 from netapp_ontap.models.snapshot_snaplock import SnapshotSnaplock
 from netapp_ontap.models.unix_group_users_no_records import UnixGroupUsersNoRecords
@@ -825,6 +857,7 @@ from netapp_ontap.models.nvme_subsystem_controller_host import NvmeSubsystemCont
 from netapp_ontap.models.top_metrics_client_throughput import TopMetricsClientThroughput
 from netapp_ontap.models.multi_admin_verify_rule_owner import MultiAdminVerifyRuleOwner
 from netapp_ontap.models.quota_rule_qtree import QuotaRuleQtree
+from netapp_ontap.models.nvme_namespace_subsystem_map_subsystem_hosts_proximity_peer_svms import NvmeNamespaceSubsystemMapSubsystemHostsProximityPeerSvms
 from netapp_ontap.models.lun_space import LunSpace
 from netapp_ontap.models.nis import Nis
 from netapp_ontap.models.performance_reduced_throughput_response_records import PerformanceReducedThroughputResponseRecords
@@ -835,6 +868,7 @@ from netapp_ontap.models.quota_report_files_used import QuotaReportFilesUsed
 from netapp_ontap.models.raid_group_recomputing_parity import RaidGroupRecomputingParity
 from netapp_ontap.models.anti_ransomware_attack_report_links import AntiRansomwareAttackReportLinks
 from netapp_ontap.models.ems_ui_message import EmsUiMessage
+from netapp_ontap.models.nvme_host_proximity import NvmeHostProximity
 from netapp_ontap.models.performance_metric_svm import PerformanceMetricSvm
 from netapp_ontap.models.metrocluster_diagnostics_node import MetroclusterDiagnosticsNode
 from netapp_ontap.models.nas_application_components_qos_policy import NasApplicationComponentsQosPolicy
@@ -843,6 +877,7 @@ from netapp_ontap.models.sql_on_san import SqlOnSan
 from netapp_ontap.models.nvme_subsystem_controller_admin_queue import NvmeSubsystemControllerAdminQueue
 from netapp_ontap.models.consistency_group_initiator import ConsistencyGroupInitiator
 from netapp_ontap.models.consistency_group_child_luns_lun_maps_igroup_initiators import ConsistencyGroupChildLunsLunMapsIgroupInitiators
+from netapp_ontap.models.consistency_group_nvme_host_proximity_peer_svms import ConsistencyGroupNvmeHostProximityPeerSvms
 from netapp_ontap.models.lun_map_reporting_node_igroup import LunMapReportingNodeIgroup
 from netapp_ontap.models.ddns import Ddns
 from netapp_ontap.models.consistency_group_consistency_groups_application import ConsistencyGroupConsistencyGroupsApplication
@@ -918,6 +953,7 @@ from netapp_ontap.models.group_policy_object_registry_value import GroupPolicyOb
 from netapp_ontap.models.snaplock_litigation_file_response_records import SnaplockLitigationFileResponseRecords
 from netapp_ontap.models.fc_zone_member import FcZoneMember
 from netapp_ontap.models.local_cifs_group_members_local_cifs_group import LocalCifsGroupMembersLocalCifsGroup
+from netapp_ontap.models.system_firmware import SystemFirmware
 from netapp_ontap.models.performance_metric_response_records import PerformanceMetricResponseRecords
 from netapp_ontap.models.kerberos_realm_kdc import KerberosRealmKdc
 from netapp_ontap.models.oracle_rac_on_nfs_grid_binary import OracleRacOnNfsGridBinary
@@ -933,6 +969,7 @@ from netapp_ontap.models.vdi_on_nas_desktops import VdiOnNasDesktops
 from netapp_ontap.models.bgp_peer_group_peer import BgpPeerGroupPeer
 from netapp_ontap.models.volume_movement import VolumeMovement
 from netapp_ontap.models.igroup_initiator_connectivity_tracking_connections_logins import IgroupInitiatorConnectivityTrackingConnectionsLogins
+from netapp_ontap.models.replication_error_subsystem import ReplicationErrorSubsystem
 from netapp_ontap.models.svm_s3_service import SvmS3Service
 from netapp_ontap.models.top_metrics_directory_throughput import TopMetricsDirectoryThroughput
 from netapp_ontap.models.performance_fcp_metric_svm import PerformanceFcpMetricSvm
@@ -967,8 +1004,8 @@ from netapp_ontap.models.group_policy_object_event_log import GroupPolicyObjectE
 from netapp_ontap.models.nvme_subsystem_io_queue_default import NvmeSubsystemIoQueueDefault
 from netapp_ontap.models.nas_application_components_qos import NasApplicationComponentsQos
 from netapp_ontap.models.vscan_on_demand_scope import VscanOnDemandScope
+from netapp_ontap.models.container_response_records_volumes import ContainerResponseRecordsVolumes
 from netapp_ontap.models.san import San
-from netapp_ontap.models.cluster_nodes_storage_availability_zones import ClusterNodesStorageAvailabilityZones
 from netapp_ontap.models.consistency_group_consistency_groups_volumes_nas_junction_parent import ConsistencyGroupConsistencyGroupsVolumesNasJunctionParent
 from netapp_ontap.models.ldap_schema_account import LdapSchemaAccount
 from netapp_ontap.models.sql_on_san_temp_db_storage_service import SqlOnSanTempDbStorageService
@@ -990,7 +1027,6 @@ from netapp_ontap.models.raid_group_disk import RaidGroupDisk
 from netapp_ontap.models.port_vlan import PortVlan
 from netapp_ontap.models.software_reference_metrocluster_progress_summary import SoftwareReferenceMetroclusterProgressSummary
 from netapp_ontap.models.analytics_collection_info_by_accessed_time import AnalyticsCollectionInfoByAccessedTime
-from netapp_ontap.models.security_saml_sp_certificate import SecuritySamlSpCertificate
 from netapp_ontap.models.snapmirror_relationship_policy import SnapmirrorRelationshipPolicy
 from netapp_ontap.models.s3_bucket_lifecycle_non_current_version_expiration import S3BucketLifecycleNonCurrentVersionExpiration
 from netapp_ontap.models.nvme_subsystem_hosts import NvmeSubsystemHosts
@@ -1001,6 +1037,7 @@ from netapp_ontap.models.webauthn_credentials_relying_party import WebauthnCrede
 from netapp_ontap.models.consistency_group_snapshot_snaplock import ConsistencyGroupSnapshotSnaplock
 from netapp_ontap.models.security_keystore_configuration import SecurityKeystoreConfiguration
 from netapp_ontap.models.performance_iscsi_metric_response_records import PerformanceIscsiMetricResponseRecords
+from netapp_ontap.models.security_saml_def_metadata_certificate import SecuritySamlDefMetadataCertificate
 from netapp_ontap.models.shelf_ports_cable import ShelfPortsCable
 from netapp_ontap.models.consistency_group_child_luns_lun_maps_igroup_igroups import ConsistencyGroupChildLunsLunMapsIgroupIgroups
 from netapp_ontap.models.ldap_schema_name_mapping import LdapSchemaNameMapping
@@ -1023,13 +1060,16 @@ from netapp_ontap.models.switch_monitoring import SwitchMonitoring
 from netapp_ontap.models.portset_igroups import PortsetIgroups
 from netapp_ontap.models.top_metric_value_error_bounds import TopMetricValueErrorBounds
 from netapp_ontap.models.igroup_parent import IgroupParent
+from netapp_ontap.models.nvme_subsystem_host_proximity_peer_svms import NvmeSubsystemHostProximityPeerSvms
 from netapp_ontap.models.tape_device_device_names import TapeDeviceDeviceNames
 from netapp_ontap.models.lun_map_igroup import LunMapIgroup
 from netapp_ontap.models.preferred_dcs import PreferredDcs
 from netapp_ontap.models.shelf_errors import ShelfErrors
+from netapp_ontap.models.storage_unit_anti_ransomware_suspect_response_records import StorageUnitAntiRansomwareSuspectResponseRecords
 from netapp_ontap.models.nas_application_components_flexcache_origin_svm import NasApplicationComponentsFlexcacheOriginSvm
 from netapp_ontap.models.anti_ransomware_volume_workload_surge_statistics import AntiRansomwareVolumeWorkloadSurgeStatistics
 from netapp_ontap.models.performance_svm_nfs_response_records import PerformanceSvmNfsResponseRecords
+from netapp_ontap.models.nvme_host_proximity_peer_svms import NvmeHostProximityPeerSvms
 from netapp_ontap.models.application_template1 import ApplicationTemplate1
 from netapp_ontap.models.s3_audit_events import S3AuditEvents
 from netapp_ontap.models.nas_application_components_tiering_object_stores import NasApplicationComponentsTieringObjectStores
@@ -1038,6 +1078,7 @@ from netapp_ontap.models.svm_iscsi import SvmIscsi
 from netapp_ontap.models.cluster_management_interface import ClusterManagementInterface
 from netapp_ontap.models.nvme_subsystem_controller_dh_hmac_chap import NvmeSubsystemControllerDhHmacChap
 from netapp_ontap.models.performance_metric_raw_svm import PerformanceMetricRawSvm
+from netapp_ontap.models.container_volume import ContainerVolume
 from netapp_ontap.models.posix import Posix
 from netapp_ontap.models.nfs_service_root import NfsServiceRoot
 from netapp_ontap.models.snapmirror_destination_creation_storage_service import SnapmirrorDestinationCreationStorageService
@@ -1068,7 +1109,9 @@ from netapp_ontap.models.application_component_svm import ApplicationComponentSv
 from netapp_ontap.models.anti_ransomware_volume_attack_detection_parameters import AntiRansomwareVolumeAttackDetectionParameters
 from netapp_ontap.models.nvme_namespace_provisioning_options import NvmeNamespaceProvisioningOptions
 from netapp_ontap.models.local_cifs_group_members_records import LocalCifsGroupMembersRecords
+from netapp_ontap.models.nvme_subsystem_replication_error import NvmeSubsystemReplicationError
 from netapp_ontap.models.nvme_namespace_provisioning_options_storage_service import NvmeNamespaceProvisioningOptionsStorageService
+from netapp_ontap.models.barbican_connectivity import BarbicanConnectivity
 from netapp_ontap.models.nvme_namespace_convert_lun import NvmeNamespaceConvertLun
 from netapp_ontap.models.security_association_ipsec import SecurityAssociationIpsec
 from netapp_ontap.models.consistency_group_luns_lun_maps import ConsistencyGroupLunsLunMaps
@@ -1127,9 +1170,11 @@ from netapp_ontap.models.cifs_domain_trust import CifsDomainTrust
 from netapp_ontap.models.storage_switch_paths_port import StorageSwitchPathsPort
 from netapp_ontap.models.iscsi_session_initiator import IscsiSessionInitiator
 from netapp_ontap.models.aggregate_inactive_data_reporting import AggregateInactiveDataReporting
+from netapp_ontap.models.container_volumes_flexcache import ContainerVolumesFlexcache
 from netapp_ontap.models.zapp_nvme_components_tiering import ZappNvmeComponentsTiering
 from netapp_ontap.models.nvme_namespace_clone_source import NvmeNamespaceCloneSource
 from netapp_ontap.models.detailed_status_code_message import DetailedStatusCodeMessage
+from netapp_ontap.models.container_response_records_volumes_s3_bucket import ContainerResponseRecordsVolumesS3Bucket
 from netapp_ontap.models.fc_interface_location_home_port_node import FcInterfaceLocationHomePortNode
 from netapp_ontap.models.top_metrics_svm_user_throughput import TopMetricsSvmUserThroughput
 from netapp_ontap.models.gcp_kms_state import GcpKmsState
@@ -1161,8 +1206,10 @@ from netapp_ontap.models.chassis_nodes_pcis import ChassisNodesPcis
 from netapp_ontap.models.analytics_info import AnalyticsInfo
 from netapp_ontap.models.reference_file_move_file import ReferenceFileMoveFile
 from netapp_ontap.models.consistency_group_consistency_groups_luns import ConsistencyGroupConsistencyGroupsLuns
+from netapp_ontap.models.switch_port_roles import SwitchPortRoles
 from netapp_ontap.models.application_lun_mapping_object_igroup import ApplicationLunMappingObjectIgroup
 from netapp_ontap.models.svm_migration_messages import SvmMigrationMessages
+from netapp_ontap.models.volume_nodes import VolumeNodes
 from netapp_ontap.models.lun_copy import LunCopy
 from netapp_ontap.models.volume_aggregates import VolumeAggregates
 from netapp_ontap.models.flexcache_prepopulate import FlexcachePrepopulate
@@ -1190,6 +1237,7 @@ from netapp_ontap.models.storage_availability_zone_space import StorageAvailabil
 from netapp_ontap.models.storage_pool_patch import StoragePoolPatch
 from netapp_ontap.models.flexcache_relative_size import FlexcacheRelativeSize
 from netapp_ontap.models.port_statistics import PortStatistics
+from netapp_ontap.models.storage_unit_anti_ransomware_entropy_stats_response_records import StorageUnitAntiRansomwareEntropyStatsResponseRecords
 from netapp_ontap.models.consistency_group_response_records_replication_relationships import ConsistencyGroupResponseRecordsReplicationRelationships
 from netapp_ontap.models.consistency_group_snapshot_response_records_namespaces import ConsistencyGroupSnapshotResponseRecordsNamespaces
 from netapp_ontap.models.anti_ransomware_volume_workload_newly_observed_file_extensions import AntiRansomwareVolumeWorkloadNewlyObservedFileExtensions
@@ -1212,6 +1260,7 @@ from netapp_ontap.models.lun_qos_policy import LunQosPolicy
 from netapp_ontap.models.nvme_subsystem_map_namespace import NvmeSubsystemMapNamespace
 from netapp_ontap.models.cluster_nodes_ha_giveback import ClusterNodesHaGiveback
 from netapp_ontap.models.aggregate_block_storage_hybrid_cache import AggregateBlockStorageHybridCache
+from netapp_ontap.models.container_volumes import ContainerVolumes
 from netapp_ontap.models.top_metrics_svm_client_response_notice import TopMetricsSvmClientResponseNotice
 from netapp_ontap.models.cifs_service_delete import CifsServiceDelete
 from netapp_ontap.models.chassis_nodes_usbs import ChassisNodesUsbs
@@ -1224,7 +1273,10 @@ from netapp_ontap.models.cifs_service_options import CifsServiceOptions
 from netapp_ontap.models.disk_path_info import DiskPathInfo
 from netapp_ontap.models.href import Href
 from netapp_ontap.models.switch_port_statistics import SwitchPortStatistics
+from netapp_ontap.models.container_volumes_s3_bucket_policy_statements import ContainerVolumesS3BucketPolicyStatements
 from netapp_ontap.models.svm_dns import SvmDns
+from netapp_ontap.models.container_volume_snaplock import ContainerVolumeSnaplock
+from netapp_ontap.models.container_volume_s3_bucket import ContainerVolumeS3Bucket
 from netapp_ontap.models.software_errors import SoftwareErrors
 from netapp_ontap.models.consistency_group_child_namespaces import ConsistencyGroupChildNamespaces
 from netapp_ontap.models.azure_key_vault_state import AzureKeyVaultState
@@ -1325,6 +1377,7 @@ __all__ = [
     "ConsistencyGroupApplication",
     "StorageBridgeSasPortsCable",
     "IscsiConnectionInterface",
+    "MediatorPingErrorError",
     "NvmeSubsystemControllerDigest",
     "IgroupNestedIgroup",
     "ConsistencyGroupReplicationRelationships1",
@@ -1368,6 +1421,7 @@ __all__ = [
     "ConsistencyGroupResponseRecordsNamespaces",
     "ShelfVoltageSensors",
     "KeyServerReadcreate",
+    "ClusterNodesNvlog",
     "VolumeMetricsResponseRecords",
     "S3BucketSvmProtectionStatus",
     "Tls",
@@ -1376,7 +1430,9 @@ __all__ = [
     "VolumeNas",
     "NvmeServiceMetric",
     "SecurityCertificateRefUuid",
+    "ActiveDirectorySecurity",
     "SvmFcp",
+    "ContainerVolumesSpace",
     "QuotaReportGroup",
     "SvmMigrationVolumePlacementAggregates",
     "ClusterNodesControllerCpu",
@@ -1385,11 +1441,13 @@ __all__ = [
     "NfsServiceWindows",
     "VolumeSpaceSnapshot",
     "ChassisNodes",
+    "AntiRansomwareStorageUnit",
     "PerformanceFcPortMetricResponseRecords",
     "ShelfTemperatureSensorsThresholdLow",
     "AggregateBlockStorageMirror",
     "SvmMigrationTimeMetrics",
     "FabricCache",
+    "ConsistencyGroupConsistencyGroupsVolumesProvisioningOptionsStorageService",
     "Peer",
     "MongoDbOnSanNewIgroups",
     "S3BucketLifecycleManagementRules",
@@ -1475,6 +1533,7 @@ __all__ = [
     "EmsEventParameter",
     "FcInterfaceRecommendMessage",
     "NasProtectionType",
+    "ConsistencyGroupNvmeHostProximity",
     "SpaceEfficiency",
     "SelfLink",
     "EmsActionParameterValidationErrorMessageArguments",
@@ -1484,12 +1543,14 @@ __all__ = [
     "IscsiCredentialsChap",
     "PerformanceLunMetricResponseRecords",
     "NodeHa",
+    "NvmeSubsystemReplication",
     "ZappS3Bucket",
     "AntiRansomwareVolumeWorkloadSurgeUsageNewlyObservedFileExtensions",
     "SnapmirrorRelationshipTransfer",
     "IgroupConnectivityTrackingAlerts",
     "PerformanceQtreeMetricData",
     "CifsDomainTrustRelationships",
+    "Ppk",
     "PerformanceNvmeMetricResponseRecords",
     "NodeResponseRecordsHa",
     "ZappS3BucketApplicationComponentsAccessPolicies",
@@ -1506,6 +1567,7 @@ __all__ = [
     "AggregateWarningWarning",
     "AwsConnectivity",
     "ApplicationBackingStorage",
+    "ContainerVolumeS3BucketPolicy",
     "NdmpConnect",
     "MetroclusterSvmPartnerSvm",
     "NvmeNamespaceSpace",
@@ -1518,6 +1580,7 @@ __all__ = [
     "VolumeAnalyticsScanThrottleReason",
     "GroupPolicyObjectRegistrySetting",
     "AntiRansomwareVolumeTypicalUsage",
+    "BarbicanState",
     "Rfc2307bis",
     "S3BucketSvmLifecycleManagementRules",
     "ConsistencyGroupCifsShare",
@@ -1544,6 +1607,7 @@ __all__ = [
     "ClusterNodes",
     "ConsistencyGroupLun",
     "DrNode",
+    "ClusterSpaceMetricsResponseRecords",
     "ClusterPeerStatus",
     "EmsCertificate",
     "S3GroupPolicies",
@@ -1577,6 +1641,7 @@ __all__ = [
     "TapeDevicePosition",
     "MetroclusterDrPairs",
     "SecurityKeyManagerRestoreKeys",
+    "AntiRansomwareVolumeEntropyStatsResponseRecords",
     "BindingDetails",
     "FirmwareUpdateProgressState",
     "MongoDbOnSanDataset",
@@ -1603,6 +1668,7 @@ __all__ = [
     "NasApplicationComponentsTiering",
     "ZappNvmeComponentsSubsystemHostsDhHmacChap",
     "OracleOnNfsRedoLog",
+    "ContainerVolumesS3BucketPolicy",
     "SqlOnSanLogStorageService",
     "StorageBridgePathsSourcePort",
     "KeyManagerState",
@@ -1622,6 +1688,7 @@ __all__ = [
     "StorageSwitchTemperatureSensors",
     "ClusterNodesClusterInterface",
     "AntiRansomwareNode",
+    "WebHsts",
     "SecurityOauth2Introspection",
     "PerformanceNetworkMetrics",
     "NfsServiceExports",
@@ -1671,6 +1738,7 @@ __all__ = [
     "FcSwitchPortsAttachedDevice",
     "SvmMigrationVolumeAggregatePair",
     "ConsistencyGroupChildVolumes",
+    "ContainerVolumeFlexcacheRelationship",
     "KeyManagerConfigHealthMonitorPolicy",
     "VolumeStatisticsCloud",
     "ShelfDrawers",
@@ -1695,6 +1763,7 @@ __all__ = [
     "FileMoveFilesToMoveDestinations",
     "SoftwareReferenceMetrocluster",
     "ScheduleCron",
+    "ConsistencyGroupNvmeHostProximity1PeerSvms",
     "ConsistencyGroupClone1StorageUnit",
     "ConsistencyGroupSnaplock",
     "AggregateBlockStoragePrimarySimulatedRaidGroups",
@@ -1765,6 +1834,7 @@ __all__ = [
     "AggregateBlockStorage",
     "FpolicyEngineBufferSize",
     "NfsServiceAccessCacheConfig",
+    "ConsistencyGroupSnapshotModify",
     "ShelfBays",
     "PerformanceNamespaceMetricSpace",
     "SoftwareValidationReferenceAction",
@@ -1775,12 +1845,14 @@ __all__ = [
     "MetroclusterPartner",
     "SvmCifsService",
     "AnalyticsCollectionInfoByModifiedTime",
+    "ContainerResponseRecordsVolumesS3BucketPolicyStatements",
     "ClusterNodesHaPartners",
     "NvmeNamespaceConvert",
     "ApplicationLunObject",
     "S3BucketCorsRule",
     "S3BucketPolicyCondition",
     "VolumeEfficiencyPolicySchedule",
+    "ContainerResponseRecordsVolumesS3BucketPolicy",
     "ConsistencyGroupConsistencyGroupsLunsLunMaps",
     "LunVvolBindings",
     "PortLagActivePorts",
@@ -1808,11 +1880,13 @@ __all__ = [
     "NvmeSubsystemIoQueue",
     "FcPortTransceiver",
     "ClusterMetricsResponseRecords",
+    "ClusterNodesExternalCacheBypass",
     "StorageUnitMovementSource",
     "RaidGroup",
     "OnboardKeyManagerConfigurableStatus",
     "EmsFilterRulesMessageCriteria",
     "HealthMonitorPolicyFields",
+    "ContainerResponseRecords",
     "FpolicyEventFileOperations",
     "AutosupportIssues",
     "SoftwareUpdateDetails",
@@ -1830,6 +1904,7 @@ __all__ = [
     "ConsistencyGroupIgroupIgroups",
     "ClusterNodesControllerFrus",
     "SoftwareStatusDetailsReferenceIssue",
+    "ZappS3BucketApplicationComponentsSnapshotPolicy",
     "NfsServiceProtocolV42Features",
     "FpolicyEvents",
     "QtreeGroup",
@@ -1863,6 +1938,7 @@ __all__ = [
     "PerformanceMonitoredFilesMetricResponseRecords",
     "SecurityAssociationIpsecOutbound",
     "ApplicationNfsPropertiesExportPolicy",
+    "MediatorPingError",
     "NvmeServiceStatistics",
     "ConsistencyGroupLunLunMapsIgroupInitiators",
     "FirmwareUpdateProgress",
@@ -1870,6 +1946,7 @@ __all__ = [
     "ApplicationNamespaceObject",
     "ConsistencyGroupMapTo",
     "ConsistencyGroupReplicationRelationship",
+    "ArwVserverEventLog",
     "JobNode",
     "LunConsistencyGroup",
     "PerformanceSvmNfsMetricHistoricalV3",
@@ -1917,6 +1994,7 @@ __all__ = [
     "S3ServicePost",
     "ConsistencyGroupChildLuns",
     "LunMapLunSmbc",
+    "ClusterSpaceMetrics",
     "EmsConnectivityError",
     "FileInfoQosPolicy",
     "Ipv4Interface",
@@ -1930,6 +2008,7 @@ __all__ = [
     "ConsistencyGroupResponseRecordsConsistencyGroupsLunsLunMapsIgroupInitiators",
     "EmsEventActionParametersHelpArguments",
     "ShelfAcps",
+    "AntiRansomwareStorageUnitAttackReports",
     "S3BucketSvmCors",
     "TopMetricsSvmUserIops",
     "VolumeActivityTracking",
@@ -1962,11 +2041,11 @@ __all__ = [
     "ConsistencyGroupLunMapIgroupIgroups",
     "ZappNvmeComponentsSubsystem",
     "TopMetricsSvmDirectoryExcludedVolume",
+    "ContainerVolumesS3Bucket",
     "VolumeFiles",
     "NasApplicationComponentsSnaplockRetention",
     "MetroclusterInterconnectMirror",
     "StorageSwitchFans",
-    "NodeStorageAvailabilityZones",
     "AutoUpdateInfoEula",
     "StorageSwitchConnections",
     "ConsistencyGroupClone1ParentConsistencyGroup",
@@ -1991,7 +2070,6 @@ __all__ = [
     "NasExcludeAggregates",
     "OracleRacOnSanNewIgroups",
     "PortsetInterfaceNoRecords",
-    "NodeResponseRecordsStorageAvailabilityZones",
     "IgroupNestedNoRecords",
     "OracleOnNfsOraHome",
     "ApplicationLinks",
@@ -2018,6 +2096,7 @@ __all__ = [
     "ReturnedError",
     "MongoDbOnSanProtectionType",
     "ConsistencyGroupChildLunsLunMaps",
+    "SwitchPortIdentityBreakout",
     "QtreeNas",
     "VolumeConsistencyGroup",
     "CloudStorageTier",
@@ -2042,6 +2121,7 @@ __all__ = [
     "BackupNode",
     "NvmeSubsystemSubsystemMaps",
     "MetroclusterInterconnectInterfaces",
+    "NvmeSubsystemReplicationPeerSubsystem",
     "NodeResponseRecordsHaGiveback",
     "EmsRoleConfigResponseRecords",
     "MultiAdminVerifyRuleApprovalGroups",
@@ -2051,6 +2131,7 @@ __all__ = [
     "ApplicationLunMappingObject",
     "Nas",
     "WebauthnCredentialsPublicKey",
+    "MediatorPing",
     "ApplicationVolumeObject",
     "FpolicyEventFilters",
     "VolumeEfficiencyIdcsScanner",
@@ -2066,8 +2147,10 @@ __all__ = [
     "AccountApplication",
     "ApplicationNvmeAccessSubsystemMapSubsystemHostsLinks",
     "Share",
+    "VolumeConstituentsNode",
     "WindowsToUnix",
     "NodeHaPartners",
+    "NvmeSubsystemHostsProximityPeerSvms",
     "TapeDeviceStoragePort",
     "NodeStatistics",
     "TopMetricsDirectoryResponseNotice",
@@ -2099,6 +2182,7 @@ __all__ = [
     "VolumeRebalancing1EngineMovement",
     "ConsistencyGroupNamespaceSpaceGuarantee",
     "ExportRules",
+    "ContainerVolumeS3BucketPolicyStatements",
     "AggregateSpace",
     "SnapshotSnaplock",
     "UnixGroupUsersNoRecords",
@@ -2109,6 +2193,7 @@ __all__ = [
     "TopMetricsClientThroughput",
     "MultiAdminVerifyRuleOwner",
     "QuotaRuleQtree",
+    "NvmeNamespaceSubsystemMapSubsystemHostsProximityPeerSvms",
     "LunSpace",
     "Nis",
     "PerformanceReducedThroughputResponseRecords",
@@ -2119,6 +2204,7 @@ __all__ = [
     "RaidGroupRecomputingParity",
     "AntiRansomwareAttackReportLinks",
     "EmsUiMessage",
+    "NvmeHostProximity",
     "PerformanceMetricSvm",
     "MetroclusterDiagnosticsNode",
     "NasApplicationComponentsQosPolicy",
@@ -2127,6 +2213,7 @@ __all__ = [
     "NvmeSubsystemControllerAdminQueue",
     "ConsistencyGroupInitiator",
     "ConsistencyGroupChildLunsLunMapsIgroupInitiators",
+    "ConsistencyGroupNvmeHostProximityPeerSvms",
     "LunMapReportingNodeIgroup",
     "Ddns",
     "ConsistencyGroupConsistencyGroupsApplication",
@@ -2202,6 +2289,7 @@ __all__ = [
     "SnaplockLitigationFileResponseRecords",
     "FcZoneMember",
     "LocalCifsGroupMembersLocalCifsGroup",
+    "SystemFirmware",
     "PerformanceMetricResponseRecords",
     "KerberosRealmKdc",
     "OracleRacOnNfsGridBinary",
@@ -2217,6 +2305,7 @@ __all__ = [
     "BgpPeerGroupPeer",
     "VolumeMovement",
     "IgroupInitiatorConnectivityTrackingConnectionsLogins",
+    "ReplicationErrorSubsystem",
     "SvmS3Service",
     "TopMetricsDirectoryThroughput",
     "PerformanceFcpMetricSvm",
@@ -2251,8 +2340,8 @@ __all__ = [
     "NvmeSubsystemIoQueueDefault",
     "NasApplicationComponentsQos",
     "VscanOnDemandScope",
+    "ContainerResponseRecordsVolumes",
     "San",
-    "ClusterNodesStorageAvailabilityZones",
     "ConsistencyGroupConsistencyGroupsVolumesNasJunctionParent",
     "LdapSchemaAccount",
     "SqlOnSanTempDbStorageService",
@@ -2274,7 +2363,6 @@ __all__ = [
     "PortVlan",
     "SoftwareReferenceMetroclusterProgressSummary",
     "AnalyticsCollectionInfoByAccessedTime",
-    "SecuritySamlSpCertificate",
     "SnapmirrorRelationshipPolicy",
     "S3BucketLifecycleNonCurrentVersionExpiration",
     "NvmeSubsystemHosts",
@@ -2285,6 +2373,7 @@ __all__ = [
     "ConsistencyGroupSnapshotSnaplock",
     "SecurityKeystoreConfiguration",
     "PerformanceIscsiMetricResponseRecords",
+    "SecuritySamlDefMetadataCertificate",
     "ShelfPortsCable",
     "ConsistencyGroupChildLunsLunMapsIgroupIgroups",
     "LdapSchemaNameMapping",
@@ -2307,13 +2396,16 @@ __all__ = [
     "PortsetIgroups",
     "TopMetricValueErrorBounds",
     "IgroupParent",
+    "NvmeSubsystemHostProximityPeerSvms",
     "TapeDeviceDeviceNames",
     "LunMapIgroup",
     "PreferredDcs",
     "ShelfErrors",
+    "StorageUnitAntiRansomwareSuspectResponseRecords",
     "NasApplicationComponentsFlexcacheOriginSvm",
     "AntiRansomwareVolumeWorkloadSurgeStatistics",
     "PerformanceSvmNfsResponseRecords",
+    "NvmeHostProximityPeerSvms",
     "ApplicationTemplate1",
     "S3AuditEvents",
     "NasApplicationComponentsTieringObjectStores",
@@ -2322,6 +2414,7 @@ __all__ = [
     "ClusterManagementInterface",
     "NvmeSubsystemControllerDhHmacChap",
     "PerformanceMetricRawSvm",
+    "ContainerVolume",
     "Posix",
     "NfsServiceRoot",
     "SnapmirrorDestinationCreationStorageService",
@@ -2352,7 +2445,9 @@ __all__ = [
     "AntiRansomwareVolumeAttackDetectionParameters",
     "NvmeNamespaceProvisioningOptions",
     "LocalCifsGroupMembersRecords",
+    "NvmeSubsystemReplicationError",
     "NvmeNamespaceProvisioningOptionsStorageService",
+    "BarbicanConnectivity",
     "NvmeNamespaceConvertLun",
     "SecurityAssociationIpsec",
     "ConsistencyGroupLunsLunMaps",
@@ -2411,9 +2506,11 @@ __all__ = [
     "StorageSwitchPathsPort",
     "IscsiSessionInitiator",
     "AggregateInactiveDataReporting",
+    "ContainerVolumesFlexcache",
     "ZappNvmeComponentsTiering",
     "NvmeNamespaceCloneSource",
     "DetailedStatusCodeMessage",
+    "ContainerResponseRecordsVolumesS3Bucket",
     "FcInterfaceLocationHomePortNode",
     "TopMetricsSvmUserThroughput",
     "GcpKmsState",
@@ -2445,8 +2542,10 @@ __all__ = [
     "AnalyticsInfo",
     "ReferenceFileMoveFile",
     "ConsistencyGroupConsistencyGroupsLuns",
+    "SwitchPortRoles",
     "ApplicationLunMappingObjectIgroup",
     "SvmMigrationMessages",
+    "VolumeNodes",
     "LunCopy",
     "VolumeAggregates",
     "FlexcachePrepopulate",
@@ -2474,6 +2573,7 @@ __all__ = [
     "StoragePoolPatch",
     "FlexcacheRelativeSize",
     "PortStatistics",
+    "StorageUnitAntiRansomwareEntropyStatsResponseRecords",
     "ConsistencyGroupResponseRecordsReplicationRelationships",
     "ConsistencyGroupSnapshotResponseRecordsNamespaces",
     "AntiRansomwareVolumeWorkloadNewlyObservedFileExtensions",
@@ -2496,6 +2596,7 @@ __all__ = [
     "NvmeSubsystemMapNamespace",
     "ClusterNodesHaGiveback",
     "AggregateBlockStorageHybridCache",
+    "ContainerVolumes",
     "TopMetricsSvmClientResponseNotice",
     "CifsServiceDelete",
     "ChassisNodesUsbs",
@@ -2508,7 +2609,10 @@ __all__ = [
     "DiskPathInfo",
     "Href",
     "SwitchPortStatistics",
+    "ContainerVolumesS3BucketPolicyStatements",
     "SvmDns",
+    "ContainerVolumeSnaplock",
+    "ContainerVolumeS3Bucket",
     "SoftwareErrors",
     "ConsistencyGroupChildNamespaces",
     "AzureKeyVaultState",

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,20 +25,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     WebauthnCredentials(
         {
-            "relying_party": {"name": "ontap1.example.com", "id": "ontap1.example.com"},
-            "username": "user_1",
-            "_links": {
-                "self": {
-                    "href": "/api/security/webauthn/credentials/389758ee-40cd-11ef-bb21-005056aeae31/user_1/0/ontap1.example.com"
-                }
-            },
+            "relying_party": {"id": "ontap1.example.com", "name": "ontap1.example.com"},
             "owner": {
+                "uuid": "389758ee-40cd-11ef-bb21-005056aeae31",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/389758ee-40cd-11ef-bb21-005056aeae31"
                     }
                 },
-                "uuid": "389758ee-40cd-11ef-bb21-005056aeae31",
+            },
+            "username": "user_1",
+            "_links": {
+                "self": {
+                    "href": "/api/security/webauthn/credentials/389758ee-40cd-11ef-bb21-005056aeae31/user_1/0/ontap1.example.com"
+                }
             },
             "index": 0,
         }

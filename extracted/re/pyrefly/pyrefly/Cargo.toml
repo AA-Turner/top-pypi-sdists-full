@@ -2,7 +2,7 @@
 
 [package]
 name = "pyrefly"
-version = "0.25.0"
+version = "0.25.1"
 authors = ["Meta"]
 edition = "2024"
 repository = "https://github.com/facebook/pyrefly"
@@ -19,7 +19,7 @@ path = "bin/main.rs"
 anstream = "0.6.11"
 anyhow = "1.0.98"
 blake3 = { version = "=1.8.2", features = ["mmap", "rayon", "traits-preview"] }
-clap = { version = "4.5.38", features = ["derive", "env", "string", "unicode", "wrap_help"] }
+clap = { version = "4.5.41", features = ["derive", "env", "string", "unicode", "wrap_help"] }
 crossbeam-channel = "0.5.15"
 dupe = "0.9.1"
 enum-iterator = "2.1"
@@ -31,7 +31,6 @@ lsp-types = "0.94.1"
 num-traits = { version = "0.2.18", default-features = false }
 parse-display = "0.8.2"
 paste = "1.0.14"
-path-absolutize = { version = "3.0", features = ["use_unix_paths_on_wasm"] }
 pyrefly_bundled = { path = "../crates/pyrefly_bundled" }
 pyrefly_config = { path = "../crates/pyrefly_config" }
 pyrefly_derive = { path = "../crates/pyrefly_derive" }
@@ -49,7 +48,7 @@ serde = { version = "1.0.185", features = ["derive", "rc"] }
 serde_json = { version = "1.0.140", features = ["alloc", "float_roundtrip", "unbounded_depth"] }
 starlark_map = "0.13.0"
 static_assertions = "1.1.0"
-tokio = { version = "1.45.0", features = ["macros", "rt"] }
+tokio = { version = "1.46.1", features = ["macros", "rt"] }
 toml = { version = "0.9.2", features = ["preserve_order"] }
 tracing = { version = "0.1.41", features = ["attributes", "valuable"] }
 vec1 = { version = "1", features = ["serde"] }

@@ -13,6 +13,12 @@ from sqlglot.generator import unsupported_args
 from sqlglot.tokens import TokenType
 
 
+def _sha2_sql(self: Exasol.Generator, expression: exp.SHA2) -> str:
+    length = expression.text("length")
+    func_name = "HASH_SHA256" if length == "256" else "HASH_SHA512"
+    return self.func(func_name, expression.this)
+
+
 class Exasol(Dialect):
     TIME_MAPPING = {
         "yyyy": "%Y",
@@ -59,12 +65,22 @@ class Exasol(Dialect):
             "BIT_RSHIFT": binary_from_function(exp.BitwiseRightShift),
             "EVERY": lambda args: exp.All(this=seq_get(args, 0)),
             "EDIT_DISTANCE": exp.Levenshtein.from_arg_list,
+            "HASH_SHA": exp.SHA.from_arg_list,
+            "HASH_SHA1": exp.SHA.from_arg_list,
+            "HASH_MD5": exp.MD5.from_arg_list,
+            "HASHTYPE_MD5": exp.MD5Digest.from_arg_list,
             "REGEXP_REPLACE": lambda args: exp.RegexpReplace(
                 this=seq_get(args, 0),
                 expression=seq_get(args, 1),
                 replacement=seq_get(args, 2),
                 position=seq_get(args, 3),
                 occurrence=seq_get(args, 4),
+            ),
+            "HASH_SHA256": lambda args: exp.SHA2(
+                this=seq_get(args, 0), length=exp.Literal.number(256)
+            ),
+            "HASH_SHA512": lambda args: exp.SHA2(
+                this=seq_get(args, 0), length=exp.Literal.number(512)
             ),
             "VAR_POP": exp.VariancePop.from_arg_list,
             "APPROXIMATE_COUNT_DISTINCT": exp.ApproxDistinct.from_arg_list,
@@ -173,6 +189,14 @@ class Exasol(Dialect):
                     self, e, func_name="INSTR", supports_position=True, supports_occurrence=True
                 )
             ),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/hash_sha%5B1%5D.htm#HASH_SHA%5B1%5D
+            exp.SHA: rename_func("HASH_SHA"),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/hash_sha256.htm
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/hash_sha512.htm
+            exp.SHA2: _sha2_sql,
+            exp.MD5: rename_func("HASH_MD5"),
+            # https://docs.exasol.com/db/latest/sql_references/functions/alphabeticallistfunctions/hashtype_md5.htm
+            exp.MD5Digest: rename_func("HASHTYPE_MD5"),
             # https://docs.exasol.com/db/latest/sql/create_view.htm
             exp.CommentColumnConstraint: lambda self, e: f"COMMENT IS {self.sql(e, 'this')}",
         }

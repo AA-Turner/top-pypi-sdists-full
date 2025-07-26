@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,19 +27,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "target_portal_group": "iscsi_lif1",
             "tsih": 10,
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/sessions/a009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif1/10"
-                }
-            },
             "svm": {
+                "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/a009a9e7-4081-b576-7575-ada21efcaf16"
                     }
                 },
-                "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/sessions/a009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif1/10"
+                }
             },
         }
     ),
@@ -47,19 +47,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "target_portal_group": "iscsi_lif2",
             "tsih": 11,
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/sessions/b009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif2/11"
-                }
-            },
             "svm": {
+                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/b009a9e7-4081-b576-7575-ada21efcaf16"
                     }
                 },
-                "uuid": "b009a9e7-4081-b576-7575-ada21efcaf16",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/sessions/b009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif2/11"
+                }
             },
         }
     ),
@@ -91,19 +91,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "target_portal_group": "iscsi_lif1",
             "tsih": 10,
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/sessions/a009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif1/10"
-                }
-            },
             "svm": {
+                "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/a009a9e7-4081-b576-7575-ada21efcaf16"
                     }
                 },
-                "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/sessions/a009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif1/10"
+                }
             },
         }
     )
@@ -136,62 +136,62 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IscsiSession(
     {
-        "target_portal_group": "iscsi_lif1",
-        "tsih": 10,
         "connections": [
             {
                 "interface": {
-                    "ip": {"port": 3260, "address": "192.168.0.1"},
+                    "uuid": "c15439b4-dbb4-11e8-90ac-005056bba882",
                     "_links": {
                         "self": {
                             "href": "/api/network/ip/interfaces/c15439b4-dbb4-11e8-90ac-005056bba882"
                         }
                     },
+                    "ip": {"port": 3260, "address": "192.168.0.1"},
                     "name": "iscsi_lif1",
-                    "uuid": "c15439b4-dbb4-11e8-90ac-005056bba882",
                 },
-                "initiator_address": {"port": 43827, "address": "10.224.123.85"},
                 "authentication_type": "chap",
                 "cid": 1,
+                "initiator_address": {"port": 43827, "address": "10.224.123.85"},
             }
         ],
         "initiator": {
-            "name": "iqn.1994-05.com.example:string",
             "comment": "Example information about this initiator",
+            "name": "iqn.1994-05.com.example:string",
         },
         "igroups": [
             {
-                "name": "igroup1",
+                "uuid": "af7838cd-f993-4faf-90b7-5524787ae1e8",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/igroups/af7838cd-f993-4faf-90b7-5524787ae1e8"
                     }
                 },
-                "uuid": "af7838cd-f993-4faf-90b7-5524787ae1e8",
+                "name": "igroup1",
             },
             {
-                "name": "igroup2",
+                "uuid": "bf7838cd-f993-4faf-90b7-5524787ae1e8",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/san/igroups/bf7838cd-f993-4faf-90b7-5524787ae1e8"
                     }
                 },
-                "uuid": "bf7838cd-f993-4faf-90b7-5524787ae1e8",
+                "name": "igroup2",
             },
         ],
-        "_links": {
-            "self": {
-                "href": "/api/protocols/san/iscsi/sessions/a009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif1/10"
-            }
-        },
+        "target_portal_group": "iscsi_lif1",
         "target_portal_group_tag": 1027,
+        "tsih": 10,
         "isid": "61:62:63:64:65:00",
         "svm": {
+            "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/a009a9e7-4081-b576-7575-ada21efcaf16"}
             },
-            "uuid": "a009a9e7-4081-b576-7575-ada21efcaf16",
+        },
+        "_links": {
+            "self": {
+                "href": "/api/protocols/san/iscsi/sessions/a009a9e7-4081-b576-7575-ada21efcaf16/iscsi_lif1/10"
+            }
         },
     }
 )

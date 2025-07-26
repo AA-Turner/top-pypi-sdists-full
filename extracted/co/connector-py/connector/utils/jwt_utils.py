@@ -1,8 +1,7 @@
 from datetime import datetime, timedelta, timezone
 
 import jwt
-
-from connector.generated import JWTCredential
+from connector_sdk_types.generated import JWTCredential
 
 
 def sign_jwt(credentials: JWTCredential, expiration_minutes: int = 20) -> str:

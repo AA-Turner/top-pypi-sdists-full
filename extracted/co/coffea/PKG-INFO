@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: coffea
-Version: 2025.7.1
+Version: 2025.7.2
 Summary: Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis.
 Project-URL: Homepage, https://github.com/coffeateam/coffea
 Project-URL: Bug Tracker, https://github.com/coffeateam/coffea/issues
-Author-email: Lindsey Gray <lagray@fnal.gov>, Nick Smith <ncsmith@fnal.gov>
-Maintainer-email: Lindsey Gray <lagray@fnal.gov>, Nick Smith <ncsmith@fnal.gov>
+Author-email: Lindsey Gray <lagray@fnal.gov>, Nick Smith <ncsmith@fnal.gov>, Iason Krommydas <ik23@rice.edu>
+Maintainer-email: Lindsey Gray <lagray@fnal.gov>, Nick Smith <ncsmith@fnal.gov>, Iason Krommydas <ik23@rice.edu>
 License: BSD-3-Clause
 License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
@@ -35,7 +35,6 @@ Requires-Dist: correctionlib>=2.6.0
 Requires-Dist: dask-awkward>=2025.5.0
 Requires-Dist: dask-histogram>=2025.2.0
 Requires-Dist: dask[array]>=2024.3.0
-Requires-Dist: fsspec-xrootd>=0.2.3
 Requires-Dist: hist>=2
 Requires-Dist: lz4
 Requires-Dist: matplotlib>=3
@@ -79,6 +78,8 @@ Provides-Extra: spark
 Requires-Dist: ipywidgets; extra == 'spark'
 Requires-Dist: jinja2; extra == 'spark'
 Requires-Dist: pyspark>=3.3.0; extra == 'spark'
+Provides-Extra: xrootd
+Requires-Dist: fsspec-xrootd>=0.5.1; extra == 'xrootd'
 Description-Content-Type: text/x-rst
 
 .. image:: docs/source/logo/coffea_logo.svg

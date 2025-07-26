@@ -10,14 +10,32 @@ from abc import (
 from chalk._gen.chalk.server.v1.queries_pb2 import (
     AggregateQueryErrorsRequest,
     AggregateQueryErrorsResponse,
+    GetMetaQueryByNameRequest,
+    GetMetaQueryByNameResponse,
+    GetMetaQueryRequest,
+    GetMetaQueryResponse,
     GetQueryErrorsChartRequest,
     GetQueryErrorsChartResponse,
     GetQueryPerformanceSummaryRequest,
     GetQueryPerformanceSummaryResponse,
     GetQueryPlanRequest,
     GetQueryPlanResponse,
+    ListArchivedMetaQueriesRequest,
+    ListArchivedMetaQueriesResponse,
+    ListLatestMetaQueriesRequest,
+    ListLatestMetaQueriesResponse,
+    ListMetaQueriesByIdsRequest,
+    ListMetaQueriesByIdsResponse,
+    ListMetaQueriesForFeatureRequest,
+    ListMetaQueriesForFeatureResponse,
+    ListMetaQueriesForResolverRequest,
+    ListMetaQueriesForResolverResponse,
+    ListMetaQueriesRequest,
+    ListMetaQueriesResponse,
     ListMetaQueryRunsRequest,
     ListMetaQueryRunsResponse,
+    ListMetaQueryVersionsRequest,
+    ListMetaQueryVersionsResponse,
     ListQueryErrorsRequest,
     ListQueryErrorsResponse,
 )
@@ -53,6 +71,42 @@ class QueriesServiceStub:
     ListMetaQueryRuns: UnaryUnaryMultiCallable[
         ListMetaQueryRunsRequest,
         ListMetaQueryRunsResponse,
+    ]
+    ListMetaQueries: UnaryUnaryMultiCallable[
+        ListMetaQueriesRequest,
+        ListMetaQueriesResponse,
+    ]
+    ListLatestMetaQueries: UnaryUnaryMultiCallable[
+        ListLatestMetaQueriesRequest,
+        ListLatestMetaQueriesResponse,
+    ]
+    GetMetaQuery: UnaryUnaryMultiCallable[
+        GetMetaQueryRequest,
+        GetMetaQueryResponse,
+    ]
+    GetMetaQueryByName: UnaryUnaryMultiCallable[
+        GetMetaQueryByNameRequest,
+        GetMetaQueryByNameResponse,
+    ]
+    ListMetaQueriesByIds: UnaryUnaryMultiCallable[
+        ListMetaQueriesByIdsRequest,
+        ListMetaQueriesByIdsResponse,
+    ]
+    ListArchivedMetaQueries: UnaryUnaryMultiCallable[
+        ListArchivedMetaQueriesRequest,
+        ListArchivedMetaQueriesResponse,
+    ]
+    ListMetaQueriesForResolver: UnaryUnaryMultiCallable[
+        ListMetaQueriesForResolverRequest,
+        ListMetaQueriesForResolverResponse,
+    ]
+    ListMetaQueriesForFeature: UnaryUnaryMultiCallable[
+        ListMetaQueriesForFeatureRequest,
+        ListMetaQueriesForFeatureResponse,
+    ]
+    ListMetaQueryVersions: UnaryUnaryMultiCallable[
+        ListMetaQueryVersionsRequest,
+        ListMetaQueryVersionsResponse,
     ]
 
 class QueriesServiceServicer(metaclass=ABCMeta):
@@ -92,5 +146,59 @@ class QueriesServiceServicer(metaclass=ABCMeta):
         request: ListMetaQueryRunsRequest,
         context: ServicerContext,
     ) -> ListMetaQueryRunsResponse: ...
+    @abstractmethod
+    def ListMetaQueries(
+        self,
+        request: ListMetaQueriesRequest,
+        context: ServicerContext,
+    ) -> ListMetaQueriesResponse: ...
+    @abstractmethod
+    def ListLatestMetaQueries(
+        self,
+        request: ListLatestMetaQueriesRequest,
+        context: ServicerContext,
+    ) -> ListLatestMetaQueriesResponse: ...
+    @abstractmethod
+    def GetMetaQuery(
+        self,
+        request: GetMetaQueryRequest,
+        context: ServicerContext,
+    ) -> GetMetaQueryResponse: ...
+    @abstractmethod
+    def GetMetaQueryByName(
+        self,
+        request: GetMetaQueryByNameRequest,
+        context: ServicerContext,
+    ) -> GetMetaQueryByNameResponse: ...
+    @abstractmethod
+    def ListMetaQueriesByIds(
+        self,
+        request: ListMetaQueriesByIdsRequest,
+        context: ServicerContext,
+    ) -> ListMetaQueriesByIdsResponse: ...
+    @abstractmethod
+    def ListArchivedMetaQueries(
+        self,
+        request: ListArchivedMetaQueriesRequest,
+        context: ServicerContext,
+    ) -> ListArchivedMetaQueriesResponse: ...
+    @abstractmethod
+    def ListMetaQueriesForResolver(
+        self,
+        request: ListMetaQueriesForResolverRequest,
+        context: ServicerContext,
+    ) -> ListMetaQueriesForResolverResponse: ...
+    @abstractmethod
+    def ListMetaQueriesForFeature(
+        self,
+        request: ListMetaQueriesForFeatureRequest,
+        context: ServicerContext,
+    ) -> ListMetaQueriesForFeatureResponse: ...
+    @abstractmethod
+    def ListMetaQueryVersions(
+        self,
+        request: ListMetaQueryVersionsRequest,
+        context: ServicerContext,
+    ) -> ListMetaQueryVersionsResponse: ...
 
 def add_QueriesServiceServicer_to_server(servicer: QueriesServiceServicer, server: Server) -> None: ...

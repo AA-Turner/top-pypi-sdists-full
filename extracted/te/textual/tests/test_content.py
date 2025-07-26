@@ -5,6 +5,8 @@ from rich.text import Text
 
 from textual.content import Content, Span
 from textual.style import Style
+from textual.visual import RenderOptions
+from textual.widget import Widget
 
 
 def test_blank():
@@ -274,3 +276,13 @@ def test_first_line():
     first_line = content.first_line
     assert first_line.plain == "foo"
     assert first_line.spans == [Span(0, 3, "red")]
+
+
+def test_split_and_tabs():
+    spans = [
+        Span(0, 49, style="$text"),
+    ]
+
+    content = Content("--- hello.py\t2024-01-15 10:30:00.000000000 -0800", spans=spans)
+    widget = Widget()
+    content.render_strips(0, None, Style(), RenderOptions(widget._get_style, {}))

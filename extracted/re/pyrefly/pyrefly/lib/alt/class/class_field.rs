@@ -14,6 +14,8 @@ use itertools::Itertools;
 use pyrefly_derive::TypeEq;
 use pyrefly_derive::VisitMut;
 use pyrefly_python::dunder;
+use pyrefly_types::callable::Params;
+use pyrefly_types::simplify::unions;
 use pyrefly_util::owner::Owner;
 use pyrefly_util::prelude::ResultExt;
 use ruff_python_ast::Expr;
@@ -276,6 +278,23 @@ impl ClassField {
         }
     }
 
+    /// Given a `__set__(self, instance, value)` function, gets the type of `value`.
+    fn get_descriptor_setter_value(setter: &Type) -> Type {
+        let mut values = Vec::new();
+        setter.visit_toplevel_callable(|callable| match &callable.params {
+            Params::List(params) => match params.items().get(2) {
+                Some(Param::Pos(_, t, _) | Param::PosOnly(_, t, _)) => values.push(t.clone()),
+                _ => {}
+            },
+            _ => {}
+        });
+        if values.is_empty() {
+            Type::any_implicit()
+        } else {
+            unions(values)
+        }
+    }
+
     pub fn as_param(
         self,
         name: &Name,
@@ -283,8 +302,18 @@ impl ClassField {
         kw_only: bool,
         converter_param: Option<Type>,
     ) -> Param {
-        let ClassField(ClassFieldInner::Simple { ty, .. }) = self;
-        let param_ty = converter_param.unwrap_or(ty);
+        let ClassField(ClassFieldInner::Simple {
+            ty,
+            descriptor_setter,
+            ..
+        }) = self;
+        let param_ty = if let Some(converter_param) = converter_param {
+            converter_param
+        } else if let Some(descriptor_setter) = descriptor_setter {
+            Self::get_descriptor_setter_value(&descriptor_setter)
+        } else {
+            ty
+        };
         let required = match default {
             true => Required::Optional(None),
             false => Required::Required,
@@ -866,19 +895,19 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             && annotation.is_none_or(|a| a.ty.is_none())
             && value_ty.is_literal()
         {
-            value_ty.clone().promote_literals(self.stdlib)
+            value_ty.promote_literals(self.stdlib)
         } else {
-            value_ty.clone()
+            value_ty
         };
 
         // Types provided in annotations shadow inferred types
         let ty = if let Some(ann) = annotation {
             match &ann.ty {
                 Some(ty) => ty.clone(),
-                None => value_ty.clone(),
+                None => value_ty,
             }
         } else {
-            value_ty.clone()
+            value_ty
         };
 
         let ty = match initial_value {
@@ -1076,7 +1105,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .ancestors(self.stdlib)
             .find_map(|parent| {
                 let parent_field =
-                    self.get_field_from_current_class_only(parent.class_object(), name, true)?;
+                    self.get_field_from_current_class_only(parent.class_object(), name)?;
                 found_field = true;
                 let ClassField(ClassFieldInner::Simple { annotation, .. }) = &*parent_field;
                 annotation.clone()
@@ -1137,7 +1166,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     pub fn get_dataclass_member(&self, cls: &Class, name: &Name) -> DataclassMember {
         // Even though we check that the class member exists before calling this function,
         // it can be None if the class has an invalid MRO.
-        let Some(member) = self.get_class_member_impl(cls, name, true) else {
+        let Some(member) = self.get_class_member_impl(cls, name) else {
             return DataclassMember::NotAField;
         };
         let field = &*member.value;
@@ -1174,7 +1203,8 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         errors: &ErrorCollector,
     ) -> Type {
         if let Some(method_field) =
-            self.get_non_synthesized_field_from_current_class_only(class, method_name, false)
+            self.get_non_synthesized_field_from_current_class_only(class, method_name)
+            && !method_field.is_init_var()
         {
             match &method_field.raw_type() {
                 Type::Forall(box Forall { tparams, .. }) => {
@@ -1341,10 +1371,10 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 metadata,
             }) => {
                 let new_signatures = signatures.clone().mapped(|sig| match sig {
-                    OverloadType::Callable(callable) => OverloadType::Forall(Forall {
+                    OverloadType::Callable(function) => OverloadType::Forall(Forall {
                         tparams: self.get_class_tparams(cls),
                         body: Function {
-                            signature: callable,
+                            signature: function.signature,
                             metadata: (**metadata).clone(),
                         },
                     }),
@@ -1463,10 +1493,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                     &Instance::of_class(&self.as_class_type_unchecked(class)),
                 ));
             }
-            let attr_check =
-                self.check_attr_subset(got_attr.as_ref().unwrap(), &want_attr, &mut |got, want| {
-                    self.is_subset_eq(got, want)
-                });
+            let attr_check = self.is_attribute_subset(
+                got_attr.as_ref().unwrap(),
+                &want_attr,
+                &mut |got, want| self.is_subset_eq(got, want),
+            );
             if let Err(error) = attr_check {
                 let msg = vec1![
                     format!(
@@ -1498,11 +1529,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         &self,
         cls: &Class,
         name: &Name,
-        include_initvar: bool,
     ) -> Option<Arc<ClassField>> {
         if cls.contains(name)
             && let Some(field) = self.get_from_class(cls, &KeyClassField(cls.index(), name.clone()))
-            && (include_initvar || !field.is_init_var())
         {
             Some(field)
         } else {
@@ -1510,34 +1539,57 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
+    /// Only look up fields that are not synthesized. This is useful when synthesizing method signatures
+    /// for typeddict, named tuple, etc.
+    pub fn get_non_synthesized_class_member(
+        &self,
+        cls: &Class,
+        name: &Name,
+    ) -> Option<Arc<ClassField>> {
+        self.get_non_synthesized_field_from_current_class_only(cls, name)
+            .filter(|field| !field.is_init_var())
+            .or_else(|| {
+                self.get_mro_for_class(cls)
+                    .ancestors(self.stdlib)
+                    .find_map(|ancestor| {
+                        self.get_non_synthesized_field_from_current_class_only(
+                            ancestor.class_object(),
+                            name,
+                        )
+                        .filter(|field| !field.is_init_var())
+                    })
+            })
+    }
+
+    fn get_synthesized_field_from_current_class_only(
+        &self,
+        cls: &Class,
+        name: &Name,
+    ) -> Option<Arc<ClassField>> {
+        Some(
+            self.get_from_class(cls, &KeyClassSynthesizedFields(cls.index()))?
+                .get(name)?
+                .inner
+                .dupe(),
+        )
+    }
+
     /// This function does not return fields defined in parent classes
     pub fn get_field_from_current_class_only(
         &self,
         cls: &Class,
         name: &Name,
-        include_initvar: bool,
     ) -> Option<Arc<ClassField>> {
-        if let Some(field) =
-            self.get_non_synthesized_field_from_current_class_only(cls, name, include_initvar)
-        {
-            Some(field)
-        } else {
-            Some(
-                self.get_from_class(cls, &KeyClassSynthesizedFields(cls.index()))?
-                    .get(name)?
-                    .inner
-                    .dupe(),
-            )
-        }
+        self.get_non_synthesized_field_from_current_class_only(cls, name)
+            .or_else(|| self.get_synthesized_field_from_current_class_only(cls, name))
     }
 
     fn get_class_member_impl(
         &self,
         cls: &Class,
         name: &Name,
-        include_initvar: bool,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
-        if let Some(field) = self.get_field_from_current_class_only(cls, name, include_initvar) {
+        if let Some(field) = self.get_field_from_current_class_only(cls, name) {
             Some(WithDefiningClass {
                 value: field,
                 defining_class: cls.dupe(),
@@ -1546,15 +1598,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             self.get_mro_for_class(cls)
                 .ancestors(self.stdlib)
                 .find_map(|ancestor| {
-                    self.get_field_from_current_class_only(
-                        ancestor.class_object(),
-                        name,
-                        include_initvar,
-                    )
-                    .map(|field| WithDefiningClass {
-                        value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
-                        defining_class: ancestor.class_object().dupe(),
-                    })
+                    self.get_field_from_current_class_only(ancestor.class_object(), name)
+                        .map(|field| WithDefiningClass {
+                            value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
+                            defining_class: ancestor.class_object().dupe(),
+                        })
                 })
         }
     }
@@ -1564,7 +1612,13 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         cls: &Class,
         name: &Name,
     ) -> Option<WithDefiningClass<Arc<ClassField>>> {
-        self.get_class_member_impl(cls, name, false)
+        if let Some(member) = self.get_class_member_impl(cls, name)
+            && !member.value.is_init_var()
+        {
+            Some(member)
+        } else {
+            None
+        }
     }
 
     pub fn get_instance_attribute(&self, cls: &ClassType, name: &Name) -> Option<Attribute> {
@@ -1612,14 +1666,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             .ancestors(self.stdlib)
             .skip_while(|ancestor| *ancestor != start_lookup_cls);
         for ancestor in ancestors {
-            if let Some(found) = self
-                .get_field_from_current_class_only(ancestor.class_object(), name, false)
-                .map(|field| WithDefiningClass {
+            if let Some(field) =
+                self.get_field_from_current_class_only(ancestor.class_object(), name)
+                && !field.is_init_var()
+            {
+                return Some(WithDefiningClass {
                     value: Arc::new(field.instantiate_for(&Instance::of_class(ancestor))),
                     defining_class: ancestor.class_object().dupe(),
-                })
-            {
-                return Some(found);
+                });
             }
         }
         None

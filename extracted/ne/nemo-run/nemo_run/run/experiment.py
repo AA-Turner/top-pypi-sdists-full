@@ -30,12 +30,14 @@ from typing import Optional, Type, Union
 
 import fiddle as fdl
 import networkx as nx
+import rich
 from fiddle._src import daglish, diffing
 from rich.console import Group
 from rich.live import Live
 from rich.panel import Panel
-from rich.progress import BarColumn, Progress, SpinnerColumn, TaskID, TimeElapsedColumn
+from rich.progress import BarColumn, Progress, SpinnerColumn
 from rich.progress import Task as RichTask
+from rich.progress import TaskID, TimeElapsedColumn
 from rich.syntax import Syntax
 from torchx.specs.api import AppState
 
@@ -51,6 +53,7 @@ from nemo_run.config import (
 from nemo_run.core.execution.base import Executor
 from nemo_run.core.execution.dgxcloud import DGXCloudExecutor
 from nemo_run.core.execution.docker import DockerExecutor
+from nemo_run.core.execution.lepton import LeptonExecutor
 from nemo_run.core.execution.local import LocalExecutor
 from nemo_run.core.execution.skypilot import SkypilotExecutor
 from nemo_run.core.execution.slurm import SlurmExecutor
@@ -66,6 +69,18 @@ from nemo_run.run.utils import TeeStdoutStderr
 _current_experiment: contextvars.ContextVar["Experiment"] = contextvars.ContextVar(
     "nemo_current_experiment"
 )
+
+
+class DummyConsole:
+    """A dummy console that mimics rich.console.Console but does nothing."""
+
+    def __getattr__(self, name):
+        """Return a no-op function for any attribute access."""
+
+        def no_op(*args, **kwargs):
+            pass
+
+        return no_op
 
 
 class Experiment(ConfigurableMixin):
@@ -189,8 +204,14 @@ nemo experiment cancel {exp_id} 0
         SkypilotExecutor,
         DockerExecutor,
         DGXCloudExecutor,
+        LeptonExecutor,
     )
-    _DETACH_SUPPORTED_EXECUTORS = (SlurmExecutor, SkypilotExecutor, DGXCloudExecutor)
+    _DETACH_SUPPORTED_EXECUTORS = (
+        SlurmExecutor,
+        SkypilotExecutor,
+        DGXCloudExecutor,
+        LeptonExecutor,
+    )
     _DEPENDENCY_SUPPORTED_EXECUTORS = (SlurmExecutor,)
     _RUNNER_DEPENDENT_EXECUTORS = (LocalExecutor,)
     _CONFIG_FILE = "_CONFIG"
@@ -280,6 +301,7 @@ nemo experiment cancel {exp_id} 0
         _reconstruct: bool = False,
         jobs: list[Job | JobGroup] | None = None,
         base_dir: str | None = None,
+        clean_mode: bool = False,
     ) -> None:
         """
         Initializes an experiment run by creating its metadata directory and saving the experiment config.
@@ -294,6 +316,7 @@ nemo experiment cancel {exp_id} 0
             log_level: Set log level for the experiment. Defaults to WARN.
             _reconstruct: Generally, the user does not need to specify this flag.
                 This is only set to True when using run.Experiment.from_dir.
+            clean_mode: If True, disables all console output (logs, progress bars, etc.). Defaults to False.
         """
         configure_logging(level=log_level)
         self._reconstruct = _reconstruct
@@ -318,6 +341,9 @@ nemo experiment cancel {exp_id} 0
         self._jobs: list[Job | JobGroup] = jobs or []
         self.tunnels: dict[str, Tunnel] = {}
         self.console = CONSOLE
+        self.clean_mode = clean_mode
+        if self.clean_mode:
+            self.console = DummyConsole()
         self._launched = False
         self._live_progress = None
         self._current_experiment_token = None
@@ -329,6 +355,7 @@ nemo experiment cancel {exp_id} 0
             id=self._id,
             executor=self.executor.to_config(),
             log_level=self.log_level,
+            clean_mode=self.clean_mode,
         )
 
     def _save_experiment(self, exist_ok: bool = False):
@@ -1037,9 +1064,10 @@ For more information about `run.Config` and `run.Partial`, please refer to https
         if not self._live_progress:
             # Disable live progress if we are tailing logs for any task
             # as tty output consistency can not be guaranteed as of now
-            if any(map(lambda job: job.tail_logs, self.jobs)):
+            if self.clean_mode or any(map(lambda job: job.tail_logs, self.jobs)):
                 return
 
+            assert isinstance(self.console, rich.console.Console)
             self._progress = Progress(
                 "{task.description}",
                 SpinnerColumn(),

@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: fastapi-azure-auth
-Version: 5.1.1
+Version: 5.2.0
 Summary: Easy and secure implementation of Azure Entra ID for your FastAPI APIs
 Keywords: ad,async,asyncio,authentication,azure,azure ad,azure entra id,azure entra,entra id,azuread,fastapi,multi tenant,oauth2,oidc,security,single tenant,starlette,trio
 Author: Jonas Krüger Svensson

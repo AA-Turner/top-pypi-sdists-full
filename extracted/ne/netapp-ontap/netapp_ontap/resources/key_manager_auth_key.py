@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -61,15 +61,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     KeyManagerAuthKey(
         {
             "key_tag": "vsim1",
-            "key_id": "00000000000000000200000000000100052ab79fc51a430dbb16f1c0d2054cfe0000000000000000",
             "security_key_manager": {"uuid": "d36a654d-14b4-11ed-b82e-005056bb8f59"},
+            "key_id": "00000000000000000200000000000100052ab79fc51a430dbb16f1c0d2054cfe0000000000000000",
         }
     ),
     KeyManagerAuthKey(
         {
             "key_tag": "vsim1",
-            "key_id": "000000000000000002000000000001003f32ce2dc55d2764c07da74e722c179b0000000000000000",
             "security_key_manager": {"uuid": "d36a654d-14b4-11ed-b82e-005056bb8f59"},
+            "key_id": "000000000000000002000000000001003f32ce2dc55d2764c07da74e722c179b0000000000000000",
         }
     ),
 ]

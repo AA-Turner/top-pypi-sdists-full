@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: maxminddb
-Version: 2.7.0
+Version: 2.8.2
 Summary: Reader for the MaxMind DB format
 Author-email: Gregory Oschwald <goschwald@maxmind.com>
 License-Expression: Apache-2.0
@@ -19,6 +19,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Classifier: Topic :: Internet
 Classifier: Topic :: Internet :: Proxy Servers
 Requires-Python: >=3.9
@@ -42,7 +43,7 @@ subnets (IPv4 or IPv6).
 Installation
 ------------
 
-To install ``maxminddb```, type:
+To install ``maxminddb``, type:
 
 .. code-block:: bash
 

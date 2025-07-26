@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -42,15 +42,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 VolumeEfficiencyPolicy(
     {
-        "name": "new_policy",
         "schedule": {"name": "daily"},
         "qos_policy": "best_effort",
         "comment": "schedule-policy",
-        "uuid": "a69d8173-450c-11e9-aa44-005056bbc848",
         "enabled": True,
+        "uuid": "a69d8173-450c-11e9-aa44-005056bbc848",
         "svm": {"name": "vs1"},
-        "type": "scheduled",
         "duration": 2,
+        "type": "scheduled",
+        "name": "new_policy",
     }
 )
 
@@ -76,35 +76,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     VolumeEfficiencyPolicy(
         {
-            "name": "default",
             "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/volume-efficiency-policies/3c112527-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
+            "name": "default",
         }
     ),
     VolumeEfficiencyPolicy(
         {
-            "name": "default-1weekly",
             "uuid": "3c1c1656-2fe8-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/volume-efficiency-policies/3c1c1656-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
+            "name": "default-1weekly",
         }
     ),
     VolumeEfficiencyPolicy(
         {
-            "name": "none",
             "uuid": "3c228b82-2fe8-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/volume-efficiency-policies/3c228b82-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
+            "name": "none",
         }
     ),
 ]
@@ -381,9 +381,6 @@ class VolumeEfficiencyPolicy(Resource):
         **kwargs
     ) -> NetAppResponse:
         r"""Updates a volume efficiency policy.
-### Platform Specifics
-* **Unified ONTAP**: PATCH must be used to update the attributes of a volume efficiency policy.
-* **ASA r2**: PATCH is not supported.
 ### Related ONTAP commands
 * `volume efficiency policy modify`
 ### Learn more
@@ -409,9 +406,6 @@ class VolumeEfficiencyPolicy(Resource):
         **kwargs
     ) -> Union[List["VolumeEfficiencyPolicy"], NetAppResponse]:
         r"""Creates a volume efficiency policy.
-### Platform Specifics
-* **Unified ONTAP**: POST must be used to create a volume efficiency policy.
-* **ASA r2**: POST is not supported.
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the volume efficiency policy.
 * `name` - Name for the volume efficiency policy.
@@ -455,9 +449,6 @@ If not specified in POST, the following default property values are assigned:
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes a volume efficiency policy.
-### Platform Specifics
-* **Unified ONTAP**: DELETE must be used to delete a volume efficiency policy.
-* **ASA r2**: DELETE is not supported.
 ### Related ONTAP commands
 * `volume efficiency policy delete`
 ### Learn more
@@ -502,9 +493,6 @@ If not specified in POST, the following default property values are assigned:
         **kwargs
     ) -> NetAppResponse:
         r"""Creates a volume efficiency policy.
-### Platform Specifics
-* **Unified ONTAP**: POST must be used to create a volume efficiency policy.
-* **ASA r2**: POST is not supported.
 ### Required properties
 * `svm.uuid` or `svm.name` - Existing SVM in which to create the volume efficiency policy.
 * `name` - Name for the volume efficiency policy.
@@ -544,9 +532,6 @@ If not specified in POST, the following default property values are assigned:
         **kwargs
     ) -> NetAppResponse:
         r"""Updates a volume efficiency policy.
-### Platform Specifics
-* **Unified ONTAP**: PATCH must be used to update the attributes of a volume efficiency policy.
-* **ASA r2**: PATCH is not supported.
 ### Related ONTAP commands
 * `volume efficiency policy modify`
 ### Learn more
@@ -568,9 +553,6 @@ If not specified in POST, the following default property values are assigned:
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes a volume efficiency policy.
-### Platform Specifics
-* **Unified ONTAP**: DELETE must be used to delete a volume efficiency policy.
-* **ASA r2**: DELETE is not supported.
 ### Related ONTAP commands
 * `volume efficiency policy delete`
 ### Learn more

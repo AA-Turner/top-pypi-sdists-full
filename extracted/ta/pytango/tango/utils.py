@@ -6,8 +6,10 @@ This is an internal PyTango module.
 """
 
 
+import atexit
 import collections.abc
 import contextlib
+import logging
 import os
 import re
 import socket
@@ -2058,23 +2060,6 @@ def _truthy_env_var(name) -> bool:
     return False
 
 
-_debug_run_active = False
-try:
-    import pydevd
-
-    _debugger = pydevd.get_global_debugger()
-    _disabled_via_env_var = _truthy_env_var("PYTANGO_DISABLE_DEBUG_TRACE_PATCHING")
-    if _debugger is not None and not _disabled_via_env_var:
-        _debug_run_active = True
-        warnings.warn(
-            "pydevd debugger detected: tango.server.Device methods "
-            "will be patched for tracing.",
-            category=PyTangoUserWarning,
-        )
-except Exception:
-    pass
-
-
 _coverage_run_active = False
 
 try:
@@ -2085,13 +2070,6 @@ try:
             warnings.warn(
                 "Coverage run detected, but PYTANGO_DISABLE_COVERAGE_TRACE_PATCHING "
                 "environment variable is set. Reported coverage may be inaccurate.",
-                category=PyTangoUserWarning,
-            )
-        elif _debug_run_active:
-            warnings.warn(
-                "Coverage run detected, but debugger also detected. "
-                "Patching only for debugger, not for coverage."
-                "Reported coverage may be inaccurate.",
                 category=PyTangoUserWarning,
             )
         else:
@@ -2109,6 +2087,40 @@ try:
                     category=PyTangoUserWarning,
                 )
 
+except Exception:
+    pass
+
+_traced_debug_run_active = False
+pydevd = None
+
+try:
+    _disabled_via_env_var = _truthy_env_var("PYTANGO_DISABLE_DEBUG_TRACE_PATCHING")
+    if not _disabled_via_env_var:
+        _forced_via_env_var = _truthy_env_var("PYTANGO_FORCE_DEBUG_TRACE_PATCHING")
+        if sys.version_info < (3, 12) or _forced_via_env_var:
+            if "PYDEVD_DISABLE_FILE_VALIDATION" not in os.environ:
+                os.environ["PYDEVD_DISABLE_FILE_VALIDATION"] = "1"
+            import pydevd
+
+            _debugger = pydevd.get_global_debugger()
+        else:
+            # we assume debugger using sys.monitoring hooks so it doesn't need patching
+            _debugger = None
+
+        if _debugger is not None:
+            if _coverage_run_active:
+                warnings.warn(
+                    "Debugger detected, but coverage run also detected. "
+                    "Patching only for coverage, not for debugger.",
+                    category=PyTangoUserWarning,
+                )
+            else:
+                _traced_debug_run_active = True
+                warnings.warn(
+                    "Debugger detected: tango.server.Device methods "
+                    "will be patched for tracing.",
+                    category=PyTangoUserWarning,
+                )
 except Exception:
     pass
 
@@ -2324,6 +2336,28 @@ try:
             )
             return tracer
 
+        @atexit.register
+        def _shutdown_telemetry():
+            _telemetry.cleanup_default_telemetry_interface()
+
+        def _set_telemetry_sdk_log_level():
+            level_str = ApiUtil.get_env_var("PYTANGO_TELEMETRY_SDK_LOG_LEVEL")
+            if level_str:
+                level_int = logging.getLevelNamesMapping()[level_str.upper()]
+                names_csv = ApiUtil.get_env_var("PYTANGO_TELEMETRY_SDK_LOGGER_NAMES")
+                if names_csv:
+                    names = names_csv.split(",")
+                else:
+                    names = [
+                        "opentelemetry.sdk.trace.export",
+                        "opentelemetry.sdk._shared_internal",
+                    ]
+                for name in names:
+                    logging.getLogger(name).setLevel(level_int)
+                _telemetry.set_log_level(level_str)
+
+        _set_telemetry_sdk_log_level()
+
         _telemetry_client_tracer: typing.Union[None, trace_api.Tracer] = None
         _telemetry_active = True
 except ImportError:
@@ -2457,7 +2491,7 @@ def get_telemetry_tracer_provider_factory() -> _TracerProviderFactory:
     return _current_telemetry_tracer_provider_factory
 
 
-_force_tracing = _debug_run_active or _coverage_run_active or _telemetry_active
+_force_tracing = _traced_debug_run_active or _coverage_run_active or _telemetry_active
 
 
 def _forcefully_traced_method(fn, is_kernel_method=False):
@@ -2486,13 +2520,14 @@ def _forcefully_traced_method(fn, is_kernel_method=False):
     def _set_sys_tracer_and_get_original():
         original_sys_tracer = "EMPTY"
 
-        if _debug_run_active:
-            pydevd.settrace(suspend=False, trace_only_current_thread=True)
-        elif _coverage_run_active:
+        if _coverage_run_active:
             original_sys_tracer = sys.gettrace()
             threading_trace_hook = getattr(threading, "_trace_hook", None)
             if threading_trace_hook:
                 sys.settrace(threading_trace_hook)
+        elif _traced_debug_run_active and pydevd is not None:
+            pydevd.settrace(suspend=False, trace_only_current_thread=True)
+
         return original_sys_tracer
 
     @functools.wraps(fn)

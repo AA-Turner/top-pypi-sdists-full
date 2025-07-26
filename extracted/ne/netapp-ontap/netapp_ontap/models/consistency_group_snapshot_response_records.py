@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -149,9 +149,8 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412 """
         "snaplock",
         "svm.name",
         "svm.uuid",
-        "write_fence",
     ]
-    """consistency_type,name,snaplock,svm.name,svm.uuid,write_fence,"""
+    """consistency_type,name,snaplock,svm.name,svm.uuid,"""
 
     postable_fields = [
         "comment",

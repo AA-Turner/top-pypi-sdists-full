@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,7 +26,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     Schedule(
         {
             "interval": "PT7M30S",
-            "name": "Balanced Placement Model Cache Update",
             "uuid": "0941e980-0158-11e9-a82c-005056bb4301",
             "_links": {
                 "self": {
@@ -34,12 +33,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "type": "interval",
+            "name": "Balanced Placement Model Cache Update",
         }
     ),
     Schedule(
         {
             "interval": "PT1H",
-            "name": "Auto Balance Aggregate Scheduler",
             "uuid": "0944b975-0158-11e9-a82c-005056bb4301",
             "_links": {
                 "self": {
@@ -47,12 +46,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "type": "interval",
+            "name": "Auto Balance Aggregate Scheduler",
         }
     ),
     Schedule(
         {
             "interval": "P1D",
-            "name": "Application Templates ASUP Dump",
             "uuid": "0c65f1fb-0158-11e9-a82c-005056bb4301",
             "_links": {
                 "self": {
@@ -60,6 +59,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 }
             },
             "type": "interval",
+            "name": "Application Templates ASUP Dump",
         }
     ),
 ]
@@ -86,18 +86,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Schedule(
     {
         "cluster": {
-            "name": "my_cluster",
             "uuid": "f3f9bbfa-0157-11e9-a82c-005056bb4301",
+            "name": "my_cluster",
         },
-        "name": "monthly",
+        "cron": {"hours": [0], "days": [1], "minutes": [20]},
         "uuid": "25312bd8-0158-11e9-a82c-005056bb4301",
-        "cron": {"days": [1], "hours": [0], "minutes": [20]},
         "_links": {
             "self": {
                 "href": "/api/cluster/schedules/25312bd8-0158-11e9-a82c-005056bb4301"
             }
         },
         "type": "cron",
+        "name": "monthly",
     }
 )
 

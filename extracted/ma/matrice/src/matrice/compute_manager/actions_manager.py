@@ -192,32 +192,35 @@ class ActionsManager:
             return {}
         return self.current_actions
 
-    @log_errors(raise_exception=False)
+    @log_errors(raise_exception=True)
     def start_actions_manager(self):
         """Start the actions manager main loop."""
         while True:
-            mem_usage = get_mem_usage()
-            logging.info("Memory usage: %d", mem_usage)
-            waiting_time = int(
-                min(
-                    self.poll_interval
-                    / max(
-                        0.001,
-                        self.memory_threshold - mem_usage,
-                    ),
-                    120,
+            try:
+                mem_usage = get_mem_usage()
+                logging.info("Memory usage: %d", mem_usage)
+                waiting_time = int(
+                    min(
+                        self.poll_interval
+                        / max(
+                            0.001,
+                            self.memory_threshold - mem_usage,
+                        ),
+                        120,
+                    )
                 )
-            )
-            if mem_usage < self.memory_threshold:
-                self.process_actions()
-                logging.info(
-                    "Waiting for %d seconds before next poll",
-                    waiting_time,
-                )
-            else:
-                logging.info(
-                    "Memory threshold exceeded, waiting for %d seconds",
-                    waiting_time,
-                )
-            cleanup_docker_storage()
+                if mem_usage < self.memory_threshold:
+                    self.process_actions()
+                    logging.info(
+                        "Waiting for %d seconds before next poll",
+                        waiting_time,
+                    )
+                else:
+                    logging.info(
+                        "Memory threshold exceeded, waiting for %d seconds",
+                        waiting_time,
+                    )
+                cleanup_docker_storage()
+            except Exception as e:
+                logging.error("Error in actions manager: %s", e)
             time.sleep(waiting_time)

@@ -2,10 +2,10 @@
 Tests for supported CLI param types for both, Click and argparse.
 """
 
+import enum
 import re
 from collections.abc import MutableSequence, MutableSet, Sequence
 from datetime import date, datetime, timedelta, timezone
-from enum import Enum
 from pathlib import Path
 from typing import (
     Any,
@@ -29,6 +29,7 @@ from typed_settings import (
     option,
     settings,
 )
+from typed_settings._compat import PY_311
 from typed_settings.types import ST
 
 
@@ -72,7 +73,7 @@ def make_cli(settings_cls: type[ST]) -> Cli:
             runner.settings = settings
 
         result = runner.invoke(cli, args, catch_exceptions=False, **kwargs)
-        assert result.exit_code == 0
+        assert result.exit_code == 0, result.output
         return result
 
     return run
@@ -93,11 +94,26 @@ def make_argparser(settings_cls: type[ST]) -> ArgParser:
     return parse_args
 
 
-class LeEnum(Enum):
+class LeEnum(enum.Enum):
     """A simple enum for testing."""
 
     spam = "Le spam"
     eggs = "Le eggs"
+
+
+if PY_311:
+
+    class LeIntEnum(enum.IntEnum):
+        """An int enum for testing."""
+
+        spam = 1
+        eggs = 2
+
+    class LeStrEnum(enum.StrEnum):
+        """A str enum for testing."""
+
+        spam = "Le spam"
+        eggs = "Le eggs"
 
 
 class ParamBase:
@@ -486,6 +502,93 @@ class TestEnumParam(ParamBase):
 
     cli_options = ["--a=spam", "--c=eggs"]
     expected_settings = Settings(LeEnum.spam, None, LeEnum.eggs)
+
+
+if PY_311:
+
+    class TestIntEnumParam(ParamBase):
+        """
+        Test int enum cli_options.
+        """
+
+        @settings
+        class Settings:
+            a: LeIntEnum
+            b: Optional[LeIntEnum]
+            c: LeIntEnum = LeIntEnum.spam
+
+        click_expected_help = [
+            "  --a [1|2]  [required]",
+            "  --b [1|2]",
+            "  --c [1|2]  [default: 1]",
+        ]
+        argparse_expected_help = [
+            "  --a {1,2}   [required]",
+            "  --b {1,2}",
+            "  --c {1,2}   [default: 1]",
+        ]
+
+        env_vars = {"A": "1", "C": "2"}
+        click_expected_env_var_defaults = [
+            "  --a [1|2]  [default: 1]",
+            "  --b [1|2]",
+            "  --c [1|2]  [default: 2]",
+        ]
+        argparse_expected_env_var_defaults = [
+            "  --a {1,2}   [default: 1]",
+            "  --b {1,2}",
+            "  --c {1,2}   [default: 2]",
+        ]
+
+        default_options = ["--a=1"]
+        expected_defaults = Settings(a=LeIntEnum.spam, b=None)
+
+        cli_options = ["--a=1", "--c=2"]
+        expected_settings = Settings(LeIntEnum.spam, None, LeIntEnum.eggs)
+
+    class TestStrEnumParam(ParamBase):
+        """
+        Test int enum cli_options.
+        """
+
+        @settings
+        class Settings:
+            a: LeStrEnum
+            b: Optional[LeStrEnum]
+            c: LeStrEnum = LeStrEnum.spam
+
+        click_expected_help = [
+            "  --a [Le spam|Le eggs]  [required]",
+            "  --b [Le spam|Le eggs]",
+            "  --c [Le spam|Le eggs]  [default: Le spam]",
+        ]
+        argparse_expected_help = [
+            "  --a {Le spam,Le eggs}",
+            "                        [required]",
+            "  --b {Le spam,Le eggs}",
+            "  --c {Le spam,Le eggs}",
+            "                        [default: Le spam]",
+        ]
+
+        env_vars = {"A": "Le spam", "C": "Le eggs"}
+        click_expected_env_var_defaults = [
+            "  --a [Le spam|Le eggs]  [default: Le spam]",
+            "  --b [Le spam|Le eggs]",
+            "  --c [Le spam|Le eggs]  [default: Le eggs]",
+        ]
+        argparse_expected_env_var_defaults = [
+            "  --a {Le spam,Le eggs}",
+            "                        [default: Le spam]",
+            "  --b {Le spam,Le eggs}",
+            "  --c {Le spam,Le eggs}",
+            "                        [default: Le eggs]",
+        ]
+
+        default_options = ["--a=Le spam"]
+        expected_defaults = Settings(a=LeStrEnum.spam, b=None)
+
+        cli_options = ["--a=Le spam", "--c=Le eggs"]
+        expected_settings = Settings(LeStrEnum.spam, None, LeStrEnum.eggs)
 
 
 class TestPathParam(ParamBase):

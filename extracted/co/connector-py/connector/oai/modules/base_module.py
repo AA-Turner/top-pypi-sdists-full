@@ -1,7 +1,7 @@
 from abc import abstractmethod
 from typing import TYPE_CHECKING
 
-from connector.generated import StandardCapabilityName
+from connector_sdk_types.generated import StandardCapabilityName
 
 if TYPE_CHECKING:
     from connector.oai.integration import Integration

@@ -386,7 +386,7 @@ class RedisKey[T]:
         match result:  # skipif-ci-and-not-linux
             case 0 | 1 as value:
                 return bool(value)
-            case _ as never:
+            case never:
                 assert_never(never)
 
     async def get(self, redis: Redis, /) -> T:
@@ -522,7 +522,7 @@ async def publish[T](
     /,
     *,
     serializer: Callable[[T], EncodableT],
-    timeout: Delta = _PUBLISH_TIMEOUT,
+    timeout: Delta | None = _PUBLISH_TIMEOUT,
 ) -> int: ...
 @overload
 async def publish(
@@ -532,7 +532,7 @@ async def publish(
     /,
     *,
     serializer: None = None,
-    timeout: Delta = _PUBLISH_TIMEOUT,
+    timeout: Delta | None = _PUBLISH_TIMEOUT,
 ) -> int: ...
 @overload
 async def publish[T](
@@ -542,7 +542,7 @@ async def publish[T](
     /,
     *,
     serializer: Callable[[T], EncodableT] | None = None,
-    timeout: Delta = _PUBLISH_TIMEOUT,
+    timeout: Delta | None = _PUBLISH_TIMEOUT,
 ) -> int: ...
 async def publish[T](
     redis: Redis,
@@ -551,7 +551,7 @@ async def publish[T](
     /,
     *,
     serializer: Callable[[T], EncodableT] | None = None,
-    timeout: Delta = _PUBLISH_TIMEOUT,
+    timeout: Delta | None = _PUBLISH_TIMEOUT,
 ) -> int:
     """Publish an object to a channel."""
     match data, serializer:  # skipif-ci-and-not-linux
@@ -561,7 +561,7 @@ async def publish[T](
             raise PublishError(data=data)
         case _, Callable():
             data_use = serializer(data)
-        case _ as never:
+        case never:
             assert_never(never)
     async with timeout_td(timeout):  # skipif-ci-and-not-linux
         response = await redis.publish(channel, data_use)  # skipif-ci-and-not-linux
@@ -587,7 +587,7 @@ async def publish_many[T](
     /,
     *,
     serializer: Callable[[T], EncodableT] | None = None,
-    timeout: Delta = _PUBLISH_TIMEOUT,
+    timeout: Delta | None = _PUBLISH_TIMEOUT,
 ) -> Sequence[bool]:
     """Publish an object/multiple objects to a channel."""
     async with TaskGroup() as tg:
@@ -613,7 +613,7 @@ async def _try_publish[T](
     /,
     *,
     serializer: Callable[[T], EncodableT] | None = None,
-    timeout: Delta = _PUBLISH_TIMEOUT,
+    timeout: Delta | None = _PUBLISH_TIMEOUT,
 ) -> bool:
     try:
         _ = await publish(redis, channel, data, serializer=serializer, timeout=timeout)
@@ -710,7 +710,7 @@ async def subscribe[T](
             def transform(message: _RedisMessage, /) -> T:
                 return deserialize(message["data"])
 
-        case _ as never:
+        case never:
             assert_never(never)
 
     task = create_task(  # skipif-ci-and-not-linux

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -121,7 +121,8 @@ class PoliciesAndRulesToBeApplied(Resource):
         connection: HostConnection = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Will create a background task to update the GPO settings for specified SVM.
+        r"""Creates a background task to update the GPO settings for the specified SVM.
+Note: The group policy can be enabled or disabled using "group_policy_object_enabled" field in PATCH "/protocols/cifs/services/{svm.uuid}" API.
 ### Related ONTAP commands
 * `vserver cifs group-policy update`
 """
@@ -162,7 +163,8 @@ class PoliciesAndRulesToBeApplied(Resource):
         poll_timeout: Optional[int] = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Will create a background task to update the GPO settings for specified SVM.
+        r"""Creates a background task to update the GPO settings for the specified SVM.
+Note: The group policy can be enabled or disabled using "group_policy_object_enabled" field in PATCH "/protocols/cifs/services/{svm.uuid}" API.
 ### Related ONTAP commands
 * `vserver cifs group-policy update`
 """

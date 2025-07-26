@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -24,6 +24,11 @@ class SoftwareNodeSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     firmware = marshmallow_fields.Nested("netapp_ontap.models.firmware.FirmwareSchema", unknown=EXCLUDE, data_key="firmware", allow_none=True)
     r""" The firmware field of the software_node. """
 
+    model = marshmallow_fields.Str(data_key="model", allow_none=True)
+    r""" Model number of the node.
+
+Example: AFF-A800 """
+
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
     r""" Name of the node.
 
@@ -43,11 +48,12 @@ Example: ONTAP_X """
 
     gettable_fields = [
         "firmware",
+        "model",
         "name",
         "software_images",
         "version",
     ]
-    """firmware,name,software_images,version,"""
+    """firmware,model,name,software_images,version,"""
 
     patchable_fields = [
         "software_images",

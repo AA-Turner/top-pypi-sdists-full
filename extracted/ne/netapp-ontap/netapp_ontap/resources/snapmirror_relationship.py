@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -198,10 +198,10 @@ Example: C1_sti85-vsim-ucs209a_cluster"""
 
     state = marshmallow_fields.Str(
         data_key="state",
-        validate=enum_validation(['broken_off', 'paused', 'snapmirrored', 'uninitialized', 'in_sync', 'out_of_sync', 'synchronizing', 'expanding']),
+        validate=enum_validation(['broken_off', 'paused', 'snapmirrored', 'uninitialized', 'in_sync', 'out_of_sync', 'synchronizing', 'expanding', 'shrinking']),
         allow_none=True,
     )
-    r""" State of the relationship.<br>To initialize the relationship, PATCH the state to "snapmirrored" for relationships with a policy of type "async" or to state "in_sync" for relationships with a policy of type "sync".<br>To break the relationship, PATCH the state to "broken_off" for relationships with a policy of type "async" or "sync". SnapMirror relationships with the policy type as "sync" and "sync_type" as "automated_failover" cannot be "broken_off".<br>To resync the relationship, PATCH the state to "snapmirrored" for relationships with a policy of type "async" or to state "in_sync" for relationships with a policy of type "sync". SnapMirror relationships with the policy type as "sync" and "sync_type" as "automated_failover" can be in "broken_off" state due to a failed attempt of SnapMirror failover.<br>To pause the relationship, suspending further transfers, PATCH the state to "paused" for relationships with a policy of type "async" or "sync". SnapMirror relationships with the policy type as "sync" and "sync_type" as "automated_failover" cannot be "paused".<br>To resume transfers for a paused relationship, PATCH the state to "snapmirrored" for relationships with a policy of type "async" or to state "in_sync" for relationships with a policy of type "sync".<br>The entries "in_sync", "out_of_sync", "synchronizing", and "expanding" are only applicable to relationships with a policy of type "sync". A PATCH call on the state change only triggers the transition to the specified state. You must poll on the "state", "healthy" and "unhealthy_reason" properties using a GET request to determine if the transition is successful. To automatically initialize the relationship when specifying "create_destination" property, set the state to "snapmirrored" for relationships with a policy of type "async" or to state "in_sync" for relationships with a policy of type "sync".
+    r""" State of the relationship.<br>To initialize the relationship, PATCH the state to "snapmirrored" for relationships with a policy of type "async" or to state "in_sync" for relationships with a policy of type "sync".<br>To break the relationship, PATCH the state to "broken_off" for relationships with a policy of type "async" or "sync". SnapMirror relationships with the policy type as "sync" and "sync_type" as "automated_failover" cannot be "broken_off".<br>To resync the relationship, PATCH the state to "snapmirrored" for relationships with a policy of type "async" or to state "in_sync" for relationships with a policy of type "sync". SnapMirror relationships with the policy type as "sync" and "sync_type" as "automated_failover" can be in "broken_off" state due to a failed attempt of SnapMirror failover.<br>To pause the relationship, suspending further transfers, PATCH the state to "paused" for relationships with a policy of type "async" or "sync". SnapMirror relationships with the policy type as "sync" and "sync_type" as "automated_failover" cannot be "paused".<br>To resume transfers for a paused relationship, PATCH the state to "snapmirrored" for relationships with a policy of type "async" or to state "in_sync" for relationships with a policy of type "sync".<br>The entries "in_sync", "out_of_sync", "synchronizing", "expanding", and "shrinking" are only applicable to relationships with a policy of type "sync". A PATCH call on the state change only triggers the transition to the specified state. You must poll on the "state", "healthy" and "unhealthy_reason" properties using a GET request to determine if the transition is successful. To automatically initialize the relationship when specifying "create_destination" property, set the state to "snapmirrored" for relationships with a policy of type "async" or to state "in_sync" for relationships with a policy of type "sync".
 
 Valid choices:
 
@@ -212,7 +212,8 @@ Valid choices:
 * in_sync
 * out_of_sync
 * synchronizing
-* expanding"""
+* expanding
+* shrinking"""
 
     svmdr_volumes = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.snapmirror_relationship_svmdr_volumes.SnapmirrorRelationshipSvmdrVolumesSchema", unknown=EXCLUDE, allow_none=True), data_key="svmdr_volumes", allow_none=True)
     r""" Specifies the list of constituent FlexVol volumes and FlexGroup volumes for an SVM DR SnapMirror relationship. FlexGroup constituents are not considered."""
@@ -652,6 +653,15 @@ If not specified in POST, the following default property values are assigned:
 * `destination.ipspace` - `_Default_`
 * `throttle` - _0_
 * `backoff_level` - `_high_`
+* `policy.name` - _Asynchronous_
+* `restore` - _false_
+
+
+
+
+* `destination.ipspace` - `_Default_`
+* `throttle` - _0_
+* `backoff_level` - `_high_`
 ### Related ONTAP commands
 * `snapmirror create`
 * `snapmirror protect`
@@ -715,9 +725,16 @@ The following examples show how to create FlexVol volumes, FlexGroup volumes, SV
    ```
    POST "/api/snapmirror/relationships/" '{"source": { "path": "src_svm:/cg/cg_src_vol", "consistency_group_volumes": [{ "name": "src_vol_1" }, { "name": "src_vol_2" }] }, "destination": { "path": "dst_svm:/cg/cg_dst_vol", "consistency_group_volumes": [{ "name": "dst_vol_1" }, { "name": "dst_vol_2" }] }, "policy": "Asynchronous" }'
    ```
+   Create an asynchronous SnapMirror relationship with a child Application Consistency Group endpoint.
+   <br/>
+   ```
+   POST "/api/snapmirror/relationships/" '{"source": { "path": "src_svm:/cg/parent_src_cg/sub_child_cg" }, "destination": { "path": "dst_svm:/cg/cg_dst_vol" }, "policy": "MirrorAndVault" }'
+   ```
+   <personalities supports=asar2>
    Provision the destination Application Consistency Group endpoint on a Fabricpool with a tiering policy, create an asynchronous SnapMirror relationship with a SnapMirror policy of type "async", and initialize the SnapMirror relationship with state as "snapmirrored".
    <br/>
    ```
+   </personalities>
    POST "/api/snapmirror/relationships/" '{"source": {"path": "src_svm:/cg/cg_src_vol", "consistency_group_volumes": [{ "name": "src_vol_1" }, { "name": "src_vol_2" }] }, "destination": { "path": "dst_svm:/cg/cg_dst_vol", "consistency_group_volumes": [{ "name": "dst_vol_1" }, { "name": "dst_vol_2" }] }, "create_destination": { "enabled": "true", "tiering": { "supported": "true" } }, "policy": "Asynchronous", "state": "snapmirrored" }'
    ```
    Create a SnapMirror active sync relationship with the Application Consistency Group endpoint.
@@ -785,6 +802,7 @@ Provision the destination Application Consistency Group endpoint with storage se
 * The "failover", "force-failover" and "failback" query parameters are only applicable for SVM-DR SnapMirror relationships.
 * When a SnapMirror relationship associated with a pair of source and destination Consistency Groups is deleted, the corresponding Consistency Groups on the source and destination clusters are not automatically deleted and remain in place.
 * The "delete_lun_maps_in_destination" query parameter is applicable only for SnapMirror active sync relationships.
+* The "unmap_namespace" query parameter is applicable only for NVMe SnapMirror active sync relationships.
 ### Related ONTAP commands
 * `snapmirror delete`
 * `snapmirror release`
@@ -819,6 +837,12 @@ The following examples show how to delete the relationship from both the source 
    <br/>
    ```
    DELETE "/api/snapmirror/relationships/feda8f5e-e29e-11ed-94aa-005056a78ce2/?delete_lun_maps_in_destination=true"
+   ```
+   <br/>
+   Deleting the relationship from destination cluster along with deleting the namespace maps for the volumes of the CG in destination cluster. This API must be run on the cluster containing the destination endpoint.
+   <br/>
+   ```
+   DELETE "/api/snapmirror/relationships/feda8f5e-e29e-11ed-94aa-005056a78ce2/?unmap_namespace=true"
    ```
    <br/>
 ### Learn more
@@ -944,6 +968,15 @@ If not specified in POST, the following default property values are assigned:
 * `destination.ipspace` - `_Default_`
 * `throttle` - _0_
 * `backoff_level` - `_high_`
+* `policy.name` - _Asynchronous_
+* `restore` - _false_
+
+
+
+
+* `destination.ipspace` - `_Default_`
+* `throttle` - _0_
+* `backoff_level` - `_high_`
 ### Related ONTAP commands
 * `snapmirror create`
 * `snapmirror protect`
@@ -1007,9 +1040,16 @@ The following examples show how to create FlexVol volumes, FlexGroup volumes, SV
    ```
    POST "/api/snapmirror/relationships/" '{"source": { "path": "src_svm:/cg/cg_src_vol", "consistency_group_volumes": [{ "name": "src_vol_1" }, { "name": "src_vol_2" }] }, "destination": { "path": "dst_svm:/cg/cg_dst_vol", "consistency_group_volumes": [{ "name": "dst_vol_1" }, { "name": "dst_vol_2" }] }, "policy": "Asynchronous" }'
    ```
+   Create an asynchronous SnapMirror relationship with a child Application Consistency Group endpoint.
+   <br/>
+   ```
+   POST "/api/snapmirror/relationships/" '{"source": { "path": "src_svm:/cg/parent_src_cg/sub_child_cg" }, "destination": { "path": "dst_svm:/cg/cg_dst_vol" }, "policy": "MirrorAndVault" }'
+   ```
+   <personalities supports=asar2>
    Provision the destination Application Consistency Group endpoint on a Fabricpool with a tiering policy, create an asynchronous SnapMirror relationship with a SnapMirror policy of type "async", and initialize the SnapMirror relationship with state as "snapmirrored".
    <br/>
    ```
+   </personalities>
    POST "/api/snapmirror/relationships/" '{"source": {"path": "src_svm:/cg/cg_src_vol", "consistency_group_volumes": [{ "name": "src_vol_1" }, { "name": "src_vol_2" }] }, "destination": { "path": "dst_svm:/cg/cg_dst_vol", "consistency_group_volumes": [{ "name": "dst_vol_1" }, { "name": "dst_vol_2" }] }, "create_destination": { "enabled": "true", "tiering": { "supported": "true" } }, "policy": "Asynchronous", "state": "snapmirrored" }'
    ```
    Create a SnapMirror active sync relationship with the Application Consistency Group endpoint.
@@ -1252,6 +1292,7 @@ The following examples show how to perform the SnapMirror "resync", "initialize"
 * The "failover", "force-failover" and "failback" query parameters are only applicable for SVM-DR SnapMirror relationships.
 * When a SnapMirror relationship associated with a pair of source and destination Consistency Groups is deleted, the corresponding Consistency Groups on the source and destination clusters are not automatically deleted and remain in place.
 * The "delete_lun_maps_in_destination" query parameter is applicable only for SnapMirror active sync relationships.
+* The "unmap_namespace" query parameter is applicable only for NVMe SnapMirror active sync relationships.
 ### Related ONTAP commands
 * `snapmirror delete`
 * `snapmirror release`
@@ -1286,6 +1327,12 @@ The following examples show how to delete the relationship from both the source 
    <br/>
    ```
    DELETE "/api/snapmirror/relationships/feda8f5e-e29e-11ed-94aa-005056a78ce2/?delete_lun_maps_in_destination=true"
+   ```
+   <br/>
+   Deleting the relationship from destination cluster along with deleting the namespace maps for the volumes of the CG in destination cluster. This API must be run on the cluster containing the destination endpoint.
+   <br/>
+   ```
+   DELETE "/api/snapmirror/relationships/feda8f5e-e29e-11ed-94aa-005056a78ce2/?unmap_namespace=true"
    ```
    <br/>
 ### Learn more

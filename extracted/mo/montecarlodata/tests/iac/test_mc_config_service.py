@@ -18,6 +18,7 @@ from montecarlodata.iac.commands import compile as compile_config
 from montecarlodata.iac.commands import (
     convert_to_mac,
     convert_to_ui,
+    export,
     export_as_latest,
     export_migrated_dt,
     get_template,
@@ -1494,3 +1495,212 @@ montecarlo:
         )
 
         assert result.output == "foo: bar\n"
+
+    @patch("os.getcwd")
+    @responses.activate
+    def test_convert_to_mac_with_monitor_uuids(self, getcwd):
+        responses.post(
+            _SAMPLE_CONFIG.mcd_api_endpoint,
+            json={
+                "data": {
+                    "convertUiMonitorsToConfigTemplate": {
+                        "response": {
+                            "configTemplateAsDict": json.dumps({"foo": "bar"}),
+                            "errors": [],
+                        },
+                    },
+                }
+            },
+        )
+
+        dir = self._get_temp_dir("convert_to_mac")
+        shutil.rmtree(dir, ignore_errors=True)
+
+        ctx = _SAMPLE_CONFIG
+        runner = CliRunner()
+        result = runner.invoke(
+            convert_to_mac,
+            obj={"config": ctx},
+            args=[
+                "--namespace",
+                "test-namespace",
+                "--project-dir",
+                dir,
+                "--dry-run",
+                "--monitor-uuids",
+                "2eb76621-3344-421a-bf8c-835173ef2d70,807cb339-1d9c-4234-a945-1e85de54513b",
+            ],
+        )
+        self.assertEqual(result.output, f"Wrote monitor config to {dir}.\n")
+
+        getcwd.return_value = dir
+        service = MonteCarloConfigService(
+            _SAMPLE_CONFIG,
+            command_name="test",
+            request_wrapper=self._request_wrapper_mock,
+            pycarlo_client=self._pycarlo_client,
+            print_func=self._print_func,
+        )
+
+        files, template, _ = service.compile("test")
+
+        self.assertEqual(len(files), 1)
+        self.assertEqual(json.loads(json.dumps(template)), {"test-namespace": {"foo": "bar"}})
+
+        self.assertEqual(len(responses.calls), 1)
+        self.assertEqual(
+            json.loads(responses.calls[0].request.body)["variables"],
+            {
+                "allMonitors": False,
+                "dryRun": True,
+                "monitorUuids": [
+                    "2eb76621-3344-421a-bf8c-835173ef2d70",
+                    "807cb339-1d9c-4234-a945-1e85de54513b",
+                ],
+                "namespace": "test-namespace",
+            },
+        )
+
+    @responses.activate
+    def test_export_with_monitor_uuids(self):
+        responses.post(
+            _SAMPLE_CONFIG.mcd_api_endpoint,
+            json={
+                "data": {
+                    "exportMonteCarloConfigTemplates": {
+                        "configTemplateAsYaml": "foo: bar",
+                        "errors": [],
+                    },
+                }
+            },
+        )
+
+        ctx = _SAMPLE_CONFIG
+        runner = CliRunner()
+        result = runner.invoke(
+            export,
+            obj={"config": ctx},
+            args=[
+                "--monitor-uuids",
+                "2eb76621-3344-421a-bf8c-835173ef2d70,807cb339-1d9c-4234-a945-1e85de54513b",
+            ],
+        )
+        self.assertEqual(result.output, "foo: bar\n")
+
+        self.assertEqual(len(responses.calls), 1)
+        self.assertEqual(
+            json.loads(responses.calls[0].request.body)["variables"],
+            {
+                "exportName": True,
+                "monitorUuids": [
+                    "2eb76621-3344-421a-bf8c-835173ef2d70",
+                    "807cb339-1d9c-4234-a945-1e85de54513b",
+                ],
+            },
+        )
+
+    @responses.activate
+    def test_export_with_monitors_file(self):
+        responses.post(
+            _SAMPLE_CONFIG.mcd_api_endpoint,
+            json={
+                "data": {
+                    "exportMonteCarloConfigTemplates": {
+                        "configTemplateAsYaml": "foo: bar",
+                        "errors": [],
+                    },
+                }
+            },
+        )
+
+        monitors_file = os.path.join(self._get_project_dir("export_as_latest"), "monitors_uuids")
+
+        ctx = _SAMPLE_CONFIG
+        runner = CliRunner()
+        result = runner.invoke(
+            export,
+            obj={"config": ctx},
+            args=[
+                "--monitors-file",
+                monitors_file,
+            ],
+        )
+        self.assertEqual(result.output, "foo: bar\n")
+
+        self.assertEqual(len(responses.calls), 1)
+        self.assertEqual(
+            json.loads(responses.calls[0].request.body)["variables"],
+            {
+                "exportName": True,
+                "monitorUuids": [
+                    "2eb76621-3344-421a-bf8c-835173ef2d70",
+                    "807cb339-1d9c-4234-a945-1e85de54513b",
+                ],
+            },
+        )
+
+    @responses.activate
+    def test_export_with_export_name_false(self):
+        responses.post(
+            _SAMPLE_CONFIG.mcd_api_endpoint,
+            json={
+                "data": {
+                    "exportMonteCarloConfigTemplates": {
+                        "configTemplateAsYaml": "foo: bar",
+                        "errors": [],
+                    },
+                }
+            },
+        )
+
+        ctx = _SAMPLE_CONFIG
+        runner = CliRunner()
+        result = runner.invoke(
+            export,
+            obj={"config": ctx},
+            args=[
+                "--monitor-uuids",
+                "2eb76621-3344-421a-bf8c-835173ef2d70",
+                "--export-name",
+                "false",
+            ],
+        )
+        self.assertEqual(result.output, "foo: bar\n")
+
+        self.assertEqual(len(responses.calls), 1)
+        self.assertEqual(
+            json.loads(responses.calls[0].request.body)["variables"],
+            {
+                "exportName": False,
+                "monitorUuids": [
+                    "2eb76621-3344-421a-bf8c-835173ef2d70",
+                ],
+            },
+        )
+
+    def test_export_with_both_params(self):
+        ctx = _SAMPLE_CONFIG
+        runner = CliRunner()
+        result = runner.invoke(
+            export,
+            obj={"config": ctx},
+            args=[
+                "--monitor-uuids",
+                "2eb76621-3344-421a-bf8c-835173ef2d70",
+                "--monitors-file",
+                "some_file.txt",
+            ],
+        )
+        self.assertIn("Cannot use both --monitor-uuids and --monitors-file", result.output)
+        self.assertNotEqual(result.exit_code, 0)
+
+    def test_export_with_no_params(self):
+        ctx = _SAMPLE_CONFIG
+        runner = CliRunner()
+        result = runner.invoke(
+            export,
+            obj={"config": ctx},
+            args=[],
+        )
+        self.assertIn("You must provide either --monitor-uuids or --monitors-file", result.output)
+        self.assertNotEqual(result.exit_code, 0)

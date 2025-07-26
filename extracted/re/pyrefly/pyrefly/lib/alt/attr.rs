@@ -178,16 +178,6 @@ impl AttrSubsetError {
     }
 }
 
-/// The result of a read for narrowing purposes. We track whether we are narrowing
-/// a property or descriptor that might not be idempotent, and if so we also
-/// indicate when this came through a union (so that error messages can be clearer).
-#[derive(Debug)]
-pub enum Narrowable {
-    Simple(Type),
-    PropertyOrDescriptor(Type),
-    UnionPropertyOrDescriptor(Type),
-}
-
 /// The result of looking up an attribute. We can analyze get and set actions
 /// on an attribute, each of which can be allowed with some type or disallowed.
 #[derive(Debug)]
@@ -309,6 +299,20 @@ impl Attribute {
         }
     }
 
+    pub fn read_only_equivalent(attr: Attribute, reason: ReadOnlyReason) -> Self {
+        match attr.inner {
+            AttributeInner::Simple(ty, Visibility::ReadWrite) => Attribute::read_only(ty, reason),
+            AttributeInner::Property(getter, _, cls) => Attribute::property(getter, None, cls),
+            AttributeInner::Descriptor(descriptor) => Attribute::descriptor(
+                descriptor.descriptor_ty,
+                descriptor.base,
+                descriptor.getter,
+                None,
+            ),
+            inner => Attribute { inner },
+        }
+    }
+
     pub fn property(getter: Type, setter: Option<Type>, cls: Class) -> Self {
         Attribute {
             inner: AttributeInner::Property(getter, setter, cls),
@@ -384,6 +388,10 @@ impl LookupResult {
     /// need to prioiritize the class logic first.
     fn found_type(ty: Type) -> Self {
         Self::Found(Attribute::read_write(ty))
+    }
+
+    fn found_type_read_only(ty: Type, reason: ReadOnlyReason) -> Self {
+        Self::Found(Attribute::read_only(ty, reason))
     }
 }
 
@@ -976,7 +984,33 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn check_attr_subset(
+    /// Predicate for whether a specific attribute name matches a protocol during structural
+    /// subtyping checks.
+    ///
+    /// The `is_subset` function (which in most cases will just behave as the
+    /// usual subset function) is provided as a callback because we need a way
+    /// to track the recursive hypthothesis.
+    pub fn is_protocol_subset_at_attr(
+        &self,
+        got: &Type,
+        protocol: &ClassType,
+        name: &Name,
+        is_subset: &mut dyn FnMut(&Type, &Type) -> bool,
+    ) -> bool {
+        let got_attrs = self.try_lookup_attr(got, name);
+        if (!got_attrs.is_empty())
+            && let Some(want) = self.try_lookup_attr_from_class_type(protocol.clone(), name)
+        {
+            got_attrs.iter().all(|got_attr| {
+                self.is_attribute_subset(got_attr, &want, &mut |got, want| is_subset(got, want))
+                    .is_ok()
+            })
+        } else {
+            false
+        }
+    }
+
+    pub fn is_attribute_subset(
         &self,
         got: &Attribute,
         want: &Attribute,
@@ -1239,11 +1273,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn resolve_named_tuple_element(&self, attr: Attribute) -> Option<Type> {
-        // NamedTuples are immutable, so their attributes are always read-only
-        // NOTE(grievejia): We do not use `__getattr__` here because this lookup is expected to be invoked
-        // on NamedTuple attributes with known names.
-        match attr.inner {
+    pub fn resolve_named_tuple_element(&self, cls: ClassType, name: &Name) -> Option<Type> {
+        match self
+            .try_lookup_attr_from_class_type(cls.clone(), name)?
+            .inner
+        {
+            // NamedTuples are immutable, so their attributes are always read-only
+            // NOTE(grievejia): We do not use `__getattr__` here because this lookup is expected to be invoked
+            // on NamedTuple attributes with known names.
             AttributeInner::Simple(ty, Visibility::ReadOnly(_)) => Some(ty),
             AttributeInner::Simple(_, Visibility::ReadWrite)
             | AttributeInner::NoAccess(_)
@@ -1330,16 +1367,25 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
             }
             AttributeBase::SuperInstance(cls, obj) => {
                 match self.get_super_attribute(&cls, &obj, attr_name) {
-                    Some(attr) => LookupResult::Found(attr),
+                    Some(attr) => LookupResult::Found(Attribute::read_only_equivalent(
+                        attr,
+                        ReadOnlyReason::Super,
+                    )),
                     None if let SuperObj::Instance(cls) = &obj
                         && self.extends_any(cls.class_object()) =>
                     {
-                        LookupResult::found_type(Type::Any(AnyStyle::Implicit))
+                        LookupResult::found_type_read_only(
+                            Type::Any(AnyStyle::Implicit),
+                            ReadOnlyReason::Super,
+                        )
                     }
                     None if let SuperObj::Class(cls) = &obj
                         && self.extends_any(cls) =>
                     {
-                        LookupResult::found_type(Type::Any(AnyStyle::Implicit))
+                        LookupResult::found_type_read_only(
+                            Type::Any(AnyStyle::Implicit),
+                            ReadOnlyReason::Super,
+                        )
                     }
                     None => LookupResult::NotFound(NotFound::Attribute(cls.class_object().dupe())),
                 }
@@ -1557,7 +1603,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn try_lookup_attr_from_class_type(
+    fn try_lookup_attr_from_class_type(
         &self,
         cls: ClassType,
         attr_name: &Name,
@@ -1568,7 +1614,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         }
     }
 
-    pub fn try_lookup_attr(&self, base: &Type, attr_name: &Name) -> Vec<Attribute> {
+    fn try_lookup_attr(&self, base: &Type, attr_name: &Name) -> Vec<Attribute> {
         let mut result = Vec::new();
         let bases = self.get_possible_attribute_bases(base);
         for attr_base in bases {
@@ -1747,54 +1793,26 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
     }
 
     /// Compute the get (i.e. read) type information of an attribute for narrowing.
-    /// - If the attribute is a descriptor that cannot be narrowed, return `PropertyOrDescriptor({read_type})`,
-    ///   where the `read_type` is the type of a fetch (which can be narrowed under the unchecked
-    ///   assumption that the descriptor return type is consistent).
-    /// - If the base type is a union and at least one case has a descriptor that cannot be narrowed,
-    ///   return UnionPropertyOrDescriptor({read_type}), which will allow us to make error messages
-    ///   clearer for this case.
-    /// - If the attribute is safely narrowable (up to data races, which we do not currently attempt
-    ///   to model) - which is true for normal attributes and may eventually for known-to-be-sound
-    ///   built-in descriptors, return `Simple({read_type})`
-    /// - If the attribute comes from `__getattr__`, treat it as safely narrowable. This is unsound but
-    ///   pragmatic, because `__getattr__` stubs are often used to indicate gradual typing.
-    /// - If the attribute cannot be found or read return `Simple(ClassType({object}))`. There will
-    ///   still be a type error on the narrow, but we should treat it as a valid narrow starting
-    ///   from `object` in downstream code.
+    ///
+    /// We assume that any attribute read coming from a method call (be it a descriptor
+    /// of some sort, including property, or `__getattr__` / `__getattribute__`)
+    /// is idempotent, and allow narrowing that will be unsound if it is not.
     pub fn narrowable_for_attr(
         &self,
         base: &Type,
         attr_name: &Name,
         range: TextRange,
         errors: &ErrorCollector,
-    ) -> Narrowable {
+    ) -> Type {
         match base {
-            Type::Union(base_tys) => {
-                let mut has_property_or_descriptor = false;
-                let ty = self.unions(
-                    base_tys
-                        .iter()
-                        .map(|base_ty| {
-                            match self
-                                .narrowable_for_attr_no_union(base_ty, attr_name, range, errors)
-                            {
-                                Narrowable::Simple(ty) => ty,
-                                // UnionPropertyOrDescriptor shouldn't happen in practice
-                                Narrowable::PropertyOrDescriptor(ty)
-                                | Narrowable::UnionPropertyOrDescriptor(ty) => {
-                                    has_property_or_descriptor = true;
-                                    ty
-                                }
-                            }
-                        })
-                        .collect(),
-                );
-                if has_property_or_descriptor {
-                    Narrowable::UnionPropertyOrDescriptor(ty)
-                } else {
-                    Narrowable::Simple(ty)
-                }
-            }
+            Type::Union(base_tys) => self.unions(
+                base_tys
+                    .iter()
+                    .map(|base_ty| {
+                        self.narrowable_for_attr_no_union(base_ty, attr_name, range, errors)
+                    })
+                    .collect(),
+            ),
             _ => self.narrowable_for_attr_no_union(base, attr_name, range, errors),
         }
     }
@@ -1805,32 +1823,14 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         attr_name: &Name,
         range: TextRange,
         errors: &ErrorCollector,
-    ) -> Narrowable {
-        let fall_back_to_object_narrowable =
-            || Narrowable::Simple(Type::ClassType(self.stdlib.object().clone()));
+    ) -> Type {
+        let fall_back_to_object = || Type::ClassType(self.stdlib.object().clone());
         match self.lookup_attr_no_union(base, attr_name) {
-            LookupResult::InternalError(..) | LookupResult::NotFound(..) => {
-                fall_back_to_object_narrowable()
-            }
-            LookupResult::Found(attr) => {
-                let is_property_or_descriptor = match &attr.inner {
-                    AttributeInner::Simple(..)
-                    | AttributeInner::NoAccess(..)
-                    | AttributeInner::GetAttr(..)
-                    | AttributeInner::ModuleFallback(..) => false,
-                    AttributeInner::Property(..) | AttributeInner::Descriptor(..) => true,
-                };
-                match self.resolve_get_access(attr, range, errors, None) {
-                    Err(..) => fall_back_to_object_narrowable(),
-                    Ok(ty) => {
-                        if is_property_or_descriptor {
-                            Narrowable::PropertyOrDescriptor(ty)
-                        } else {
-                            Narrowable::Simple(ty)
-                        }
-                    }
-                }
-            }
+            LookupResult::InternalError(..) | LookupResult::NotFound(..) => fall_back_to_object(),
+            LookupResult::Found(attr) => match self.resolve_get_access(attr, range, errors, None) {
+                Err(..) => fall_back_to_object(),
+                Ok(ty) => ty,
+            },
         }
     }
 
@@ -1868,6 +1868,11 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 ),
             );
         }
+    }
+
+    pub fn try_lookup_instance_method(&self, class_type: ClassType, name: &Name) -> Option<Type> {
+        self.try_lookup_attr_from_class_type(class_type, name)
+            .and_then(|attr| self.resolve_as_instance_method(attr))
     }
 }
 

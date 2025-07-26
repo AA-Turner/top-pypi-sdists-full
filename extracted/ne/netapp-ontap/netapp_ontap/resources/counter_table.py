@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -181,47 +181,47 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CounterTable(
     {
-        "name": "qos_detail",
-        "_links": {"self": {"href": "/api/cluster/counter/tables/qos_detail"}},
         "description": "The qos_detail table that provides service center-based statistical information. Note: This table returns a large number of rows. Querying by row name and using wild cards may improve response times.",
+        "_links": {"self": {"href": "/api/cluster/counter/tables/qos_detail"}},
+        "name": "qos_detail",
         "counter_schemas": [
             {
+                "unit": "none",
                 "description": "Determines whether or not service center-based statistics are in the latency path.",
-                "unit": "none",
-                "name": "in_latency_path",
                 "type": "raw",
+                "name": "in_latency_path",
             },
             {
+                "unit": "none",
                 "description": "System node name",
-                "unit": "none",
+                "type": "string",
                 "name": "node.name",
-                "type": "string",
             },
             {
-                "description": "Name of the associated resource.",
                 "unit": "none",
-                "name": "resource.name",
+                "description": "Name of the associated resource.",
                 "type": "string",
+                "name": "resource.name",
             },
             {
+                "denominator": {"name": "visits"},
+                "unit": "microsec",
                 "description": "The workload's average service time per visit to the service center.",
-                "unit": "microsec",
+                "type": "average",
                 "name": "service_time",
-                "denominator": {"name": "visits"},
-                "type": "average",
             },
             {
-                "description": "The number of visits that the workload made to the service center; measured in visits per second.",
                 "unit": "per_sec",
-                "name": "visits",
+                "description": "The number of visits that the workload made to the service center; measured in visits per second.",
                 "type": "rate",
+                "name": "visits",
             },
             {
-                "description": "The workload's average wait time per visit to the service center.",
-                "unit": "microsec",
-                "name": "wait_time",
                 "denominator": {"name": "visits"},
+                "unit": "microsec",
+                "description": "The workload's average wait time per visit to the service center.",
                 "type": "average",
+                "name": "wait_time",
             },
         ],
     }
@@ -259,16 +259,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CounterTable(
         {
-            "name": "csm_global",
-            "_links": {"self": {"href": "/api/cluster/counter/tables/csm_global"}},
             "description": "This table reports global statistics of the Cluster Session Manager. The counters report the processing overhead of SpinNP cryptography, both encryption and decryption, as carried out by CSM as it handles cross-cluster data traffic, mostly on behalf of their data protection operations. For example, a customer might seek to know the processor time being consumed by these cryptographic operations in support of their cross-cluster traffic. That data might help them evaluate the performance impact of these security operations.",
+            "_links": {"self": {"href": "/api/cluster/counter/tables/csm_global"}},
+            "name": "csm_global",
         }
     ),
     CounterTable(
         {
-            "name": "file_directory",
-            "_links": {"self": {"href": "/api/cluster/counter/tables/file_directory"}},
             "description": "This table reports how many times file-directory jobs were triggered to the set the file-security ACLS or SLAG ACLS. This counter gives an indication how frequently the feature is being used to set the ACLS on file-directory/volume.",
+            "_links": {"self": {"href": "/api/cluster/counter/tables/file_directory"}},
+            "name": "file_directory",
         }
     ),
 ]
@@ -307,11 +307,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CounterRow(
         {
+            "id": "<instance id>",
+            "properties": [{"value": "<node name>", "name": "node.name"}],
             "_links": {
                 "self": {"href": "/api/cluster/counter/tables/wafl/rows/<instance id>"}
             },
-            "id": "<instance id>",
-            "properties": [{"value": "<node name>", "name": "node.name"}],
         }
     )
 ]
@@ -344,15 +344,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CounterRow(
     {
-        "counter_table": {"name": "volume"},
-        "_links": {
-            "self": {"href": "/api/cluster/counter/tables/volume/rows/<instance-id>/"}
-        },
         "id": "<instance-id>",
+        "counter_table": {"name": "volume"},
         "properties": [
             {"value": "<svm-name>", "name": "svm.name"},
             {"value": "4774d11c-a606-11ec-856f-005056bb7b59", "name": "svm.uuid"},
         ],
+        "_links": {
+            "self": {"href": "/api/cluster/counter/tables/volume/rows/<instance-id>/"}
+        },
     }
 )
 
@@ -384,15 +384,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CounterRow(
     {
+        "id": "<instance-id>",
+        "counter_table": {"name": "wafl"},
         "counters": [
             {"value": 541, "name": "memory_used"},
             {"value": 786, "name": "memory_free"},
         ],
-        "counter_table": {"name": "wafl"},
         "_links": {
             "self": {"href": "/api/cluster/counter/tables/wafl/rows/<instance-id>"}
         },
-        "id": "<instance-id>",
     }
 )
 

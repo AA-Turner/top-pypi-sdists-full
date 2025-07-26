@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -24,6 +24,12 @@ class NodeResponseRecordsHaSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     auto_giveback = marshmallow_fields.Boolean(data_key="auto_giveback", allow_none=True)
     r""" Specifies whether giveback is automatically initiated when the node that owns the storage is ready. """
 
+    auto_giveback_of = marshmallow_fields.Boolean(data_key="auto_giveback_of", allow_none=True)
+    r""" Specifies whether giveback is automatically initiated when the node that owns the storage is ready. """
+
+    enable_takeover_of = marshmallow_fields.Boolean(data_key="enable_takeover_of", allow_none=True)
+    r""" Specifies whether or not storage failover is enabled. """
+
     enabled = marshmallow_fields.Boolean(data_key="enabled", allow_none=True)
     r""" Specifies whether or not storage failover is enabled. """
 
@@ -45,12 +51,22 @@ class NodeResponseRecordsHaSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     takeover_check = marshmallow_fields.Nested("netapp_ontap.models.cluster_nodes_ha_takeover_check.ClusterNodesHaTakeoverCheckSchema", unknown=EXCLUDE, data_key="takeover_check", allow_none=True)
     r""" The takeover check response. """
 
+    type = marshmallow_fields.Str(data_key="type", allow_none=True)
+    r""" Type of storage.
+
+Valid choices:
+
+* shared_storage
+* non_shared_storage """
+
     @property
     def resource(self):
         return NodeResponseRecordsHa
 
     gettable_fields = [
         "auto_giveback",
+        "auto_giveback_of",
+        "enable_takeover_of",
         "enabled",
         "giveback",
         "interconnect",
@@ -60,20 +76,23 @@ class NodeResponseRecordsHaSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         "ports",
         "takeover",
         "takeover_check",
+        "type",
     ]
-    """auto_giveback,enabled,giveback,interconnect,partners.links,partners.name,partners.uuid,ports,takeover,takeover_check,"""
+    """auto_giveback,auto_giveback_of,enable_takeover_of,enabled,giveback,interconnect,partners.links,partners.name,partners.uuid,ports,takeover,takeover_check,type,"""
 
     patchable_fields = [
         "auto_giveback",
+        "auto_giveback_of",
         "enabled",
     ]
-    """auto_giveback,enabled,"""
+    """auto_giveback,auto_giveback_of,enabled,"""
 
     postable_fields = [
         "auto_giveback",
+        "auto_giveback_of",
         "enabled",
     ]
-    """auto_giveback,enabled,"""
+    """auto_giveback,auto_giveback_of,enabled,"""
 
 
 class NodeResponseRecordsHa(Resource):

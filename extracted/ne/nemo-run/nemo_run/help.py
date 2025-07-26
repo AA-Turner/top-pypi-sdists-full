@@ -230,18 +230,55 @@ def help_for_type(
 def class_to_str(class_obj):
     if hasattr(class_obj, "__origin__"):
         # Special handling for Optional types which are represented as Union[X, NoneType]
-        if class_obj._name == "Optional":
+        if getattr(class_obj, "_name", None) == "Optional":
             args = class_to_str(typing.get_args(class_obj)[0])
             return f"Optional[{args}]"
+        # Special handling for Union types
+        elif getattr(class_obj, "_name", None) == "Union":
+            args = typing.get_args(class_obj)
+            # Filter out NoneType from Union types
+            args = [arg for arg in args if arg is not type(None)]
+            if len(args) == 1:
+                return class_to_str(args[0])
+            else:
+                return " | ".join(class_to_str(arg) for arg in args)
         else:
             # Get the base type
             base = class_obj.__origin__.__name__
-            # Get the arguments to the type if any (e.g., the 'str' in Optional[str])
-            args = ", ".join(class_to_str(arg) for arg in typing.get_args(class_obj))
-            return f"{base}[{args}]"
+            # Get the arguments to the type if any
+            args = typing.get_args(class_obj)
+
+            # Special handling for Callable types
+            if base == "Callable":
+                if len(args) == 2:
+                    if args[0] is ...:
+                        # Handle Callable[..., return_type]
+                        return_type = class_to_str(args[1])
+                        return f"{base}[..., {return_type}]"
+                    elif isinstance(args[0], list):
+                        # Handle Callable[[arg1, arg2], return_type]
+                        arg_types = ", ".join(class_to_str(arg) for arg in args[0])
+                        return_type = class_to_str(args[1])
+                        return f"{base}[[{arg_types}], {return_type}]"
+                    else:
+                        # Handle Callable[Protocol, return_type]
+                        arg_type = class_to_str(args[0])
+                        return_type = class_to_str(args[1])
+                        return f"{base}[{arg_type}, {return_type}]"
+                elif len(args) == 1:
+                    # Handle Callable[[], return_type]
+                    return_type = class_to_str(args[0])
+                    return f"{base}[[], {return_type}]"
+                else:
+                    # Handle bare Callable without type arguments
+                    return base
+            else:
+                # Handle other generic types
+                args_str = ", ".join(class_to_str(arg) for arg in args)
+                return f"{base}[{args_str}]"
     elif class_obj.__module__ == "builtins":
         return class_obj.__name__
-    else:
+    elif isinstance(class_obj, type):
         module = _get_module(class_obj)
 
         full_class_name = f"{module}.{class_obj.__name__}"
@@ -263,6 +300,9 @@ def class_to_str(class_obj):
             return "nm.OptimizerModule"
 
         return full_class_name
+    else:
+        # Handle non-type objects (like UnionType)
+        return str(class_obj)
 
 
 def help(

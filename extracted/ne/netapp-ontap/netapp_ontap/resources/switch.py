@@ -1,16 +1,14 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
-This API can be used to get information about the Ethernet switches used for cluster and/or storage networks. This API supports GET, PATCH, POST, and DELETE calls. The GET operation returns a list of discovered switches with status and configuration information. PATCH is used to modify the state of the switch. POST is used to add new switches. DELETE is used to remove existing switches.
+This endpoint manages Ethernet switches used by ONTAP for monitoring and configuration. You can retrieve, configure, add, or delete Ethernet switches, as well as change SNMP credentials and monitor their status.
 ## Examples
-### Retrieving the ethernet switches for a cluster
-The following example retrieves the ONTAP switches from the cluster.
-Note that if the <i>fields=*</i> parameter is not specified, the fields snmp.version, snmp.user, version, monitoring.enabled, and monitoring.reason are not returned.
-Filters can be added on the fields to limit the results.
+### Retrieving a list of Ethernet switches
+The following example shows the response with a list of monitored Ethernet switches.  Note that if the <i>fields=*</i> parameter is not specified, the fields snmp.version, snmp.user, version, monitoring.enabled, and monitoring.reason are not returned.
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Switch
@@ -28,73 +26,81 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     Switch(
         {
             "serial_number": "Unknown",
-            "monitoring": {"enabled": True, "monitored": True, "reason": "None"},
-            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.2(3)",
-            "name": "RTP-CS01-510R11(FOC22092K12)",
             "address": "172.26.207.77",
+            "snmp": {"user": "cshm1!", "version": "snmpv2c"},
+            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.2(3)",
+            "role": "cluster",
+            "rcf_version": "RCF NX3232C v1.13 1-CLUSTER",
+            "network": "cluster",
             "discovered": True,
+            "model": "NX3232C",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/switches/RTP-CS01-510R11%28FOC22092K12%29"
                 }
             },
-            "network": "cluster",
-            "model": "NX3232C",
-            "snmp": {"version": "snmpv2c", "user": "cshm1!"},
+            "monitoring": {"reason": "None", "monitored": True, "enabled": True},
+            "name": "RTP-CS01-510R11(FOC22092K12)",
         }
     ),
     Switch(
         {
             "serial_number": "FOC22373C3P",
-            "monitoring": {"enabled": True, "monitored": True, "reason": "None"},
-            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.2(3)",
-            "name": "RTP-CS01-510R12(FOC22373C3P)",
             "address": "172.26.207.82",
+            "snmp": {"user": "cshm1!", "version": "snmpv2c"},
+            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.2(3)",
+            "role": "cluster",
+            "rcf_version": "RCF NX3232C v1.13 1-CLUSTER",
+            "network": "cluster",
             "discovered": True,
+            "model": "NX3232C",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/switches/RTP-CS01-510R12%28FOC22373C3P%29"
                 }
             },
-            "network": "cluster",
-            "model": "NX3232C",
-            "snmp": {"version": "snmpv2c", "user": "cshm1!"},
+            "monitoring": {"reason": "None", "monitored": True, "enabled": True},
+            "name": "RTP-CS01-510R12(FOC22373C3P)",
         }
     ),
     Switch(
         {
             "serial_number": "FOC22170DFR",
-            "monitoring": {"enabled": True, "monitored": True, "reason": "None"},
-            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
-            "name": "RTP-SS01-510R10(FOC22170DFR)",
             "address": "172.26.207.65",
+            "snmp": {"user": "cshm1!", "version": "snmpv2c"},
+            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
+            "role": "storage",
+            "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
+            "network": "storage",
             "discovered": True,
+            "model": "NX3232C",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/switches/RTP-SS01-510R10%28FOC22170DFR%29"
                 }
             },
-            "network": "storage",
-            "model": "NX3232C",
-            "snmp": {"version": "snmpv2c", "user": "cshm1!"},
+            "monitoring": {"reason": "None", "monitored": True, "enabled": True},
+            "name": "RTP-SS01-510R10(FOC22170DFR)",
         }
     ),
     Switch(
         {
             "serial_number": "FOC22131U6T",
-            "monitoring": {"enabled": True, "monitored": True, "reason": "None"},
-            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
-            "name": "RTP-SS02-510R10(FOC22131U6T)",
             "address": "172.26.207.66",
+            "snmp": {"user": "cshm1!", "version": "snmpv2c"},
+            "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
+            "role": "storage",
+            "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
+            "network": "storage",
             "discovered": True,
+            "model": "NX3232C",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/switches/RTP-SS02-510R10%28FOC22131U6T%29"
                 }
             },
-            "network": "storage",
-            "model": "NX3232C",
-            "snmp": {"version": "snmpv2c", "user": "cshm1!"},
+            "monitoring": {"reason": "None", "monitored": True, "enabled": True},
+            "name": "RTP-SS02-510R10(FOC22131U6T)",
         }
     ),
 ]
@@ -103,9 +109,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 </div>
 </div>
 
----
-### Retrieving an ethernet switch for a cluster
-The following example retrieves a single switch by name.
+### Retrieving an Ethernet switch
+The following example shows the response of the requested Ethernet switch. If there is no Ethernet switch with the requested name, an error is returned.
  ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Switch
@@ -124,19 +129,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Switch(
     {
         "serial_number": "FOC22131U6T",
-        "monitoring": {"enabled": True, "monitored": True, "reason": "None"},
-        "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
-        "name": "RTP-SS02-510R10(FOC22131U6T)",
         "address": "172.26.207.66",
+        "snmp": {"user": "cshm1!", "version": "snmpv2c"},
+        "version": "Cisco Nexus Operating System (NX-OS) Software, Version 9.3(3)",
+        "role": "storage",
+        "rcf_version": "RCF NX3232C v1.13 1-STORAGE",
+        "network": "storage",
         "discovered": True,
+        "model": "NX3232C",
         "_links": {
             "self": {
                 "href": "/api/network/ethernet/switches/RTP-SS02-510R10(FOC22131U6T)"
             }
         },
-        "network": "storage",
-        "model": "NX3232C",
-        "snmp": {"version": "snmpv2c", "user": "cshm1!"},
+        "monitoring": {"reason": "None", "monitored": True, "enabled": True},
+        "name": "RTP-SS02-510R10(FOC22131U6T)",
     }
 )
 
@@ -144,9 +151,8 @@ Switch(
 </div>
 </div>
 
----
-### Configuring a switch
-The following example configures SNMP credential and version on a switch.
+### Configuring monitoring settings for an Ethernet switch
+The following example configures SNMP credential and version settings for an Ethernet switch. If the provided information is not valid, an error is returned.
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Switch
@@ -158,9 +164,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 
----
-### Adding a switch
-The following example adds a switch.
+### Adding an Ethernet switch
+The following example adds an Ethernet switch for monitoring. If the provided information is not valid, an error is returned.
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Switch
@@ -184,12 +189,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Switch(
     {
-        "monitoring": {"enabled": True},
-        "name": "RTP-SS02-510R10(FOC22131U6T)",
         "address": "172.26.207.66",
+        "snmp": {"user": "cshm1!", "version": "snmpv2c"},
         "network": "storage",
         "model": "NX3232C",
-        "snmp": {"version": "snmpv2c", "user": "cshm1!"},
+        "monitoring": {"enabled": True},
+        "name": "RTP-SS02-510R10(FOC22131U6T)",
     }
 )
 
@@ -197,9 +202,8 @@ Switch(
 </div>
 </div>
 
----
-### Deleting a switch
-The following example deletes a switch.
+### Deleting an Ethernet switch
+The following example deletes an Ethernet switch. If there is no Ethernet switch with the requested name, an error is returned.
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Switch
@@ -209,8 +213,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource.delete()
 
 ```
-
----"""
+"""
 
 import asyncio
 from datetime import datetime
@@ -280,6 +283,24 @@ Valid choices:
 * cluster
 * storage"""
 
+    rcf_version = marshmallow_fields.Str(
+        data_key="rcf_version",
+        allow_none=True,
+    )
+    r""" The switch reference configuration file (RCF) version.
+
+Example: RCF NX9336C-FX2 v1.13 1-CLUSTER"""
+
+    role = marshmallow_fields.Str(
+        data_key="role",
+        allow_none=True,
+    )
+    r""" Switch role based on the interface configurations. Using '+' to combine multiple roles.
+Available role types are: cluster, multicluster, storage, multistorage, metrocluster.
+
+
+Example:"""
+
     serial_number = marshmallow_fields.Str(
         data_key="serial_number",
         allow_none=True,
@@ -307,11 +328,13 @@ Valid choices:
         "monitoring",
         "name",
         "network",
+        "rcf_version",
+        "role",
         "serial_number",
         "snmp",
         "version",
     ]
-    """links,address,discovered,model,monitoring,name,network,serial_number,snmp,version,"""
+    """links,address,discovered,model,monitoring,name,network,rcf_version,role,serial_number,snmp,version,"""
 
     patchable_fields = [
         "address",
@@ -345,7 +368,7 @@ class Switch(Resource):
         max_records: int = None,
         **kwargs
     ) -> Iterable["Resource"]:
-        r"""Retrieves the ethernet switches attached to the chassis.
+        r"""Retrieves a collection of Ethernet switches.
 ### Related ONTAP commands
 * `system switch ethernet show`
 ### Learn more
@@ -395,7 +418,7 @@ class Switch(Resource):
         connection: HostConnection = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Updates the switch state.
+        r"""Configures monitoring settings for an Ethernet switch.
 ### Related ONTAP commands
 * `system switch ethernet modify`
 ### Learn more
@@ -420,7 +443,7 @@ class Switch(Resource):
         connection: HostConnection = None,
         **kwargs
     ) -> Union[List["Switch"], NetAppResponse]:
-        r"""Creates an ethernet switch.
+        r"""Adds an Ethernet switch.
 ### Required properties
 * `name` - Name of the switch to create.
 * `address` - Switch IP address.
@@ -470,7 +493,7 @@ class Switch(Resource):
 
     @classmethod
     def find(cls, *args, connection: HostConnection = None, **kwargs) -> Resource:
-        r"""Retrieves the ethernet switches attached to the chassis.
+        r"""Retrieves a collection of Ethernet switches.
 ### Related ONTAP commands
 * `system switch ethernet show`
 ### Learn more
@@ -499,7 +522,7 @@ class Switch(Resource):
         poll_timeout: Optional[int] = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Creates an ethernet switch.
+        r"""Adds an Ethernet switch.
 ### Required properties
 * `name` - Name of the switch to create.
 * `address` - Switch IP address.
@@ -530,7 +553,7 @@ class Switch(Resource):
         poll_timeout: Optional[int] = None,
         **kwargs
     ) -> NetAppResponse:
-        r"""Updates the switch state.
+        r"""Configures monitoring settings for an Ethernet switch.
 ### Related ONTAP commands
 * `system switch ethernet modify`
 ### Learn more

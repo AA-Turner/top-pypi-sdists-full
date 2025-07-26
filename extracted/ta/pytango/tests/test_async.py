@@ -7,7 +7,14 @@ from concurrent.futures import Future
 
 import pytest
 
-from tango import ApiUtil, AttrWriteType, GreenMode, cb_sub_model, get_device_proxy
+from tango import (
+    ApiUtil,
+    AttrWriteType,
+    DevFailed,
+    GreenMode,
+    cb_sub_model,
+    get_device_proxy,
+)
 from tango.server import Device, command, attribute
 from tango.test_utils import DeviceTestContext, assert_close
 
@@ -15,8 +22,8 @@ A_BIT = 0.1
 
 
 class ServerTest(Device):
-    _value1 = None
-    _value2 = None
+    _value1 = 100
+    _value2 = 200
 
     @attribute(access=AttrWriteType.READ_WRITE)
     def attr1(self) -> int:
@@ -33,6 +40,14 @@ class ServerTest(Device):
     @attr2.write
     def set_attr2(self, val):
         self._value2 = val
+
+    @attribute(dtype=int, access=AttrWriteType.READ)
+    def attr_no_value(self):
+        return
+
+    @attribute(dtype=int, access=AttrWriteType.READ)
+    def attr_exception(self):
+        raise RuntimeError("Force exception for test")
 
 
 @pytest.mark.asyncio
@@ -128,6 +143,28 @@ def test_async_attribute_polled():
         time.sleep(A_BIT)
         attrs = proxy.read_attributes_reply(multiple_read_id)
         assert [456, 789] == [attr.value for attr in attrs]
+
+
+def test_async_attribute_polled_no_return_value_or_exception():
+    with DeviceTestContext(ServerTest) as proxy:
+        read_id = proxy.read_attribute_asynch("attr_no_value")
+        with pytest.raises(DevFailed, match="API_AttrValueNotSet"):
+            proxy.read_attribute_reply(read_id, poll_timeout=int(A_BIT * 1000))
+
+        read_id = proxy.read_attribute_asynch("attr_exception")
+        with pytest.raises(DevFailed, match="RuntimeError"):
+            proxy.read_attribute_reply(read_id, poll_timeout=int(A_BIT * 1000))
+
+        multiple_read_id = proxy.read_attributes_asynch(
+            ["attr1", "attr_no_value", "attr_exception"]
+        )
+        attr1, attr_no_value, attr_exception = proxy.read_attributes_reply(
+            multiple_read_id, poll_timeout=int(A_BIT * 1000)
+        )
+        assert attr1.value == 100
+        assert not attr1.has_failed
+        assert attr_no_value.has_failed
+        assert attr_exception.has_failed
 
 
 @pytest.mark.parametrize("model", ["poll", "push"])

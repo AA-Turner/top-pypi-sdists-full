@@ -12,6 +12,7 @@ from typing import (
     Any,
     Callable,
     Generic,
+    Literal,
     NamedTuple,
     NewType,
     Optional,
@@ -29,25 +30,26 @@ if TYPE_CHECKING:
 
 __all__ = [
     "AUTO",
-    "SECRET_REPR",
-    "T",
     "ET",
+    "SECRETS_TYPES",
+    "SECRET_REPR",
     "ST",
-    "SettingsClass",
-    "SettingsInstance",
-    "SettingsDict",
-    "OptionName",
-    "OptionPath",
+    "CollectionChildOptions",
+    "LoadedSettings",
+    "LoadedValue",
+    "LoaderMeta",
+    "MergedSettings",
+    "OptionDict",
     "OptionInfo",
     "OptionList",
-    "OptionDict",
-    "LoaderMeta",
-    "LoadedValue",
-    "LoadedSettings",
-    "MergedSettings",
+    "OptionName",
+    "OptionPath",
     "Secret",
     "SecretStr",
-    "SECRETS_TYPES",
+    "SettingsClass",
+    "SettingsDict",
+    "SettingsInstance",
+    "T",
     "is_new_type",
 ]
 
@@ -112,30 +114,45 @@ class OptionInfo:
     Each instance represents a single attribute of an apps's settings class.
     """
 
+    #: The option's settings class.  This is either the root settings class or a nested
+    #: one.
     parent_cls: type
-    """
-    The option's settings class.  This is either the root settings class or a nested
-    one.
-    """
 
+    #: Dotted path to the option name relative to the root settings class.
     path: OptionPath
-    """
-    Dotted path to the option name relative to the root settings class.
-    """
 
+    #: The option's name (last component of :attr:`path`)
     name: str = dataclasses.field(init=False)
 
+    #: The option's type
     cls: type
+
+    #: the option's default value
     default: Any
+
+    #: Whether or not the option has a default value.
     has_no_default: bool
+
+    #: Whether or not the default value is a factory function.
     default_is_factory: bool
 
+    #: Whether or not the option is a secret.
     is_secret: bool = False
+
+    #: An optional explicit converter for the option value
     converter: Optional[Callable[[Any], Any]] = None
+
+    #: Additional metadata.
     metadata: dict[Any, Any] = dataclasses.field(default_factory=dict)
+
+    #: Options for child elements in case *cls* is a collection (sequence or mapping).
+    collection_child_options: Optional["CollectionChildOptions"] = None
 
     @property
     def has_default(self) -> bool:
+        """
+        Opposite of :attr:`has_no_default`.
+        """
         return not self.has_no_default
 
     def __post_init__(self) -> None:
@@ -147,6 +164,17 @@ OptionList = tuple[OptionInfo, ...]
 """
 A flat list of all available options, including those from nested settings.
 """
+
+
+@dataclasses.dataclass(frozen=True)
+class CollectionChildOptions:
+    """
+    *Options* for child elements of *collection*.
+    """
+
+    options: OptionList
+    collection: Literal["mapping", "sequence"]
+
 
 OptionDict = MappingProxyType[OptionPath, OptionInfo]
 """

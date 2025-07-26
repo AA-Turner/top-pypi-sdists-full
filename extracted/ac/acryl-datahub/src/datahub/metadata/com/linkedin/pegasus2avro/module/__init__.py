@@ -12,6 +12,7 @@ from .....schema_classes import DataHubPageModuleParamsClass
 from .....schema_classes import DataHubPageModulePropertiesClass
 from .....schema_classes import DataHubPageModuleTypeClass
 from .....schema_classes import DataHubPageModuleVisibilityClass
+from .....schema_classes import HierarchyModuleParamsClass
 from .....schema_classes import LinkModuleParamsClass
 from .....schema_classes import PageModuleScopeClass
 from .....schema_classes import RichTextModuleParamsClass
@@ -22,6 +23,7 @@ DataHubPageModuleParams = DataHubPageModuleParamsClass
 DataHubPageModuleProperties = DataHubPageModulePropertiesClass
 DataHubPageModuleType = DataHubPageModuleTypeClass
 DataHubPageModuleVisibility = DataHubPageModuleVisibilityClass
+HierarchyModuleParams = HierarchyModuleParamsClass
 LinkModuleParams = LinkModuleParamsClass
 PageModuleScope = PageModuleScopeClass
 RichTextModuleParams = RichTextModuleParamsClass

@@ -17,18 +17,17 @@ jobs:
       matrix:
         os: [windows-latest, ubuntu-latest, macos-latest]
         environment: [
-          # ci-min-deps,
-          # ci-sklearn11,
-          # ci-sklearn12,
+          ci-sklearn12,
           ci-sklearn13,
           ci-sklearn14,
           ci-sklearn15,
           ci-sklearn16,
-          ci-sklearn17
+          ci-sklearn17,
+          ci-sklearn-nightly
         ]
 
     # Timeout: https://stackoverflow.com/a/59076067/4521646
-    timeout-minutes: 15
+    timeout-minutes: 30
 
     steps:
       # The following two steps are workarounds to retrieve the "real" commit
@@ -44,9 +43,9 @@ jobs:
           echo PR_COMMIT_MESSAGE=$(git log -1 --pretty=format:\"%s\") >> $GITHUB_ENV
         shell: bash
 
-      - uses: prefix-dev/setup-pixi@v0.8.1
+      - uses: prefix-dev/setup-pixi@v0.8.12
         with:
-          pixi-version: v0.39.0
+          pixi-version: v0.39.5
           environments: ${{ matrix.environment }}
           # we can freeze the environment and manually bump the dependencies to the
           # latest version time to time.

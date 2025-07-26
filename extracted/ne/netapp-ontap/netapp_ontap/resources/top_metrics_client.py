@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -40,56 +40,56 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     TopMetricsClient(
         {
-            "volume": {"name": "vol1"},
             "iops": {
-                "error": {"lower_bound": 1495, "upper_bound": 1505},
+                "error": {"upper_bound": 1505, "lower_bound": 1495},
                 "write": 1495,
             },
-            "client_ip": "172.28.71.128",
             "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
             },
+            "client_ip": "172.28.71.128",
+            "volume": {"name": "vol1"},
         }
     ),
     TopMetricsClient(
         {
-            "volume": {"name": "vol1"},
             "iops": {
-                "error": {"lower_bound": 1022, "upper_bound": 1032},
+                "error": {"upper_bound": 1032, "lower_bound": 1022},
                 "write": 1022,
             },
-            "client_ip": "172.28.71.179",
             "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
             },
+            "client_ip": "172.28.71.179",
+            "volume": {"name": "vol1"},
         }
     ),
     TopMetricsClient(
         {
-            "volume": {"name": "vol1"},
-            "iops": {"error": {"lower_bound": 345, "upper_bound": 355}, "write": 345},
-            "client_ip": "172.28.51.62",
+            "iops": {"error": {"upper_bound": 355, "lower_bound": 345}, "write": 345},
             "svm": {
+                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
                 "name": "vs1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/572361f3-e769-439d-9c04-2ba48a08ff43"
                     }
                 },
-                "uuid": "572361f3-e769-439d-9c04-2ba48a08ff43",
             },
+            "client_ip": "172.28.51.62",
+            "volume": {"name": "vol1"},
         }
     ),
 ]
@@ -216,9 +216,6 @@ class TopMetricsClient(Resource):
         **kwargs
     ) -> Iterable["Resource"]:
         r"""Retrieves a list of clients with the most I/O activity.
-### Platform Specifics
-* **Unified ONTAP**: GET must be used to retrieve a list of clients with the most I/O activity.
-* **ASA**: GET is not supported.
 
 ### Learn more
 * [`DOC /storage/volumes/{volume.uuid}/top-metrics/clients`](#docs-storage-storage_volumes_{volume.uuid}_top-metrics_clients)"""
@@ -260,9 +257,6 @@ class TopMetricsClient(Resource):
     @classmethod
     def find(cls, *args, connection: HostConnection = None, **kwargs) -> Resource:
         r"""Retrieves a list of clients with the most I/O activity.
-### Platform Specifics
-* **Unified ONTAP**: GET must be used to retrieve a list of clients with the most I/O activity.
-* **ASA**: GET is not supported.
 
 ### Learn more
 * [`DOC /storage/volumes/{volume.uuid}/top-metrics/clients`](#docs-storage-storage_volumes_{volume.uuid}_top-metrics_clients)"""

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -37,17 +37,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SecurityKeyManager(
     {
         "uuid": "815e9462-dc57-11e8-9b2c-005056bb017d",
-        "_links": {
-            "self": {
-                "href": "/api/security/key-managers/815e9462-dc57-11e8-9b2c-005056bb017d"
-            }
-        },
         "external": {
+            "client_certificate": {"uuid": "5fb1701a-d922-11e8-bfe8-005056bb017d"},
             "servers": [{"server": "10.225.89.33:5696"}],
             "server_ca_certificates": [
                 {"uuid": "827d7d31-d6c8-11e8-b5bf-005056bb017d"}
             ],
-            "client_certificate": {"uuid": "5fb1701a-d922-11e8-bfe8-005056bb017d"},
+        },
+        "_links": {
+            "self": {
+                "href": "/api/security/key-managers/815e9462-dc57-11e8-9b2c-005056bb017d"
+            }
         },
     }
 )
@@ -82,12 +82,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SecurityKeyManager(
     {
         "uuid": "815e9462-dc57-11e8-9b2c-005056bb017d",
-        "_links": {
-            "self": {
-                "href": "/api/security/key-managers/815e9462-dc57-11e8-9b2c-005056bb017d"
-            }
-        },
         "external": {
+            "client_certificate": {"uuid": "5fb1701a-d922-11e8-bfe8-005056bb017d"},
             "servers": [
                 {"server": "10.225.89.33:5696"},
                 {"server": "10.225.89.34:5696"},
@@ -95,7 +91,11 @@ SecurityKeyManager(
             "server_ca_certificates": [
                 {"uuid": "827d7d31-d6c8-11e8-b5bf-005056bb017d"}
             ],
-            "client_certificate": {"uuid": "5fb1701a-d922-11e8-bfe8-005056bb017d"},
+        },
+        "_links": {
+            "self": {
+                "href": "/api/security/key-managers/815e9462-dc57-11e8-9b2c-005056bb017d"
+            }
         },
     }
 )
@@ -131,18 +131,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SecurityKeyManager(
     {
         "uuid": "80af63f2-dbbf-11e8-9b2c-005056bb017d",
-        "_links": {
-            "self": {
-                "href": "/api/security/key-managers/80af63f2-dbbf-11e8-9b2c-005056bb017d"
-            }
-        },
         "svm": {"uuid": "216e6c26-d6c6-11e8-b5bf-005056bb017d"},
         "external": {
+            "client_certificate": {"uuid": "91dcaf7c-dbbd-11e8-9b2c-005056bb017d"},
             "servers": [{"server": "10.225.89.34:5696"}],
             "server_ca_certificates": [
                 {"uuid": "a4d4b8ba-dbbd-11e8-9b2c-005056bb017d"}
             ],
-            "client_certificate": {"uuid": "91dcaf7c-dbbd-11e8-9b2c-005056bb017d"},
+        },
+        "_links": {
+            "self": {
+                "href": "/api/security/key-managers/80af63f2-dbbf-11e8-9b2c-005056bb017d"
+            }
         },
     }
 )
@@ -186,19 +186,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     SecurityKeyManager(
         {
             "configuration": {
-                "name": "default",
                 "uuid": "2345f09c-d6c9-11e8-b5bf-005056bb017d",
+                "name": "default",
             },
+            "scope": "svm",
             "uuid": "2345f09c-d6c9-11e8-b5bf-005056bb017d",
-            "_links": {
-                "self": {
-                    "href": "/api/security/key-managers/2345f09c-d6c9-11e8-b5bf-005056bb017d"
-                }
-            },
-            "svm": {"name": "vs0", "uuid": "0f22f8f3-d6c6-11e8-b5bf-005056bb017d"},
+            "svm": {"uuid": "0f22f8f3-d6c6-11e8-b5bf-005056bb017d", "name": "vs0"},
             "external": {
+                "client_certificate": {
+                    "uuid": "4cb15482-d6c8-11e8-b5bf-005056bb017d",
+                    "_links": {
+                        "self": {
+                            "href": "/api/security/certificates/4cb15482-d6c8-11e8-b5bf-005056bb017d/"
+                        }
+                    },
+                },
                 "servers": [
                     {
+                        "server": "10.2.30.4:5696",
                         "timeout": 25,
                         "username": "",
                         "_links": {
@@ -206,58 +211,58 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                                 "href": "/api/security/key-managers/2345f09c-d6c9-11e8-b5bf-005056bb017d/key-servers/10.2.30.4:5696/"
                             }
                         },
-                        "server": "10.2.30.4:5696",
                     },
                     {
-                        "timeout": 25,
                         "secondary_key_servers": "1.1.1.1, secondarykeyserver.com",
+                        "server": "vs0.local1:3678",
+                        "timeout": 25,
                         "username": "",
                         "_links": {
                             "self": {
                                 "href": "/api/security/key-managers/2345f09c-d6c9-11e8-b5bf-005056bb017d/key-servers/vs0.local1:3678/"
                             }
                         },
-                        "server": "vs0.local1:3678",
                     },
                 ],
                 "server_ca_certificates": [
                     {
+                        "uuid": "8a17c858-d6c8-11e8-b5bf-005056bb017d",
                         "_links": {
                             "self": {
                                 "href": "/api/security/certificates/8a17c858-d6c8-11e8-b5bf-005056bb017d/"
                             }
                         },
-                        "uuid": "8a17c858-d6c8-11e8-b5bf-005056bb017d",
                     }
                 ],
-                "client_certificate": {
-                    "_links": {
-                        "self": {
-                            "href": "/api/security/certificates/4cb15482-d6c8-11e8-b5bf-005056bb017d/"
-                        }
-                    },
-                    "uuid": "4cb15482-d6c8-11e8-b5bf-005056bb017d",
-                },
             },
-            "scope": "svm",
+            "_links": {
+                "self": {
+                    "href": "/api/security/key-managers/2345f09c-d6c9-11e8-b5bf-005056bb017d"
+                }
+            },
         }
     ),
     SecurityKeyManager(
         {
             "configuration": {
-                "name": "default",
                 "uuid": "815e9462-dc57-11e8-9b2c-005056bb017d",
+                "name": "default",
             },
-            "uuid": "815e9462-dc57-11e8-9b2c-005056bb017d",
+            "scope": "cluster",
             "enabled": True,
-            "_links": {
-                "self": {
-                    "href": "/api/security/key-managers/815e9462-dc57-11e8-9b2c-005056bb017d"
-                }
-            },
+            "uuid": "815e9462-dc57-11e8-9b2c-005056bb017d",
             "external": {
+                "client_certificate": {
+                    "uuid": "5fb1701a-d922-11e8-bfe8-005056bb017d",
+                    "_links": {
+                        "self": {
+                            "href": "/api/security/certificates/5fb1701a-d922-11e8-bfe8-005056bb017d/"
+                        }
+                    },
+                },
                 "servers": [
                     {
+                        "server": "10.225.89.33:5696",
                         "timeout": 25,
                         "username": "",
                         "_links": {
@@ -265,29 +270,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                                 "href": "/api/security/key-managers/815e9462-dc57-11e8-9b2c-005056bb017d/key-servers/10.225.89.33:5696/"
                             }
                         },
-                        "server": "10.225.89.33:5696",
                     }
                 ],
                 "server_ca_certificates": [
                     {
+                        "uuid": "827d7d31-d6c8-11e8-b5bf-005056bb017d",
                         "_links": {
                             "self": {
                                 "href": "/api/security/certificates/827d7d31-d6c8-11e8-b5bf-005056bb017d/"
                             }
                         },
-                        "uuid": "827d7d31-d6c8-11e8-b5bf-005056bb017d",
                     }
                 ],
-                "client_certificate": {
-                    "_links": {
-                        "self": {
-                            "href": "/api/security/certificates/5fb1701a-d922-11e8-bfe8-005056bb017d/"
-                        }
-                    },
-                    "uuid": "5fb1701a-d922-11e8-bfe8-005056bb017d",
-                },
             },
-            "scope": "cluster",
+            "_links": {
+                "self": {
+                    "href": "/api/security/key-managers/815e9462-dc57-11e8-9b2c-005056bb017d"
+                }
+            },
         }
     ),
 ]
@@ -315,23 +315,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityKeyManager(
         {
+            "configuration": {
+                "uuid": "815e9462-dc57-11e8-9b2c-005056bb017d",
+                "name": "default",
+            },
+            "scope": "cluster",
+            "volume_encryption": {
+                "message": "The following nodes do not support volume granular encryption: ntap-vsim2.",
+                "supported": False,
+                "code": 65536935,
+            },
+            "enabled": True,
+            "uuid": "8ba52e0f-ae22-11e9-b747-005056bb7636",
+            "is_default_data_at_rest_encryption_disabled": False,
             "onboard": {
                 "enabled": True,
                 "key_backup": "--------------------------BEGIN BACKUP--------------------------\n <Backup Data> \n---------------------------END BACKUP---------------------------\n",
             },
-            "configuration": {
-                "name": "default",
-                "uuid": "815e9462-dc57-11e8-9b2c-005056bb017d",
-            },
-            "is_default_data_at_rest_encryption_disabled": False,
-            "uuid": "8ba52e0f-ae22-11e9-b747-005056bb7636",
-            "enabled": True,
-            "volume_encryption": {
-                "message": "The following nodes do not support volume granular encryption: ntap-vsim2.",
-                "code": 65536935,
-                "supported": False,
-            },
-            "scope": "cluster",
         }
     )
 ]
@@ -360,13 +360,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityKeyManager(
         {
-            "status": {"message": "No action needed at this time.", "code": 65537200},
             "configuration": {
-                "name": "default",
                 "uuid": "ac305d46-aef4-11e9-ad3c-005056bb7636",
+                "name": "default",
             },
-            "uuid": "ac305d46-aef4-11e9-ad3c-005056bb7636",
             "enabled": True,
+            "status": {"message": "No action needed at this time.", "code": 65537200},
+            "uuid": "ac305d46-aef4-11e9-ad3c-005056bb7636",
             "_links": {
                 "self": {
                     "href": "/api/security/key-managers/ac305d46-aef4-11e9-ad3c-005056bb7636"
@@ -401,20 +401,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SecurityKeyManager(
     {
         "configuration": {
-            "name": "default",
             "uuid": "2345f09c-d6c9-11e8-b5bf-005056bb017d",
+            "name": "default",
         },
-        "uuid": "2345f09c-d6c9-11e8-b5bf-005056bb017d",
+        "scope": "svm",
         "enabled": True,
-        "_links": {
-            "self": {
-                "href": "/api/security/key-managers/2345f09c-d6c9-11e8-b5bf-005056bb017d"
-            }
-        },
-        "svm": {"name": "vs0", "uuid": "0f22f8f3-d6c6-11e8-b5bf-005056bb017d"},
+        "uuid": "2345f09c-d6c9-11e8-b5bf-005056bb017d",
+        "svm": {"uuid": "0f22f8f3-d6c6-11e8-b5bf-005056bb017d", "name": "vs0"},
         "external": {
+            "client_certificate": {
+                "uuid": "4cb15482-d6c8-11e8-b5bf-005056bb017d",
+                "_links": {
+                    "self": {
+                        "href": "/api/security/certificates/4cb15482-d6c8-11e8-b5bf-005056bb017d/"
+                    }
+                },
+            },
             "servers": [
                 {
+                    "server": "10.2.30.4:5696",
                     "timeout": 25,
                     "username": "",
                     "_links": {
@@ -422,9 +427,9 @@ SecurityKeyManager(
                             "href": "/api/security/key-managers/2345f09c-d6c9-11e8-b5bf-005056bb017d/key-servers/10.2.30.4:5696/"
                         }
                     },
-                    "server": "10.2.30.4:5696",
                 },
                 {
+                    "server": "vs0.local1:3678",
                     "timeout": 25,
                     "username": "",
                     "_links": {
@@ -432,29 +437,24 @@ SecurityKeyManager(
                             "href": "/api/security/key-managers/2345f09c-d6c9-11e8-b5bf-005056bb017d/key-servers/vs0.local1:3678/"
                         }
                     },
-                    "server": "vs0.local1:3678",
                 },
             ],
             "server_ca_certificates": [
                 {
+                    "uuid": "8a17c858-d6c8-11e8-b5bf-005056bb017d",
                     "_links": {
                         "self": {
                             "href": "/api/security/certificates/8a17c858-d6c8-11e8-b5bf-005056bb017d/"
                         }
                     },
-                    "uuid": "8a17c858-d6c8-11e8-b5bf-005056bb017d",
                 }
             ],
-            "client_certificate": {
-                "_links": {
-                    "self": {
-                        "href": "/api/security/certificates/4cb15482-d6c8-11e8-b5bf-005056bb017d/"
-                    }
-                },
-                "uuid": "4cb15482-d6c8-11e8-b5bf-005056bb017d",
-            },
         },
-        "scope": "svm",
+        "_links": {
+            "self": {
+                "href": "/api/security/key-managers/2345f09c-d6c9-11e8-b5bf-005056bb017d"
+            }
+        },
     }
 )
 
@@ -561,12 +561,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 KeyServer(
     {
+        "server": "10.225.89.34:5696",
         "_links": {
             "self": {
                 "href": "/api/security/key-managers/43e0c191-dc5c-11e8-9b2c-005056bb017d/key-servers/10.225.89.34%3A5696"
             }
         },
-        "server": "10.225.89.34:5696",
     }
 )
 
@@ -629,29 +629,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     KeyServer(
         {
-            "timeout": 25,
             "create_remove_timeout": 10,
             "secondary_key_servers": ["1.1.1.1", "secondarykeyserver.com"],
+            "server": "10.225.89.33:5696",
+            "timeout": 25,
             "username": "",
             "_links": {
                 "self": {
                     "href": "/api/security/key-managers/43e0c191-dc5c-11e8-9b2c-005056bb017d/key-servers/10.225.89.33%3A5696"
                 }
             },
-            "server": "10.225.89.33:5696",
         }
     ),
     KeyServer(
         {
-            "timeout": 25,
             "create_remove_timeout": 10,
+            "server": "10.225.89.34:5696",
+            "timeout": 25,
             "username": "",
             "_links": {
                 "self": {
                     "href": "/api/security/key-managers/43e0c191-dc5c-11e8-9b2c-005056bb017d/key-servers/10.225.89.34%3A5696"
                 }
             },
-            "server": "10.225.89.34:5696",
         }
     ),
 ]
@@ -680,16 +680,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 KeyServer(
     {
-        "timeout": 25,
         "create_remove_timeout": 10,
         "secondary_key_servers": ["1.1.1.1", "secondarykeyserver.com"],
+        "server": "10.225.89.34:5696",
+        "timeout": 25,
         "username": "",
         "_links": {
             "self": {
                 "href": "/api/security/key-managers/43e0c191-dc5c-11e8-9b2c-005056bb017d/key-servers/10.225.89.34:5696"
             }
         },
-        "server": "10.225.89.34:5696",
     }
 )
 
@@ -717,30 +717,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 KeyServer(
     {
-        "timeout": 25,
         "create_remove_timeout": 10,
-        "secondary_key_servers": ["1.1.1.1", "secondarykeyserver.com"],
-        "username": "",
         "connectivity": {
-            "cluster_availability": True,
             "node_states": [
                 {
-                    "state": "available",
                     "node": {
-                        "name": "sti65-vsim-ucs148i",
                         "uuid": "661843b3-a0e5-11ed-81ef-005056a7306b",
+                        "name": "sti65-vsim-ucs148i",
                     },
+                    "state": "available",
                 },
                 {
-                    "state": "not_responding",
                     "node": {
-                        "name": "sti65-vsim-ucs148j",
                         "uuid": "551843b3-a0e5-11ed-81ef-005056a7306b",
+                        "name": "sti65-vsim-ucs148j",
                     },
+                    "state": "not_responding",
                 },
             ],
+            "cluster_availability": True,
         },
+        "secondary_key_servers": ["1.1.1.1", "secondarykeyserver.com"],
         "server": "10.225.89.34:5696",
+        "timeout": 25,
+        "username": "",
     }
 )
 
@@ -775,16 +775,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 KeyServer(
     {
         "connectivity": {
-            "cluster_availability": True,
             "node_states": [
                 {
-                    "state": "available",
                     "node": {
-                        "name": "sti65-vsim-ucs148i",
                         "uuid": "661843b3-a0e5-11ed-81ef-005056a7306b",
+                        "name": "sti65-vsim-ucs148i",
                     },
+                    "state": "available",
                 }
             ],
+            "cluster_availability": True,
         },
         "server": "10.225.89.34:5696",
     }
@@ -988,13 +988,18 @@ class SecurityKeyManager(Resource):
     ) -> Iterable["Resource"]:
         r"""Retrieves key managers.
 ### Expensive properties
-There is an added computational cost to retrieving values for these properties. They are not included by default in GET results and must be explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
-* `connectivity.cluster_availability`
-* `connectivity.node_states.node.name`
-* `connectivity.node_states.node.uuid`
-* `connectivity.node_states.state`
+There is an added computational cost to retrieving these properties. They are excluded from default GET results and must be explicitly requested using the `fields` query parameter. For more details, see [`Requesting specific fields`](#Requesting_specific_fields). Additionally, these fields are unavailable for inactive configurations as they are only relevant to active configurations.
 * `status.message`
 * `status.code`
+### Examples
+- To retrieve basic information about a key manager:
+  ```
+  GET /security/key-managers
+  ```
+- To retrieve specific fields, including expensive properties:
+  ```
+  GET /security/key-managers/?fields=status.code,status.message
+  ```
 ### Related ONTAP commands
 * `security key-manager show-key-store`
 * `security key-manager external show`
@@ -1048,7 +1053,7 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Updates a key manager.
-NOTE: When validate_certificates is set, the API returns a 202 status code for successful creation of the job, otherwise an error is returned.
+**Note:** When validate_certificates is set, the API returns a 202 status code for successful creation of the job, otherwise an error is returned.
 ### Required properties (when patching the Onboard Key Manager)
 * `onboard.existing_passphrase` - Cluster-wide passphrase. Required only when synchronizing the passphrase of the Onboard Key Manager.
 * `synchronize` - Synchronizes missing Onboard Key Manager keys on any node in the cluster. Required only when synchronizing the Onboard Key Manager keys in a local cluster.
@@ -1136,13 +1141,18 @@ NOTE: When validate_certificates is set, the API returns a 202 status code for s
     def find(cls, *args, connection: HostConnection = None, **kwargs) -> Resource:
         r"""Retrieves key managers.
 ### Expensive properties
-There is an added computational cost to retrieving values for these properties. They are not included by default in GET results and must be explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
-* `connectivity.cluster_availability`
-* `connectivity.node_states.node.name`
-* `connectivity.node_states.node.uuid`
-* `connectivity.node_states.state`
+There is an added computational cost to retrieving these properties. They are excluded from default GET results and must be explicitly requested using the `fields` query parameter. For more details, see [`Requesting specific fields`](#Requesting_specific_fields). Additionally, these fields are unavailable for inactive configurations as they are only relevant to active configurations.
 * `status.message`
 * `status.code`
+### Examples
+- To retrieve basic information about a key manager:
+  ```
+  GET /security/key-managers
+  ```
+- To retrieve specific fields, including expensive properties:
+  ```
+  GET /security/key-managers/?fields=status.code,status.message
+  ```
 ### Related ONTAP commands
 * `security key-manager show-key-store`
 * `security key-manager external show`
@@ -1157,25 +1167,19 @@ There is an added computational cost to retrieving values for these properties. 
 
     def get(self, **kwargs) -> NetAppResponse:
         r"""Retrieves key managers.
-### Examples:
-- To retrieve basic information about a key server:
+### Expensive properties
+There is an added computational cost to retrieving these properties. They are excluded from default GET results and must be explicitly requested using the `fields` query parameter. For more details, see [`Requesting specific fields`](#Requesting_specific_fields). Additionally, these fields are unavailable for inactive configurations as they are only relevant to active configurations.
+* `status.message`
+* `status.code`
+### Examples
+- To retrieve basic information about a key manager:
   ```
   GET /security/key-managers/{uuid}
   ```
 - To retrieve specific fields, including expensive properties:
   ```
-  GET /security/key-managers/{uuid}?fields=connectivity.cluster_availability,connectivity.node_states.node.name
+  GET /security/key-managers/{uuid}?fields=status.message
   ```
-### Note:
-These fields are not available for inactive configurations due to the additional computational cost and the relevance of these fields is exclusive to active configurations.
-### Expensive properties
-There is an added computational cost to retrieving values for these properties. They are not included by default in GET results and must be explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
-* `connectivity.cluster_availability`
-* `connectivity.node_states.node.name`
-* `connectivity.node_states.node.uuid`
-* `connectivity.node_states.state`
-* `status.message`
-* `status.code`
 ### Related ONTAP commands
 * `security key-manager show-key-store`
 * `security key-manager external show`
@@ -1229,7 +1233,7 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Updates a key manager.
-NOTE: When validate_certificates is set, the API returns a 202 status code for successful creation of the job, otherwise an error is returned.
+**Note:** When validate_certificates is set, the API returns a 202 status code for successful creation of the job, otherwise an error is returned.
 ### Required properties (when patching the Onboard Key Manager)
 * `onboard.existing_passphrase` - Cluster-wide passphrase. Required only when synchronizing the passphrase of the Onboard Key Manager.
 * `synchronize` - Synchronizes missing Onboard Key Manager keys on any node in the cluster. Required only when synchronizing the Onboard Key Manager keys in a local cluster.

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -24,32 +24,32 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Netbios(
         {
-            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
-            "interfaces": ["172.10.144.44"],
-            "name": "CIFSERVER2",
-            "time_left": 0,
-            "node": {"name": "vsim2", "uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd"},
-            "state": "broadcast",
-            "name_registration_type": "",
-            "suffix": "00",
-            "svm": {"name": "vs1", "uuid": "99a3bd71-777f-11ec-95a1-1315568ef5fd"},
-            "mode": "h",
             "scope": "group",
+            "time_left": 0,
+            "interfaces": ["172.10.144.44"],
+            "mode": "h",
+            "suffix": "00",
+            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
+            "name_registration_type": "",
+            "svm": {"uuid": "99a3bd71-777f-11ec-95a1-1315568ef5fd", "name": "vs1"},
+            "state": "broadcast",
+            "node": {"uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd", "name": "vsim2"},
+            "name": "CIFSERVER2",
         }
     ),
     Netbios(
         {
-            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
-            "interfaces": ["172.10.144.44"],
-            "name": "CIFSERVER2",
-            "time_left": 0,
-            "node": {"name": "vsim2", "uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd"},
-            "state": "broadcast",
-            "name_registration_type": "group",
-            "suffix": "20",
-            "svm": {"name": "vs1", "uuid": "99a3bd71-777f-11ec-95a1-1315568ef5fd"},
-            "mode": "h",
             "scope": "",
+            "time_left": 0,
+            "interfaces": ["172.10.144.44"],
+            "mode": "h",
+            "suffix": "20",
+            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
+            "name_registration_type": "group",
+            "svm": {"uuid": "99a3bd71-777f-11ec-95a1-1315568ef5fd", "name": "vs1"},
+            "state": "broadcast",
+            "node": {"uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd", "name": "vsim2"},
+            "name": "CIFSERVER2",
         }
     ),
 ]
@@ -85,17 +85,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Netbios(
         {
-            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
-            "interfaces": ["172.10.144.44"],
-            "name": "CIFSERVER2",
-            "time_left": 0,
-            "node": {"name": "vsim2", "uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd"},
-            "state": "broadcast",
-            "name_registration_type": "",
-            "suffix": "00",
-            "svm": {"name": "vs1", "uuid": "45a3bd71-777f-11ec-95a1-1315568ef5fd"},
-            "mode": "h",
             "scope": "group",
+            "time_left": 0,
+            "interfaces": ["172.10.144.44"],
+            "mode": "h",
+            "suffix": "00",
+            "wins_servers": [{"ip": "10.10.10.10", "state": "inactive"}],
+            "name_registration_type": "",
+            "svm": {"uuid": "45a3bd71-777f-11ec-95a1-1315568ef5fd", "name": "vs1"},
+            "state": "broadcast",
+            "node": {"uuid": "c2179c2c-777f-11ec-95a1-1315568ef5fd", "name": "vsim2"},
+            "name": "CIFSERVER2",
         }
     )
 ]

@@ -34,6 +34,7 @@ use enum_iterator::Sequence;
 use fuzzy_matcher::FuzzyMatcher;
 use fuzzy_matcher::skim::SkimMatcherV2;
 use itertools::Itertools;
+use pyrefly_python::module::Module;
 use pyrefly_python::module_name::ModuleName;
 use pyrefly_python::module_path::ModulePath;
 use pyrefly_python::module_path::ModulePathDetails;
@@ -63,6 +64,7 @@ use starlark_map::small_set::SmallSet;
 use tracing::debug;
 use tracing::error;
 use tracing::info;
+use tracing::trace;
 use vec1::vec1;
 
 use crate::alt::answers::AnswerEntry;
@@ -94,7 +96,6 @@ use crate::export::exports::ExportLocation;
 use crate::export::exports::Exports;
 use crate::export::exports::LookupExport;
 use crate::module::finder::find_import_prefixes;
-use crate::module::module_info::ModuleInfo;
 use crate::module::typeshed::BundledTypeshed;
 use crate::state::dirty::Dirty;
 use crate::state::epoch::Epoch;
@@ -474,7 +475,7 @@ impl<'a> Transaction<'a> {
         self.data.state.config_finder.errors()
     }
 
-    pub fn get_module_info(&self, handle: &Handle) -> Option<ModuleInfo> {
+    pub fn get_module_info(&self, handle: &Handle) -> Option<Module> {
         self.get_load(handle).map(|x| x.module_info.dupe())
     }
 
@@ -779,10 +780,8 @@ impl<'a> Transaction<'a> {
                         && let Some(new) = writer.steps.solutions.as_ref()
                         && let Some(difference) = old.first_difference(new)
                     {
-                        debug!(
-                            "Exports changed for `{}`: {difference}",
-                            module_data.handle.module(),
-                        );
+                        debug!("Exports changed for `{}`", module_data.handle.module());
+                        trace!("Difference: {difference}");
                         changed = true;
                     }
                     if !require.keep_bindings() && !require.keep_answers() {
@@ -1723,6 +1722,7 @@ impl State {
     }
 
     pub fn commit_transaction(&self, transaction: CommittingTransaction) {
+        debug!("Committing transaction");
         let CommittingTransaction {
             transaction:
                 Transaction {

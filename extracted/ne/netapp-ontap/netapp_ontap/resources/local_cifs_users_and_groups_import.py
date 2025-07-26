@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -18,9 +18,7 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import LocalCifsUsersAndGroupsImport
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = LocalCifsUsersAndGroupsImport(
-        **{"svm.uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc"}
-    )
+    resource = LocalCifsUsersAndGroupsImport("6de1d39d-1473-11ec-b0cf-0050568e4acc")
     resource.get()
     print(resource)
 
@@ -33,25 +31,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 LocalCifsUsersAndGroupsImport(
     {
         "elements_ignored": 0,
-        "import_uri": {"path": "http://<import_uri>/file.7z"},
-        "state": "success",
-        "elements_imported": 2,
-        "_links": {
-            "self": {
-                "href": "/api/protocols/cifs/users-and-groups/import/6de1d39d-1473-11ec-b0cf-0050568e4acc"
-            }
-        },
         "detailed_status": {
             "message": "Operation completed successfully.",
             "code": "0",
         },
         "svm": {
+            "uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc",
             "name": "vs1",
             "_links": {
                 "self": {"href": "/api/svm/svms/6de1d39d-1473-11ec-b0cf-0050568e4acc"}
             },
-            "uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc",
         },
+        "state": "success",
+        "import_uri": {"path": "http://<import_uri>/file.7z"},
+        "_links": {
+            "self": {
+                "href": "/api/protocols/cifs/users-and-groups/import/6de1d39d-1473-11ec-b0cf-0050568e4acc"
+            }
+        },
+        "elements_imported": 2,
     }
 )
 
@@ -65,9 +63,7 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import LocalCifsUsersAndGroupsImport
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = LocalCifsUsersAndGroupsImport(
-        **{"svm.uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc"}
-    )
+    resource = LocalCifsUsersAndGroupsImport("6de1d39d-1473-11ec-b0cf-0050568e4acc")
     resource.get()
     print(resource)
 
@@ -80,25 +76,25 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 LocalCifsUsersAndGroupsImport(
     {
         "elements_ignored": 0,
-        "import_uri": {"path": "http://<import_uri>/file.7z"},
-        "state": "success",
-        "elements_imported": 0,
-        "_links": {
-            "self": {
-                "href": "/api/protocols/cifs/users-and-groups/import/6de1d39d-1473-11ec-b0cf-0050568e4acc"
-            }
-        },
         "detailed_status": {
             "message": "Failed parsing line 1 of the input file. Check syntax and contents.",
             "code": "655698",
         },
         "svm": {
+            "uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc",
             "name": "vs1",
             "_links": {
                 "self": {"href": "/api/svm/svms/6de1d39d-1473-11ec-b0cf-0050568e4acc"}
             },
-            "uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc",
         },
+        "state": "success",
+        "import_uri": {"path": "http://<import_uri>/file.7z"},
+        "_links": {
+            "self": {
+                "href": "/api/protocols/cifs/users-and-groups/import/6de1d39d-1473-11ec-b0cf-0050568e4acc"
+            }
+        },
+        "elements_imported": 0,
     }
 )
 
@@ -112,7 +108,7 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import LocalCifsUsersAndGroupsImport
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = LocalCifsUsersAndGroupsImport()
+    resource = LocalCifsUsersAndGroupsImport("6de1d39d-1473-11ec-b0cf-0050568e4acc")
     resource.import_uri.username = "user1"
     resource.import_uri.password = "aaaa"
     resource.decryption_password = "cccc"
@@ -128,12 +124,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 LocalCifsUsersAndGroupsImport(
     {
+        "decryption_password": "cccc",
         "import_uri": {
+            "path": "http://example.com/file1.7z",
             "password": "aaaa",
             "username": "user1",
-            "path": "http://example.com/file1.7z",
         },
-        "decryption_password": "cccc",
     }
 )
 
@@ -147,9 +143,7 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import LocalCifsUsersAndGroupsImport
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = LocalCifsUsersAndGroupsImport(
-        **{"svm.uuid": "6de1d39d-1473-11ec-b0cf-0050568e4acc"}
-    )
+    resource = LocalCifsUsersAndGroupsImport("6de1d39d-1473-11ec-b0cf-0050568e4acc")
     resource.status_uri.username = "user1"
     resource.status_uri.password = "aaaa"
     resource.status_uri.path = "http://example.com/fileupload.7z"
@@ -266,74 +260,11 @@ class LocalCifsUsersAndGroupsImport(Resource):
     """Allows interaction with LocalCifsUsersAndGroupsImport objects on the host"""
 
     _schema = LocalCifsUsersAndGroupsImportSchema
-    _path = "/api/protocols/cifs/users-and-groups/bulk-import"
+    _path = "/api/protocols/cifs/users-and-groups/bulk-import/{svm[uuid]}"
     _keys = ["svm.uuid"]
 
 
-    @classmethod
-    def patch_collection(
-        cls,
-        body: dict,
-        *args,
-        records: Iterable["LocalCifsUsersAndGroupsImport"] = None,
-        poll: bool = True,
-        poll_interval: Optional[int] = None,
-        poll_timeout: Optional[int] = None,
-        connection: HostConnection = None,
-        **kwargs
-    ) -> NetAppResponse:
-        r"""Upload the status of the bulk-import of the specified SVM to the specified URI.
-### Important notes
-* Only the status of the last bulk-import will be uploaded and not the status of the previous bulk-imports.
-### Required properties
-- status_uri.path - URI to which the status needs to be uploaded.
-### Optional properties
-- status_uri.username - Username of the specified URI.
-- status_uri.password - Password of the specified URI.
-### Related ONTAP commands
-* `vserver cifs users-and-groups import get-status`
 
-### Learn more
-* [`DOC /protocols/cifs/users-and-groups/bulk-import/{svm.uuid}`](#docs-NAS-protocols_cifs_users-and-groups_bulk-import_{svm.uuid})"""
-        return super()._patch_collection(
-            body, *args, records=records, poll=poll, poll_interval=poll_interval,
-            poll_timeout=poll_timeout, connection=connection, **kwargs
-        )
-
-    patch_collection.__func__.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._patch_collection.__doc__)
-
-    @classmethod
-    def post_collection(
-        cls,
-        records: Iterable["LocalCifsUsersAndGroupsImport"],
-        *args,
-        hydrate: bool = False,
-        poll: bool = True,
-        poll_interval: Optional[int] = None,
-        poll_timeout: Optional[int] = None,
-        connection: HostConnection = None,
-        **kwargs
-    ) -> Union[List["LocalCifsUsersAndGroupsImport"], NetAppResponse]:
-        r"""Loads CIFS local users,groups and group memberships file from the specified URL.<br/>
-### Important notes
-Existing CIFS local users, groups, and group memberships will be replaced with the contents of the file.
-### Required properties
-- import_uri.path
-- decryption_password
-### Optional properties
-- import_uri.username
-- import_uri.password
-### Related ONTAP commands
-* `vserver cifs users-and-groups import load-from-uri`
-
-### Learn more
-* [`DOC /protocols/cifs/users-and-groups/bulk-import/{svm.uuid}`](#docs-NAS-protocols_cifs_users-and-groups_bulk-import_{svm.uuid})"""
-        return super()._post_collection(
-            records, *args, hydrate=hydrate, poll=poll, poll_interval=poll_interval,
-            poll_timeout=poll_timeout, connection=connection, **kwargs
-        )
-
-    post_collection.__func__.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._post_collection.__doc__)
 
 
 

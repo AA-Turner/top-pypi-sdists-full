@@ -69,8 +69,7 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
                 .elements
                 .iter()
                 .map(|name| {
-                    self.try_lookup_attr_from_class_type(cls.clone(), name)
-                        .and_then(|attr| self.resolve_named_tuple_element(attr))
+                    self.resolve_named_tuple_element(cls.clone(), name)
                         .unwrap_or_else(Type::any_implicit)
                 })
                 .collect(),
@@ -81,12 +80,9 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         elements
             .iter()
             .map(|name| {
-                let (ty, required) = match self.get_class_member(cls, name) {
+                let (ty, required) = match self.get_non_synthesized_class_member(cls, name) {
                     None => (Type::any_implicit(), Required::Required),
-                    Some(c) => (
-                        c.value.as_named_tuple_type(),
-                        c.value.as_named_tuple_requiredness(),
-                    ),
+                    Some(c) => (c.as_named_tuple_type(), c.as_named_tuple_requiredness()),
                 };
                 Param::Pos(name.clone(), ty, required)
             })
@@ -129,10 +125,12 @@ impl<'a, Ans: LookupAnswer> AnswersSolver<'a, Ans> {
         let params = vec![self.class_self_param(cls, false)];
         let element_types: Vec<Type> = elements
             .iter()
-            .map(|name| match self.get_class_member(cls, name) {
-                None => Type::any_implicit(),
-                Some(c) => c.value.as_named_tuple_type(),
-            })
+            .map(
+                |name| match self.get_non_synthesized_class_member(cls, name) {
+                    None => Type::any_implicit(),
+                    Some(c) => c.as_named_tuple_type(),
+                },
+            )
             .collect();
         let ty = Type::Function(Box::new(Function {
             signature: Callable::list(

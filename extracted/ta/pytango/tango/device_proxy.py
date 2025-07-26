@@ -726,10 +726,7 @@ def __read_attributes_reply__(self, *args, **kwargs):
     if "poll_timeout" in kwargs:
         kwargs["timeout"] = kwargs.pop("poll_timeout")
 
-    return [
-        __check_read_attribute(attr)
-        for attr in self.__read_attributes_reply(*args, **kwargs)
-    ]
+    return self.__read_attributes_reply(*args, **kwargs)
 
 
 def __DeviceProxy__read_attributes_reply(self, *args, **kwargs):
@@ -737,7 +734,11 @@ def __DeviceProxy__read_attributes_reply(self, *args, **kwargs):
     read_attributes_reply(self, id, extract_as=ExtractAs.Numpy, green_mode=None, wait=True) -> [DeviceAttribute]
     read_attributes_reply(self, id, poll_timeout, extract_as=ExtractAs.Numpy, green_mode=None, wait=True) -> [DeviceAttribute]
 
-        Check if the answer of an asynchronous read_attributes is arrived (polling model).
+    Get the answer of an asynchronous read_attributes call, if it has arrived (polling model).
+
+    If the reply is ready, but an attribute raised an exception while reading, it will
+    still be included in the returned list.  However, the has_error field for that item
+    will be set to True.
 
     .. versionchanged:: 7.0.0 New in PyTango
     .. versionchanged:: 10.0.0 To eliminate confusion between different timeout parameters, the core (cppTango) timeout (previously the optional second positional argument) has been renamed to "poll_timeout". Conversely, the pyTango executor timeout remains as the keyword argument "timeout". These parameters have distinct meanings and units:
@@ -795,7 +796,10 @@ def __DeviceProxy__read_attribute_reply(self, *args, **kwargs):
     read_attribute_reply(self, id, extract_as=ExtractAs.Numpy, green_mode=None, wait=True) -> DeviceAttribute
     read_attribute_reply(self, id, poll_timeout, extract_as=ExtractAs.Numpy, green_mode=None, wait=True) -> DeviceAttribute
 
-        Check if the answer of an asynchronous read_attribute is arrived (polling model).
+    Get the answer of an asynchronous read_attribute call, if it has arrived (polling model).
+
+    If the reply is ready, but the attribute raised an exception while reading, an
+    exception will be raised by this function (DevFailed, with reason API_AttrValueNotSet).
 
     .. versionchanged:: 7.0.0 New in PyTango
     .. versionchanged:: 10.0.0 To eliminate confusion between different timeout parameters, the core (cppTango) timeout (previously the optional second positional argument) has been renamed to "poll_timeout". Conversely, the pyTango executor timeout remains as the keyword argument "timeout". These parameters have distinct meanings and units:
@@ -844,7 +848,8 @@ def __DeviceProxy__read_attribute_reply(self, *args, **kwargs):
     :throws: Union[AsynCall, AsynReplyNotArrived, ConnectionFailed, CommunicationFailed, DevFailed]
 
     """
-    return __read_attributes_reply__(self, *args, **kwargs)[0]
+    attr = __read_attributes_reply__(self, *args, **kwargs)[0]
+    return __check_read_attribute(attr)
 
 
 def __write_attributes_asynch__(self, attr_values, cb=None):

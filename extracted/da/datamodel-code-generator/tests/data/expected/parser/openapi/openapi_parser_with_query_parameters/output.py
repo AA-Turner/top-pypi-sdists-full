@@ -22,6 +22,10 @@ class PetForm(BaseModel):
     age: Optional[int] = None
 
 
+class PetsPetIdGetParametersQuery(BaseModel):
+    include: Optional[str] = None
+
+
 class Filter(BaseModel):
     type: Optional[str] = None
     color: Optional[str] = None

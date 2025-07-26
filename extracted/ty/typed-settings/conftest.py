@@ -94,8 +94,9 @@ class ConsoleCodeBlockParser(sybil.parsers.myst.CodeBlockParser):
         else:
             expected = output
         env = os.environ.copy()
+        env.pop("FORCE_COLOR", None)
         env["NO_COLOR"] = "1"
-        proc = subprocess.Popen(  # noqa: S603
+        proc = subprocess.Popen(
             ["bash"],  # noqa: S607
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,

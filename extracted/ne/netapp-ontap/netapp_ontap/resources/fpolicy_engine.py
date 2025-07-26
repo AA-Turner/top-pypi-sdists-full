@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,6 +27,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     resource.server_progress_timeout = "PT1M"
     resource.status_request_interval = "PT23S"
     resource.keep_alive_interval = "PT2M"
+    resource.session_timeout = "PT10S"
+    resource.max_connection_retries = 5
     resource.post(hydrate=True)
     print(resource)
 
@@ -38,12 +40,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyEngine(
     {
-        "type": "synchronous",
-        "format": "xml",
-        "name": "engine0",
-        "primary_servers": ["10.132.145.22", "10.140.101.109"],
-        "port": 9876,
         "secondary_servers": ["10.132.145.20", "10.132.145.21"],
+        "format": "xml",
+        "type": "synchronous",
+        "port": 9876,
+        "primary_servers": ["10.132.145.22", "10.140.101.109"],
+        "name": "engine0",
     }
 )
 
@@ -75,11 +77,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyEngine(
     {
-        "type": "synchronous",
         "format": "xml",
-        "name": "engine0",
-        "primary_servers": ["10.132.145.22", "10.140.101.109"],
+        "type": "synchronous",
         "port": 9876,
+        "primary_servers": ["10.132.145.22", "10.140.101.109"],
+        "name": "engine0",
     }
 )
 
@@ -112,31 +114,33 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FpolicyEngine(
         {
-            "type": "synchronous",
-            "name": "cifs",
-            "primary_servers": ["10.20.20.10"],
             "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
+            "type": "synchronous",
             "port": 9876,
+            "primary_servers": ["10.20.20.10"],
+            "name": "cifs",
         }
     ),
     FpolicyEngine(
         {
-            "request_cancel_timeout": "PT29S",
-            "type": "synchronous",
-            "resiliency": {"enabled": False, "retention_duration": "PT3M"},
-            "format": "xml",
-            "request_abort_timeout": "PT3M",
-            "keep_alive_interval": "PT2M",
-            "name": "nfs",
-            "buffer_size": {"recv_buffer": 262144, "send_buffer": 1048576},
-            "max_server_requests": 500,
-            "ssl_option": "no_auth",
-            "server_progress_timeout": "PT1M",
-            "primary_servers": ["10.23.140.64", "10.140.101.109"],
-            "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
-            "status_request_interval": "PT23S",
-            "port": 9876,
             "secondary_servers": ["10.132.145.20", "10.132.145.22"],
+            "format": "xml",
+            "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
+            "server_progress_timeout": "PT1M",
+            "type": "synchronous",
+            "buffer_size": {"send_buffer": 1048576, "recv_buffer": 262144},
+            "session_timeout": "PT10S",
+            "request_abort_timeout": "PT3M",
+            "port": 9876,
+            "primary_servers": ["10.23.140.64", "10.140.101.109"],
+            "ssl_option": "no_auth",
+            "max_server_requests": 500,
+            "keep_alive_interval": "PT2M",
+            "request_cancel_timeout": "PT29S",
+            "max_connection_retries": 5,
+            "name": "nfs",
+            "resiliency": {"retention_duration": "PT3M", "enabled": False},
+            "status_request_interval": "PT23S",
         }
     ),
 ]
@@ -165,12 +169,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FpolicyEngine(
     {
-        "type": "synchronous",
         "format": "xml",
-        "name": "cifs",
-        "primary_servers": ["10.20.20.10"],
         "svm": {"uuid": "4f643fb4-fd21-11e8-ae49-0050568e2c1e"},
+        "type": "synchronous",
         "port": 9876,
+        "primary_servers": ["10.20.20.10"],
+        "name": "cifs",
     }
 )
 
@@ -284,6 +288,15 @@ Valid choices:
 
 Example: PT2M"""
 
+    max_connection_retries = Size(
+        data_key="max_connection_retries",
+        validate=integer_validation(minimum=0, maximum=20),
+        allow_none=True,
+    )
+    r""" This parameter specifies the maximum number of attempts to reconnect to the FPolicy server from an SVM. It is used to specify the number of times a broken connection will be retried. The value for this field must be between 0 and 20. By default, it is 5.
+
+Example: 5"""
+
     max_server_requests = Size(
         data_key="max_server_requests",
         validate=integer_validation(minimum=1, maximum=10000),
@@ -346,6 +359,14 @@ Example: ["10.132.145.20","10.132.145.21"]"""
 
 Example: PT1M"""
 
+    session_timeout = marshmallow_fields.Str(
+        data_key="session_timeout",
+        allow_none=True,
+    )
+    r""" This parameter specifies the interval after which a new session ID is sent to the FPolicy server during reconnection attempts. The default value is set to 10 seconds. If the connection between the storage controller and the FPolicy server is terminated and reconnection is made within the -session-timeout interval, the old session ID is sent to the FPolicy server so that it can send responses for old notifications.
+
+Example: PT10S"""
+
     ssl_option = marshmallow_fields.Str(
         data_key="ssl_option",
         validate=enum_validation(['no_auth', 'server_auth', 'mutual_auth']),
@@ -401,6 +422,7 @@ Valid choices:
         "certificate",
         "format",
         "keep_alive_interval",
+        "max_connection_retries",
         "max_server_requests",
         "name",
         "port",
@@ -410,18 +432,20 @@ Valid choices:
         "resiliency",
         "secondary_servers",
         "server_progress_timeout",
+        "session_timeout",
         "ssl_option",
         "status_request_interval",
         "svm",
         "type",
     ]
-    """buffer_size,certificate,format,keep_alive_interval,max_server_requests,name,port,primary_servers,request_abort_timeout,request_cancel_timeout,resiliency,secondary_servers,server_progress_timeout,ssl_option,status_request_interval,svm,type,"""
+    """buffer_size,certificate,format,keep_alive_interval,max_connection_retries,max_server_requests,name,port,primary_servers,request_abort_timeout,request_cancel_timeout,resiliency,secondary_servers,server_progress_timeout,session_timeout,ssl_option,status_request_interval,svm,type,"""
 
     patchable_fields = [
         "buffer_size",
         "certificate",
         "format",
         "keep_alive_interval",
+        "max_connection_retries",
         "max_server_requests",
         "port",
         "primary_servers",
@@ -430,17 +454,19 @@ Valid choices:
         "resiliency",
         "secondary_servers",
         "server_progress_timeout",
+        "session_timeout",
         "ssl_option",
         "status_request_interval",
         "type",
     ]
-    """buffer_size,certificate,format,keep_alive_interval,max_server_requests,port,primary_servers,request_abort_timeout,request_cancel_timeout,resiliency,secondary_servers,server_progress_timeout,ssl_option,status_request_interval,type,"""
+    """buffer_size,certificate,format,keep_alive_interval,max_connection_retries,max_server_requests,port,primary_servers,request_abort_timeout,request_cancel_timeout,resiliency,secondary_servers,server_progress_timeout,session_timeout,ssl_option,status_request_interval,type,"""
 
     postable_fields = [
         "buffer_size",
         "certificate",
         "format",
         "keep_alive_interval",
+        "max_connection_retries",
         "max_server_requests",
         "name",
         "port",
@@ -450,11 +476,12 @@ Valid choices:
         "resiliency",
         "secondary_servers",
         "server_progress_timeout",
+        "session_timeout",
         "ssl_option",
         "status_request_interval",
         "type",
     ]
-    """buffer_size,certificate,format,keep_alive_interval,max_server_requests,name,port,primary_servers,request_abort_timeout,request_cancel_timeout,resiliency,secondary_servers,server_progress_timeout,ssl_option,status_request_interval,type,"""
+    """buffer_size,certificate,format,keep_alive_interval,max_connection_retries,max_server_requests,name,port,primary_servers,request_abort_timeout,request_cancel_timeout,resiliency,secondary_servers,server_progress_timeout,session_timeout,ssl_option,status_request_interval,type,"""
 
 class FpolicyEngine(Resource):
     r""" Defines how ONTAP makes and manages connections to external FPolicy servers. """

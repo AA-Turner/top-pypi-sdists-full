@@ -46,6 +46,9 @@ CONFIG_DEFAULTS = {
     "optimizer_config": {
         "adam": {},
         "adamw": {},
+        "muon": {},
+        "sgd": {},
+        "adafactor": {},
     },
     "data": "data/",
     "seed": 0,
@@ -103,9 +106,9 @@ def build_parser():
     parser.add_argument(
         "--optimizer",
         type=str,
-        choices=["adam", "adamw"],
+        choices=["adam", "adamw", "sgd", "adafactor"],
         default=None,
-        help="Optimizer to use for training: adam or adamw",
+        help="Optimizer to use for training: adam, adamw, sgd, or adafactor.",
     )
     parser.add_argument(
         "--mask-prompt",
@@ -251,11 +254,16 @@ def train_model(
 
     optimizer_name = args.optimizer.lower()
     optimizer_config = args.optimizer_config.get(optimizer_name, {})
-
     if optimizer_name == "adam":
         opt_class = optim.Adam
     elif optimizer_name == "adamw":
         opt_class = optim.AdamW
+    elif optimizer_name == "muon":
+        opt_class = optim.Muon
+    elif optimizer_name == "sgd":
+        opt_class = optim.SGD
+    elif optimizer_name == "adafactor":
+        opt_class = optim.Adafactor
     else:
         raise ValueError(f"Unsupported optimizer: {optimizer_name}")
 

@@ -55,11 +55,7 @@ ClientContext::ClientContext(Database* database)
     randomEngine = std::make_unique<RandomEngine>();
     remoteDatabase = nullptr;
     graphEntrySet = std::make_unique<graph::GraphEntrySet>();
-#if defined(_WIN32)
-    clientConfig.homeDirectory = getEnvVariable("USERPROFILE");
-#else
-    clientConfig.homeDirectory = getEnvVariable("HOME");
-#endif
+    clientConfig.homeDirectory = getUserHomeDir();
     clientConfig.fileSearchPath = "";
     clientConfig.enableSemiMask = ClientConfigDefault::ENABLE_SEMI_MASK;
     clientConfig.enableZoneMap = ClientConfigDefault::ENABLE_ZONE_MAP;
@@ -272,6 +268,14 @@ std::string ClientContext::getEnvVariable(const std::string& name) {
         return std::string();
     }
     return env;
+#endif
+}
+
+std::string ClientContext::getUserHomeDir() {
+#if defined(_WIN32)
+    return getEnvVariable("USERPROFILE");
+#else
+    return getEnvVariable("HOME");
 #endif
 }
 
@@ -631,7 +635,7 @@ ClientContext::TransactionHelper::getAction(bool commitIfNew, bool commitIfAuto)
     return TransactionCommitAction::NOT_COMMIT;
 }
 
-// If there is an active transaction in the context, we execute the function in current active
+// If there is an active transaction in the context, we execute the function in the current active
 // transaction. If there is no active transaction, we start an auto commit transaction.
 void ClientContext::TransactionHelper::runFuncInTransaction(TransactionContext& context,
     const std::function<void()>& fun, bool readOnlyStatement, bool isTransactionStatement,

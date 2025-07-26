@@ -81,7 +81,7 @@ class RPC:
             response_data = response.json()
         except Exception as e:
             try:
-                response_text = response.text if response else "No response"
+                response_text = response.text
             except Exception:
                 response_text = "No response"
 

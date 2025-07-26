@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,40 +26,40 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     VscanServerStatus(
         {
             "interface": {
-                "name": "vs1.data",
                 "uuid": "6911e7c6-aefc-11eb-bd8c-0050568e8ed1",
                 "ip": {"address": "10.140.69.165"},
+                "name": "vs1.data",
             },
             "version": "5.643",
             "update_time": "2021-05-07T21:35:02+05:30",
+            "vendor": "mighty master anti-evil scanner",
+            "svm": {"uuid": "66f8564d-aefc-11eb-bd8c-0050568e8ed1", "name": "vs1"},
             "state": "connected",
             "node": {
-                "name": "user-vsim1",
                 "uuid": "ce2463d9-aef6-11eb-bd8c-0050568e8ed1",
+                "name": "user-vsim1",
             },
             "ip": "10.140.132.141",
-            "vendor": "mighty master anti-evil scanner",
-            "svm": {"name": "vs1", "uuid": "66f8564d-aefc-11eb-bd8c-0050568e8ed1"},
             "type": "primary",
         }
     ),
     VscanServerStatus(
         {
             "interface": {
-                "name": "vs2.data",
                 "uuid": "c070b4c2-aef9-11eb-8530-0050568e8ed1",
                 "ip": {"address": "10.140.70.154"},
+                "name": "vs2.data",
             },
             "version": "5.643",
             "update_time": "2021-05-07T21:35:43+05:30",
+            "vendor": "mighty master anti-evil scanner",
+            "svm": {"uuid": "a776e8f2-aef9-11eb-8530-0050568e8ed1", "name": "vs2"},
             "state": "connected",
             "node": {
-                "name": "user-vsim1",
                 "uuid": "ce2463d9-aef6-11eb-bd8c-0050568e8ed1",
+                "name": "user-vsim1",
             },
             "ip": "10.140.128.163",
-            "vendor": "mighty master anti-evil scanner",
-            "svm": {"name": "vs2", "uuid": "a776e8f2-aef9-11eb-8530-0050568e8ed1"},
             "type": "primary",
         }
     ),
@@ -89,20 +89,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     VscanServerStatus(
         {
             "interface": {
-                "name": "vs1.data",
                 "uuid": "6911e7c6-aefc-11eb-bd8c-0050568e8ed1",
                 "ip": {"address": "10.140.69.165"},
+                "name": "vs1.data",
             },
             "version": "5.643",
             "update_time": "2021-05-07T23:08:21+05:30",
+            "vendor": "mighty master anti-evil scanner",
+            "svm": {"uuid": "66f8564d-aefc-11eb-bd8c-0050568e8ed1", "name": "vs1"},
             "state": "connected",
             "node": {
-                "name": "user-vsim1",
                 "uuid": "ce2463d9-aef6-11eb-bd8c-0050568e8ed1",
+                "name": "user-vsim1",
             },
             "ip": "10.140.132.141",
-            "vendor": "mighty master anti-evil scanner",
-            "svm": {"name": "vs1", "uuid": "66f8564d-aefc-11eb-bd8c-0050568e8ed1"},
             "type": "primary",
         }
     )

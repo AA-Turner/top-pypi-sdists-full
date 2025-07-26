@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -133,6 +133,9 @@ Valid choices:
     progress = marshmallow_fields.Str(data_key="progress", allow_none=True)
     r""" Sis progress of the volume. """
 
+    ratio = marshmallow_fields.Number(data_key="ratio", allow_none=True)
+    r""" Storage efficiency that does not include the savings provided by snapshots. """
+
     scanner = marshmallow_fields.Nested("netapp_ontap.models.volume_efficiency_scanner.VolumeEfficiencyScannerSchema", unknown=EXCLUDE, data_key="scanner", allow_none=True)
     r""" The scanner field of the volume_efficiency. """
 
@@ -194,6 +197,7 @@ Valid choices:
         "op_state",
         "policy",
         "progress",
+        "ratio",
         "scanner",
         "schedule",
         "space_savings",
@@ -202,7 +206,7 @@ Valid choices:
         "type",
         "volume_path",
     ]
-    """application_io_size,auto_state,compaction,compression,compression_type,cross_volume_dedupe,dedupe,has_savings,idcs_scanner,last_op_begin,last_op_end,last_op_err,last_op_size,last_op_state,logging_enabled,op_state,policy,progress,scanner,schedule,space_savings,state,storage_efficiency_mode,type,volume_path,"""
+    """application_io_size,auto_state,compaction,compression,compression_type,cross_volume_dedupe,dedupe,has_savings,idcs_scanner,last_op_begin,last_op_end,last_op_err,last_op_size,last_op_state,logging_enabled,op_state,policy,progress,ratio,scanner,schedule,space_savings,state,storage_efficiency_mode,type,volume_path,"""
 
     patchable_fields = [
         "application_io_size",

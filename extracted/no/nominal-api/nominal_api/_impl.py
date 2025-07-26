@@ -42291,22 +42291,25 @@ scout_compute_api_DurationFilterRanges.__module__ = "nominal_api.scout_compute_a
 class scout_compute_api_Enum1dArraySeries(ConjureUnionType):
     _channel: Optional["scout_compute_api_ChannelSeries"] = None
     _raw: Optional["scout_compute_api_Reference"] = None
+    _derived: Optional["scout_compute_api_DerivedSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'channel': ConjureFieldDefinition('channel', scout_compute_api_ChannelSeries),
-            'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference)
+            'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference),
+            'derived': ConjureFieldDefinition('derived', scout_compute_api_DerivedSeries)
         }
 
     def __init__(
             self,
             channel: Optional["scout_compute_api_ChannelSeries"] = None,
             raw: Optional["scout_compute_api_Reference"] = None,
+            derived: Optional["scout_compute_api_DerivedSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (channel is not None) + (raw is not None) != 1:
+            if (channel is not None) + (raw is not None) + (derived is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if channel is not None:
@@ -42315,6 +42318,9 @@ class scout_compute_api_Enum1dArraySeries(ConjureUnionType):
             if raw is not None:
                 self._raw = raw
                 self._type = 'raw'
+            if derived is not None:
+                self._derived = derived
+                self._type = 'derived'
 
         elif type_of_union == 'channel':
             if channel is None:
@@ -42326,6 +42332,11 @@ class scout_compute_api_Enum1dArraySeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._raw = raw
             self._type = 'raw'
+        elif type_of_union == 'derived':
+            if derived is None:
+                raise ValueError('a union value must not be None')
+            self._derived = derived
+            self._type = 'derived'
 
     @builtins.property
     def channel(self) -> Optional["scout_compute_api_ChannelSeries"]:
@@ -42335,6 +42346,10 @@ class scout_compute_api_Enum1dArraySeries(ConjureUnionType):
     def raw(self) -> Optional["scout_compute_api_Reference"]:
         return self._raw
 
+    @builtins.property
+    def derived(self) -> Optional["scout_compute_api_DerivedSeries"]:
+        return self._derived
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_Enum1dArraySeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_Enum1dArraySeriesVisitor'.format(visitor.__class__.__name__))
@@ -42342,6 +42357,8 @@ class scout_compute_api_Enum1dArraySeries(ConjureUnionType):
             return visitor._channel(self.channel)
         if self._type == 'raw' and self.raw is not None:
             return visitor._raw(self.raw)
+        if self._type == 'derived' and self.derived is not None:
+            return visitor._derived(self.derived)
 
 
 scout_compute_api_Enum1dArraySeries.__name__ = "Enum1dArraySeries"
@@ -42357,6 +42374,10 @@ class scout_compute_api_Enum1dArraySeriesVisitor:
 
     @abstractmethod
     def _raw(self, raw: "scout_compute_api_Reference") -> Any:
+        pass
+
+    @abstractmethod
+    def _derived(self, derived: "scout_compute_api_DerivedSeries") -> Any:
         pass
 
 
@@ -42722,6 +42743,7 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
     _aggregate: Optional["scout_compute_api_AggregateEnumSeries"] = None
     _raw: Optional["scout_compute_api_Reference"] = None
     _channel: Optional["scout_compute_api_ChannelSeries"] = None
+    _derived: Optional["scout_compute_api_DerivedSeries"] = None
     _resample: Optional["scout_compute_api_EnumResampleSeries"] = None
     _time_range_filter: Optional["scout_compute_api_EnumTimeRangeFilterSeries"] = None
     _time_shift: Optional["scout_compute_api_EnumTimeShiftSeries"] = None
@@ -42736,6 +42758,7 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             'aggregate': ConjureFieldDefinition('aggregate', scout_compute_api_AggregateEnumSeries),
             'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference),
             'channel': ConjureFieldDefinition('channel', scout_compute_api_ChannelSeries),
+            'derived': ConjureFieldDefinition('derived', scout_compute_api_DerivedSeries),
             'resample': ConjureFieldDefinition('resample', scout_compute_api_EnumResampleSeries),
             'time_range_filter': ConjureFieldDefinition('timeRangeFilter', scout_compute_api_EnumTimeRangeFilterSeries),
             'time_shift': ConjureFieldDefinition('timeShift', scout_compute_api_EnumTimeShiftSeries),
@@ -42750,6 +42773,7 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             aggregate: Optional["scout_compute_api_AggregateEnumSeries"] = None,
             raw: Optional["scout_compute_api_Reference"] = None,
             channel: Optional["scout_compute_api_ChannelSeries"] = None,
+            derived: Optional["scout_compute_api_DerivedSeries"] = None,
             resample: Optional["scout_compute_api_EnumResampleSeries"] = None,
             time_range_filter: Optional["scout_compute_api_EnumTimeRangeFilterSeries"] = None,
             time_shift: Optional["scout_compute_api_EnumTimeShiftSeries"] = None,
@@ -42760,7 +42784,7 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (aggregate is not None) + (raw is not None) + (channel is not None) + (resample is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (filter_transformation is not None) + (value_map is not None) + (select1d_array_index is not None) != 1:
+            if (aggregate is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (time_range_filter is not None) + (time_shift is not None) + (union is not None) + (filter_transformation is not None) + (value_map is not None) + (select1d_array_index is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if aggregate is not None:
@@ -42772,6 +42796,9 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             if channel is not None:
                 self._channel = channel
                 self._type = 'channel'
+            if derived is not None:
+                self._derived = derived
+                self._type = 'derived'
             if resample is not None:
                 self._resample = resample
                 self._type = 'resample'
@@ -42809,6 +42836,11 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._channel = channel
             self._type = 'channel'
+        elif type_of_union == 'derived':
+            if derived is None:
+                raise ValueError('a union value must not be None')
+            self._derived = derived
+            self._type = 'derived'
         elif type_of_union == 'resample':
             if resample is None:
                 raise ValueError('a union value must not be None')
@@ -42858,6 +42890,10 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
         return self._channel
 
     @builtins.property
+    def derived(self) -> Optional["scout_compute_api_DerivedSeries"]:
+        return self._derived
+
+    @builtins.property
     def resample(self) -> Optional["scout_compute_api_EnumResampleSeries"]:
         return self._resample
 
@@ -42894,6 +42930,8 @@ class scout_compute_api_EnumSeries(ConjureUnionType):
             return visitor._raw(self.raw)
         if self._type == 'channel' and self.channel is not None:
             return visitor._channel(self.channel)
+        if self._type == 'derived' and self.derived is not None:
+            return visitor._derived(self.derived)
         if self._type == 'resample' and self.resample is not None:
             return visitor._resample(self.resample)
         if self._type == 'timeRangeFilter' and self.time_range_filter is not None:
@@ -42927,6 +42965,10 @@ class scout_compute_api_EnumSeriesVisitor:
 
     @abstractmethod
     def _channel(self, channel: "scout_compute_api_ChannelSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _derived(self, derived: "scout_compute_api_DerivedSeries") -> Any:
         pass
 
     @abstractmethod
@@ -44556,6 +44598,7 @@ scout_compute_api_LogRegexFilterOperator.__module__ = "nominal_api.scout_compute
 class scout_compute_api_LogSeries(ConjureUnionType):
     _raw: Optional["scout_compute_api_Reference"] = None
     _channel: Optional["scout_compute_api_ChannelSeries"] = None
+    _derived: Optional["scout_compute_api_DerivedSeries"] = None
     _union: Optional["scout_compute_api_LogUnionSeries"] = None
     _filter: Optional["scout_compute_api_LogFilterSeries"] = None
     _time_shift: Optional["scout_compute_api_LogTimeShiftSeries"] = None
@@ -44565,6 +44608,7 @@ class scout_compute_api_LogSeries(ConjureUnionType):
         return {
             'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference),
             'channel': ConjureFieldDefinition('channel', scout_compute_api_ChannelSeries),
+            'derived': ConjureFieldDefinition('derived', scout_compute_api_DerivedSeries),
             'union': ConjureFieldDefinition('union', scout_compute_api_LogUnionSeries),
             'filter': ConjureFieldDefinition('filter', scout_compute_api_LogFilterSeries),
             'time_shift': ConjureFieldDefinition('timeShift', scout_compute_api_LogTimeShiftSeries)
@@ -44574,13 +44618,14 @@ class scout_compute_api_LogSeries(ConjureUnionType):
             self,
             raw: Optional["scout_compute_api_Reference"] = None,
             channel: Optional["scout_compute_api_ChannelSeries"] = None,
+            derived: Optional["scout_compute_api_DerivedSeries"] = None,
             union: Optional["scout_compute_api_LogUnionSeries"] = None,
             filter: Optional["scout_compute_api_LogFilterSeries"] = None,
             time_shift: Optional["scout_compute_api_LogTimeShiftSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (raw is not None) + (channel is not None) + (union is not None) + (filter is not None) + (time_shift is not None) != 1:
+            if (raw is not None) + (channel is not None) + (derived is not None) + (union is not None) + (filter is not None) + (time_shift is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if raw is not None:
@@ -44589,6 +44634,9 @@ class scout_compute_api_LogSeries(ConjureUnionType):
             if channel is not None:
                 self._channel = channel
                 self._type = 'channel'
+            if derived is not None:
+                self._derived = derived
+                self._type = 'derived'
             if union is not None:
                 self._union = union
                 self._type = 'union'
@@ -44609,6 +44657,11 @@ class scout_compute_api_LogSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._channel = channel
             self._type = 'channel'
+        elif type_of_union == 'derived':
+            if derived is None:
+                raise ValueError('a union value must not be None')
+            self._derived = derived
+            self._type = 'derived'
         elif type_of_union == 'union':
             if union is None:
                 raise ValueError('a union value must not be None')
@@ -44634,6 +44687,10 @@ class scout_compute_api_LogSeries(ConjureUnionType):
         return self._channel
 
     @builtins.property
+    def derived(self) -> Optional["scout_compute_api_DerivedSeries"]:
+        return self._derived
+
+    @builtins.property
     def union(self) -> Optional["scout_compute_api_LogUnionSeries"]:
         return self._union
 
@@ -44652,6 +44709,8 @@ class scout_compute_api_LogSeries(ConjureUnionType):
             return visitor._raw(self.raw)
         if self._type == 'channel' and self.channel is not None:
             return visitor._channel(self.channel)
+        if self._type == 'derived' and self.derived is not None:
+            return visitor._derived(self.derived)
         if self._type == 'union' and self.union is not None:
             return visitor._union(self.union)
         if self._type == 'filter' and self.filter is not None:
@@ -44673,6 +44732,10 @@ class scout_compute_api_LogSeriesVisitor:
 
     @abstractmethod
     def _channel(self, channel: "scout_compute_api_ChannelSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _derived(self, derived: "scout_compute_api_DerivedSeries") -> Any:
         pass
 
     @abstractmethod
@@ -45267,22 +45330,25 @@ scout_compute_api_NotRanges.__module__ = "nominal_api.scout_compute_api"
 class scout_compute_api_Numeric1dArraySeries(ConjureUnionType):
     _channel: Optional["scout_compute_api_ChannelSeries"] = None
     _raw: Optional["scout_compute_api_Reference"] = None
+    _derived: Optional["scout_compute_api_DerivedSeries"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
         return {
             'channel': ConjureFieldDefinition('channel', scout_compute_api_ChannelSeries),
-            'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference)
+            'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference),
+            'derived': ConjureFieldDefinition('derived', scout_compute_api_DerivedSeries)
         }
 
     def __init__(
             self,
             channel: Optional["scout_compute_api_ChannelSeries"] = None,
             raw: Optional["scout_compute_api_Reference"] = None,
+            derived: Optional["scout_compute_api_DerivedSeries"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (channel is not None) + (raw is not None) != 1:
+            if (channel is not None) + (raw is not None) + (derived is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if channel is not None:
@@ -45291,6 +45357,9 @@ class scout_compute_api_Numeric1dArraySeries(ConjureUnionType):
             if raw is not None:
                 self._raw = raw
                 self._type = 'raw'
+            if derived is not None:
+                self._derived = derived
+                self._type = 'derived'
 
         elif type_of_union == 'channel':
             if channel is None:
@@ -45302,6 +45371,11 @@ class scout_compute_api_Numeric1dArraySeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._raw = raw
             self._type = 'raw'
+        elif type_of_union == 'derived':
+            if derived is None:
+                raise ValueError('a union value must not be None')
+            self._derived = derived
+            self._type = 'derived'
 
     @builtins.property
     def channel(self) -> Optional["scout_compute_api_ChannelSeries"]:
@@ -45311,6 +45385,10 @@ class scout_compute_api_Numeric1dArraySeries(ConjureUnionType):
     def raw(self) -> Optional["scout_compute_api_Reference"]:
         return self._raw
 
+    @builtins.property
+    def derived(self) -> Optional["scout_compute_api_DerivedSeries"]:
+        return self._derived
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_compute_api_Numeric1dArraySeriesVisitor):
             raise ValueError('{} is not an instance of scout_compute_api_Numeric1dArraySeriesVisitor'.format(visitor.__class__.__name__))
@@ -45318,6 +45396,8 @@ class scout_compute_api_Numeric1dArraySeries(ConjureUnionType):
             return visitor._channel(self.channel)
         if self._type == 'raw' and self.raw is not None:
             return visitor._raw(self.raw)
+        if self._type == 'derived' and self.derived is not None:
+            return visitor._derived(self.derived)
 
 
 scout_compute_api_Numeric1dArraySeries.__name__ = "Numeric1dArraySeries"
@@ -45333,6 +45413,10 @@ class scout_compute_api_Numeric1dArraySeriesVisitor:
 
     @abstractmethod
     def _raw(self, raw: "scout_compute_api_Reference") -> Any:
+        pass
+
+    @abstractmethod
+    def _derived(self, derived: "scout_compute_api_DerivedSeries") -> Any:
         pass
 
 
@@ -45828,6 +45912,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
     _product: Optional["scout_compute_api_ProductSeries"] = None
     _raw: Optional["scout_compute_api_Reference"] = None
     _channel: Optional["scout_compute_api_ChannelSeries"] = None
+    _derived: Optional["scout_compute_api_DerivedSeries"] = None
     _resample: Optional["scout_compute_api_NumericResampleSeries"] = None
     _rolling_operation: Optional["scout_compute_api_RollingOperationSeries"] = None
     _signal_filter: Optional["scout_compute_api_SignalFilterSeries"] = None
@@ -45865,6 +45950,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             'product': ConjureFieldDefinition('product', scout_compute_api_ProductSeries),
             'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference),
             'channel': ConjureFieldDefinition('channel', scout_compute_api_ChannelSeries),
+            'derived': ConjureFieldDefinition('derived', scout_compute_api_DerivedSeries),
             'resample': ConjureFieldDefinition('resample', scout_compute_api_NumericResampleSeries),
             'rolling_operation': ConjureFieldDefinition('rollingOperation', scout_compute_api_RollingOperationSeries),
             'signal_filter': ConjureFieldDefinition('signalFilter', scout_compute_api_SignalFilterSeries),
@@ -45902,6 +45988,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             product: Optional["scout_compute_api_ProductSeries"] = None,
             raw: Optional["scout_compute_api_Reference"] = None,
             channel: Optional["scout_compute_api_ChannelSeries"] = None,
+            derived: Optional["scout_compute_api_DerivedSeries"] = None,
             resample: Optional["scout_compute_api_NumericResampleSeries"] = None,
             rolling_operation: Optional["scout_compute_api_RollingOperationSeries"] = None,
             signal_filter: Optional["scout_compute_api_SignalFilterSeries"] = None,
@@ -45924,7 +46011,7 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (aggregate is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) + (select_newest_points is not None) != 1:
+            if (aggregate is not None) + (arithmetic is not None) + (bit_operation is not None) + (count_duplicate is not None) + (cumulative_sum is not None) + (derivative is not None) + (integral is not None) + (max is not None) + (mean is not None) + (min is not None) + (offset is not None) + (product is not None) + (raw is not None) + (channel is not None) + (derived is not None) + (resample is not None) + (rolling_operation is not None) + (signal_filter is not None) + (sum is not None) + (scale is not None) + (time_difference is not None) + (absolute_timestamp is not None) + (time_range_filter is not None) + (time_shift is not None) + (unary_arithmetic is not None) + (binary_arithmetic is not None) + (union is not None) + (unit_conversion is not None) + (value_difference is not None) + (filter_transformation is not None) + (threshold_filter is not None) + (approximate_filter is not None) + (select1d_array_index is not None) + (select_newest_points is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if aggregate is not None:
@@ -45969,6 +46056,9 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             if channel is not None:
                 self._channel = channel
                 self._type = 'channel'
+            if derived is not None:
+                self._derived = derived
+                self._type = 'derived'
             if resample is not None:
                 self._resample = resample
                 self._type = 'resample'
@@ -46097,6 +46187,11 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._channel = channel
             self._type = 'channel'
+        elif type_of_union == 'derived':
+            if derived is None:
+                raise ValueError('a union value must not be None')
+            self._derived = derived
+            self._type = 'derived'
         elif type_of_union == 'resample':
             if resample is None:
                 raise ValueError('a union value must not be None')
@@ -46250,6 +46345,10 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
         return self._channel
 
     @builtins.property
+    def derived(self) -> Optional["scout_compute_api_DerivedSeries"]:
+        return self._derived
+
+    @builtins.property
     def resample(self) -> Optional["scout_compute_api_NumericResampleSeries"]:
         return self._resample
 
@@ -46356,6 +46455,8 @@ class scout_compute_api_NumericSeries(ConjureUnionType):
             return visitor._raw(self.raw)
         if self._type == 'channel' and self.channel is not None:
             return visitor._channel(self.channel)
+        if self._type == 'derived' and self.derived is not None:
+            return visitor._derived(self.derived)
         if self._type == 'resample' and self.resample is not None:
             return visitor._resample(self.resample)
         if self._type == 'rollingOperation' and self.rolling_operation is not None:
@@ -46457,6 +46558,10 @@ class scout_compute_api_NumericSeriesVisitor:
 
     @abstractmethod
     def _channel(self, channel: "scout_compute_api_ChannelSeries") -> Any:
+        pass
+
+    @abstractmethod
+    def _derived(self, derived: "scout_compute_api_DerivedSeries") -> Any:
         pass
 
     @abstractmethod
@@ -47852,6 +47957,7 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
     _peak: Optional["scout_compute_api_PeakRanges"] = None
     _range_numeric_aggregation: Optional["scout_compute_api_RangesNumericAggregation"] = None
     _raw: Optional["scout_compute_api_Reference"] = None
+    _derived: Optional["scout_compute_api_DerivedSeries"] = None
     _series_crossover_ranges_node: Optional["scout_compute_api_SeriesCrossoverRanges"] = None
     _series_equality_ranges_node: Optional["scout_compute_api_SeriesEqualityRanges"] = None
     _stability_detection: Optional["scout_compute_api_StabilityDetectionRanges"] = None
@@ -47875,6 +47981,7 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             'peak': ConjureFieldDefinition('peak', scout_compute_api_PeakRanges),
             'range_numeric_aggregation': ConjureFieldDefinition('rangeNumericAggregation', scout_compute_api_RangesNumericAggregation),
             'raw': ConjureFieldDefinition('raw', scout_compute_api_Reference),
+            'derived': ConjureFieldDefinition('derived', scout_compute_api_DerivedSeries),
             'series_crossover_ranges_node': ConjureFieldDefinition('seriesCrossoverRangesNode', scout_compute_api_SeriesCrossoverRanges),
             'series_equality_ranges_node': ConjureFieldDefinition('seriesEqualityRangesNode', scout_compute_api_SeriesEqualityRanges),
             'stability_detection': ConjureFieldDefinition('stabilityDetection', scout_compute_api_StabilityDetectionRanges),
@@ -47898,6 +48005,7 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             peak: Optional["scout_compute_api_PeakRanges"] = None,
             range_numeric_aggregation: Optional["scout_compute_api_RangesNumericAggregation"] = None,
             raw: Optional["scout_compute_api_Reference"] = None,
+            derived: Optional["scout_compute_api_DerivedSeries"] = None,
             series_crossover_ranges_node: Optional["scout_compute_api_SeriesCrossoverRanges"] = None,
             series_equality_ranges_node: Optional["scout_compute_api_SeriesEqualityRanges"] = None,
             stability_detection: Optional["scout_compute_api_StabilityDetectionRanges"] = None,
@@ -47907,7 +48015,7 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (approximate_threshold is not None) + (duration_filter is not None) + (enum_filter is not None) + (enum_series_equality_ranges_node is not None) + (events_search is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (peak is not None) + (range_numeric_aggregation is not None) + (raw is not None) + (series_crossover_ranges_node is not None) + (series_equality_ranges_node is not None) + (stability_detection is not None) + (stale_range is not None) + (threshold is not None) + (union_range is not None) != 1:
+            if (approximate_threshold is not None) + (duration_filter is not None) + (enum_filter is not None) + (enum_series_equality_ranges_node is not None) + (events_search is not None) + (intersect_range is not None) + (literal_ranges is not None) + (min_max_threshold is not None) + (not_ is not None) + (on_change is not None) + (peak is not None) + (range_numeric_aggregation is not None) + (raw is not None) + (derived is not None) + (series_crossover_ranges_node is not None) + (series_equality_ranges_node is not None) + (stability_detection is not None) + (stale_range is not None) + (threshold is not None) + (union_range is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if approximate_threshold is not None:
@@ -47949,6 +48057,9 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             if raw is not None:
                 self._raw = raw
                 self._type = 'raw'
+            if derived is not None:
+                self._derived = derived
+                self._type = 'derived'
             if series_crossover_ranges_node is not None:
                 self._series_crossover_ranges_node = series_crossover_ranges_node
                 self._type = 'seriesCrossoverRangesNode'
@@ -48033,6 +48144,11 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._raw = raw
             self._type = 'raw'
+        elif type_of_union == 'derived':
+            if derived is None:
+                raise ValueError('a union value must not be None')
+            self._derived = derived
+            self._type = 'derived'
         elif type_of_union == 'seriesCrossoverRangesNode':
             if series_crossover_ranges_node is None:
                 raise ValueError('a union value must not be None')
@@ -48119,6 +48235,10 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
         return self._raw
 
     @builtins.property
+    def derived(self) -> Optional["scout_compute_api_DerivedSeries"]:
+        return self._derived
+
+    @builtins.property
     def series_crossover_ranges_node(self) -> Optional["scout_compute_api_SeriesCrossoverRanges"]:
         return self._series_crossover_ranges_node
 
@@ -48173,6 +48293,8 @@ class scout_compute_api_RangeSeries(ConjureUnionType):
             return visitor._range_numeric_aggregation(self.range_numeric_aggregation)
         if self._type == 'raw' and self.raw is not None:
             return visitor._raw(self.raw)
+        if self._type == 'derived' and self.derived is not None:
+            return visitor._derived(self.derived)
         if self._type == 'seriesCrossoverRangesNode' and self.series_crossover_ranges_node is not None:
             return visitor._series_crossover_ranges_node(self.series_crossover_ranges_node)
         if self._type == 'seriesEqualityRangesNode' and self.series_equality_ranges_node is not None:
@@ -48244,6 +48366,10 @@ class scout_compute_api_RangeSeriesVisitor:
 
     @abstractmethod
     def _raw(self, raw: "scout_compute_api_Reference") -> Any:
+        pass
+
+    @abstractmethod
+    def _derived(self, derived: "scout_compute_api_DerivedSeries") -> Any:
         pass
 
     @abstractmethod

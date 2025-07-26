@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -24,17 +24,27 @@ class QosPolicyFixedSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     capacity_shared = marshmallow_fields.Boolean(data_key="capacity_shared", allow_none=True)
     r""" Specifies whether the capacities are shared across all objects that use this QoS policy-group. Default is false. """
 
+    max_throughput = marshmallow_fields.Str(data_key="max_throughput", allow_none=True)
+    r""" Maximum throughput defined by this policy. It is specified in terms of Kbps, Mbps or Gbps along with or without IOPS. 0 means no maximum throughput is enforced.
+
+Example: """
+
     max_throughput_iops = Size(data_key="max_throughput_iops", allow_none=True)
-    r""" Maximum throughput defined by this policy.  It is specified in terms of IOPS. 0 means no maximum throughput is enforced. """
+    r""" Maximum throughput defined by this policy. It is specified in terms of IOPS. 0 means no maximum throughput is enforced. """
 
     max_throughput_mbps = Size(data_key="max_throughput_mbps", allow_none=True)
-    r""" Maximum throughput defined by this policy.  It is specified in terms of Mbps. 0 means no maximum throughput is enforced. """
+    r""" Maximum throughput defined by this policy. It is specified in terms of Mbps. 0 means no maximum throughput is enforced. """
+
+    min_throughput = marshmallow_fields.Str(data_key="min_throughput", allow_none=True)
+    r""" Minimum throughput defined by this policy. It is specified in terms of Kbps, Mbps or Gbps along with or without IOPS. 0 means no minimum throughput is enforced.
+
+Example: """
 
     min_throughput_iops = Size(data_key="min_throughput_iops", allow_none=True)
-    r""" Minimum throughput defined by this policy.  It is specified in terms of IOPS. 0 means no minimum throughput is enforced. These floors are not guaranteed on non-AFF platforms or when FabricPool tiering policies are set. """
+    r""" Minimum throughput defined by this policy. It is specified in terms of IOPS. 0 means no minimum throughput is enforced. These floors are not guaranteed on non-AFF platforms or when FabricPool tiering policies are set. """
 
     min_throughput_mbps = Size(data_key="min_throughput_mbps", allow_none=True)
-    r""" Minimum throughput defined by this policy.  It is specified in terms of Mbps. 0 means no minimum throughput is enforced. """
+    r""" Minimum throughput defined by this policy. It is specified in terms of Mbps. 0 means no minimum throughput is enforced. """
 
     @property
     def resource(self):
@@ -42,29 +52,35 @@ class QosPolicyFixedSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
     gettable_fields = [
         "capacity_shared",
+        "max_throughput",
         "max_throughput_iops",
         "max_throughput_mbps",
+        "min_throughput",
         "min_throughput_iops",
         "min_throughput_mbps",
     ]
-    """capacity_shared,max_throughput_iops,max_throughput_mbps,min_throughput_iops,min_throughput_mbps,"""
+    """capacity_shared,max_throughput,max_throughput_iops,max_throughput_mbps,min_throughput,min_throughput_iops,min_throughput_mbps,"""
 
     patchable_fields = [
+        "max_throughput",
         "max_throughput_iops",
         "max_throughput_mbps",
+        "min_throughput",
         "min_throughput_iops",
         "min_throughput_mbps",
     ]
-    """max_throughput_iops,max_throughput_mbps,min_throughput_iops,min_throughput_mbps,"""
+    """max_throughput,max_throughput_iops,max_throughput_mbps,min_throughput,min_throughput_iops,min_throughput_mbps,"""
 
     postable_fields = [
         "capacity_shared",
+        "max_throughput",
         "max_throughput_iops",
         "max_throughput_mbps",
+        "min_throughput",
         "min_throughput_iops",
         "min_throughput_mbps",
     ]
-    """capacity_shared,max_throughput_iops,max_throughput_mbps,min_throughput_iops,min_throughput_mbps,"""
+    """capacity_shared,max_throughput,max_throughput_iops,max_throughput_mbps,min_throughput,min_throughput_iops,min_throughput_mbps,"""
 
 
 class QosPolicyFixed(Resource):

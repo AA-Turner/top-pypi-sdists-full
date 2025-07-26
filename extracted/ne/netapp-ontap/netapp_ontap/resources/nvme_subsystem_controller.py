@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,12 +25,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeSubsystemController(
         {
+            "id": "0040h",
             "subsystem": {
-                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
                 "uuid": "14875240-2594-11e9-abde-00a098984313",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/nvme/subsystems/14875240-2594-11e9-abde-00a098984313"
+                    }
+                },
+                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
+            },
+            "svm": {
+                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
+                "name": "symmcon_fcnvme_vserver_0",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
                     }
                 },
             },
@@ -39,26 +49,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/protocols/nvme/subsystem-controllers/14875240-2594-11e9-abde-00a098984313/0040h"
                 }
             },
-            "id": "0040h",
-            "svm": {
-                "name": "symmcon_fcnvme_vserver_0",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
-                    }
-                },
-                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
-            },
         }
     ),
     NvmeSubsystemController(
         {
+            "id": "0041h",
             "subsystem": {
-                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
                 "uuid": "14875240-2594-11e9-abde-00a098984313",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/nvme/subsystems/14875240-2594-11e9-abde-00a098984313"
+                    }
+                },
+                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
+            },
+            "svm": {
+                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
+                "name": "symmcon_fcnvme_vserver_0",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
                     }
                 },
             },
@@ -67,26 +77,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/protocols/nvme/subsystem-controllers/14875240-2594-11e9-abde-00a098984313/0041h"
                 }
             },
-            "id": "0041h",
-            "svm": {
-                "name": "symmcon_fcnvme_vserver_0",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
-                    }
-                },
-                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
-            },
         }
     ),
     NvmeSubsystemController(
         {
+            "id": "0040h",
             "subsystem": {
-                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_1",
                 "uuid": "1489d0d5-2594-11e9-94c4-00a0989a1c8e",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/nvme/subsystems/1489d0d5-2594-11e9-94c4-00a0989a1c8e"
+                    }
+                },
+                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_1",
+            },
+            "svm": {
+                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
+                "name": "symmcon_fcnvme_vserver_0",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
                     }
                 },
             },
@@ -95,26 +105,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/protocols/nvme/subsystem-controllers/1489d0d5-2594-11e9-94c4-00a0989a1c8e/0040h"
                 }
             },
-            "id": "0040h",
-            "svm": {
-                "name": "symmcon_fcnvme_vserver_0",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
-                    }
-                },
-                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
-            },
         }
     ),
     NvmeSubsystemController(
         {
+            "id": "0041h",
             "subsystem": {
-                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_1",
                 "uuid": "1489d0d5-2594-11e9-94c4-00a0989a1c8e",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/nvme/subsystems/1489d0d5-2594-11e9-94c4-00a0989a1c8e"
+                    }
+                },
+                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_1",
+            },
+            "svm": {
+                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
+                "name": "symmcon_fcnvme_vserver_0",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
                     }
                 },
             },
@@ -122,16 +132,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 "self": {
                     "href": "/api/protocols/nvme/subsystem-controllers/1489d0d5-2594-11e9-94c4-00a0989a1c8e/0041h"
                 }
-            },
-            "id": "0041h",
-            "svm": {
-                "name": "symmcon_fcnvme_vserver_0",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
-                    }
-                },
-                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
             },
         }
     ),
@@ -165,12 +165,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeSubsystemController(
         {
+            "id": "0040h",
             "subsystem": {
-                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
                 "uuid": "14875240-2594-11e9-abde-00a098984313",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/nvme/subsystems/14875240-2594-11e9-abde-00a098984313"
+                    }
+                },
+                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
+            },
+            "svm": {
+                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
+                "name": "symmcon_fcnvme_vserver_0",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
                     }
                 },
             },
@@ -179,26 +189,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                     "href": "/api/protocols/nvme/subsystem-controllers/14875240-2594-11e9-abde-00a098984313/0040h"
                 }
             },
-            "id": "0040h",
-            "svm": {
-                "name": "symmcon_fcnvme_vserver_0",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
-                    }
-                },
-                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
-            },
         }
     ),
     NvmeSubsystemController(
         {
+            "id": "0041h",
             "subsystem": {
-                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
                 "uuid": "14875240-2594-11e9-abde-00a098984313",
                 "_links": {
                     "self": {
                         "href": "/api/protocols/nvme/subsystems/14875240-2594-11e9-abde-00a098984313"
+                    }
+                },
+                "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
+            },
+            "svm": {
+                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
+                "name": "symmcon_fcnvme_vserver_0",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
                     }
                 },
             },
@@ -206,16 +216,6 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
                 "self": {
                     "href": "/api/protocols/nvme/subsystem-controllers/14875240-2594-11e9-abde-00a098984313/0041h"
                 }
-            },
-            "id": "0041h",
-            "svm": {
-                "name": "symmcon_fcnvme_vserver_0",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"
-                    }
-                },
-                "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
             },
         }
     ),
@@ -246,57 +246,57 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeSubsystemController(
     {
+        "id": "0040h",
+        "admin_queue": {"depth": 32},
+        "interface": {
+            "uuid": "fa1c5941-2593-11e9-94c4-00a0989a1c8e",
+            "transport_address": "nn-0x200400a0989a1c8d:pn-0x200500a0989a1c8d",
+            "name": "symmcon_lif_fcnvme_symmcon_fcnvme_vserver_0_3a_0",
+        },
+        "tls": {
+            "psk_identity": "NVMe1R01 nqn.2014-08.org.nvmexpress:uuid:c2846cb1-89d2-4020-a3b0-71ce907b4eef nqn.1992-08.com.netapp:sn.ca3cae02070811ef9a53005056bb9001:subsystem.ss1 c9X3RurQxGiGa76Tpk2tirifrUhHmVp035MOrtHXnAU=",
+            "key_type": "configured",
+            "cipher": "tls_aes_128_gcm_sha256",
+        },
+        "dh_hmac_chap": {"mode": "none"},
         "subsystem": {
-            "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
             "uuid": "14875240-2594-11e9-abde-00a098984313",
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/subsystems/14875240-2594-11e9-abde-00a098984313"
                 }
             },
+            "name": "symmcon_symmcon_fcnvme_vserver_0_subsystem_0",
         },
-        "interface": {
-            "name": "symmcon_lif_fcnvme_symmcon_fcnvme_vserver_0_3a_0",
-            "transport_address": "nn-0x200400a0989a1c8d:pn-0x200500a0989a1c8d",
-            "uuid": "fa1c5941-2593-11e9-94c4-00a0989a1c8e",
-        },
+        "io_queue": {"depth": [32, 32, 32, 32], "count": 4},
         "keep_alive_timeout": 4000,
+        "svm": {
+            "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
+            "name": "symmcon_fcnvme_vserver_0",
+            "_links": {
+                "self": {"href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"}
+            },
+        },
         "host": {
-            "nqn": "nqn.2014-08.org.nvmexpress:uuid:c2846cb1-89d2-4020-a3b0-71ce907b4eef",
             "id": "b8546ca6097349e5b1558dc154fc073b",
             "transport_address": "nn-0x20000090fae00806:pn-0x10000090fae00806",
-        },
-        "tls": {
-            "cipher": "tls_aes_128_gcm_sha256",
-            "psk_identity": "NVMe1R01 nqn.2014-08.org.nvmexpress:uuid:c2846cb1-89d2-4020-a3b0-71ce907b4eef nqn.1992-08.com.netapp:sn.ca3cae02070811ef9a53005056bb9001:subsystem.ss1 c9X3RurQxGiGa76Tpk2tirifrUhHmVp035MOrtHXnAU=",
-            "key_type": "configured",
+            "nqn": "nqn.2014-08.org.nvmexpress:uuid:c2846cb1-89d2-4020-a3b0-71ce907b4eef",
         },
         "node": {
+            "uuid": "ebf66f05-2590-11e9-abde-00a098984313",
             "name": "ssan-8040-94a",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/ebf66f05-2590-11e9-abde-00a098984313"
                 }
             },
-            "uuid": "ebf66f05-2590-11e9-abde-00a098984313",
         },
-        "digest": {"data": False, "header": True},
         "_links": {
             "self": {
                 "href": "/api/protocols/nvme/subsystem-controllers/14875240-2594-11e9-abde-00a098984313/0040h"
             }
         },
-        "id": "0040h",
-        "svm": {
-            "name": "symmcon_fcnvme_vserver_0",
-            "_links": {
-                "self": {"href": "/api/svm/svms/f0f5b928-2593-11e9-94c4-00a0989a1c8e"}
-            },
-            "uuid": "f0f5b928-2593-11e9-94c4-00a0989a1c8e",
-        },
-        "admin_queue": {"depth": 32},
-        "io_queue": {"depth": [32, 32, 32, 32], "count": 4},
-        "dh_hmac_chap": {"mode": "none"},
+        "digest": {"header": True, "data": False},
     }
 )
 
@@ -386,7 +386,7 @@ Example: 1500"""
 
     transport_protocol = marshmallow_fields.Str(
         data_key="transport_protocol",
-        validate=enum_validation(['fc_nvme', 'nvme_tcp']),
+        validate=enum_validation(['fc_nvme', 'nvme_tcp', 'nvme_roce']),
         allow_none=True,
     )
     r""" Transport Protocol
@@ -394,7 +394,8 @@ Example: 1500"""
 Valid choices:
 
 * fc_nvme
-* nvme_tcp"""
+* nvme_tcp
+* nvme_roce"""
 
     @property
     def resource(self):

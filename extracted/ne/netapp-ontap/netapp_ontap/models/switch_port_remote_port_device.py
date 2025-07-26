@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -21,6 +21,11 @@ __pdoc__ = {
 class SwitchPortRemotePortDeviceSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SwitchPortRemotePortDevice object"""
 
+    discovered_name = marshmallow_fields.Str(data_key="discovered_name", allow_none=True)
+    r""" Raw name of the discovered device.
+
+Example: stiA400-311 """
+
     node = marshmallow_fields.Nested("netapp_ontap.resources.node.NodeSchema", unknown=EXCLUDE, data_key="node", allow_none=True)
     r""" The node field of the switch_port_remote_port_device. """
 
@@ -32,12 +37,13 @@ class SwitchPortRemotePortDeviceSchema(ResourceSchema, metaclass=ResourceSchemaM
         return SwitchPortRemotePortDevice
 
     gettable_fields = [
+        "discovered_name",
         "node.links",
         "node.name",
         "node.uuid",
         "shelf",
     ]
-    """node.links,node.name,node.uuid,shelf,"""
+    """discovered_name,node.links,node.name,node.uuid,shelf,"""
 
     patchable_fields = [
     ]

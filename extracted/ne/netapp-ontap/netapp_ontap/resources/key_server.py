@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -139,11 +139,20 @@ class KeyServer(Resource):
     ) -> Iterable["Resource"]:
         r"""Retrieves the list of key servers configured in an external key manager.
 ### Expensive properties
-There is an added computational cost to retrieving values for these properties. They are not included by default in GET results and must be explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
+There is an added computational cost to retrieving these properties. They are excluded from default GET results and must be explicitly requested using the `fields` query parameter. For more details, see [`Requesting specific fields`](#Requesting_specific_fields). Additionally, these fields are unavailable for inactive configurations as they are only relevant to active configurations.
 * `connectivity.cluster_availability`
 * `connectivity.node_states.node.name`
 * `connectivity.node_states.node.uuid`
 * `connectivity.node_states.state`
+### Examples
+  - To retrieve basic information about a key server:
+    ```
+    GET /security/key-managers/{uuid}/key-servers
+    ```
+  - To retrieve specific fields, including expensive properties:
+    ```
+    GET /security/key-managers/{uuid}/key-servers?fields=connectivity.cluster_availability,connectivity.node_states.node.name
+    ```
 ### Related ONTAP commands
 * `security key-manager external show`
 * `security key-manager external show-status`
@@ -258,11 +267,20 @@ There is an added computational cost to retrieving values for these properties. 
     def find(cls, *args, connection: HostConnection = None, **kwargs) -> Resource:
         r"""Retrieves the list of key servers configured in an external key manager.
 ### Expensive properties
-There is an added computational cost to retrieving values for these properties. They are not included by default in GET results and must be explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
+There is an added computational cost to retrieving these properties. They are excluded from default GET results and must be explicitly requested using the `fields` query parameter. For more details, see [`Requesting specific fields`](#Requesting_specific_fields). Additionally, these fields are unavailable for inactive configurations as they are only relevant to active configurations.
 * `connectivity.cluster_availability`
 * `connectivity.node_states.node.name`
 * `connectivity.node_states.node.uuid`
 * `connectivity.node_states.state`
+### Examples
+  - To retrieve basic information about a key server:
+    ```
+    GET /security/key-managers/{uuid}/key-servers
+    ```
+  - To retrieve specific fields, including expensive properties:
+    ```
+    GET /security/key-managers/{uuid}/key-servers?fields=connectivity.cluster_availability,connectivity.node_states.node.name
+    ```
 ### Related ONTAP commands
 * `security key-manager external show`
 * `security key-manager external show-status`
@@ -274,11 +292,20 @@ There is an added computational cost to retrieving values for these properties. 
     def get(self, **kwargs) -> NetAppResponse:
         r"""Retrieves key servers configured in an external key manager.
 ### Expensive properties
-There is an added computational cost to retrieving values for these properties. They are not included by default in GET results and must be explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more.
+There is an added computational cost to retrieving these properties. They are excluded from default GET results and must be explicitly requested using the `fields` query parameter. For more details, see [`Requesting specific fields`](#Requesting_specific_fields). Additionally, these fields are unavailable for inactive configurations as they are only relevant to active configurations.
 * `connectivity.cluster_availability`
 * `connectivity.node_states.node.name`
 * `connectivity.node_states.node.uuid`
 * `connectivity.node_states.state`
+### Examples
+  - To retrieve basic information about a key server:
+    ```
+    GET /security/key-managers/{uuid}/key-servers/{server}
+    ```
+  - To retrieve specific fields, including expensive properties:
+    ```
+    GET /security/key-managers/{uuid}/key-servers/{server}?fields=connectivity.cluster_availability,connectivity.node_states.node.name
+    ```
 ### Related ONTAP commands
 * `security key-manager external show`
 * `security key-manager external show-status`

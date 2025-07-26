@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,18 +26,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 EmsFilterRule(
     {
-        "parameter_criteria": [{"name_pattern": "*", "value_pattern": "*"}],
+        "message_criteria": {
+            "name_pattern": "*",
+            "snmp_trap_types": "*",
+            "_links": {},
+            "severities": "emergency,alert,error,notice",
+        },
         "_links": {
             "self": {"href": "/api/support/ems/filters/no-info-debug-events/rules/1"}
         },
-        "index": 1,
+        "parameter_criteria": [{"name_pattern": "*", "value_pattern": "*"}],
         "type": "include",
-        "message_criteria": {
-            "name_pattern": "*",
-            "_links": {},
-            "snmp_trap_types": "*",
-            "severities": "emergency,alert,error,notice",
-        },
+        "index": 1,
     }
 )
 

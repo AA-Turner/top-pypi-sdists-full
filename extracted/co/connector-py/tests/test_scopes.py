@@ -1,12 +1,12 @@
-from connector.generated import (
+from connector.oai.integration import DescriptionData, Integration
+from connector.oai.modules.oauth_module_types import OAuthSettings
+from connector_sdk_types.generated import (
     OAuthCredential,
     StandardCapabilityName,
     ValidateCredentialsRequest,
     ValidateCredentialsResponse,
     ValidatedCredentials,
 )
-from connector.oai.integration import DescriptionData, Integration
-from connector.oai.modules.oauth_module_types import OAuthSettings
 
 
 async def test_scopes_for_capabilities():

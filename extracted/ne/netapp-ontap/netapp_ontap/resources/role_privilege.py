@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -39,7 +39,9 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import RolePrivilege
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = RolePrivilege("svm_role1", path="/api/protocols")
+    resource = RolePrivilege(
+        "aaef7c38-4bd3-11e9-b238-0050568e2e25", "svm_role1", path="/api/protocols"
+    )
     resource.access = "all"
     resource.patch()
 
@@ -51,7 +53,9 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import RolePrivilege
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = RolePrivilege("svm_role1", path="netp port")
+    resource = RolePrivilege(
+        "aaef7c38-4bd3-11e9-b238-0050568e2e25", "svm_role1", path="netp port"
+    )
     resource.access = "readonly"
     resource.query = "-type if-group|vlan"
     resource.patch()
@@ -65,6 +69,7 @@ from netapp_ontap.resources import RolePrivilege
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = RolePrivilege(
+        "aaef7c38-4bd3-11e9-b238-0050568e2e25",
         "svm_role1",
         path="/api/storage/volumes/742ef001-24f0-4d5a-9ec1-2fdaadb282f4/files",
     )
@@ -79,7 +84,9 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import RolePrivilege
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = RolePrivilege("svm_role1", path="/api/protocols")
+    resource = RolePrivilege(
+        "aaef7c38-4bd3-11e9-b238-0050568e2e25", "svm_role1", path="/api/protocols"
+    )
     resource.get()
     print(resource)
 
@@ -91,13 +98,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 RolePrivilege(
     {
+        "access": "all",
+        "path": "/api/protocols",
         "_links": {
             "self": {
                 "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/svm_role1/privileges/%2Fapi%2Fprotocols"
             }
         },
-        "access": "all",
-        "path": "/api/protocols",
     }
 )
 
@@ -111,7 +118,9 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import RolePrivilege
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = RolePrivilege("svm_role1", path="net port")
+    resource = RolePrivilege(
+        "aaef7c38-4bd3-11e9-b238-0050568e2e25", "svm_role1", path="net port"
+    )
     resource.get()
     print(resource)
 
@@ -123,14 +132,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 RolePrivilege(
     {
+        "access": "readonly",
+        "path": "net port",
         "query": "-type if-group|vlan",
         "_links": {
             "self": {
                 "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/svm_role1/privileges/net%20port"
             }
         },
-        "access": "readonly",
-        "path": "net port",
     }
 )
 
@@ -145,6 +154,7 @@ from netapp_ontap.resources import RolePrivilege
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = RolePrivilege(
+        "aaef7c38-4bd3-11e9-b238-0050568e2e25",
         "svm_role1",
         path="/api/storage/volumes/d0f3b91a-4ce7-4de4-afb9-7eda668659dd//snapshots",
     )
@@ -159,13 +169,13 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 RolePrivilege(
     {
+        "access": "all",
+        "path": "/api/storage/volumes/d0f3b91a-4ce7-4de4-afb9-7eda668659dd/snapshots",
         "_links": {
             "self": {
                 "href": "/api/security/roles/aaef7c38-4bd3-11e9-b238-0050568e2e25/svm_role1/privileges/%2Fapi%2Fstorage%2Fvolumes%2Fd0f3b91a-4ce7-4de4-afb9-7eda668659dd%2Fsnapshots"
             }
         },
-        "access": "all",
-        "path": "/api/storage/volumes/d0f3b91a-4ce7-4de4-afb9-7eda668659dd/snapshots",
     }
 )
 
@@ -179,7 +189,9 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import RolePrivilege
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = RolePrivilege("svm_role1", path="/api/protocols")
+    resource = RolePrivilege(
+        "aaef7c38-4bd3-11e9-b238-0050568e2e25", "svm_role1", path="/api/protocols"
+    )
     resource.delete()
 
 ```
@@ -190,7 +202,9 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import RolePrivilege
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = RolePrivilege("svm_role1", path="net port")
+    resource = RolePrivilege(
+        "aaef7c38-4bd3-11e9-b238-0050568e2e25", "svm_role1", path="net port"
+    )
     resource.delete()
 
 ```
@@ -202,6 +216,7 @@ from netapp_ontap.resources import RolePrivilege
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = RolePrivilege(
+        "aaef7c38-4bd3-11e9-b238-0050568e2e25",
         "svm_role1",
         path="/api/storage/svm/6e000659-9a16-11ec-819e-005056bb1a7c/top-metrics/files",
     )

@@ -1,10 +1,7 @@
 from enum import Enum
 from typing import TYPE_CHECKING, Any, cast
 
-from pydantic import BaseModel
-from typing_extensions import assert_never
-
-from connector.generated import (
+from connector_sdk_types.generated import (
     AppInfo,
     AppInfoRequest,
     AppInfoResponse,
@@ -21,6 +18,9 @@ from connector.generated import (
     StandardCapabilityName,
     TokenAuthentication,
 )
+from pydantic import BaseModel
+from typing_extensions import assert_never
+
 from connector.oai.capability import generate_capability_schema
 from connector.oai.modules.base_module import BaseIntegrationModule
 from connector.oai.modules.oauth_module_types import OAuthConfig, OAuthFlowType, OAuthSettings

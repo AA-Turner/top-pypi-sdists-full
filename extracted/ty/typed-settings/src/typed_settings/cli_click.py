@@ -22,6 +22,7 @@ import click
 from click.core import ParameterSource
 
 from . import _core, cls_utils, converters
+from ._compat import PY_311
 from .cli_utils import (
     NO_DEFAULT,
     Default,
@@ -48,17 +49,25 @@ from .types import (
 )
 
 
+if PY_311:
+    from enum import IntEnum, StrEnum
+else:
+    IntEnum = StrEnum = None  # type: ignore
+
+
 __all__ = [
-    "click_options",
-    "pass_settings",
-    "DecoratorFactory",
-    "ClickOptionFactory",
-    "OptionGroupFactory",
-    "handle_datetime",
-    "handle_enum",
     "DEFAULT_TYPES",
     "ClickHandler",
+    "ClickOptionFactory",
+    "DecoratorFactory",
     "F",
+    "OptionGroupFactory",
+    "click_options",
+    "handle_datetime",
+    "handle_enum",
+    "handle_enum_by_name",
+    "handle_enum_by_value",
+    "pass_settings",
 ]
 
 
@@ -511,15 +520,39 @@ def handle_timedelta(type: type, default: Default, is_optional: bool) -> StrDict
     return kwargs
 
 
-def handle_enum(type: type[Enum], default: Default, is_optional: bool) -> StrDict:
+def handle_enum_by_name(
+    type: type[Enum], default: Default, is_optional: bool
+) -> StrDict:
     """
     Use :class:`click.Choice` as option type and use the enum value's name as
     default.
     """
-    kwargs: StrDict = {"type": click.Choice(list(type.__members__))}
+    kwargs: StrDict = {"type": click.Choice([str(k) for k in type.__members__])}
     if isinstance(default, type):
         # Convert Enum instance to string
         kwargs["default"] = default.name
+    elif is_optional:
+        kwargs["default"] = None
+
+    return kwargs
+
+
+handle_enum = handle_enum_by_name
+
+
+def handle_enum_by_value(
+    type: type[Enum], default: Default, is_optional: bool
+) -> StrDict:
+    """
+    Use :class:`click.Choice` as option type and use the enum value's name as
+    default.
+    """
+    kwargs: StrDict = {
+        "type": click.Choice([str(v) for v in type.__members__.values()])
+    }
+    if isinstance(default, type):
+        # Convert Enum instance to string
+        kwargs["default"] = str(default.value)
     elif is_optional:
         kwargs["default"] = None
 
@@ -531,7 +564,15 @@ DEFAULT_TYPES: dict[type, TypeHandlerFunc] = {
     datetime: handle_datetime,
     date: handle_date,
     timedelta: handle_timedelta,
-    Enum: handle_enum,
+    **(
+        {
+            IntEnum: handle_enum_by_value,
+            StrEnum: handle_enum_by_value,
+        }
+        if PY_311
+        else {}
+    ),
+    Enum: handle_enum_by_name,
 }
 
 

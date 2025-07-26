@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -35,24 +35,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     IpSubnet(
         {
-            "name": "Subnet-002",
             "uuid": "451d8d99-582c-11ec-8572-005056acd597",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/subnets/451d8d99-582c-11ec-8572-005056acd597"
                 }
             },
+            "name": "Subnet-002",
         }
     ),
     IpSubnet(
         {
-            "name": "Subnet-001",
             "uuid": "615b722f-5795-11ec-8572-005056acd597",
             "_links": {
                 "self": {
                     "href": "/api/network/ip/subnets/615b722f-5795-11ec-8572-005056acd597"
                 }
             },
+            "name": "Subnet-001",
         }
     ),
 ]
@@ -83,33 +83,33 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpSubnet(
     {
+        "gateway": "10.2.1.1",
+        "subnet": {"address": "10.2.1.0", "netmask": "24", "family": "ipv4"},
         "broadcast_domain": {
-            "name": "Default",
+            "uuid": "9a1dce3b-5780-11ec-8572-005056acd597",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/broadcast-domains/9a1dce3b-5780-11ec-8572-005056acd597"
                 }
             },
-            "uuid": "9a1dce3b-5780-11ec-8572-005056acd597",
-        },
-        "ipspace": {
             "name": "Default",
+        },
+        "uuid": "451d8d99-582c-11ec-8572-005056acd597",
+        "ipspace": {
+            "uuid": "6f62c691-5780-11ec-8572-005056acd597",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/6f62c691-5780-11ec-8572-005056acd597"
                 }
             },
-            "uuid": "6f62c691-5780-11ec-8572-005056acd597",
+            "name": "Default",
         },
-        "name": "Subnet-002",
-        "uuid": "451d8d99-582c-11ec-8572-005056acd597",
         "_links": {
             "self": {
                 "href": "/api/network/ip/subnets/451d8d99-582c-11ec-8572-005056acd597"
             }
         },
-        "subnet": {"netmask": "24", "family": "ipv4", "address": "10.2.1.0"},
-        "gateway": "10.2.1.1",
+        "name": "Subnet-002",
     }
 )
 
@@ -139,44 +139,44 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IpSubnet(
     {
+        "gateway": "10.2.1.1",
+        "available_count": 113,
+        "ip_ranges": [
+            {"end": "10.2.1.22", "start": "10.2.1.10", "family": "ipv4"},
+            {"end": "10.2.1.200", "start": "10.2.1.101", "family": "ipv4"},
+        ],
+        "subnet": {"address": "10.2.1.0", "netmask": "24", "family": "ipv4"},
+        "used_count": 0,
+        "available_ip_ranges": [
+            {"end": "10.2.1.22", "start": "10.2.1.10", "family": "ipv4"},
+            {"end": "10.2.1.200", "start": "10.2.1.101", "family": "ipv4"},
+        ],
         "broadcast_domain": {
-            "name": "Default",
+            "uuid": "9a1dce3b-5780-11ec-8572-005056acd597",
             "_links": {
                 "self": {
                     "href": "/api/network/ethernet/broadcast-domains/9a1dce3b-5780-11ec-8572-005056acd597"
                 }
             },
-            "uuid": "9a1dce3b-5780-11ec-8572-005056acd597",
-        },
-        "ip_ranges": [
-            {"end": "10.2.1.22", "family": "ipv4", "start": "10.2.1.10"},
-            {"end": "10.2.1.200", "family": "ipv4", "start": "10.2.1.101"},
-        ],
-        "ipspace": {
             "name": "Default",
+        },
+        "total_count": 113,
+        "uuid": "451d8d99-582c-11ec-8572-005056acd597",
+        "ipspace": {
+            "uuid": "6f62c691-5780-11ec-8572-005056acd597",
             "_links": {
                 "self": {
                     "href": "/api/network/ipspaces/6f62c691-5780-11ec-8572-005056acd597"
                 }
             },
-            "uuid": "6f62c691-5780-11ec-8572-005056acd597",
+            "name": "Default",
         },
-        "name": "Subnet-002",
-        "total_count": 113,
-        "uuid": "451d8d99-582c-11ec-8572-005056acd597",
-        "used_count": 0,
         "_links": {
             "self": {
                 "href": "/api/network/ip/subnets/451d8d99-582c-11ec-8572-005056acd597?fields=**"
             }
         },
-        "available_count": 113,
-        "available_ip_ranges": [
-            {"end": "10.2.1.22", "family": "ipv4", "start": "10.2.1.10"},
-            {"end": "10.2.1.200", "family": "ipv4", "start": "10.2.1.101"},
-        ],
-        "subnet": {"netmask": "24", "family": "ipv4", "address": "10.2.1.0"},
-        "gateway": "10.2.1.1",
+        "name": "Subnet-002",
     }
 )
 

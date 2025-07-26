@@ -1,11 +1,11 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
-This API displays the effective permission granted to a Windows or UNIX user on the specified file or folder path.
+This API displays the effective permission granted to a Windows or UNIX user on the specified file or folder path. A path within the FlexCache volume is not supported.
 ## Examples
 ### Retrieving the effective permission for the specified Windows user on the specified path of an SVM.
 ```

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -174,6 +174,8 @@ class NfsTlsInterface(Resource):
         **kwargs
     ) -> NetAppResponse:
         r"""Updates the properties of an NFS over TLS interface.
+### Optional query parameter
+* `skip-san-validation` - Specifies whether the server should ignore validating the certificate for Subject Alternate Name.
 ### Related ONTAP commands
 * `vserver nfs tls interface modify`
 * `vserver nfs tls interface enable`
@@ -223,6 +225,8 @@ class NfsTlsInterface(Resource):
         **kwargs
     ) -> NetAppResponse:
         r"""Updates the properties of an NFS over TLS interface.
+### Optional query parameter
+* `skip-san-validation` - Specifies whether the server should ignore validating the certificate for Subject Alternate Name.
 ### Related ONTAP commands
 * `vserver nfs tls interface modify`
 * `vserver nfs tls interface enable`

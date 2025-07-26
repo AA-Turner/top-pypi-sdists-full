@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,52 +26,52 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 EmsFilter(
     {
-        "name": "aggregate-events",
-        "_links": {"self": {"href": "/api/support/ems/filters/aggregate-events"}},
         "rules": [
             {
-                "parameter_criteria": [
-                    {"name_pattern": "type", "value_pattern": "aggregate"}
-                ],
-                "_links": {
-                    "self": {
-                        "href": "/api/support/ems/filters/aggregate-events/rules/1"
-                    }
-                },
-                "index": 1,
-                "type": "include",
                 "message_criteria": {
                     "name_pattern": "*",
+                    "snmp_trap_types": "*",
                     "_links": {
                         "related": {
                             "href": "/api/support/ems/messages?name=*&severity=emergency,alert,error,notice&snmp_trap_type=*"
                         }
                     },
-                    "snmp_trap_types": "*",
                     "severities": "emergency,alert,error,notice",
                 },
-            },
-            {
-                "parameter_criteria": [{"name_pattern": "*", "value_pattern": "*"}],
                 "_links": {
                     "self": {
-                        "href": "/api/support/ems/filters/aggregate-events/rules/2"
+                        "href": "/api/support/ems/filters/aggregate-events/rules/1"
                     }
                 },
-                "index": 2,
-                "type": "exclude",
+                "parameter_criteria": [
+                    {"name_pattern": "type", "value_pattern": "aggregate"}
+                ],
+                "type": "include",
+                "index": 1,
+            },
+            {
                 "message_criteria": {
                     "name_pattern": "*",
+                    "snmp_trap_types": "*",
                     "_links": {
                         "related": {
                             "href": "/api/support/ems/messages?name=*&severity=*&snmp_trap_type=*"
                         }
                     },
-                    "snmp_trap_types": "*",
                     "severities": "*",
                 },
+                "_links": {
+                    "self": {
+                        "href": "/api/support/ems/filters/aggregate-events/rules/2"
+                    }
+                },
+                "parameter_criteria": [{"name_pattern": "*", "value_pattern": "*"}],
+                "type": "exclude",
+                "index": 2,
             },
         ],
+        "_links": {"self": {"href": "/api/support/ems/filters/aggregate-events"}},
+        "name": "aggregate-events",
     }
 )
 

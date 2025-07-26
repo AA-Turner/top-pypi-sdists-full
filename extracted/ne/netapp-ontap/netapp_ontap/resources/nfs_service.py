@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -356,6 +356,7 @@ There is an added computational cost to retrieving values for these properties. 
 ### Related ONTAP commands
 * `vserver nfs show`
 * `vserver nfs status`
+* `vserver export-policy check-access`
 ### Learn more
 * [`DOC /protocols/nfs/services`](#docs-NAS-protocols_nfs_services)
 """
@@ -585,6 +586,7 @@ There is an added computational cost to retrieving values for these properties. 
 ### Related ONTAP commands
 * `vserver nfs show`
 * `vserver nfs status`
+* `vserver export-policy check-access`
 ### Learn more
 * [`DOC /protocols/nfs/services`](#docs-NAS-protocols_nfs_services)
 """

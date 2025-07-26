@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,36 +26,36 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityCertificate(
         {
+            "svm": {"name": "vs0"},
+            "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
+            "common_name": "vs0",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/dad2363b-8ac0-11e8-9058-005056b482fc"
                 }
             },
-            "svm": {"name": "vs0"},
-            "common_name": "vs0",
-            "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
         }
     ),
     SecurityCertificate(
         {
+            "uuid": "1941e048-8ac1-11e8-9058-005056b482fc",
+            "common_name": "ROOT",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/1941e048-8ac1-11e8-9058-005056b482fc"
                 }
             },
-            "common_name": "ROOT",
-            "uuid": "1941e048-8ac1-11e8-9058-005056b482fc",
         }
     ),
     SecurityCertificate(
         {
+            "uuid": "5a3a77a8-892d-11e8-b7da-005056b482fc",
+            "common_name": "cert_name",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/5a3a77a8-892d-11e8-b7da-005056b482fc"
                 }
             },
-            "common_name": "cert_name",
-            "uuid": "5a3a77a8-892d-11e8-b7da-005056b482fc",
         }
     ),
 ]
@@ -85,26 +85,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityCertificate(
         {
+            "uuid": "1941e048-8ac1-11e8-9058-005056b482fc",
+            "common_name": "ROOT",
+            "scope": "cluster",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/1941e048-8ac1-11e8-9058-005056b482fc"
                 }
             },
-            "common_name": "ROOT",
-            "uuid": "1941e048-8ac1-11e8-9058-005056b482fc",
-            "scope": "cluster",
         }
     ),
     SecurityCertificate(
         {
+            "uuid": "5a3a77a8-892d-11e8-b7da-005056b482fc",
+            "common_name": "cert_name",
+            "scope": "cluster",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/5a3a77a8-892d-11e8-b7da-005056b482fc"
                 }
             },
-            "common_name": "cert_name",
-            "uuid": "5a3a77a8-892d-11e8-b7da-005056b482fc",
-            "scope": "cluster",
         }
     ),
 ]
@@ -138,14 +138,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityCertificate(
         {
+            "svm": {"name": "vs0"},
+            "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
+            "common_name": "vs0",
             "_links": {
                 "self": {
                     "href": "/api/security/certificates/dad2363b-8ac0-11e8-9058-005056b482fc"
                 }
             },
-            "svm": {"name": "vs0"},
-            "common_name": "vs0",
-            "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
         }
     )
 ]
@@ -174,22 +174,22 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SecurityCertificate(
     {
+        "serial_number": "15428D45CF81CF56",
+        "public_certificate": "-----BEGIN CERTIFICATE-----\nMIIDQjCCAiqgAwIBAgIIFUKNRc+Bz1YwDQYJKoZIhvcNAQELBQAwGzEMMAoGA1UE\nAxMDdnMwMQswCQYDVQQGEwJVUzAeFw0xODA3MTgxOTI5MTRaFw0xOTA3MTgxOTI5\nMTRaMBsxDDAKBgNVBAMTA3ZzMDELMAkGA1UEBhMCVVMwggEiMA0GCSqGSIb3DQEB\nAQUAA4IBDwAwggEKAoIBAQCqFQb27th2ACOmJvWgLh1xRzobSb2ZTQfO561faXQ3\nIbiT+rnRWXetd/s2+iCv91d9LW0NOmP3MN2f3SFbyze3dl7WrnVbjLmYuI9MfOxs\nfmA+Bh6gpap5Yn2YddqoV6rfNGAuUveNLArNl8wODk/mpawpEQ93QSa1Zfg1gnoH\nRFrYqiSYT06X5g6RbUuEl4LTGXspz+plU46Za0i6QyxtvZ4bneibffXN3IigpqI6\nTGUV8R/J3Ps338VxVmSO9ZXBZmvbcJVoysYNICl/oi3fgPZlnBv0tbswqg4FoZO/\nWT+XHGhLep6cr/Aqg7u6C4RfqbCwzB/XFKDIqnmAQkDBAgMBAAGjgYkwgYYwDAYD\nVR0TBAUwAwEB/zALBgNVHQ8EBAMCAQYwHQYDVR0OBBYEFN/AnH8qLxocTtumNHIn\nEN4IFIDBMEoGA1UdIwRDMEGAFN/AnH8qLxocTtumNHInEN4IFIDBoR+kHTAbMQww\nCgYDVQQDEwN2czAxCzAJBgNVBAYTAlVTgggVQo1Fz4HPVjANBgkqhkiG9w0BAQsF\nAAOCAQEAa0pUEepdeQnd2Amwg8UFyxayb8eu3E6dlptvtyp+xtjhIC7Dh95CVXhy\nkJS3Tsu60PGR/b2vc3MZtAUpcL4ceD8XntKPQgBlqoB4bRogCe1TnlGswRXDX5TS\ngMVrRjaWTBF7ikT4UjR05rSxcDGplQRqjnOthqi+yPT+29+8a4Uu6J+3Kdrflj4p\n1nSWpuB9EyxtuCILNqXA2ncH7YKtoeNtChKCchhvPcoTy6Opma6UQn5UMxstkvGT\nVGaN5TlRWv0yiqPXIQblSqXi/uQsuRPcHDu7+KWRFn08USa6QVo2mDs9P7R9dd0K\n9QAsTjTOF9PlAKgNxGoOJl2y0+48AA==\n-----END CERTIFICATE-----\n",
+        "hash_function": "sha256",
+        "svm": {"uuid": "d817293c-8ac0-11e8-9058-005056b482fc", "name": "vs0"},
+        "ca": "vs0",
+        "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
+        "type": "server",
+        "expiry_time": "2019-07-18T15:29:14-04:00",
+        "common_name": "vs0",
+        "scope": "svm",
         "_links": {
             "self": {
                 "href": "/api/security/certificates/dad2363b-8ac0-11e8-9058-005056b482fc"
             }
         },
-        "svm": {"name": "vs0", "uuid": "d817293c-8ac0-11e8-9058-005056b482fc"},
-        "common_name": "vs0",
-        "uuid": "dad2363b-8ac0-11e8-9058-005056b482fc",
-        "expiry_time": "2019-07-18T15:29:14-04:00",
-        "ca": "vs0",
-        "scope": "svm",
-        "hash_function": "sha256",
         "key_size": 2048,
-        "serial_number": "15428D45CF81CF56",
-        "public_certificate": "-----BEGIN CERTIFICATE-----\nMIIDQjCCAiqgAwIBAgIIFUKNRc+Bz1YwDQYJKoZIhvcNAQELBQAwGzEMMAoGA1UE\nAxMDdnMwMQswCQYDVQQGEwJVUzAeFw0xODA3MTgxOTI5MTRaFw0xOTA3MTgxOTI5\nMTRaMBsxDDAKBgNVBAMTA3ZzMDELMAkGA1UEBhMCVVMwggEiMA0GCSqGSIb3DQEB\nAQUAA4IBDwAwggEKAoIBAQCqFQb27th2ACOmJvWgLh1xRzobSb2ZTQfO561faXQ3\nIbiT+rnRWXetd/s2+iCv91d9LW0NOmP3MN2f3SFbyze3dl7WrnVbjLmYuI9MfOxs\nfmA+Bh6gpap5Yn2YddqoV6rfNGAuUveNLArNl8wODk/mpawpEQ93QSa1Zfg1gnoH\nRFrYqiSYT06X5g6RbUuEl4LTGXspz+plU46Za0i6QyxtvZ4bneibffXN3IigpqI6\nTGUV8R/J3Ps338VxVmSO9ZXBZmvbcJVoysYNICl/oi3fgPZlnBv0tbswqg4FoZO/\nWT+XHGhLep6cr/Aqg7u6C4RfqbCwzB/XFKDIqnmAQkDBAgMBAAGjgYkwgYYwDAYD\nVR0TBAUwAwEB/zALBgNVHQ8EBAMCAQYwHQYDVR0OBBYEFN/AnH8qLxocTtumNHIn\nEN4IFIDBMEoGA1UdIwRDMEGAFN/AnH8qLxocTtumNHInEN4IFIDBoR+kHTAbMQww\nCgYDVQQDEwN2czAxCzAJBgNVBAYTAlVTgggVQo1Fz4HPVjANBgkqhkiG9w0BAQsF\nAAOCAQEAa0pUEepdeQnd2Amwg8UFyxayb8eu3E6dlptvtyp+xtjhIC7Dh95CVXhy\nkJS3Tsu60PGR/b2vc3MZtAUpcL4ceD8XntKPQgBlqoB4bRogCe1TnlGswRXDX5TS\ngMVrRjaWTBF7ikT4UjR05rSxcDGplQRqjnOthqi+yPT+29+8a4Uu6J+3Kdrflj4p\n1nSWpuB9EyxtuCILNqXA2ncH7YKtoeNtChKCchhvPcoTy6Opma6UQn5UMxstkvGT\nVGaN5TlRWv0yiqPXIQblSqXi/uQsuRPcHDu7+KWRFn08USa6QVo2mDs9P7R9dd0K\n9QAsTjTOF9PlAKgNxGoOJl2y0+48AA==\n-----END CERTIFICATE-----\n",
-        "type": "server",
     }
 )
 

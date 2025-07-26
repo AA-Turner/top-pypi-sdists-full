@@ -20,11 +20,13 @@ use pyo3::{
 
 use crate::{
     bytes::{Encoding, ZBytes},
-    config::ZenohId,
     handlers::{into_handler, HandlerImpl},
     key_expr::KeyExpr,
     macros::{build, downcast_or_new, enum_mapper, option_wrapper, wrapper},
+    matching::{MatchingListener, MatchingStatus},
     qos::{CongestionControl, Priority},
+    session::EntityGlobalId,
+    time::Timestamp,
     utils::{generic, wait, IntoPyResult, IntoPython, IntoRust, MapInto},
 };
 
@@ -64,11 +66,11 @@ impl QueryConsolidation {
     const DEFAULT: Self = Self(zenoh::query::QueryConsolidation::DEFAULT);
 
     #[new]
-    fn new(mode: Option<ConsolidationMode>) -> PyResult<Self> {
+    fn new(mode: Option<ConsolidationMode>) -> Self {
         let Some(mode) = mode else {
-            return Ok(Self::DEFAULT);
+            return Self::DEFAULT;
         };
-        Ok(Self(mode.into_rust().into()))
+        Self(mode.into_rust().into())
     }
 
     fn mode(&self) -> ConsolidationMode {
@@ -125,9 +127,8 @@ impl Query {
         Ok(self.get_ref()?.attachment().cloned().map_into())
     }
 
-    // TODO timestamp
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (key_expr, payload, *, encoding = None, congestion_control = None, priority = None, express = None, attachment = None))]
+    #[pyo3(signature = (key_expr, payload, *, encoding = None, congestion_control = None, priority = None, express = None, attachment = None, timestamp = None))]
     fn reply(
         &self,
         py: Python,
@@ -138,6 +139,7 @@ impl Query {
         priority: Option<Priority>,
         express: Option<bool>,
         #[pyo3(from_py_with = "ZBytes::from_py_opt")] attachment: Option<ZBytes>,
+        timestamp: Option<Timestamp>,
     ) -> PyResult<()> {
         let build = build!(
             self.get_ref()?.reply(key_expr, payload),
@@ -146,6 +148,7 @@ impl Query {
             priority,
             express,
             attachment,
+            timestamp,
         );
         wait(py, build)
     }
@@ -161,7 +164,8 @@ impl Query {
         wait(py, build)
     }
 
-    #[pyo3(signature = (key_expr, *, congestion_control = None, priority = None, express = None, attachment = None))]
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (key_expr, *, congestion_control = None, priority = None, express = None, attachment = None, timestamp = None))]
     fn reply_del(
         &self,
         py: Python,
@@ -170,6 +174,7 @@ impl Query {
         priority: Option<Priority>,
         express: Option<bool>,
         #[pyo3(from_py_with = "ZBytes::from_py_opt")] attachment: Option<ZBytes>,
+        timestamp: Option<Timestamp>,
     ) -> PyResult<()> {
         let build = build!(
             self.get_ref()?.reply_del(key_expr),
@@ -177,6 +182,7 @@ impl Query {
             priority,
             express,
             attachment,
+            timestamp,
         );
         wait(py, build)
     }
@@ -223,7 +229,7 @@ impl Reply {
     }
 
     #[getter]
-    fn replier_id(&self) -> Option<ZenohId> {
+    fn replier_id(&self) -> Option<EntityGlobalId> {
         self.0.replier_id().map_into()
     }
 
@@ -338,6 +344,11 @@ impl Querier {
         Ok(self.get_ref()?.key_expr().clone().into())
     }
 
+    #[getter]
+    fn matching_status(&self, py: Python) -> PyResult<MatchingStatus> {
+        Ok(wait(py, self.get_ref()?.matching_status())?.into())
+    }
+
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (handler = None, *, parameters = None, payload = None, encoding = None, attachment = None))]
     fn get(
@@ -353,6 +364,20 @@ impl Querier {
         let (handler, _) = into_handler(py, handler)?;
         let builder = build!(this.get(), parameters, payload, encoding, attachment);
         wait(py, builder.with(handler)).map_into()
+    }
+
+    #[pyo3(signature = (handler = None))]
+    fn declare_matching_listener(
+        &self,
+        py: Python,
+        handler: Option<&Bound<PyAny>>,
+    ) -> PyResult<MatchingListener> {
+        let (handler, background) = into_handler(py, handler)?;
+        let mut listener = wait(py, self.get_ref()?.matching_listener().with(handler))?;
+        if background {
+            listener.set_background(true);
+        }
+        Ok(listener.into())
     }
 
     fn undeclare(&mut self, py: Python) -> PyResult<()> {

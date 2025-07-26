@@ -57,9 +57,12 @@ def torchrun(
     max_retries: int = 0,
     rdzv_port: int = 49450,
     rdzv_backend: str = "c10d",
+    rdzv_id: Optional[int] = None,
     mounts: Optional[list[str]] = None,
     debug: bool = False,
     dgxc: bool = False,
+    lepton: bool = False,
+    use_env: bool = False,
 ) -> specs.AppDef:
     """
     Distributed data parallel style application (one role, multi-replica).
@@ -94,6 +97,7 @@ def torchrun(
                 See scheduler documentation for more info.
         debug: whether to run with preset debug flags enabled
         dgxc: whether to use a subset of settings for DGX Cloud
+        lepton: whether the experiment is running on Lepton AI
     """
     if (script is None) == (m is None):
         raise ValueError("exactly one of --script and -m must be specified")
@@ -113,17 +117,21 @@ def torchrun(
         nproc_per_node = str(nproc_per_node)
         node_rank = "0"
     else:
-        # for multi-node, rely on the rank0_env environment variable set by
-        # the schedulers (see scheduler implementation for the actual env var this maps to)
-        # some schedulers (e.g. aws batch) make the rank0's ip-addr available on all BUT on rank0
-        # so default to "localhost" if the env var is not set or is empty
-        # rdzv_endpoint bash resolves to something to the effect of
-        # ${TORCHX_RANK0_HOST:=localhost}:29500
-        # use $$ in the prefix to escape the '$' literal (rather than a string Template substitution argument)
-        rdzv_endpoint = torchx_dist._noquote(f"$${ExecutorMacros.HEAD_NODE_IP_VAR}:{rdzv_port}")
-        num_nodes = torchx_dist._noquote(f"$${ExecutorMacros.NUM_NODES_VAR}")
+        if use_env and os.getenv("MASTER_ADDR") and os.getenv("MASTER_PORT"):
+            master_addr = os.environ["MASTER_ADDR"]
+            master_port = os.environ["MASTER_PORT"]
+            rdzv_endpoint = torchx_dist._noquote(master_addr + ":" + master_port)
+            random.seed(rdzv_endpoint)
+        else:
+            rdzv_endpoint = torchx_dist._noquote(f"$${ExecutorMacros.HEAD_NODE_IP_VAR}:{rdzv_port}")
+
+        num_nodes = nnodes_rep
         nproc_per_node = str(nproc_per_node)
-        node_rank = torchx_dist._noquote(f"$${ExecutorMacros.NODE_RANK_VAR}")
+
+        if use_env and os.getenv("NODE_RANK"):
+            node_rank = os.environ["NODE_RANK"]
+        else:
+            node_rank = torchx_dist._noquote(f"$${ExecutorMacros.NODE_RANK_VAR}")
 
     if env is None:
         env = {}
@@ -134,6 +142,19 @@ def torchrun(
 
     if dgxc:
         cmd = ["--nnodes", nnodes_rep, "--nproc-per-node", nproc_per_node]
+    elif lepton:
+        cmd = [
+            "--nnodes",
+            nnodes_rep,
+            "--nproc-per-node",
+            nproc_per_node,
+            "--node-rank",
+            torchx_dist._noquote("$NODE_RANK"),
+            "--master-addr",
+            torchx_dist._noquote("$MASTER_ADDR"),
+            "--master-port",
+            torchx_dist._noquote("$MASTER_PORT"),
+        ]
     else:
         cmd = [
             "--rdzv-backend",
@@ -141,7 +162,7 @@ def torchrun(
             "--rdzv-endpoint",
             rdzv_endpoint,
             "--rdzv-id",
-            f"{random.randint(1, 10000)}",
+            f"{rdzv_id or random.randint(1, 10000)}",
             "--nnodes",
             num_nodes,
             "--nproc-per-node",

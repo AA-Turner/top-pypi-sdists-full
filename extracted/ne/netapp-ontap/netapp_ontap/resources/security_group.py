@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -47,14 +47,14 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SecurityGroup(
         {
-            "name": "AzureGroup1",
-            "uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             "id": 1,
             "owner": {
-                "name": "C1_sti213-vsim-sr023a_1718680001",
                 "uuid": "116127b1-2d21-11ef-a5e1-005056ae1bc2",
+                "name": "C1_sti213-vsim-sr023a_1718680001",
             },
+            "uuid": "3fa85f64-5717-4562-b3fc-2c963f66afa6",
             "type": "entra",
+            "name": "AzureGroup1",
         }
     )
 ]
@@ -115,6 +115,7 @@ Example: Azure Group"""
 
     name = marshmallow_fields.Str(
         data_key="name",
+        validate=len_validation(minimum=1, maximum=64),
         allow_none=True,
     )
     r""" Group name.

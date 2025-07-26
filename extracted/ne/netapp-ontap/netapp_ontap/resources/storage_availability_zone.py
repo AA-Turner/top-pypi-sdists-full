@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -70,58 +70,60 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StorageAvailabilityZone(
         {
-            "space": {
-                "delayed_frees": 81920,
-                "total_metadata_used": 32768,
-                "full_threshold_percent": 98,
-                "logical_user_data_without_snapshots": 49152,
-                "nearly_full_threshold_percent": 95,
-                "physical_used_percent": 0,
-                "physical_user_data_without_snapshots": 40960,
-                "efficiency_without_snapshots": {"ratio": 1.2, "savings": 8192},
-                "size": 2457600,
-                "available": 2441216,
-                "physical_used": 16384,
-            },
-            "name": "storage_availability_zone_2",
+            "nodes": [
+                {"uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1", "name": "node3"},
+                {"uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47", "name": "node4"},
+            ],
             "uuid": "05be85be-2a5f-11ef-890a-005056bb9bec",
             "_links": {
                 "self": {
                     "href": "/api/storage/availability-zones/05be85be-2a5f-11ef-890a-005056bb9bec"
                 }
             },
-            "nodes": [
-                {"name": "node3", "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1"},
-                {"name": "node4", "uuid": "cf9ab500-ff3e-4bce-bfd7-d679e6078f47"},
-            ],
+            "space": {
+                "physical_used": 16384,
+                "physical_user_data_without_snapshots": 40960,
+                "nearly_full_threshold_percent": 95,
+                "available": 2441216,
+                "log_and_recovery_metadata": 32662,
+                "physical_used_percent": 0,
+                "delayed_frees": 81920,
+                "total_metadata_used": 32768,
+                "efficiency_without_snapshots": {"ratio": 1.2, "savings": 8192},
+                "logical_user_data_without_snapshots": 49152,
+                "size": 2457600,
+                "full_threshold_percent": 98,
+            },
+            "name": "storage_availability_zone_2",
         }
     ),
     StorageAvailabilityZone(
         {
-            "space": {
-                "delayed_frees": 13832192,
-                "total_metadata_used": 58693394432,
-                "full_threshold_percent": 98,
-                "logical_user_data_without_snapshots": 102400,
-                "nearly_full_threshold_percent": 95,
-                "physical_used_percent": 46,
-                "physical_user_data_without_snapshots": 114688,
-                "efficiency_without_snapshots": {"ratio": 1.0, "savings": 8192},
-                "size": 125357654016,
-                "available": 66676547584,
-                "physical_used": 58681106432,
-            },
-            "name": "storage_availability_zone_1",
+            "nodes": [
+                {"uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4", "name": "node1"},
+                {"uuid": "54440ec3-6127-11e9-a959-005056bb76f9", "name": "node2"},
+            ],
             "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
             "_links": {
                 "self": {
                     "href": "/api/storage/availability-zones/9b3ff559-3333-11ef-b420-005056ae6060"
                 }
             },
-            "nodes": [
-                {"name": "node1", "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4"},
-                {"name": "node2", "uuid": "54440ec3-6127-11e9-a959-005056bb76f9"},
-            ],
+            "space": {
+                "physical_used": 58681106432,
+                "physical_user_data_without_snapshots": 114688,
+                "nearly_full_threshold_percent": 95,
+                "available": 66676547584,
+                "log_and_recovery_metadata": 58678050816,
+                "physical_used_percent": 46,
+                "delayed_frees": 13832192,
+                "total_metadata_used": 58693394432,
+                "efficiency_without_snapshots": {"ratio": 1.0, "savings": 8192},
+                "logical_user_data_without_snapshots": 102400,
+                "size": 125357654016,
+                "full_threshold_percent": 98,
+            },
+            "name": "storage_availability_zone_1",
         }
     ),
 ]
@@ -150,25 +152,26 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageAvailabilityZone(
     {
+        "nodes": [
+            {"uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4", "name": "node1"},
+            {"uuid": "54440ec3-6127-11e9-a959-005056bb76f9", "name": "node2"},
+        ],
+        "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
         "space": {
+            "physical_used": 58681094144,
+            "physical_user_data_without_snapshots": 114688,
+            "nearly_full_threshold_percent": 95,
+            "available": 66676559872,
+            "log_and_recovery_metadata": 58678050816,
+            "physical_used_percent": 46,
             "delayed_frees": 100458496,
             "total_metadata_used": 58780037120,
-            "full_threshold_percent": 98,
-            "logical_user_data_without_snapshots": 122880,
-            "nearly_full_threshold_percent": 95,
-            "physical_used_percent": 46,
-            "physical_user_data_without_snapshots": 114688,
             "efficiency_without_snapshots": {"ratio": 1.0, "savings": 8192},
+            "logical_user_data_without_snapshots": 122880,
             "size": 125357654016,
-            "available": 66676559872,
-            "physical_used": 58681094144,
+            "full_threshold_percent": 98,
         },
         "name": "storage_availability_zone_1",
-        "uuid": "9b3ff559-3333-11ef-b420-005056ae6060",
-        "nodes": [
-            {"name": "node1", "uuid": "e02dbef1-6126-11e9-b8fb-005056bb9ce4"},
-            {"name": "node2", "uuid": "54440ec3-6127-11e9-a959-005056bb76f9"},
-        ],
     }
 )
 

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,6 +30,9 @@ class VolumeConstituentsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
     r""" FlexGroup volume constituent name. """
 
+    node = marshmallow_fields.Nested("netapp_ontap.models.volume_constituents_node.VolumeConstituentsNodeSchema", unknown=EXCLUDE, data_key="node", allow_none=True)
+    r""" The node field of the volume_constituents. """
+
     space = marshmallow_fields.Nested("netapp_ontap.models.volume_constituents_space.VolumeConstituentsSpaceSchema", unknown=EXCLUDE, data_key="space", allow_none=True)
     r""" The space field of the volume_constituents. """
 
@@ -41,23 +44,26 @@ class VolumeConstituentsSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         "aggregates",
         "movement",
         "name",
+        "node",
         "space",
     ]
-    """aggregates,movement,name,space,"""
+    """aggregates,movement,name,node,space,"""
 
     patchable_fields = [
         "aggregates",
         "movement",
+        "node",
         "space",
     ]
-    """aggregates,movement,space,"""
+    """aggregates,movement,node,space,"""
 
     postable_fields = [
         "aggregates",
         "movement",
+        "node",
         "space",
     ]
-    """aggregates,movement,space,"""
+    """aggregates,movement,node,space,"""
 
 
 class VolumeConstituents(Resource):

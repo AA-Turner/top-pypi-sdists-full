@@ -3,7 +3,9 @@
 import json
 import typing as t
 
-from connector.generated import (
+from connector.oai.capability import CustomRequest, CustomResponse, get_basic_auth
+from connector.oai.integration import DescriptionData, Integration
+from connector_sdk_types.generated import (
     AuthModel,
     BasicCredential,
     CredentialConfig,
@@ -14,8 +16,6 @@ from connector.generated import (
     ListAccountsResponse,
     StandardCapabilityName,
 )
-from connector.oai.capability import CustomRequest, CustomResponse, get_basic_auth
-from connector.oai.integration import DescriptionData, Integration
 
 from .shared_types import (
     AccioRequest,

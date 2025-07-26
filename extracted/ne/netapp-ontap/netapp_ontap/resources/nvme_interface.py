@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,42 +26,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeInterface(
         {
-            "name": "nvme1",
+            "svm": {
+                "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
+                "name": "svm1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"
+                    }
+                },
+            },
             "uuid": "74d69872-0d30-11e9-a684-005056bbdb14",
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/interfaces/74d69872-0d30-11e9-a684-005056bbdb14"
                 }
             },
+            "name": "nvme1",
+        }
+    ),
+    NvmeInterface(
+        {
             "svm": {
+                "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"
                     }
                 },
-                "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
             },
-        }
-    ),
-    NvmeInterface(
-        {
-            "name": "nvme2",
             "uuid": "77ded991-0d30-11e9-a684-005056bbdb14",
             "_links": {
                 "self": {
                     "href": "/api/protocols/nvme/interfaces/77ded991-0d30-11e9-a684-005056bbdb14"
                 }
             },
-            "svm": {
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"
-                    }
-                },
-                "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
-            },
+            "name": "nvme2",
         }
     ),
 ]
@@ -89,50 +89,50 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 NvmeInterface(
     {
-        "name": "nvme2",
+        "enabled": True,
         "transport_address": "nn-0x2003005056bbdb14:pn-0x2005005056bbdb14",
+        "fc_interface": {
+            "port": {
+                "uuid": "081ec491-0d2f-11e9-a684-005056bbdb14",
+                "node": {"name": "node1"},
+                "_links": {
+                    "self": {
+                        "href": "/api/network/fc/ports/081ec491-0d2f-11e9-a684-005056bbdb14"
+                    }
+                },
+                "name": "1a",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/network/fc/interfaces/77ded991-0d30-11e9-a684-005056bbdb14"
+                }
+            },
+            "wwpn": "20:05:00:50:56:bb:db:14",
+            "wwnn": "20:03:00:50:56:bb:db:14",
+        },
+        "svm": {
+            "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
+            "name": "svm1",
+            "_links": {
+                "self": {"href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"}
+            },
+        },
+        "uuid": "77ded991-0d30-11e9-a684-005056bbdb14",
         "node": {
+            "uuid": "cd4d47fd-0d2e-11e9-a684-005056bbdb14",
             "name": "node1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/cd4d47fd-0d2e-11e9-a684-005056bbdb14"
                 }
             },
-            "uuid": "cd4d47fd-0d2e-11e9-a684-005056bbdb14",
         },
-        "uuid": "77ded991-0d30-11e9-a684-005056bbdb14",
-        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/protocols/nvme/interfaces/77ded991-0d30-11e9-a684-005056bbdb14"
             }
         },
-        "svm": {
-            "name": "svm1",
-            "_links": {
-                "self": {"href": "/api/svm/svms/013e2c44-0d30-11e9-a684-005056bbdb14"}
-            },
-            "uuid": "013e2c44-0d30-11e9-a684-005056bbdb14",
-        },
-        "fc_interface": {
-            "wwnn": "20:03:00:50:56:bb:db:14",
-            "_links": {
-                "self": {
-                    "href": "/api/network/fc/interfaces/77ded991-0d30-11e9-a684-005056bbdb14"
-                }
-            },
-            "port": {
-                "name": "1a",
-                "node": {"name": "node1"},
-                "uuid": "081ec491-0d2f-11e9-a684-005056bbdb14",
-                "_links": {
-                    "self": {
-                        "href": "/api/network/fc/ports/081ec491-0d2f-11e9-a684-005056bbdb14"
-                    }
-                },
-            },
-            "wwpn": "20:05:00:50:56:bb:db:14",
-        },
+        "name": "nvme2",
     }
 )
 

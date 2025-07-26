@@ -22,6 +22,7 @@ from schemathesis.config import GenerationConfig, ProjectConfig
 from schemathesis.core import NOT_SET, NotSet, SpecificationFeature, media_types
 from schemathesis.core.errors import InvalidSchema, SerializationNotPossible
 from schemathesis.core.marks import Mark
+from schemathesis.core.transforms import deepclone
 from schemathesis.core.transport import prepare_urlencoded
 from schemathesis.core.validation import has_invalid_characters, is_latin_1_encodable
 from schemathesis.generation import GenerationMode, coverage
@@ -397,7 +398,7 @@ class Template:
         return output
 
     def unmodified(self) -> TemplateValue:
-        kwargs = self._template.copy()
+        kwargs = deepclone(self._template)
         kwargs = self._serialize(kwargs)
         return TemplateValue(kwargs=kwargs, components=self._components.copy())
 
@@ -462,6 +463,7 @@ def _iter_coverage_cases(
     from schemathesis.specs.openapi._hypothesis import _build_custom_formats
     from schemathesis.specs.openapi.constants import LOCATION_TO_CONTAINER
     from schemathesis.specs.openapi.examples import find_in_responses, find_matching_in_responses
+    from schemathesis.specs.openapi.schemas import BaseOpenAPISchema
     from schemathesis.specs.openapi.serialization import get_serializers_for_operation
 
     generators: dict[tuple[str, str], Generator[coverage.GeneratedValue, None, None]] = {}
@@ -476,6 +478,8 @@ def _iter_coverage_cases(
 
     seen_negative = coverage.HashSet()
     seen_positive = coverage.HashSet()
+    assert isinstance(operation.schema, BaseOpenAPISchema)
+    validator_cls = operation.schema.validator_cls
 
     for parameter in operation.iter_parameters():
         location = parameter.location
@@ -489,6 +493,7 @@ def _iter_coverage_cases(
                 generation_modes=generation_modes,
                 is_required=parameter.is_required,
                 custom_formats=custom_formats,
+                validator_cls=validator_cls,
             ),
             schema,
         )
@@ -513,6 +518,7 @@ def _iter_coverage_cases(
                     generation_modes=generation_modes,
                     is_required=body.is_required,
                     custom_formats=custom_formats,
+                    validator_cls=validator_cls,
                 ),
                 schema,
             )
@@ -658,14 +664,14 @@ def _iter_coverage_cases(
                 name = parameter.name
                 location = parameter.location
                 container_name = LOCATION_TO_CONTAINER[location]
-                # NOTE: if the schema is overly permissive we may not have any negative test cases
-                if container_name in template:
-                    container = template[container_name]
-                    data = template.with_container(
-                        container_name=container_name,
-                        value={k: v for k, v in container.items() if k != name},
-                        generation_mode=GenerationMode.NEGATIVE,
-                    )
+                container = template.get(container_name, {})
+                data = template.with_container(
+                    container_name=container_name,
+                    value={k: v for k, v in container.items() if k != name},
+                    generation_mode=GenerationMode.NEGATIVE,
+                )
+
+                if seen_negative.insert(data.kwargs):
                     yield operation.Case(
                         **data.kwargs,
                         _meta=CaseMetadata(
@@ -747,6 +753,7 @@ def _iter_coverage_cases(
                         generation_modes=[GenerationMode.NEGATIVE],
                         is_required=is_required,
                         custom_formats=custom_formats,
+                        validator_cls=validator_cls,
                     ),
                     subschema,
                 )

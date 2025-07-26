@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,43 +27,43 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     SecurityKeystore(
         {
             "configuration": {
-                "name": "default",
                 "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
+                "name": "default",
             },
-            "location": "onboard",
-            "state": "active",
-            "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
-            "enabled": True,
-            "type": "okm",
             "scope": "cluster",
+            "enabled": True,
+            "state": "active",
+            "location": "onboard",
+            "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
+            "type": "okm",
         }
     ),
     SecurityKeystore(
         {
             "configuration": {
-                "name": "default",
                 "uuid": "d81f43cd-4e9f-11ef-b477-005056bb677e",
+                "name": "default",
             },
+            "scope": "cluster",
+            "enabled": False,
             "location": "external",
             "uuid": "d81f43cd-4e9f-11ef-b477-005056bb677e",
-            "enabled": False,
             "type": "kmip",
-            "scope": "cluster",
         }
     ),
     SecurityKeystore(
         {
             "configuration": {
-                "name": "default",
                 "uuid": "7da22185-4ea0-11ef-b477-005056bb677e",
+                "name": "default",
             },
-            "location": "external",
-            "state": "active",
-            "uuid": "7da22185-4ea0-11ef-b477-005056bb677e",
-            "enabled": True,
-            "svm": {"name": "vs0", "uuid": "3cbe691b-4ea0-11ef-b477-005056bb677e"},
-            "type": "kmip",
             "scope": "svm",
+            "enabled": True,
+            "svm": {"uuid": "3cbe691b-4ea0-11ef-b477-005056bb677e", "name": "vs0"},
+            "state": "active",
+            "location": "external",
+            "uuid": "7da22185-4ea0-11ef-b477-005056bb677e",
+            "type": "kmip",
         }
     ),
 ]
@@ -93,15 +93,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 SecurityKeystore(
     {
         "configuration": {
-            "name": "default",
             "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
+            "name": "default",
         },
-        "location": "onboard",
-        "state": "active",
-        "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
-        "enabled": True,
-        "type": "okm",
         "scope": "cluster",
+        "enabled": True,
+        "state": "active",
+        "location": "onboard",
+        "uuid": "ec8711c9-4e9f-11ef-b477-005056bb677e",
+        "type": "okm",
     }
 )
 
@@ -215,10 +215,10 @@ Valid choices:
 
     type = marshmallow_fields.Str(
         data_key="type",
-        validate=enum_validation(['okm', 'kmip', 'akv', 'gcp', 'aws', 'ikp']),
+        validate=enum_validation(['okm', 'kmip', 'akv', 'gcp', 'aws', 'ikp', 'barbican']),
         allow_none=True,
     )
-    r""" Type of keystore that is configured: * 'okm' - Onboard Key Manager * 'kmip' - External Key Manager * 'akv' - Azure Key Vault Key Management Service * 'gcp' - Google Cloud Platform Key Management Service * 'aws' - Amazon Web Service Key Management Service * 'ikp' - IBM Key Protect Key Management Service
+    r""" Type of keystore that is configured: * 'okm' - Onboard Key Manager * 'kmip' - External Key Manager * 'akv' - Azure Key Vault Key Management Service * 'gcp' - Google Cloud Platform Key Management Service * 'aws' - Amazon Web Service Key Management Service * 'ikp' - IBM Key Protect Key Management Service * 'barbican' - Barbican Key Management Service
 
 
 Valid choices:
@@ -228,7 +228,8 @@ Valid choices:
 * akv
 * gcp
 * aws
-* ikp"""
+* ikp
+* barbican"""
 
     uuid = marshmallow_fields.Str(
         data_key="uuid",
@@ -334,6 +335,7 @@ class SecurityKeystore(Resource):
         r"""Enables a keystore configuration
 ### Related ONTAP commands
 * `security key-manager keystore enable`
+* `security key-manager keystore disable`
 
 ### Learn more
 * [`DOC /security/key-stores`](#docs-security-security_key-stores)"""
@@ -406,6 +408,7 @@ class SecurityKeystore(Resource):
         r"""Enables a keystore configuration
 ### Related ONTAP commands
 * `security key-manager keystore enable`
+* `security key-manager keystore disable`
 
 ### Learn more
 * [`DOC /security/key-stores`](#docs-security-security_key-stores)"""

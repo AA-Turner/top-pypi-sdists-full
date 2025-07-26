@@ -50,12 +50,17 @@ use crate::types::special_form::SpecialForm;
 use crate::types::types::Type;
 
 impl<'a> BindingsBuilder<'a> {
-    fn bind_unimportable_names(&mut self, x: &StmtImportFrom) {
+    fn bind_unimportable_names(&mut self, x: &StmtImportFrom, as_error: bool) {
+        let any = if as_error {
+            Type::any_error()
+        } else {
+            Type::any_explicit()
+        };
         for x in &x.names {
             if &x.name != "*" {
                 let asname = x.asname.as_ref().unwrap_or(&x.name);
                 // We pass None as imported_from, since we are really faking up a local error definition
-                self.bind_definition(asname, Binding::Type(Type::any_error()), FlowStyle::Other);
+                self.bind_definition(asname, Binding::Type(any.clone()), FlowStyle::Other);
             }
         }
     }
@@ -764,13 +769,18 @@ impl<'a> BindingsBuilder<'a> {
                 self.stmts(x.finalbody);
             }
             Stmt::Assert(mut x) => {
+                let assert_range = x.range();
+                let test_range = x.test.range();
                 self.ensure_expr(&mut x.test, &mut Usage::Narrowing);
-                self.bind_narrow_ops(&NarrowOps::from_expr(self, Some(&x.test)), x.range);
-                if let Some(false) = self.sys_info.evaluate_bool(&x.test) {
-                    self.scopes.mark_flow_termination();
-                }
-                self.insert_binding(Key::Anon(x.test.range()), Binding::Expr(None, *x.test));
+                let narrow_ops = NarrowOps::from_expr(self, Some(&x.test));
+                let static_test = self.sys_info.evaluate_bool(&x.test);
+                self.insert_binding(Key::Anon(test_range), Binding::Expr(None, *x.test));
                 if let Some(mut msg_expr) = x.msg {
+                    let mut base = self.scopes.clone_current_flow();
+                    // Negate the narrowing of the test expression when typechecking
+                    // the error message, since we know the assertion was false
+                    let negated_narrow_ops = narrow_ops.negate();
+                    self.bind_narrow_ops(&negated_narrow_ops, msg_expr.range());
                     let mut msg = self.declare_current_idx(Key::UsageLink(msg_expr.range()));
                     self.ensure_expr(&mut msg_expr, msg.usage());
                     let idx = self.insert_binding(
@@ -778,7 +788,12 @@ impl<'a> BindingsBuilder<'a> {
                         BindingExpect::TypeCheckExpr(*msg_expr),
                     );
                     self.insert_binding_current(msg, Binding::UsageLink(LinkedKey::Expect(idx)));
+                    self.scopes.swap_current_flow_with(&mut base);
                 };
+                self.bind_narrow_ops(&narrow_ops, assert_range);
+                if let Some(false) = static_test {
+                    self.scopes.mark_flow_termination();
+                }
             }
             Stmt::Import(x) => {
                 for x in x.names {
@@ -870,22 +885,28 @@ impl<'a> BindingsBuilder<'a> {
                                         Binding::Import(m, x.name.id.clone(), original_name_range)
                                     } else {
                                         let x_as_module_name = m.append(&x.name.id);
-                                        if self.lookup.get(x_as_module_name).is_ok() {
-                                            Binding::Module(
+                                        match self.lookup.get(x_as_module_name) {
+                                            Ok(_) => Binding::Module(
                                                 x_as_module_name,
                                                 x_as_module_name.components(),
                                                 None,
-                                            )
-                                        } else {
-                                            self.error(
-                                                x.range,
-                                                ErrorInfo::Kind(ErrorKind::MissingModuleAttribute),
-                                                format!(
-                                                    "Could not import `{}` from `{m}`",
-                                                    x.name.id
-                                                ),
-                                            );
-                                            Binding::Type(Type::any_error())
+                                            ),
+                                            Err(FindError::Ignored) => {
+                                                Binding::Type(Type::any_explicit())
+                                            }
+                                            _ => {
+                                                self.error(
+                                                    x.range,
+                                                    ErrorInfo::Kind(
+                                                        ErrorKind::MissingModuleAttribute,
+                                                    ),
+                                                    format!(
+                                                        "Could not import `{}` from `{m}`",
+                                                        x.name.id
+                                                    ),
+                                                );
+                                                Binding::Type(Type::any_error())
+                                            }
                                         }
                                     };
                                     self.bind_definition(
@@ -896,7 +917,7 @@ impl<'a> BindingsBuilder<'a> {
                                 }
                             }
                         }
-                        Err(FindError::Ignored) => self.bind_unimportable_names(&x),
+                        Err(FindError::Ignored) => self.bind_unimportable_names(&x, false),
                         Err(
                             err @ (FindError::NoPyTyped
                             | FindError::NoSource(_)
@@ -908,7 +929,7 @@ impl<'a> BindingsBuilder<'a> {
                                 ErrorInfo::new(ErrorKind::ImportError, ctx.as_deref()),
                                 msg,
                             );
-                            self.bind_unimportable_names(&x);
+                            self.bind_unimportable_names(&x, true);
                         }
                     }
                 } else {
@@ -920,7 +941,7 @@ impl<'a> BindingsBuilder<'a> {
                             ".".repeat(x.level as usize)
                         ),
                     );
-                    self.bind_unimportable_names(&x);
+                    self.bind_unimportable_names(&x, true);
                 }
             }
             Stmt::Global(x) => {

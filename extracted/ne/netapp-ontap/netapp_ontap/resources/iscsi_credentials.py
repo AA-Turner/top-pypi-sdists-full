@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -91,19 +91,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "authentication_type": "none",
             "initiator": "default",
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/credentials/19d04b8e-94d7-11e8-8370-005056b48fd2/default"
-                }
-            },
             "svm": {
+                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/credentials/19d04b8e-94d7-11e8-8370-005056b48fd2/default"
+                }
             },
         }
     ),
@@ -111,40 +111,40 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "authentication_type": "none",
             "initiator": "iqn.1992-08.com.netapp:initiator1",
+            "svm": {
+                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+                "name": "svm1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
+                    }
+                },
+            },
             "_links": {
                 "self": {
                     "href": "/api/protocols/san/iscsi/credentials/19d04b8e-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator1"
                 }
             },
-            "svm": {
-                "name": "svm1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
-                    }
-                },
-                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
-            },
         }
     ),
     IscsiCredentials(
         {
-            "chap": {"inbound": {"user": "user1"}},
             "authentication_type": "chap",
             "initiator": "iqn.1992-08.com.netapp:initiator2",
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/credentials/19d04b8e-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator2"
-                }
-            },
+            "chap": {"inbound": {"user": "user1"}},
             "svm": {
+                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/19d04b8e-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "19d04b8e-94d7-11e8-8370-005056b48fd2",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/credentials/19d04b8e-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator2"
+                }
             },
         }
     ),
@@ -152,19 +152,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "authentication_type": "none",
             "initiator": "default",
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/default"
-                }
-            },
             "svm": {
+                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/default"
+                }
             },
         }
     ),
@@ -172,19 +172,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "authentication_type": "none",
             "initiator": "iqn.1992-08.com.netapp:initiator2",
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator2"
-                }
-            },
             "svm": {
+                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator2"
+                }
             },
         }
     ),
@@ -192,19 +192,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
         {
             "authentication_type": "deny",
             "initiator": "iqn.1992-08.com.netapp:initiator3",
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator3"
-                }
-            },
             "svm": {
+                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
                 "name": "svm2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"
                     }
                 },
-                "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator3"
+                }
             },
         }
     ),
@@ -236,20 +236,20 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 IscsiCredentials(
     {
-        "chap": {"inbound": {"user": "user1"}},
         "authentication_type": "chap",
         "initiator": "iqn.1992-08.com.netapp:initiator2",
-        "_links": {
-            "self": {
-                "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator2"
-            }
-        },
+        "chap": {"inbound": {"user": "user1"}},
         "svm": {
+            "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
             "name": "svm2",
             "_links": {
                 "self": {"href": "/api/svm/svms/25f617cf-94d7-11e8-8370-005056b48fd2"}
             },
-            "uuid": "25f617cf-94d7-11e8-8370-005056b48fd2",
+        },
+        "_links": {
+            "self": {
+                "href": "/api/protocols/san/iscsi/credentials/25f617cf-94d7-11e8-8370-005056b48fd2/iqn.1992-08.com.netapp:initiator2"
+            }
         },
     }
 )

@@ -29,11 +29,11 @@ from . import _core, converters, types
 __all__ = [
     "NO_DEFAULT",
     "NoDefaultType",
-    "TypeHandlerFunc",
-    "TypeHandler",
     "TypeArgsMaker",
-    "get_default",
+    "TypeHandler",
+    "TypeHandlerFunc",
     "check_if_optional",
+    "get_default",
 ]
 
 

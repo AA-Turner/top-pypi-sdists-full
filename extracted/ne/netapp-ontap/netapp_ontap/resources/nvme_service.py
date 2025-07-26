@@ -1,15 +1,13 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
 
 ## Overview
 A Non-Volatile Memory Express (NVMe) service defines the properties of the NVMe controller target for an SVM. There can be at most one NVMe service for an SVM. An SVM's NVMe service must be created before NVMe host initiators can connect to the SVM.<br/>
-The Non-Volatile Memory Express (NVMe) service REST API allows you to create, update, delete, and discover NVMe services for SVMs.
-### Platform Specifics
-
-* **ASA r2**: An NVMe service is always present for each data SVM. The service can be disabled, but not created or deleted.
+The Non-Volatile Memory Express (NVMe) service REST API allows you to create, update, delete, and discover NVMe services for SVMs.</br>
+<personalities supports=asar2>An NVMe service is always present for each data SVM. The service can be enabled and disabled, but not created or deleted.</personalities>
 ## Performance monitoring
 Performance of the SVM can be monitored by the `metric.*` and `statistics.*` properties. These show the performance of the SVM in terms of IOPS, latency and throughput. The `metric.*` properties denote an average whereas `statistics.*` properties denote a real-time monotonically increasing value aggregated across all nodes.
 ## Examples
@@ -36,17 +34,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 NvmeService(
     {
         "enabled": True,
-        "_links": {
-            "self": {
-                "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
-            }
-        },
         "svm": {
+            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"}
             },
-            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
+        },
+        "_links": {
+            "self": {
+                "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
+            }
         },
     }
 )
@@ -73,37 +71,37 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     NvmeService(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/nvme/services/ab60c350-dc68-11e8-9711-005056bbe408"
-                }
-            },
             "svm": {
+                "uuid": "ab60c350-dc68-11e8-9711-005056bbe408",
                 "name": "svm0",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/ab60c350-dc68-11e8-9711-005056bbe408"
                     }
                 },
-                "uuid": "ab60c350-dc68-11e8-9711-005056bbe408",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/nvme/services/ab60c350-dc68-11e8-9711-005056bbe408"
+                }
             },
         }
     ),
     NvmeService(
         {
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
-                }
-            },
             "svm": {
+                "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
                 "name": "svm1",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"
                     }
                 },
-                "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
+            },
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
+                }
             },
         }
     ),
@@ -135,17 +133,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 NvmeService(
     {
         "enabled": True,
-        "_links": {
-            "self": {
-                "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
-            }
-        },
         "svm": {
+            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"}
             },
-            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
+        },
+        "_links": {
+            "self": {
+                "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
+            }
         },
     }
 )
@@ -191,17 +189,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 NvmeService(
     {
         "enabled": False,
-        "_links": {
-            "self": {
-                "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
-            }
-        },
         "svm": {
+            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
             "name": "svm1",
             "_links": {
                 "self": {"href": "/api/svm/svms/bfb1beb0-dc69-11e8-b29f-005056bb7341"}
             },
-            "uuid": "bfb1beb0-dc69-11e8-b29f-005056bb7341",
+        },
+        "_links": {
+            "self": {
+                "href": "/api/protocols/nvme/services/bfb1beb0-dc69-11e8-b29f-005056bb7341"
+            }
         },
     }
 )
@@ -394,9 +392,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> Union[List["NvmeService"], NetAppResponse]:
         r"""Creates an NVMe service.
-### Platform Specifics
-* **Unified ONTAP**: POST and DELETE must be used to manage the NVMe service for access to the NVMe protocol.
-* **ASA r2**: POST and DELETE are not supported. The NVMe service is automatically created and deleted with the SVM.
 ### Required properties
 * `svm.uuid` or `svm.name` - The existing SVM in which to create the NVMe service.
 ### Related ONTAP commands
@@ -424,9 +419,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes an NVMe service. An NVMe service must be disabled before it can be deleted. In addition, all NVMe interfaces, subsystems, and subsystem maps associated with the SVM must first be deleted.
-### Platform Specifics
-* **Unified ONTAP**: POST and DELETE must be used to manage the NVMe service for access to the NVMe protocol.
-* **ASA r2**: POST and DELETE are not supported. The NVMe service is automatically created and deleted with the SVM.
 ### Related ONTAP commands
 * `vserver nvme delete`
 ### Learn more
@@ -475,9 +467,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Creates an NVMe service.
-### Platform Specifics
-* **Unified ONTAP**: POST and DELETE must be used to manage the NVMe service for access to the NVMe protocol.
-* **ASA r2**: POST and DELETE are not supported. The NVMe service is automatically created and deleted with the SVM.
 ### Required properties
 * `svm.uuid` or `svm.name` - The existing SVM in which to create the NVMe service.
 ### Related ONTAP commands
@@ -522,9 +511,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes an NVMe service. An NVMe service must be disabled before it can be deleted. In addition, all NVMe interfaces, subsystems, and subsystem maps associated with the SVM must first be deleted.
-### Platform Specifics
-* **Unified ONTAP**: POST and DELETE must be used to manage the NVMe service for access to the NVMe protocol.
-* **ASA r2**: POST and DELETE are not supported. The NVMe service is automatically created and deleted with the SVM.
 ### Related ONTAP commands
 * `vserver nvme delete`
 ### Learn more

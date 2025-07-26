@@ -19,12 +19,12 @@ from .types import (
 
 
 __all__ = [
-    "iter_settings",
-    "get_path",
-    "set_path",
-    "merge_settings",
-    "update_settings",
     "flat2nested",
+    "get_path",
+    "iter_settings",
+    "merge_settings",
+    "set_path",
+    "update_settings",
 ]
 
 

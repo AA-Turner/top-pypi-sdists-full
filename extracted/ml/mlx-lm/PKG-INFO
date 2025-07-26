@@ -1,7 +1,7 @@
 Metadata-Version: 2.4
 Name: mlx-lm
-Version: 0.26.0
-Summary: LLMs on Apple silicon with MLX and the Hugging Face Hub
+Version: 0.26.1
+Summary: LLMs with MLX and the Hugging Face Hub
 Home-page: https://github.com/ml-explore/mlx-lm
 Author: MLX Contributors
 Author-email: mlx@group.apple.com
@@ -9,7 +9,7 @@ License: MIT
 Requires-Python: >=3.8
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: mlx>=0.25.0
+Requires-Dist: mlx>=0.26.0
 Requires-Dist: numpy
 Requires-Dist: transformers>=4.39.3
 Requires-Dist: protobuf
@@ -17,12 +17,12 @@ Requires-Dist: pyyaml
 Requires-Dist: jinja2
 Provides-Extra: test
 Requires-Dist: datasets; extra == "test"
+Provides-Extra: train
+Requires-Dist: datasets; extra == "train"
+Requires-Dist: tqdm; extra == "train"
 Provides-Extra: evaluate
 Requires-Dist: lm-eval; extra == "evaluate"
 Requires-Dist: tqdm; extra == "evaluate"
-Provides-Extra: quant
-Requires-Dist: datasets; extra == "quant"
-Requires-Dist: tqdm; extra == "quant"
 Dynamic: author
 Dynamic: author-email
 Dynamic: description

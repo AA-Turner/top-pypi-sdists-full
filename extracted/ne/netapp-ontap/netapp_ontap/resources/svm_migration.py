@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -495,6 +495,12 @@ Valid choices:
     )
     r""" Indicates if the migration has progressed beyond the point of no return. When true, the migration cannot be aborted or paused. When false, the migration can be paused or aborted."""
 
+    post_ponr_retry_count = Size(
+        data_key="post_ponr_retry_count",
+        allow_none=True,
+    )
+    r""" Number of times the migration restarted after the point of no return."""
+
     restart_count = Size(
         data_key="restart_count",
         allow_none=True,
@@ -541,6 +547,7 @@ Example: 4ea7a442-86d1-11e0-ae1c-123478563412"""
         "last_operation",
         "messages",
         "point_of_no_return",
+        "post_ponr_retry_count",
         "restart_count",
         "source",
         "state",
@@ -548,7 +555,7 @@ Example: 4ea7a442-86d1-11e0-ae1c-123478563412"""
         "time_metrics",
         "uuid",
     ]
-    """auto_cutover,auto_source_cleanup,current_operation,destination,ip_interface_placement,last_failed_state,last_operation,messages,point_of_no_return,restart_count,source,state,throttle,time_metrics,uuid,"""
+    """auto_cutover,auto_source_cleanup,current_operation,destination,ip_interface_placement,last_failed_state,last_operation,messages,point_of_no_return,post_ponr_retry_count,restart_count,source,state,throttle,time_metrics,uuid,"""
 
     patchable_fields = [
         "destination",
@@ -663,14 +670,14 @@ class SvmMigration(Resource):
         **kwargs
     ) -> Union[List["SvmMigration"], NetAppResponse]:
         r"""Creates an SVM migration operation. This API must be executed on the destination cluster. This API creates an SVM on the destination cluster and preserves the SVM's identity specified in the source cluster.
-Optionally, you can specify the aggregate list for creating the volumes, and IPspace. You can perform pre-checks to verify if SVM migration is possible, by setting the "check-only" option to "true". By default the values for auto-source-cleanup and auto-cutover is true.
+Optionally, you can specify the <personalities supports=unified>aggregate list for creating the volumes, and </personalities>IPspace. You can perform pre-checks to verify if SVM migration is possible, by setting the "check-only" option to "true". By default the values for auto-source-cleanup and auto-cutover is true.
 ### Required properties
 * `source.svm.name` or `source.svm.uuid` - Source SVM name or source SVM UUID.
 * `source.cluster.name` or `source.cluster.uuid` - Source cluster name or source cluster UUID
 ### Optional properties
-* `destination.ipspace.name` or `destination.ipspace.uuid` - Destination IP Space name or UUID where the vserver will be migrated to.
+* `destination.ipspace.name` or `destination.ipspace.uuid` - Destination IP Space name or UUID where the SVM will be migrated to.<personalities supports=unified>
 * `destination.volume_placement.aggregates` - List of aggregates where the migrating volumes should go on the destination.
-* `destination.volume_placement.volume_aggregate_pairs` - List of volume aggregate pairs indicating where the migrating volumes should go on the destination.
+* `destination.volume_placement.volume_aggregate_pairs` - List of volume aggregate pairs indicating where the migrating volumes should go on the destination.</personalities>
 * `ip_interface_placement` -  List of source SVM's IP interface and port pairs on the destination for migrating the SVM's IP interfaces.
 * `auto_cutover` - Option to specify whether to perform cutover automatically. Default is true.
 * `auto_source_cleanup` - Option to specify whether to perform source cleanup automatically. Default is true.
@@ -754,14 +761,14 @@ Optionally, you can specify the aggregate list for creating the volumes, and IPs
         **kwargs
     ) -> NetAppResponse:
         r"""Creates an SVM migration operation. This API must be executed on the destination cluster. This API creates an SVM on the destination cluster and preserves the SVM's identity specified in the source cluster.
-Optionally, you can specify the aggregate list for creating the volumes, and IPspace. You can perform pre-checks to verify if SVM migration is possible, by setting the "check-only" option to "true". By default the values for auto-source-cleanup and auto-cutover is true.
+Optionally, you can specify the <personalities supports=unified>aggregate list for creating the volumes, and </personalities>IPspace. You can perform pre-checks to verify if SVM migration is possible, by setting the "check-only" option to "true". By default the values for auto-source-cleanup and auto-cutover is true.
 ### Required properties
 * `source.svm.name` or `source.svm.uuid` - Source SVM name or source SVM UUID.
 * `source.cluster.name` or `source.cluster.uuid` - Source cluster name or source cluster UUID
 ### Optional properties
-* `destination.ipspace.name` or `destination.ipspace.uuid` - Destination IP Space name or UUID where the vserver will be migrated to.
+* `destination.ipspace.name` or `destination.ipspace.uuid` - Destination IP Space name or UUID where the SVM will be migrated to.<personalities supports=unified>
 * `destination.volume_placement.aggregates` - List of aggregates where the migrating volumes should go on the destination.
-* `destination.volume_placement.volume_aggregate_pairs` - List of volume aggregate pairs indicating where the migrating volumes should go on the destination.
+* `destination.volume_placement.volume_aggregate_pairs` - List of volume aggregate pairs indicating where the migrating volumes should go on the destination.</personalities>
 * `ip_interface_placement` -  List of source SVM's IP interface and port pairs on the destination for migrating the SVM's IP interfaces.
 * `auto_cutover` - Option to specify whether to perform cutover automatically. Default is true.
 * `auto_source_cleanup` - Option to specify whether to perform source cleanup automatically. Default is true.

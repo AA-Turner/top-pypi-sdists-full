@@ -1,16 +1,16 @@
 ######################################################################################################
 #                                 Auto-generated Metaflow stub file                                  #
-# MF version: 2.15.21.3+obcheckpoint(0.2.4);ob(v1)                                                   #
-# Generated on 2025-07-21T18:19:17.289595                                                            #
+# MF version: 2.15.21.4+obcheckpoint(0.2.4);ob(v1)                                                   #
+# Generated on 2025-07-25T18:05:15.002271                                                            #
 ######################################################################################################
 
 from __future__ import annotations
 
-import metaflow
 import typing
+import metaflow
 if typing.TYPE_CHECKING:
-    import metaflow.runner.deployer
     import metaflow.plugins.aws.step_functions.step_functions_deployer_objects
+    import metaflow.runner.deployer
 
 from .step_functions import StepFunctions as StepFunctions
 from ....runner.deployer import DeployedFlow as DeployedFlow
@@ -44,6 +44,17 @@ class StepFunctionsDeployedFlow(metaflow.runner.deployer.DeployedFlow, metaclass
     """
     A class representing a deployed AWS Step Functions state machine.
     """
+    @classmethod
+    def list_deployed_flows(cls, flow_name: typing.Optional[str] = None):
+        """
+        This method is not currently implemented for Step Functions.
+        
+        Raises
+        ------
+        NotImplementedError
+            This method is not implemented for Step Functions.
+        """
+        ...
     @classmethod
     def from_deployment(cls, identifier: str, metadata: typing.Optional[str] = None):
         """

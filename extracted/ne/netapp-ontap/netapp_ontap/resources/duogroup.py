@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -29,9 +29,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 Duogroup(
     {
         "excluded_users": ["tsmith", "msmith"],
-        "name": "test",
         "comment": "test group create",
-        "owner": {"name": "cluster-1", "uuid": "f810005a-d908-11ed-a6e6-0050568e8ef2"},
+        "owner": {"uuid": "f810005a-d908-11ed-a6e6-0050568e8ef2", "name": "cluster-1"},
+        "name": "test",
     }
 )
 

@@ -25,17 +25,18 @@ static std::vector<LogicalType> getTypesForLocalRelTable(const catalog::TableCat
     return types;
 }
 
-LocalRelTable::LocalRelTable(const catalog::TableCatalogEntry* tableEntry, const Table& table)
+LocalRelTable::LocalRelTable(const catalog::TableCatalogEntry* tableEntry, const Table& table,
+    MemoryManager& mm)
     : LocalTable{table} {
-    localNodeGroup = std::make_unique<NodeGroup>(0, false, getTypesForLocalRelTable(*tableEntry),
-        INVALID_ROW_IDX);
+    localNodeGroup = std::make_unique<NodeGroup>(mm, 0, false,
+        getTypesForLocalRelTable(*tableEntry), INVALID_ROW_IDX);
     const auto& relTable = table.cast<RelTable>();
     for (auto relDirection : relTable.getStorageDirections()) {
         directedIndices.emplace_back(relDirection);
     }
 }
 
-bool LocalRelTable::insert(Transaction* transaction, TableInsertState& state) {
+bool LocalRelTable::insert(Transaction*, TableInsertState& state) {
     const auto& insertState = state.cast<RelTableInsertState>();
 
     std::vector<row_idx_vec_t*> rowIndicesToInsertTo;
@@ -64,7 +65,7 @@ bool LocalRelTable::insert(Transaction* transaction, TableInsertState& state) {
         insertVectors.push_back(insertState.propertyVectors[i]);
     }
     const auto numRowsToAppend = insertState.srcNodeIDVector.state->getSelVector().getSelSize();
-    localNodeGroup->append(transaction, insertVectors, 0, numRowsToAppend);
+    localNodeGroup->append(&DUMMY_TRANSACTION, insertVectors, 0, numRowsToAppend);
 
     for (auto* rowIndexToInsertTo : rowIndicesToInsertTo) {
         rowIndexToInsertTo->push_back(numRowsInLocalTable);
@@ -137,14 +138,14 @@ bool LocalRelTable::delete_(Transaction* transaction, TableDeleteState& state) {
     return true;
 }
 
-bool LocalRelTable::addColumn(Transaction* transaction, TableAddColumnState& addColumnState) {
-    localNodeGroup->addColumn(transaction, addColumnState, nullptr /* FileHandle */,
+bool LocalRelTable::addColumn(TableAddColumnState& addColumnState) {
+    localNodeGroup->addColumn(addColumnState, nullptr /* FileHandle */,
         nullptr /* newColumnStats */);
     return true;
 }
 
 uint64_t LocalRelTable::getEstimatedMemUsage() {
-    // Esimation of fwdIndex and bwdIndex is rough.
+    // Estimation of fwdIndex and bwdIndex is rough.
     if (!localNodeGroup) {
         return 0;
     }
@@ -276,8 +277,7 @@ row_idx_t LocalRelTable::findMatchingRow(const Transaction* transaction,
             intersectRows.begin() + endRowToScan};
         const auto scanState = setupLocalTableScanState(scanChunk, currentRowsToCheck);
 
-        auto dummyTrx = Transaction::getDummyTransactionFromExistingOne(*transaction);
-        [[maybe_unused]] auto lookupRes = localNodeGroup->lookupMultiple(&dummyTrx, *scanState);
+        [[maybe_unused]] auto lookupRes = localNodeGroup->lookupMultiple(transaction, *scanState);
         const auto scannedRelIDVector = scanState->outputVectors[0];
         KU_ASSERT(
             scannedRelIDVector->state->getSelVector().getSelSize() == currentRowsToCheck.size());

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -45,10 +45,10 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Snapshot(
     {
-        "name": "snapshot_copy",
-        "svm": {"name": "vs0", "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848"},
+        "svm": {"uuid": "8139f958-3c6e-11e9-a45f-005056bbc848", "name": "vs0"},
         "comment": "Store this copy.",
         "volume": {"name": "v2"},
+        "name": "snapshot_copy",
     }
 )
 
@@ -74,35 +74,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
+            "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
             "name": "hourly.2019-03-13_1305",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
                 }
             },
-            "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
         }
     ),
     Snapshot(
         {
+            "uuid": "f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8",
             "name": "hourly.2019-03-13_1405",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8"
                 }
             },
-            "uuid": "f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8",
         }
     ),
     Snapshot(
         {
+            "uuid": "02701900-51bd-46b8-9c77-47d9a9e2ce1d",
             "name": "hourly.2019-03-13_1522",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/02701900-51bd-46b8-9c77-47d9a9e2ce1d"
                 }
             },
-            "uuid": "02701900-51bd-46b8-9c77-47d9a9e2ce1d",
         }
     ),
 ]
@@ -173,35 +173,35 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
+            "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
             "name": "hourly.2019-03-13_1305",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
                 }
             },
-            "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
         }
     ),
     Snapshot(
         {
+            "uuid": "f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8",
             "name": "hourly.2019-03-13_1405",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8"
                 }
             },
-            "uuid": "f0dd497f-efe8-44b7-a4f4-bdd3890bc0c8",
         }
     ),
     Snapshot(
         {
+            "uuid": "02701900-51bd-46b8-9c77-47d9a9e2ce1d",
             "name": "hourly.2019-03-13_1522",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/02701900-51bd-46b8-9c77-47d9a9e2ce1d"
                 }
             },
-            "uuid": "02701900-51bd-46b8-9c77-47d9a9e2ce1d",
         }
     ),
 ]
@@ -237,16 +237,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
-            "name": "hourly.2022-06-29_1105",
             "uuid": "52a2247a-7735-4a92-bc3c-e51df1fe502f",
-            "delta": {"size_consumed": 675840, "time_elapsed": "PT3H27M45S"},
+            "delta": {"time_elapsed": "PT3H27M45S", "size_consumed": 675840},
+            "name": "hourly.2022-06-29_1105",
         }
     ),
     Snapshot(
         {
-            "name": "hourly.2022-06-29_1205",
             "uuid": "b399eb34-44fe-4689-9fb5-c8f72162dd77",
-            "delta": {"size_consumed": 507904, "time_elapsed": "PT2H27M45S"},
+            "delta": {"time_elapsed": "PT2H27M45S", "size_consumed": 507904},
+            "name": "hourly.2022-06-29_1205",
         }
     ),
 ]
@@ -277,30 +277,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Snapshot(
     {
-        "name": "hourly.2019-03-13_1305",
-        "_links": {
-            "self": {
-                "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
-            }
-        },
         "svm": {
+            "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848",
             "name": "vs0",
             "_links": {
                 "self": {"href": "/api/svm/svms/8139f958-3c6e-11e9-a45f-005056bbc848"}
             },
-            "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848",
         },
         "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
-        "create_time": "2019-03-13T13:05:00-04:00",
-        "size": 122880,
         "volume": {
+            "uuid": "0353dc05-405f-11e9-acb6-005056bbc848",
             "name": "v2",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848"
                 }
             },
-            "uuid": "0353dc05-405f-11e9-acb6-005056bbc848",
+        },
+        "create_time": "2019-03-13T13:05:00-04:00",
+        "name": "hourly.2019-03-13_1305",
+        "size": 122880,
+        "_links": {
+            "self": {
+                "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
+            }
         },
     }
 )
@@ -332,29 +332,29 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Snapshot(
     {
-        "name": "hourly.2019-03-13_1305",
-        "_links": {
-            "self": {
-                "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
-            }
-        },
-        "reclaimable_space": 167832,
         "svm": {
+            "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848",
             "name": "vs0",
             "_links": {
                 "self": {"href": "/api/svm/svms/8139f958-3c6e-11e9-a45f-005056bbc848"}
             },
-            "uuid": "8139f958-3c6e-11e9-a45f-005056bbc848",
         },
         "uuid": "402b6c73-73a0-4e89-a58a-75ee0ab3e8c0",
         "volume": {
+            "uuid": "0353dc05-405f-11e9-acb6-005056bbc848",
             "name": "v2",
             "_links": {
                 "self": {
                     "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848"
                 }
             },
-            "uuid": "0353dc05-405f-11e9-acb6-005056bbc848",
+        },
+        "reclaimable_space": 167832,
+        "name": "hourly.2019-03-13_1305",
+        "_links": {
+            "self": {
+                "href": "/api/storage/volumes/0353dc05-405f-11e9-acb6-005056bbc848/snapshots/402b6c73-73a0-4e89-a58a-75ee0ab3e8c0"
+            }
         },
     }
 )
@@ -390,16 +390,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
-            "name": "hourly.2022-06-29_1105",
             "uuid": "52a2247a-7735-4a92-bc3c-e51df1fe502f",
-            "delta": {"size_consumed": 675840, "time_elapsed": "PT3H27M45S"},
+            "delta": {"time_elapsed": "PT3H27M45S", "size_consumed": 675840},
+            "name": "hourly.2022-06-29_1105",
         }
     ),
     Snapshot(
         {
-            "name": "hourly.2022-06-29_1205",
             "uuid": "b399eb34-44fe-4689-9fb5-c8f72162dd77",
-            "delta": {"size_consumed": 507904, "time_elapsed": "PT2H27M45S"},
+            "delta": {"time_elapsed": "PT2H27M45S", "size_consumed": 507904},
+            "name": "hourly.2022-06-29_1205",
         }
     ),
 ]
@@ -426,30 +426,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     Snapshot(
         {
-            "name": "daily.2021-11-18_0010",
             "uuid": "3edba912-5507-4535-adce-e12fe5c0e31c",
-            "volume": {"name": "v1", "uuid": "966c285f-47f7-11ec-8407-005056bbc08f"},
-        }
-    ),
-    Snapshot(
-        {
-            "name": "hourly.2021-11-18_0705",
-            "uuid": "3ad61153-d5ef-495d-8e0e-5c3b8bbaf5e6",
-            "volume": {"name": "v1", "uuid": "966c285f-47f7-11ec-8407-005056bbc08f"},
-        }
-    ),
-    Snapshot(
-        {
+            "volume": {"uuid": "966c285f-47f7-11ec-8407-005056bbc08f", "name": "v1"},
             "name": "daily.2021-11-18_0010",
-            "uuid": "3dd0fa97-65d9-41ea-a99d-5ceb9d2f55c5",
-            "volume": {"name": "v2", "uuid": "99c974e3-47f7-11ec-8407-005056bbc08f"},
         }
     ),
     Snapshot(
         {
+            "uuid": "3ad61153-d5ef-495d-8e0e-5c3b8bbaf5e6",
+            "volume": {"uuid": "966c285f-47f7-11ec-8407-005056bbc08f", "name": "v1"},
             "name": "hourly.2021-11-18_0705",
+        }
+    ),
+    Snapshot(
+        {
+            "uuid": "3dd0fa97-65d9-41ea-a99d-5ceb9d2f55c5",
+            "volume": {"uuid": "99c974e3-47f7-11ec-8407-005056bbc08f", "name": "v2"},
+            "name": "daily.2021-11-18_0010",
+        }
+    ),
+    Snapshot(
+        {
             "uuid": "6ca20a52-c342-4753-8865-3693fa9b7e23",
-            "volume": {"name": "v2", "uuid": "99c974e3-47f7-11ec-8407-005056bbc08f"},
+            "volume": {"uuid": "99c974e3-47f7-11ec-8407-005056bbc08f", "name": "v2"},
+            "name": "hourly.2021-11-18_0705",
         }
     ),
 ]
@@ -576,6 +576,14 @@ class SnapshotSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     )
     r""" A comment associated with the snapshot. This is an optional attribute for POST or PATCH."""
 
+    compress_savings = Size(
+        data_key="compress_savings",
+        allow_none=True,
+    )
+    r""" Savings due to compression at the time the snapshot was taken in bytes.
+
+Example: 1131223"""
+
     create_time = ImpreciseDateTime(
         data_key="create_time",
         allow_none=True,
@@ -583,6 +591,14 @@ class SnapshotSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     r""" Creation time of the snapshot. It is the volume access time when the snapshot was created.
 
 Example: 2019-02-04T19:00:00.000+0000"""
+
+    dedup_savings = Size(
+        data_key="dedup_savings",
+        allow_none=True,
+    )
+    r""" Savings due to dedup at the time the snapshot was taken in bytes.
+
+Example: 1131223"""
 
     delta = marshmallow_fields.Nested("netapp_ontap.models.snapshot_delta.SnapshotDeltaSchema", data_key="delta", unknown=EXCLUDE, allow_none=True)
     r""" Reports the amount of space consumed between two WAFL file systems, in bytes. The two WAFL file systems should be specified in a comma-separated format using the "name" parameter. To determine the space consumed between a snapshot and the Active File System, only the snapshot name needs to be mentioned."""
@@ -674,6 +690,14 @@ Valid choices:
 
 Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
 
+    vbn0_savings = Size(
+        data_key="vbn0_savings",
+        allow_none=True,
+    )
+    r""" Savings due vbn0 at the time the snapshot was taken in bytes.
+
+Example: 1131223"""
+
     version_uuid = marshmallow_fields.Str(
         data_key="version_uuid",
         allow_none=True,
@@ -692,7 +716,9 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
     gettable_fields = [
         "links",
         "comment",
+        "compress_savings",
         "create_time",
+        "dedup_savings",
         "delta",
         "expiry_time",
         "logical_size",
@@ -709,12 +735,13 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563412"""
         "svm.name",
         "svm.uuid",
         "uuid",
+        "vbn0_savings",
         "version_uuid",
         "volume.links",
         "volume.name",
         "volume.uuid",
     ]
-    """links,comment,create_time,delta,expiry_time,logical_size,name,owners,provenance_volume,reclaimable_space,size,snaplock,snaplock_expiry_time,snapmirror_label,state,svm.links,svm.name,svm.uuid,uuid,version_uuid,volume.links,volume.name,volume.uuid,"""
+    """links,comment,compress_savings,create_time,dedup_savings,delta,expiry_time,logical_size,name,owners,provenance_volume,reclaimable_space,size,snaplock,snaplock_expiry_time,snapmirror_label,state,svm.links,svm.name,svm.uuid,uuid,vbn0_savings,version_uuid,volume.links,volume.name,volume.uuid,"""
 
     patchable_fields = [
         "comment",
@@ -822,8 +849,6 @@ There is an added computational cost to retrieving the amount of reclaimable spa
         **kwargs
     ) -> NetAppResponse:
         r"""Updates a Volume snapshot.
-### Platform Specifics
-* **ASA r2**: POST is not supported.
 ### Related ONTAP commands
 * `snapshot modify`
 * `snapshot rename`
@@ -850,8 +875,6 @@ There is an added computational cost to retrieving the amount of reclaimable spa
         **kwargs
     ) -> Union[List["Snapshot"], NetAppResponse]:
         r"""Creates a volume snapshot.
-### Platform Specifics
-* **ASA r2**: POST is not supported.
 ### Required properties
 * `name` - Name of the snapshot to be created.
 ### Recommended optional properties
@@ -884,8 +907,6 @@ There is an added computational cost to retrieving the amount of reclaimable spa
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes a Volume snapshot.
-### Platform Specifics
-* **ASA r2**: POST is not supported.
 ### Related ONTAP commands
 * `snapshot delete`
 ### Learn more
@@ -936,8 +957,6 @@ There is an added computational cost to retrieving the amount of reclaimable spa
         **kwargs
     ) -> NetAppResponse:
         r"""Creates a volume snapshot.
-### Platform Specifics
-* **ASA r2**: POST is not supported.
 ### Required properties
 * `name` - Name of the snapshot to be created.
 ### Recommended optional properties
@@ -966,8 +985,6 @@ There is an added computational cost to retrieving the amount of reclaimable spa
         **kwargs
     ) -> NetAppResponse:
         r"""Updates a Volume snapshot.
-### Platform Specifics
-* **ASA r2**: POST is not supported.
 ### Related ONTAP commands
 * `snapshot modify`
 * `snapshot rename`
@@ -990,8 +1007,6 @@ There is an added computational cost to retrieving the amount of reclaimable spa
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes a Volume snapshot.
-### Platform Specifics
-* **ASA r2**: POST is not supported.
 ### Related ONTAP commands
 * `snapshot delete`
 ### Learn more

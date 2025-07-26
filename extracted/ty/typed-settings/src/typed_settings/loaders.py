@@ -35,6 +35,7 @@ from .exceptions import (
     UnknownFormatError,
 )
 from .types import (
+    CollectionChildOptions,
     LoadedSettings,
     LoaderMeta,
     OptionInfo,
@@ -45,15 +46,15 @@ from .types import (
 
 
 __all__ = [
-    "Loader",
     "DictLoader",
-    "InstanceLoader",
     "EnvLoader",
-    "FileLoader",
     "FileFormat",
+    "FileLoader",
+    "InstanceLoader",
+    "Loader",
+    "OnePasswordLoader",
     "PythonFormat",
     "TomlFormat",
-    "OnePasswordLoader",
     "clean_settings",
 ]
 
@@ -342,13 +343,14 @@ class FileLoader:
         """
         Load a file and return its cleaned contents.
         """
+        cleaner = _SettingsCleaner()
         # "clean_settings()" must be called for each loaded file individually
         # because of the "-"/"_" normalization.  This also allows us to tell
         # the user the exact file that contains errors.
         for pattern, ffloader in self.formats.items():
             if fnmatch(path.name, pattern):
                 settings = ffloader(path, settings_cls, options)
-                settings = clean_settings(settings, options, path)
+                settings = cleaner.clean_settings(settings, options, path)
                 return settings
 
         raise UnknownFormatError(f"No loader configured for: {path}")
@@ -564,6 +566,108 @@ class OnePasswordLoader:
         return LoadedSettings(settings, LoaderMeta(self))
 
 
+class _SettingsCleaner:
+    """
+    Recursively check settings for invalid entries and raise an error.
+    """
+
+    def __init__(self) -> None:
+        self._invalid_paths: list[str] = []
+        self._valid_paths: dict[str, OptionInfo] = {}
+        self._cleaned: SettingsDict = {}
+
+    def clean_settings(
+        self, settings: SettingsDict, options: OptionList, source: Any
+    ) -> SettingsDict:
+        """
+        Recursively check settings for invalid entries and raise an error.
+
+        An error is not raised until all options have been checked.  It then lists
+        all invalid options that have been found.
+
+        Args:
+            settings: The settings to be cleaned.
+            options: The list of available settings.
+            source: Source of the settings (e.g., path to a config file).
+                    It should have a useful string representation.
+
+        Return:
+            The cleaned settings.
+        Raise:
+            InvalidOptionsError: If invalid settings have been found.
+        """
+        self._invalid_paths = []
+        self._valid_paths = {o.path: o for o in options}
+        self._cleaned = {}
+
+        self._iter_dict(settings, "")
+
+        if self._invalid_paths:
+            joined_paths = ", ".join(sorted(self._invalid_paths))
+            raise InvalidOptionsError(
+                f"Invalid options found in {source}: {joined_paths}"
+            )
+
+        return self._cleaned
+
+    def _iter_dict(self, d: SettingsDict, prefix: str) -> None:
+        if not isinstance(d, dict):
+            self._invalid_paths.append(f"{prefix} (is not a settings dict)")
+            return
+
+        for key, val in d.items():
+            key = key.replace("-", "_")
+            path = f"{prefix}{key}"
+
+            option = self._valid_paths.get(path)
+
+            if option:
+                # Handle special case where val is a collection with another SettingCls
+                # i.e. Mapping[str, SettingsCls] or list[SettingsCls]
+                # It requires to generate valid subpaths
+                # see https://gitlab.com/sscherfke/typed-settings/-/issues/67
+                if option.collection_child_options:
+                    self._handle_nested_collection(
+                        option.collection_child_options, path, val
+                    )
+                else:
+                    set_path(self._cleaned, path, val)
+            elif isinstance(val, dict):
+                self._iter_dict(val, f"{path}.")
+            else:
+                self._invalid_paths.append(path)
+
+    def _handle_nested_collection(
+        self, collection_options: CollectionChildOptions, path: str, val: object
+    ) -> None:
+        collection_type = collection_options.collection
+        child_options = collection_options.options
+
+        if collection_type == "mapping" and isinstance(val, dict):
+            for subkey, sub_d in val.items():
+                subprefix = f"{path}.{subkey}."
+                self._valid_paths.update(
+                    {f"{subprefix}{o.path}": o for o in child_options}
+                )
+                self._iter_dict(sub_d, subprefix)
+        elif collection_type == "sequence" and isinstance(val, list):
+            # init empty list with empty dicts,
+            # in order for set_path to work
+            set_path(self._cleaned, path, [{} for _ in val])
+            for i, sub_d in enumerate(val):
+                subprefix = f"{path}.{i}."
+                self._valid_paths.update(
+                    {f"{subprefix}{o.path}": o for o in child_options}
+                )
+                self._iter_dict(sub_d, subprefix)
+        else:
+            # TODO: This is actually an InvalidValueError, maybe raise it?
+            #       Or should just set the value as before and
+            #       let the conversation later one handle it?
+            #       Maybe some pre-processor changes the value?
+            self._invalid_paths.append(f"{path} (needs to be {collection_type})")
+
+
 def clean_settings(
     settings: SettingsDict, options: OptionList, source: Any
 ) -> SettingsDict:
@@ -584,28 +688,4 @@ def clean_settings(
     Raise:
         InvalidOptionsError: If invalid settings have been found.
     """
-    invalid_paths = []
-    valid_paths = {o.path for o in options}
-    cleaned: SettingsDict = {}
-
-    def _iter_dict(d: SettingsDict, prefix: str) -> None:
-        for key, val in d.items():
-            key = key.replace("-", "_")
-            path = f"{prefix}{key}"
-
-            if path in valid_paths:
-                set_path(cleaned, path, val)
-                continue
-
-            if isinstance(val, dict):
-                _iter_dict(val, f"{path}.")
-            else:
-                invalid_paths.append(path)
-
-    _iter_dict(settings, "")
-
-    if invalid_paths:
-        joined_paths = ", ".join(sorted(invalid_paths))
-        raise InvalidOptionsError(f"Invalid options found in {source}: {joined_paths}")
-
-    return cleaned
+    return _SettingsCleaner().clean_settings(settings, options, source)

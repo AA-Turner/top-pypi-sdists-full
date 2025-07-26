@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,9 +28,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     LicenseManager(
         {
+            "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
             "uri": {"host": "10.1.1.1"},
             "default": True,
-            "uuid": "4ea7a442-86d1-11e0-ae1c-112233445566",
         }
     )
 ]

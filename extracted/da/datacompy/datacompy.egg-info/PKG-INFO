@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: datacompy
-Version: 0.17.0
+Version: 0.17.1
 Summary: Dataframe comparison in Python
 Author: Ian Robertson, Dan Coates
 Author-email: Faisal Dosani <faisal.dosani@capitalone.com>
@@ -23,7 +23,7 @@ Classifier: Programming Language :: Python :: 3.12
 Requires-Python: >=3.10.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: pandas<=2.3.0,>=0.25.0
+Requires-Dist: pandas<=2.3.1,>=0.25.0
 Requires-Dist: numpy<=2.2.6,>=1.22.0
 Requires-Dist: ordered-set<=4.1.0,>=4.0.2
 Requires-Dist: polars[pandas]<=1.31.0,>=0.20.4
@@ -84,7 +84,7 @@ Dynamic: license-file
 # DataComPy
 
 ![PyPI - Python Version](https://img.shields.io/pypi/pyversions/datacompy)
-[![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/ambv/black)
+[![Ruff](https://img.shields.io/endpoint?url=https://raw.githubusercontent.com/astral-sh/ruff/main/assets/badge/v2.json)](https://github.com/astral-sh/ruff)
 [![PyPI version](https://badge.fury.io/py/datacompy.svg)](https://badge.fury.io/py/datacompy)
 [![Anaconda-Server Badge](https://anaconda.org/conda-forge/datacompy/badges/version.svg)](https://anaconda.org/conda-forge/datacompy)
 ![PyPI - Downloads](https://img.shields.io/pypi/dm/datacompy)

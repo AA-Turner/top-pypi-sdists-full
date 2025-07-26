@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,23 +28,23 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AutoUpdateStatus(
     {
-        "expiry_time": "2021-06-01T09:12:03+00:00",
-        "last_state_change_time": "2020-12-01T09:12:23+00:00",
+        "package_id": "572361f3-e769-439d-9c04-2ba48a08ff47",
+        "remaining_time": "PT1M30S",
+        "start_time": "2020-12-01T09:12:23+00:00",
         "status": {
             "message": "Get-url request to AutoSupport OnDemand Server failed. Error: Couldn't connect to server.",
             "code": "8650878",
         },
-        "description": "disk_fw version 3.0",
-        "creation_time": "2020-12-01T09:12:03+00:00",
-        "package_id": "572361f3-e769-439d-9c04-2ba48a08ff47",
-        "start_time": "2020-12-01T09:12:23+00:00",
-        "state": "downloading",
+        "percent_complete": 25,
+        "content_category": "Firmware",
         "uuid": "440ae2e4-fd8f-4225-9bee-94e2da3f8d9d",
         "content_type": "disk_fw",
+        "state": "downloading",
+        "description": "disk_fw version 3.0",
+        "last_state_change_time": "2020-12-01T09:12:23+00:00",
         "_links": {"self": {}},
-        "percent_complete": 25,
-        "remaining_time": "PT1M30S",
-        "content_category": "Firmware",
+        "creation_time": "2020-12-01T09:12:03+00:00",
+        "expiry_time": "2021-06-01T09:12:03+00:00",
     }
 )
 

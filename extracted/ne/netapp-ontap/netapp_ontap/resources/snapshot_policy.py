@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -52,19 +52,19 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SnapshotPolicy(
     {
+        "comment": "This is a 5min schedule policy",
+        "enabled": True,
         "copies": [
             {
                 "schedule": {"name": "5min"},
                 "count": 5,
-                "snapmirror_label": "-",
                 "retention_period": "PT20M",
+                "snapmirror_label": "-",
             }
         ],
-        "name": "new_policy",
-        "comment": "This is a 5min schedule policy",
-        "uuid": "a69d8173-450c-11e9-aa44-005056bbc848",
-        "enabled": True,
         "svm": {"name": "vs0"},
+        "uuid": "a69d8173-450c-11e9-aa44-005056bbc848",
+        "name": "new_policy",
     }
 )
 
@@ -90,46 +90,46 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     SnapshotPolicy(
         {
-            "name": "spsv0",
             "uuid": "0fa7a554-348d-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/snapshot-policies/0fa7a554-348d-11e9-b55e-005056bbf1c8"
                 }
             },
+            "name": "spsv0",
         }
     ),
     SnapshotPolicy(
         {
-            "name": "default",
             "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/snapshot-policies/3c112527-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
+            "name": "default",
         }
     ),
     SnapshotPolicy(
         {
-            "name": "default-1weekly",
             "uuid": "3c1c1656-2fe8-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/snapshot-policies/3c1c1656-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
+            "name": "default-1weekly",
         }
     ),
     SnapshotPolicy(
         {
-            "name": "none",
             "uuid": "3c228b82-2fe8-11e9-b55e-005056bbf1c8",
             "_links": {
                 "self": {
                     "href": "/api/storage/snapshot-policies/3c228b82-2fe8-11e9-b55e-005056bbf1c8"
                 }
             },
+            "name": "none",
         }
     ),
 ]
@@ -157,21 +157,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 SnapshotPolicy(
     {
+        "comment": "Default policy with hourly, daily & weekly schedules.",
+        "scope": "cluster",
+        "enabled": True,
         "copies": [
             {"schedule": {"name": "hourly"}, "prefix": "hourly", "count": 6},
             {"schedule": {"name": "daily"}, "prefix": "daily", "count": 2},
             {"schedule": {"name": "weekly"}, "prefix": "weekly", "count": 2},
         ],
-        "name": "default",
-        "comment": "Default policy with hourly, daily & weekly schedules.",
         "uuid": "3c112527-2fe8-11e9-b55e-005056bbf1c8",
-        "enabled": True,
         "_links": {
             "self": {
                 "href": "/api/storage/snapshot-policies/3c112527-2fe8-11e9-b55e-005056bbf1c8"
             }
         },
-        "scope": "cluster",
+        "name": "default",
     }
 )
 
@@ -412,7 +412,7 @@ class SnapshotPolicy(Resource):
 ### Required properties
 * `svm.uuid` or `svm.name` - Specifies an SVM for policy creation. If not specified, the snapshot policy will be created on the cluster admin SVM.
 * `name` - Name for the snapshot policy.
-* `copies.schedule` - Schedule at which snapshots are captured on the volume.
+* `copies.schedule` - Schedule name at which snapshots are captured on the volume.
 * `copies.count` - Number of snapshots to maintain for this schedule.
 ### Recommended optional properties
 * `copies.prefix` - Prefix to use when creating snapshots at regular intervals.
@@ -495,7 +495,7 @@ If not specified in POST, the following default property values are assigned:
 ### Required properties
 * `svm.uuid` or `svm.name` - Specifies an SVM for policy creation. If not specified, the snapshot policy will be created on the cluster admin SVM.
 * `name` - Name for the snapshot policy.
-* `copies.schedule` - Schedule at which snapshots are captured on the volume.
+* `copies.schedule` - Schedule name at which snapshots are captured on the volume.
 * `copies.count` - Number of snapshots to maintain for this schedule.
 ### Recommended optional properties
 * `copies.prefix` - Prefix to use when creating snapshots at regular intervals.

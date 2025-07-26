@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -21,6 +21,9 @@ __pdoc__ = {
 class SwitchPortIdentitySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
     """The fields of the SwitchPortIdentity object"""
 
+    breakout = marshmallow_fields.Nested("netapp_ontap.models.switch_port_identity_breakout.SwitchPortIdentityBreakoutSchema", unknown=EXCLUDE, data_key="breakout", allow_none=True)
+    r""" The breakout field of the switch_port_identity. """
+
     index = Size(data_key="index", allow_none=True)
     r""" Interface Index. """
 
@@ -35,19 +38,22 @@ class SwitchPortIdentitySchema(ResourceSchema, metaclass=ResourceSchemaMeta):
         return SwitchPortIdentity
 
     gettable_fields = [
+        "breakout",
         "index",
         "name",
         "number",
     ]
-    """index,name,number,"""
+    """breakout,index,name,number,"""
 
     patchable_fields = [
+        "breakout",
     ]
-    """"""
+    """breakout,"""
 
     postable_fields = [
+        "breakout",
     ]
-    """"""
+    """breakout,"""
 
 
 class SwitchPortIdentity(Resource):

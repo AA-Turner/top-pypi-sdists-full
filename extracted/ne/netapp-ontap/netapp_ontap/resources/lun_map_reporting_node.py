@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -19,7 +19,9 @@ from netapp_ontap import HostConnection
 from netapp_ontap.resources import LunMapReportingNode
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = LunMapReportingNode("b10a8165-8346-11eb-ab8e-005056bbb402")
+    resource = LunMapReportingNode(
+        "c8ad35ce-ef03-4577-88f0-9ad150ac6bbf", "b10a8165-8346-11eb-ab8e-005056bbb402"
+    )
     resource.name = "node2"
     resource.post(hydrate=True)
     print(resource)
@@ -36,6 +38,7 @@ from netapp_ontap.resources import LunMapReportingNode
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
     resource = LunMapReportingNode(
+        "c8ad35ce-ef03-4577-88f0-9ad150ac6bbf",
         "b10a8165-8346-11eb-ab8e-005056bbb402",
         uuid="6d2cd7d5-493a-daf8-9ae1-219e4ad6f77d",
     )

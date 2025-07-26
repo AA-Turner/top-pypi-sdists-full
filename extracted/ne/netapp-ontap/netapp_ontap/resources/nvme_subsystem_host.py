@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -63,6 +63,10 @@ Valid choices:
 * regular
 * high"""
 
+    proximity = marshmallow_fields.Nested("netapp_ontap.models.nvme_host_proximity.NvmeHostProximitySchema", data_key="proximity", unknown=EXCLUDE, allow_none=True)
+    r""" Properties that define the SVMs to which the host is proximal. This information is used to properly report active optimized and active non-optimized network paths using an NVMe controller. If no configuration has been specified for the host, the sub-object is not present in GET requests.<br/>
+These properties apply to all instances of the host in the NVMe subsystem in the SVM and its peers."""
+
     records = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.nvme_subsystem_host_no_records.NvmeSubsystemHostNoRecordsSchema", unknown=EXCLUDE, allow_none=True), data_key="records", allow_none=True)
     r""" An array of NVMe hosts specified to add multiple NVMe hosts to an NVMe subsystem in a single API call. Valid in POST only."""
 
@@ -82,23 +86,26 @@ Valid choices:
         "io_queue",
         "nqn",
         "priority",
+        "proximity",
         "subsystem",
         "tls",
     ]
-    """links,dh_hmac_chap,io_queue,nqn,priority,subsystem,tls,"""
+    """links,dh_hmac_chap,io_queue,nqn,priority,proximity,subsystem,tls,"""
 
     patchable_fields = [
+        "proximity",
     ]
-    """"""
+    """proximity,"""
 
     postable_fields = [
         "dh_hmac_chap",
         "nqn",
         "priority",
+        "proximity",
         "records",
         "tls",
     ]
-    """dh_hmac_chap,nqn,priority,records,tls,"""
+    """dh_hmac_chap,nqn,priority,proximity,records,tls,"""
 
 class NvmeSubsystemHost(Resource):
     r""" The NVMe host provisioned to access NVMe namespaces mapped to a subsystem. """
@@ -157,6 +164,31 @@ There is an added computational cost to retrieving values for these properties. 
 
     fast_get_collection.__func__.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._get_collection.__doc__)
 
+    @classmethod
+    def patch_collection(
+        cls,
+        body: dict,
+        *args,
+        records: Iterable["NvmeSubsystemHost"] = None,
+        poll: bool = True,
+        poll_interval: Optional[int] = None,
+        poll_timeout: Optional[int] = None,
+        connection: HostConnection = None,
+        **kwargs
+    ) -> NetAppResponse:
+        r"""Updates an NVMe subsystem host.
+### Related ONTAP commands
+* `vserver nvme subsystem host add-proximal-vserver`
+* `vserver nvme subsystem host remove-proximal-vserver`
+### Learn more
+* [`DOC /protocols/nvme/subsystems`](#docs-NVMe-protocols_nvme_subsystems)
+"""
+        return super()._patch_collection(
+            body, *args, records=records, poll=poll, poll_interval=poll_interval,
+            poll_timeout=poll_timeout, connection=connection, **kwargs
+        )
+
+    patch_collection.__func__.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._patch_collection.__doc__)
 
     @classmethod
     def post_collection(
@@ -260,6 +292,27 @@ There is an added computational cost to retrieving values for these properties. 
 
     post.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._post.__doc__)
 
+    def patch(
+        self,
+        hydrate: bool = False,
+        poll: bool = True,
+        poll_interval: Optional[int] = None,
+        poll_timeout: Optional[int] = None,
+        **kwargs
+    ) -> NetAppResponse:
+        r"""Updates an NVMe subsystem host.
+### Related ONTAP commands
+* `vserver nvme subsystem host add-proximal-vserver`
+* `vserver nvme subsystem host remove-proximal-vserver`
+### Learn more
+* [`DOC /protocols/nvme/subsystems`](#docs-NVMe-protocols_nvme_subsystems)
+"""
+        return super()._patch(
+            hydrate=hydrate, poll=poll, poll_interval=poll_interval,
+            poll_timeout=poll_timeout, **kwargs
+        )
+
+    patch.__doc__ += "\n\n---\n" + inspect.cleandoc(Resource._patch.__doc__)
 
     def delete(
         self,

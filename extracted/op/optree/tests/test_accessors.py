@@ -13,7 +13,7 @@
 # limitations under the License.
 # ==============================================================================
 
-# pylint: disable=missing-function-docstring,invalid-name,wrong-import-order
+# pylint: disable=missing-function-docstring,invalid-name
 
 import dataclasses
 import itertools
@@ -34,9 +34,13 @@ from helpers import (
     SysFloatInfoType,
     assert_equal_type_and_value,
     parametrize,
+    skipif_ios,
+    skipif_wasm,
 )
 
 
+@skipif_wasm
+@skipif_ios
 def test_warn_deprecated_import():
     env = {
         key: value
@@ -93,6 +97,7 @@ def test_warn_deprecated_import():
                 [sys.executable, '-c', script],
                 stderr=subprocess.STDOUT,
                 text=True,
+                encoding='utf-8',
                 cwd=TEST_ROOT,
                 env=env,
             )

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -26,14 +26,9 @@ class LunMapLunSchema(ResourceSchema, metaclass=ResourceSchemaMeta):
 
     name = marshmallow_fields.Str(data_key="name", allow_none=True)
     r""" The name of the LUN. Valid in POST.
-### Platform Specifics
-
-* **Unified ONTAP**:
-a LUN is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
-LUN names are paths of the form "/vol/\<volume>[/\<qtree>]/\<namespace>" where the qtree name is optional.
-
-* **ASA r2**:
-LUN names are simple names that share a namespace with LUNs within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.
+<personalities supports=unified>A LUN is located within a volume. Optionally, it can be located within a qtree in a volume.<br/>
+LUN names are paths of the form "/vol/\<volume>[/\<qtree>]/\<namespace>" where the qtree name is optional.</personalities>
+<personalities supports=asar2>LUN names are simple names that share a namespace with LUNs within the same SVM. The name must begin with a letter or "\_" and contain only "\_" and alphanumeric characters. In specific cases, an optional snapshot-name can be used of the form "\<name>[@\<snapshot-name>]". The snapshot name must not begin or end with whitespace.</personalities>
 
 
 Example: /vol/volume1/qtree1/lun1 """

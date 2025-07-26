@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -57,236 +57,236 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StorageSwitch(
     {
-        "name": "Brocade_10.226.57.206",
-        "monitoring_enabled": True,
-        "connections": [
-            {
-                "peer_port": {
-                    "connection": "sti8020mcc-htp-006:fcvi_device_1",
-                    "unique_id": "38993dc0-4ea1-11eb-9331-00a0985bd455",
-                    "wwn": "2100000e1e30ac5f",
-                    "type": "fcvi_adapter",
-                },
-                "source_port": {
-                    "mode": "f_port",
-                    "name": "FC port 0/0",
-                    "wwn": "200050eb1a236efd",
-                },
-            },
-            {
-                "peer_port": {
-                    "connection": "sti8020mcc-htp-006:2b",
-                    "unique_id": "38993dc0-4ea1-11eb-9331-00a0985bd455",
-                    "wwn": "21000024ff72c0c9",
-                    "type": "fcp_adapter",
-                },
-                "source_port": {
-                    "mode": "f_port",
-                    "name": "FC port 0/1",
-                    "wwn": "200150eb1a236efd",
-                },
-            },
-            {
-                "peer_port": {
-                    "connection": "sti8020mcc-htp-006:2d",
-                    "unique_id": "38993dc0-4ea1-11eb-9331-00a0985bd455",
-                    "wwn": "21000024ff72c0cb",
-                    "type": "fcp_adapter",
-                },
-                "source_port": {
-                    "mode": "f_port",
-                    "name": "FC port 0/2",
-                    "wwn": "200250eb1a236efd",
-                },
-            },
-        ],
-        "ports": [
-            {
-                "name": "FC port 0/0",
-                "speed": 16,
-                "state": "online",
-                "enabled": True,
-                "sfp": {
-                    "type": "small_form_factor",
-                    "transmitter_type": "short_wave_laser",
-                    "serial_number": "HAA2140310058E5",
-                },
-                "mode": "f_port",
-                "wwn": "200050eb1a1ef7d7",
-            },
-            {
-                "name": "FC port 0/1",
-                "speed": 16,
-                "state": "online",
-                "enabled": True,
-                "sfp": {
-                    "type": "small_form_factor",
-                    "transmitter_type": "short_wave_laser",
-                    "serial_number": "HAA2140310058E5",
-                },
-                "mode": "f_port",
-                "wwn": "200050eb1a1ef2d7",
-            },
-            {
-                "name": "FC port 0/2",
-                "speed": 16,
-                "state": "online",
-                "enabled": True,
-                "sfp": {
-                    "type": "small_form_factor",
-                    "transmitter_type": "short_wave_laser",
-                    "serial_number": "HAA2140310058E5",
-                },
-                "mode": "f_port",
-                "wwn": "200050eb1a1ef7d0",
-            },
-            {
-                "name": "FC port 0/3",
-                "speed": 16,
-                "state": "online",
-                "enabled": True,
-                "sfp": {
-                    "type": "small_form_factor",
-                    "transmitter_type": "short_wave_laser",
-                    "serial_number": "HAA2140310058E5",
-                },
-                "mode": "f_port",
-                "wwn": "200050eb1a1ef7d7",
-            },
-            {
-                "name": "FC port 0/4",
-                "speed": 16,
-                "state": "online",
-                "enabled": True,
-                "sfp": {
-                    "type": "small_form_factor",
-                    "transmitter_type": "short_wave_laser",
-                    "serial_number": "HAA2140310058E5",
-                },
-                "mode": "f_port",
-                "wwn": "200050eb1a1ef2d7",
-            },
-            {
-                "name": "FC port 0/5",
-                "speed": 16,
-                "state": "online",
-                "enabled": True,
-                "sfp": {
-                    "type": "small_form_factor",
-                    "transmitter_type": "short_wave_laser",
-                    "serial_number": "HAA2140310058E5",
-                },
-                "mode": "f_port",
-                "wwn": "200050eb1a1ef7d0",
-            },
-        ],
-        "fans": [
-            {"name": "FAN #1", "speed": 7336, "state": "ok"},
-            {"name": "FAN #2", "speed": 7336, "state": "ok"},
-        ],
-        "model": "Brocade6510",
-        "power_supply_units": [
-            {"name": "Power Supply #1", "state": "ok"},
-            {"name": "Power Supply #2", "state": "ok"},
-        ],
-        "state": "ok",
-        "role": "subordinate",
-        "symbolic_name": "rtp-fc01-41kk11",
-        "local": False,
         "wwn": "100050eb1a1ef7d7",
-        "ip_address": "10.226.57.206",
-        "vendor": "brocade",
-        "domain_id": 5,
-        "paths": [
-            {
-                "adapter": {
-                    "type": "fcp_initiator",
-                    "name": "2a",
-                    "wwn": "21000024ff6c4bc0",
-                },
-                "port": {"name": "FC port 0/4", "speed": 8},
-                "node": {
-                    "name": "sti8020mcc-htp-005",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/382cb083-4416-11eb-ad1d-00a0985bd455"
-                        }
-                    },
-                    "uuid": "382cb083-4416-11eb-ad1d-00a0985bd455",
-                },
-            },
-            {
-                "adapter": {
-                    "type": "fcp_initiator",
-                    "name": "2c",
-                    "wwn": "21000024ff6c4bc2",
-                },
-                "port": {"name": "FC port 0/5", "speed": 8},
-                "node": {
-                    "name": "sti8020mcc-htp-005",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/382cb083-4416-11eb-ad1d-00a0985bd455"
-                        }
-                    },
-                    "uuid": "382cb083-4416-11eb-ad1d-00a0985bd455",
-                },
-            },
-            {
-                "adapter": {
-                    "type": "fc_vi",
-                    "name": "fcvi_device_0",
-                    "wwn": "2100000e1e09d5d2",
-                },
-                "port": {"name": "FC port 0/3", "speed": 16},
-                "node": {
-                    "name": "sti8020mcc-htp-005",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/382cb083-4416-11eb-ad1d-00a0985bd455"
-                        }
-                    },
-                    "uuid": "382cb083-4416-11eb-ad1d-00a0985bd455",
-                },
-            },
-            {
-                "adapter": {
-                    "type": "fcp_initiator",
-                    "name": "2a",
-                    "wwn": "21000024ff72c0c8",
-                },
-                "port": {"name": "FC port 0/1", "speed": 8},
-                "node": {
-                    "name": "sti8020mcc-htp-006",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/364fbba8-4416-11eb-8e72-00a098431045"
-                        }
-                    },
-                    "uuid": "364fbba8-4416-11eb-8e72-00a098431045",
-                },
-            },
-            {
-                "adapter": {
-                    "type": "fcp_initiator",
-                    "name": "2c",
-                    "wwn": "21000024ff72c0ca",
-                },
-                "port": {"name": "FC port 0/2", "speed": 8},
-                "node": {
-                    "name": "sti8020mcc-htp-006",
-                    "_links": {
-                        "self": {
-                            "href": "/api/cluster/nodes/364fbba8-4416-11eb-8e72-00a098431045"
-                        }
-                    },
-                    "uuid": "364fbba8-4416-11eb-8e72-00a098431045",
-                },
-            },
-        ],
+        "state": "ok",
         "temperature_sensors": [
             {"state": "ok", "name": "SLOT #0: TEMP #1", "reading": 52}
         ],
+        "connections": [
+            {
+                "source_port": {
+                    "mode": "f_port",
+                    "wwn": "200050eb1a236efd",
+                    "name": "FC port 0/0",
+                },
+                "peer_port": {
+                    "unique_id": "38993dc0-4ea1-11eb-9331-00a0985bd455",
+                    "wwn": "2100000e1e30ac5f",
+                    "type": "fcvi_adapter",
+                    "connection": "sti8020mcc-htp-006:fcvi_device_1",
+                },
+            },
+            {
+                "source_port": {
+                    "mode": "f_port",
+                    "wwn": "200150eb1a236efd",
+                    "name": "FC port 0/1",
+                },
+                "peer_port": {
+                    "unique_id": "38993dc0-4ea1-11eb-9331-00a0985bd455",
+                    "wwn": "21000024ff72c0c9",
+                    "type": "fcp_adapter",
+                    "connection": "sti8020mcc-htp-006:2b",
+                },
+            },
+            {
+                "source_port": {
+                    "mode": "f_port",
+                    "wwn": "200250eb1a236efd",
+                    "name": "FC port 0/2",
+                },
+                "peer_port": {
+                    "unique_id": "38993dc0-4ea1-11eb-9331-00a0985bd455",
+                    "wwn": "21000024ff72c0cb",
+                    "type": "fcp_adapter",
+                    "connection": "sti8020mcc-htp-006:2d",
+                },
+            },
+        ],
+        "role": "subordinate",
+        "model": "Brocade6510",
+        "paths": [
+            {
+                "adapter": {
+                    "wwn": "21000024ff6c4bc0",
+                    "type": "fcp_initiator",
+                    "name": "2a",
+                },
+                "node": {
+                    "uuid": "382cb083-4416-11eb-ad1d-00a0985bd455",
+                    "name": "sti8020mcc-htp-005",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/382cb083-4416-11eb-ad1d-00a0985bd455"
+                        }
+                    },
+                },
+                "port": {"speed": 8, "name": "FC port 0/4"},
+            },
+            {
+                "adapter": {
+                    "wwn": "21000024ff6c4bc2",
+                    "type": "fcp_initiator",
+                    "name": "2c",
+                },
+                "node": {
+                    "uuid": "382cb083-4416-11eb-ad1d-00a0985bd455",
+                    "name": "sti8020mcc-htp-005",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/382cb083-4416-11eb-ad1d-00a0985bd455"
+                        }
+                    },
+                },
+                "port": {"speed": 8, "name": "FC port 0/5"},
+            },
+            {
+                "adapter": {
+                    "wwn": "2100000e1e09d5d2",
+                    "type": "fc_vi",
+                    "name": "fcvi_device_0",
+                },
+                "node": {
+                    "uuid": "382cb083-4416-11eb-ad1d-00a0985bd455",
+                    "name": "sti8020mcc-htp-005",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/382cb083-4416-11eb-ad1d-00a0985bd455"
+                        }
+                    },
+                },
+                "port": {"speed": 16, "name": "FC port 0/3"},
+            },
+            {
+                "adapter": {
+                    "wwn": "21000024ff72c0c8",
+                    "type": "fcp_initiator",
+                    "name": "2a",
+                },
+                "node": {
+                    "uuid": "364fbba8-4416-11eb-8e72-00a098431045",
+                    "name": "sti8020mcc-htp-006",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/364fbba8-4416-11eb-8e72-00a098431045"
+                        }
+                    },
+                },
+                "port": {"speed": 8, "name": "FC port 0/1"},
+            },
+            {
+                "adapter": {
+                    "wwn": "21000024ff72c0ca",
+                    "type": "fcp_initiator",
+                    "name": "2c",
+                },
+                "node": {
+                    "uuid": "364fbba8-4416-11eb-8e72-00a098431045",
+                    "name": "sti8020mcc-htp-006",
+                    "_links": {
+                        "self": {
+                            "href": "/api/cluster/nodes/364fbba8-4416-11eb-8e72-00a098431045"
+                        }
+                    },
+                },
+                "port": {"speed": 8, "name": "FC port 0/2"},
+            },
+        ],
+        "monitoring_enabled": True,
+        "ip_address": "10.226.57.206",
+        "domain_id": 5,
+        "power_supply_units": [
+            {"state": "ok", "name": "Power Supply #1"},
+            {"state": "ok", "name": "Power Supply #2"},
+        ],
+        "fans": [
+            {"state": "ok", "speed": 7336, "name": "FAN #1"},
+            {"state": "ok", "speed": 7336, "name": "FAN #2"},
+        ],
+        "name": "Brocade_10.226.57.206",
+        "vendor": "brocade",
+        "symbolic_name": "rtp-fc01-41kk11",
+        "ports": [
+            {
+                "enabled": True,
+                "wwn": "200050eb1a1ef7d7",
+                "mode": "f_port",
+                "state": "online",
+                "speed": 16,
+                "sfp": {
+                    "transmitter_type": "short_wave_laser",
+                    "serial_number": "HAA2140310058E5",
+                    "type": "small_form_factor",
+                },
+                "name": "FC port 0/0",
+            },
+            {
+                "enabled": True,
+                "wwn": "200050eb1a1ef2d7",
+                "mode": "f_port",
+                "state": "online",
+                "speed": 16,
+                "sfp": {
+                    "transmitter_type": "short_wave_laser",
+                    "serial_number": "HAA2140310058E5",
+                    "type": "small_form_factor",
+                },
+                "name": "FC port 0/1",
+            },
+            {
+                "enabled": True,
+                "wwn": "200050eb1a1ef7d0",
+                "mode": "f_port",
+                "state": "online",
+                "speed": 16,
+                "sfp": {
+                    "transmitter_type": "short_wave_laser",
+                    "serial_number": "HAA2140310058E5",
+                    "type": "small_form_factor",
+                },
+                "name": "FC port 0/2",
+            },
+            {
+                "enabled": True,
+                "wwn": "200050eb1a1ef7d7",
+                "mode": "f_port",
+                "state": "online",
+                "speed": 16,
+                "sfp": {
+                    "transmitter_type": "short_wave_laser",
+                    "serial_number": "HAA2140310058E5",
+                    "type": "small_form_factor",
+                },
+                "name": "FC port 0/3",
+            },
+            {
+                "enabled": True,
+                "wwn": "200050eb1a1ef2d7",
+                "mode": "f_port",
+                "state": "online",
+                "speed": 16,
+                "sfp": {
+                    "transmitter_type": "short_wave_laser",
+                    "serial_number": "HAA2140310058E5",
+                    "type": "small_form_factor",
+                },
+                "name": "FC port 0/4",
+            },
+            {
+                "enabled": True,
+                "wwn": "200050eb1a1ef7d0",
+                "mode": "f_port",
+                "state": "online",
+                "speed": 16,
+                "sfp": {
+                    "transmitter_type": "short_wave_laser",
+                    "serial_number": "HAA2140310058E5",
+                    "type": "small_form_factor",
+                },
+                "name": "FC port 0/5",
+            },
+        ],
+        "local": False,
     }
 )
 

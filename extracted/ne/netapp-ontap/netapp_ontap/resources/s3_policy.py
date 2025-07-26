@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -30,48 +30,48 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3Policy(
         {
-            "name": "Policy1",
             "comment": "S3 policy.",
-            "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
             "statements": [
                 {
-                    "sid": "FullAccessToBucket1",
                     "effect": "allow",
+                    "sid": "FullAccessToBucket1",
                     "actions": ["*"],
-                    "index": 0,
                     "resources": ["bucket1", "bucket1/*"],
+                    "index": 0,
                 },
                 {
-                    "sid": "DenyDeleteObjectAccessToAllResources",
                     "effect": "deny",
+                    "sid": "DenyDeleteObjectAccessToAllResources",
                     "actions": ["DeleteObject"],
-                    "index": 1,
                     "resources": ["*"],
+                    "index": 1,
                 },
             ],
+            "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
+            "name": "Policy1",
         }
     ),
     S3Policy(
         {
-            "name": "Policy2",
             "comment": "S3 policy 2.",
-            "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
             "statements": [
                 {
-                    "sid": "AllowGetObjectAccessToAllResources",
                     "effect": "allow",
+                    "sid": "AllowGetObjectAccessToAllResources",
                     "actions": ["GetObject"],
-                    "index": 3,
                     "resources": ["*"],
+                    "index": 3,
                 },
                 {
-                    "sid": "DenyAccessToAllResources",
                     "effect": "deny",
+                    "sid": "DenyAccessToAllResources",
                     "actions": ["*"],
-                    "index": 3,
                     "resources": ["*"],
+                    "index": 3,
                 },
             ],
+            "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
+            "name": "Policy2",
         }
     ),
 ]
@@ -98,13 +98,11 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Policy(
     {
-        "name": "Policy1",
         "comment": "S3 policy.",
-        "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
         "statements": [
             {
-                "sid": "DenyAccessToAllResources",
                 "effect": "deny",
+                "sid": "DenyAccessToAllResources",
                 "actions": [
                     "GetObject",
                     "PutObject",
@@ -119,10 +117,12 @@ S3Policy(
                     "GetBucketVersioning",
                     "PutBucketVersioning",
                 ],
-                "index": 0,
                 "resources": ["*"],
+                "index": 0,
             }
         ],
+        "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
+        "name": "Policy1",
     }
 )
 
@@ -158,18 +158,18 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3Policy(
     {
-        "name": "Policy1",
         "comment": "S3 policy.",
-        "svm": {"name": "svm1", "uuid": "02c9e252-41be-11e9-81d5-00a0986138f7"},
         "statements": [
             {
-                "sid": "AllowListAccessToAllResources",
                 "effect": "allow",
+                "sid": "AllowListAccessToAllResources",
                 "actions": ["ListBucket", "ListMyBuckets"],
-                "index": 5,
                 "resources": ["*"],
+                "index": 5,
             }
         ],
+        "svm": {"uuid": "02c9e252-41be-11e9-81d5-00a0986138f7", "name": "svm1"},
+        "name": "Policy1",
     }
 )
 

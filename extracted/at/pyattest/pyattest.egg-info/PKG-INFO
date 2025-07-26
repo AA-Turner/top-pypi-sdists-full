@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: pyattest
-Version: 1.0.0
+Version: 1.0.2
 Home-page: https://github.com/dreipol/pyattest
 Author: dreipol
 Author-email: dev@dreipol.ch
@@ -15,17 +15,27 @@ Requires-Python: >=3.6.0
 Description-Content-Type: text/markdown
 License-File: LICENSE
 Requires-Dist: cbor2
-Requires-Dist: certvalidator
+Requires-Dist: pyhanko_certvalidator
 Requires-Dist: pyjwt
 Requires-Dist: python-jose[cryptography]
 Requires-Dist: cryptography
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-dist
+Dynamic: requires-python
 
 
 # pyattest
 
 [![Maintainability](https://api.codeclimate.com/v1/badges/bab7989f664ba4a47501/maintainability)](https://codeclimate.com/repos/603674bad5ad4c0176007ce0/maintainability)
 
-pyattest provides a common interface that helps you verify attestations from either [Google](https://developer.android.com/training/safetynet/attestation#request-attestation-process) or [Apple](https://developer.apple.com/documentation/devicecheck/validating_apps_that_connect_to_your_server). The package works standalone but if you use django and need a full implementation with key generation and storage then [django-dreiattest](https://github.com/dreipol/django-dreiattest) could be of interest for you.
+pyattest provides a common interface that helps you verify attestations from either [Google](https://developer.android.com/google/play/integrity) or [Apple](https://developer.apple.com/documentation/devicecheck/validating_apps_that_connect_to_your_server). The package works standalone but if you use django and need a full implementation with key generation and storage then [django-dreiattest](https://github.com/dreipol/django-dreiattest) could be of interest for you.
 
 ## Installation
 

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -25,69 +25,40 @@ class ClusterSpaceBlockStorageSchema(ResourceSchema, metaclass=ResourceSchemaMet
     r""" Available space across the cluster. """
 
     delayed_frees = Size(data_key="delayed_frees", allow_none=True)
-    r""" Total delayed free space across the cluster.
-### Platform Specifics
-
-* **Unified ONTAP**: This property is not available as part of `cluster_space.block_storage` object in the REST API and is not reported for GET requests.
-* **ASA r2**: Available for GET requests. """
+    r""" Total delayed free space across the cluster. """
 
     full_threshold_percent = Size(data_key="full_threshold_percent", allow_none=True)
-    r""" The cluster space full threshold percentage that triggers an EMS error.
-### Platform Specifics
-
-* **Unified ONTAP**: This property is not available as part of `cluster_space.block_storage` object in the REST API and is not reported for GET requests.
-* **ASA r2**: Available for GET, POST, and PATCH requests. """
+    r""" The cluster space full threshold percentage that triggers an EMS error. """
 
     inactive_data = Size(data_key="inactive_data", allow_none=True)
-    r""" Inactive data across the cluster.
-### Platform Specifics
+    r""" Inactive data across the cluster. """
 
-* **Unified ONTAP**: Available for GET requests.
-* **ASA r2**: This property is not applicable, it is not available in the REST API and is not reported for GET requests. """
+    log_and_recovery_metadata = Size(data_key="log_and_recovery_metadata", allow_none=True)
+    r""" The total space consumed by system logs and cores in the cluster. """
 
     medias = marshmallow_fields.List(marshmallow_fields.Nested("netapp_ontap.models.cluster_space_block_storage_medias.ClusterSpaceBlockStorageMediasSchema", unknown=EXCLUDE, allow_none=True), data_key="medias", allow_none=True)
     r""" Configuration information based on type of media. For example, SSD media type information includes the sum of all the SSD storage across the cluster. """
 
     nearly_full_threshold_percent = Size(data_key="nearly_full_threshold_percent", allow_none=True)
-    r""" The cluster space nearly full threshold percentage that triggers an EMS warning.
-### Platform Specifics
-
-* **Unified ONTAP**: This property is not available as part of `cluster_space.block_storage` object in the REST API and is not reported for GET requests.
-* **ASA r2**: Available for GET, POST, and PATCH requests. """
+    r""" The cluster space nearly full threshold percentage that triggers an EMS warning. """
 
     physical_used = Size(data_key="physical_used", allow_none=True)
     r""" Total physical used space across the cluster. """
 
     physical_used_percent = Size(data_key="physical_used_percent", allow_none=True)
-    r""" The Physical space used percentage across the cluster.
-### Platform Specifics
-
-* **Unified ONTAP**: This property is not available as part of the `cluster_space.block_storage` object in the REST API and is not reported for GET requests.
-* **ASA r2**: Available for GET requests. """
+    r""" The Physical space used percentage across the cluster. """
 
     size = Size(data_key="size", allow_none=True)
     r""" Total space across the cluster. """
 
     total_metadata_used = Size(data_key="total_metadata_used", allow_none=True)
-    r""" Total metadata used in the cluster.
-### Platform Specifics
-
-* **Unified ONTAP**: This property is not available as part of `cluster_space.block_storage` object in the REST API and is not reported for GET requests.
-* **ASA r2**: Available for GET requests. """
+    r""" The total space consumed by metadata in the cluster, which includes log and recovery metadata, delayed frees along with filesystem metadata and performance metadata. """
 
     unusable_space = Size(data_key="unusable_space", allow_none=True)
-    r""" Total unusable space across the cluster due to some aggregate being unavailable.
-### Platform Specifics
-
-* **Unified ONTAP**: This property is not available as part of `cluster_space.block_storage` object in the REST API and is not reported for GET requests.
-* **ASA r2**: Available for GET requests. """
+    r""" Total unusable space across the cluster due to some aggregate being unavailable. """
 
     used = Size(data_key="used", allow_none=True)
-    r""" Used space (includes volume reserves) across the cluster.
-### Platform Specifics
-
-* **Unified ONTAP**: Available for GET requests.
-* **ASA r2**: This property is not applicable, it is not available in the REST API and is not reported for GET requests. """
+    r""" Used space (includes volume reserves) across the cluster. """
 
     @property
     def resource(self):
@@ -98,6 +69,7 @@ class ClusterSpaceBlockStorageSchema(ResourceSchema, metaclass=ResourceSchemaMet
         "delayed_frees",
         "full_threshold_percent",
         "inactive_data",
+        "log_and_recovery_metadata",
         "medias",
         "nearly_full_threshold_percent",
         "physical_used",
@@ -107,7 +79,7 @@ class ClusterSpaceBlockStorageSchema(ResourceSchema, metaclass=ResourceSchemaMet
         "unusable_space",
         "used",
     ]
-    """available,delayed_frees,full_threshold_percent,inactive_data,medias,nearly_full_threshold_percent,physical_used,physical_used_percent,size,total_metadata_used,unusable_space,used,"""
+    """available,delayed_frees,full_threshold_percent,inactive_data,log_and_recovery_metadata,medias,nearly_full_threshold_percent,physical_used,physical_used_percent,size,total_metadata_used,unusable_space,used,"""
 
     patchable_fields = [
         "full_threshold_percent",

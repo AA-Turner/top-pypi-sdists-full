@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -46,6 +46,11 @@ Example: 2020-12-03T03:36:19.000+0000 """
 
 Example: 2020-12-03T02:50:19.000+0000 """
 
+    last_post_ponr_retry_time = ImpreciseDateTime(data_key="last_post_ponr_retry_time", allow_none=True)
+    r""" Last post point of no return retry time
+
+Example: 2020-12-03T03:30:19.000+0000 """
+
     last_resume_time = ImpreciseDateTime(data_key="last_resume_time", allow_none=True)
     r""" Last migration resume time
 
@@ -66,10 +71,11 @@ Example: 2020-12-03T02:36:19.000+0000 """
         "cutover_trigger_time",
         "end_time",
         "last_pause_time",
+        "last_post_ponr_retry_time",
         "last_resume_time",
         "start_time",
     ]
-    """cutover_complete_time,cutover_start_time,cutover_trigger_time,end_time,last_pause_time,last_resume_time,start_time,"""
+    """cutover_complete_time,cutover_start_time,cutover_trigger_time,end_time,last_pause_time,last_post_ponr_retry_time,last_resume_time,start_time,"""
 
     patchable_fields = [
     ]

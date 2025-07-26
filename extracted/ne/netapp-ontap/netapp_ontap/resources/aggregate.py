@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -66,99 +66,99 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Aggregate(
     {
-        "name": "test1",
-        "data_encryption": {
-            "drive_protection_enabled": False,
-            "software_encryption_enabled": False,
-        },
         "block_storage": {
-            "uses_partitions": False,
-            "mirror": {"enabled": False, "state": "unmirrored"},
             "primary": {
-                "raid_type": "raid_dp",
-                "disk_class": "solid_state",
+                "disk_type": "ssd",
                 "disk_count": 6,
                 "checksum_style": "block",
+                "disk_class": "solid_state",
+                "raid_type": "raid_dp",
                 "raid_size": 24,
-                "disk_type": "ssd",
             },
+            "plexes": [{"name": "plex0"}],
+            "uses_partitions": False,
             "storage_type": "vmdisk",
             "hybrid_cache": {"enabled": False},
-            "plexes": [{"name": "plex0"}],
+            "mirror": {"enabled": False, "state": "unmirrored"},
         },
-        "inode_attributes": {
-            "files_total": 31136,
-            "max_files_used": 97,
-            "files_used": 97,
-            "used_percent": 5,
-            "max_files_possible": 2844525,
-            "max_files_available": 31136,
-        },
-        "node": {"name": "node-1", "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1"},
-        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
         "volume-count": 0,
-        "create_time": "2018-12-04T15:40:38-05:00",
         "state": "online",
-        "cloud_storage": {"attach_eligible": False},
-        "snapshot": {
-            "files_total": 10,
-            "max_files_available": 5,
-            "max_files_used": 50,
-            "files_used": 3,
-        },
-        "snaplock_type": "non_snaplock",
+        "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
         "space": {
-            "efficiency": {
-                "ratio": 6.908119720880661,
-                "cross_volume_inline_dedupe": False,
-                "cross_volume_dedupe_savings": True,
-                "enable_workload_informed_tsse": True,
-                "cross_volume_background_dedupe": True,
-                "savings": 1408029,
-                "logical_used": 1646350,
-                "wise_tsse_min_used_capacity_pct": 2,
-                "auto_adaptive_compression_savings": False,
-            },
-            "efficiency_without_snapshots_flexclones": {
-                "ratio": 2.0,
-                "savings": 5000,
-                "logical_used": 10000,
-            },
-            "cloud_storage": {"used": 0},
             "snapshot": {
                 "used": 3000,
                 "used_percent": 45,
                 "total": 5000,
-                "reserve_percent": 20,
                 "available": 2000,
+                "reserve_percent": 20,
+            },
+            "block_storage": {
+                "used": 43061248,
+                "volume_footprints_percent": 14,
+                "aggregate_metadata": 2655,
+                "full_threshold_percent": 98,
+                "data_compaction_space_saved_percent": 47,
+                "data_compacted_count": 666666,
+                "used_percent": 50,
+                "physical_used_percent": 1,
+                "data_compaction_space_saved": 654566,
+                "used_including_snapshot_reserve": 674685,
+                "volume_deduplication_shared_count": 567543,
+                "volume_deduplication_space_saved_percent": 32,
+                "physical_used": 5271552,
+                "volume_deduplication_space_saved": 23765,
+                "available": 191942656,
+                "size": 235003904,
+                "used_including_snapshot_reserve_percent": 35,
+                "aggregate_metadata_percent": 8,
+            },
+            "efficiency_without_snapshots_flexclones": {
+                "ratio": 2.0,
+                "logical_used": 10000,
+                "savings": 5000,
             },
             "efficiency_without_snapshots": {
                 "ratio": 1.0,
-                "savings": 0,
                 "logical_used": 737280,
+                "savings": 0,
             },
-            "block_storage": {
-                "used_including_snapshot_reserve_percent": 35,
-                "aggregate_metadata": 2655,
-                "physical_used": 5271552,
-                "data_compaction_space_saved_percent": 47,
-                "volume_footprints_percent": 14,
-                "physical_used_percent": 1,
-                "aggregate_metadata_percent": 8,
-                "used_including_snapshot_reserve": 674685,
-                "data_compacted_count": 666666,
-                "used": 43061248,
-                "volume_deduplication_space_saved": 23765,
-                "used_percent": 50,
-                "data_compaction_space_saved": 654566,
-                "size": 235003904,
-                "volume_deduplication_space_saved_percent": 32,
-                "full_threshold_percent": 98,
-                "available": 191942656,
-                "volume_deduplication_shared_count": 567543,
+            "efficiency": {
+                "cross_volume_dedupe_savings": True,
+                "cross_volume_inline_dedupe": False,
+                "logical_used": 1646350,
+                "wise_tsse_min_used_capacity_pct": 2,
+                "cross_volume_background_dedupe": True,
+                "ratio": 6.908119720880661,
+                "enable_workload_informed_tsse": True,
+                "savings": 1408029,
+                "auto_adaptive_compression_savings": False,
             },
+            "cloud_storage": {"used": 0},
         },
-        "home_node": {"name": "node-1", "uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1"},
+        "cloud_storage": {"attach_eligible": False},
+        "snaplock_type": "non_snaplock",
+        "inode_attributes": {
+            "files_used": 97,
+            "max_files_possible": 2844525,
+            "used_percent": 5,
+            "files_total": 31136,
+            "max_files_available": 31136,
+            "max_files_used": 97,
+        },
+        "home_node": {"uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1", "name": "node-1"},
+        "create_time": "2018-12-04T15:40:38-05:00",
+        "node": {"uuid": "caf95bec-f801-11e8-8af9-005056bbe5c1", "name": "node-1"},
+        "name": "test1",
+        "data_encryption": {
+            "software_encryption_enabled": False,
+            "drive_protection_enabled": False,
+        },
+        "snapshot": {
+            "files_used": 3,
+            "files_total": 10,
+            "max_files_available": 5,
+            "max_files_used": 50,
+        },
     }
 )
 
@@ -185,42 +185,42 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Aggregate(
     {
-        "name": "aggr4",
         "metric": {
-            "status": "ok",
-            "iops": {"total": 11682, "write": 17, "other": 11663, "read": 1},
-            "latency": {"total": 124, "write": 230, "other": 123, "read": 149},
             "timestamp": "2019-07-08T22:16:45+00:00",
             "throughput": {
-                "total": 194141115,
-                "write": 840226,
-                "other": 193293789,
                 "read": 7099,
+                "total": 194141115,
+                "other": 193293789,
+                "write": 840226,
             },
+            "iops": {"read": 1, "total": 11682, "other": 11663, "write": 17},
+            "status": "ok",
+            "latency": {"read": 149, "total": 124, "other": 123, "write": 230},
             "duration": "PT15S",
         },
         "uuid": "538bf337-1b2c-11e8-bad0-005056b48388",
+        "name": "aggr4",
         "statistics": {
-            "status": "ok",
-            "iops_raw": {
-                "total": 3052032,
-                "write": 1137230,
-                "other": 1586535,
-                "read": 328267,
-            },
-            "latency_raw": {
-                "total": 844628724,
-                "write": 313354426,
-                "other": 477201985,
-                "read": 54072313,
-            },
-            "throughput_raw": {
-                "total": 213063348224,
-                "write": 63771742208,
-                "other": 146185560064,
-                "read": 3106045952,
-            },
             "timestamp": "2019-07-08T22:17:09+00:00",
+            "latency_raw": {
+                "read": 54072313,
+                "total": 844628724,
+                "other": 477201985,
+                "write": 313354426,
+            },
+            "iops_raw": {
+                "read": 328267,
+                "total": 3052032,
+                "other": 1586535,
+                "write": 1137230,
+            },
+            "status": "ok",
+            "throughput_raw": {
+                "read": 3106045952,
+                "total": 213063348224,
+                "other": 146185560064,
+                "write": 63771742208,
+            },
         },
     }
 )
@@ -377,30 +377,30 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Aggregate(
     {
-        "name": "node_2_SSD_1",
         "block_storage": {
-            "mirror": {"enabled": False},
             "primary": {
+                "disk_type": "ssd",
+                "disk_count": 12,
+                "disk_class": "solid_state",
                 "raid_type": "raid_dp",
                 "simulated_raid_groups": [
                     {
-                        "is_partition": False,
-                        "data_disk_count": 10,
-                        "name": "test/plex0/rg0",
-                        "usable_size": 12309487,
                         "parity_disk_count": 2,
+                        "name": "test/plex0/rg0",
+                        "data_disk_count": 10,
+                        "usable_size": 12309487,
+                        "is_partition": False,
                     }
                 ],
-                "disk_class": "solid_state",
-                "disk_count": 12,
                 "raid_size": 24,
-                "disk_type": "ssd",
             },
             "hybrid_cache": {"enabled": False},
+            "mirror": {"enabled": False},
         },
-        "node": {"name": "node-2", "uuid": "4046dda8-f802-11e8-8f6d-005056bb2030"},
         "uuid": "cae60cfe-deae-42bd-babb-ef437d118314",
         "space": {"block_storage": {"size": 1116180480}},
+        "node": {"uuid": "4046dda8-f802-11e8-8f6d-005056bb2030", "name": "node-2"},
+        "name": "node_2_SSD_1",
     }
 )
 
@@ -428,9 +428,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Aggregate(
     {
-        "name": "test1",
         "block_storage": {"primary": {"disk_count": 6}},
         "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
+        "name": "test1",
     }
 )
 
@@ -468,9 +468,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Aggregate(
     {
-        "name": "test1",
         "block_storage": {"primary": {"disk_count": 8}},
         "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c",
+        "name": "test1",
     }
 )
 
@@ -518,7 +518,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example12_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example12_result" class="try_it_out_content">
 ```
-Aggregate({"name": "test1", "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c"})
+Aggregate({"uuid": "19425837-f2fa-4a9f-8f01-712f626c983c", "name": "test1"})
 
 ```
 </div>
@@ -558,7 +558,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 <label for="example14_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example14_result" class="try_it_out_content">
 ```
-Aggregate({"name": "test1", "uuid": "caa8a9f1-0219-4eaf-bcad-e29c05042fe1"})
+Aggregate({"uuid": "caa8a9f1-0219-4eaf-bcad-e29c05042fe1", "name": "test1"})
 
 ```
 </div>
@@ -605,9 +605,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Aggregate(
     {
+        "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
         "name": "aggr5",
         "data_encryption": {"software_encryption_enabled": False},
-        "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
     }
 )
 
@@ -645,9 +645,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 Aggregate(
     {
+        "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
         "name": "aggr5",
         "data_encryption": {"software_encryption_enabled": True},
-        "uuid": "f3aafdc6-be35-4d93-9590-5a402bffbe4b",
     }
 )
 
@@ -944,8 +944,6 @@ There is an added computational cost to retrieving values for these properties. 
         **kwargs
     ) -> NetAppResponse:
         r"""Updates the aggregate specified by the UUID with the properties in the body. This request starts a job and returns a link to that job.
-### Platform Specifics
-* **ASA r2**: PATCH is not supported.
 ### Related ONTAP commands
 * `storage aggregate add-disks`
 * `storage aggregate mirror`
@@ -976,8 +974,6 @@ There is an added computational cost to retrieving values for these properties. 
     ) -> Union[List["Aggregate"], NetAppResponse]:
         r"""Automatically creates aggregates based on an optimal layout recommended by the system. Alternatively, properties can be provided to create an aggregate according to the requested specification. This request starts a job and returns a link to that job.
 POST operations will be blocked while one or more nodes in the cluster are simulating or implementing automatic aggregate creation.
-### Platform Specifics
-* **ASA r2**: POST is not supported.
 ### Required properties
 Properties are not required for this API. The following properties are only required if you want to specify properties for aggregate creation:
 * `name` - Name of the aggregate.
@@ -1017,8 +1013,6 @@ POST /api/storage/aggregates {"node": {"name": "node1"}, "name": "test", "block_
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes the aggregate specified by the UUID. This request starts a job and returns a link to that job.
-### Platform Specifics
-* **ASA r2**: DELETE is not supported.
 ### Related ONTAP commands
 * `storage aggregate delete`
 
@@ -1080,8 +1074,6 @@ There is an added computational cost to retrieving values for these properties. 
     ) -> NetAppResponse:
         r"""Automatically creates aggregates based on an optimal layout recommended by the system. Alternatively, properties can be provided to create an aggregate according to the requested specification. This request starts a job and returns a link to that job.
 POST operations will be blocked while one or more nodes in the cluster are simulating or implementing automatic aggregate creation.
-### Platform Specifics
-* **ASA r2**: POST is not supported.
 ### Required properties
 Properties are not required for this API. The following properties are only required if you want to specify properties for aggregate creation:
 * `name` - Name of the aggregate.
@@ -1117,8 +1109,6 @@ POST /api/storage/aggregates {"node": {"name": "node1"}, "name": "test", "block_
         **kwargs
     ) -> NetAppResponse:
         r"""Updates the aggregate specified by the UUID with the properties in the body. This request starts a job and returns a link to that job.
-### Platform Specifics
-* **ASA r2**: PATCH is not supported.
 ### Related ONTAP commands
 * `storage aggregate add-disks`
 * `storage aggregate mirror`
@@ -1144,8 +1134,6 @@ POST /api/storage/aggregates {"node": {"name": "node1"}, "name": "test", "block_
         **kwargs
     ) -> NetAppResponse:
         r"""Deletes the aggregate specified by the UUID. This request starts a job and returns a link to that job.
-### Platform Specifics
-* **ASA r2**: DELETE is not supported.
 ### Related ONTAP commands
 * `storage aggregate delete`
 

@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -28,100 +28,100 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     StoragePort(
         {
+            "node": {
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
+                "name": "node-1",
+                "_links": {
+                    "self": {
+                        "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
+                    }
+                },
+            },
             "name": "0a",
+        }
+    ),
+    StoragePort(
+        {
             "node": {
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                 "name": "node-1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                     }
                 },
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             },
-        }
-    ),
-    StoragePort(
-        {
             "name": "0b",
+        }
+    ),
+    StoragePort(
+        {
             "node": {
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                 "name": "node-1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                     }
                 },
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             },
-        }
-    ),
-    StoragePort(
-        {
             "name": "0c",
+        }
+    ),
+    StoragePort(
+        {
             "node": {
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                 "name": "node-1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                     }
                 },
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             },
-        }
-    ),
-    StoragePort(
-        {
             "name": "0d",
+        }
+    ),
+    StoragePort(
+        {
             "node": {
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                 "name": "node-1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                     }
                 },
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             },
-        }
-    ),
-    StoragePort(
-        {
             "name": "0e",
+        }
+    ),
+    StoragePort(
+        {
             "node": {
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                 "name": "node-1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                     }
                 },
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             },
-        }
-    ),
-    StoragePort(
-        {
             "name": "0f",
-            "node": {
-                "name": "node-1",
-                "_links": {
-                    "self": {
-                        "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
-                    }
-                },
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
-            },
         }
     ),
     StoragePort(
         {
-            "name": "0g",
             "node": {
+                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
                 "name": "node-1",
                 "_links": {
                     "self": {
                         "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                     }
                 },
-                "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             },
+            "name": "0g",
         }
     ),
 ]
@@ -153,33 +153,33 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 StoragePort(
     {
-        "name": "0a",
-        "enabled": True,
+        "wwn": "500a098003633df0",
+        "cable": {
+            "serial_number": "629230774",
+            "identifier": "500a0980066e2c01-500a098003633df0",
+            "vendor": "Molex Inc.",
+            "length": "0.5m",
+            "part_number": "112-00429+A0",
+            "transceiver": "mini_sas_hd",
+        },
+        "state": "online",
+        "description": "SAS Host Adapter 0a (PMC-Sierra PM8001 rev. C)",
+        "type": "sas",
         "firmware_version": "01.12.09.00",
+        "in_use": True,
         "speed": 6.0,
         "node": {
+            "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
             "name": "node-1",
             "_links": {
                 "self": {
                     "href": "/api/cluster/nodes/0530d6c1-8c6d-11e8-907f-00a0985a72ee"
                 }
             },
-            "uuid": "0530d6c1-8c6d-11e8-907f-00a0985a72ee",
         },
-        "cable": {
-            "length": "0.5m",
-            "serial_number": "629230774",
-            "part_number": "112-00429+A0",
-            "vendor": "Molex Inc.",
-            "identifier": "500a0980066e2c01-500a098003633df0",
-            "transceiver": "mini_sas_hd",
-        },
-        "in_use": True,
-        "state": "online",
-        "wwn": "500a098003633df0",
-        "description": "SAS Host Adapter 0a (PMC-Sierra PM8001 rev. C)",
-        "type": "sas",
+        "name": "0a",
         "redundant": True,
+        "enabled": True,
     }
 )
 

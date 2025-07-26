@@ -1,6 +1,6 @@
 Metadata-Version: 2.3
 Name: lintrunner-adapters
-Version: 0.12.5
+Version: 0.12.6
 Summary: Adapters and tools for lintrunner
 License: MIT
 Keywords: lintrunner,lint,cli,sarif,linting,ci,linter,flake8,clippy,ruff,rustfmt,github-code-scanning
@@ -26,6 +26,7 @@ Description-Content-Type: text/markdown
 
 [![CI](https://github.com/justinchuby/lintrunner-adapters/actions/workflows/ci.yml/badge.svg)](https://github.com/justinchuby/lintrunner-adapters/actions/workflows/ci.yml)
 [![PyPI version](https://badge.fury.io/py/lintrunner-adapters.svg)](https://badge.fury.io/py/lintrunner-adapters)
+[![PyPI - Downloads](https://img.shields.io/pypi/dm/lintrunner-adapters)](https://pypistats.org/packages/lintrunner-adapters)
 
 Adapters and tools for [lintrunner](https://github.com/suo/lintrunner).
 

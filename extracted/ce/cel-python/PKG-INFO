@@ -1,25 +1,18 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: cel-python
-Version: 0.3.0
+Version: 0.4.0
 Summary: Pure Python implementation of Google Common Expression Language
-License: LICENSE.txt
-Author: S. Lott
-Author-email: slott56@gmail.com
-Requires-Python: >=3.9,<4.0
+Author-email: "S.Lott" <slott56@gmail.com>
+License-File: LICENSE
 Classifier: Development Status :: 4 - Beta
-Classifier: License :: Other/Proprietary License
 Classifier: Programming Language :: Python
-Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
-Classifier: Programming Language :: Python :: 3.11
-Classifier: Programming Language :: Python :: 3.12
-Classifier: Programming Language :: Python :: 3.13
-Provides-Extra: re2
-Requires-Dist: lark (>=0.12,<0.13)
-Requires-Dist: pendulum (>=3.1.0,<4.0.0)
-Requires-Dist: pyyaml (>=6.0.2,<7.0.0)
-Requires-Dist: types-pyyaml (>=6.0.12.20250516,<7.0.0.0)
+Requires-Python: >=3.9
+Requires-Dist: google-re2>=1.1.20240702; python_version != '3.13' or sys_platform != 'darwin' or platform_machine != 'arm64'
+Requires-Dist: jmespath>=1.0.1
+Requires-Dist: lark>=1.2.2
+Requires-Dist: pendulum>=3.1.0
+Requires-Dist: pyyaml>=6.0.2
+Requires-Dist: tomli>=1.1.0; python_version < '3.11'
 Description-Content-Type: text/x-rst
 
 ##########
@@ -57,7 +50,7 @@ Installation
 
 ::
 
-    pip install cel-python
+    python -m pip install cel-python
 
 You now have the CEL run-time available to Python-based applications.
 
@@ -66,15 +59,19 @@ re2
 ---
 
 CEL specifies that regular expressions use re2 syntax,
-https://github.com/google/re2/wiki/Syntax. To keep its dependencies minimal and
-this implementation easily embeddable, cel-python uses the Python standard
-library ``re`` syntax by default. If a ``re2`` package is installed or the
-``re2`` extra is provided, cel-python will use ``re2`` syntax instead.
+https://github.com/google/re2/wiki/Syntax.
+As of the 0.4.0 release, the Google-RE2 module is part of the CEL distribution.
 
-::
+.. warning:: Apple Silicon and Python 3.13
 
-    pip install cel-python[re2]
+    See https://github.com/google/re2/issues/453,
+    https://github.com/google/re2/issues/346,
+    https://github.com/google/re2/issues/516
 
+    Google-RE2 does not build for Python 3.13 on the "darwin" platform with the "arm64" architecture.
+    Currently, there is no pre-built binary for Python 3.13.
+
+    The built-in ``re`` is used as a fall-back, and does work for all but a few edge cases.
 
 Command Line
 ============
@@ -145,11 +142,11 @@ can then be applied to argument values.
     >>> ast = env.compile(cel_source)
     >>> prgm = env.program(ast)
 
-    >>> activation = {
+    >>> context = {
     ...     "account": celpy.json_to_cel({"balance": 500, "overdraftProtection": False}),
     ...     "transaction": celpy.json_to_cel({"withdrawal": 600})
     ... }
-    >>> result = prgm.evaluate(activation)
+    >>> result = prgm.evaluate(context)
     >>> result
     BoolType(False)
 
@@ -170,9 +167,14 @@ https://github.com/google/cel-cpp/blob/master/parser/Cel.g4
 
 https://github.com/google/cel-go/blob/master/parser/gen/CEL.g4
 
+The documentation includes PlantUML diagrams.
+The Sphinx ``conf.py`` provides the location for the PlantUML local JAR file if one is used.
+Currently, it expects ``docs/plantuml-asl-1.2025.3.jar``.
+The JAR is not provided in this repository, get one from https://plantuml.com.
+If you install a different version, update the ``conf.py`` to refer to the JAR file you've downloaded.
+
 Notes
 =====
-
 
 CEL provides a number of runtime errors that are mapped to Python exceptions.
 
@@ -188,6 +190,79 @@ However, see https://github.com/google/cel-spec/blob/master/doc/langdef.md#gradu
 Rather than try to pre-check types, we'll rely on Python's implementation.
 
 
+Example 2
+=========
+
+Here's an example with some details::
+
+    >>> import celpy
+
+    # A list of type names and class bindings used to create an environment.
+    >>> types = []
+    >>> env = celpy.Environment(types)
+
+    # Parse the code to create the CEL AST.
+    >>> ast = env.compile("355. / 113.")
+
+    # Use the AST and any overriding functions to create an executable program.
+    >>> functions = {}
+    >>> prgm = env.program(ast, functions)
+
+    # Variable bindings.
+    >>> activation = {}
+
+    # Final evaluation.
+    >>> try:
+    ...    result = prgm.evaluate(activation)
+    ...    error = None
+    ... except CELEvalError as ex:
+    ...    result = None
+    ...    error = ex.args[0]
+
+    >>> result  # doctest: +ELLIPSIS
+    DoubleType(3.14159...)
+
+Example 3
+=========
+
+See https://github.com/google/cel-go/blob/master/examples/simple_test.go
+
+The model Go we're sticking close to::
+
+    d := cel.Declarations(decls.NewVar("name", decls.String))
+    env, err := cel.NewEnv(d)
+    if err != nil {
+        log.Fatalf("environment creation error: %v\\n", err)
+    }
+    ast, iss := env.Compile(`"Hello world! I'm " + name + "."`)
+    // Check iss for compilation errors.
+    if iss.Err() != nil {
+        log.Fatalln(iss.Err())
+    }
+    prg, err := env.Program(ast)
+    if err != nil {
+        log.Fatalln(err)
+    }
+    out, _, err := prg.Eval(map[string]interface{}{
+        "name": "CEL",
+    })
+    if err != nil {
+        log.Fatalln(err)
+    }
+    fmt.Println(out)
+    // Output:Hello world! I'm CEL.
+
+Here's the Pythonic approach, using concept patterned after the Go implementation::
+
+    >>> from celpy import *
+    >>> decls = {"name": celtypes.StringType}
+    >>> env = Environment(annotations=decls)
+    >>> ast = env.compile('"Hello world! I\'m " + name + "."')
+    >>> out = env.program(ast).evaluate({"name": "CEL"})
+    >>> print(out)
+    Hello world! I'm CEL.
+
+
 Contributing
 ============
 
@@ -199,4 +274,3 @@ Code of Conduct
 
 This project adheres to the `Open Code of Conduct <https://developer.capitalone.com/resources/code-of-conduct>`_. By
 participating, you are expected to honor this code.
-

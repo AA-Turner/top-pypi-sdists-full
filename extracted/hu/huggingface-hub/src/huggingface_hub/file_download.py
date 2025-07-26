@@ -1136,10 +1136,18 @@ def _hf_hub_download_to_cache_dir(
 
     # Some Windows versions do not allow for paths longer than 255 characters.
     # In this case, we must specify it as an extended path by using the "\\?\" prefix.
-    if os.name == "nt" and len(os.path.abspath(lock_path)) > 255:
+    if (
+        os.name == "nt"
+        and len(os.path.abspath(lock_path)) > 255
+        and not os.path.abspath(lock_path).startswith("\\\\?\\")
+    ):
         lock_path = "\\\\?\\" + os.path.abspath(lock_path)
 
-    if os.name == "nt" and len(os.path.abspath(blob_path)) > 255:
+    if (
+        os.name == "nt"
+        and len(os.path.abspath(blob_path)) > 255
+        and not os.path.abspath(blob_path).startswith("\\\\?\\")
+    ):
         blob_path = "\\\\?\\" + os.path.abspath(blob_path)
 
     Path(lock_path).parent.mkdir(parents=True, exist_ok=True)
@@ -1407,6 +1415,7 @@ def get_hf_file_metadata(
     library_version: Optional[str] = None,
     user_agent: Union[Dict, str, None] = None,
     headers: Optional[Dict[str, str]] = None,
+    endpoint: Optional[str] = None,
 ) -> HfFileMetadata:
     """Fetch metadata of a file versioned on the Hub for a given url.
 
@@ -1432,6 +1441,8 @@ def get_hf_file_metadata(
             The user-agent info in the form of a dictionary or a string.
         headers (`dict`, *optional*):
             Additional headers to be sent with the request.
+        endpoint (`str`, *optional*):
+            Endpoint of the Hub. Defaults to <https://huggingface.co>.
 
     Returns:
         A [`HfFileMetadata`] object containing metadata such as location, etag, size and
@@ -1471,7 +1482,7 @@ def get_hf_file_metadata(
         size=_int_or_none(
             r.headers.get(constants.HUGGINGFACE_HEADER_X_LINKED_SIZE) or r.headers.get("Content-Length")
         ),
-        xet_file_data=parse_xet_file_data_from_response(r),  # type: ignore
+        xet_file_data=parse_xet_file_data_from_response(r, endpoint=endpoint),  # type: ignore
     )
 
 
@@ -1531,7 +1542,7 @@ def _get_metadata_or_catch_error(
         try:
             try:
                 metadata = get_hf_file_metadata(
-                    url=url, proxies=proxies, timeout=etag_timeout, headers=headers, token=token
+                    url=url, proxies=proxies, timeout=etag_timeout, headers=headers, token=token, endpoint=endpoint
                 )
             except EntryNotFoundError as http_error:
                 if storage_folder is not None and relative_filename is not None:
@@ -1715,7 +1726,7 @@ def _download_to_tmp_and_move(
                 displayed_filename=filename,
             )
         else:
-            if xet_file_data is not None:
+            if xet_file_data is not None and not constants.HF_HUB_DISABLE_XET:
                 logger.warning(
                     "Xet Storage is enabled for this repo, but the 'hf_xet' package is not installed. "
                     "Falling back to regular HTTP download. "

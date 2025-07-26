@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -27,6 +27,9 @@ class KeyManagerConfigHealthMonitorPolicySchema(ResourceSchema, metaclass=Resour
     aws = marshmallow_fields.Nested("netapp_ontap.models.health_monitor_policy_fields.HealthMonitorPolicyFieldsSchema", unknown=EXCLUDE, data_key="aws", allow_none=True)
     r""" Manages the health monitor policy options. """
 
+    barbican = marshmallow_fields.Nested("netapp_ontap.models.health_monitor_policy_fields.HealthMonitorPolicyFieldsSchema", unknown=EXCLUDE, data_key="barbican", allow_none=True)
+    r""" Manages the health monitor policy options. """
+
     gcp = marshmallow_fields.Nested("netapp_ontap.models.health_monitor_policy_fields.HealthMonitorPolicyFieldsSchema", unknown=EXCLUDE, data_key="gcp", allow_none=True)
     r""" Manages the health monitor policy options. """
 
@@ -46,32 +49,35 @@ class KeyManagerConfigHealthMonitorPolicySchema(ResourceSchema, metaclass=Resour
     gettable_fields = [
         "akv",
         "aws",
+        "barbican",
         "gcp",
         "ikp",
         "kmip",
         "okm",
     ]
-    """akv,aws,gcp,ikp,kmip,okm,"""
+    """akv,aws,barbican,gcp,ikp,kmip,okm,"""
 
     patchable_fields = [
         "akv",
         "aws",
+        "barbican",
         "gcp",
         "ikp",
         "kmip",
         "okm",
     ]
-    """akv,aws,gcp,ikp,kmip,okm,"""
+    """akv,aws,barbican,gcp,ikp,kmip,okm,"""
 
     postable_fields = [
         "akv",
         "aws",
+        "barbican",
         "gcp",
         "ikp",
         "kmip",
         "okm",
     ]
-    """akv,aws,gcp,ikp,kmip,okm,"""
+    """akv,aws,barbican,gcp,ikp,kmip,okm,"""
 
 
 class KeyManagerConfigHealthMonitorPolicy(Resource):

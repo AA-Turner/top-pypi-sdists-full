@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -33,7 +33,7 @@ Valid choices:
 
     mapped = marshmallow_fields.Boolean(data_key="mapped", allow_none=True)
     r""" Reports if the NVMe namespace is mapped to an NVMe subsystem.<br/>
-There is an added computational cost to retrieving this property's value. It is not populated for either a collection GET or an instance GET unless it is explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more. """
+There is an added computational cost to retrieving this property's value. It is not populated for a GET request unless it is explicitly requested using the `fields` query parameter. See [`Requesting specific fields`](#Requesting_specific_fields) to learn more. """
 
     read_only = marshmallow_fields.Boolean(data_key="read_only", allow_none=True)
     r""" Reports if the NVMe namespace allows only read access. """

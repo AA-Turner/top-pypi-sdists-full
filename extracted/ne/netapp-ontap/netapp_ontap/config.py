@@ -1,5 +1,5 @@
 """
-Copyright &copy; 2024 NetApp Inc. All rights reserved.
+Copyright &copy; 2025 NetApp Inc. All rights reserved.
 
 This module contains the global configuration options and related functions for the library.
 """

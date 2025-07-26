@@ -7,7 +7,7 @@ include(cmake/prelude.cmake)
 
 project(
     pytango
-    VERSION 10.0.2
+    VERSION 10.0.3
     DESCRIPTION "Python bindings for the Tango distributed control system"
     HOMEPAGE_URL "https://pytango.readthedocs.io/"
     LANGUAGES CXX

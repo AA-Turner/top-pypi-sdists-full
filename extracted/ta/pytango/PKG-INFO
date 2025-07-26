@@ -1,9 +1,9 @@
 Metadata-Version: 2.1
 Name: pytango
-Version: 10.0.2
+Version: 10.0.3
 Summary: Python bindings for the cppTango library; part of the Tango Distributed Control System toolkit
 Author: Coutinho
-Maintainer: Anton Joubert, Yury Matveyev, Ulrik Pedersen
+Maintainer: Anton Joubert, Yury Matveyev
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Other Environment
 Classifier: Intended Audience :: Developers
@@ -46,8 +46,12 @@ Requires-Dist: pytest-forked; extra == "tests"
 Requires-Dist: pytest-timeout; extra == "tests"
 Description-Content-Type: text/x-rst
 
-PyTango
-=======
+.. image:: https://gitlab.com/tango-controls/pytango/-/raw/899d21fe85b352288d4095244f3776c7006638af/doc/_static/logo.png
+   :alt: PyTango logo
+   :align: center
+   :width: 70%
+
+------------
 
 |Doc Status|
 |Gitlab Build Status|
@@ -55,6 +59,9 @@ PyTango
 |Pypi Version|
 |Python Versions|
 |Conda|
+
+PyTango
+=======
 
 Main website: https://pytango.readthedocs.io
 

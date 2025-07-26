@@ -20,7 +20,7 @@ import sys
 from datetime import datetime
 from typing import Union
 
-from .literals import ExecutionModeType, ExecutionStatusType
+from .literals import ContactHandlingScopeType, ExecutionModeType, ExecutionStatusType
 
 if sys.version_info >= (3, 9):
     from builtins import dict as Dict
@@ -36,10 +36,12 @@ else:
 
 __all__ = (
     "ApplicationAssociationSummaryTypeDef",
+    "ApplicationConfigTypeDef",
     "ApplicationSourceConfigOutputTypeDef",
     "ApplicationSourceConfigTypeDef",
     "ApplicationSourceConfigUnionTypeDef",
     "ApplicationSummaryTypeDef",
+    "ContactHandlingTypeDef",
     "CreateApplicationRequestTypeDef",
     "CreateApplicationResponseTypeDef",
     "CreateDataIntegrationAssociationRequestTypeDef",
@@ -68,6 +70,9 @@ __all__ = (
     "GetDataIntegrationResponseTypeDef",
     "GetEventIntegrationRequestTypeDef",
     "GetEventIntegrationResponseTypeDef",
+    "IframeConfigOutputTypeDef",
+    "IframeConfigTypeDef",
+    "IframeConfigUnionTypeDef",
     "LastExecutionStatusTypeDef",
     "ListApplicationAssociationsRequestPaginateTypeDef",
     "ListApplicationAssociationsRequestTypeDef",
@@ -110,6 +115,10 @@ class ApplicationAssociationSummaryTypeDef(TypedDict):
     ClientId: NotRequired[str]
 
 
+class ContactHandlingTypeDef(TypedDict):
+    Scope: NotRequired[ContactHandlingScopeType]
+
+
 class ExternalUrlConfigOutputTypeDef(TypedDict):
     AccessUrl: str
     ApprovedOrigins: NotRequired[List[str]]
@@ -127,6 +136,7 @@ class ApplicationSummaryTypeDef(TypedDict):
     Namespace: NotRequired[str]
     CreatedTime: NotRequired[datetime]
     LastModifiedTime: NotRequired[datetime]
+    IsService: NotRequired[bool]
 
 
 class PublicationTypeDef(TypedDict):
@@ -209,12 +219,22 @@ class GetApplicationRequestTypeDef(TypedDict):
     Arn: str
 
 
+class IframeConfigOutputTypeDef(TypedDict):
+    Allow: NotRequired[List[str]]
+    Sandbox: NotRequired[List[str]]
+
+
 class GetDataIntegrationRequestTypeDef(TypedDict):
     Identifier: str
 
 
 class GetEventIntegrationRequestTypeDef(TypedDict):
     Name: str
+
+
+class IframeConfigTypeDef(TypedDict):
+    Allow: NotRequired[Sequence[str]]
+    Sandbox: NotRequired[Sequence[str]]
 
 
 class PaginatorConfigTypeDef(TypedDict):
@@ -279,6 +299,10 @@ class UpdateDataIntegrationRequestTypeDef(TypedDict):
 class UpdateEventIntegrationRequestTypeDef(TypedDict):
     Name: str
     Description: NotRequired[str]
+
+
+class ApplicationConfigTypeDef(TypedDict):
+    ContactHandling: NotRequired[ContactHandlingTypeDef]
 
 
 class ApplicationSourceConfigOutputTypeDef(TypedDict):
@@ -399,6 +423,7 @@ class ExecutionConfigurationTypeDef(TypedDict):
 
 
 FileConfigurationUnionTypeDef = Union[FileConfigurationTypeDef, FileConfigurationOutputTypeDef]
+IframeConfigUnionTypeDef = Union[IframeConfigTypeDef, IframeConfigOutputTypeDef]
 
 
 class ListApplicationAssociationsRequestPaginateTypeDef(TypedDict):
@@ -441,6 +466,10 @@ class GetApplicationResponseTypeDef(TypedDict):
     LastModifiedTime: datetime
     Tags: Dict[str, str]
     Permissions: List[str]
+    IsService: bool
+    InitializationTimeout: int
+    ApplicationConfig: ApplicationConfigTypeDef
+    IframeConfig: IframeConfigOutputTypeDef
     ResponseMetadata: ResponseMetadataTypeDef
 
 
@@ -502,6 +531,10 @@ class CreateApplicationRequestTypeDef(TypedDict):
     ClientToken: NotRequired[str]
     Tags: NotRequired[Mapping[str, str]]
     Permissions: NotRequired[Sequence[str]]
+    IsService: NotRequired[bool]
+    InitializationTimeout: NotRequired[int]
+    ApplicationConfig: NotRequired[ApplicationConfigTypeDef]
+    IframeConfig: NotRequired[IframeConfigUnionTypeDef]
 
 
 class UpdateApplicationRequestTypeDef(TypedDict):
@@ -512,6 +545,10 @@ class UpdateApplicationRequestTypeDef(TypedDict):
     Subscriptions: NotRequired[Sequence[SubscriptionTypeDef]]
     Publications: NotRequired[Sequence[PublicationTypeDef]]
     Permissions: NotRequired[Sequence[str]]
+    IsService: NotRequired[bool]
+    InitializationTimeout: NotRequired[int]
+    ApplicationConfig: NotRequired[ApplicationConfigTypeDef]
+    IframeConfig: NotRequired[IframeConfigUnionTypeDef]
 
 
 class ListDataIntegrationAssociationsResponseTypeDef(TypedDict):

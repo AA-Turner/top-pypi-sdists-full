@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -45,6 +45,11 @@ Valid choices:
 
 Example: PT2M """
 
+    max_connection_retries = Size(data_key="max_connection_retries", allow_none=True)
+    r""" This parameter specifies the maximum number of attempts to reconnect to the FPolicy server from an SVM. It is used to specify the number of times a broken connection will be retried. The value for this field must be between 0 and 20. By default, it is 5.
+
+Example: 5 """
+
     max_server_requests = Size(data_key="max_server_requests", allow_none=True)
     r""" Specifies the maximum number of outstanding requests for the FPolicy server. It is used to specify maximum outstanding requests that will be queued up for the FPolicy server. The value for this field must be between 1 and 10000.  The default values are 500, 1000 or 2000 for Low-end(<64 GB memory), Mid-end(>=64 GB memory) and High-end(>=128 GB memory) Platforms respectively.
 
@@ -88,6 +93,11 @@ Example: ["10.132.145.20","10.132.145.21"] """
 
 Example: PT1M """
 
+    session_timeout = marshmallow_fields.Str(data_key="session_timeout", allow_none=True)
+    r""" This parameter specifies the interval after which a new session ID is sent to the FPolicy server during reconnection attempts. The default value is set to 10 seconds. If the connection between the storage controller and the FPolicy server is terminated and reconnection is made within the -session-timeout interval, the old session ID is sent to the FPolicy server so that it can send responses for old notifications.
+
+Example: PT10S """
+
     ssl_option = marshmallow_fields.Str(data_key="ssl_option", allow_none=True)
     r""" Specifies the SSL option for external communication with the FPolicy server. Possible values include the following:
 
@@ -129,6 +139,7 @@ Valid choices:
         "certificate",
         "format",
         "keep_alive_interval",
+        "max_connection_retries",
         "max_server_requests",
         "name",
         "port",
@@ -138,17 +149,19 @@ Valid choices:
         "resiliency",
         "secondary_servers",
         "server_progress_timeout",
+        "session_timeout",
         "ssl_option",
         "status_request_interval",
         "type",
     ]
-    """buffer_size,certificate,format,keep_alive_interval,max_server_requests,name,port,primary_servers,request_abort_timeout,request_cancel_timeout,resiliency,secondary_servers,server_progress_timeout,ssl_option,status_request_interval,type,"""
+    """buffer_size,certificate,format,keep_alive_interval,max_connection_retries,max_server_requests,name,port,primary_servers,request_abort_timeout,request_cancel_timeout,resiliency,secondary_servers,server_progress_timeout,session_timeout,ssl_option,status_request_interval,type,"""
 
     patchable_fields = [
         "buffer_size",
         "certificate",
         "format",
         "keep_alive_interval",
+        "max_connection_retries",
         "max_server_requests",
         "port",
         "primary_servers",
@@ -157,17 +170,19 @@ Valid choices:
         "resiliency",
         "secondary_servers",
         "server_progress_timeout",
+        "session_timeout",
         "ssl_option",
         "status_request_interval",
         "type",
     ]
-    """buffer_size,certificate,format,keep_alive_interval,max_server_requests,port,primary_servers,request_abort_timeout,request_cancel_timeout,resiliency,secondary_servers,server_progress_timeout,ssl_option,status_request_interval,type,"""
+    """buffer_size,certificate,format,keep_alive_interval,max_connection_retries,max_server_requests,port,primary_servers,request_abort_timeout,request_cancel_timeout,resiliency,secondary_servers,server_progress_timeout,session_timeout,ssl_option,status_request_interval,type,"""
 
     postable_fields = [
         "buffer_size",
         "certificate",
         "format",
         "keep_alive_interval",
+        "max_connection_retries",
         "max_server_requests",
         "name",
         "port",
@@ -177,11 +192,12 @@ Valid choices:
         "resiliency",
         "secondary_servers",
         "server_progress_timeout",
+        "session_timeout",
         "ssl_option",
         "status_request_interval",
         "type",
     ]
-    """buffer_size,certificate,format,keep_alive_interval,max_server_requests,name,port,primary_servers,request_abort_timeout,request_cancel_timeout,resiliency,secondary_servers,server_progress_timeout,ssl_option,status_request_interval,type,"""
+    """buffer_size,certificate,format,keep_alive_interval,max_connection_retries,max_server_requests,name,port,primary_servers,request_abort_timeout,request_cancel_timeout,resiliency,secondary_servers,server_progress_timeout,session_timeout,ssl_option,status_request_interval,type,"""
 
 
 class FpolicyEngines(Resource):

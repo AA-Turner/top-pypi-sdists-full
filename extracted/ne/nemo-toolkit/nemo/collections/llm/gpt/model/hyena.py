@@ -45,13 +45,16 @@ class HyenaModel(GPTModel):
       slightly differently.
     """
 
-    def get_inference_wrapper(self, params_dtype, inference_batch_times_seqlen_threshold) -> torch.Tensor:
+    def get_inference_wrapper(
+        self, params_dtype, inference_batch_times_seqlen_threshold, inference_max_seq_length=None
+    ) -> torch.Tensor:
         """
         Gets the inference wrapper for the Hyena model.
 
         Args:
             params_dtype: The data type for model parameters
             inference_batch_times_seqlen_threshold: Threshold for batch size * sequence length during inference
+            inference_max_seq_length: Maximum sequence length for inference
 
         Returns:
             GPTInferenceWrapper: The inference wrapper for the model
@@ -84,6 +87,7 @@ class HyenaModel(GPTModel):
             params_dtype=params_dtype,
             inference_batch_times_seqlen_threshold=inference_batch_times_seqlen_threshold,
             padded_vocab_size=vocab_size,
+            inference_max_seq_length=inference_max_seq_length,
         )
 
         model_inference_wrapper = GPTInferenceWrapper(mcore_model, inference_wrapper_config)
@@ -97,7 +101,7 @@ class HyenaModel(GPTModel):
         labels: Optional[torch.Tensor] = None,
         decoder_input: Optional[torch.Tensor] = None,
         loss_mask: Optional[torch.Tensor] = None,
-        inference_params=None,
+        inference_context=None,
         packed_seq_params=None,
     ) -> torch.Tensor:
         """
@@ -110,7 +114,7 @@ class HyenaModel(GPTModel):
             labels: Optional labels for loss computation
             decoder_input: Optional decoder input
             loss_mask: Optional loss mask
-            inference_params: Optional inference parameters
+            inference_context: Optional inference parameters
             packed_seq_params: Optional parameters for packed sequences
 
         Returns:
@@ -123,7 +127,7 @@ class HyenaModel(GPTModel):
             attention_mask,
             decoder_input=decoder_input,
             labels=labels,
-            inference_params=inference_params,
+            inference_context=inference_context,
             loss_mask=loss_mask,
             **extra_kwargs,
         )
@@ -220,6 +224,7 @@ class HyenaConfig(TransformerConfig, io.IOMixin):
     # Use this if you want to turn FP8 on for the linear layer in the mixer only. When using this, do not set
     #  Fp8 in the mixed precision plugin.
     vortex_style_fp8: bool = False
+    use_b2b_causal_conv1d: bool = False
 
     def __post_init__(self):
         """
@@ -228,17 +233,22 @@ class HyenaConfig(TransformerConfig, io.IOMixin):
         super().__post_init__()
         self.hyena_no_weight_decay_cond_fn = hyena_no_weight_decay_cond if self.hyena_filter_no_wd else None
 
-    def configure_model(self, tokenizer) -> "MCoreHyenaModel":
+    def configure_model(self, tokenizer, vp_stage: Optional[int] = None) -> "MCoreHyenaModel":
         """
         Configures and returns a Hyena model instance based on the config settings.
 
         Args:
             tokenizer: Tokenizer to use for the model
+            vp_stage: Virtual pipeline stage
 
         Returns:
             MCoreHyenaModel: Configured Hyena model instance
         """
         self.bias_activation_fusion = False if self.remove_activation_post_first_layer else self.bias_activation_fusion
+
+        assert (
+            getattr(self, "virtual_pipeline_model_parallel_size", None) is None and vp_stage is None
+        ), "Virtual pipeline model parallelism is temporarily unsupported in Hyena."
 
         model = MCoreHyenaModel(
             self,
@@ -296,6 +306,7 @@ class HyenaTestConfig(HyenaConfig):
     hyena_output_layer_init_method: str = 'wang_init'
     hyena_filter_no_wd: bool = True
     use_short_conv_bias: bool = False
+    use_b2b_causal_conv1d: bool = False
 
 
 @dataclass

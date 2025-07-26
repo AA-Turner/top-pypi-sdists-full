@@ -2,20 +2,6 @@ from unittest.mock import AsyncMock, patch
 from urllib.parse import parse_qs, urlparse
 
 import pytest
-from connector.generated import (
-    AuthModel,
-    GetAuthorizationUrl,
-    GetAuthorizationUrlRequest,
-    HandleAuthorizationCallback,
-    HandleAuthorizationCallbackRequest,
-    HandleClientCredentials,
-    HandleClientCredentialsRequest,
-    OAuthClientCredential,
-    OAuthCredential,
-    RefreshAccessToken,
-    RefreshAccessTokenRequest,
-    StandardCapabilityName,
-)
 from connector.httpx_rewrite import AsyncClient
 from connector.oai.capability import AuthRequest, get_settings
 from connector.oai.errors import ConnectorError
@@ -29,6 +15,20 @@ from connector.oai.modules.oauth_module_types import (
     OAuthSettings,
     RequestDataType,
     RequestMethod,
+)
+from connector_sdk_types.generated import (
+    AuthModel,
+    GetAuthorizationUrl,
+    GetAuthorizationUrlRequest,
+    HandleAuthorizationCallback,
+    HandleAuthorizationCallbackRequest,
+    HandleClientCredentials,
+    HandleClientCredentialsRequest,
+    OAuthClientCredential,
+    OAuthCredential,
+    RefreshAccessToken,
+    RefreshAccessTokenRequest,
+    StandardCapabilityName,
 )
 from httpx import Request, Response
 from pydantic import BaseModel, ValidationError

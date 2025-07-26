@@ -23,7 +23,13 @@ import pytest
 from typing_extensions import Annotated
 
 import nemo_run as run
-from nemo_run.config import OptionalDefaultConfig, Script, from_dict, set_value
+from nemo_run.config import (
+    OptionalDefaultConfig,
+    Script,
+    from_dict,
+    set_value,
+    get_underlying_types,
+)
 from nemo_run.exceptions import SetValueError
 
 
@@ -384,3 +390,30 @@ class TestScript:
             "-c",
             "\"echo 'test'\"",
         ]
+
+
+class TestGetUnderlyingTypes:
+    def test_simple_type(self):
+        assert get_underlying_types(int) == {int}
+        assert get_underlying_types(str) == {str}
+
+    def test_optional_type(self):
+        assert get_underlying_types(Optional[str]) == {str, type(None)}
+        assert get_underlying_types(Optional[int]) == {int, type(None)}
+
+    def test_union_type(self):
+        assert get_underlying_types(Union[int, str]) == {int, str}
+        assert get_underlying_types(Union[float, bool, str]) == {float, bool, str}
+
+    def test_nested_annotated_optional(self):
+        assert get_underlying_types(Annotated[Optional[int], "meta"]) == {int, type(None)}
+
+    def test_nested_annotated_union(self):
+        assert get_underlying_types(Annotated[Union[int, str], "meta"]) == {int, str}
+
+    def test_complex_nested_type(self):
+        assert get_underlying_types(Optional[Annotated[Union[int, str], "meta"]]) == {
+            int,
+            str,
+            type(None),
+        }

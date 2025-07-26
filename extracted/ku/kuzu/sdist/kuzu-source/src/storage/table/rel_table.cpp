@@ -99,7 +99,7 @@ bool RelTableScanState::scanNext(Transaction* transaction) {
         switch (source) {
         case TableScanSource::COMMITTED: {
             const auto scanResult = nodeGroup->scan(transaction, *this);
-            if (scanResult == NODE_GROUP_SCAN_EMMPTY_RESULT) {
+            if (scanResult == NODE_GROUP_SCAN_EMPTY_RESULT) {
                 if (hasUnCommittedData()) {
                     initStateForUncommitted();
                 } else {
@@ -140,7 +140,7 @@ RelTable::RelTable(RelGroupCatalogEntry* relGroupEntry, table_id_t fromTableID,
         auto nbrTableID = RelDirectionUtils::getNbrTableID(direction, fromTableID, toTableID);
         directedRelData.emplace_back(
             std::make_unique<RelTableData>(storageManager->getDataFH(), memoryManager, shadowFile,
-                *relGroupEntry, relEntryInfo->oid, direction, nbrTableID, enableCompression));
+                *relGroupEntry, *this, direction, nbrTableID, enableCompression));
     }
 }
 
@@ -196,7 +196,6 @@ void RelTable::insert(Transaction* transaction, TableInsertState& insertState) {
     localTable->insert(transaction, insertState);
     if (insertState.logToWAL && transaction->shouldLogToWAL()) {
         KU_ASSERT(transaction->isWriteTransaction());
-        KU_ASSERT(transaction->getClientContext());
         const auto& relInsertState = insertState.cast<RelTableInsertState>();
         std::vector<ValueVector*> vectorsToLog;
         vectorsToLog.push_back(&relInsertState.srcNodeIDVector);
@@ -219,8 +218,7 @@ void RelTable::update(Transaction* transaction, TableUpdateState& updateState) {
         relOffset >= StorageConstants::MAX_NUM_ROWS_IN_TABLE) {
         const auto localTable = transaction->getLocalStorage()->getLocalTable(tableID);
         KU_ASSERT(localTable);
-        auto dummyTrx = Transaction::getDummyTransactionFromExistingOne(*transaction);
-        localTable->update(&dummyTrx, updateState);
+        localTable->update(&DUMMY_TRANSACTION, updateState);
     } else {
         for (auto& relData : directedRelData) {
             relData->update(transaction,
@@ -230,7 +228,6 @@ void RelTable::update(Transaction* transaction, TableUpdateState& updateState) {
     }
     if (updateState.logToWAL && transaction->shouldLogToWAL()) {
         KU_ASSERT(transaction->isWriteTransaction());
-        KU_ASSERT(transaction->getClientContext());
         auto& wal = transaction->getLocalWAL();
         wal.logRelUpdate(tableID, relUpdateState.columnID, &relUpdateState.srcNodeIDVector,
             &relUpdateState.dstNodeIDVector, &relUpdateState.relIDVector,
@@ -263,7 +260,6 @@ bool RelTable::delete_(Transaction* transaction, TableDeleteState& deleteState) 
         hasChanges = true;
         if (deleteState.logToWAL && transaction->shouldLogToWAL()) {
             KU_ASSERT(transaction->isWriteTransaction());
-            KU_ASSERT(transaction->getClientContext());
             auto& wal = transaction->getLocalWAL();
             wal.logRelDelete(tableID, &relDeleteState.srcNodeIDVector,
                 &relDeleteState.dstNodeIDVector, &relDeleteState.relIDVector);
@@ -285,10 +281,10 @@ void RelTable::detachDelete(Transaction* transaction, RelDataDirection direction
         directedRelData.size() == NUM_REL_DIRECTIONS ?
             getDirectedTableData(RelDirectionUtils::getOppositeDirection(direction)) :
             nullptr;
-    auto relReadState = std::make_unique<RelTableScanState>(
-        *transaction->getClientContext()->getMemoryManager(), &deleteState->srcNodeIDVector,
-        std::vector{&deleteState->dstNodeIDVector, &deleteState->relIDVector},
-        deleteState->dstNodeIDVector.state, true /*randomLookup*/);
+    auto relReadState =
+        std::make_unique<RelTableScanState>(*memoryManager, &deleteState->srcNodeIDVector,
+            std::vector{&deleteState->dstNodeIDVector, &deleteState->relIDVector},
+            deleteState->dstNodeIDVector.state, true /*randomLookup*/);
     relReadState->setToTable(transaction, this, {NBR_ID_COLUMN_ID, REL_ID_COLUMN_ID}, {},
         direction);
     initScanState(transaction, *relReadState);
@@ -296,7 +292,6 @@ void RelTable::detachDelete(Transaction* transaction, RelDataDirection direction
         deleteState);
     if (deleteState->logToWAL && transaction->shouldLogToWAL()) {
         KU_ASSERT(transaction->isWriteTransaction());
-        KU_ASSERT(transaction->getClientContext());
         auto& wal = transaction->getLocalWAL();
         wal.logRelDetachDelete(tableID, direction, &deleteState->srcNodeIDVector);
     }
@@ -368,10 +363,10 @@ void RelTable::addColumn(Transaction* transaction, TableAddColumnState& addColum
         localTable = transaction->getLocalStorage()->getLocalTable(tableID);
     }
     if (localTable) {
-        localTable->addColumn(transaction, addColumnState);
+        localTable->addColumn(addColumnState);
     }
     for (auto& directedRelData : directedRelData) {
-        directedRelData->addColumn(transaction, addColumnState, pageAllocator);
+        directedRelData->addColumn(addColumnState, pageAllocator);
     }
     hasChanges = true;
 }
@@ -401,7 +396,7 @@ void RelTable::commit(main::ClientContext* context, TableCatalogEntry* tableEntr
     LocalTable* localTable) {
     auto& localRelTable = localTable->cast<LocalRelTable>();
     if (localRelTable.isEmpty()) {
-        localTable->clear();
+        localTable->clear(*context->getMemoryManager());
         return;
     }
     // Update relID in local storage.
@@ -439,7 +434,7 @@ void RelTable::commit(main::ClientContext* context, TableCatalogEntry* tableEntr
         }
     }
 
-    localRelTable.clear();
+    localRelTable.clear(*context->getMemoryManager());
 }
 
 void RelTable::reclaimStorage(PageAllocator& pageAllocator) const {

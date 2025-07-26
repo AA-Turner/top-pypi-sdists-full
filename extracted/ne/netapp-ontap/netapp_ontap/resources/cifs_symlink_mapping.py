@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -41,15 +41,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsSymlinkMapping(
     {
-        "svm": {"name": "vs1", "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb"},
+        "unix_path": "/mnt/eng_volume/",
+        "svm": {"uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb", "name": "vs1"},
         "target": {
-            "home_directory": False,
-            "locality": "local",
             "share": "sh1",
             "path": "/dir1/dir2/",
+            "locality": "local",
             "server": "cifs123",
+            "home_directory": False,
         },
-        "unix_path": "/mnt/eng_volume/",
     }
 )
 
@@ -75,53 +75,53 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     CifsSymlinkMapping(
         {
-            "svm": {
-                "name": "vs1",
-                "_links": {
-                    "self": {
-                        "href": "/api/svm/svms/000c5cd2-ebdf-11e8-a96e-0050568ea3cb"
-                    }
-                },
-                "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb",
-            },
-            "target": {
-                "home_directory": False,
-                "locality": "local",
-                "share": "sh1",
-                "path": "/dir1/dir2/",
-                "server": "CIFS123",
-            },
             "unix_path": "/mnt/eng_volume/",
             "_links": {
                 "self": {
                     "href": "/api/protocols/cifs/unix-symlink-mapping/000c5cd2-ebdf-11e8-a96e-0050568ea3cb/%2Fmnt%2Feng_volume%2F"
                 }
             },
+            "svm": {
+                "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb",
+                "name": "vs1",
+                "_links": {
+                    "self": {
+                        "href": "/api/svm/svms/000c5cd2-ebdf-11e8-a96e-0050568ea3cb"
+                    }
+                },
+            },
+            "target": {
+                "share": "sh1",
+                "path": "/dir1/dir2/",
+                "locality": "local",
+                "server": "CIFS123",
+                "home_directory": False,
+            },
         }
     ),
     CifsSymlinkMapping(
         {
+            "unix_path": "/mnt/eng_volume/",
+            "_links": {
+                "self": {
+                    "href": "/api/protocols/cifs/unix-symlink-mapping/1d30d1b1-ebdf-11e8-a96e-0050568ea3cb/%2Fmnt%2Feng_volume%2F"
+                }
+            },
             "svm": {
+                "uuid": "1d30d1b1-ebdf-11e8-a96e-0050568ea3cb",
                 "name": "vs2",
                 "_links": {
                     "self": {
                         "href": "/api/svm/svms/1d30d1b1-ebdf-11e8-a96e-0050568ea3cb"
                     }
                 },
-                "uuid": "1d30d1b1-ebdf-11e8-a96e-0050568ea3cb",
             },
             "target": {
-                "home_directory": False,
-                "locality": "widelink",
                 "share": "ENG_SHARE",
                 "path": "/dir1/dir2/",
+                "locality": "widelink",
                 "server": "ENGCIFS",
-            },
-            "unix_path": "/mnt/eng_volume/",
-            "_links": {
-                "self": {
-                    "href": "/api/protocols/cifs/unix-symlink-mapping/1d30d1b1-ebdf-11e8-a96e-0050568ea3cb/%2Fmnt%2Feng_volume%2F"
-                }
+                "home_directory": False,
             },
         }
     ),
@@ -154,15 +154,15 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 CifsSymlinkMapping(
     {
-        "svm": {"name": "vs1", "uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb"},
+        "unix_path": "/mnt/eng_volume/",
+        "svm": {"uuid": "000c5cd2-ebdf-11e8-a96e-0050568ea3cb", "name": "vs1"},
         "target": {
-            "home_directory": False,
-            "locality": "local",
             "share": "sh1",
             "path": "/dir1/dir2/",
+            "locality": "local",
             "server": "CIFS123",
+            "home_directory": False,
         },
-        "unix_path": "/mnt/eng_volume/",
     }
 )
 

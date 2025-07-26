@@ -10,8 +10,8 @@ requires = [
     #   2. Note that building against numpy 1.x works fine too - users and
     #      redistributors can do this by installing the numpy version they like
     #      and disabling build isolation.
-    #   3. The <3 upper bound is to pre-empt problems with the next major release.
-    "numpy>=2.0.0rc1,<3",
+    #   3. The <2.3 upper bound due to removal of the deprecated v1.7 API used by our Boost extension.
+    "numpy>=2.0.0rc1,<2.3",
 
     "pybind11-stubgen",
     "typing_extensions >= 4.5.0; python_version < '3.13'",
@@ -26,7 +26,7 @@ changelog = "https://gitlab.com/tango-controls/pytango/-/releases"
 
 [project]
 name = "pytango"
-version = "10.0.2"
+version = "10.0.3"
 description = "Python bindings for the cppTango library; part of the Tango Distributed Control System toolkit"
 readme = "README.rst"
 requires-python = ">=3.9"
@@ -34,8 +34,7 @@ authors = [
     {'name' = "Coutinho"}]
 maintainers = [
     {"name" = "Anton Joubert"},
-    {"name" = "Yury Matveyev"},
-    {"name" = "Ulrik Pedersen"}]
+    {"name" = "Yury Matveyev"}]
 classifiers = [
         "Development Status :: 5 - Production/Stable",
         "Environment :: Other Environment",

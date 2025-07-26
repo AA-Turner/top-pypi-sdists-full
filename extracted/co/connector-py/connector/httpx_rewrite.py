@@ -5,10 +5,10 @@ from collections.abc import Generator
 from contextlib import contextmanager
 
 import httpx
+from connector_sdk_types.generated import ErrorCode
 from gql.transport.httpx import HTTPXAsyncTransport as GqlHTTPXAsyncTransport
 from urllib3.util.url import Url, parse_url
 
-from connector.generated import ErrorCode
 from connector.oai.errors import ConnectorError
 
 logger = logging.getLogger("integration-connectors.sdk")

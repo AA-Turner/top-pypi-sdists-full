@@ -9,8 +9,8 @@ from typing import Any, Dict, List, Optional, Union
 
 import requests
 from hikaru.model.rel_1_26 import DaemonSet, Deployment, Job, Node, Pod, ReplicaSet, StatefulSet
-
-from robusta.core.discovery.discovery import DISCOVERY_STACKTRACE_TIMEOUT_S, Discovery, DiscoveryResults
+from robusta.core.model.namespaces import NamespaceMetadata, ResourceCount
+from robusta.core.discovery.discovery import DISCOVERY_STACKTRACE_TIMEOUT_S, Discovery, DiscoveryResults, ResourceAccessForbiddenError
 from robusta.core.discovery.top_service_resolver import TopLevelResource, TopServiceResolver
 from robusta.core.discovery.utils import from_api_server_node
 from robusta.core.model.base_params import HolmesParams
@@ -42,6 +42,14 @@ from robusta.integrations.prometheus.utils import HolmesDiscovery
 from robusta.integrations.receiver import ActionRequestReceiver
 from robusta.runner.web_api import WebApi
 from robusta.utils.stack_tracer import StackTracer
+from robusta.core.model.env_vars import ROBUSTA_API_ENDPOINT
+from cachetools import TTLCache
+
+RUNNER_GET_HOLMES_SLACKBOT_INFO = f"{ROBUSTA_API_ENDPOINT}/api/holmes/integrations/slack/runner"
+HOLMES_SLACKBOT_CACHE_TTL = int(os.getenv("HOLMES_SLACKBOT_CACHE_TTL", 15 * 60))
+
+# Define the cache with a single slot and the configured TTL
+_holmes_slackbot_cache = TTLCache(maxsize=1, ttl=HOLMES_SLACKBOT_CACHE_TTL)
 
 
 class RobustaSink(SinkBase, EventHandler):
@@ -54,6 +62,9 @@ class RobustaSink(SinkBase, EventHandler):
         self.token = sink_config.robusta_sink.token
         self.ttl_hours = sink_config.robusta_sink.ttl_hours
         self.persist_events = sink_config.robusta_sink.persist_events
+        self.namespace_monitored_resources = sink_config.robusta_sink.namespaceMonitoredResources
+        self.namespace_discovery_seconds = sink_config.robusta_sink.namespace_discovery_seconds
+
         robusta_token = RobustaToken(**json.loads(base64.b64decode(self.token)))
         if self.account_id != robusta_token.account_id:
             logging.error(
@@ -127,7 +138,7 @@ class RobustaSink(SinkBase, EventHandler):
         if not hasattr(self, '_thread'):
             self._thread = threading.Thread(target=self.__discover_cluster, daemon=True)
             self._thread.start()
-
+        
     def set_cluster_active(self, active: bool):
         self.dal.set_cluster_active(active)
 
@@ -317,6 +328,63 @@ class RobustaSink(SinkBase, EventHandler):
         except Exception:
             logging.error("Error occurred while sending `helm release` trigger event", exc_info=True)
 
+    def __discover_custom_namespaced_resources(self, namespaces: List[NamespaceInfo]):
+        if not self.namespace_monitored_resources:
+            return
+
+        try:
+            # Step 1: Collect counts in a temporary map
+            resource_map = {}  # type: Dict[str, List[ResourceCount]]
+
+            for resource in self.namespace_monitored_resources:
+                try:
+                    results = Discovery.count_resources(
+                        kind=resource.kind,
+                        api_group=resource.apiGroup,
+                        version=resource.apiVersion
+                    )
+
+                    for namespace_name, count in results.items():
+                        if namespace_name not in resource_map:
+                            resource_map[namespace_name] = []
+
+                        resource_map[namespace_name].append(ResourceCount(
+                            kind=resource.kind,
+                            apiVersion=resource.apiVersion,
+                            apiGroup=resource.apiGroup,
+                            count=count
+                        ))
+
+                except ResourceAccessForbiddenError as e:
+                    logging.warning(f"Skipping resource {resource.kind} due to insufficient permissions: {e}")
+                except Exception as e:
+                    logging.exception(f"Unexpected error counting resource {resource.kind}: {e}")
+
+            # Step 2: Apply metadata to matching NamespaceInfo entries
+            for ns in namespaces:
+                if ns.name in resource_map:
+                    if not ns.metadata:
+                        ns.metadata = NamespaceMetadata(resources=[])
+                    ns.metadata.resources.extend(resource_map[ns.name])
+                    
+            logging.info("Discovered Namespaced custom resources")
+            return namespaces
+
+        except Exception as e:
+            logging.exception(f"Namespace discovery failed: {e}")
+
+    def __add_cached_namespace_metadata(self, namespaces: List[NamespaceInfo]):
+        discovered_namespaces = {namespace.name: namespace for namespace in namespaces}
+        updated_namespaces: List[NamespaceInfo] = []
+
+        for namespace_name, namespace in discovered_namespaces.items():
+            cached_namespace = self.__namespaces_cache.get(namespace_name)
+            if cached_namespace:
+                namespace.metadata = cached_namespace.metadata
+            updated_namespaces.append(namespace)
+        
+        return updated_namespaces
+
     def __discover_resources(self) -> DiscoveryResults:
         # discovery is using the k8s python API and not Hikaru, since it's performance is 10 times better
         try:
@@ -335,7 +403,13 @@ class RobustaSink(SinkBase, EventHandler):
             self.__publish_new_helm_releases(results.helm_releases)
 
             self.__assert_namespaces_cache_initialized()
-            self.__publish_new_namespaces(results.namespaces)
+            namespaces = results.namespaces
+            if self.namespace_monitored_resources and (time.time() - self.last_namespace_discovery) >= self.namespace_discovery_seconds:
+                namespaces = self.__discover_custom_namespaced_resources(namespaces)
+                self.last_namespace_discovery = time.time()
+            elif self.namespace_monitored_resources:
+                namespaces = self.__add_cached_namespace_metadata(namespaces)
+            self.__publish_new_namespaces(namespaces)
 
             self.__pods_running_count = results.pods_running_count
 
@@ -552,24 +626,25 @@ class RobustaSink(SinkBase, EventHandler):
     def __discover_cluster(self):
         logging.info("Cluster discovery initialized")
         get_history = self.__should_run_history()
+        self.last_namespace_discovery = 0
         while self.__active:
             start_t = time.time()
             self.__periodic_cluster_status()
             discovery_results = self.__discover_resources()
+
             if get_history:
                 self.__get_events_history()
                 get_history = False
-
             if discovery_results and discovery_results.helm_releases:
                 self.__send_helm_release_events(release_data=discovery_results.helm_releases)
-
             duration = round(time.time() - start_t)
-            # for small cluster duration is discovery_period_sec. For bigger clusters, up to 5 min
             sleep_dur = min(max(self.__discovery_period_sec, 3 * duration), 300)
+
             logging.debug(f"Discovery duration: {duration} next discovery in {sleep_dur}")
             time.sleep(sleep_dur)
 
         logging.info(f"Service discovery for sink {self.sink_name} ended.")
+
 
     def __periodic_cluster_status(self):
         first_alert = False
@@ -703,3 +778,26 @@ class RobustaSink(SinkBase, EventHandler):
                 self.__safe_delete_job(job_key)
                 self.__discovery_metrics.on_jobs_updated(1)
                 return
+
+    def is_holmes_slackbot_connected(self) -> bool:
+        if 'status' in _holmes_slackbot_cache:
+            return _holmes_slackbot_cache['status']
+        session_token = self.dal.get_session_token()
+        try:
+            message_json = {
+                "session_token": session_token,
+                "account_id": self.account_id,
+            }
+            response = requests.post(
+                RUNNER_GET_HOLMES_SLACKBOT_INFO,
+                json=message_json,
+                headers={"Content-Type": "application/json"}
+            )
+            response.raise_for_status()
+            is_connected = bool(response.json().get("integrations"))
+            _holmes_slackbot_cache['status'] = is_connected
+            return is_connected
+        except Exception as e:
+            logging.warning(f"Failed to get holmes slackbot info {e}")
+            _holmes_slackbot_cache['status'] = False
+            return False

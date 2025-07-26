@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -31,105 +31,105 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     S3BucketSvm(
         {
-            "name": "bucket-2",
-            "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
-            "audit_event_selector": {"permission": "all", "access": "all"},
+            "audit_event_selector": {"access": "all", "permission": "all"},
+            "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
             "uuid": "527812ab-7c6d-11e9-97e8-0050568ea123",
-            "logical_used_size": 157286400,
-            "qos_policy": {
-                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
-                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
-            },
             "comment": "S3 bucket.",
-            "size": 209715200,
             "volume": {
-                "name": "fg_oss_1558514455",
                 "uuid": "51276f5f-7c6d-11e9-97e8-0050568ea123",
+                "name": "fg_oss_1558514455",
             },
+            "qos_policy": {
+                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+            },
+            "name": "bucket-2",
             "encryption": {"enabled": False},
+            "logical_used_size": 157286400,
+            "size": 209715200,
         }
     ),
     S3BucketSvm(
         {
-            "name": "bucket-1",
-            "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
+            "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
             "uuid": "a8234aec-7e06-11e9-97e8-0050568ea123",
+            "comment": "bucket1",
+            "cors": {
+                "rules": [
+                    {
+                        "id": "string",
+                        "allowed_origins": ["http://www.example.com"],
+                        "allowed_headers": ["x-amz-request-id"],
+                        "max_age_seconds": 1024,
+                        "allowed_methods": ["PUT", "DELETE"],
+                        "expose_headers": ["http://www.example.com"],
+                    }
+                ]
+            },
+            "volume": {
+                "uuid": "a36a1ea7-7e06-11e9-97e8-0050568ea123",
+                "name": "fg_oss_1558690256",
+            },
+            "qos_policy": {
+                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+            },
+            "name": "bucket-1",
+            "encryption": {"enabled": False},
             "policy": {
                 "statements": [
                     {
-                        "sid": "fullAccessForAliceToBucket",
                         "effect": "allow",
+                        "sid": "fullAccessForAliceToBucket",
                         "actions": ["*"],
-                        "principals": ["Alice"],
                         "resources": ["*"],
+                        "principals": ["Alice"],
                     },
                     {
-                        "sid": "AccessToListAndGetObjectForAnnAndJack",
                         "effect": "allow",
+                        "sid": "AccessToListAndGetObjectForAnnAndJack",
+                        "actions": ["ListBucket", "GetObject"],
+                        "resources": ["bucket-1", "bucket-1/*"],
                         "conditions": [
                             {"operator": "ip_address", "source_ips": ["1.1.1.1/10"]},
                             {
+                                "usernames": ["user1", "user2"],
                                 "operator": "string_equals",
                                 "delimiters": ["del1", "del2"],
-                                "usernames": ["user1", "user2"],
                                 "prefixes": ["pref1", "pref2"],
                             },
                             {"operator": "numeric_equals", "max_keys": [100]},
                         ],
-                        "actions": ["ListBucket", "GetObject"],
                         "principals": ["ann", "jack"],
-                        "resources": ["bucket-1", "bucket-1/*"],
                     },
                     {
-                        "sid": "DenyAccessToGetPutDeleteObjectForMike",
                         "effect": "deny",
+                        "sid": "DenyAccessToGetPutDeleteObjectForMike",
                         "actions": ["*Object"],
-                        "principals": ["mike", "group/group1", "nasgroup/group2"],
                         "resources": [
                             "bucket-1/policy-docs/*",
                             "bucket-1/confidential-*",
                         ],
+                        "principals": ["mike", "group/group1", "nasgroup/group2"],
                     },
                     {
+                        "effect": "allow",
                         "sid": "AccessToGetObjectForAnonymousUsers",
-                        "effect": "allow",
                         "actions": ["GetObject"],
-                        "principals": ["*"],
                         "resources": ["bucket-1/readme"],
+                        "principals": ["*"],
                     },
                     {
-                        "sid": "AccessToGetObjectForAllUsersOfSVM",
                         "effect": "allow",
+                        "sid": "AccessToGetObjectForAllUsersOfSVM",
                         "actions": ["GetObject"],
-                        "principals": [],
                         "resources": ["bucket-1/policies/examples/*"],
+                        "principals": [],
                     },
                 ]
             },
             "logical_used_size": 0,
-            "qos_policy": {
-                "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
-                "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
-            },
-            "comment": "bucket1",
             "size": 1677721600,
-            "volume": {
-                "name": "fg_oss_1558690256",
-                "uuid": "a36a1ea7-7e06-11e9-97e8-0050568ea123",
-            },
-            "encryption": {"enabled": False},
-            "cors": {
-                "rules": [
-                    {
-                        "max_age_seconds": 1024,
-                        "expose_headers": ["http://www.example.com"],
-                        "allowed_origins": ["http://www.example.com"],
-                        "id": "string",
-                        "allowed_headers": ["x-amz-request-id"],
-                        "allowed_methods": ["PUT", "DELETE"],
-                    }
-                ]
-            },
         }
     ),
 ]
@@ -159,21 +159,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3BucketSvm(
     {
-        "name": "bucket-2",
-        "svm": {"name": "vs1", "uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123"},
+        "svm": {"uuid": "12f3ba4c-7ae0-11e9-8c06-0050568ea123", "name": "vs1"},
         "uuid": "527812ab-7c6d-11e9-97e8-0050568ea123",
-        "logical_used_size": 157286400,
-        "qos_policy": {
-            "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
-            "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
-        },
         "comment": "S3 bucket.",
-        "size": 209715200,
         "volume": {
-            "name": "fg_oss_1558514455",
             "uuid": "51276f5f-7c6d-11e9-97e8-0050568ea123",
+            "name": "fg_oss_1558514455",
         },
+        "qos_policy": {
+            "uuid": "39ac471f-ff35-11e9-b0f9-005056a7ab52",
+            "name": "vs0_auto_gen_policy_39a9522f_ff35_11e9_b0f9_005056a7ab52",
+        },
+        "name": "bucket-2",
         "encryption": {"enabled": False},
+        "logical_used_size": 157286400,
+        "size": 209715200,
     }
 )
 
@@ -203,7 +203,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 <label for="example2_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example2_result" class="try_it_out_content">
 ```
-S3BucketSvm({"name": "bucket-3", "comment": "S3 bucket."})
+S3BucketSvm({"comment": "S3 bucket.", "name": "bucket-3"})
 
 ```
 </div>
@@ -236,7 +236,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 <label for="example3_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example3_result" class="try_it_out_content">
 ```
-S3BucketSvm({"name": "bucket-3", "comment": "S3 bucket."})
+S3BucketSvm({"comment": "S3 bucket.", "name": "bucket-3"})
 
 ```
 </div>
@@ -301,7 +301,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 <label for="example4_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example4_result" class="try_it_out_content">
 ```
-S3BucketSvm({"name": "bucket-3", "comment": "S3 bucket."})
+S3BucketSvm({"comment": "S3 bucket.", "name": "bucket-3"})
 
 ```
 </div>
@@ -344,7 +344,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 <label for="example5_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example5_result" class="try_it_out_content">
 ```
-S3BucketSvm({"name": "bucket-4", "comment": "S3 bucket."})
+S3BucketSvm({"comment": "S3 bucket.", "name": "bucket-4"})
 
 ```
 </div>
@@ -373,7 +373,7 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 <label for="example6_try_it_out" class="try_it_out_button">Try it out</label>
 <div id="example6_result" class="try_it_out_content">
 ```
-S3BucketSvm({"name": "bucket-5", "comment": "S3 Compliance mode bucket."})
+S3BucketSvm({"comment": "S3 Compliance mode bucket.", "name": "bucket-5"})
 
 ```
 </div>
@@ -410,21 +410,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 S3BucketSvm(
     {
-        "name": "bucket1",
         "uuid": "baf69601-23e5-11ef-ab73-005056a7a2dd",
         "type": "s3",
         "cors": {
             "rules": [
                 {
-                    "max_age_seconds": 1024,
-                    "expose_headers": ["http://www.example.com"],
-                    "allowed_origins": ["http://www.example.com"],
                     "id": "id1",
+                    "allowed_origins": ["http://www.example.com"],
                     "allowed_headers": ["x-amz-request-id"],
+                    "max_age_seconds": 1024,
                     "allowed_methods": ["PUT", "DELETE"],
+                    "expose_headers": ["http://www.example.com"],
                 }
             ]
         },
+        "name": "bucket1",
     }
 )
 
@@ -456,12 +456,12 @@ with HostConnection("<mgmt-ip>", username="admin", password="<password>", verify
 ```
 S3BucketSvm(
     {
-        "name": "bucket-6",
         "comment": "S3 snapshot policy bucket.",
         "snapshot_policy": {
-            "name": "default-1weekly",
             "uuid": "f9c5f090-4ac8-11ef-ba24-005056a7ceb6",
+            "name": "default-1weekly",
         },
+        "name": "bucket-6",
     }
 )
 
@@ -691,6 +691,18 @@ Example: 4"""
     encryption = marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_svm_encryption.S3BucketSvmEncryptionSchema", data_key="encryption", unknown=EXCLUDE, allow_none=True)
     r""" The encryption field of the s3_bucket_svm."""
 
+    is_consistent_etag = marshmallow_fields.Boolean(
+        data_key="is_consistent_etag",
+        allow_none=True,
+    )
+    r""" Specifies whether the NAS bucket returns a consistent ETag across different S3 requests."""
+
+    is_nas_path_mutable = marshmallow_fields.Boolean(
+        data_key="is_nas_path_mutable",
+        allow_none=True,
+    )
+    r""" Specifies whether the NAS bucket mapping or association with a NAS volume can change according to the changes in the NAS volume junction-path due to volume operations like mount and unmount and therefore the NAS bucket will have access to any path in a NAS volume that matches the specified nas-path. Or is immutable and therefore the NAS bucket will always have access to the same nas-path that was specified during bucket creation even if the volume junction-path has undergone changes after the bucket creation."""
+
     lifecycle_management = marshmallow_fields.Nested("netapp_ontap.models.s3_bucket_svm_lifecycle_management.S3BucketSvmLifecycleManagementSchema", data_key="lifecycle_management", unknown=EXCLUDE, allow_none=True)
     r""" Lifecycle management is implemented as an object associated with a bucket. It defines rules to be applied against objects within a bucket. These rules are applied in the background and can delete objects."""
 
@@ -813,6 +825,8 @@ Valid choices:
         "comment",
         "cors",
         "encryption",
+        "is_consistent_etag",
+        "is_nas_path_mutable",
         "lifecycle_management",
         "logical_used_size",
         "name",
@@ -820,8 +834,10 @@ Valid choices:
         "policy",
         "protection_status",
         "qos_policy.links",
+        "qos_policy.max_throughput",
         "qos_policy.max_throughput_iops",
         "qos_policy.max_throughput_mbps",
+        "qos_policy.min_throughput",
         "qos_policy.min_throughput_iops",
         "qos_policy.min_throughput_mbps",
         "qos_policy.name",
@@ -840,18 +856,21 @@ Valid choices:
         "volume.name",
         "volume.uuid",
     ]
-    """audit_event_selector,comment,cors,encryption,lifecycle_management,logical_used_size,name,nas_path,policy,protection_status,qos_policy.links,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,retention,role,size,snapshot_policy,svm.links,svm.name,svm.uuid,type,uuid,versioning_state,volume.links,volume.name,volume.uuid,"""
+    """audit_event_selector,comment,cors,encryption,is_consistent_etag,is_nas_path_mutable,lifecycle_management,logical_used_size,name,nas_path,policy,protection_status,qos_policy.links,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,retention,role,size,snapshot_policy,svm.links,svm.name,svm.uuid,type,uuid,versioning_state,volume.links,volume.name,volume.uuid,"""
 
     patchable_fields = [
         "audit_event_selector",
         "comment",
         "cors",
+        "is_consistent_etag",
         "lifecycle_management",
         "nas_path",
         "policy",
         "protection_status",
+        "qos_policy.max_throughput",
         "qos_policy.max_throughput_iops",
         "qos_policy.max_throughput_mbps",
+        "qos_policy.min_throughput",
         "qos_policy.min_throughput_iops",
         "qos_policy.min_throughput_mbps",
         "qos_policy.name",
@@ -862,7 +881,7 @@ Valid choices:
         "type",
         "versioning_state",
     ]
-    """audit_event_selector,comment,cors,lifecycle_management,nas_path,policy,protection_status,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,retention,size,snapshot_policy,type,versioning_state,"""
+    """audit_event_selector,comment,cors,is_consistent_etag,lifecycle_management,nas_path,policy,protection_status,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,retention,size,snapshot_policy,type,versioning_state,"""
 
     postable_fields = [
         "aggregates.name",
@@ -871,13 +890,17 @@ Valid choices:
         "comment",
         "constituents_per_aggregate",
         "cors",
+        "is_consistent_etag",
+        "is_nas_path_mutable",
         "lifecycle_management",
         "name",
         "nas_path",
         "policy",
         "protection_status",
+        "qos_policy.max_throughput",
         "qos_policy.max_throughput_iops",
         "qos_policy.max_throughput_mbps",
+        "qos_policy.min_throughput",
         "qos_policy.min_throughput_iops",
         "qos_policy.min_throughput_mbps",
         "qos_policy.name",
@@ -889,7 +912,7 @@ Valid choices:
         "type",
         "versioning_state",
     ]
-    """aggregates.name,aggregates.uuid,audit_event_selector,comment,constituents_per_aggregate,cors,lifecycle_management,name,nas_path,policy,protection_status,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,retention,size,snapshot_policy,storage_service_level,type,versioning_state,"""
+    """aggregates.name,aggregates.uuid,audit_event_selector,comment,constituents_per_aggregate,cors,is_consistent_etag,is_nas_path_mutable,lifecycle_management,name,nas_path,policy,protection_status,qos_policy.max_throughput,qos_policy.max_throughput_iops,qos_policy.max_throughput_mbps,qos_policy.min_throughput,qos_policy.min_throughput_iops,qos_policy.min_throughput_mbps,qos_policy.name,qos_policy.uuid,retention,size,snapshot_policy,storage_service_level,type,versioning_state,"""
 
 class S3BucketSvm(Resource):
     r""" A bucket is a container of objects. Each bucket defines an object namespace. S3 requests specify objects using a bucket-name and object-name pair. An object resides within a bucket. """
@@ -970,8 +993,9 @@ class S3BucketSvm(Resource):
   * `versioning_state` - Versioning state for buckets.
   * `nas_path` - NAS path to which the NAS bucket corresponds to.
   * `retention.default_period` - Specifies the duration of default-retention applicable for objects on the object store bucket.
-  * `cors' - Specifying CORS rules enables the bucket to service the cross-origin requests. New CORS rules are created after existing rules are deleted. To retain any of the existing rules, you need to specify those CORS rules again. To remove all the existing CORS rules, specify an empty CORS rules list.
+  * `cors` - Specifying CORS rules enables the bucket to service the cross-origin requests. New CORS rules are created after existing rules are deleted. To retain any of the existing rules, you need to specify those CORS rules again. To remove all the existing CORS rules, specify an empty CORS rules list.
   * `snapshot_policy` - Snapshot policy for the bucket.
+  * `is_consistent_etag` - Return a consistent ETag for NAS buckets.
 ### Related ONTAP commands
 * `vserver object-store-server bucket modify`
 * `vserver object-store-server bucket policy statement modify`
@@ -1001,6 +1025,7 @@ class S3BucketSvm(Resource):
         **kwargs
     ) -> Union[List["S3BucketSvm"], NetAppResponse]:
         r"""Creates the S3 bucket configuration of an SVM.
+<personalities supports=unified,asar2>
 ### Important notes
 - Each SVM can have one or more bucket configurations.
 - Aggregate lists should be specified explicitly. If not specified, then the bucket is auto-provisioned as a FlexGroup.
@@ -1009,14 +1034,24 @@ class S3BucketSvm(Resource):
 - "qos_policy" can be specified if a bucket needs to be attached to a QoS group policy during creation time.
 - "audit_event_selector" can be specified if a bucket needs to be specify access and permission type for auditing.
 - Cross-origin resource sharing (CORS) configuration can be specified when a bucket is created.
+</personalities>
+<personalities supports=aiml>
+### Important notes
+- Each SVM can have one or more bucket configurations.
+- An access policy can be created when a bucket is created.
+- "qos_policy" can be specified if a bucket needs to be attached to a QoS group policy during creation time.
+- "audit_event_selector" can be specified if a bucket needs to be specify access and permission type for auditing.
+- Cross-origin resource sharing (CORS) configuration can be specified when a bucket is created.
+</personalities>
 ### Required properties
 * `svm.uuid` - Existing SVM in which to create the bucket configuration.
 * `name` - Bucket name that is to be created.
+<personalities supports=unified,asar2>
 ### Recommended optional properties
 * `aggregates` - List of aggregates for the FlexGroup on which the bucket is hosted on.
 * `constituents_per_aggregate` - Number of constituents per aggregate.
 * `size` - Specifying the bucket size is recommended.
-* `policy` - Specifying policy enables users to perform operations on buckets. Hence specifying the resource permissions is recommended.
+* `policy` - Specifying policy enables users to perform operations on buckets; specifying the resource permissions is recommended.
 * `qos_policy` - A QoS policy for buckets.
 * `audit_event_selector` - Audit policy for buckets.
 * `versioning_state` - Versioning state for buckets.
@@ -1028,6 +1063,8 @@ class S3BucketSvm(Resource):
 * `retention.default_period` - Specifies the duration of default-retention applicable for objects on the object store bucket.
 * `cors` - Specifying CORS rules enables the bucket to service the cross-origin requests.
 * `snapshot_policy` - Snapshot policy for the bucket.
+* `is_consistent_etag` - Return a consistent ETag for NAS buckets.
+* `is_nas_path_mutable` - Specifies whether the NAS bucket mapping with a NAS volume can change according to the changes in the NAS volume junction-path due to volume operations like mount and unmount.
 ### Default property values
 * `size` - 800MB
 * `comment` - ""
@@ -1042,6 +1079,37 @@ class S3BucketSvm(Resource):
 * `use_mirrored_aggregates` - _true_ for a MetroCluster configuration and _false_ for a non-MetroCluster configuration.
 * `type` - S3.
 * `retention.mode` - no_lock
+* `is_consistent_etag` - false
+</personalities>
+<personalities supports=aiml>
+### Recommended optional properties
+* `size` - Specifying the bucket size is recommended.
+* `policy` - Specifying policy enables users to perform operations on buckets; specifying the resource permissions is recommended.
+* `qos_policy` - A QoS policy for buckets.
+* `audit_event_selector` - Audit policy for buckets.
+* `versioning_state` - Versioning state for buckets.
+* `type` - Type of bucket.
+* `nas_path` - The NAS path to which the NAS bucket corresponds to.
+* `lifecycle_management` - Object store server lifecycle management policy.
+* `retention.mode` - Object lock mode supported on the bucket.
+* `retention.default_period` - Specifies the duration of default-retention applicable for objects on the object store bucket.
+* `cors` - Specifying CORS rules enables the bucket to service the cross-origin requests.
+* `snapshot_policy` - Snapshot policy for the bucket.
+* `is_consistent_etag` - Return a consistent ETag for NAS buckets.
+* `is_nas_path_mutable` - Specifies whether the NAS bucket mapping with a NAS volume can change according to the changes in the NAS volume junction-path due to volume operations like mount and unmount.
+### Default property values
+* `size` - 800MB
+* `comment` - ""
+* `policy.statements.actions` - GetObject, PutObject, DeleteObject, ListBucket, ListBucketMultipartUploads, ListMultipartUploadParts, GetObjectTagging, PutObjectTagging, DeleteObjectTagging, GetBucketVersioning, PutBucketVersioning.
+* `policy.statements.principals` - all S3 users and groups in the SVM or the NAS groups.
+* `policy.statements.resources` - all objects in the bucket.
+* `policy.statements.conditions` - list of bucket policy conditions.
+* `qos-policy` - No default value.
+* `versioning_state` - disabled.
+* `type` - S3.
+* `retention.mode` - no_lock
+* `is_consistent_etag` - false
+</personalities>
 ### Related ONTAP commands
 * `vserver object-store-server bucket create`
 * `vserver object-store-server bucket policy statement create`
@@ -1126,6 +1194,7 @@ class S3BucketSvm(Resource):
         **kwargs
     ) -> NetAppResponse:
         r"""Creates the S3 bucket configuration of an SVM.
+<personalities supports=unified,asar2>
 ### Important notes
 - Each SVM can have one or more bucket configurations.
 - Aggregate lists should be specified explicitly. If not specified, then the bucket is auto-provisioned as a FlexGroup.
@@ -1134,14 +1203,24 @@ class S3BucketSvm(Resource):
 - "qos_policy" can be specified if a bucket needs to be attached to a QoS group policy during creation time.
 - "audit_event_selector" can be specified if a bucket needs to be specify access and permission type for auditing.
 - Cross-origin resource sharing (CORS) configuration can be specified when a bucket is created.
+</personalities>
+<personalities supports=aiml>
+### Important notes
+- Each SVM can have one or more bucket configurations.
+- An access policy can be created when a bucket is created.
+- "qos_policy" can be specified if a bucket needs to be attached to a QoS group policy during creation time.
+- "audit_event_selector" can be specified if a bucket needs to be specify access and permission type for auditing.
+- Cross-origin resource sharing (CORS) configuration can be specified when a bucket is created.
+</personalities>
 ### Required properties
 * `svm.uuid` - Existing SVM in which to create the bucket configuration.
 * `name` - Bucket name that is to be created.
+<personalities supports=unified,asar2>
 ### Recommended optional properties
 * `aggregates` - List of aggregates for the FlexGroup on which the bucket is hosted on.
 * `constituents_per_aggregate` - Number of constituents per aggregate.
 * `size` - Specifying the bucket size is recommended.
-* `policy` - Specifying policy enables users to perform operations on buckets. Hence specifying the resource permissions is recommended.
+* `policy` - Specifying policy enables users to perform operations on buckets; specifying the resource permissions is recommended.
 * `qos_policy` - A QoS policy for buckets.
 * `audit_event_selector` - Audit policy for buckets.
 * `versioning_state` - Versioning state for buckets.
@@ -1153,6 +1232,8 @@ class S3BucketSvm(Resource):
 * `retention.default_period` - Specifies the duration of default-retention applicable for objects on the object store bucket.
 * `cors` - Specifying CORS rules enables the bucket to service the cross-origin requests.
 * `snapshot_policy` - Snapshot policy for the bucket.
+* `is_consistent_etag` - Return a consistent ETag for NAS buckets.
+* `is_nas_path_mutable` - Specifies whether the NAS bucket mapping with a NAS volume can change according to the changes in the NAS volume junction-path due to volume operations like mount and unmount.
 ### Default property values
 * `size` - 800MB
 * `comment` - ""
@@ -1167,6 +1248,37 @@ class S3BucketSvm(Resource):
 * `use_mirrored_aggregates` - _true_ for a MetroCluster configuration and _false_ for a non-MetroCluster configuration.
 * `type` - S3.
 * `retention.mode` - no_lock
+* `is_consistent_etag` - false
+</personalities>
+<personalities supports=aiml>
+### Recommended optional properties
+* `size` - Specifying the bucket size is recommended.
+* `policy` - Specifying policy enables users to perform operations on buckets; specifying the resource permissions is recommended.
+* `qos_policy` - A QoS policy for buckets.
+* `audit_event_selector` - Audit policy for buckets.
+* `versioning_state` - Versioning state for buckets.
+* `type` - Type of bucket.
+* `nas_path` - The NAS path to which the NAS bucket corresponds to.
+* `lifecycle_management` - Object store server lifecycle management policy.
+* `retention.mode` - Object lock mode supported on the bucket.
+* `retention.default_period` - Specifies the duration of default-retention applicable for objects on the object store bucket.
+* `cors` - Specifying CORS rules enables the bucket to service the cross-origin requests.
+* `snapshot_policy` - Snapshot policy for the bucket.
+* `is_consistent_etag` - Return a consistent ETag for NAS buckets.
+* `is_nas_path_mutable` - Specifies whether the NAS bucket mapping with a NAS volume can change according to the changes in the NAS volume junction-path due to volume operations like mount and unmount.
+### Default property values
+* `size` - 800MB
+* `comment` - ""
+* `policy.statements.actions` - GetObject, PutObject, DeleteObject, ListBucket, ListBucketMultipartUploads, ListMultipartUploadParts, GetObjectTagging, PutObjectTagging, DeleteObjectTagging, GetBucketVersioning, PutBucketVersioning.
+* `policy.statements.principals` - all S3 users and groups in the SVM or the NAS groups.
+* `policy.statements.resources` - all objects in the bucket.
+* `policy.statements.conditions` - list of bucket policy conditions.
+* `qos-policy` - No default value.
+* `versioning_state` - disabled.
+* `type` - S3.
+* `retention.mode` - no_lock
+* `is_consistent_etag` - false
+</personalities>
 ### Related ONTAP commands
 * `vserver object-store-server bucket create`
 * `vserver object-store-server bucket policy statement create`
@@ -1202,8 +1314,9 @@ class S3BucketSvm(Resource):
   * `versioning_state` - Versioning state for buckets.
   * `nas_path` - NAS path to which the NAS bucket corresponds to.
   * `retention.default_period` - Specifies the duration of default-retention applicable for objects on the object store bucket.
-  * `cors' - Specifying CORS rules enables the bucket to service the cross-origin requests. New CORS rules are created after existing rules are deleted. To retain any of the existing rules, you need to specify those CORS rules again. To remove all the existing CORS rules, specify an empty CORS rules list.
+  * `cors` - Specifying CORS rules enables the bucket to service the cross-origin requests. New CORS rules are created after existing rules are deleted. To retain any of the existing rules, you need to specify those CORS rules again. To remove all the existing CORS rules, specify an empty CORS rules list.
   * `snapshot_policy` - Snapshot policy for the bucket.
+  * `is_consistent_etag` - Return a consistent ETag for NAS buckets.
 ### Related ONTAP commands
 * `vserver object-store-server bucket modify`
 * `vserver object-store-server bucket policy statement modify`

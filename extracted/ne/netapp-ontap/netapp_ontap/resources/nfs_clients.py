@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -55,32 +55,32 @@ with HostConnection(
 [
     NfsClients(
         {
-            "volume": {"name": "rvol1", "uuid": "c6bbc6f2-b8d0-11e9-9ad1-0050568e8480"},
-            "protocol": "nfs4",
-            "node": {"name": "vsim1", "uuid": "cc282893-b82f-11e9-a3ad-0050568e8480"},
             "server_ip": "10.140.72.214",
+            "volume": {"uuid": "c6bbc6f2-b8d0-11e9-9ad1-0050568e8480", "name": "rvol1"},
+            "protocol": "nfs4",
+            "svm": {"uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480", "name": "vs1"},
             "client_ip": "10.140.137.57",
-            "svm": {"name": "vs1", "uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480"},
+            "node": {"uuid": "cc282893-b82f-11e9-a3ad-0050568e8480", "name": "vsim1"},
         }
     ),
     NfsClients(
         {
-            "volume": {"name": "vol1", "uuid": "d28d1999-b8d0-11e9-9ad1-0050568e8480"},
+            "server_ip": "10.140.72.214",
+            "volume": {"uuid": "d28d1999-b8d0-11e9-9ad1-0050568e8480", "name": "vol1"},
             "protocol": "nfs3",
-            "node": {"name": "vsim1", "uuid": "cc282893-b82f-11e9-a3ad-0050568e8480"},
-            "server_ip": "10.140.72.214",
+            "svm": {"uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480", "name": "vs1"},
             "client_ip": "10.140.137.57",
-            "svm": {"name": "vs1", "uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480"},
+            "node": {"uuid": "cc282893-b82f-11e9-a3ad-0050568e8480", "name": "vsim1"},
         }
     ),
     NfsClients(
         {
-            "volume": {"name": "vol1", "uuid": "d28d1999-b8d0-11e9-9ad1-0050568e8480"},
-            "protocol": "nfs4",
-            "node": {"name": "vsim1", "uuid": "cc282893-b82f-11e9-a3ad-0050568e8480"},
             "server_ip": "10.140.72.214",
+            "volume": {"uuid": "d28d1999-b8d0-11e9-9ad1-0050568e8480", "name": "vol1"},
+            "protocol": "nfs4",
+            "svm": {"uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480", "name": "vs1"},
             "client_ip": "10.140.137.57",
-            "svm": {"name": "vs1", "uuid": "c642db55-b8d0-11e9-9ad1-0050568e8480"},
+            "node": {"uuid": "cc282893-b82f-11e9-a3ad-0050568e8480", "name": "vsim1"},
         }
     ),
 ]

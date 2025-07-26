@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -34,24 +34,24 @@ with HostConnection(
 ```
 MultiAdminVerifyRequest(
     {
-        "create_time": "2022-01-05T20:07:09-05:00",
         "operation": "security multi-admin-verify modify",
         "execute_on_approval": False,
-        "state": "expired",
-        "query": "",
         "owner": {
+            "uuid": "c1483186-6e73-11ec-bc92-005056a7ad04",
             "name": "cluster1",
             "_links": {
                 "self": {"href": "/api/svm/svms/c1483186-6e73-11ec-bc92-005056a7ad04"}
             },
-            "uuid": "c1483186-6e73-11ec-bc92-005056a7ad04",
         },
+        "create_time": "2022-01-05T20:07:09-05:00",
+        "query": "",
+        "state": "expired",
+        "user_requested": "admin",
+        "approve_expiry_time": "2022-01-05T21:07:09-05:00",
+        "required_approvers": 1,
         "pending_approvers": 1,
         "index": 1,
         "permitted_users": ["example_user"],
-        "required_approvers": 1,
-        "user_requested": "admin",
-        "approve_expiry_time": "2022-01-05T21:07:09-05:00",
     }
 )
 
@@ -186,16 +186,16 @@ class MultiAdminVerifyRequestSchema(ResourceSchema, metaclass=ResourceSchemaMeta
 
     state = marshmallow_fields.Str(
         data_key="state",
-        validate=enum_validation(['pending', 'approved', 'vetoed', 'expired', 'executed']),
+        validate=enum_validation(['approved', 'vetoed', 'pending', 'expired', 'executed']),
         allow_none=True,
     )
     r""" The state of the request. PATCH supports approved and vetoed. The state only changes after setting to approved once no more approvers are required.
 
 Valid choices:
 
-* pending
 * approved
 * vetoed
+* pending
 * expired
 * executed"""
 

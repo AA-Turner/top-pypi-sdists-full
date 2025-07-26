@@ -8,7 +8,7 @@ from typing import Final
 
 
 #: Representation for redacted secrets
-SECRET_REPR: Final[str] = "*******"
+SECRET_REPR: Final[str] = "*******"  # noqa: S105
 
 #: Key used in the field metadata
 METADATA_KEY: Final[str] = "typed-settings"

@@ -615,6 +615,7 @@ class HasManyFeatureType(_message.Message):
         "owner",
         "attribute_name",
         "unversioned_attribute_name",
+        "online_store_max_items",
     )
     NAME_FIELD_NUMBER: _ClassVar[int]
     NAMESPACE_FIELD_NUMBER: _ClassVar[int]
@@ -627,6 +628,7 @@ class HasManyFeatureType(_message.Message):
     OWNER_FIELD_NUMBER: _ClassVar[int]
     ATTRIBUTE_NAME_FIELD_NUMBER: _ClassVar[int]
     UNVERSIONED_ATTRIBUTE_NAME_FIELD_NUMBER: _ClassVar[int]
+    ONLINE_STORE_MAX_ITEMS_FIELD_NUMBER: _ClassVar[int]
     name: str
     namespace: str
     foreign_namespace: str
@@ -638,6 +640,7 @@ class HasManyFeatureType(_message.Message):
     owner: str
     attribute_name: str
     unversioned_attribute_name: str
+    online_store_max_items: int
     def __init__(
         self,
         name: _Optional[str] = ...,
@@ -651,6 +654,7 @@ class HasManyFeatureType(_message.Message):
         owner: _Optional[str] = ...,
         attribute_name: _Optional[str] = ...,
         unversioned_attribute_name: _Optional[str] = ...,
+        online_store_max_items: _Optional[int] = ...,
     ) -> None: ...
 
 class FeatureTimeFeatureType(_message.Message):

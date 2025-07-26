@@ -2683,7 +2683,7 @@ TransitGatewayAssociationStateType = Literal[
     "associated", "associating", "disassociated", "disassociating"
 ]
 TransitGatewayAttachmentResourceTypeType = Literal[
-    "connect", "direct-connect-gateway", "peering", "tgw-peering", "vpc", "vpn"
+    "connect", "direct-connect-gateway", "network-function", "peering", "tgw-peering", "vpc", "vpn"
 ]
 TransitGatewayAttachmentStateType = Literal[
     "available",

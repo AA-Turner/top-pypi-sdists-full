@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -38,24 +38,24 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     FlexcacheOrigin(
         {
-            "name": "vol_o1",
             "uuid": "2bc957dd-2617-4afb-8d2f-66ac6070d313",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/origins/2bc957dd-2617-4afb-8d2f-66ac6070d313"
                 }
             },
+            "name": "vol_o1",
         }
     ),
     FlexcacheOrigin(
         {
-            "name": "vol_1",
             "uuid": "80fcaee4-0dc2-488b-afb8-86d28a34cda8",
             "_links": {
                 "self": {
                     "href": "/api/storage/flexcache/origins/80fcaee4-0dc2-488b-afb8-86d28a34cda8"
                 }
             },
+            "name": "vol_1",
         }
     ),
 ]
@@ -83,123 +83,123 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 FlexcacheOrigin(
     {
-        "name": "vol_1",
-        "uuid": "80fcaee4-0dc2-488b-afb8-86d28a34cda8",
         "block_level_invalidation": False,
+        "flexcaches": [
+            {
+                "cluster": {
+                    "uuid": "c32f16b8-0e90-11e9-aed0-0050568eddbe",
+                    "name": "node4",
+                },
+                "ip_address": "10.140.103.183",
+                "create_time": "2019-01-02T19:27:22+05:30",
+                "svm": {
+                    "uuid": "36f68322-0e93-11e9-aed0-0050568eddbe",
+                    "name": "vs_1_4",
+                },
+                "volume": {
+                    "uuid": "4e7f9d49-0e96-11e9-aed0-0050568eddbe",
+                    "name": "fc_42",
+                },
+            },
+            {
+                "cluster": {
+                    "uuid": "c32f16b8-0e90-11e9-aed0-0050568eddbe",
+                    "name": "node4",
+                },
+                "ip_address": "10.140.103.183",
+                "create_time": "2019-01-02T21:08:34+05:30",
+                "svm": {
+                    "uuid": "36f68322-0e93-11e9-aed0-0050568eddbe",
+                    "name": "vs_1_4",
+                },
+                "volume": {
+                    "uuid": "71ee8f36-0ea4-11e9-aed0-0050568eddbe",
+                    "name": "fc_421",
+                },
+            },
+            {
+                "cluster": {
+                    "uuid": "c32f16b8-0e90-11e9-aed0-0050568eddbe",
+                    "name": "node4",
+                },
+                "ip_address": "10.140.103.183",
+                "create_time": "2019-01-03T11:14:38+05:30",
+                "svm": {
+                    "uuid": "36f68322-0e93-11e9-aed0-0050568eddbe",
+                    "name": "vs_1_4",
+                },
+                "volume": {"name": "fc_422"},
+            },
+            {
+                "cluster": {
+                    "uuid": "8eb21b3b-0e90-11e9-8180-0050568e0b79",
+                    "name": "node3",
+                },
+                "ip_address": "10.140.103.179",
+                "create_time": "2019-01-02T19:24:14+05:30",
+                "size": 4294967296,
+                "svm": {"uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79", "name": "vs_1"},
+                "state": "online",
+                "volume": {
+                    "uuid": "ddb42bbc-0e95-11e9-8180-0050568e0b79",
+                    "name": "fc_32",
+                },
+            },
+            {
+                "cluster": {
+                    "uuid": "8eb21b3b-0e90-11e9-8180-0050568e0b79",
+                    "name": "node3",
+                },
+                "ip_address": "10.140.103.179",
+                "create_time": "2019-01-02T21:07:23+05:30",
+                "size": 4294967296,
+                "svm": {"uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79", "name": "vs_1"},
+                "state": "online",
+                "volume": {
+                    "uuid": "47902654-0ea4-11e9-8180-0050568e0b79",
+                    "name": "fc_321",
+                },
+            },
+            {
+                "cluster": {
+                    "uuid": "8eb21b3b-0e90-11e9-8180-0050568e0b79",
+                    "name": "node3",
+                },
+                "ip_address": "10.140.103.179",
+                "create_time": "2019-01-03T00:11:38+05:30",
+                "size": 4294967296,
+                "svm": {"uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79", "name": "vs_1"},
+                "state": "online",
+                "volume": {
+                    "uuid": "04d5e07b-0ebe-11e9-8180-0050568e0b79",
+                    "name": "fc_322",
+                },
+            },
+            {
+                "cluster": {
+                    "uuid": "8eb21b3b-0e90-11e9-8180-0050568e0b79",
+                    "name": "node3",
+                },
+                "ip_address": "10.140.103.179",
+                "create_time": "2019-01-03T00:14:52+05:30",
+                "size": 4294967296,
+                "svm": {"uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79", "name": "vs_1"},
+                "state": "online",
+                "volume": {
+                    "uuid": "77e911ff-0ebe-11e9-8180-0050568e0b79",
+                    "name": "fc_323",
+                },
+            },
+        ],
+        "svm": {"uuid": "8aa2cd28-0e92-11e9-b391-0050568e4115", "name": "vs_3"},
+        "uuid": "80fcaee4-0dc2-488b-afb8-86d28a34cda8",
         "_links": {
             "self": {
                 "href": "/api/storage/flexcache/origins/80fcaee4-0dc2-488b-afb8-86d28a34cda8"
             }
         },
-        "svm": {"name": "vs_3", "uuid": "8aa2cd28-0e92-11e9-b391-0050568e4115"},
+        "name": "vol_1",
         "global_file_locking_enabled": True,
-        "flexcaches": [
-            {
-                "volume": {
-                    "name": "fc_42",
-                    "uuid": "4e7f9d49-0e96-11e9-aed0-0050568eddbe",
-                },
-                "create_time": "2019-01-02T19:27:22+05:30",
-                "cluster": {
-                    "name": "node4",
-                    "uuid": "c32f16b8-0e90-11e9-aed0-0050568eddbe",
-                },
-                "ip_address": "10.140.103.183",
-                "svm": {
-                    "name": "vs_1_4",
-                    "uuid": "36f68322-0e93-11e9-aed0-0050568eddbe",
-                },
-            },
-            {
-                "volume": {
-                    "name": "fc_421",
-                    "uuid": "71ee8f36-0ea4-11e9-aed0-0050568eddbe",
-                },
-                "create_time": "2019-01-02T21:08:34+05:30",
-                "cluster": {
-                    "name": "node4",
-                    "uuid": "c32f16b8-0e90-11e9-aed0-0050568eddbe",
-                },
-                "ip_address": "10.140.103.183",
-                "svm": {
-                    "name": "vs_1_4",
-                    "uuid": "36f68322-0e93-11e9-aed0-0050568eddbe",
-                },
-            },
-            {
-                "volume": {"name": "fc_422"},
-                "create_time": "2019-01-03T11:14:38+05:30",
-                "cluster": {
-                    "name": "node4",
-                    "uuid": "c32f16b8-0e90-11e9-aed0-0050568eddbe",
-                },
-                "ip_address": "10.140.103.183",
-                "svm": {
-                    "name": "vs_1_4",
-                    "uuid": "36f68322-0e93-11e9-aed0-0050568eddbe",
-                },
-            },
-            {
-                "volume": {
-                    "name": "fc_32",
-                    "uuid": "ddb42bbc-0e95-11e9-8180-0050568e0b79",
-                },
-                "create_time": "2019-01-02T19:24:14+05:30",
-                "cluster": {
-                    "name": "node3",
-                    "uuid": "8eb21b3b-0e90-11e9-8180-0050568e0b79",
-                },
-                "ip_address": "10.140.103.179",
-                "state": "online",
-                "svm": {"name": "vs_1", "uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79"},
-                "size": 4294967296,
-            },
-            {
-                "volume": {
-                    "name": "fc_321",
-                    "uuid": "47902654-0ea4-11e9-8180-0050568e0b79",
-                },
-                "create_time": "2019-01-02T21:07:23+05:30",
-                "cluster": {
-                    "name": "node3",
-                    "uuid": "8eb21b3b-0e90-11e9-8180-0050568e0b79",
-                },
-                "ip_address": "10.140.103.179",
-                "state": "online",
-                "svm": {"name": "vs_1", "uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79"},
-                "size": 4294967296,
-            },
-            {
-                "volume": {
-                    "name": "fc_322",
-                    "uuid": "04d5e07b-0ebe-11e9-8180-0050568e0b79",
-                },
-                "create_time": "2019-01-03T00:11:38+05:30",
-                "cluster": {
-                    "name": "node3",
-                    "uuid": "8eb21b3b-0e90-11e9-8180-0050568e0b79",
-                },
-                "ip_address": "10.140.103.179",
-                "state": "online",
-                "svm": {"name": "vs_1", "uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79"},
-                "size": 4294967296,
-            },
-            {
-                "volume": {
-                    "name": "fc_323",
-                    "uuid": "77e911ff-0ebe-11e9-8180-0050568e0b79",
-                },
-                "create_time": "2019-01-03T00:14:52+05:30",
-                "cluster": {
-                    "name": "node3",
-                    "uuid": "8eb21b3b-0e90-11e9-8180-0050568e0b79",
-                },
-                "ip_address": "10.140.103.179",
-                "state": "online",
-                "svm": {"name": "vs_1", "uuid": "e708fbe2-0e92-11e9-8180-0050568e0b79"},
-                "size": 4294967296,
-            },
-        ],
     }
 )
 
@@ -304,9 +304,8 @@ Example: 1cd8a442-86d1-11e0-ae1c-123478563512"""
 
     patchable_fields = [
         "block_level_invalidation",
-        "name",
     ]
-    """block_level_invalidation,name,"""
+    """block_level_invalidation,"""
 
     postable_fields = [
         "flexcaches",

@@ -87,8 +87,7 @@ include-package-data = true
 include = ["optree", "optree.*"]
 
 [tool.setuptools.package-data]
-extension = ["*.so", "*.pyd"]
-typing = ["*.pyi", "*.typed"]
+optree = ["*.so", "*.pyd", "*.pyi", "*.typed"]
 
 # Wheel builder ################################################################
 # Reference: https://cibuildwheel.readthedocs.io
@@ -97,20 +96,38 @@ archs = ["native"]
 enable = ["pypy", "cpython-freethreading"]
 skip = "*musllinux*"
 build-frontend = "build"
-environment = { PYTHONUNBUFFERED = "1", COLUMNS = "100" }
+environment = { PYTHONUNBUFFERED = "1" }
 environment-pass = [
     "CMAKE_CXX_STANDARD",
     "OPTREE_CXX_WERROR",
     "_GLIBCXX_USE_CXX11_ABI",
+    "COLUMNS",
+    "FORCE_COLOR",
+    "CLICOLOR_FORCE",
 ]
+xbuild-tools = ["cmake"]
 test-extras = ["test"]
 test-command = '''make -C "{project}" test PYTHON=python PYTESTOPTS="--no-cov --quiet --exitfirst"'''
+
+[[tool.cibuildwheel.overrides]]
+select = "*iphoneos*"
+inherit.environment = "append"
+environment = { CMAKE_SYSTEM_NAME = "iOS", CMAKE_OSX_SYSROOT = "iphoneos" }
+test-sources = ["pyproject.toml", "tests"]
+test-command = '''python -m pytest --showlocals --no-cov --exitfirst tests'''
+
+[[tool.cibuildwheel.overrides]]
+select = "*iphonesimulator*"
+inherit.environment = "append"
+environment = { CMAKE_SYSTEM_NAME = "iOS", CMAKE_OSX_SYSROOT = "iphonesimulator" }
+test-sources = ["pyproject.toml", "tests"]
+test-command = '''python -m pytest --showlocals --no-cov --exitfirst tests'''
 
 # Linter tools #################################################################
 
 [tool.mypy]
 python_version = "3.9"
-exclude = ['^tests/.*\.py$', '^third-party/.*$', '^(venv|\.venv)/.*$']
+exclude = ['^tests/.*\.py$', '^(third|3rd)[_\-]?party/.*$', '^\.?venv/.*$']
 pretty = true
 show_column_numbers = true
 show_error_codes = true
@@ -134,17 +151,18 @@ no_site_packages = true
 [tool.pylint]
 main.py-version = "3.9"
 main.extension-pkg-allow-list = ["optree._C"]
-main.ignore-paths = ["^_C/$", "^tests/$", "^third-party/$"]
+main.ignore-paths = ['^tests/$', '^(third|3rd)[_\-]?party/$']
 basic.good-names = []
 design.max-args = 7
 format.max-line-length = 120
-"messages control".disable = [
-    "duplicate-code",
+messages-control.disable = [
     "consider-using-from-import",
+    "duplicate-code",
     "unpacking-non-sequence",
     "unsubscriptable-object",
+    "wrong-import-order",
 ]
-"messages control".enable = ["c-extension-no-member"]
+messages-control.enable = ["c-extension-no-member"]
 spelling.spelling-dict = "en_US"
 spelling.spelling-private-dict-file = "docs/source/spelling_wordlist.txt"
 typecheck.generated-members = ["numpy.*", "torch.*"]
@@ -153,6 +171,7 @@ typecheck.generated-members = ["numpy.*", "torch.*"]
 max-line-length = 500
 
 [tool.codespell]
+builtin = "clear,rare,en-GB_to_en-US"
 ignore-words = "docs/source/spelling_wordlist.txt"
 
 [tool.ruff]

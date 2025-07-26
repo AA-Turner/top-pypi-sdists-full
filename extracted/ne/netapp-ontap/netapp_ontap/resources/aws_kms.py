@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -37,16 +37,16 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AwsKms(
     {
+        "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
+        "region": "us-east-1",
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+        "key_id": "kmip-aws",
+        "access_key_id": "(token)",
         "_links": {
             "self": {
                 "href": "/api/security/aws-kms/f72098a2-e908-11ea-bd56-005056bb4222"
             }
         },
-        "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
-        "access_key_id": "(token)",
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        "region": "us-east-1",
-        "key_id": "kmip-aws",
     }
 )
 
@@ -73,21 +73,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 [
     AwsKms(
         {
+            "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
+            "region": "us-east-1",
+            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+            "key_id": "kmip-aws",
+            "access_key_id": "(token)",
+            "default_domain": "amazonaws.com",
+            "timeout": 10,
+            "polling_period": 60,
+            "scope": "svm",
+            "service": "KMS",
             "_links": {
                 "self": {
                     "href": "/api/security/aws-kms/f72098a2-e908-11ea-bd56-005056bb4222"
                 }
             },
-            "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
-            "service": "KMS",
-            "timeout": 10,
-            "access_key_id": "(token)",
-            "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-            "region": "us-east-1",
-            "scope": "svm",
-            "polling_period": 60,
-            "default_domain": "amazonaws.com",
-            "key_id": "kmip-aws",
         }
     )
 ]
@@ -116,21 +116,21 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AwsKms(
     {
+        "svm": {"uuid": "f36ff553-e713-11ea-bd56-005056bb4222", "name": "vs0"},
+        "region": "us-east-1",
+        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
+        "key_id": "kmip-aws",
+        "access_key_id": "(token)",
+        "default_domain": "amazonaws.com",
+        "timeout": 10,
+        "polling_period": 60,
+        "scope": "svm",
+        "service": "KMS",
         "_links": {
             "self": {
                 "href": "/api/security/aws-kms/f72098a2-e908-11ea-bd56-005056bb4222"
             }
         },
-        "svm": {"name": "vs0", "uuid": "f36ff553-e713-11ea-bd56-005056bb4222"},
-        "service": "KMS",
-        "timeout": 10,
-        "access_key_id": "(token)",
-        "uuid": "f72098a2-e908-11ea-bd56-005056bb4222",
-        "region": "us-east-1",
-        "scope": "svm",
-        "polling_period": 60,
-        "default_domain": "amazonaws.com",
-        "key_id": "kmip-aws",
     }
 )
 
@@ -159,44 +159,44 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 AwsKms(
     {
-        "_links": {
-            "self": {
-                "href": "/api/security/aws-kms/d70efc34-aa13-11ec-a059-005056ac7c32"
-            }
-        },
         "amazon_reachability": {"message": "", "reachable": True, "code": "0"},
+        "state": {"message": "", "cluster_state": True, "code": "0"},
         "uuid": "d70efc34-aa13-11ec-a059-005056ac7c32",
-        "state": {"message": "", "code": "0", "cluster_state": True},
         "ekmip_reachability": [
             {
                 "message": "",
-                "reachable": True,
-                "code": "0",
                 "node": {
+                    "uuid": "817f544f-a98d-11ec-ae20-005056ac7c32",
                     "name": "node1",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/817f544f-a98d-11ec-ae20-005056ac7c32"
                         }
                     },
-                    "uuid": "817f544f-a98d-11ec-ae20-005056ac7c32",
                 },
+                "reachable": True,
+                "code": "0",
             },
             {
                 "message": "",
-                "reachable": True,
-                "code": "0",
                 "node": {
+                    "uuid": "84b3f5f3-a98d-11ec-9ff4-005056acfbfe",
                     "name": "node2",
                     "_links": {
                         "self": {
                             "href": "/api/cluster/nodes/84b3f5f3-a98d-11ec-9ff4-005056acfbfe"
                         }
                     },
-                    "uuid": "84b3f5f3-a98d-11ec-9ff4-005056acfbfe",
                 },
+                "reachable": True,
+                "code": "0",
             },
         ],
+        "_links": {
+            "self": {
+                "href": "/api/security/aws-kms/d70efc34-aa13-11ec-a059-005056ac7c32"
+            }
+        },
     }
 )
 

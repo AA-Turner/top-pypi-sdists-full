@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -29,17 +29,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 ```
 ClusterLdap(
     {
-        "servers": ["10.10.10.10", "domainB.example.com"],
-        "schema": "ad_idmu",
-        "_links": {"self": {"href": "/api/security/authentication/cluster/ldap"}},
-        "use_start_tls": True,
-        "base_dn": "dc=domainA,dc=example,dc=com",
-        "session_security": "none",
-        "try_channel_binding": True,
-        "base_scope": "subtree",
         "bind_dn": "cn=Administrators,cn=users,dc=domainA,dc=example,dc=com",
+        "use_start_tls": True,
+        "servers": ["10.10.10.10", "domainB.example.com"],
         "min_bind_level": "anonymous",
         "port": 389,
+        "base_scope": "subtree",
+        "try_channel_binding": True,
+        "schema": "ad_idmu",
+        "base_dn": "dc=domainA,dc=example,dc=com",
+        "session_security": "none",
+        "_links": {"self": {"href": "/api/security/authentication/cluster/ldap"}},
     }
 )
 

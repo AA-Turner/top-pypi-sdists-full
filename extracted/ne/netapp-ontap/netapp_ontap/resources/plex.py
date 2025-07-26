@@ -1,5 +1,5 @@
 r"""
-Copyright &copy; 2024 NetApp Inc.
+Copyright &copy; 2025 NetApp Inc.
 All rights reserved.
 
 This file has been automatically generated based on the ONTAP REST API documentation.
@@ -10,78 +10,12 @@ For each plex, details are provided for the RAID groups in the plex and the disk
 ## Examples
 ### Retrieving all aggregates and plexes
 The following example shows the response with a list of aggregates and plexes:<br>
-# The call:
-curl -X GET "https://<mgmt-ip>/api/storage/aggregates/*/plexes" -H "accept: application/json"
-# The response:
-{
-  "records": [
-    {
-      "aggregate": {
-        "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
-        "name": "test2"
-      },
-      "name": "plex0"
-    },
-    {
-      "aggregate": {
-        "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
-        "name": "test2"
-      },
-      "name": "plex1",
-    },
-    {
-      "aggregate": {
-        "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
-        "name": "test"
-      },
-      "name": "plex0"
-    },
-    {
-      "aggregate": {
-        "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
-        "name": "test"
-      },
-      "name": "plex1"
-    },
-    {
-      "aggregate": {
-        "uuid": "7ee89e48-5d81-4609-9e1b-5d8d0995a886",
-        "name": "aggr1",
-      },
-      "name": "plex0",
-    },
-    {
-      "aggregate": {
-        "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
-        "name": "test3",
-      },
-      "name": "plex0",
-    },
-    {
-      "aggregate": {
-        "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
-        "name": "test3",
-      },
-      "name": "plex1"
-    },
-    {
-      "aggregate": {
-        "uuid": "8f13de5c-99cf-4ada-884c-3cc32deb304a",
-        "name": "aggr2",
-      },
-      "name": "plex0"
-    }
-  ],
-  "num_records": 8
-}
 ```python
 from netapp_ontap import HostConnection
 from netapp_ontap.resources import Plex
 
 with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
-    resource = Plex("*", name="plex0")
-    resource.get()
-    print(resource)
+    print(list(Plex.get_collection("*")))
 
 ```
 <div class="try_it_out">
@@ -93,8 +27,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     Plex(
         {
             "aggregate": {
-                "name": "test2",
                 "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
+                "name": "test2",
             },
             "name": "plex0",
         }
@@ -102,8 +36,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     Plex(
         {
             "aggregate": {
-                "name": "test",
+                "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
+                "name": "test2",
+            },
+            "name": "plex1",
+        }
+    ),
+    Plex(
+        {
+            "aggregate": {
                 "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
+                "name": "test",
             },
             "name": "plex0",
         }
@@ -111,8 +54,17 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     Plex(
         {
             "aggregate": {
-                "name": "aggr1",
+                "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
+                "name": "test",
+            },
+            "name": "plex1",
+        }
+    ),
+    Plex(
+        {
+            "aggregate": {
                 "uuid": "7ee89e48-5d81-4609-9e1b-5d8d0995a886",
+                "name": "aggr1",
             },
             "name": "plex0",
         }
@@ -120,8 +72,8 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     Plex(
         {
             "aggregate": {
-                "name": "test3",
                 "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
+                "name": "test3",
             },
             "name": "plex0",
         }
@@ -129,8 +81,86 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
     Plex(
         {
             "aggregate": {
-                "name": "aggr2",
+                "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
+                "name": "test3",
+            },
+            "name": "plex1",
+        }
+    ),
+    Plex(
+        {
+            "aggregate": {
                 "uuid": "8f13de5c-99cf-4ada-884c-3cc32deb304a",
+                "name": "aggr2",
+            },
+            "name": "plex0",
+        }
+    ),
+]
+
+```
+</div>
+</div>
+
+### Retrieving a specific plex in all aggregates
+The following example shows the response with a list of specific plexes in all aggregates:<br>
+```python
+from netapp_ontap import HostConnection
+from netapp_ontap.resources import Plex
+
+with HostConnection("<mgmt-ip>", username="admin", password="password", verify=False):
+    resource = Plex("*", name="plex0")
+    resource.get()
+    print(resource)
+
+```
+<div class="try_it_out">
+<input id="example1_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example1_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example1_result" class="try_it_out_content">
+```
+[
+    Plex(
+        {
+            "aggregate": {
+                "uuid": "04b7296e-a302-42a6-a2a9-dda6be054b29",
+                "name": "test2",
+            },
+            "name": "plex0",
+        }
+    ),
+    Plex(
+        {
+            "aggregate": {
+                "uuid": "66c4b221-65ff-4211-9b58-ada3c6fc41af",
+                "name": "test",
+            },
+            "name": "plex0",
+        }
+    ),
+    Plex(
+        {
+            "aggregate": {
+                "uuid": "7ee89e48-5d81-4609-9e1b-5d8d0995a886",
+                "name": "aggr1",
+            },
+            "name": "plex0",
+        }
+    ),
+    Plex(
+        {
+            "aggregate": {
+                "uuid": "8bb2e3bf-c4f1-4748-9033-ca9231cf1c40",
+                "name": "test3",
+            },
+            "name": "plex0",
+        }
+    ),
+    Plex(
+        {
+            "aggregate": {
+                "uuid": "8f13de5c-99cf-4ada-884c-3cc32deb304a",
+                "name": "aggr2",
             },
             "name": "plex0",
         }
@@ -152,9 +182,9 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example1_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example1_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example1_result" class="try_it_out_content">
+<input id="example2_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example2_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example2_result" class="try_it_out_content">
 ```
 [Plex({"name": "plex0"}), Plex({"name": "plex4"})]
 
@@ -175,72 +205,72 @@ with HostConnection("<mgmt-ip>", username="admin", password="password", verify=F
 
 ```
 <div class="try_it_out">
-<input id="example2_try_it_out" type="checkbox", class="try_it_out_check">
-<label for="example2_try_it_out" class="try_it_out_button">Try it out</label>
-<div id="example2_result" class="try_it_out_content">
+<input id="example3_try_it_out" type="checkbox", class="try_it_out_check">
+<label for="example3_try_it_out" class="try_it_out_button">Try it out</label>
+<div id="example3_result" class="try_it_out_content">
 ```
 Plex(
     {
-        "aggregate": {"name": "test1", "uuid": "19425837-f2fa-4a9f-8f01-712f626c983c"},
-        "name": "plex0",
-        "pool": "pool0",
-        "state": "normal",
+        "online": True,
+        "resync": {"active": False},
         "raid_groups": [
             {
-                "reconstruct": {"active": False},
+                "recomputing_parity": {"active": False},
                 "cache_tier": False,
-                "degraded": False,
-                "raid_type": "raid_dp",
-                "name": "rg0",
                 "disks": [
                     {
                         "position": "dparity",
-                        "state": "normal",
                         "disk": {"name": "1.1.29"},
+                        "state": "normal",
                         "usable_size": 86769664,
                         "type": "ssd",
                     },
                     {
                         "position": "parity",
-                        "state": "normal",
                         "disk": {"name": "1.1.4"},
+                        "state": "normal",
                         "usable_size": 86769664,
                         "type": "ssd",
                     },
                     {
                         "position": "data",
-                        "state": "normal",
                         "disk": {"name": "1.1.30"},
+                        "state": "normal",
                         "usable_size": 86769664,
                         "type": "ssd",
                     },
                     {
                         "position": "data",
-                        "state": "normal",
                         "disk": {"name": "1.1.5"},
+                        "state": "normal",
                         "usable_size": 86769664,
                         "type": "ssd",
                     },
                     {
                         "position": "data",
-                        "state": "normal",
                         "disk": {"name": "1.1.31"},
+                        "state": "normal",
                         "usable_size": 86769664,
                         "type": "ssd",
                     },
                     {
                         "position": "data",
-                        "state": "normal",
                         "disk": {"name": "1.1.6"},
+                        "state": "normal",
                         "usable_size": 86769664,
                         "type": "ssd",
                     },
                 ],
-                "recomputing_parity": {"active": False},
+                "raid_type": "raid_dp",
+                "degraded": False,
+                "name": "rg0",
+                "reconstruct": {"active": False},
             }
         ],
-        "resync": {"active": False},
-        "online": True,
+        "state": "normal",
+        "aggregate": {"uuid": "19425837-f2fa-4a9f-8f01-712f626c983c", "name": "test1"},
+        "pool": "pool0",
+        "name": "plex0",
     }
 )
 

@@ -14,91 +14,40 @@
 # See the License for the specific language governing permissions and limitations under the License.
 
 """
-Pure Python implementation of CEL.
+The pure Python implementation of the Common Expression Language, CEL.
 
-..  todo:: Consolidate __init__ and parser into one module?
+This module defines an interface to CEL for integration into other Python applications.
+This exposes the :py:class:`Environment` used to compile the source module,
+the :py:class:`Runner` used to evaluate the compiled code,
+and the :py:mod:`celpy.celtypes` module with Python types wrapped to be CEL compatible.
 
-Visible interface to CEL. This exposes the :py:class:`Environment`,
-the :py:class:`Evaluator` run-time, and the :py:mod:`celtypes` module
-with Python types wrapped to be CEL compatible.
+The way these classes are used is as follows:
 
-Example
-=======
+..  uml::
 
-Here's an example with some details::
+    @startuml
+    start
+    :Gather (or define) annotations;
+    :Create ""Environment"";
+    :Compile CEL;
+    :Create ""Runner"" with any extension functions;
+    :Evaluate the ""Runner"" with a ""Context"";
+    stop
+    @enduml
 
-    >>> import celpy
+The explicit decomposition into steps permits
+two extensions:
 
-    # A list of type names and class bindings used to create an environment.
-    >>> types = []
-    >>> env = celpy.Environment(types)
+1.  Transforming the AST to introduce any optimizations.
 
-    # Parse the code to create the CEL AST.
-    >>> ast = env.compile("355. / 113.")
-
-    # Use the AST and any overriding functions to create an executable program.
-    >>> functions = {}
-    >>> prgm = env.program(ast, functions)
-
-    # Variable bindings.
-    >>> activation = {}
-
-    # Final evaluation.
-    >>> try:
-    ...    result = prgm.evaluate(activation)
-    ...    error = None
-    ... except CELEvalError as ex:
-    ...    result = None
-    ...    error = ex.args[0]
-
-    >>> result  # doctest: +ELLIPSIS
-    DoubleType(3.14159...)
-
-Another Example
-===============
-
-See https://github.com/google/cel-go/blob/master/examples/simple_test.go
-
-The model Go we're sticking close to::
-
-    d := cel.Declarations(decls.NewVar("name", decls.String))
-    env, err := cel.NewEnv(d)
-    if err != nil {
-        log.Fatalf("environment creation error: %v\\n", err)
-    }
-    ast, iss := env.Compile(`"Hello world! I'm " + name + "."`)
-    // Check iss for compilation errors.
-    if iss.Err() != nil {
-        log.Fatalln(iss.Err())
-    }
-    prg, err := env.Program(ast)
-    if err != nil {
-        log.Fatalln(err)
-    }
-    out, _, err := prg.Eval(map[string]interface{}{
-        "name": "CEL",
-    })
-    if err != nil {
-        log.Fatalln(err)
-    }
-    fmt.Println(out)
-    // Output:Hello world! I'm CEL.
-
-Here's the Pythonic approach, using concept patterned after the Go implementation::
-
-    >>> from celpy import *
-    >>> decls = {"name": celtypes.StringType}
-    >>> env = Environment(annotations=decls)
-    >>> ast = env.compile('"Hello world! I\\'m " + name + "."')
-    >>> out = env.program(ast).evaluate({"name": "CEL"})
-    >>> print(out)
-    Hello world! I'm CEL.
-
+2.  Saving the :py:class:`Runner` instance to reuse an expression with new inputs.
 """
 
+import abc
 import json  # noqa: F401
 import logging
 import sys
+from textwrap import indent
 from typing import Any, Dict, Optional, Type, cast
 
 import lark
@@ -118,6 +67,8 @@ from celpy.evaluation import (  # noqa: F401
     Context,
     Evaluator,
     Result,
+    Transpiler,
+    TranspilerTree,
     base_functions,
 )
 
@@ -125,14 +76,31 @@ from celpy.evaluation import (  # noqa: F401
 Expression = lark.Tree
 
 
-class Runner:
-    """Abstract runner.
+class Runner(abc.ABC):
+    """Abstract runner for a compiled CEL program.
 
-    Given an AST, this can evaluate the AST in the context of a specific activation
-    with any override function definitions.
+    The :py:class:`Environment` creates :py:class:`Runner` objects to permit
+    saving a ready-tp-evaluate, compiled CEL expression.
+    A :py:class:`Runner` will evaluate the AST in the context of a specific activation
+    with the provided variable values.
 
-    ..  todo:: add type adapter and type provider registries.
+    The py:meth:`Runner.evaluate` method is used to evaluate a CEL expression with a new data context.
+
+    As an implementation detail, note that
+    each :py:class:`Runner` subclass definition includes
+    the ``tree_node_class`` attribute.
+    This attribute defines the type for Tree nodes that must be created by the :py:mod:`lark` parser.
+    This class information provided to the :py:class:`Environment` to tailor the :py:mod:`lark` parser.
+    The class named often includes specialized AST features
+    needed by the :py:class:`Runner` subclss.
+
+    ..  todo:: For a better fit with Go language expectations
+
+        Consider adding type adapter and type provider registries.
+        This would permit distinct sources of protobuf message types.
     """
+
+    tree_node_class: type = lark.Tree
 
     def __init__(
         self,
@@ -140,74 +108,107 @@ class Runner:
         ast: lark.Tree,
         functions: Optional[Dict[str, CELFunction]] = None,
     ) -> None:
-        self.logger = logging.getLogger(self.__class__.__name__)
+        """
+        Initialize this ``Runner`` with a given AST.
+        The Runner will have annotations take from the :py:class:`Environment`,
+        plus any unique functions defined here.
+        """
+        self.logger = logging.getLogger(f"celpy.{self.__class__.__name__}")
         self.environment = environment
         self.ast = ast
         self.functions = functions
 
-    def new_activation(self, context: Context) -> Activation:
-        """
-        Builds the working activation from the environmental defaults.
-        """
-        return self.environment.activation().nested_activation(vars=context)
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.environment}, {self.ast}, {self.functions})"
 
+    def new_activation(self) -> Activation:
+        """
+        Builds a new, working :py:class:`Activation` using the :py:class:`Environment` as defaults.
+        A Context will later be layered onto this for evaluation.
+
+        This is used internally during evaluation.
+        """
+        base_activation = Activation(
+            package=self.environment.package,
+            annotations=self.environment.annotations,
+            functions=self.functions,
+        )
+        return base_activation
+
+    @abc.abstractmethod
     def evaluate(self, activation: Context) -> celpy.celtypes.Value:  # pragma: no cover
-        raise NotImplementedError
+        """
+        Given variable definitions in the :py:class:`celpy.evaluation.Context`, evaluate the given AST and return the resulting value.
+
+        Generally, this should raise an :exc:`celpy.evaluation.CELEvalError` for most kinds of ordinary problems.
+        It may raise an :exc:`celpy.evaluation.CELUnsupportedError` for future features that aren't fully implemented.
+        Any Python exception reflects a serious problem.
+
+        :param activation: a :py:class:`celpy.evaluation.Context` object with variable values to use for this evaluation.
+        :returns: the computed value
+        :raises: :exc:`celpy.evaluation.CELEvalError` or :exc:`celpy.evaluation.CELUnsupportedError` for problems encounterd.
+        """
+        ...
 
 
 class InterpretedRunner(Runner):
     """
-    Pure AST expression evaluator. Uses :py:class:`evaluation.Evaluator` class.
-
-    Given an AST, this evauates the AST in the context of a specific activation.
-
-    The returned value will be a celtypes type.
-
-    Generally, this should raise an :exc:`CELEvalError` for most kinds of ordinary problems.
-    It may raise an :exc:`CELUnsupportedError` for future features.
-
-    ..  todo:: Refractor the Evaluator constructor from evaluation.
+    An **Adapter** for the :py:class:`celpy.evaluation.Evaluator` class.
     """
 
     def evaluate(self, context: Context) -> celpy.celtypes.Value:
         e = Evaluator(
             ast=self.ast,
-            activation=self.new_activation(context),
-            functions=self.functions,
+            activation=self.new_activation(),
         )
-        value = e.evaluate()
+        value = e.evaluate(context)
         return value
 
 
 class CompiledRunner(Runner):
     """
-    Python compiled expression evaluator. Uses Python byte code and :py:func:`eval`.
+    An **Adapter** for the :py:class:`celpy.evaluation.Transpiler` class.
 
-    Given an AST, this evauates the AST in the context of a specific activation.
+    A :py:class:`celpy.evaluation.Transpiler` instance transforms the AST into Python.
+    It uses :py:func:`compile` to create a code object.
+    The final :py:meth:`evaluate` method uses  :py:func:`exec` to evaluate the code object.
 
-    Transform the AST into Python, uses :py:func:`compile` to create a code object.
-    Uses :py:func:`eval` to evaluate.
+    Note, this requires the ``celpy.evaluation.TranspilerTree`` classes
+    instead of the default ``lark.Tree`` class.
     """
+
+    tree_node_class: type = TranspilerTree
 
     def __init__(
         self,
         environment: "Environment",
-        ast: lark.Tree,
+        ast: TranspilerTree,
         functions: Optional[Dict[str, CELFunction]] = None,
     ) -> None:
+        """
+        Transpile to Python, and use :py:func:`compile` to create a code object.
+        """
         super().__init__(environment, ast, functions)
-        # Transform AST to Python.
-        # compile()
-        # cache executable code object.
+        self.tp = Transpiler(
+            ast=cast(TranspilerTree, self.ast),
+            activation=self.new_activation(),
+        )
+        self.tp.transpile()
+        self.logger.info("Transpiled:\n%s", indent(self.tp.source_text, "  "))
 
-    def evaluate(self, activation: Context) -> celpy.celtypes.Value:
-        # eval() code object with activation as locals, and built-ins as gobals.
-        return super().evaluate(activation)
+    def evaluate(self, context: Context) -> celpy.celtypes.Value:
+        """
+        Use :py:func:`exec` to execute the code object.
+        """
+        value = self.tp.evaluate(context)
+        return value
 
 
-# TODO: Refactor classes into a separate "cel_protobuf" module.
-# TODO: Becomes cel_protobuf.Int32Value
+# TODO: Refactor this class into a separate "cel_protobuf" module.
+# TODO: Rename this type to ``cel_protobuf.Int32Value``
 class Int32Value(celpy.celtypes.IntType):
+    """A wrapper for int32 values."""
+
     def __new__(
         cls: Type["Int32Value"],
         value: Any = 0,
@@ -221,8 +222,8 @@ class Int32Value(celpy.celtypes.IntType):
         return cast(Int32Value, super().__new__(cls, convert(value)))
 
 
-# The "well-known" types in a google.protobuf package.
-# We map these to CEl types instead of defining additional Protobuf Types.
+# The "well-known" types in a ``google.protobuf`` package.
+# We map these to CEL types instead of defining additional Protobuf Types.
 # This approach bypasses some of the range constraints that are part of these types.
 # It may also cause values to compare as equal when they were originally distinct types.
 googleapis = {
@@ -241,15 +242,38 @@ googleapis = {
 
 
 class Environment:
-    """Compiles CEL text to create an Expression object.
+    """
+    Contains the current evaluation context.
 
-    From the Go implementation, there are things to work with the type annotations:
+    CEL integration starts by creating an :py:class:`Environment` object.
+    This can be initialized with three optional values:
 
-    -   type adapters registry make other native types available for CEL.
+    -   A package name used to resolve variable names.
+        This is not generally required, but is sometimes helpful to provide an explicit namespace for variables.
 
-    -   type providers registry make ProtoBuf types available for CEL.
+    -   Type annotations for variables.
+        This helps perform type conversions on external data.
 
-    ..  todo:: Add adapter and provider registries to the Environment.
+    -   The class of runner to use. By default an :py:class:`InterpretedRunner` is used.
+        The alternative is the :py:class:`CompiledRunner`.
+        Detailed performance benchmarks are still pending.
+        Detailed logging is available from the interpreted runner, to help debug external function bindings.
+
+    Once the environment has been created, the :py:meth:`Environment.compile` method
+    compiles CEL text to create an AST.
+    This can be helpful for an application that needs to prepare error messages based on the AST.
+    An application can also optimize or transform the AST.
+
+    The :py:meth:`Environment.program` method
+    packages the AST into a :py:class:`Runnable` ready for evaluation.
+    At this time, external functions are bound to the CEL expression.
+    The  :py:class:`Runnable` can be evaluated repeatedly with multiple inputs, avoiding the overheads of compiling for each input value.
+
+    ..  todo:: For a better fit with Go language expectations
+
+        -   A type adapters registry makes other native types available for CEL.
+
+        -   A type providers registry make ProtoBuf types available for CEL.
     """
 
     def __init__(
@@ -273,12 +297,12 @@ class Environment:
         :param runner_class: the class of Runner to use, either InterpretedRunner or CompiledRunner
         """
         sys.setrecursionlimit(2500)
-        self.logger = logging.getLogger(self.__class__.__name__)
+        self.logger = logging.getLogger(f"celpy.{self.__class__.__name__}")
         self.package: Optional[str] = package
         self.annotations: Dict[str, Annotation] = annotations or {}
-        self.logger.info("Type Annotations %r", self.annotations)
+        self.logger.debug("Type Annotations %r", self.annotations)
         self.runner_class: Type[Runner] = runner_class or InterpretedRunner
-        self.cel_parser = CELParser()
+        self.cel_parser = CELParser(tree_class=self.runner_class.tree_node_class)
         self.runnable: Runner
 
         # Fold in standard annotations. These (generally) define well-known protobuf types.
@@ -286,21 +310,42 @@ class Environment:
         # We'd like to add 'type.googleapis.com/google' directly, but it seems to be an alias
         # for 'google', the path after the '/' in the uri.
 
+    def __repr__(self) -> str:
+        return f"{self.__class__.__name__}({self.package}, {self.annotations}, {self.runner_class})"
+
     def compile(self, text: str) -> Expression:
-        """Compile the CEL source. This can raise syntax error exceptions."""
+        """
+        Compiles the CEL source.
+
+        Processing starts here by building an AST structure from the CEL text.
+        The AST is exposed for the rare case where an application needs to transform it or analyze it.
+        Generally, it's best to treat the AST object as opaque, and provide it to the :py:meth:`program` method.
+
+        This can raise syntax error exceptions.
+        The exceptions contain line and character position information to help create easy-to-use error outputs.
+
+        :param text: The CEL text to evaluate.
+        :returns: A :py:class:`lark.Tree` object describing the CEL expression.
+        :raises: :py:class:`celpy.celparser.CELParseError` exceptions for syntax errors.
+        """
         ast = self.cel_parser.parse(text)
         return ast
 
     def program(
         self, expr: lark.Tree, functions: Optional[Dict[str, CELFunction]] = None
     ) -> Runner:
-        """Transforms the AST into an executable runner."""
-        self.logger.info("Package %r", self.package)
+        """
+        Transforms the AST into an executable :py:class:`Runner` object.
+        This will bind the given functions into the runnable object.
+
+        The resulting object has a :py:meth:`Runner.evaluate` method that applies the CEL structure to input data to compute the final result.
+
+        :param expr: The parse tree from :py:meth:`compile`.
+        :param functions: Any additional functions to be used by this CEL expression.
+        :returns: A :py:class:`Runner` instance that can be evaluated with a ``Context`` that provides values.
+        """
+        self.logger.debug("Package %r", self.package)
         runner_class = self.runner_class
         self.runnable = runner_class(self, expr, functions)
+        self.logger.debug("Runnable %r", self.runnable)
         return self.runnable
-
-    def activation(self) -> Activation:
-        """Returns a base activation"""
-        activation = Activation(package=self.package, annotations=self.annotations)
-        return activation

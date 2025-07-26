@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: django-anymail
-Version: 13.0
+Version: 13.0.1
 Summary: Django email backends and webhooks for Amazon SES, Brevo,  MailerSend, Mailgun, Mailjet, Mandrill, Postal, Postmark, Resend,  SendGrid, SparkPost and Unisender Go  (EmailBackend, transactional email tracking and inbound email signals)
 Project-URL: Homepage, https://github.com/anymail/django-anymail
 Project-URL: Documentation, https://anymail.dev/en/stable/
@@ -67,7 +67,7 @@ Requires-Dist: django>=4.0
 Requires-Dist: requests>=2.4.3
 Requires-Dist: urllib3>=1.25.0
 Provides-Extra: amazon-ses
-Requires-Dist: boto3>=1.10.17; extra == 'amazon-ses'
+Requires-Dist: boto3>=1.24.6; extra == 'amazon-ses'
 Provides-Extra: brevo
 Provides-Extra: mailersend
 Provides-Extra: mailgun
@@ -121,14 +121,14 @@ Anymail currently supports these ESPs:
 * **Postal** (self-hosted ESP)
 * **Postmark** (ActiveCampaign transactional email)
 * **Resend**
-* **SendGrid** (Twilio transactional email)
+* **SendGrid** (Twilio transactional email; no longer tested)
 * **SparkPost** (Bird transactional email)
 * **Unisender Go**
 
 Anymail includes:
 
 * Integration of each ESP's sending APIs into
-  `Django's built-in email <https://docs.djangoproject.com/en/v13.0/topics/email/>`_
+  `Django's built-in email <https://docs.djangoproject.com/en/v13.0.1/topics/email/>`_
   package, including support for HTML, attachments, extra headers,
   and other standard email features
 * Extensions to expose common ESP-added functionality, like tags, metadata,
@@ -144,32 +144,32 @@ Anymail maintains compatibility with all Django versions that are in mainstream
 or extended support, plus (usually) a few older Django versions, and is extensively
 tested on all Python versions supported by Django. (Even-older Django versions
 may still be covered by an Anymail extended support release; consult the
-`changelog <https://anymail.dev/en/v13.0/changelog/>`_ for details.)
+`changelog <https://anymail.dev/en/v13.0.1/changelog/>`_ for details.)
 
 Anymail releases follow `semantic versioning <https://semver.org/>`_.
 The package is released under the BSD license.
 
 .. END shared-intro
 
-.. image:: https://github.com/anymail/django-anymail/workflows/test/badge.svg?tag=v13.0
-       :target: https://github.com/anymail/django-anymail/actions?query=workflow:test+branch:v13.0
+.. image:: https://github.com/anymail/django-anymail/workflows/test/badge.svg?tag=v13.0.1
+       :target: https://github.com/anymail/django-anymail/actions?query=workflow:test+branch:v13.0.1
        :alt:    test status in GitHub Actions
 
-.. image:: https://github.com/anymail/django-anymail/workflows/integration-test/badge.svg?tag=v13.0
-       :target: https://github.com/anymail/django-anymail/actions?query=workflow:integration-test+branch:v13.0
+.. image:: https://github.com/anymail/django-anymail/workflows/integration-test/badge.svg?tag=v13.0.1
+       :target: https://github.com/anymail/django-anymail/actions?query=workflow:integration-test+branch:v13.0.1
        :alt:    integration test status in GitHub Actions
 
-.. image:: https://readthedocs.org/projects/anymail/badge/?version=v13.0
-       :target: https://anymail.dev/en/v13.0/
+.. image:: https://readthedocs.org/projects/anymail/badge/?version=v13.0.1
+       :target: https://anymail.dev/en/v13.0.1/
        :alt:    documentation build status on ReadTheDocs
 
 **Resources**
 
-* Full documentation: https://anymail.dev/en/v13.0/
-* Help and troubleshooting: https://anymail.dev/en/v13.0/help/
+* Full documentation: https://anymail.dev/en/v13.0.1/
+* Help and troubleshooting: https://anymail.dev/en/v13.0.1/help/
 * Package on PyPI: https://pypi.org/project/django-anymail/
 * Project on Github: https://github.com/anymail/django-anymail
-* Changelog: https://anymail.dev/en/v13.0/changelog/
+* Changelog: https://anymail.dev/en/v13.0.1/changelog/
 
 
 Anymail 1-2-3
@@ -180,7 +180,7 @@ Anymail 1-2-3
 .. This quickstart section is also included in docs/quickstart.rst
 
 Here's how to send a message.
-This example uses Mailgun, but you can substitute Mailjet or Postmark or SendGrid
+This example uses Mailgun, but you can substitute Amazon SES or Mailjet or Postmark
 or SparkPost or any other supported ESP where you see "mailgun":
 
 1. Install Anymail from PyPI:
@@ -208,12 +208,12 @@ or SparkPost or any other supported ESP where you see "mailgun":
             "MAILGUN_API_KEY": "<your Mailgun key>",
             "MAILGUN_SENDER_DOMAIN": 'mg.example.com',  # your Mailgun domain, if needed
         }
-        EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"  # or sendgrid.EmailBackend, or...
+        EMAIL_BACKEND = "anymail.backends.mailgun.EmailBackend"  # or amazon_ses.EmailBackend, or...
         DEFAULT_FROM_EMAIL = "you@example.com"  # if you don't already have this in settings
         SERVER_EMAIL = "your-server@example.com"  # ditto (default from-email for Django errors)
 
 
-3. Now the regular `Django email functions <https://docs.djangoproject.com/en/v13.0/topics/email/>`_
+3. Now the regular `Django email functions <https://docs.djangoproject.com/en/v13.0.1/topics/email/>`_
    will send through your chosen ESP:
 
    .. code-block:: python
@@ -257,6 +257,6 @@ or SparkPost or any other supported ESP where you see "mailgun":
 .. END quickstart
 
 
-See the `full documentation <https://anymail.dev/en/v13.0/>`_
+See the `full documentation <https://anymail.dev/en/v13.0.1/>`_
 for more features and options, including receiving messages and tracking
 sent message status.

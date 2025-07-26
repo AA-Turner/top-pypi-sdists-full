@@ -5,6 +5,7 @@ import functools
 import logging
 import os
 import re
+import threading
 import time
 from concurrent.futures import ThreadPoolExecutor
 from datetime import datetime
@@ -22,6 +23,7 @@ from tango.test_context import parse_ior
 
 th_exc = tango.Except.throw_exception
 Executor = ThreadPoolExecutor(1)
+cursor_lock = threading.RLock()
 
 
 def log_me(f):
@@ -92,22 +94,22 @@ def replace_wildcard(text):
 def use_cursor(f):
     @functools.wraps(f)
     def wrap(self, *args, **kwargs):
-        has_cursor = "cursor" in kwargs
-        cursor = kwargs.pop("cursor", None)
-        if not has_cursor:
-            cursor = Executor.submit(self.get_cursor).result()
-        self.cursor = cursor
-        try:
-            ret = Executor.submit(f, self, *args, **kwargs).result()
+        with cursor_lock:
+            has_cursor = "cursor" in kwargs
+            cursor = kwargs.pop("cursor", None)
             if not has_cursor:
-                Executor.submit(cursor.connection.commit).result()
-            return ret
-        finally:
-            if not has_cursor:
-                Executor.submit(cursor.close).result()
-                with contextlib.suppress(AttributeError):
-                    # TODO this sometimes breaks, probably due to threading
-                    del self.cursor
+                cursor = Executor.submit(self._get_cursor).result()
+            self.cursor = cursor
+            try:
+                ret = Executor.submit(f, self, *args, **kwargs).result()
+                if not has_cursor:
+                    Executor.submit(self.cursor.connection.commit).result()
+                return ret
+            finally:
+                if not has_cursor:
+                    Executor.submit(self.cursor.close).result()
+                    with contextlib.suppress(AttributeError):
+                        del self.cursor
 
     return wrap
 
@@ -147,7 +149,7 @@ class SqlDatabase:
         self._warn = self._logger.warn
         self._error = self._logger.error
         self._critical = self._logger.critical
-        self.initialize()
+        self._initialize()
 
     def close_db(self):
         if self._db_conn is not None:
@@ -176,17 +178,17 @@ class SqlDatabase:
             self._db_conn.create_function("REGEXP", 2, regexp)
         return self._db_conn
 
-    def get_cursor(self):
+    def _get_cursor(self):
         return self.db_conn.cursor()
 
-    def initialize(self):
+    def _initialize(self):
         self._info(
             "Initializing database %r (%s)...",
             self.db_name,
             os.path.isfile(self.db_name),
         )
         if not os.path.isfile(self.db_name):
-            self.create_db()
+            self._create_db()
         else:
             # trigger connection
             self._trigger_connection()
@@ -196,21 +198,20 @@ class SqlDatabase:
         return self.db_conn
 
     @use_cursor
-    def create_db(self):
+    def _create_db(self):
         self._info("Creating database...")
         statements = get_create_db_statements()
         cursor = self.cursor
         for statement in statements:
             cursor.execute(statement)
 
-    def get_id(self, name, cursor):
+    def _get_id(self, name, cursor):
         name += "_history_id"
         _id = cursor.execute(f"SELECT id FROM {name}").fetchone()[0] + 1
         cursor.execute(f"UPDATE {name} SET id={_id}")
         return _id
 
-    def purge_att_property(self, table, field, obj, attr, name):
-        cursor = self.cursor
+    def _purge_att_property(self, table, field, obj, attr, name, cursor):
         cursor.execute(
             f"SELECT DISTINCT id FROM {table} WHERE {field} = ? AND name = ? AND "
             + "attribute = ? ORDER BY date",
@@ -222,7 +223,7 @@ class SqlDatabase:
             for row in rows[:to_del]:
                 cursor.execute(f"DELETE FROM {table} WHERE id=?", (row[0],))
 
-    def purge_property(self, table, field, obj, name, cursor):
+    def _purge_property(self, table, field, obj, name, cursor):
         cursor.execute(
             f"SELECT DISTINCT id FROM {table} WHERE {field} = ? AND name = ? ORDER BY date",
             (obj, name),
@@ -237,8 +238,7 @@ class SqlDatabase:
             for row in rows[:to_del]:
                 cursor.execute(f"DELETE FROM {table} WHERE id=?", (row[0],))
 
-    def get_device_host(self, name):
-        cursor = self.cursor
+    def _get_device_host(self, name, cursor):
         name = replace_wildcard(name)
         cursor.execute(r"SELECT host FROM device WHERE name LIKE ? ESCAPE '\'", (name,))
         row = cursor.fetchone()
@@ -247,7 +247,7 @@ class SqlDatabase:
         else:
             return row[0]
 
-    def send_starter_cmd(self, starter_dev_names):
+    def _send_starter_cmd(self, starter_dev_names):
         for name in starter_dev_names:
             pos = name.find(".")
             if pos != -1:
@@ -275,7 +275,6 @@ class SqlDatabase:
         )
         dev_name, (domain, family, member) = dev_info
         cursor = self.cursor
-
         # first delete the tuple (device,name) from the device table
         cursor.execute("DELETE FROM device WHERE name LIKE ?", (dev_name,))
 
@@ -337,19 +336,20 @@ class SqlDatabase:
                 (klass_name, attr_name, prop_name),
             )
             # mark this property as deleted
-            hist_id = self.get_id("class_attribute", cursor=cursor)
+            hist_id = self._get_id("class_attribute", cursor=cursor)
             cursor.execute(
                 "INSERT INTO property_attribute_class_hist (date, class, attribute, "
                 "name, id, count, value) VALUES "
                 '(?, ?, ?, ?, ?, "0", "DELETED")',
                 (now, klass_name, attr_name, prop_name, hist_id),
             )
-            self.purge_att_property(
+            self._purge_att_property(
                 "property_attribute_class_hist",
                 "class",
                 klass_name,
                 attr_name,
                 prop_name,
+                cursor=cursor,
             )
 
     @log_me
@@ -373,13 +373,13 @@ class SqlDatabase:
                 (klass_name, name),
             )
             # Mark this property as deleted
-            hist_id = self.get_id("class", cursor=cursor)
+            hist_id = self._get_id("class", cursor=cursor)
             cursor.execute(
                 "INSERT INTO property_class_hist (date, class, name, id, count, value)"
                 + ' VALUES (?, ?, ?, ?, "0", "DELETED")',
                 (now, klass_name, name, hist_id),
             )
-            self.purge_property(
+            self._purge_property(
                 "property_class_hist", "class", klass_name, name, cursor=cursor
             )
 
@@ -438,7 +438,7 @@ class SqlDatabase:
                 (dev_name, attr_name, prop_name),
             )
             # Mark this property as deleted
-            hist_id = self.get_id("device_attribute", cursor=cursor)
+            hist_id = self._get_id("device_attribute", cursor=cursor)
             # TODO I think this is incorrect; we need to insert all the rows
             # of the property here, to keep history intact
             cursor.execute(
@@ -447,12 +447,13 @@ class SqlDatabase:
                 + ' VALUES (datetime("now", "localtime"), ?, ?, ?, ?, "0", "DELETED")',
                 (dev_name, attr_name, prop_name, hist_id),
             )
-            self.purge_att_property(
+            self._purge_att_property(
                 "property_attribute_device_hist",
                 "device",
                 dev_name,
                 attr_name,
                 prop_name,
+                cursor=cursor,
             )
 
     @log_me
@@ -475,13 +476,13 @@ class SqlDatabase:
                 (dev_name, prop_name),
             )
             # Mark this property as deleted
-            hist_id = self.get_id("device", cursor=cursor)
+            hist_id = self._get_id("device", cursor=cursor)
             cursor.execute(
                 "INSERT INTO property_device_hist (device, name, id, count, value, date) VALUES (?, ?, ?, ?, ?, ?)",
                 (dev_name, row[0], hist_id, str(row[1]), "DELETED", now),
             )
-            self.purge_property(
-                "property_device_hist", "device", dev_name, row[0], cursor
+            self._purge_property(
+                "property_device_hist", "device", dev_name, row[0], cursor=cursor
             )
 
     @log_me
@@ -503,13 +504,15 @@ class SqlDatabase:
                 (obj_name, prop_name),
             )
             # Mark this property as deleted
-            hist_id = self.get_id("object", cursor=cursor)
+            hist_id = self._get_id("object", cursor=cursor)
             cursor.execute(
                 "INSERT INTO property_hist (object, name, id, count, value, date) "
                 'VALUES (?, ?, ?, "0", "DELETED", ?)',
                 (obj_name, row[0], hist_id, now),
             )
-            self.purge_property("property_hist", "object", obj_name, row[0], cursor)
+            self._purge_property(
+                "property_hist", "object", obj_name, row[0], cursor=cursor
+            )
 
     @log_me
     @use_cursor
@@ -521,7 +524,7 @@ class SqlDatabase:
         # get host where running
         if self.fire_to_starter:
             adm_dev_name = "dserver/" + server_instance
-            previous_host = self.get_device_host(adm_dev_name)
+            previous_host = self._get_device_host(adm_dev_name, cursor=cursor)
 
         # then delete the device from the device table
         cursor.execute(
@@ -530,7 +533,7 @@ class SqlDatabase:
 
         # Update host's starter to update controlled servers list
         if self.fire_to_starter and previous_host:
-            self.send_starter_cmd(previous_host)
+            self._send_starter_cmd(previous_host)
             pass
 
     @log_me
@@ -560,9 +563,9 @@ class SqlDatabase:
             adm_dev_name = "dserver/" + db_serv.lower()
             if dev_name != adm_dev_name and dev_name[0:16] != "dserver/starter/":
                 do_fire = True
-                previous_host = self.get_device_host(dev_name)
+                previous_host = self._get_device_host(dev_name, cursor=cursor)
 
-        cursor.execute("SELECT server FROM device WHERE name LIKE ?", (dev_name,))
+        cursor.execute("SELECT server FROM device WHERE name = ?", (dev_name,))
         row = cursor.fetchone()
         if row is None:
             th_exc(
@@ -575,12 +578,12 @@ class SqlDatabase:
         # update the new value for this tuple
         cursor.execute(
             "UPDATE device SET exported=1, ior=?, host=?, pid=?, version=?, "
-            "started=datetime('now', 'localtime') WHERE name LIKE ?",
+            'started=datetime("now", "localtime") WHERE name = ?',
             (IOR, host, pid, version, dev_name),
         )
 
         # update host name in server table
-        cursor.execute("UPDATE server SET host=? WHERE name LIKE ?", (host, server))
+        cursor.execute("UPDATE server SET host=? WHERE name = ?", (host, server))
 
         if do_fire:
             hosts = []
@@ -591,7 +594,7 @@ class SqlDatabase:
                 and previous_host != host
             ):
                 hosts.append(previous_host)
-            self.send_starter_cmd(hosts)
+            self._send_starter_cmd(hosts)
 
     @log_me
     @use_cursor
@@ -721,7 +724,9 @@ class SqlDatabase:
     @log_me
     @use_cursor
     def get_class_for_device(self, dev_name):
-        cursor = self.cursor
+        return self._get_class_for_device(dev_name, self.cursor)
+
+    def _get_class_for_device(self, dev_name, cursor):
         cursor.execute("SELECT DISTINCT class FROM device WHERE name = ?", (dev_name,))
         row = cursor.fetchone()
         if row is None:
@@ -736,8 +741,8 @@ class SqlDatabase:
     @use_cursor
     def get_class_inheritance_for_device(self, dev_name):
         cursor = self.cursor
-        class_name = self.get_class_for_device(dev_name, cursor=cursor)
-        props = self.get_class_property(class_name, "InheritedFrom", cursor=cursor)
+        class_name = self._get_class_for_device(dev_name, cursor=cursor)
+        props = self._get_class_property(class_name, ["InheritedFrom"], cursor=cursor)
         return [class_name] + props[4:]
 
     @log_me
@@ -753,14 +758,17 @@ class SqlDatabase:
     @log_me
     @use_cursor
     def get_class_property(self, class_name, properties):
-        cursor = self.cursor
-        stmt = r"SELECT count,value FROM property_class WHERE class=? AND name LIKE ? ESCAPE '\' ORDER BY count"
+        return self._get_class_property(class_name, properties, self.cursor)
+
+    def _get_class_property(self, class_name, properties, cursor):
+        stmt = r"SELECT count, value, name FROM property_class WHERE class=? AND name LIKE ? ESCAPE '\' ORDER BY count"
         result = []
         result.append(class_name)
         result.append(str(len(properties)))
         for prop_name in properties:
-            cursor.execute(stmt, (class_name, replace_wildcard(prop_name)))
-            rows = cursor.fetchall()
+            tmp_name = replace_wildcard(prop_name)
+            cursor.execute(stmt, (class_name, tmp_name))
+            rows = list(cursor.fetchall())
             result.append(prop_name)
             result.append(str(len(rows)))
             for row in rows:
@@ -780,16 +788,16 @@ class SqlDatabase:
         for row in cursor.fetchall():
             idr = row[0]
 
-            stmt = "SELECT strftime('%Y-%m-%d %H:%M:%S', date),value,name,count FROM property_class_hist WHERE id =? AND class =?"
+            stmt = "SELECT strftime('%Y-%m-%d %H:%M:%S', date), name, value FROM property_class_hist WHERE id =? AND class =?"
 
             cursor.execute(stmt, (idr, class_name))
 
-            rows = cursor.fetchall()
-
-            result.append(rows[2])
-            result.append(rows[0])
-            result.append(str(rows[3]))
-            for value in rows[1]:
+            rows = list(cursor.fetchall())
+            date, name, _ = rows[0]
+            result.append(name)
+            result.append(date)
+            result.append(str(len(rows)))
+            for _, _, value in rows:
                 result.append(value)
 
         return result
@@ -931,8 +939,8 @@ class SqlDatabase:
     def get_device_domain_list(self, wildcard):
         cursor = self.cursor
         cursor.execute(
-            "SELECT DISTINCT domain FROM device WHERE name LIKE ? OR alias LIKE ? ORDER BY domain",
-            (wildcard, wildcard),
+            r"SELECT DISTINCT domain FROM device WHERE name LIKE ? ESCAPE '\' ORDER BY domain",
+            (wildcard,),
         )
         return [row[0] for row in cursor.fetchall()]
 
@@ -941,7 +949,7 @@ class SqlDatabase:
     def get_device_exported_list(self, wildcard):
         cursor = self.cursor
         cursor.execute(
-            "SELECT DISTINCT name FROM device WHERE (name LIKE ? OR alias LIKE ?) AND exported=1 ORDER BY name",
+            r"SELECT DISTINCT name FROM device WHERE (name LIKE ? ESCAPE '\' OR alias LIKE ?  ESCAPE '\') AND exported=1 ORDER BY name",
             (wildcard, wildcard),
         )
         return [row[0] for row in cursor.fetchall()]
@@ -951,8 +959,8 @@ class SqlDatabase:
     def get_device_family_list(self, wildcard):
         cursor = self.cursor
         cursor.execute(
-            "SELECT DISTINCT family FROM device WHERE name LIKE ? OR alias LIKE ? ORDER BY family",
-            (wildcard, wildcard),
+            r"SELECT DISTINCT family FROM device WHERE name LIKE ? ESCAPE '\' ORDER BY family",
+            (wildcard,),
         )
         return [row[0] for row in cursor.fetchall()]
 
@@ -973,7 +981,7 @@ class SqlDatabase:
                     "Wrong info in database for device '" + dev_name + "'",
                     "DataBase::GetDeviceInfo()",
                 )
-            result_str.append(dev_name)
+            result_str.append(dev_name.lower())  # Lowercase for compatibility
             if row[1] is not None:
                 result_str.append(str(row[1]))
             else:
@@ -996,7 +1004,7 @@ class SqlDatabase:
             # TODO correct?
             # Exported
             try:
-                result_long.append(int(row[0]))
+                result_long.append(None if row[0] == "nada" else int(row[0]))
             except ValueError:
                 result_long.append(0)
             #
@@ -1072,8 +1080,8 @@ class SqlDatabase:
     def get_device_property_list(self, device_name, prop_filter):
         cursor = self.cursor
         cursor.execute(
-            "SELECT DISTINCT name FROM property_device WHERE device LIKE ? order by NAME",
-            (device_name,),
+            r"SELECT DISTINCT name FROM property_device WHERE device LIKE ? AND name LIKE ? ESCAPE '\' order by NAME",
+            (device_name, prop_filter),
         )
         return [row[0] for row in cursor.fetchall()]
 
@@ -1204,25 +1212,29 @@ class SqlDatabase:
         cursor = self.cursor
         result = []
 
-        stmt = "SELECT  DISTINCT id FROM property_hist WHERE object=? AND name LIKE ? ESCAPE '' ORDER by date"
+        stmt = r"""
+        SELECT  DISTINCT id FROM property_hist
+        WHERE object=? AND name LIKE ? ESCAPE '\'
+        ORDER by date ASC
+        """
         prop_name = replace_wildcard(prop_name)
         cursor.execute(stmt, (object_name, prop_name))
+        rows = cursor.fetchall()
 
-        stmt = "SELECT strftime('%Y-%m-%d %H:%M:%S', date),value,name,count FROM property_hist WHERE id =? AND object =?"
-        for row in cursor.fetchall():
+        stmt2 = r"""
+        SELECT name, strftime('%Y-%m-%d %H:%M:%S', date), value, count
+        FROM property_hist
+        WHERE id =? AND object = ? AND name LIKE ? ESCAPE '\'
+        ORDER BY count ASC
+        """
+        for row in rows:
             idr = row[0]
-
-            cursor.execute(stmt, (idr, object_name))
-            rows = cursor.fetchall()
-            count = len(rows)
-            if rows[3] == 0:
-                count = 0
-            result.append(rows[2])
-            result.append(rows[0])
-            result.append(str(count))
-            for tmp_row in rows:
-                result.append(tmp_row[1])
-
+            cursor.execute(stmt2, (idr, object_name, prop_name))
+            rows2 = cursor.fetchall()
+            name, date, value, count = rows2[0]
+            result.extend([name, date, str(len(rows2)), value])
+            for _, _, value, _ in rows2[1:]:
+                result.append(value)
         return result
 
     @log_me
@@ -1519,19 +1531,19 @@ class SqlDatabase:
                     (class_name, tmp_attribute, tmp_name, tmp_value, now, now),
                 )
                 # then insert the new value into the history table
-                hist_id = self.get_id("class_attribute", cursor=cursor)
+                hist_id = self._get_id("class_attribute", cursor=cursor)
                 cursor.execute(
                     "INSERT INTO property_attribute_class_hist (class, attribute, name, id, count, value, date) VALUES (?, ?, ?, ?, '1', ?, ?)",
                     (class_name, tmp_attribute, tmp_name, hist_id, tmp_value, now),
                 )
 
-                self.purge_att_property(
+                self._purge_att_property(
                     "property_attribute_class_hist",
                     "class",
                     class_name,
                     tmp_attribute,
                     tmp_name,
-                    # cursor=cursor,
+                    cursor=cursor,
                 )
             k = k + nb_properties * 2 + 2
 
@@ -1571,7 +1583,7 @@ class SqlDatabase:
                         ),
                     )
                     # then insert the new value into the history table
-                    hist_id = self.get_id("class_attribute", cursor=cursor)
+                    hist_id = self._get_id("class_attribute", cursor=cursor)
                     cursor.execute(
                         "INSERT INTO property_attribute_class_hist (date, class, attribute, name, id, count, value) VALUES (?,?,?,?,?,?,?)",
                         (
@@ -1585,49 +1597,57 @@ class SqlDatabase:
                         ),
                     )
 
-                    self.purge_att_property(
+                    self._purge_att_property(
                         "property_attribute_class_hist",
                         "class",
                         class_name,
                         tmp_attribute,
                         tmp_name,
+                        cursor=cursor,
                     )
                 k = k + n_rows + 2
             k = k + 2
 
     @log_me
     @use_cursor
-    def put_class_property(self, class_name, nb_properties, attr_prop_list):
+    def put_class_property(self, class_name, nb_properties, prop_list):
         cursor = self.cursor
-        k = 0
-        for _i in range(0, nb_properties):
-            tmp_count = 0
-            tmp_name = attr_prop_list[k]
-            n_rows = int(attr_prop_list[k + 1])
-            # first delete all tuples (device,name) from the property table
+        hist_id = self._get_id(
+            "device", cursor=cursor
+        )  # Single id for the whole operation
+        now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        property_values = []
+        lines = iter(prop_list)
+        while len(property_values) < nb_properties:
+            name = next(lines)
+            number_of_lines = int(next(lines))
+            value = [next(lines) for i in range(number_of_lines)]
+            property_values.append((name, value))
+            # Delete current property
             cursor.execute(
                 "DELETE FROM property_class WHERE class LIKE ? AND name LIKE ?",
-                (class_name, tmp_name),
+                (class_name, name),
             )
-
-            for j in range(k + 2, k + n_rows + 2, 1):
-                tmp_value = attr_prop_list[j]
-                tmp_count = tmp_count + 1
-                # then insert the new value for this tuple
-                cursor.execute(
-                    "INSERT INTO property_class (class, name, count, value, updated, accessed) VALUES (?, ?, ?, ?, datetime('now', 'localtime'), datetime('now', 'localtime'))",
-                    (class_name, tmp_name, str(tmp_count), tmp_value),
-                )
-                # then insert the new value into the history table
-                hist_id = self.get_id("class", cursor=cursor)
-                cursor.execute(
-                    "INSERT INTO property_class_hist (class, name, id, count, value, date) VALUES (?, ?, ?, ?, ?, datetime('now', 'localtime'))",
-                    (class_name, tmp_name, hist_id, str(tmp_count), tmp_value),
-                )
-                self.purge_property(
-                    "property_class_hist", "class", class_name, tmp_name, cursor=cursor
-                )
-            k = k + n_rows + 2
+            # Insert into property table
+            cursor.executemany(
+                "INSERT INTO property_class (class, name, count, value, updated, accessed) VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (class_name, name, str(i), line, now, now)
+                    for i, line in enumerate(value, start=1)
+                ],
+            )
+            # Insert into property history table
+            cursor.executemany(
+                "INSERT INTO property_class_hist (class, name, id, count, value, date) VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (class_name, name, hist_id, str(i), line, now)
+                    for i, line in enumerate(value, start=1)
+                ],
+            )
+            # Make sure history is limited
+            self._purge_property(
+                "property_class_hist", "class", class_name, name, cursor=cursor
+            )
 
     @log_me
     @use_cursor
@@ -1641,7 +1661,7 @@ class SqlDatabase:
         )
         rows = cursor.fetchall()
         if len(rows) > 0:
-            self.warn_stream("DataBase::DbPutDeviceAlias(): this alias exists already ")
+            self._warn("DataBase::DbPutDeviceAlias(): this alias exists already ")
             th_exc(
                 DB_SQLError,
                 "alias " + device_alias + " already exists !",
@@ -1678,19 +1698,19 @@ class SqlDatabase:
                     (device_name, tmp_attribute, tmp_name, tmp_value, now, now),
                 )
                 # then insert the new value into the history table
-                hist_id = self.get_id("device_attribute", cursor=cursor)
+                hist_id = self._get_id("device_attribute", cursor=cursor)
                 cursor.execute(
                     "INSERT INTO property_attribute_device_hist (date,device,attribute,name,id,count,value) VALUES (?,?,?,?,?,'1',?)",
                     (now, device_name, tmp_attribute, tmp_name, hist_id, tmp_value),
                 )
 
-                self.purge_att_property(
+                self._purge_att_property(
                     "property_attribute_device_hist",
                     "device",
                     device_name,
                     tmp_attribute,
                     tmp_name,
-                    # cursor=cursor,
+                    cursor=cursor,
                 )
             k = k + nb_properties * 2 + 2
 
@@ -1717,7 +1737,7 @@ class SqlDatabase:
                     prop.append(line)
 
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        hist_id = self.get_id("device_attribute", cursor=cursor)
+        hist_id = self._get_id("device_attribute", cursor=cursor)
 
         for attr_name, props in attr_prop.items():
             for prop_name, lines in props.items():
@@ -1750,19 +1770,20 @@ class SqlDatabase:
                             now,
                         ),
                     )
-                self.purge_att_property(
+                self._purge_att_property(
                     "property_attribute_device_hist",
                     "device",
                     device_name,
                     attr_name,
                     prop_name,
+                    cursor=cursor,
                 )
 
     @log_me
     @use_cursor
     def put_device_property(self, device_name, nb_properties, prop_list):
         cursor = self.cursor
-        hist_id = self.get_id(
+        hist_id = self._get_id(
             "device", cursor=cursor
         )  # Single id for the whole operation
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
@@ -1811,41 +1832,47 @@ class SqlDatabase:
                     for i, line in enumerate(value, start=1)
                 ],
             )
+            self._purge_property(
+                "property_device_hist", "device", device_name, name, cursor=cursor
+            )
 
     @log_me
     @use_cursor
-    def put_property(self, object_name, nb_properties, attr_prop_list):
+    def put_property(self, object_name, nb_properties, prop_list):
         cursor = self.cursor
-        k = 0
-        hist_id = self.get_id("object", cursor=cursor)
+        hist_id = self._get_id("object", cursor=cursor)
         now = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        for _i in range(0, nb_properties):
-            tmp_count = 0
-            tmp_name = attr_prop_list[k]
-            n_rows = int(attr_prop_list[k + 1])
+        property_values = []
+        lines = iter(prop_list)
+        while len(property_values) < nb_properties:
+            name = next(lines)
+            number_of_lines = int(next(lines))
+            value = [next(lines) for i in range(number_of_lines)]
+            property_values.append((name, value))
             # first delete the property from the property table
             cursor.execute(
                 "DELETE FROM property WHERE object = ? AND name = ?",
-                (object_name, tmp_name),
+                (object_name, name),
             )
-
-            for j in range(k + 2, k + n_rows + 2, 1):
-                tmp_value = attr_prop_list[j]
-                tmp_count = tmp_count + 1
-                # then insert the new value for this tuple
-                cursor.execute(
-                    "INSERT INTO property (object, name, count, value, updated, accessed) VALUES (?, ?, ?, ?, ?, ?)",
-                    (object_name, tmp_name, str(tmp_count), tmp_value, now, now),
-                )
-                # then insert the new value into the history table
-                cursor.execute(
-                    "INSERT INTO property_hist (object, name, id, count, value, date) VALUES (?, ?, ?, ?, ?, ?)",
-                    (object_name, tmp_name, hist_id, str(tmp_count), tmp_value, now),
-                )
-            self.purge_property(
-                "property_hist", "object", object_name, tmp_name, cursor=cursor
+            # Insert into property table
+            cursor.executemany(
+                "INSERT INTO property (object, name, count, value, updated, accessed) VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (object_name, name, str(i), line, now, now)
+                    for i, line in enumerate(value, start=1)
+                ],
             )
-            k = k + n_rows + 2
+            # Insert into property history table
+            cursor.executemany(
+                "INSERT INTO property_hist (object, name, id, count, value, date) VALUES (?, ?, ?, ?, ?, ?)",
+                [
+                    (object_name, name, hist_id, str(i), line, now)
+                    for i, line in enumerate(value, start=1)
+                ],
+            )
+            self._purge_property(
+                "property_hist", "object", object_name, name, cursor=cursor
+            )
 
     @log_me
     @use_cursor
@@ -1855,7 +1882,7 @@ class SqlDatabase:
         previous_host = ""
         if self.fire_to_starter and tmp_host == "":
             adm_dev_name = "dserver/" + tmp_server
-            previous_host = self.get_device_host(adm_dev_name)
+            previous_host = self._get_device_host(adm_dev_name, cursor=cursor)
         # first delete the server from the server table
         cursor.execute("DELETE FROM server WHERE name=?", (tmp_server,))
         # insert the new info for this server
@@ -1870,7 +1897,7 @@ class SqlDatabase:
                 hosts.append(tmp_host)
             else:
                 hosts.append(previous_host)
-            self.send_starter_cmd(hosts)
+            self._send_starter_cmd(hosts)
 
     @log_me
     @use_cursor
@@ -1926,17 +1953,18 @@ class SqlDatabase:
                 )
             # Mark this property as deleted
             for row in rows:
-                hist_id = self.get_id("device_attribute", cursor=cursor)
+                hist_id = self._get_id("device_attribute", cursor=cursor)
                 cursor.execute(
                     "INSERT INTO property_attribute_device_hist (date,device,attribute,name,id,count,value) VALUES (?,?,?,?,?,'0','DELETED')",
                     (now, dev_name, attr_name, row[0], hist_id),
                 )
-                self.purge_att_property(
+                self._purge_att_property(
                     "property_attribute_device_hist",
                     "device",
                     dev_name,
                     attr_name,
                     row[0],
+                    cursor=cursor,
                 )
 
     @log_me
@@ -2033,7 +2061,7 @@ class SqlDatabase:
         if self.fire_to_starter:
             try:
                 adm_dev = "dserver/" + old_name
-                previous_host = self.get_device_host(adm_dev)
+                previous_host = self._get_device_host(adm_dev, cursor=cursor)
             except Exception:
                 th_exc(
                     DB_IncorrectServerName,
@@ -2072,7 +2100,7 @@ class SqlDatabase:
             hosts = []
             if previous_host != "":
                 hosts.append(previous_host)
-            self.send_starter_cmd(hosts)
+            self._send_starter_cmd(hosts)
 
 
 class Sqlite3Database(SqlDatabase):

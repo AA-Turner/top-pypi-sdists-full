@@ -68,7 +68,7 @@ class ChannelInfo(BaseModel):
     model_mapping: Union[str, dict] = ""  # json
 
     headers: str = ''  # json
-    status_code_mapping: str = ''
+    status_code_mapping: Union[str, dict] = ''
     priority: int = 0
     auto_ban: int = 1
     empty_response_retry: int = 0
@@ -99,6 +99,9 @@ class ChannelInfo(BaseModel):
         self.param_override = self.param_override or ""
         if isinstance(self.model_mapping, dict):
             self.model_mapping = json.dumps(self.model_mapping)
+
+        if isinstance(self.status_code_mapping, dict):
+            self.status_code_mapping = json.dumps(self.status_code_mapping)
 
         if self.used_quota < 10000:
             self.used_quota = int(self.used_quota * 500000)

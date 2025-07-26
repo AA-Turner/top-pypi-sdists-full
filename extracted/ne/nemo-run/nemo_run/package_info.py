@@ -13,7 +13,7 @@
 # limitations under the License.
 from packaging.version import Version
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 MAJOR = Version(__version__).major
 MINOR = Version(__version__).minor
@@ -25,14 +25,11 @@ else:
 
 DEV = Version(__version__).dev
 
-__package_name__ = "nemo_curator"
+__package_name__ = "nemo_run"
 __contact_names__ = "NVIDIA"
 __contact_emails__ = "nemo-toolkit@nvidia.com"
-__homepage__ = "https://docs.nvidia.com/nemo-framework/user-guide/latest/datacuration/index.html"
-__repository_url__ = "https://github.com/NVIDIA/NeMo-Curator"
-__download_url__ = "https://github.com/NVIDIA/NeMo-Curator/releases"
-__description__ = (
-    "NeMo Curator - Scalable Data Preprocessing Tool for Training Large Language Models"
-)
+__repository_url__ = "https://github.com/NVIDIA/NeMo-Run"
+__download_url__ = "https://github.com/NVIDIA/NeMo-Run/releases"
+__description__ = "A powerful tool designed to streamline the configuration, execution and management of Machine Learning experiments across various computing environments."
 __license__ = "Apache2"
 __keywords__ = "deep learning, machine learning, gpu, NLP, NeMo, nvidia, pytorch, torch, language, preprocessing, LLM, large language model"
