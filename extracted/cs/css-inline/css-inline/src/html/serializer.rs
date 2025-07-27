@@ -15,6 +15,7 @@ pub(crate) fn serialize_to<W: Write>(
     styles: DocumentStyleMap<'_>,
     keep_style_tags: bool,
     keep_link_tags: bool,
+    at_rules: Option<&String>,
     mode: InliningMode,
 ) -> Result<(), InlineError> {
     let sink = Sink::new(
@@ -22,6 +23,7 @@ pub(crate) fn serialize_to<W: Write>(
         NodeId::document_id(),
         keep_style_tags,
         keep_link_tags,
+        at_rules,
         mode,
     );
     let mut ser = HtmlSerializer::new(writer, styles);
@@ -34,6 +36,7 @@ struct Sink<'a> {
     node: NodeId,
     keep_style_tags: bool,
     keep_link_tags: bool,
+    at_rules: Option<&'a String>,
     inlining_mode: InliningMode,
 }
 
@@ -43,6 +46,7 @@ impl<'a> Sink<'a> {
         node: NodeId,
         keep_style_tags: bool,
         keep_link_tags: bool,
+        at_rules: Option<&'a String>,
         inlining_mode: InliningMode,
     ) -> Sink<'a> {
         Sink {
@@ -50,6 +54,7 @@ impl<'a> Sink<'a> {
             node,
             keep_style_tags,
             keep_link_tags,
+            at_rules,
             inlining_mode,
         }
     }
@@ -60,6 +65,7 @@ impl<'a> Sink<'a> {
             node,
             self.keep_style_tags,
             self.keep_link_tags,
+            self.at_rules,
             self.inlining_mode,
         )
     }
@@ -70,8 +76,7 @@ impl<'a> Sink<'a> {
     #[inline]
     fn should_skip_element(&self, element: &ElementData) -> bool {
         if element.name.local == local_name!("style") {
-            !self.keep_style_tags
-                && element.attributes.get("data-css-inline".into()) != Some("keep")
+            !self.keep_style_tags && element.attributes.get_css_inline() != Some("keep")
         } else if element.name.local == local_name!("link")
             && element.attributes.get(local_name!("rel")) == Some("stylesheet")
         {
@@ -114,6 +119,14 @@ impl<'a> Sink<'a> {
 
                 serializer.start_elem(&element.name, &element.attributes, style_node_id)?;
 
+                if element.name.local == local_name!("head") {
+                    if let Some(at_rules) = &self.at_rules {
+                        if !at_rules.is_empty() {
+                            serializer.write_at_rules_style(at_rules)?;
+                        }
+                    }
+                }
+
                 self.serialize_children(serializer)?;
 
                 serializer.end_elem(&element.name)?;
@@ -121,7 +134,7 @@ impl<'a> Sink<'a> {
             }
             NodeData::Document => self.serialize_children(serializer),
             NodeData::Doctype { name } => serializer.write_doctype(name),
-            NodeData::Text { text: content } => serializer.write_text(content),
+            NodeData::Text { text } => serializer.write_text(text),
             NodeData::Comment { text } => serializer.write_comment(text),
             NodeData::ProcessingInstruction { target, data } => {
                 serializer.write_processing_instruction(target, data)
@@ -235,7 +248,11 @@ impl<'a, W: Write> HtmlSerializer<'a, W> {
 
         let mut styles = if let Some(node_id) = style_node_id {
             self.styles.swap_remove(&node_id).map(|mut styles| {
-                styles.sort_unstable_by(|_, (a, _), _, (b, _)| a.cmp(b));
+                // Even though, there is a fast path for sorting of <2 elements, `indexmap` still
+                // rebuilds the hashtable unnecessarily
+                if styles.len() > 1 {
+                    styles.sort_unstable_by(|_, (a, _), _, (b, _)| a.cmp(b));
+                }
                 styles
             })
         } else {
@@ -285,7 +302,7 @@ impl<'a, W: Write> HtmlSerializer<'a, W> {
             }
             self.writer.write_all(b"\"")?;
         }
-        if let Some(styles) = &styles {
+        if let Some(styles) = styles {
             self.writer.write_all(b" style=\"")?;
             for (property, (_, value)) in styles {
                 write_declaration(&mut self.writer, property, value)?;
@@ -363,6 +380,13 @@ impl<'a, W: Write> HtmlSerializer<'a, W> {
         Ok(())
     }
 
+    fn write_at_rules_style(&mut self, at_rules: &str) -> Result<(), InlineError> {
+        self.writer.write_all(b"<style>")?;
+        self.writer.write_all(at_rules.as_bytes())?;
+        self.writer.write_all(b"</style>")?;
+        Ok(())
+    }
+
     fn write_comment(&mut self, text: &str) -> Result<(), InlineError> {
         self.writer.write_all(b"<!--")?;
         self.writer.write_all(text.as_bytes())?;
@@ -407,28 +431,24 @@ fn write_declaration<Wr: Write>(
 #[inline]
 fn write_declaration_value<Wr: Write>(writer: &mut Wr, value: &str) -> Result<(), InlineError> {
     let value = value.trim();
-    if value.as_bytes().contains(&b'"') {
-        // Roughly based on `str::replace`
-        let mut last_end = 0;
-        for (start, part) in value.match_indices('"') {
-            writer.write_all(
-                value
-                    .get(last_end..start)
-                    .expect("Invalid substring")
-                    .as_bytes(),
-            )?;
-            writer.write_all(b"'")?;
-            last_end = start.checked_add(part.len()).expect("Size overflow");
-        }
+    // Roughly based on `str::replace`
+    let mut last_end = 0;
+    for (start, part) in value.match_indices('"') {
         writer.write_all(
             value
-                .get(last_end..value.len())
+                .get(last_end..start)
                 .expect("Invalid substring")
                 .as_bytes(),
         )?;
-    } else {
-        writer.write_all(value.as_bytes())?;
+        writer.write_all(b"'")?;
+        last_end = start.checked_add(part.len()).expect("Size overflow");
     }
+    writer.write_all(
+        value
+            .get(last_end..value.len())
+            .expect("Invalid substring")
+            .as_bytes(),
+    )?;
     Ok(())
 }
 
@@ -575,6 +595,7 @@ mod tests {
             IndexMap::default(),
             true,
             false,
+            None,
             InliningMode::Document,
         )
         .expect("Should not fail");
@@ -594,6 +615,7 @@ mod tests {
             IndexMap::default(),
             false,
             false,
+            None,
             InliningMode::Document,
         )
         .expect("Should not fail");
@@ -613,6 +635,7 @@ mod tests {
             IndexMap::default(),
             false,
             false,
+            None,
             InliningMode::Document,
         )
         .expect("Should not fail");
@@ -632,6 +655,7 @@ mod tests {
             IndexMap::default(),
             false,
             false,
+            None,
             InliningMode::Document,
         )
         .expect("Should not fail");
@@ -654,9 +678,32 @@ mod tests {
             IndexMap::default(),
             false,
             false,
+            None,
             InliningMode::Document,
         )
         .expect("Should not fail");
         assert_eq!(buffer, b"<!DOCTYPE html><html><head></head><body data-foo=\"&amp; &nbsp; &quot;\"></body></html>");
+    }
+
+    #[test]
+    fn test_keep_at_rules_tags() {
+        let doc = Document::parse_with_options(
+            b"<html><head><style>h1 { color:red }</style></head>",
+            0,
+            InliningMode::Document,
+        );
+        let mut buffer = Vec::new();
+        doc.serialize(
+            &mut buffer,
+            IndexMap::default(),
+            false,
+            false,
+            Some(&String::from(
+                "@media (max-width: 600px) { h1 { font-size: 18px; } }",
+            )),
+            InliningMode::Document,
+        )
+        .expect("Should not fail");
+        assert_eq!(buffer, b"<html><head><style>@media (max-width: 600px) { h1 { font-size: 18px; } }</style></head><body></body></html>");
     }
 }

@@ -1,8 +1,15 @@
-"""Accurate Hijri-Gregorian dates converter based on the Umm al-Qura calendar.
+"""[DEPRECATED] Use 'hijridate' package instead."""
 
-https://github.com/dralshehri/hijri-converter
-"""
+import warnings
 
-__version__ = "2.3.1"
+# Issue deprecation warning
+warnings.warn(
+    "hijri-converter is deprecated. Use 'hijridate' instead: "
+    "pip install hijridate==2.3.0",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+__version__ = "2.3.2.post1"
 
 from hijri_converter.convert import Gregorian, Hijri

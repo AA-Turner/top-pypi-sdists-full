@@ -42,10 +42,10 @@ TOML decoders.
 import sys
 from typing import Any, Callable, Dict, Tuple
 
-if sys.version_info >= (3, 11):  # pragma: no cover
+if sys.version_info >= (3, 11):  # pragma: no cover (<py311)
 	# stdlib
 	import tomllib as tomli
-else:  # pragma: no cover
+else:  # pragma: no cover (py311+)
 	# 3rd party
 	import tomli
 

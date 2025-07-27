@@ -45,6 +45,7 @@ pub enum SyntaxKind {
     MergeInsertClause,
     MergeUpdateClause,
     MergeDeleteClause,
+    MergeTreeOrderByClause,
     SetClauseList,
     TableReference,
     GroupbyClause,
@@ -595,6 +596,7 @@ pub enum SyntaxKind {
     MapTypeSchema,
     PrepareStatement,
     ExecuteStatement,
+    RenameTableStatement,
 }
 
 impl SyntaxKind {

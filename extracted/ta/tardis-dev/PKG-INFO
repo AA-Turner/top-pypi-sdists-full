@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: tardis-dev
-Version: 2.1.0
+Version: 2.1.1
 Summary: Python client for tardis.dev - historical tick-level cryptocurrency market data replay API.
 Home-page: https://github.com/tardis-dev/tardis-python
 License: MPL-2.0

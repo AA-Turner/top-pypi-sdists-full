@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pygit2
-Version: 1.18.0
+Version: 1.18.1
 Summary: Python bindings for libgit2.
 Home-page: https://github.com/libgit2/pygit2
 Maintainer: J. David Ibáñez

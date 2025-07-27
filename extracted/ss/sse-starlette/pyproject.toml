@@ -1,6 +1,6 @@
 [project]
 name = "sse-starlette"
-version = "2.4.1"
+version = "3.0.0"
 description = "SSE plugin for Starlette"
 readme = "README.md"
 license = "BSD-3-Clause"
@@ -28,7 +28,7 @@ dependencies = [
 examples = [
     "uvicorn>=0.34.0",
     "fastapi>=0.115.12",
-    "sqlalchemy[asyncio,examples]>=2.0.41",
+    "sqlalchemy[asyncio]>=2.0.41",
     "starlette>=0.41.3",
     "aiosqlite>=0.21.0",
 ]
@@ -55,8 +55,10 @@ dev = [
     "pytest-asyncio>=0.25.0",
     "pytest-cov>=6.0.0",
     "ruff>=0.8.4",
+    "starlette>=0.41.3",
     "tenacity>=9.0.0",
     "testcontainers>=4.9.0",
+    "uvicorn>=0.34.0",
     "build>=1.2.2.post1",
 ]
 
@@ -68,7 +70,7 @@ requires = ["setuptools"]
 build-backend = "setuptools.build_meta"
 
 [tool.bumpversion]
-current_version = "2.4.1"
+current_version = "3.0.0"
 commit = true
 tag = false
 message = "Bump version to {new_version}"
@@ -99,6 +101,7 @@ markers = [
     "experimentation: marks tests as experimental tests, not to be run in CICD"
 ]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 #addopts = "--cov=my_package --cov-report=term-missing"
 
 [tool.mypy]

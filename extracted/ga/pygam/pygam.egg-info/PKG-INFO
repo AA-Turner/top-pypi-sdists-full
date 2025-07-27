@@ -1,9 +1,25 @@
 Metadata-Version: 2.4
 Name: pygam
-Version: 0.10.0
+Version: 0.10.1
 Summary: Generalized Additive Models in Python.
 Author: Daniel Servén Marín, Charlie Brummitt
 License: Apache-2.0
+Classifier: Intended Audience :: Developers
+Classifier: Intended Audience :: Science/Research
+Classifier: License :: OSI Approved :: Apache Software License
+Classifier: Operating System :: MacOS
+Classifier: Operating System :: Microsoft :: Windows
+Classifier: Operating System :: Unix
+Classifier: Programming Language :: Python
+Classifier: Programming Language :: Python :: 3 :: Only
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+Classifier: Topic :: Scientific/Engineering
+Classifier: Topic :: Scientific/Engineering :: Artificial Intelligence
+Classifier: Topic :: Software Development
 Requires-Python: <3.14,>=3.9
 Description-Content-Type: text/markdown
 License-File: LICENSE
@@ -32,7 +48,7 @@ Dynamic: license-file
 
 Generalized Additive Models in Python.
 
-:rocket: **Version 0.10.0 out now!** [See release notes here](https://github.com/dswah/pyGAM/releases).
+:rocket: **Version 0.10.1 out now!** [See release notes here](https://github.com/dswah/pyGAM/releases).
 
 `pyGAM` is a package for building Generalized Additive Models in Python, with an emphasis on modularity and performance.
 
@@ -64,7 +80,7 @@ To speed up optimization on large models with constraints, it helps to have `sci
 The easiest way is to use Conda:
 ```conda install -c conda-forge scikit-sparse nose```
 
-[scikit-sparse docs](http://pythonhosted.org/scikit-sparse/overview.html#download)
+[scikit-sparse project](https://github.com/scikit-sparse/scikit-sparse)
 
 ## Contributing - HELP REQUESTED
 Contributions are most welcome!

@@ -136,11 +136,10 @@ class Extractor():
             if first:
                 first = False
                 values = config.accumulate(extr + path, key)
-            else:
-                conf = config.get(extr, path[0])
-                if conf:
-                    values[:0] = config.accumulate(
-                        (self.subcategory,), key, conf=conf)
+            elif conf := config.get(extr, path[0]):
+                values[:0] = config.accumulate(
+                    (self.subcategory,), key, conf=conf)
+
         return values
 
     def request(self, url, method="GET", session=None,
@@ -265,20 +264,27 @@ class Extractor():
         return self.request(url, **kwargs).headers.get("location", "")
 
     def request_json(self, url, **kwargs):
+        response = self.request(url, **kwargs)
+
         try:
-            return util.json_loads(self.request(url, **kwargs).text)
+            return util.json_loads(response.text)
         except Exception as exc:
             fatal = kwargs.get("fatal", True)
             if not fatal or fatal is ...:
-                self.log.warning("%s: %s", exc.__class__.__name__, exc)
+                if challenge := util.detect_challenge(response):
+                    self.log.warning(challenge)
+                else:
+                    self.log.warning("%s: %s", exc.__class__.__name__, exc)
                 return {}
             raise
 
     def request_xml(self, url, xmlns=True, **kwargs):
-        text = self.request(url, **kwargs).text
+        response = self.request(url, **kwargs)
 
-        if not xmlns:
-            text = text.replace(" xmlns=", " ns=")
+        if xmlns:
+            text = response.text
+        else:
+            text = response.text.replace(" xmlns=", " ns=")
 
         parser = ElementTree.XMLParser()
         try:
@@ -287,7 +293,10 @@ class Extractor():
         except Exception as exc:
             fatal = kwargs.get("fatal", True)
             if not fatal or fatal is ...:
-                self.log.warning("%s: %s", exc.__class__.__name__, exc)
+                if challenge := util.detect_challenge(response):
+                    self.log.warning(challenge)
+                else:
+                    self.log.warning("%s: %s", exc.__class__.__name__, exc)
                 return ElementTree.Element("")
             raise
 
@@ -445,8 +454,7 @@ class Extractor():
         if ZSTD:
             headers["Accept-Encoding"] += ", zstd"
 
-        referer = self.config("referer", self.referer)
-        if referer:
+        if referer := self.config("referer", self.referer):
             if isinstance(referer, str):
                 headers["Referer"] = referer
             elif self.root:
@@ -461,8 +469,7 @@ class Extractor():
                 custom_ua is not config.get(("extractor",), "user-agent"):
             headers["User-Agent"] = custom_ua
 
-        custom_headers = self.config("headers")
-        if custom_headers:
+        if custom_headers := self.config("headers"):
             if isinstance(custom_headers, str):
                 if custom_headers in HEADERS:
                     custom_headers = HEADERS[custom_headers]
@@ -472,8 +479,7 @@ class Extractor():
                     custom_headers = ()
             headers.update(custom_headers)
 
-        custom_ciphers = self.config("ciphers")
-        if custom_ciphers:
+        if custom_ciphers := self.config("ciphers"):
             if isinstance(custom_ciphers, list):
                 ssl_ciphers = ":".join(custom_ciphers)
             elif custom_ciphers in CIPHERS:
@@ -481,8 +487,7 @@ class Extractor():
             else:
                 ssl_ciphers = custom_ciphers
 
-        source_address = self.config("source-address")
-        if source_address:
+        if source_address := self.config("source-address"):
             if isinstance(source_address, str):
                 source_address = (source_address, 0)
             else:
@@ -516,10 +521,8 @@ class Extractor():
         if self.cookies_domain is None:
             return
 
-        cookies = self.config("cookies")
-        if cookies:
-            select = self.config("cookies-select")
-            if select:
+        if cookies := self.config("cookies"):
+            if select := self.config("cookies-select"):
                 if select == "rotate":
                     cookies = cookies[self.cookies_index % len(cookies)]
                     Extractor.cookies_index += 1
@@ -965,8 +968,7 @@ class BaseExtractor(Extractor):
 
     @classmethod
     def update(cls, instances):
-        extra_instances = config.get(("extractor",), cls.basecategory)
-        if extra_instances:
+        if extra_instances := config.get(("extractor",), cls.basecategory):
             for category, info in extra_instances.items():
                 if isinstance(info, dict) and "root" in info:
                     instances[category] = info
@@ -974,8 +976,7 @@ class BaseExtractor(Extractor):
         pattern_list = []
         instance_list = cls.instances = []
         for category, info in instances.items():
-            root = info["root"]
-            if root:
+            if root := info["root"]:
                 root = root.rstrip("/")
             instance_list.append((category, root, info))
 

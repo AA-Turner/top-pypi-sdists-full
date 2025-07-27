@@ -5,11 +5,8 @@ import logging
 import os
 import sys
 import time
-import traceback
 from difflib import unified_diff
-from typing import Collection, List, Optional, Tuple
-
-import astor
+from typing import Collection, Iterable, List, Optional, Tuple
 
 from flynt.code_editor import (
     fstringify_code_by_line,
@@ -29,6 +26,16 @@ class FstringifyResult:
     original_length: int
     new_length: int
     content: str
+
+
+def _find_py_files(path: str) -> Iterable[Tuple[str, str]]:
+    """Yield ``(folder, filename)`` pairs for all Python files under ``path``."""
+    if not os.path.isdir(path):
+        yield os.path.split(path)
+        return
+    for srcpath, _, fnames in os.walk(path):
+        for fname in (f for f in fnames if f.endswith(".py")):
+            yield srcpath, fname
 
 
 def _fstringify_file(
@@ -100,10 +107,10 @@ def fstringify_code(
                     new_code,
                     state=state,
                 )
-            except Exception:
-                msg = traceback.format_exc()
-                log.error("Transforming concatenation of literal strings failed")
-                log.error(msg)
+            except Exception as exc:
+                log.error(
+                    "Transforming concatenation of literal strings failed", exc_info=exc
+                )
             else:
                 changes += concat_changes
                 state.concat_changes += concat_changes
@@ -113,10 +120,10 @@ def fstringify_code(
                     new_code,
                     state=state,
                 )
-            except Exception:
-                msg = traceback.format_exc()
-                log.error("Transforming concatenation of literal strings failed")
-                log.error(msg)
+            except Exception as exc:
+                log.error(
+                    "Transforming concatenation of literal strings failed", exc_info=exc
+                )
             else:
                 changes += join_changes
                 state.join_changes += join_changes
@@ -177,7 +184,7 @@ def fstringify_files(
                 changed_files += 1
                 total_expressions += result.n_changes
             total_charcount_original += result.original_length
-            total_charcount_new += result.n_changes
+            total_charcount_new += result.new_length
             status = "modified" if result.n_changes else "no change"
         else:
             status = "failed"
@@ -301,7 +308,6 @@ def _resolve_files(
         _blacklist.update(set(excluded_files_or_paths))
 
     for file_or_path in files_or_paths:
-
         abs_path = os.path.abspath(file_or_path)
 
         if not os.path.exists(abs_path):
@@ -309,7 +315,7 @@ def _resolve_files(
             sys.exit(1)
 
         if os.path.isdir(abs_path):
-            for folder, filename in astor.code_to_ast.find_py_files(abs_path):
+            for folder, filename in _find_py_files(abs_path):
                 files.append(os.path.join(folder, filename))
         else:
             files.append(abs_path)

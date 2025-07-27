@@ -1,6 +1,6 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: multipart
-Version: 1.2.1
+Version: 1.3.0
 Summary: Parser for multipart/form-data
 Author-email: Marcel Hellkamp <marc@gsites.de>
 Requires-Python: >=3.8
@@ -13,10 +13,19 @@ Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content
 Classifier: Topic :: Internet :: WWW/HTTP :: Dynamic Content :: CGI Tools/Libraries
 Classifier: Topic :: Internet :: WWW/HTTP :: WSGI
 Classifier: Programming Language :: Python :: 3
+Classifier: Programming Language :: Python :: 3.8
+Classifier: Programming Language :: Python :: 3.9
+Classifier: Programming Language :: Python :: 3.10
+Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
+License-File: LICENSE
 Requires-Dist: pytest ; extra == "dev"
 Requires-Dist: pytest-cov ; extra == "dev"
 Requires-Dist: build ; extra == "dev"
 Requires-Dist: twine ; extra == "dev"
+Requires-Dist: tox ; extra == "dev"
+Requires-Dist: tox-uv ; extra == "dev"
 Requires-Dist: sphinx>=8,<9 ; extra == "docs"
 Requires-Dist: sphinx-autobuild ; extra == "docs"
 Project-URL: Changelog, https://multipart.readthedocs.io/en/latest/changelog.html
@@ -40,8 +49,12 @@ Python multipart/form-data parser
     :target: https://pypi.python.org/pypi/multipart/
     :alt: Latest Version
 
-.. image:: https://img.shields.io/pypi/l/multipart.svg
+.. image:: https://img.shields.io/pypi/pyversions/multipart.svg?color=%2334D058
     :target: https://pypi.python.org/pypi/multipart/
+    :alt: Supported Python Version
+
+.. image:: https://img.shields.io/pypi/l/multipart.svg
+    :target: https://github.com/defnull/multipart/
     :alt: License
 
 .. _HTML5: https://html.spec.whatwg.org/multipage/form-control-infrastructure.html#multipart-form-data

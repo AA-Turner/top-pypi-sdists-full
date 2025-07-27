@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: antsibull-docs
-Version: 2.19.1
+Version: 2.20.0
 Summary: Tools for building Ansible documentation
 Project-URL: Documentation, https://ansible.readthedocs.io/projects/antsibull-docs/
 Project-URL: Source code, https://github.com/ansible-community/antsibull-docs

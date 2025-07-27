@@ -4,10 +4,10 @@ build-backend = "flit_core.buildapi"
 
 [project]
 name = "dom_toml"
-version = "2.0.1"
+version = "2.1.0"
 description = "Dom's tools for Tom's Obvious, Minimal Language."
 readme = "README.rst"
-requires-python = ">=3.6.1"
+requires-python = ">=3.7"
 keywords = [ "configuration", "serialize", "toml",]
 classifiers = [
     "Development Status :: 4 - Beta",
@@ -16,19 +16,19 @@ classifiers = [
     "Operating System :: OS Independent",
     "Programming Language :: Python",
     "Programming Language :: Python :: 3 :: Only",
-    "Programming Language :: Python :: 3.6",
     "Programming Language :: Python :: 3.7",
     "Programming Language :: Python :: 3.8",
     "Programming Language :: Python :: 3.9",
     "Programming Language :: Python :: 3.10",
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Programming Language :: Python :: Implementation :: CPython",
     "Programming Language :: Python :: Implementation :: PyPy",
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
-dependencies = [ "domdf-python-tools>=2.8.0", "tomli>=1.2.3",]
+dependencies = [ "domdf-python-tools>=2.8.0", 'tomli>=1.2.3; python_version < "3.11"',]
 dynamic = []
 
 [project.license]
@@ -134,7 +134,7 @@ base-classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
     "Typing :: Typed",
 ]
-python-versions = [ "3.6", "3.7", "3.8", "3.9", "3.10", "3.11", "3.12",]
+python-versions = [ "3.7", "3.8", "3.9", "3.10", "3.11", "3.12", "3.13",]
 python-implementations = [ "CPython", "PyPy",]
 platforms = [ "Windows", "macOS", "Linux",]
 license-key = "MIT"

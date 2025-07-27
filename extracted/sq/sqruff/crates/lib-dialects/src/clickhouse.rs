@@ -27,6 +27,63 @@ pub fn dialect() -> Dialect {
         .sets_mut("unreserved_keywords")
         .extend(UNRESERVED_KEYWORDS);
 
+    clickhouse_dialect.sets_mut("datetime_units").clear();
+    clickhouse_dialect.sets_mut("datetime_units").extend([
+        // https://github.com/ClickHouse/ClickHouse/blob/1cdccd527f0cbf5629b21d29970e28d5156003dc/src/Parsers/parseIntervalKind.cpp#L8
+        "NANOSECOND",
+        "NANOSECONDS",
+        "SQL_TSI_NANOSECOND",
+        "NS",
+        "MICROSECOND",
+        "MICROSECONDS",
+        "SQL_TSI_MICROSECOND",
+        "MCS",
+        "MILLISECOND",
+        "MILLISECONDS",
+        "SQL_TSI_MILLISECOND",
+        "MS",
+        "SECOND",
+        "SECONDS",
+        "SQL_TSI_SECOND",
+        "SS",
+        "S",
+        "MINUTE",
+        "MINUTES",
+        "SQL_TSI_MINUTE",
+        "MI",
+        "N",
+        "HOUR",
+        "HOURS",
+        "SQL_TSI_HOUR",
+        "HH",
+        "H",
+        "DAY",
+        "DAYS",
+        "SQL_TSI_DAY",
+        "DD",
+        "D",
+        "WEEK",
+        "WEEKS",
+        "SQL_TSI_WEEK",
+        "WK",
+        "WW",
+        "MONTH",
+        "MONTHS",
+        "SQL_TSI_MONTH",
+        "MM",
+        "M",
+        "QUARTER",
+        "QUARTERS",
+        "SQL_TSI_QUARTER",
+        "QQ",
+        "Q",
+        "YEAR",
+        "YEARS",
+        "SQL_TSI_YEAR",
+        "YYYY",
+        "YY",
+    ]);
+
     clickhouse_dialect.add([
         (
             "SelectClauseTerminatorGrammar".into(),
@@ -71,6 +128,19 @@ pub fn dialect() -> Dialect {
                     false,
                 )
                 .into(),
+        ),
+        (
+            "DateTimeLiteralGrammar".into(),
+            Sequence::new(vec_of_erased![
+                one_of(vec_of_erased![
+                    Ref::keyword("DATE"),
+                    Ref::keyword("TIME"),
+                    Ref::keyword("TIMESTAMP"),
+                ]),
+                TypedParser::new(SyntaxKind::SingleQuote, SyntaxKind::DateConstructorLiteral,)
+            ])
+            .to_matchable()
+            .into(),
         ),
     ]);
 
@@ -204,6 +274,17 @@ pub fn dialect() -> Dialect {
             .to_matchable()
             .into(),
         ),
+        (
+            "TupleSegment".into(),
+            NodeMatcher::new(SyntaxKind::Tuple, |_| {
+                Bracketed::new(vec_of_erased![Delimited::new(vec_of_erased![Ref::new(
+                    "BaseExpressionElementGrammar"
+                )])])
+                .to_matchable()
+            })
+            .to_matchable()
+            .into(),
+        ),
     ]);
 
     clickhouse_dialect.add([(
@@ -255,6 +336,29 @@ pub fn dialect() -> Dialect {
                 Ref::new("FormatValueSegment"),
                 Ref::new("SettingsClauseSegment").optional(),
             ])
+            .to_matchable()
+            .into(),
+        ),
+        (
+            "MergeTreesOrderByClauseSegment".into(),
+            NodeMatcher::new(SyntaxKind::MergeTreeOrderByClause, |_| {
+                Sequence::new(vec_of_erased![
+                    Ref::keyword("ORDER"),
+                    Ref::keyword("BY"),
+                    one_of(vec_of_erased![
+                        Sequence::new(vec_of_erased![
+                            Ref::keyword("TUPLE"),
+                            Bracketed::new(vec_of_erased![]), // tuple() not tuple
+                        ]),
+                        Bracketed::new(vec_of_erased![Delimited::new(vec_of_erased![
+                            Ref::new("ColumnReferenceSegment"),
+                            Ref::new("ExpressionSegment"),
+                        ])]),
+                        Ref::new("ColumnReferenceSegment"),
+                    ]),
+                ])
+                .to_matchable()
+            })
             .to_matchable()
             .into(),
         ),
@@ -397,13 +501,16 @@ pub fn dialect() -> Dialect {
                 Ref::keyword("NOT").optional(),
                 Ref::keyword("IN"),
                 one_of(vec_of_erased![
-                    Bracketed::new(vec_of_erased![one_of(vec_of_erased![
-                        Delimited::new(vec_of_erased![Ref::new("Expression_A_Grammar"),]),
+                    Ref::new("FunctionSegment"),         // IN tuple(1, 2)
+                    Ref::new("ArrayLiteralSegment"),     // IN [1, 2]
+                    Ref::new("TupleSegment"),            // IN (1, 2)
+                    Ref::new("SingleIdentifierGrammar"), // IN TABLE, IN CTE
+                    Bracketed::new(vec_of_erased![
+                        Delimited::new(vec_of_erased![Ref::new("Expression_A_Grammar")]),
                         Ref::new("SelectableGrammar"),
-                    ])])
+                    ])
                     .config(|this| this.parse_mode(ParseMode::Greedy)),
-                    Ref::new("FunctionSegment"), // E.g. UNNEST() or tuple()
-                ])
+                ]),
             ])
             .to_matchable()
             .into(),
@@ -617,18 +724,11 @@ pub fn dialect() -> Dialect {
             NodeMatcher::new(SyntaxKind::Engine, |_| {
                 Sequence::new(vec_of_erased![
                     Ref::keyword("ENGINE"),
-                    Ref::new("EqualsSegment"),
+                    Ref::new("EqualsSegment").optional(),
                     Sequence::new(vec_of_erased![
                         Ref::new("TableEngineFunctionSegment"),
                         any_set_of(vec_of_erased![
-                            Sequence::new(vec_of_erased![
-                                Ref::keyword("ORDER"),
-                                Ref::keyword("BY"),
-                                one_of(vec_of_erased![
-                                    Ref::new("BracketedColumnReferenceListGrammar"),
-                                    Ref::new("ColumnReferenceSegment"),
-                                ]),
-                            ]),
+                            Ref::new("MergeTreesOrderByClauseSegment"),
                             Sequence::new(vec_of_erased![
                                 Ref::keyword("PARTITION"),
                                 Ref::keyword("BY"),
@@ -702,15 +802,7 @@ pub fn dialect() -> Dialect {
                     Sequence::new(vec_of_erased![
                         Ref::new("DatabaseEngineFunctionSegment"),
                         any_set_of(vec_of_erased![
-                            Sequence::new(vec_of_erased![
-                                Ref::keyword("ORDER"),
-                                Ref::keyword("BY"),
-                                one_of(vec_of_erased![
-                                    Ref::new("BracketedColumnReferenceListGrammar"),
-                                    Ref::new("ColumnReferenceSegment"),
-                                ]),
-                            ])
-                            .config(|this| this.optional()),
+                            Ref::new("MergeTreesOrderByClauseSegment"),
                             Sequence::new(vec_of_erased![
                                 Ref::keyword("PARTITION"),
                                 Ref::keyword("BY"),
@@ -897,6 +989,46 @@ pub fn dialect() -> Dialect {
         ])
         .to_matchable(),
     );
+
+    // https://clickhouse.com/docs/sql-reference/statements/rename
+    clickhouse_dialect.add([(
+        "RenameStatementSegment".into(),
+        NodeMatcher::new(SyntaxKind::RenameTableStatement, |_| {
+            Sequence::new(vec_of_erased![
+                Ref::keyword("RENAME"),
+                one_of(vec_of_erased![
+                    Sequence::new(vec_of_erased![
+                        Ref::keyword("TABLE"),
+                        Delimited::new(vec_of_erased![Sequence::new(vec_of_erased![
+                            Ref::new("TableReferenceSegment"),
+                            Ref::keyword("TO"),
+                            Ref::new("TableReferenceSegment"),
+                        ])]),
+                    ]),
+                    Sequence::new(vec_of_erased![
+                        Ref::keyword("DATABASE"),
+                        Delimited::new(vec_of_erased![Sequence::new(vec_of_erased![
+                            Ref::new("DatabaseReferenceSegment"),
+                            Ref::keyword("TO"),
+                            Ref::new("DatabaseReferenceSegment"),
+                        ])]),
+                    ]),
+                    Sequence::new(vec_of_erased![
+                        Ref::keyword("DICTIONARY"),
+                        Delimited::new(vec_of_erased![Sequence::new(vec_of_erased![
+                            Ref::new("ObjectReferenceSegment"),
+                            Ref::keyword("TO"),
+                            Ref::new("ObjectReferenceSegment"),
+                        ])]),
+                    ]),
+                ]),
+                Ref::new("OnClusterClauseSegment").optional(),
+            ])
+            .to_matchable()
+        })
+        .to_matchable()
+        .into(),
+    )]);
 
     clickhouse_dialect.replace_grammar(
         "CreateTableStatementSegment",
@@ -1396,6 +1528,7 @@ pub fn dialect() -> Dialect {
                 Ref::new("DropQuotaStatementSegment"),
                 Ref::new("DropSettingProfileStatementSegment"),
                 Ref::new("SystemStatementSegment"),
+                Ref::new("RenameStatementSegment"),
             ]),
             None,
             None,
@@ -1446,6 +1579,35 @@ pub fn dialect() -> Dialect {
                 .config(|this| this.optional()),
             ]),
             MetaSegment::dedent(),
+        ])
+        .to_matchable(),
+    );
+
+    // https://clickhouse.com/docs/sql-reference/data-types/special-data-types/interval
+    // https://clickhouse.com/docs/sql-reference/operators#interval
+    clickhouse_dialect.replace_grammar(
+        "IntervalExpressionSegment",
+        Sequence::new(vec_of_erased![
+            Ref::keyword("INTERVAL"),
+            one_of(vec_of_erased![
+                // The Numeric Version
+                Sequence::new(vec_of_erased![
+                    Ref::new("NumericLiteralSegment"),
+                    Ref::new("DatetimeUnitSegment"),
+                ]),
+                // The String version
+                Ref::new("QuotedLiteralSegment"),
+                // Combine version
+                Sequence::new(vec_of_erased![
+                    Ref::new("QuotedLiteralSegment"),
+                    Ref::new("DatetimeUnitSegment"),
+                ]),
+                // With expression as value
+                Sequence::new(vec_of_erased![
+                    Ref::new("ExpressionSegment"),
+                    Ref::new("DatetimeUnitSegment"),
+                ]),
+            ]),
         ])
         .to_matchable(),
     );

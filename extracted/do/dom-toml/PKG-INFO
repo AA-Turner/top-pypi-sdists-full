@@ -1,10 +1,10 @@
-Metadata-Version: 2.3
+Metadata-Version: 2.4
 Name: dom_toml
-Version: 2.0.1
+Version: 2.1.0
 Summary: Dom's tools for Tom's Obvious, Minimal Language.
 Keywords: configuration,serialize,toml
 Author-email: Dominic Davis-Foster <dominic@davis-foster.co.uk>
-Requires-Python: >=3.6.1
+Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
@@ -12,19 +12,20 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.6
 Classifier: Programming Language :: Python :: 3.7
 Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: Implementation :: CPython
 Classifier: Programming Language :: Python :: Implementation :: PyPy
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Typing :: Typed
+License-File: LICENSE
 Requires-Dist: domdf-python-tools>=2.8.0
-Requires-Dist: tomli>=1.2.3
+Requires-Dist: tomli>=1.2.3; python_version < "3.11"
 Project-URL: Documentation, https://dom-toml.readthedocs.io/en/latest
 Project-URL: Homepage, https://github.com/domdfcoding/dom_toml
 Project-URL: Issue Tracker, https://github.com/domdfcoding/dom_toml/issues
@@ -133,7 +134,7 @@ dom_toml
 .. |language| image:: https://img.shields.io/github/languages/top/domdfcoding/dom_toml
 	:alt: GitHub top language
 
-.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/dom_toml/v2.0.1
+.. |commits-since| image:: https://img.shields.io/github/commits-since/domdfcoding/dom_toml/v2.1.0
 	:target: https://github.com/domdfcoding/dom_toml/pulse
 	:alt: GitHub commits since tagged version
 

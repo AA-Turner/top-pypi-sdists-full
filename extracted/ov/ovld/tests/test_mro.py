@@ -1,5 +1,8 @@
+import sys
 from dataclasses import dataclass
-from typing import Iterable, Mapping
+from typing import Annotated, Any, Iterable, Mapping
+
+import pytest
 
 from ovld.dependent import Dependent, Regexp
 from ovld.mro import Order, subclasscheck, typeorder
@@ -130,6 +133,60 @@ def test_subclasscheck_generic():
 
 def test_subclasscheck_type():
     assert subclasscheck(type[int], type[object])
+
+
+def test_subclasscheck_anntype():
+    assert subclasscheck(type[Annotated[int, "hello"]], type[Annotated])
+    assert subclasscheck(type[Annotated[int, "hello"]], type[Annotated[object, "hello"]])
+    assert subclasscheck(
+        type[Annotated[int, "hello"]], type[Annotated[object, "hello", "world"]]
+    )
+    assert subclasscheck(
+        type[Annotated[int, "hello", "world"]], type[Annotated[object, "hello"]]
+    )
+    assert not subclasscheck(type[Annotated[object, "hello"]], type[Annotated[int, "hello"]])
+    assert not subclasscheck(type[Annotated[int, "hello"]], type[Annotated[int, "world"]])
+    assert not subclasscheck(type[Annotated[int, "hello"]], type[int])
+    assert not subclasscheck(type[int], type[Annotated[int, "hello"]])
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 12), reason="Python 3.11 is more strict on Annotated"
+)
+def test_subclasscheck_anntype_any():
+    assert subclasscheck(type[Annotated[int, "hello"]], type[Annotated[Any, "hello"]])
+    assert subclasscheck(type[Annotated[123, "hello"]], type[Annotated[Any, "hello"]])
+
+
+def test_typeorder_any():
+    assert typeorder(int, Any) is Order.LESS
+    assert typeorder(Any, int) is Order.MORE
+    assert typeorder(Any, Any) is Order.SAME
+
+
+@dataclass(frozen=True)
+class Anno:
+    name: str
+    annotation_priority: int = 0
+
+
+def test_typeorder_anntype():
+    assert typeorder(type[Annotated], type[Annotated[int, "hello"]]) is Order.MORE
+    assert typeorder(type[Annotated[int, "hello"]], type[Annotated]) is Order.LESS
+    assert (
+        typeorder(type[Annotated[int, "hello"]], type[Annotated[int, "world"]]) is Order.SAME
+    )
+    assert (
+        typeorder(type[Annotated[object, "hello"]], type[Annotated[int, "world"]])
+        is Order.MORE
+    )
+    assert typeorder(type[Annotated[int, "hello"]], type[int]) is Order.SAME
+    assert typeorder(type[int], type[Annotated[int, "hello"]]) is Order.SAME
+
+    zap = Anno("zap", 2)
+    zop = Anno("zap", 5)
+    assert typeorder(type[Annotated[int, zap]], type[Annotated[int, zop]]) is Order.MORE
+    assert typeorder(type[Annotated[int, zop]], type[Annotated[int, zap]]) is Order.LESS
 
 
 def test_subclasscheck_type_union():

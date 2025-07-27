@@ -23,8 +23,9 @@
 # the Free Software Foundation, 51 Franklin Street, Fifth Floor,
 # Boston, MA 02110-1301, USA.
 
+import typing
 import warnings
-import weakref
+from dataclasses import dataclass
 
 # Import from pygit2
 from ._pygit2 import Oid, Tree, Diff
@@ -177,6 +178,11 @@ class Index:
         err = C.git_index_remove(self._index, to_bytes(path), level)
         check_error(err, io=True)
 
+    def remove_directory(self, path, level=0):
+        """Remove a directory from the Index."""
+        err = C.git_index_remove_directory(self._index, to_bytes(path), level)
+        check_error(err, io=True)
+
     def remove_all(self, pathspecs):
         """Remove all index entries matching pathspecs."""
         with StrArray(pathspecs) as arr:
@@ -213,6 +219,41 @@ class Index:
             err = C.git_index_add_bypath(self._index, to_bytes(path))
         else:
             raise TypeError('argument must be string or IndexEntry')
+
+        check_error(err, io=True)
+
+    def add_conflict(self, ancestor, ours, theirs):
+        """
+        Add or update index entries to represent a conflict. Any staged entries that
+        exist at the given paths will be removed.
+
+        Parameters:
+
+        ancestor
+            ancestor of the conflict
+        ours
+            ours side of the conflict
+        theirs
+            their side of the conflict
+        """
+
+        if ancestor and not isinstance(ancestor, IndexEntry):
+            raise TypeError('ancestor has to be an instance of IndexEntry or None')
+        if ours and not isinstance(ours, IndexEntry):
+            raise TypeError('ours has to be an instance of IndexEntry or None')
+        if theirs and not isinstance(theirs, IndexEntry):
+            raise TypeError('theirs has to be an instance of IndexEntry or None')
+
+        centry_ancestor = centry_ours = centry_theirs = ffi.NULL
+        if ancestor is not None:
+            centry_ancestor, _ = ancestor._to_c()
+        if ours is not None:
+            centry_ours, _ = ours._to_c()
+        if theirs is not None:
+            centry_theirs, _ = theirs._to_c()
+        err = C.git_index_conflict_add(
+            self._index, centry_ancestor, centry_ours, centry_theirs
+        )
 
         check_error(err, io=True)
 
@@ -311,7 +352,6 @@ class Index:
     #
     # Conflicts
     #
-    _conflicts = None
 
     @property
     def conflicts(self):
@@ -333,15 +373,49 @@ class Index:
         the particular conflict.
         """
         if not C.git_index_has_conflicts(self._index):
-            self._conflicts = None
             return None
 
-        if self._conflicts is None or self._conflicts() is None:
-            conflicts = ConflictCollection(self)
-            self._conflicts = weakref.ref(conflicts)
-            return conflicts
+        return ConflictCollection(self)
 
-        return self._conflicts()
+
+@dataclass
+class MergeFileResult:
+    automergeable: bool
+    'True if the output was automerged, false if the output contains conflict markers'
+
+    path: typing.Union[str, None]
+    'The path that the resultant merge file should use, or None if a filename conflict would occur'
+
+    mode: FileMode
+    'The mode that the resultant merge file should use'
+
+    contents: str
+    'Contents of the file, which might include conflict markers'
+
+    def __repr__(self):
+        t = type(self)
+        contents = (
+            self.contents if len(self.contents) <= 20 else f'{self.contents[:20]}...'
+        )
+        return (
+            f'<{t.__module__}.{t.__qualname__} "'
+            f'automergeable={self.automergeable} "'
+            f'path={self.path} '
+            f'mode={self.mode} '
+            f'contents={contents}>'
+        )
+
+    @classmethod
+    def _from_c(cls, centry):
+        if centry == ffi.NULL:
+            return None
+
+        automergeable = centry.automergeable != 0
+        path = to_str(ffi.string(centry.path)) if centry.path else None
+        mode = FileMode(centry.mode)
+        contents = ffi.string(centry.ptr, centry.len).decode('utf-8')
+
+        return MergeFileResult(automergeable, path, mode, contents)
 
 
 class IndexEntry:

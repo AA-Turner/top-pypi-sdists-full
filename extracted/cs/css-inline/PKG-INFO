@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: css-inline
-Version: 0.16.0
+Version: 0.17.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -64,7 +64,7 @@ into:
 ```
 
 - Uses reliable components from Mozilla's Servo project
-- 10-400x faster than alternatives
+- 10-500x faster than alternatives
 - Inlines CSS from `style` and `link` tags
 - Removes `style` and `link` tags
 - Resolves external stylesheets (including local files)
@@ -176,6 +176,7 @@ inliner.inline("...")
 - `inline_style_tags`. Specifies whether to inline CSS from "style" tags. Default: `True`
 - `keep_style_tags`. Specifies whether to keep "style" tags after inlining. Default: `False`
 - `keep_link_tags`. Specifies whether to keep "link" tags after inlining. Default: `False`
+- `keep_at_rules`. Specifies whether to keep "at-rules" (starting with `@`) after inlining. Default: `False`
 - `base_url`. The base URL used to resolve relative URLs. If you'd like to load stylesheets from your filesystem, use the `file://` scheme. Default: `None`
 - `load_remote_stylesheets`. Specifies whether remote stylesheets should be loaded. Default: `True`
 - `cache`. Specifies caching options for external stylesheets (for example, `StylesheetCache(size=5)`). Default: `None`
@@ -207,7 +208,8 @@ The `data-css-inline="ignore"` attribute also allows you to skip `link` and `sty
 ```
 
 Alternatively, you may keep `style` from being removed by using the `data-css-inline="keep"` attribute.
-This is useful if you want to keep `@media` queries for responsive emails in separate `style` tags:
+This is useful if you want to keep `@media` queries for responsive emails in separate `style` tags.
+Such tags will be kept in the resulting HTML even if the `keep_style_tags` option is set to `false`.
 
 ```html
 <head>
@@ -219,7 +221,20 @@ This is useful if you want to keep `@media` queries for responsive emails in sep
 </body>
 ```
 
-Such tags will be kept in the resulting HTML even if the `keep_style_tags` option is set to `false`.
+Another possibility is to set `keep_at_rules` option to `true`. At-rules cannot be inlined into HTML therefore they
+get removed by default. This is useful if you want to keep at-rules, e.g. `@media` queries for responsive emails in
+separate `style` tags but inline any styles which can be inlined.
+Such tags will be kept in the resulting HTML even if the `keep_style_tags` option is explicitly set to `false`.
+
+```html
+<head>
+  <!-- With keep_at_rules=true "color:blue" will get inlined into <h1> but @media will be kept in <style> -->
+  <style>h1 { color: blue; } @media (max-width: 600px) { h1 { font-size: 18px; } }</style>
+</head>
+<body>
+  <h1>Big Text</h1>
+</body>
+```
 
 If you'd like to load stylesheets from your filesystem, use the `file://` scheme:
 
@@ -265,12 +280,12 @@ Most of the time it achieves over a **10x** speed advantage compared to the next
 
 Here is the performance comparison:
 
-|             | Size    | `css_inline 0.16.0` | `premailer 3.10.0`     | `toronado 0.1.0`        | `inlinestyler 0.2.5`   | `pynliner 0.8.0`       |
+|             | Size    | `css_inline 0.17.0` | `premailer 3.10.0`     | `toronado 0.1.0`        | `inlinestyler 0.2.5`   | `pynliner 0.8.0`       |
 |-------------|---------|---------------------|------------------------|-------------------------|------------------------|------------------------|
-| Basic       | 230 B   | 4.31 µs             | 106.94 µs (**24.77x**) | 602.44 µs (**139.52x**) | 1.02 ms (**236.65x**)  | 1.13ms (**263.43x**)   |
-| Realistic-1 | 8.58 KB | 83.37 µs           | 1.20 ms (**14.42x**)   | 13.66 ms (**163.85x**)  | 26.37 ms (**316.30x**) | 44.76 ms (**536.88x**) |
-| Realistic-2 | 4.3 KB  | 57.60 µs            | 1.73 ms (**30.04x**)   | ERROR                   | 17.71 ms (**307.46x**) | ERROR                  |
-| GitHub page | 1.81 MB | 139.57 ms           | 13.94 s (**99.90x**)  | ERROR                   | ERROR                  | ERROR                  |
+| Basic       | 230 B   | 4.27 µs             | 107.68 µs (**25.17x**) | 603.05 µs (**140.97x**) | 1.02 ms (**238.87x**)  | 1.13ms (**264.25x**)   |
+| Realistic-1 | 8.58 KB | 85.54 µs           | 1.20 ms (**14.13x**)   | 13.79 ms (**161.32x**)  | 26.37 ms (**308.27x**) | 44.94 ms (**525.39x**) |
+| Realistic-2 | 4.3 KB  | 58.26 µs            | 1.74 ms (**29.88x**)   | ERROR                   | 17.71 ms (**303.98x**) | ERROR                  |
+| GitHub page | 1.81 MB | 139.74 ms           | 15.02 s (**107.49x**)  | ERROR                   | ERROR                  | ERROR                  |
 
 The "Basic" case was obtained by benchmarking the example from the Usage section.
 Note that the `toronado`, `inlinestyler`, and `pynliner` libraries both encountered errors when used to inline CSS in the last scenario.

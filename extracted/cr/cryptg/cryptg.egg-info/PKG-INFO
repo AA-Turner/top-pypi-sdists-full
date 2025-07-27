@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: cryptg
-Version: 0.5.0.post0
+Version: 0.5.1
 Summary: Cryptographic utilities for Telegram.
 Home-page: https://github.com/cher-nov/cryptg
 Download-URL: https://github.com/cher-nov/cryptg/releases
@@ -21,6 +21,18 @@ Classifier: Programming Language :: Python :: 3.11
 Requires-Python: >=3.7
 Description-Content-Type: text/x-rst
 License-File: LICENSE.txt
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: keywords
+Dynamic: license
+Dynamic: license-file
+Dynamic: requires-python
+Dynamic: summary
 
 |logo|
 

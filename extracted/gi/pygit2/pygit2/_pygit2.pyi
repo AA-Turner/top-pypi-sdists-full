@@ -1,9 +1,12 @@
-from typing import Iterator, Literal, Optional, overload
-from io import IOBase
+from typing import Iterator, Literal, Optional, overload, Type, TypedDict
+from io import IOBase, DEFAULT_BUFFER_SIZE
+from queue import Queue
+from threading import Event
 from . import Index
 from .enums import (
     ApplyLocation,
     BranchType,
+    BlobFilter,
     DeltaStatus,
     DiffFind,
     DiffFlag,
@@ -19,41 +22,282 @@ from .enums import (
     ResetMode,
     SortMode,
 )
+from collections.abc import Generator
 
-GIT_OBJ_BLOB: Literal[3]
-GIT_OBJ_COMMIT: Literal[1]
-GIT_OBJ_TAG: Literal[4]
-GIT_OBJ_TREE: Literal[2]
-GIT_OID_HEXSZ: int
-GIT_OID_HEX_ZERO: str
-GIT_OID_MINPREFIXLEN: int
-GIT_OID_RAWSZ: int
-LIBGIT2_VERSION: str
+from .repository import BaseRepository
+from .remotes import Remote
+
+GIT_OBJ_BLOB = Literal[3]
+GIT_OBJ_COMMIT = Literal[1]
+GIT_OBJ_TAG = Literal[4]
+GIT_OBJ_TREE = Literal[2]
+
 LIBGIT2_VER_MAJOR: int
 LIBGIT2_VER_MINOR: int
 LIBGIT2_VER_REVISION: int
+LIBGIT2_VERSION: str
+GIT_OPT_GET_MWINDOW_SIZE: int
+GIT_OPT_SET_MWINDOW_SIZE: int
+GIT_OPT_GET_MWINDOW_MAPPED_LIMIT: int
+GIT_OPT_SET_MWINDOW_MAPPED_LIMIT: int
+GIT_OPT_GET_SEARCH_PATH: int
+GIT_OPT_SET_SEARCH_PATH: int
+GIT_OPT_SET_CACHE_OBJECT_LIMIT: int
+GIT_OPT_SET_CACHE_MAX_SIZE: int
+GIT_OPT_ENABLE_CACHING: int
+GIT_OPT_GET_CACHED_MEMORY: int
+GIT_OPT_GET_TEMPLATE_PATH: int
+GIT_OPT_SET_TEMPLATE_PATH: int
+GIT_OPT_SET_SSL_CERT_LOCATIONS: int
+GIT_OPT_SET_USER_AGENT: int
+GIT_OPT_ENABLE_STRICT_OBJECT_CREATION: int
+GIT_OPT_ENABLE_STRICT_SYMBOLIC_REF_CREATION: int
+GIT_OPT_SET_SSL_CIPHERS: int
+GIT_OPT_GET_USER_AGENT: int
+GIT_OPT_ENABLE_OFS_DELTA: int
+GIT_OPT_ENABLE_FSYNC_GITDIR: int
+GIT_OPT_GET_WINDOWS_SHAREMODE: int
+GIT_OPT_SET_WINDOWS_SHAREMODE: int
+GIT_OPT_ENABLE_STRICT_HASH_VERIFICATION: int
+GIT_OPT_SET_ALLOCATOR: int
+GIT_OPT_ENABLE_UNSAVED_INDEX_SAFETY: int
+GIT_OPT_GET_PACK_MAX_OBJECTS: int
+GIT_OPT_SET_PACK_MAX_OBJECTS: int
+GIT_OPT_DISABLE_PACK_KEEP_FILE_CHECKS: int
+GIT_OPT_GET_OWNER_VALIDATION: int
+GIT_OPT_SET_OWNER_VALIDATION: int
+GIT_OPT_GET_MWINDOW_FILE_LIMIT: int
+GIT_OPT_SET_MWINDOW_FILE_LIMIT: int
+GIT_OID_RAWSZ: int
+GIT_OID_HEXSZ: int
+GIT_OID_HEX_ZERO: str
+GIT_OID_MINPREFIXLEN: int
+GIT_OBJECT_ANY: int
+GIT_OBJECT_INVALID: int
+GIT_OBJECT_COMMIT: int
+GIT_OBJECT_TREE: int
+GIT_OBJECT_BLOB: int
+GIT_OBJECT_TAG: int
+GIT_OBJECT_OFS_DELTA: int
+GIT_OBJECT_REF_DELTA: int
+GIT_FILEMODE_UNREADABLE: int
+GIT_FILEMODE_TREE: int
+GIT_FILEMODE_BLOB: int
+GIT_FILEMODE_BLOB_EXECUTABLE: int
+GIT_FILEMODE_LINK: int
+GIT_FILEMODE_COMMIT: int
+GIT_SORT_NONE: int
+GIT_SORT_TOPOLOGICAL: int
+GIT_SORT_TIME: int
+GIT_SORT_REVERSE: int
+GIT_RESET_SOFT: int
+GIT_RESET_MIXED: int
+GIT_RESET_HARD: int
+GIT_REFERENCES_ALL: int
+GIT_REFERENCES_BRANCHES: int
+GIT_REFERENCES_TAGS: int
+GIT_REVSPEC_SINGLE: int
+GIT_REVSPEC_RANGE: int
+GIT_REVSPEC_MERGE_BASE: int
+GIT_BRANCH_LOCAL: int
+GIT_BRANCH_REMOTE: int
+GIT_BRANCH_ALL: int
+GIT_STATUS_CURRENT: int
+GIT_STATUS_INDEX_NEW: int
+GIT_STATUS_INDEX_MODIFIED: int
+GIT_STATUS_INDEX_DELETED: int
+GIT_STATUS_INDEX_RENAMED: int
+GIT_STATUS_INDEX_TYPECHANGE: int
+GIT_STATUS_WT_NEW: int
+GIT_STATUS_WT_MODIFIED: int
+GIT_STATUS_WT_DELETED: int
+GIT_STATUS_WT_TYPECHANGE: int
+GIT_STATUS_WT_RENAMED: int
+GIT_STATUS_WT_UNREADABLE: int
+GIT_STATUS_IGNORED: int
+GIT_STATUS_CONFLICTED: int
+GIT_CHECKOUT_NONE: int
+GIT_CHECKOUT_SAFE: int
+GIT_CHECKOUT_FORCE: int
+GIT_CHECKOUT_RECREATE_MISSING: int
+GIT_CHECKOUT_ALLOW_CONFLICTS: int
+GIT_CHECKOUT_REMOVE_UNTRACKED: int
+GIT_CHECKOUT_REMOVE_IGNORED: int
+GIT_CHECKOUT_UPDATE_ONLY: int
+GIT_CHECKOUT_DONT_UPDATE_INDEX: int
+GIT_CHECKOUT_NO_REFRESH: int
+GIT_CHECKOUT_SKIP_UNMERGED: int
+GIT_CHECKOUT_USE_OURS: int
+GIT_CHECKOUT_USE_THEIRS: int
+GIT_CHECKOUT_DISABLE_PATHSPEC_MATCH: int
+GIT_CHECKOUT_SKIP_LOCKED_DIRECTORIES: int
+GIT_CHECKOUT_DONT_OVERWRITE_IGNORED: int
+GIT_CHECKOUT_CONFLICT_STYLE_MERGE: int
+GIT_CHECKOUT_CONFLICT_STYLE_DIFF3: int
+GIT_CHECKOUT_DONT_REMOVE_EXISTING: int
+GIT_CHECKOUT_DONT_WRITE_INDEX: int
+GIT_CHECKOUT_DRY_RUN: int
+GIT_CHECKOUT_CONFLICT_STYLE_ZDIFF3: int
+GIT_DIFF_NORMAL: int
+GIT_DIFF_REVERSE: int
+GIT_DIFF_INCLUDE_IGNORED: int
+GIT_DIFF_RECURSE_IGNORED_DIRS: int
+GIT_DIFF_INCLUDE_UNTRACKED: int
+GIT_DIFF_RECURSE_UNTRACKED_DIRS: int
+GIT_DIFF_INCLUDE_UNMODIFIED: int
+GIT_DIFF_INCLUDE_TYPECHANGE: int
+GIT_DIFF_INCLUDE_TYPECHANGE_TREES: int
+GIT_DIFF_IGNORE_FILEMODE: int
+GIT_DIFF_IGNORE_SUBMODULES: int
+GIT_DIFF_IGNORE_CASE: int
+GIT_DIFF_INCLUDE_CASECHANGE: int
+GIT_DIFF_DISABLE_PATHSPEC_MATCH: int
+GIT_DIFF_SKIP_BINARY_CHECK: int
+GIT_DIFF_ENABLE_FAST_UNTRACKED_DIRS: int
+GIT_DIFF_UPDATE_INDEX: int
+GIT_DIFF_INCLUDE_UNREADABLE: int
+GIT_DIFF_INCLUDE_UNREADABLE_AS_UNTRACKED: int
+GIT_DIFF_INDENT_HEURISTIC: int
+GIT_DIFF_IGNORE_BLANK_LINES: int
+GIT_DIFF_FORCE_TEXT: int
+GIT_DIFF_FORCE_BINARY: int
+GIT_DIFF_IGNORE_WHITESPACE: int
+GIT_DIFF_IGNORE_WHITESPACE_CHANGE: int
+GIT_DIFF_IGNORE_WHITESPACE_EOL: int
+GIT_DIFF_SHOW_UNTRACKED_CONTENT: int
+GIT_DIFF_SHOW_UNMODIFIED: int
+GIT_DIFF_PATIENCE: int
+GIT_DIFF_MINIMAL: int
+GIT_DIFF_SHOW_BINARY: int
+GIT_DIFF_STATS_NONE: int
+GIT_DIFF_STATS_FULL: int
+GIT_DIFF_STATS_SHORT: int
+GIT_DIFF_STATS_NUMBER: int
+GIT_DIFF_STATS_INCLUDE_SUMMARY: int
+GIT_DIFF_FIND_BY_CONFIG: int
+GIT_DIFF_FIND_RENAMES: int
+GIT_DIFF_FIND_RENAMES_FROM_REWRITES: int
+GIT_DIFF_FIND_COPIES: int
+GIT_DIFF_FIND_COPIES_FROM_UNMODIFIED: int
+GIT_DIFF_FIND_REWRITES: int
+GIT_DIFF_BREAK_REWRITES: int
+GIT_DIFF_FIND_AND_BREAK_REWRITES: int
+GIT_DIFF_FIND_FOR_UNTRACKED: int
+GIT_DIFF_FIND_ALL: int
+GIT_DIFF_FIND_IGNORE_LEADING_WHITESPACE: int
+GIT_DIFF_FIND_IGNORE_WHITESPACE: int
+GIT_DIFF_FIND_DONT_IGNORE_WHITESPACE: int
+GIT_DIFF_FIND_EXACT_MATCH_ONLY: int
+GIT_DIFF_BREAK_REWRITES_FOR_RENAMES_ONLY: int
+GIT_DIFF_FIND_REMOVE_UNMODIFIED: int
+GIT_DIFF_FLAG_BINARY: int
+GIT_DIFF_FLAG_NOT_BINARY: int
+GIT_DIFF_FLAG_VALID_ID: int
+GIT_DIFF_FLAG_EXISTS: int
+GIT_DIFF_FLAG_VALID_SIZE: int
+GIT_DELTA_UNMODIFIED: int
+GIT_DELTA_ADDED: int
+GIT_DELTA_DELETED: int
+GIT_DELTA_MODIFIED: int
+GIT_DELTA_RENAMED: int
+GIT_DELTA_COPIED: int
+GIT_DELTA_IGNORED: int
+GIT_DELTA_UNTRACKED: int
+GIT_DELTA_TYPECHANGE: int
+GIT_DELTA_UNREADABLE: int
+GIT_DELTA_CONFLICTED: int
+GIT_CONFIG_LEVEL_PROGRAMDATA: int
+GIT_CONFIG_LEVEL_SYSTEM: int
+GIT_CONFIG_LEVEL_XDG: int
+GIT_CONFIG_LEVEL_GLOBAL: int
+GIT_CONFIG_LEVEL_LOCAL: int
+GIT_CONFIG_LEVEL_WORKTREE: int
+GIT_CONFIG_LEVEL_APP: int
+GIT_CONFIG_HIGHEST_LEVEL: int
+GIT_BLAME_NORMAL: int
+GIT_BLAME_TRACK_COPIES_SAME_FILE: int
+GIT_BLAME_TRACK_COPIES_SAME_COMMIT_MOVES: int
+GIT_BLAME_TRACK_COPIES_SAME_COMMIT_COPIES: int
+GIT_BLAME_TRACK_COPIES_ANY_COMMIT_COPIES: int
+GIT_BLAME_FIRST_PARENT: int
+GIT_BLAME_USE_MAILMAP: int
+GIT_BLAME_IGNORE_WHITESPACE: int
+GIT_MERGE_ANALYSIS_NONE: int
+GIT_MERGE_ANALYSIS_NORMAL: int
+GIT_MERGE_ANALYSIS_UP_TO_DATE: int
+GIT_MERGE_ANALYSIS_FASTFORWARD: int
+GIT_MERGE_ANALYSIS_UNBORN: int
+GIT_MERGE_PREFERENCE_NONE: int
+GIT_MERGE_PREFERENCE_NO_FASTFORWARD: int
+GIT_MERGE_PREFERENCE_FASTFORWARD_ONLY: int
+GIT_DESCRIBE_DEFAULT: int
+GIT_DESCRIBE_TAGS: int
+GIT_DESCRIBE_ALL: int
+GIT_STASH_DEFAULT: int
+GIT_STASH_KEEP_INDEX: int
+GIT_STASH_INCLUDE_UNTRACKED: int
+GIT_STASH_INCLUDE_IGNORED: int
+GIT_STASH_KEEP_ALL: int
+GIT_STASH_APPLY_DEFAULT: int
+GIT_STASH_APPLY_REINSTATE_INDEX: int
+GIT_APPLY_LOCATION_WORKDIR: int
+GIT_APPLY_LOCATION_INDEX: int
+GIT_APPLY_LOCATION_BOTH: int
+GIT_SUBMODULE_IGNORE_UNSPECIFIED: int
+GIT_SUBMODULE_IGNORE_NONE: int
+GIT_SUBMODULE_IGNORE_UNTRACKED: int
+GIT_SUBMODULE_IGNORE_DIRTY: int
+GIT_SUBMODULE_IGNORE_ALL: int
+GIT_SUBMODULE_STATUS_IN_HEAD: int
+GIT_SUBMODULE_STATUS_IN_INDEX: int
+GIT_SUBMODULE_STATUS_IN_CONFIG: int
+GIT_SUBMODULE_STATUS_IN_WD: int
+GIT_SUBMODULE_STATUS_INDEX_ADDED: int
+GIT_SUBMODULE_STATUS_INDEX_DELETED: int
+GIT_SUBMODULE_STATUS_INDEX_MODIFIED: int
+GIT_SUBMODULE_STATUS_WD_UNINITIALIZED: int
+GIT_SUBMODULE_STATUS_WD_ADDED: int
+GIT_SUBMODULE_STATUS_WD_DELETED: int
+GIT_SUBMODULE_STATUS_WD_MODIFIED: int
+GIT_SUBMODULE_STATUS_WD_INDEX_MODIFIED: int
+GIT_SUBMODULE_STATUS_WD_WD_MODIFIED: int
+GIT_SUBMODULE_STATUS_WD_UNTRACKED: int
+GIT_BLOB_FILTER_CHECK_FOR_BINARY: int
+GIT_BLOB_FILTER_NO_SYSTEM_ATTRIBUTES: int
+GIT_BLOB_FILTER_ATTRIBUTES_FROM_HEAD: int
+GIT_BLOB_FILTER_ATTRIBUTES_FROM_COMMIT: int
+GIT_FILTER_DRIVER_PRIORITY: int
+GIT_FILTER_TO_WORKTREE: int
+GIT_FILTER_SMUDGE: int
+GIT_FILTER_TO_ODB: int
+GIT_FILTER_CLEAN: int
+GIT_FILTER_DEFAULT: int
+GIT_FILTER_ALLOW_UNSAFE: int
+GIT_FILTER_NO_SYSTEM_ATTRIBUTES: int
+GIT_FILTER_ATTRIBUTES_FROM_HEAD: int
+GIT_FILTER_ATTRIBUTES_FROM_COMMIT: int
 
 class Object:
     _pointer: bytes
     filemode: FileMode
-    hex: str
     id: Oid
     name: str | None
-    oid: Oid
     raw_name: bytes | None
     short_id: str
     type: 'Literal[GIT_OBJ_COMMIT] | Literal[GIT_OBJ_TREE] | Literal[GIT_OBJ_TAG] | Literal[GIT_OBJ_BLOB]'
     type_str: "Literal['commit'] | Literal['tree'] | Literal['tag'] | Literal['blob']"
     @overload
-    def peel(self, target_type: 'Literal[GIT_OBJ_COMMIT]') -> 'Commit': ...
+    def peel(
+        self, target_type: 'Literal[GIT_OBJ_COMMIT] | Type[Commit]'
+    ) -> 'Commit': ...
     @overload
-    def peel(self, target_type: 'Literal[GIT_OBJ_TREE]') -> 'Tree': ...
+    def peel(self, target_type: 'Literal[GIT_OBJ_TREE] | Type[Tree]') -> 'Tree': ...
     @overload
-    def peel(self, target_type: 'Literal[GIT_OBJ_TAG]') -> 'Tag': ...
+    def peel(self, target_type: 'Literal[GIT_OBJ_TAG] | Type[Tag]') -> 'Tag': ...
     @overload
-    def peel(self, target_type: 'Literal[GIT_OBJ_BLOB]') -> 'Blob': ...
+    def peel(self, target_type: 'Literal[GIT_OBJ_BLOB] | Type[Blob]') -> 'Blob': ...
     @overload
-    def peel(self, target_type: 'None') -> 'Commit|Tree|Blob': ...
+    def peel(self, target_type: 'None') -> 'Commit|Tree|Tag|Blob': ...
     def read_raw(self) -> bytes: ...
     def __eq__(self, other) -> bool: ...
     def __ge__(self, other) -> bool: ...
@@ -75,15 +319,15 @@ class Reference:
     def delete(self) -> None: ...
     def log(self) -> Iterator[RefLogEntry]: ...
     @overload
-    def peel(self, type: 'Literal[GIT_OBJ_COMMIT]') -> 'Commit': ...
+    def peel(self, type: 'Literal[GIT_OBJ_COMMIT] | Type[Commit]') -> 'Commit': ...
     @overload
-    def peel(self, type: 'Literal[GIT_OBJ_TREE]') -> 'Tree': ...
+    def peel(self, type: 'Literal[GIT_OBJ_TREE] | Type[Tree]') -> 'Tree': ...
     @overload
-    def peel(self, type: 'Literal[GIT_OBJ_TAG]') -> 'Tag': ...
+    def peel(self, type: 'Literal[GIT_OBJ_TAG] | Type[Tag]') -> 'Tag': ...
     @overload
-    def peel(self, type: 'Literal[GIT_OBJ_BLOB]') -> 'Blob': ...
+    def peel(self, type: 'Literal[GIT_OBJ_BLOB] | Type[Blob]') -> 'Blob': ...
     @overload
-    def peel(self, type: 'None') -> 'Commit|Tree|Blob': ...
+    def peel(self, type: 'None' = None) -> 'Commit|Tree|Tag|Blob': ...
     def rename(self, new_name: str) -> None: ...
     def resolve(self) -> Reference: ...
     def set_target(self, target: _OidArg, message: str = ...) -> None: ...
@@ -114,6 +358,15 @@ class Blob(Object):
         old_as_path: str = ...,
         buffer_as_path: str = ...,
     ) -> Patch: ...
+    def _write_to_queue(
+        self,
+        queue: Queue,
+        closed: Event,
+        chunk_size: int = DEFAULT_BUFFER_SIZE,
+        as_path: Optional[str] = None,
+        flags: BlobFilter = BlobFilter.CHECK_FOR_BINARY,
+        commit_id: Optional[Oid] = None,
+    ) -> None: ...
 
 class Branch(Reference):
     branch_name: str
@@ -124,7 +377,25 @@ class Branch(Reference):
     def delete(self) -> None: ...
     def is_checked_out(self) -> bool: ...
     def is_head(self) -> bool: ...
-    def rename(self, name: str, force: bool = False) -> None: ...
+    def rename(self, name: str, force: bool = False) -> 'Branch': ...  # type: ignore[override]
+
+class FetchOptions:
+    # incomplete
+    depth: int
+    proxy_opts: ProxyOpts
+
+class CloneOptions:
+    # incomplete
+    version: int
+    checkout_opts: object
+    fetch_opts: FetchOptions
+    bare: int
+    local: object
+    checkout_branch: object
+    repository_cb: object
+    repository_cb_payload: object
+    remote_cb: object
+    remote_cb_payload: object
 
 class Commit(Object):
     author: Signature
@@ -206,6 +477,10 @@ class DiffStats:
     files_changed: int
     insertions: int
     def format(self, format: DiffStatsFormat, width: int) -> str: ...
+
+class FilterSource:
+    # probably incomplete
+    pass
 
 class GitError(Exception): ...
 class InvalidSpecError(ValueError): ...
@@ -331,6 +606,80 @@ class RefdbBackend:
 class RefdbFsBackend(RefdbBackend):
     def __init__(self, *args, **kwargs) -> None: ...
 
+class References:
+    def __init__(self, repository: BaseRepository) -> None: ...
+    def __getitem__(self, name: str) -> Reference: ...
+    def get(self, key: str) -> Reference: ...
+    def __iter__(self) -> Iterator[str]: ...
+    def iterator(
+        self, references_return_type: ReferenceFilter = ...
+    ) -> Iterator[Reference]: ...
+    def create(self, name: str, target: _OidArg, force: bool = False) -> Reference: ...
+    def delete(self, name: str) -> None: ...
+    def __contains__(self, name: str) -> bool: ...
+    @property
+    def objects(self) -> list[Reference]: ...
+    def compress(self) -> None: ...
+
+_Proxy = None | Literal[True] | str
+
+class _StrArray:
+    # incomplete
+    count: int
+
+class ProxyOpts:
+    # incomplete
+    type: object
+    url: str
+
+class PushOptions:
+    version: int
+    pb_parallelism: int
+    callbacks: object  # TODO
+    proxy_opts: ProxyOpts
+    follow_redirects: object  # TODO
+    custom_headers: _StrArray
+    remote_push_options: _StrArray
+
+class _LsRemotesDict(TypedDict):
+    local: bool
+    loid: Oid | None
+    name: str | None
+    symref_target: str | None
+    oid: Oid
+
+class RemoteCollection:
+    def __init__(self, repo: BaseRepository) -> None: ...
+    def __len__(self) -> int: ...
+    def __iter__(self): ...
+    def __getitem__(self, name: str | int) -> Remote: ...
+    def names(self) -> Generator[str, None, None]: ...
+    def create(self, name: str, url: str, fetch: str | None = None) -> Remote: ...
+    def create_anonymous(self, url: str) -> Remote: ...
+    def rename(self, name: str, new_name: str) -> list[str]: ...
+    def delete(self, name: str) -> None: ...
+    def set_url(self, name: str, url: str) -> None: ...
+    def set_push_url(self, name: str, url: str) -> None: ...
+    def add_fetch(self, name: str, refspec: str) -> None: ...
+    def add_push(self, name: str, refspec: str) -> None: ...
+
+class Branches:
+    local: 'Branches'
+    remote: 'Branches'
+    def __init__(
+        self,
+        repository: BaseRepository,
+        flag: BranchType = ...,
+        commit: Commit | _OidArg | None = None,
+    ) -> None: ...
+    def __getitem__(self, name: str) -> Branch: ...
+    def get(self, key: str) -> Branch: ...
+    def __iter__(self) -> Iterator[str]: ...
+    def create(self, name: str, commit: Commit, force: bool = False) -> Branch: ...
+    def delete(self, name: str) -> None: ...
+    def with_commit(self, commit: Commit | _OidArg | None) -> 'Branches': ...
+    def __contains__(self, name: _OidArg) -> bool: ...
+
 class Repository:
     _pointer: bytes
     default_signature: Signature
@@ -344,10 +693,14 @@ class Repository:
     path: str
     refdb: Refdb
     workdir: str
+    references: References
+    remotes: RemoteCollection
+    branches: Branches
     def __init__(self, *args, **kwargs) -> None: ...
     def TreeBuilder(self, src: Tree | _OidArg = ...) -> TreeBuilder: ...
     def _disown(self, *args, **kwargs) -> None: ...
     def _from_c(self, *args, **kwargs) -> None: ...
+    def __getitem__(self, key: str | Oid) -> Object: ...
     def add_worktree(self, name: str, path: str, ref: Reference = ...) -> Worktree: ...
     def applies(
         self,
@@ -396,6 +749,9 @@ class Repository:
         ref: str = 'refs/notes/commits',
         force: bool = False,
     ) -> Oid: ...
+    def create_reference(
+        self, name: str, target: _OidArg, force: bool = False
+    ) -> Reference: ...
     def create_reference_direct(
         self, name: str, target: _OidArg, force: bool, message: Optional[str] = None
     ) -> Reference: ...
@@ -445,6 +801,7 @@ class Repository:
     def revparse(self, revspec: str) -> RevSpec: ...
     def revparse_ext(self, revision: str) -> tuple[Object, Reference]: ...
     def revparse_single(self, revision: str) -> Object: ...
+    def set_ident(self, name: str, email: str) -> None: ...
     def set_odb(self, odb: Odb) -> None: ...
     def set_refdb(self, refdb: Refdb) -> None: ...
     def status(
@@ -565,5 +922,6 @@ def init_file_backend(path: str, flags: int = 0) -> object: ...
 def option(opt: Option, *args) -> None: ...
 def reference_is_valid_name(refname: str) -> bool: ...
 def tree_entry_cmp(a: Object, b: Object) -> int: ...
+def _cache_enums() -> None: ...
 
 _OidArg = str | Oid

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: flynt
-Version: 1.0.2
+Version: 1.0.3
 Summary: CLI tool to convert a python project's %-formatted strings to f-strings.
 Project-URL: Homepage, https://github.com/ikamensh/flynt
 Author: Ilya Kamenshchikov
@@ -9,7 +9,6 @@ License-File: LICENSE
 Keywords: strings,utility
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.8
 Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
@@ -17,14 +16,14 @@ Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Utilities
-Requires-Python: >=3.7
-Requires-Dist: astor
+Requires-Python: >=3.9
 Requires-Dist: tomli>=1.1.0; python_version < '3.11'
 Provides-Extra: dev
 Requires-Dist: build; extra == 'dev'
 Requires-Dist: pre-commit; extra == 'dev'
 Requires-Dist: pytest; extra == 'dev'
 Requires-Dist: pytest-cov; extra == 'dev'
+Requires-Dist: ruff; extra == 'dev'
 Requires-Dist: twine; extra == 'dev'
 Description-Content-Type: text/markdown
 
@@ -46,7 +45,7 @@ F-Strings:
 
 ### Installation
 
-`pip install flynt`. It requires Python version 3.7+.
+`pip install flynt`. It requires Python version 3.9+.
 
 ### Usage
 
@@ -109,12 +108,12 @@ optional arguments:
                         Replace string concatenations (defined as +
                         operations involving string literals) with
                         f-strings. Available only if flynt is
-                        installed with 3.8+ interpreter.
+                        installed with a 3.9+ interpreter.
   -tj, --transform-joins
                         Replace static joins (where the joiner is a
                         string literal and the joinee is a static-
                         length list) with f-strings. Available only
-                        if flynt is installed with 3.8+ interpreter.
+                        if flynt is installed with a 3.9+ interpreter.
   -f, --fail-on-change  Fail when changing files (for linting
                         purposes)
   -a, --aggressive      Include conversions with potentially changed
@@ -172,7 +171,7 @@ Add a new section to `.pre-commit-config.yaml`:
 
 This will run flynt on all modified files before committing.
 
-You can skip conversion of certain lines by adding `# noqa [: anything else] flynt [anything else]`
+You can skip conversion of certain lines by adding `# noqa [: anything else] flynt [anything else]` or `# flynt: skip`
 
 
 ### Configuration files
@@ -204,6 +203,6 @@ Furthermore, some arguments cause formatting of strings to throw exceptions. One
 
 ### Other Credits / Dependencies / Links
 
-- [astor](https://github.com/berkerpeksag/astor) is used to turn the transformed AST back into code.
+- Python's built-in `ast.unparse` is used to turn the transformed AST back into code.
 - Thanks to folks from [pyddf](https://www.pyddf.de/) for their support, advice and participation during spring hackathon 2019, in particular Holger Hass, Farid Muradov, Charlie Clark.
 - Logic finding the pyproject.toml and parsing it was partially copied from [black](https://github.com/psf/black) 

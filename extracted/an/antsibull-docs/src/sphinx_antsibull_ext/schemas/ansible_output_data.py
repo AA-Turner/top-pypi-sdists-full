@@ -47,17 +47,33 @@ class PostprocessorNameRef(p.BaseModel):
 
 
 Postprocessor = t.Union[PostprocessorCLI, PostprocessorNameRef]
+NonRefPostprocessor = t.Union[PostprocessorCLI]
 
 
-class AnsibleOutputData(p.BaseModel):
-    playbook: str
+InventoryVariables = p.RootModel[dict[str, t.Any]]
+
+
+class InventoryGroup(p.BaseModel):
+    model_config = p.ConfigDict(frozen=True, extra="forbid", validate_default=True)
+
+    hosts: dict[str, t.Optional[InventoryVariables]] = {}
+    children: dict[str, t.Optional[InventoryGroup]] = {}
+    vars: InventoryVariables = InventoryVariables({})
+
+
+YAMLInventory = p.RootModel[dict[str, InventoryGroup]]
+
+
+class AnsibleOutputTemplate(p.BaseModel):
+    playbook: t.Optional[str] = None
     env: dict[str, str] = {}
-    prepend_lines: str = ""
-    language: str = "ansible-output"
+    prepend_lines: t.Optional[str] = None
+    language: t.Optional[str] = None
     variables: dict[str, VariableSource] = {}
-    skip_first_lines: int = 0
-    skip_last_lines: int = 0
-    postprocessors: list[Postprocessor] = []
+    skip_first_lines: t.Optional[int] = None
+    skip_last_lines: t.Optional[int] = None
+    postprocessors: t.Optional[list[Postprocessor]] = None
+    inventory: t.Optional[YAMLInventory] = None
 
     @p.field_validator("env", mode="before")
     @classmethod
@@ -72,3 +88,40 @@ class AnsibleOutputData(p.BaseModel):
                 if isinstance(v, int):
                     obj[k] = str(v)
         return obj
+
+
+class AnsibleOutputData(AnsibleOutputTemplate):
+    playbook: t.Optional[str]  # no default
+
+
+_T = t.TypeVar("_T")
+
+
+def _coalesce(*values: _T | None) -> _T | None:
+    for value in values:
+        if value is not None:
+            return value
+    return None
+
+
+def combine(
+    *, template: AnsibleOutputTemplate, data: AnsibleOutputData
+) -> AnsibleOutputData:
+    playbook = _coalesce(data.playbook, template.playbook)
+    if playbook is None:
+        raise ValueError("Cannot use template's playbook since that is not set")
+    env = template.env.copy()
+    env.update(data.env)
+    variables = template.variables.copy()
+    variables.update(data.variables)
+    return AnsibleOutputData(
+        playbook=playbook,
+        env=env,
+        prepend_lines=data.prepend_lines or template.prepend_lines,
+        language=data.language or template.language or "ansible-output",
+        variables=variables,
+        skip_first_lines=_coalesce(data.skip_first_lines, template.skip_first_lines),
+        skip_last_lines=_coalesce(data.skip_last_lines, template.skip_last_lines),
+        postprocessors=_coalesce(data.postprocessors, template.postprocessors),
+        inventory=_coalesce(data.inventory, template.inventory),
+    )

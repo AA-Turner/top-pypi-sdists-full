@@ -176,7 +176,7 @@ def detect_sql_injection(input):
     return input
 
 def detect_sql_injection_in_select_statement(select_statement):
-    if not select_statement or not isinstance(select_statement, str):
+    if not isinstance(select_statement, str) or select_statement == None:
         return select_statement
 
     normalized = select_statement.lower().strip()

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: sqruff
-Version: 0.28.2
+Version: 0.29.0
 Requires-Dist: regex ; extra == 'jinja'
 Requires-Dist: jinja2>=3.0.0 ; extra == 'jinja'
 Requires-Dist: jinja2-simple-tags>=0.3.1 ; extra == 'jinja'

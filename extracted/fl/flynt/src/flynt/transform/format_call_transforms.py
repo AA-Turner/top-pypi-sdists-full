@@ -4,7 +4,13 @@ from collections import deque
 from typing import Any, Dict, List, Union
 
 from flynt.exceptions import ConversionRefused, FlyntException
-from flynt.utils.utils import ast_formatted_value, ast_string_node
+from flynt.utils.utils import (
+    ast_formatted_value,
+    ast_string_node,
+    get_str_value,
+    is_str_constant,
+    is_str_literal,
+)
 
 stdlib_parse = string.Formatter().parse
 
@@ -13,20 +19,39 @@ def joined_string(
     fmt_call: ast.Call,
     *,
     aggressive: bool = False,
-) -> Union[ast.JoinedStr, ast.Str]:
+) -> Union[ast.JoinedStr, ast.Constant]:
     """Transform a "...".format() call node into a f-string node."""
-    assert isinstance(fmt_call.func, ast.Attribute) and isinstance(
-        fmt_call.func.value,
-        ast.Str,
-    )
-    string = fmt_call.func.value.s
+    if not (
+        isinstance(fmt_call.func, ast.Attribute)
+        and is_str_constant(fmt_call.func.value)
+    ):
+        raise ConversionRefused("Only literal format strings are supported")
+
+    string = get_str_value(fmt_call.func.value)
     var_map: Dict[Any, Any] = {kw.arg: kw.value for kw in fmt_call.keywords}
     inserted_value_nodes = []
     for a in fmt_call.args:
         inserted_value_nodes += list(ast.walk(a))
     for kw in fmt_call.keywords:
         inserted_value_nodes += list(ast.walk(kw.value))
-    any(isinstance(n, (ast.Str, ast.JoinedStr)) for n in inserted_value_nodes)
+    any(is_str_literal(n) for n in inserted_value_nodes)
+
+    for node in inserted_value_nodes:
+        if isinstance(node, ast.Constant):
+            if isinstance(node.value, str):
+                val_str = node.value
+            elif isinstance(node.value, (bytes, bytearray)):
+                val_str = node.value.decode("latin1")
+            else:
+                continue
+
+            if any(ch in val_str for ch in ("\n", "\t", "\r", "\\")) or val_str in {
+                '"',
+                "'",
+            }:
+                raise ConversionRefused(
+                    "f-string expression part cannot include a backslash"
+                )
 
     for i, val in enumerate(fmt_call.args):
         var_map[i] = val
@@ -34,7 +59,7 @@ def joined_string(
     splits = deque(stdlib_parse(string))
 
     seq_ctr = 0
-    new_segments: List[Union[ast.Str, ast.FormattedValue]] = []
+    new_segments: List[Union[ast.Constant, ast.FormattedValue]] = []
     manual_field_ordering = False
 
     for raw, var_name, fmt_str, conversion in splits:
@@ -69,7 +94,6 @@ def joined_string(
             ast_name = var_map[identifier]
         else:
             try:
-
                 ast_name = var_map.pop(identifier)
             except KeyError as e:
                 raise ConversionRefused(
@@ -85,9 +109,9 @@ def joined_string(
             f"Some variables were never used: {var_map} - skipping conversion, it's a risk of bug.",
         )
 
-    if all(isinstance(segment, ast.Str) for segment in new_segments):
-        return ast.Str(
-            "".join(segment.value for segment in new_segments)  # type:ignore[misc]
+    if all(is_str_constant(segment) for segment in new_segments):
+        return ast.Constant(
+            value="".join(get_str_value(segment) for segment in new_segments)
         )
 
     return ast.JoinedStr(new_segments)

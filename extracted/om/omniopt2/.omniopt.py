@@ -570,6 +570,7 @@ class ConfigLoader:
     no_sleep: bool
     username: Optional[str]
     max_nr_of_zero_results: int
+    run_program_once: str
     mem_gb: int
     flame_graph: bool
     continue_previous_job: Optional[str]
@@ -692,6 +693,7 @@ class ConfigLoader:
         optional.add_argument('--share_password', help='Use this as a password for share. Default is none.', default=None, type=str)
         optional.add_argument('--dryrun', help='Try to do a dry run, i.e. a run for very short running jobs to test the installation of OmniOpt2 and check if environment stuff and paths and so on works properly', action='store_true', default=False)
         optional.add_argument('--db_url', type=str, default=None, help='Database URL (e.g., mysql+pymysql://user:pass@host/db), disables sqlite3 storage')
+        optional.add_argument('--run_program_once', type=str, help='Path to a setup script that will run once before the main program starts. Supports placeholders like %(lr), %(epochs), etc.')
 
         speed.add_argument('--dont_warm_start_refitting', help='Do not keep Model weights, thus, refit for every generator (may be more accurate, but slower)', action='store_true', default=False)
         speed.add_argument('--refit_on_cv', help='Refit on Cross-Validation (helps in accuracy, but makes generating new points slower)', action='store_true', default=False)
@@ -792,7 +794,7 @@ class ConfigLoader:
 
         validated_config = self.validate_and_convert(config, arg_defaults)
 
-        for key, value in vars(cli_args).items():
+        for key, _ in vars(cli_args).items():
             if key in validated_config:
                 setattr(cli_args, key, validated_config[key])
 
@@ -1227,7 +1229,7 @@ class RandomForestGenerationNode(ExternalGenerationNode):
     @beartype
     def _build_reverse_choice_map(self: Any, choice_parameters: dict) -> dict:
         choice_value_map = {}
-        for name, param in choice_parameters.items():
+        for _, param in choice_parameters.items():
             for value, idx in param.items():
                 choice_value_map[value] = idx
         return {idx: value for value, idx in choice_value_map.items()}
@@ -1793,6 +1795,9 @@ def live_share(force: bool = False) -> bool:
                 print_green(stderr)
 
                 extract_and_print_qr(stderr)
+
+            if stdout:
+                print_debug(f"live_share stdout: {stdout}")
         else:
             stdout, stderr = run_live_share_command(force)
 
@@ -3035,7 +3040,7 @@ def _parse_experiment_parameters_parse_this_args(
     return j, params, classic_params, search_space_reduction_warning
 
 @beartype
-def parse_experiment_parameters() -> Tuple[List[Dict[str, Any]], List[Dict[str, Any]]]:
+def parse_experiment_parameters() -> List[Dict[str, Any]]:
     params: List[Dict[str, Any]] = []
     classic_params: List[Dict[str, Any]] = []
     param_names: List[str] = []
@@ -3059,9 +3064,8 @@ def parse_experiment_parameters() -> Tuple[List[Dict[str, Any]], List[Dict[str, 
 
     # Remove duplicates by 'name' key preserving order
     params = list({p['name']: p for p in params}.values())
-    classic_params = list({p['name']: p for p in classic_params}.values())
 
-    return params, classic_params
+    return params
 
 @beartype
 def check_factorial_range() -> None:
@@ -3695,7 +3699,7 @@ def write_job_infos_csv(parameters: dict, stdout: Optional[str], program_string_
     values = _write_job_infos_csv_replace_none_with_str(values)
 
     headline = ["trial_index", "submit_time", "queue_time", *headline]
-    values = [str(trial_index), submit_time, queue_time, *values]
+    values = [str(trial_index), str(submit_time), str(queue_time), *values]
 
     run_folder = get_current_run_folder()
     if run_folder is not None and os.path.exists(run_folder):
@@ -7295,7 +7299,7 @@ def save_state_files() -> None:
 @beartype
 def execute_evaluation(_params: list) -> Optional[int]:
     print_debug(f"execute_evaluation({_params})")
-    trial_index, parameters, trial_counter, next_nr_steps, phase = _params
+    trial_index, parameters, trial_counter, phase = _params
     if not ax_client:
         _fatal_error("Failed to get ax_client", 9)
 
@@ -8553,12 +8557,10 @@ def handle_optimization_completion(optimization_complete: bool) -> bool:
 @beartype
 def execute_trials(
     trial_index_to_param: dict,
-    next_nr_steps: int,
     phase: Optional[str],
     _max_eval: Optional[int],
     _progress_bar: Any
-) -> List[Optional[int]]:
-    results: List[Optional[int]] = []
+) -> None:
     index_param_list: List[List[Any]] = []
     i: int = 1
 
@@ -8569,7 +8571,7 @@ def execute_trials(
             break
 
         progressbar_description([f"eval #{i}/{len(trial_index_to_param.items())} start"])
-        _args = [trial_index, parameters, i, next_nr_steps, phase]
+        _args = [trial_index, parameters, i, phase]
         index_param_list.append(_args)
         i += 1
 
@@ -8582,24 +8584,21 @@ def execute_trials(
     nr_workers = max(1, min(len(index_param_list), args.max_num_of_parallel_sruns))
 
     with ThreadPoolExecutor(max_workers=nr_workers) as tp_executor:
-        future_to_args = {tp_executor.submit(execute_evaluation, args): args for args in index_param_list}
+        future_to_args = {tp_executor.submit(execute_evaluation, _args): _args for _args in index_param_list}
 
         for future in as_completed(future_to_args):
             cnt = cnt + 1
             try:
                 result = future.result()
-                results.append(result)
+                print_debug(f"result in execute_trials: {result}")
             except Exception as exc:
                 print_red(f"execute_trials: Error at executing a trial: {exc}")
-                results.append(None)
 
     end_time = time.time()
 
     duration = float(end_time - start_time)
     job_submit_durations.append(duration)
     job_submit_nrs.append(cnt)
-
-    return results
 
 @beartype
 def handle_exceptions_create_and_execute_next_runs(e: Exception) -> int:
@@ -8630,10 +8629,9 @@ def create_and_execute_next_runs(next_nr_steps: int, phase: Optional[str], _max_
 
     trial_index_to_param: Optional[Dict] = None
     done_optimizing: bool = False
-    results: List = []
 
     try:
-        done_optimizing, trial_index_to_param, results = _create_and_execute_next_runs_run_loop(next_nr_steps, _max_eval, phase, _progress_bar)
+        done_optimizing, trial_index_to_param = _create_and_execute_next_runs_run_loop(_max_eval, phase, _progress_bar)
         _create_and_execute_next_runs_finish(done_optimizing)
     except Exception as e:
         stacktrace = traceback.format_exc()
@@ -8643,10 +8641,9 @@ def create_and_execute_next_runs(next_nr_steps: int, phase: Optional[str], _max_
     return _create_and_execute_next_runs_return_value(trial_index_to_param)
 
 @beartype
-def _create_and_execute_next_runs_run_loop(next_nr_steps: int, _max_eval: Optional[int], phase: Optional[str], _progress_bar: Any) -> Tuple[bool, Optional[Dict], List]:
+def _create_and_execute_next_runs_run_loop(_max_eval: Optional[int], phase: Optional[str], _progress_bar: Any) -> Tuple[bool, Optional[Dict]]:
     done_optimizing = False
     trial_index_to_param: Optional[Dict] = None
-    results: List = []
 
     nr_of_jobs_to_get = _calculate_nr_of_jobs_to_get(get_nr_of_imported_jobs(), len(global_vars["jobs"]))
 
@@ -8672,7 +8669,7 @@ def _create_and_execute_next_runs_run_loop(next_nr_steps: int, _max_eval: Option
             filtered_trial_index_to_param = {k: v for k, v in trial_index_to_param.items() if k not in abandoned_trial_indices}
 
             if len(filtered_trial_index_to_param):
-                results.extend(execute_trials(filtered_trial_index_to_param, next_nr_steps, phase, _max_eval, _progress_bar))
+                execute_trials(filtered_trial_index_to_param, phase, _max_eval, _progress_bar)
             else:
                 if nr_jobs_before_removing_abandoned > 0:
                     print_debug(f"Could not get jobs. They've been deleted by abandoned_trial_indices: {abandoned_trial_indices}")
@@ -8681,7 +8678,7 @@ def _create_and_execute_next_runs_run_loop(next_nr_steps: int, _max_eval: Option
 
             trial_index_to_param = filtered_trial_index_to_param
 
-    return done_optimizing, trial_index_to_param, results
+    return done_optimizing, trial_index_to_param
 
 @beartype
 def _create_and_execute_next_runs_finish(done_optimizing: bool) -> None:
@@ -8704,7 +8701,7 @@ def _create_and_execute_next_runs_return_value(trial_index_to_param: Optional[Di
         return 0
 
 @beartype
-def get_number_of_steps(_max_eval: int) -> Tuple[int, int]:
+def get_number_of_steps(_max_eval: int) -> int:
     with console.status("[bold green]Calculating number of steps..."):
         _random_steps = args.num_random_steps
 
@@ -8722,20 +8719,7 @@ def get_number_of_steps(_max_eval: int) -> Tuple[int, int]:
         if _random_steps > _max_eval:
             set_max_eval(_random_steps)
 
-        original_second_steps = _max_eval - _random_steps
-        second_step_steps = max(0, original_second_steps)
-        if second_step_steps != original_second_steps:
-            original_print(f"? original_second_steps: {original_second_steps} = max_eval {_max_eval} - _random_steps {_random_steps}")
-        if second_step_steps == 0:
-            if not args.dryrun:
-                print_yellow("This is basically a random search. Increase --max_eval or reduce --num_random_steps")
-
-        second_step_steps = second_step_steps - already_done_random_steps
-
-        if args.continue_previous_job:
-            second_step_steps = _max_eval
-
-        return _random_steps, second_step_steps
+        return _random_steps
 
 @beartype
 def _set_global_executor() -> None:
@@ -9045,12 +9029,11 @@ def check_max_eval(_max_eval: int) -> None:
 def parse_parameters() -> Any:
     experiment_parameters = None
     cli_params_experiment_parameters = None
-    classic_params = None
     if args.parameter:
-        experiment_parameters, classic_params = parse_experiment_parameters()
+        experiment_parameters = parse_experiment_parameters()
         cli_params_experiment_parameters = experiment_parameters
 
-    return experiment_parameters, cli_params_experiment_parameters, classic_params
+    return experiment_parameters, cli_params_experiment_parameters
 
 @beartype
 def create_pareto_front_table(idxs: List[int], metric_x: str, metric_y: str) -> Table:
@@ -10058,6 +10041,47 @@ def write_result_names_file() -> None:
             print_red(f"Error trying to open file '{fn}': {e}")
 
 @beartype
+def run_program_once(params=None) -> None:
+    if not args.run_program_once:
+        print_debug("[yellow]No setup script specified (run_program_once). Skipping setup.[/yellow]")
+        return
+
+    if params is None:
+        params = {}
+
+    if isinstance(args.run_program_once, str):
+        command_str = args.run_program_once
+        for k, v in params.items():
+            placeholder = f"%({k})"
+            command_str = command_str.replace(placeholder, str(v))
+
+        with console.status("[bold green]Running setup script...[/bold green]", spinner="dots"):
+            console.log(f"Executing command: [cyan]{command_str}[/cyan]")
+            result = subprocess.run(command_str, shell=True, check=True)
+            if result.returncode == 0:
+                console.log("[bold green]Setup script completed successfully ✅[/bold green]")
+            else:
+                console.log(f"[bold red]Setup script failed with exit code {result.returncode} ❌[/bold red]")
+
+                my_exit(57)
+
+    elif isinstance(args.run_program_once, (list, tuple)):
+        with console.status("[bold green]Running setup script (list)...[/bold green]", spinner="dots"):
+            console.log(f"Executing command list: [cyan]{args.run_program_once}[/cyan]")
+            result = subprocess.run(args.run_program_once, check=True)
+            if result.returncode == 0:
+                console.log("[bold green]Setup script completed successfully ✅[/bold green]")
+            else:
+                console.log(f"[bold red]Setup script failed with exit code {result.returncode} ❌[/bold red]")
+
+                my_exit(57)
+
+    else:
+        console.print(f"[red]Invalid type for run_program_once: {type(args.run_program_once)}[/red]")
+
+        my_exit(57)
+
+@beartype
 def main() -> None:
     global RESULT_CSV_FILE, ax_client, LOGFILE_DEBUG_GET_NEXT_TRIALS
 
@@ -10091,6 +10115,8 @@ def main() -> None:
     if args.dryrun:
         set_max_eval(1)
 
+    run_program_once()
+
     if os.getenv("CI"):
         data_dict: dict = {
             "param1": "value1",
@@ -10110,7 +10136,7 @@ def main() -> None:
     write_ui_url_if_present()
 
     LOGFILE_DEBUG_GET_NEXT_TRIALS = f'{get_current_run_folder()}/get_next_trials.csv'
-    experiment_parameters, cli_params_experiment_parameters, classic_params = parse_parameters()
+    experiment_parameters, cli_params_experiment_parameters = parse_parameters()
 
     write_live_share_file_if_needed()
 
@@ -10120,7 +10146,7 @@ def main() -> None:
 
     check_max_eval(max_eval)
 
-    _random_steps, second_step_steps = get_number_of_steps(max_eval)
+    _random_steps = get_number_of_steps(max_eval)
 
     set_random_steps(_random_steps)
 

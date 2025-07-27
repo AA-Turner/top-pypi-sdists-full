@@ -1,7 +1,6 @@
 import ast
 import copy
 import logging
-import traceback
 from typing import Tuple
 
 from flynt.exceptions import ConversionRefused
@@ -34,26 +33,27 @@ def transform_chunk(
             state=state,
         )
         str_in_str = str_in_str_fn(converted)
-    except ConversionRefused as cr:
-        log.warning("Not converting code due to: %s", cr)
-        state.invalid_conversions += 1
-        return None, False  # type:ignore # ideally should return one optional str
-    except Exception:
-        msg = traceback.format_exc()
-        log.exception("Exception during conversion of code: %s", msg)
-        state.invalid_conversions += 1
-        return None, False  # type:ignore # ideally should return one optional str
-    else:
         if changed:
             if str_in_str and quote_type == QuoteTypes.single:
                 quote_type = QuoteTypes.double
             new_code = fixup_transformed(converted, quote_type=quote_type)
+
+    except ConversionRefused as cr:
+        log.warning("Not converting code due to: %s", cr)
+        state.invalid_conversions += 1
+        return None, False  # type:ignore # ideally should return one optional str
+    except Exception as exc:
+        level = logging.DEBUG if isinstance(exc, AssertionError) else logging.ERROR
+        log.log(level, "Exception during conversion of code", exc_info=exc)
+        state.invalid_conversions += 1
+        return None, False  # type:ignore # ideally should return one optional str
+    else:
+        if changed:
             try:
                 ast.parse(new_code)
             except SyntaxError:
                 log.error(
-                    "Failed to parse transformed code '%s'",
-                    new_code,
+                    f"Failed to parse transformed code `{new_code}`",
                     exc_info=True,
                 )
                 state.invalid_conversions += 1

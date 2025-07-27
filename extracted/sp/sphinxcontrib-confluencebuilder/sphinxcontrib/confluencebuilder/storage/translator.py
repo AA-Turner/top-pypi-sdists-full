@@ -110,6 +110,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         self.numfig_format = config.numfig_format
         self.secnumber_suffix = config.confluence_secnumber_suffix
         self.todo_include_todos = getattr(config, 'todo_include_todos', None)
+        self._anchor_cache = set()
         self._auto_context = []
         self._building_footnotes = False
         self._figure_context = []
@@ -117,6 +118,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         self._list_context = ['']
         self._manpage_url = getattr(config, 'manpages_url', None)
         self._needs_navnode_spacing = False
+        self._pending_anchors = []
         self._reference_context = []
         self._thead_context = []
         self._v2_header_added = False
@@ -267,27 +269,29 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
             new_targets = []
 
             self.body.append(self.start_tag(node, f'h{self._title_level}'))
+            self._delayed_anchor_inject(node)
 
             if self.builder.name == 'singleconfluence':
                 docname = self._docnames[-1]
             else:
                 docname = self.docname
 
-            # For v2, will will generate section anchors inside the title
-            # area for the following reasons:
+            # Generate section anchors inside the title area for the following
+            # reasons:
             # - We want to create inside the header inside if we input anchors
             #    before the header, it increase the space above the anchor
             #    due to how v2 styles a page.
             # - We are generating compatible anchor links (prefixed with the
             #    repsective document name) which helps allow `ac:link` macros
             #    properly link when coming from v1 or v2 editor pages.
-            if self.v2 and 'names' in node.parent:
+            # - Helps support anchor links for legacy editor on Confluence Cloud
+            if 'names' in node.parent:
                 for name in node.parent['names']:
                     anchor = name.replace(' ', '-')
                     target_name = f'{docname}/#{anchor}'
                     target = self.state.target(target_name)
                     if target and target not in new_targets:
-                        self._build_anchor(node, target)
+                        self._build_anchor(node, target, force_compat=True)
                         new_targets.append(target)
 
             # For MyST sections with an auto-generated slug, we will use this
@@ -1501,9 +1505,14 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         # sections which will have automatically created targets), we will
         # build an anchor link for them; example cases include documentation
         # which generate a custom anchor link inside a paragraph
-        if 'ids' in node and 'refuri' not in node:
+        if node.get('ids') and 'refuri' not in node:
             self._build_id_anchors(node)
             self.body.append(self.encode(node.astext()))
+        # if this target has a reference id, treat as a generic anchor
+        elif node.get('refid'):
+            # note: we do not add generic anchors immediately to avoid
+            # newline issues
+            self._pending_anchors.append(node.get('refid'))
 
         raise nodes.SkipNode
 
@@ -2684,6 +2693,54 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
 
         raise nodes.SkipNode
 
+    def visit_confluence_view_pdf(self, node):
+        reftarget = node['reftarget']
+        uri = self.encode(reftarget)
+
+        if uri.find('://') != -1:
+            self.warn('only local/downloaded pdfs are supported')
+            raise nodes.SkipNode
+
+        asset_docname = None
+        if self.builder.name == 'singleconfluence':
+            asset_docname = self.docname
+
+        file_key, hosting_docname, _ = \
+            self.assets.fetch(node, docname=asset_docname)
+
+        # if this file has not already be processed (injected at a later
+        # stage in the sphinx process); try processing it now
+        if not file_key:
+            if not asset_docname:
+                asset_docname = self.docname
+
+            file_key, hosting_docname, _ = \
+                self.assets.process_file_node(
+                    node, asset_docname, standalone=True)
+
+        if not file_key:
+            self.warn(f'unable to find download: {reftarget}')
+            raise nodes.SkipNode
+
+        hosting_doctitle = self.state.title(hosting_docname)
+        hosting_doctitle = self.encode(hosting_doctitle)
+
+        self.body.append(self.start_ac_macro(node, 'viewpdf'))
+        self.body.append(self.build_ac_param(node, 'name',
+            self.start_ri_attachment(node, file_key) +
+            self.end_ri_attachment(node),
+        ))
+        if hosting_docname != self.docname:
+            self.body.append(self.build_ac_param(node, 'page',
+                self.start_tag(node, 'ac:link') +
+                self.start_tag(node, 'ri:page',
+                   empty=True, **{'ri:content-title': hosting_doctitle}) +
+                self.end_tag(node, suffix=''),
+            ))
+        self.body.append(self.end_ac_macro(node))
+
+        raise nodes.SkipNode
+
     # ------------------------------------------
     # confluence-builder -- enhancements -- card
     # ------------------------------------------
@@ -3069,6 +3126,38 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
 
         raise nodes.SkipNode
 
+    # -------------------------------------------------------
+    # sphinx -- extension (third party) -- sphinx-inline-tabs
+    # -------------------------------------------------------
+
+    def visit_TabContainer(self, node):
+        # check if this is an explicit hint to start a new tab container
+        primary_tab = node.get('new_set')
+
+        # if we are not explicitly a new tab container, check if our previous
+        # sibling is a tab container; if not, consider ourselves a new
+        # tab container
+        if not primary_tab:
+            prev_sibling = None
+            for child in node.parent.children:
+                if child is node:
+                    if not isinstance(prev_sibling, type(node)):
+                        primary_tab = True
+                    break
+                prev_sibling = child
+
+        label_node = node.next_node()
+        if isinstance(label_node, nodes.label):
+            tabname = label_node.astext()
+        else:
+            tabname = ''
+
+        self._build_tab(node, tabname, primary_tab)
+
+    @depart_auto_context_decorator()
+    def depart_TabContainer(self, node):
+        pass
+
     # -------------------------------------------------
     # sphinx -- extension (third party) -- sphinx-needs
     # -------------------------------------------------
@@ -3077,6 +3166,43 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         pass
 
     def depart_PassthroughTextElement(self, node):
+        pass
+
+    # ------------------------------------------------
+    # sphinx -- extension (third party) -- sphinx-tabs
+    # ------------------------------------------------
+
+    def visit_SphinxTabsTablist(self, node):
+        self._sphinxtabs_primary = True
+        self._sphinxtabs_tabnames = {}
+
+        for child in node.children:
+            tab_id = child.get('name')
+            if tab_id:
+                self._sphinxtabs_tabnames[tab_id] = child.astext()
+
+        raise nodes.SkipNode
+
+    def visit_SphinxTabsTab(self, node):
+        pass
+
+    def depart_SphinxTabsTab(self, node):
+        pass
+
+    def depart_SphinxTabsTablist(self, node):
+        pass
+
+    def visit_SphinxTabsPanel(self, node):
+        primary_tab = self._sphinxtabs_primary
+        self._sphinxtabs_primary = False
+
+        tab_id = node.get('name')
+        tab_name = self._sphinxtabs_tabnames.get(tab_id, '')
+
+        self._build_tab(node, tab_name, primary_tab)
+
+    @depart_auto_context_decorator()
+    def depart_SphinxTabsPanel(self, node):
         pass
 
     # ---------------------------------------------------
@@ -3312,6 +3438,7 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
             attribs['style'] = style
 
         self.body.append(self.start_tag(node, tag, **attribs))
+        self._delayed_anchor_inject(node)
         self.context.append(self.end_tag(node))
 
     def depart_line_block(self, node):
@@ -3380,7 +3507,10 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
             for id_ in node['ids']:
                 self._build_anchor(node, id_)
 
-    def _build_anchor(self, node, anchor):
+        # also, include any pending anchors not added
+        self._delayed_anchor_inject(node)
+
+    def _build_anchor(self, node, anchor, *, force_compat=False):
         """
         build an anchor on a page
 
@@ -3397,14 +3527,21 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
         Args:
             node: the node adding the anchor
             anchor: the name of the anchor to create
+            force_compat (optional): always force compat anchor
         """
+
+        # ignore any duplicate anchors on the same page
+        if anchor in self._anchor_cache:
+            self.verbose(f'duplicate anchor ({self.docname}): {anchor}')
+            return
+        self._anchor_cache.add(anchor)
 
         self.verbose(f'build anchor ({self.docname}): {anchor}')
         self.body.append(self.start_ac_macro(node, 'anchor'))
         self.body.append(self.build_ac_param(node, '', anchor))
         self.body.append(self.end_ac_macro(node, suffix=''))
 
-        if self.v2:
+        if self.builder.cloud or self.v2 or force_compat:
             doctitle = self.state.title(self.docname)
             doctitle = self.encode(doctitle.replace(' ', ''))
 
@@ -3413,6 +3550,45 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
             self.body.append(self.start_ac_macro(node, 'anchor'))
             self.body.append(self.build_ac_param(node, '', compat_anchor))
             self.body.append(self.end_ac_macro(node, suffix=''))
+
+    @visit_auto_context_decorator()
+    def _build_tab(self, node, tab_title, primary_tab):
+        """
+        build an inlined tab entry
+
+        This is a helper call that is used by various Sphinx tab-related
+        extensions to help build an appropriate macro used to render tabbed
+        content.
+
+        Note: visit calls that use this hook need to ensure their respective
+        depart call is wrapped with `depart_auto_context_decorator`.
+
+        Args:
+            node: the node adding the anchor
+            tab_title: the title to use for the tab
+            primary_tab: whether this is the primary/first tab
+        """
+
+        if not self.builder.config.confluence_tab_macro:
+            self._warnref(node, 'ignoring node since no tab macro configured')
+            raise nodes.SkipNode
+
+        conf = self.builder.config.confluence_tab_macro
+        macro = conf['macro-name']
+        pid = conf.get('primary-id')
+        pval = conf.get('primary-value')
+        tid = conf.get('title-id')
+
+        self.body.append(self.start_ac_macro(node, macro))
+        self.auto_append(self.end_tag(node))
+
+        if pid and primary_tab:
+            self.body.append(self.build_ac_param(node, pid, pval))
+        if tid:
+            self.body.append(self.build_ac_param(node, tid, tab_title))
+
+        self.body.append(self.start_ac_rich_text_body_macro(node))
+        self.auto_append(self.end_ac_rich_text_body_macro(node))
 
     def start_tag(self, node, tag, suffix=None, empty=False, **kwargs):
         """
@@ -3959,6 +4135,24 @@ class ConfluenceStorageFormatTranslator(ConfluenceBaseTranslator):
             data = data.replace(']]>', ']]]]><![CDATA[>')
 
         return ConfluenceBaseTranslator.encode(self, data)
+
+    def _delayed_anchor_inject(self, node):
+        """
+        add delayed anchors into a node
+
+        While it would be nice to add anchors when processing targets
+        immediately, Confluence renders anchors in a way where they can result
+        in extra newlines. A trick that appears to work is for some anchors,
+        we can delay adding them into the body until we build a block (e.g. a
+        paragraph) to avoid any extra spacing.
+
+        Args:
+            node: the node to add the anchor into
+        """
+
+        while self._pending_anchors:
+            new_anchor_id = self._pending_anchors.pop()
+            self._build_anchor(node, new_anchor_id)
 
     # ##########################################################################
     # #                                                                        #

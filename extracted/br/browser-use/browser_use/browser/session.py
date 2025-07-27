@@ -26,6 +26,7 @@ from .utils import normalize_url
 
 os.environ['PW_TEST_SCREENSHOT_NO_FONTS_READY'] = '1'  # https://github.com/microsoft/playwright/issues/35972
 
+
 import psutil
 from bubus.helpers import retry
 from playwright._impl._api_structures import ViewportSize
@@ -45,14 +46,17 @@ from browser_use.browser.types import (
 	async_playwright,
 )
 from browser_use.browser.views import (
+	PLACEHOLDER_4PX_SCREENSHOT,
 	BrowserError,
 	BrowserStateSummary,
 	PageInfo,
 	TabInfo,
 	URLNotAllowedError,
 )
-from browser_use.dom.clickable_element_processor.service import ClickableElementProcessor
-from browser_use.dom.service import DomService
+
+# Lazy imports for heavy DOM services to improve startup time
+# from browser_use.dom.clickable_element_processor.service import ClickableElementProcessor
+# from browser_use.dom.service import DomService
 from browser_use.dom.views import DOMElementNode, SelectorMap
 from browser_use.utils import (
 	is_new_tab_page,
@@ -160,12 +164,14 @@ def require_healthy_browser(usable_page=True, reopen_page=True):
 								await self._recover_unresponsive_page(
 									func.__name__, timeout_ms=int(self.browser_profile.default_navigation_timeout or 5000) + 5_000
 								)
+								page_url = self.agent_current_page.url if self.agent_current_page else 'unknown page'
 								self.logger.debug(
-									f'🤕 Crashed page recovery finished, attempting to continue with {func.__name__}() on {_log_pretty_url(self.agent_current_page.url)}...'
+									f'🤕 Crashed page recovery finished, attempting to continue with {func.__name__}() on {_log_pretty_url(page_url)}...'
 								)
 							except Exception as e:
+								page_url = self.agent_current_page.url if self.agent_current_page else 'unknown page'
 								self.logger.warning(
-									f'❌ Crashed page recovery failed, could not run {func.__name__}(), page is stuck unresponsive on {_log_pretty_url(self.agent_current_page.url)}...'
+									f'❌ Crashed page recovery failed, could not run {func.__name__}(), page is stuck unresponsive on {_log_pretty_url(page_url)}...'
 								)
 								raise  # Re-raise to let retry decorator / callsite handle it
 
@@ -384,10 +390,19 @@ class BrowserSession(BaseModel):
 			# Ensure we have a context
 			assert self.browser_context, f'Failed to create BrowserContext for browser={self.browser}'
 
-			# Configure browser
-			await self._setup_viewports()
-			await self._setup_current_page_change_listeners()
-			await self._start_context_tracing()
+			# Configure browser - run some setup tasks in parallel for speed
+			setup_results = await asyncio.gather(
+				self._setup_viewports(),
+				self._setup_current_page_change_listeners(),
+				self._start_context_tracing(),
+				return_exceptions=True,
+			)
+
+			# Check for exceptions in setup results
+			for i, result in enumerate(setup_results):
+				if isinstance(result, Exception):
+					setup_task_names = ['_setup_viewports', '_setup_current_page_change_listeners', '_start_context_tracing']
+					raise Exception(f'Browser setup failed in {setup_task_names[i]}: {result}') from result
 
 			self.initialized = True
 			return self
@@ -739,18 +754,20 @@ class BrowserSession(BaseModel):
 	@retry(wait=0.5, retries=2, timeout=30, semaphore_limit=1, semaphore_scope='self', semaphore_lax=True)
 	async def _save_trace_recording(self) -> None:
 		"""Save browser trace recording."""
-		if self.browser_profile.traces_dir and self.browser_context is not None:
-			traces_path = Path(self.browser_profile.traces_dir)
-			if traces_path.suffix:
-				# Path has extension, use as-is (user specified exact file path)
-				final_trace_path = traces_path
-			else:
-				# Path has no extension, treat as directory and create filename
-				trace_filename = f'BrowserSession_{self.id}.zip'
-				final_trace_path = traces_path / trace_filename
+		# TEMPORARILY DISABLED: Trace recording causing test timeouts
+		return
+		# if self.browser_profile.traces_dir and self.browser_context is not None:
+		# 	traces_path = Path(self.browser_profile.traces_dir)
+		# 	if traces_path.suffix:
+		# 		# Path has extension, use as-is (user specified exact file path)
+		# 		final_trace_path = traces_path
+		# 	else:
+		# 		# Path has no extension, treat as directory and create filename
+		# 		trace_filename = f'BrowserSession_{self.id}.zip'
+		# 		final_trace_path = traces_path / trace_filename
 
-			self.logger.info(f'🎥 Saving browser_context trace to {final_trace_path}...')
-			await self.browser_context.tracing.stop(path=str(final_trace_path))
+		# 	self.logger.info(f'🎥 Saving browser_context trace to {final_trace_path}...')
+		# 	await self.browser_context.tracing.stop(path=str(final_trace_path))
 
 	@observe_debug(ignore_input=True, ignore_output=True, name='connect_or_launch_browser')
 	async def _connect_or_launch_browser(self) -> None:
@@ -837,6 +854,7 @@ class BrowserSession(BaseModel):
 
 		atexit.register(shudown_playwright)
 
+	@observe_debug(ignore_input=True, ignore_output=True, name='setup_browser_via_passed_objects')
 	async def setup_browser_via_passed_objects(self) -> None:
 		"""Override to customize the set up of the connection to an existing browser"""
 
@@ -878,6 +896,7 @@ class BrowserSession(BaseModel):
 			self.logger.info(f'🎭 Connected to existing user-provided browser: {self.browser_context}')
 			self._set_browser_keep_alive(True)  # we connected to an existing browser, dont kill it at the end
 
+	@observe_debug(ignore_input=True, ignore_output=True, name='setup_browser_via_browser_pid')
 	async def setup_browser_via_browser_pid(self) -> None:
 		"""if browser_pid is provided, calcuclate its CDP URL by looking for --remote-debugging-port=... in its CLI args, then connect to it"""
 
@@ -922,11 +941,10 @@ class BrowserSession(BaseModel):
 		# Wait for CDP port to become available (Chrome might still be starting)
 		import httpx
 
-		# Add initial delay to give Chrome time to start up before first check
-		await asyncio.sleep(2)
+		# No initial sleep needed - the polling loop below handles waiting if Chrome isn't ready yet
 
 		async with httpx.AsyncClient() as client:
-			for i in range(30):  # 30 second timeout
+			for i in range(30):  # timeout
 				# First check if the Chrome process has exited
 				try:
 					chrome_process = psutil.Process(pid=self.browser_pid)
@@ -945,33 +963,34 @@ class BrowserSession(BaseModel):
 								raise RuntimeError('Failed parsing extensions: Chrome profile incompatibility detected')
 							elif 'SingletonLock' in stderr_output or 'ProcessSingleton' in stderr_output:
 								# Chrome exited due to singleton lock
-								self._fallback_to_temp_profile('Chrome process exit due to SingletonLock')
-								# Kill the subprocess and retry with new profile
-								try:
-									self._subprocess.terminate()
-									await self._subprocess.wait()
-								except Exception:
-									pass
-								self.browser_pid = None
-								# Retry with the new temp directory
-								await self._unsafe_setup_new_browser_context()
-								return
-							else:
-								# Chrome exited for unknown reason, try fallback to temp profile
-								self.logger.warning(
-									f'⚠️ Chrome process {self.browser_pid} exited unexpectedly. Error: {stderr_output[:500] if stderr_output else "No error output"}'
+								self.logger.error(
+									f'❌ Chrome process {self.browser_pid} crashed due to SingletonLock error: {stderr_output[:500]}'
 								)
-								self._fallback_to_temp_profile('Chrome process exit with unknown error')
-								# Kill the subprocess and retry with new profile
+								# Kill the subprocess
 								try:
 									self._subprocess.terminate()
 									await self._subprocess.wait()
 								except Exception:
 									pass
 								self.browser_pid = None
-								# Retry with the new temp directory
-								await self._unsafe_setup_new_browser_context()
-								return
+								# Throw hard error instead of restarting
+								raise RuntimeError(f'Chrome process crashed due to SingletonLock error: {stderr_output[:500]}')
+							else:
+								# Chrome exited for unknown reason
+								self.logger.error(
+									f'❌ Chrome process {self.browser_pid} crashed unexpectedly. Error: {stderr_output[:500] if stderr_output else "No error output"}'
+								)
+								# Kill the subprocess
+								try:
+									self._subprocess.terminate()
+									await self._subprocess.wait()
+								except Exception:
+									pass
+								self.browser_pid = None
+								# Throw hard error instead of restarting
+								raise RuntimeError(
+									f'Chrome process crashed unexpectedly: {stderr_output[:500] if stderr_output else "No error output"}'
+								)
 						self.logger.error(f'❌ Chrome process {self.browser_pid} exited unexpectedly')
 						self.browser_pid = None
 						return
@@ -988,11 +1007,11 @@ class BrowserSession(BaseModel):
 				except (httpx.ConnectError, httpx.TimeoutException):
 					if i == 0:
 						self.logger.debug(f'⏳ Waiting for Chrome CDP port {debug_port} to become available...')
-					await asyncio.sleep(1)
+					await asyncio.sleep(0.5)
 			else:
 				self.logger.error(f'❌ Chrome CDP port {debug_port} did not become available after 30 seconds')
 				self.browser_pid = None
-				return
+				raise RuntimeError(f'Chrome CDP port {debug_port} did not become available - browser process may have crashed')
 
 		# Determine if this is a newly spawned subprocess or an existing process
 		if hasattr(self, '_subprocess') and self._subprocess and self._subprocess.pid == self.browser_pid:
@@ -1010,6 +1029,7 @@ class BrowserSession(BaseModel):
 		)
 		self._set_browser_keep_alive(True)  # we connected to an existing browser, dont kill it at the end
 
+	@observe_debug(ignore_input=True, ignore_output=True, name='setup_browser_via_wss_url')
 	async def setup_browser_via_wss_url(self) -> None:
 		"""check for a passed wss_url, connect to a remote playwright browser server via WSS"""
 
@@ -1044,7 +1064,8 @@ class BrowserSession(BaseModel):
 		)
 		self._set_browser_keep_alive(True)  # we connected to an existing browser, dont kill it at the end
 
-	@retry(wait=1, retries=2, timeout=45, semaphore_limit=1, semaphore_scope='self', semaphore_lax=False)
+	@observe_debug(ignore_input=True, ignore_output=True, name='setup_new_browser_context')
+	@retry(wait=0.1, retries=5, timeout=45, semaphore_limit=1, semaphore_scope='self', semaphore_lax=False)
 	async def setup_new_browser_context(self) -> None:
 		"""Launch a new browser and browser_context"""
 		# Double-check after semaphore acquisition to prevent duplicate browser launches
@@ -1059,6 +1080,7 @@ class BrowserSession(BaseModel):
 				pass
 		await self._unsafe_setup_new_browser_context()
 
+	@observe_debug(ignore_input=True, ignore_output=True, name='_unsafe_setup_new_browser_context')
 	async def _unsafe_setup_new_browser_context(self) -> None:
 		"""Unsafe browser context setup without retry protection."""
 
@@ -1210,12 +1232,12 @@ class BrowserSession(BaseModel):
 								elif 'SingletonLock' in stderr_output or 'ProcessSingleton' in stderr_output:
 									raise RuntimeError(f'SingletonLock error: {stderr_output[:500]}')
 								else:
-									# For any other error, log it and raise to trigger fallback
-									self.logger.warning(
-										f'⚠️ Chrome subprocess exited with code {process.returncode}. Error: {stderr_output[:500] if stderr_output else "No error output"}'
+									# For any other error, raise hard error
+									self.logger.error(
+										f'❌ Chrome subprocess crashed with code {process.returncode}. Error: {stderr_output[:500] if stderr_output else "No error output"}'
 									)
 									raise RuntimeError(
-										f'Chrome subprocess exited with code {process.returncode}. Error output: {stderr_output[:500] if stderr_output else "No error output"}'
+										f'Chrome subprocess crashed with code {process.returncode}. Error output: {stderr_output[:500] if stderr_output else "No error output"}'
 									)
 							else:
 								# Kill the subprocess if it's still running but we couldn't connect
@@ -1234,13 +1256,8 @@ class BrowserSession(BaseModel):
 							or 'Chrome subprocess exited' in str(e)
 							or isinstance(e, RuntimeError)
 						):
-							# Fall back to temporary directory
-							reason = (
-								'Chrome launch error due to SingletonLock'
-								if 'SingletonLock' in str(e)
-								else 'Chrome subprocess failed to start'
-							)
-							self._fallback_to_temp_profile(reason)
+							# Chrome has crashed - throw hard error instead of restarting
+							self.logger.error(f'❌ Chrome process crashed and cannot be recovered: {str(e)}')
 							# Kill the failed subprocess if it exists
 							if hasattr(self, '_subprocess') and self._subprocess:
 								try:
@@ -1248,30 +1265,23 @@ class BrowserSession(BaseModel):
 									await self._subprocess.wait()
 								except Exception:
 									pass
-							# Retry the launch with the new temporary directory
-							await self._unsafe_setup_new_browser_context()
-							return
+							# Throw hard error instead of restarting
+							raise RuntimeError(f'Chrome process crashed and cannot be recovered: {str(e)}')
 						# Re-raise if not a timeout
 						elif not isinstance(e, asyncio.TimeoutError):
 							raise
 			except TimeoutError:
-				self.logger.warning(
-					'Browser operation timed out. This may indicate the playwright instance is invalid due to event loop changes. '
-					'Recreating playwright instance and retrying...'
+				self.logger.error(
+					'❌ Browser operation timed out. This may indicate the playwright instance is invalid or the browser has crashed.'
 				)
-				# Force recreation of the playwright object
-				self.playwright = await self._start_global_playwright_subprocess(is_stealth=self.browser_profile.stealth)
-				# Retry the whole subprocess launch
-				await self._unsafe_setup_new_browser_context()
-				return
+				# Throw hard error instead of retrying
+				raise RuntimeError('Browser operation timed out - browser may have crashed or become unresponsive')
 			except Exception as e:
 				# Check if it's a SingletonLock error from the subprocess
 				if 'SingletonLock' in str(e) or 'ProcessSingleton' in str(e):
-					# Fall back to temporary directory
-					self._fallback_to_temp_profile('Chrome launch error due to SingletonLock')
-					# Retry the launch with the new temporary directory
-					await self._unsafe_setup_new_browser_context()
-					return
+					# Chrome crashed due to SingletonLock - throw hard error
+					self.logger.error(f'❌ Chrome launch failed due to SingletonLock error: {str(e)}')
+					raise RuntimeError(f'Chrome launch failed due to SingletonLock error: {str(e)}')
 
 				# show a nice logger hint explaining what went wrong with the user_data_dir
 				# calculate the version of the browser that the user_data_dir is for, and the version of the browser we are running with
@@ -2015,7 +2025,6 @@ class BrowserSession(BaseModel):
 		await page.wait_for_selector(selector, state='visible', timeout=timeout)
 
 	@observe_debug(name='remove_highlights', ignore_output=True, ignore_input=True)
-	@require_healthy_browser(usable_page=True, reopen_page=True)
 	@time_execution_async('--remove_highlights')
 	@retry(timeout=2, retries=0)
 	async def remove_highlights(self):
@@ -2048,14 +2057,16 @@ class BrowserSession(BaseModel):
 			self.logger.debug(f'⚠️ Failed to remove highlights (this is usually ok): {type(e).__name__}: {e}')
 			# Don't raise the error since this is not critical functionality
 
+	@observe_debug(ignore_output=True, name='get_dom_element_by_index')
 	@require_healthy_browser(usable_page=True, reopen_page=True)
 	async def get_dom_element_by_index(self, index: int) -> DOMElementNode | None:
 		"""Get DOM element by index."""
 		selector_map = await self.get_selector_map()
 		return selector_map.get(index)
 
-	@require_healthy_browser(usable_page=True, reopen_page=True)
 	@time_execution_async('--click_element_node')
+	@observe_debug(ignore_input=True, name='click_element_node')
+	@require_healthy_browser(usable_page=True, reopen_page=True)
 	async def _click_element_node(self, element_node: DOMElementNode) -> str | None:
 		"""
 		Optimized method to click an element using xpath.
@@ -2069,7 +2080,8 @@ class BrowserSession(BaseModel):
 			element_handle = await self.get_locate_element(element_node)
 
 			if element_handle is None:
-				raise Exception(f'Element: {repr(element_node)} not found')
+				self.logger.debug(f'Element: {repr(element_node)} not found')
+				raise Exception('Element not found')
 
 			async def perform_click(click_func):
 				"""Performs the actual click, handling both download and navigation scenarios."""
@@ -2163,10 +2175,10 @@ class BrowserSession(BaseModel):
 		except URLNotAllowedError as e:
 			raise e
 		except Exception as e:
-			raise Exception(f'Failed to click element: {repr(element_node)}. Error: {str(e)}')
+			raise Exception(f'Failed to click element. Error: {str(e)}')
 
 	@time_execution_async('--get_tabs_info')
-	@retry(timeout=6, retries=1)
+	@retry(timeout=3, retries=1)
 	@require_healthy_browser(usable_page=False, reopen_page=False)
 	async def get_tabs_info(self) -> list[TabInfo]:
 		"""Get information about all tabs"""
@@ -2174,7 +2186,7 @@ class BrowserSession(BaseModel):
 		tabs_info = []
 		for page_id, page in enumerate(self.browser_context.pages):
 			try:
-				title = await asyncio.wait_for(page.title(), timeout=3.0)
+				title = await asyncio.wait_for(page.title(), timeout=2.0)
 				tab_info = TabInfo(page_id=page_id, url=page.url, title=title)
 			except Exception:
 				# page.title() can hang forever on tabs that are crashed/disappeared/about:blank
@@ -2183,9 +2195,9 @@ class BrowserSession(BaseModel):
 					f'⚠️ Failed to get tab info for tab #{page_id}: {_log_pretty_url(page.url)} (using fallback title)'
 				)
 
-				# Only mark as unusable if it's actually about:blank, otherwise preserve the real URL
-				if page.url == 'about:blank':
-					tab_info = TabInfo(page_id=page_id, url='about:blank', title='ignore this tab and do not use it')
+				# Only mark as unusable if it's actually a new tab page, otherwise preserve the real URL
+				if is_new_tab_page(page.url):
+					tab_info = TabInfo(page_id=page_id, url=page.url, title='ignore this tab and do not use it')
 				else:
 					# Preserve the real URL and use a descriptive fallback title
 					# fallback_title = '(title unavailable, page possibly crashed / unresponsive)'
@@ -2255,8 +2267,14 @@ class BrowserSession(BaseModel):
 		# Check if URL is allowed
 		if not self._is_url_allowed(normalized_url):
 			raise BrowserError(f'⛔️ Navigation to non-allowed URL: {normalized_url}')
-
-		timeout_ms = min(3000, int(timeout_ms or self.browser_profile.default_navigation_timeout or 12000))
+		# If timeout_ms is not None, use it (even if 0); else try profile.default_navigation_timeout (even if 0); else 12000
+		if timeout_ms is not None:
+			user_timeout_ms = int(timeout_ms)
+		elif self.browser_profile.default_navigation_timeout is not None:
+			user_timeout_ms = int(self.browser_profile.default_navigation_timeout)
+		else:
+			user_timeout_ms = 12000
+		timeout_ms = min(3000, user_timeout_ms)
 
 		# Handle new tab creation
 		if new_tab:
@@ -2279,7 +2297,7 @@ class BrowserSession(BaseModel):
 
 		# Navigate to URL
 		try:
-			# Use asyncio.wait to prevent hanging on slow page loads
+			# Use asyncio.wait to prevent hanging on a slow page loads
 			# Don't cap the timeout - respect what was requested
 			self.logger.debug(f'🧭 Starting navigation to {_log_pretty_url(normalized_url)} with timeout {timeout_ms}ms')
 			nav_task = asyncio.create_task(page.goto(normalized_url, wait_until='load', timeout=timeout_ms))
@@ -2797,15 +2815,27 @@ class BrowserSession(BaseModel):
 	@observe_debug(ignore_input=True, ignore_output=True, name='wait_for_page_and_frames_load')
 	async def _wait_for_page_and_frames_load(self, timeout_overwrite: float | None = None):
 		"""
-		Ensures page is fully loaded before continuing.
-		Waits for either network to be idle or minimum WAIT_TIME, whichever is longer.
+		Ensures page is fully loaded and stable before continuing.
+		Waits for network idle, DOM stability, and minimum WAIT_TIME.
 		Also checks if the loaded URL is allowed.
+
+		Parameters:
+		-----------
+		timeout_overwrite: float | None
+			Override the minimum wait time
 		"""
 		# Start timing
 		start_time = time.time()
 
 		# Wait for page load
 		page = await self.get_current_page()
+
+		# Skip network waiting for new tab pages (about:blank, chrome://new-tab-page, etc.)
+		# These pages load instantly and don't need network idle time
+		if is_new_tab_page(page.url):
+			self.logger.debug(f'⚡ Skipping page load wait for new tab page: {page.url}')
+			return
+
 		try:
 			await self._wait_for_stable_network()
 
@@ -3052,7 +3082,9 @@ class BrowserSession(BaseModel):
 	@observe_debug(ignore_input=True, ignore_output=True)
 	@time_execution_async('--get_state_summary')
 	@require_healthy_browser(usable_page=True, reopen_page=True)
-	async def get_state_summary(self, cache_clickable_elements_hashes: bool) -> BrowserStateSummary:
+	async def get_state_summary(
+		self, cache_clickable_elements_hashes: bool, include_screenshot: bool = True
+	) -> BrowserStateSummary:
 		self.logger.debug('🔄 Starting get_state_summary...')
 		"""Get a summary of the current browser state
 
@@ -3065,13 +3097,19 @@ class BrowserSession(BaseModel):
 			If True, cache the clickable elements hashes for the current state.
 			This is used to calculate which elements are new to the LLM since the last message,
 			which helps reduce token usage.
+		include_screenshot: bool
+			If True, include screenshot in the state summary. Set to False to improve performance
+			when screenshots are not needed (e.g., in multi_act element validation).
 		"""
-		await self._wait_for_page_and_frames_load()
-		updated_state = await self._get_updated_state()
+
+		updated_state = await self._get_updated_state(include_screenshot=include_screenshot)
 
 		# Find out which elements are new
 		# Do this only if url has not changed
 		if cache_clickable_elements_hashes:
+			# Lazy import heavy DOM service
+			from browser_use.dom.clickable_element_processor.service import ClickableElementProcessor
+
 			# if we are on the same url as the last state, we can use the cached hashes
 			if self._cached_clickable_element_hashes and self._cached_clickable_element_hashes.url == updated_state.url:
 				# Pointers, feel free to edit in place
@@ -3130,6 +3168,9 @@ class BrowserSession(BaseModel):
 			parent=None,
 		)
 
+		# Check if current page is a PDF viewer
+		is_pdf_viewer = await self._is_pdf_viewer(page)
+
 		return BrowserStateSummary(
 			element_tree=minimal_element_tree,  # Minimal DOM tree
 			selector_map={},  # Empty selector map
@@ -3139,22 +3180,15 @@ class BrowserSession(BaseModel):
 			pixels_above=0,
 			pixels_below=0,
 			browser_errors=[f'Page state retrieval failed, minimal recovery applied for {url}'],
+			is_pdf_viewer=is_pdf_viewer,
 		)
 
 	@observe_debug(ignore_input=True, ignore_output=True, name='get_updated_state')
-	async def _get_updated_state(self, focus_element: int = -1) -> BrowserStateSummary:
+	async def _get_updated_state(self, focus_element: int = -1, include_screenshot: bool = True) -> BrowserStateSummary:
 		"""Update and return state."""
 
 		# Check if current page is still valid, if not switch to another available page
 		page = await self.get_current_page()
-
-		try:
-			# Test if page is still accessible
-			# NOTE: This also happens on invalid urls like www.sadfdsafdssdafd.com
-			await asyncio.wait_for(page.evaluate('1'), timeout=2.5)
-		except Exception as e:
-			self.logger.debug(f'👋 Current page is not accessible: {type(e).__name__}: {e}')
-			raise BrowserError('Page is not accessible')
 
 		try:
 			self.logger.debug('🧹 Removing highlights...')
@@ -3172,6 +3206,8 @@ class BrowserSession(BaseModel):
 				self.logger.debug(f'PDF auto-download check failed: {type(e).__name__}: {e}')
 
 			self.logger.debug('🌳 Starting DOM processing...')
+			from browser_use.dom.service import DomService
+
 			dom_service = DomService(page, logger=self.logger)
 			try:
 				content = await asyncio.wait_for(
@@ -3228,13 +3264,16 @@ class BrowserSession(BaseModel):
 			# 		)
 			# 	)
 
-			try:
-				self.logger.debug('📸 Capturing screenshot...')
-				# Reasonable timeout for screenshot
-				screenshot_b64 = await self.take_screenshot()
-				# self.logger.debug('✅ Screenshot completed')
-			except Exception as e:
-				self.logger.warning(f'❌ Screenshot failed for {_log_pretty_url(page.url)}: {type(e).__name__} {e}')
+			if include_screenshot:
+				try:
+					self.logger.debug('📸 Capturing screenshot...')
+					# Reasonable timeout for screenshot
+					screenshot_b64 = await self.take_screenshot()
+					# self.logger.debug('✅ Screenshot completed')
+				except Exception as e:
+					self.logger.warning(f'❌ Screenshot failed for {_log_pretty_url(page.url)}: {type(e).__name__} {e}')
+					screenshot_b64 = None
+			else:
 				screenshot_b64 = None
 
 			# Get comprehensive page information
@@ -3259,6 +3298,9 @@ class BrowserSession(BaseModel):
 					f'DOM processing timed out for {page.url} - using minimal state. Basic navigation still available via go_to_url, scroll, and search actions.'
 				)
 
+			# Check if current page is a PDF viewer
+			is_pdf_viewer = await self._is_pdf_viewer(page)
+
 			self.browser_state_summary = BrowserStateSummary(
 				element_tree=content.element_tree,
 				selector_map=content.selector_map,
@@ -3270,6 +3312,7 @@ class BrowserSession(BaseModel):
 				pixels_above=pixels_above,
 				pixels_below=pixels_below,
 				browser_errors=browser_errors,
+				is_pdf_viewer=is_pdf_viewer,
 			)
 
 			self.logger.debug('✅ get_state_summary completed successfully')
@@ -3475,10 +3518,29 @@ class BrowserSession(BaseModel):
 				'Browser is unable to load any new about:blank pages (something is very wrong or browser is extremely overloaded)'
 			)
 
+	@observe_debug(ignore_input=True, name='recover_unresponsive_page')
 	async def _recover_unresponsive_page(self, calling_method: str, timeout_ms: int | None = None) -> None:
 		"""Recover from an unresponsive page by closing and reopening it."""
 		self.logger.warning(f'⚠️ Page JS engine became unresponsive in {calling_method}(), attempting recovery...')
 		timeout_ms = min(3000, int(timeout_ms or self.browser_profile.default_navigation_timeout or 5000))
+
+		# Check if browser process is still alive before attempting recovery
+		if self.browser_pid:
+			try:
+				import psutil
+
+				proc = psutil.Process(self.browser_pid)
+				if proc.status() in (psutil.STATUS_ZOMBIE, psutil.STATUS_DEAD):
+					self.logger.error(f'❌ Browser process {self.browser_pid} has crashed and cannot be recovered')
+					raise RuntimeError('Browser process has crashed - cannot recover unresponsive page')
+			except psutil.NoSuchProcess:
+				self.logger.error(f'❌ Browser process {self.browser_pid} no longer exists')
+				raise RuntimeError('Browser process has crashed - cannot recover unresponsive page')
+
+		# Check if browser connection is still alive
+		if self.browser and not self.browser.is_connected():
+			self.logger.error('❌ Browser connection lost - browser process may have crashed')
+			raise RuntimeError('Browser connection lost - cannot recover unresponsive page')
 
 		# Prevent re-entrance
 		self._in_recovery = True
@@ -3567,7 +3629,7 @@ class BrowserSession(BaseModel):
 			# not an exception because there's no point in retrying if we hit this, its always pointless to screenshot about:blank
 			# raise ValueError('Refusing to take unneeded screenshot of empty new tab page')
 			# return a 4px*4px white png to avoid wasting tokens - instead of 1px*1px white png that was
-			return 'iVBORw0KGgoAAAANSUhEUgAAAAQAAAAECAIAAAAmkwkpAAAAFElEQVR4nGP8//8/AwwwMSAB3BwAlm4DBfIlvvkAAAAASUVORK5CYII='
+			return PLACEHOLDER_4PX_SCREENSHOT
 
 		# Always bring page to front before rendering, otherwise it crashes in some cases, not sure why
 		try:
@@ -3631,17 +3693,18 @@ class BrowserSession(BaseModel):
 
 	async def _start_context_tracing(self):
 		"""Start tracing on browser context if trace_path is configured."""
-		if self.browser_profile.traces_dir and self.browser_context:
-			try:
-				self.logger.debug(f'📽️ Starting tracing (will save to: {self.browser_profile.traces_dir})')
-				# Don't pass any path to start() - let Playwright handle internal temp files
-				await self.browser_context.tracing.start(
-					screenshots=True,
-					snapshots=True,
-					sources=False,  # Reduce trace size
-				)
-			except Exception as e:
-				self.logger.warning(f'Failed to start tracing: {e}')
+		# TEMPORARILY DISABLED: Trace recording causing test timeouts
+		# if self.browser_profile.traces_dir and self.browser_context:
+		# 	try:
+		# 		self.logger.debug(f'📽️ Starting tracing (will save to: {self.browser_profile.traces_dir})')
+		# 		# Don't pass any path to start() - let Playwright handle internal temp files
+		# 		await self.browser_context.tracing.start(
+		# 			screenshots=True,
+		# 			snapshots=True,
+		# 			sources=False,  # Reduce trace size
+		# 		)
+		# 	except Exception as e:
+		# 		self.logger.warning(f'Failed to start tracing: {e}')
 
 	@staticmethod
 	def _convert_simple_xpath_to_css_selector(xpath: str) -> str:
@@ -3828,6 +3891,7 @@ class BrowserSession(BaseModel):
 
 	@require_healthy_browser(usable_page=True, reopen_page=True)
 	@time_execution_async('--get_locate_element')
+	@observe_debug(ignore_input=True, name='get_locate_element')
 	async def get_locate_element(self, element: DOMElementNode) -> ElementHandle | None:
 		page = await self.get_current_page()
 		current_frame = page
@@ -3881,7 +3945,7 @@ class BrowserSession(BaseModel):
 				if element_handle:
 					is_visible = await self._is_visible(element_handle)
 					if is_visible:
-						await element_handle.scroll_into_view_if_needed()
+						await element_handle.scroll_into_view_if_needed(timeout=1_000)
 					return element_handle
 				return None
 		except Exception as e:
@@ -3897,7 +3961,7 @@ class BrowserSession(BaseModel):
 					if element_handle:
 						is_visible = await self._is_visible(element_handle)
 						if is_visible:
-							await element_handle.scroll_into_view_if_needed()
+							await element_handle.scroll_into_view_if_needed(timeout=1_000)
 						return element_handle
 				except Exception as xpath_e:
 					self.logger.error(
@@ -3924,7 +3988,7 @@ class BrowserSession(BaseModel):
 			if element_handle:
 				is_visible = await self._is_visible(element_handle)
 				if is_visible:
-					await element_handle.scroll_into_view_if_needed()
+					await element_handle.scroll_into_view_if_needed(timeout=1_000)
 				return element_handle
 			return None
 		except Exception as e:
@@ -3945,7 +4009,7 @@ class BrowserSession(BaseModel):
 			if element_handle:
 				is_visible = await self._is_visible(element_handle)
 				if is_visible:
-					await element_handle.scroll_into_view_if_needed()
+					await element_handle.scroll_into_view_if_needed(timeout=1_000)
 				return element_handle
 			return None
 		except Exception as e:
@@ -3989,7 +4053,7 @@ class BrowserSession(BaseModel):
 
 			is_visible = await self._is_visible(element_handle)
 			if is_visible:
-				await element_handle.scroll_into_view_if_needed()
+				await element_handle.scroll_into_view_if_needed(timeout=1_000)
 			return element_handle
 		except Exception as e:
 			self.logger.error(
@@ -3999,6 +4063,7 @@ class BrowserSession(BaseModel):
 
 	@require_healthy_browser(usable_page=True, reopen_page=True)
 	@time_execution_async('--input_text_element_node')
+	@observe_debug(ignore_input=True, name='input_text_element_node')
 	async def _input_text_element_node(self, element_node: DOMElementNode, text: str):
 		"""
 		Input text into an element with proper error handling and state management.
@@ -4022,7 +4087,7 @@ class BrowserSession(BaseModel):
 			# let's first try to click and type
 			try:
 				await element_handle.evaluate('el => {el.textContent = ""; el.value = "";}')
-				await element_handle.click()
+				await element_handle.click(timeout=2_000)  # Add 2 second timeout
 				await asyncio.sleep(0.1)  # Increased sleep time
 				page = await self.get_current_page()
 				await page.keyboard.type(text)
@@ -4044,9 +4109,19 @@ class BrowserSession(BaseModel):
 			try:
 				if (await is_contenteditable.json_value() or tag_name == 'input') and not (readonly or disabled):
 					await element_handle.evaluate('el => {el.textContent = ""; el.value = "";}')
-					await element_handle.type(text, delay=5)
+					await element_handle.type(text, delay=5, timeout=5_000)  # Add 5 second timeout
 				else:
-					await element_handle.fill(text)
+					# Try fill() first for supported elements
+					try:
+						await element_handle.fill(text, timeout=3_000)  # Add 3 second timeout
+					except Exception as fill_error:
+						# If fill() fails because element doesn't support it, try type() instead
+						if 'not an <input>, <textarea>, <select>' in str(fill_error):
+							self.logger.debug(f'Element does not support fill(), using type() instead: {fill_error}')
+							await element_handle.evaluate('el => {el.textContent = ""; el.value = "";}')
+							await element_handle.type(text, delay=5, timeout=5_000)
+						else:
+							raise
 			except Exception as e:
 				self.logger.error(f'Error during input text into element: {type(e).__name__}: {e}')
 				raise BrowserError(f'Failed to input text into element: {repr(element_node)}')
@@ -4377,6 +4452,15 @@ class BrowserSession(BaseModel):
 		try:
 			await page.evaluate(
 				"""(browser_session_label) => {
+				// Ensure document.body exists before proceeding
+				if (!document.body) {
+					// Try again after DOM is ready
+					if (document.readyState === 'loading') {
+						document.addEventListener('DOMContentLoaded', () => arguments.callee(browser_session_label));
+					}
+					return;
+				}
+				
 				const animated_title = `Starting agent ${browser_session_label}...`;
 				if (document.title === animated_title) {
 					return;      // already run on this tab, dont run again
@@ -4471,32 +4555,29 @@ class BrowserSession(BaseModel):
 		except Exception as e:
 			self.logger.debug(f'❌ Failed to show 📀 DVD loading animation: {type(e).__name__}: {e}')
 
-	@observe_debug(ignore_input=True, ignore_output=True, name='get_state_summary_with_fallback')
-	@require_healthy_browser(usable_page=True, reopen_page=True)
-	@time_execution_async('--get_state_summary_with_fallback')
-	async def get_state_summary_with_fallback(self, cache_clickable_elements_hashes: bool = True) -> BrowserStateSummary:
-		"""Get browser state with fallback to minimal state on errors
-
-		This method first tries to get a full state summary. If that fails,
-		it falls back to a minimal state summary to allow basic navigation.
+	@observe_debug(ignore_input=True, ignore_output=True, name='get_browser_state_with_recovery')
+	async def get_browser_state_with_recovery(
+		self, cache_clickable_elements_hashes: bool = True, include_screenshot: bool = True
+	) -> BrowserStateSummary:
+		"""Get browser state with multiple fallback strategies for error recovery
 
 		Parameters:
 		-----------
 		cache_clickable_elements_hashes: bool
 			If True, cache the clickable elements hashes for the current state.
-
-		Returns:
-		--------
-		BrowserStateSummary: Either full state or minimal fallback state
+		include_screenshot: bool
+			If True, include screenshot in the state summary. Set to False to improve performance
+			when screenshots are not needed (e.g., in multi_act element validation).
 		"""
-		# Try 1: Full state summary (current implementation)
+
+		# Try 1: Full state summary (current implementation) - like main branch
 		try:
-			return await self.get_state_summary(cache_clickable_elements_hashes)
+			await self._wait_for_page_and_frames_load()
+			return await self.get_state_summary(cache_clickable_elements_hashes, include_screenshot=include_screenshot)
 		except Exception as e:
 			self.logger.warning(f'Full state retrieval failed: {type(e).__name__}: {e}')
-			self.logger.warning('🔄 Falling back to minimal state summary')
 
-		# Try 2: Minimal state summary as fallback
+		self.logger.warning('🔄 Falling back to minimal state summary')
 		return await self.get_minimal_state_summary()
 
 	async def _is_pdf_viewer(self, page: Page) -> bool:

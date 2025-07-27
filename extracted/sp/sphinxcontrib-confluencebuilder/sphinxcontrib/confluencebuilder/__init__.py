@@ -17,6 +17,7 @@ from sphinxcontrib.confluencebuilder.directives import ConfluenceMetadataDirecti
 from sphinxcontrib.confluencebuilder.directives import ConfluenceNewline
 from sphinxcontrib.confluencebuilder.directives import ConfluencePanelDirective
 from sphinxcontrib.confluencebuilder.directives import ConfluenceToc
+from sphinxcontrib.confluencebuilder.directives import ConfluenceViewPdfDirective
 from sphinxcontrib.confluencebuilder.directives import JiraDirective
 from sphinxcontrib.confluencebuilder.directives import JiraIssueDirective
 from sphinxcontrib.confluencebuilder.locale import MESSAGE_CATALOG_NAME
@@ -44,6 +45,7 @@ from sphinxcontrib.confluencebuilder.nodes import confluence_panel
 from sphinxcontrib.confluencebuilder.nodes import confluence_parameters_fetch
 from sphinxcontrib.confluencebuilder.nodes import confluence_status_inline
 from sphinxcontrib.confluencebuilder.nodes import confluence_toc
+from sphinxcontrib.confluencebuilder.nodes import confluence_view_pdf
 from sphinxcontrib.confluencebuilder.nodes import jira
 from sphinxcontrib.confluencebuilder.nodes import jira_issue
 from sphinxcontrib.confluencebuilder.reportbuilder import ConfluenceReportBuilder
@@ -72,7 +74,7 @@ try:
 except ImportError:
     has_imgmath = False
 
-__version__ = '2.13.0'
+__version__ = '2.14.0'
 
 
 def setup(app):
@@ -279,6 +281,8 @@ def setup(app):
     cm.add_conf('confluence_permit_raw_html', 'confluence')
     # Remove a detected title from generated documents.
     cm.add_conf_bool('confluence_remove_title', 'confluence')
+    # Macro configuration for Confluence-managed inlined tab content.
+    cm.add_conf('confluence_tab_macro', 'confluence')
 
     # (configuration - third-party related)
     # Wrap Mermaid nodes into HTML macros.
@@ -291,10 +295,6 @@ def setup(app):
     cm.add_conf_bool('confluence_adv_cloud')
     # Disable any delays when publishing property updates on Cloud
     cm.add_conf_bool('confluence_adv_disable_cloud_prop_delay')
-    # Disable workaround for: https://jira.atlassian.com/browse/CONFCLOUD-74698
-    cm.add_conf_bool('confluence_adv_disable_confcloud_74698')
-    # Disable workaround for inline-extension anchor injection
-    cm.add_conf_bool('confluence_adv_disable_confcloud_ieaj')
     # Disable any attempts to initialize this extension's custom entities.
     cm.add_conf_bool('confluence_adv_disable_init')
     # Flag to permit the use of embedded certificates from requests.
@@ -338,6 +338,8 @@ def setup(app):
     # replaced by confluence_space_key
     cm.add_conf('confluence_space_name')
     # dropped
+    cm.add_conf_bool('confluence_adv_disable_confcloud_74698')
+    cm.add_conf_bool('confluence_adv_disable_confcloud_ieaj')
     cm.add_conf_int('confluence_max_doc_depth')
 
     # ##########################################################################
@@ -409,6 +411,7 @@ def confluence_builder_inited(app):
         confluence_parameters_fetch,
         confluence_status_inline,
         confluence_toc,
+        confluence_view_pdf,
         jira,
         jira_issue,
     ]
@@ -430,6 +433,7 @@ def confluence_builder_inited(app):
     app.add_directive('confluence_newline', ConfluenceNewline)
     app.add_directive('confluence_panel', ConfluencePanelDirective)
     app.add_directive('confluence_toc', ConfluenceToc)
+    app.add_directive('confluence_viewpdf', ConfluenceViewPdfDirective)
     app.add_directive('jira', JiraDirective)
     app.add_directive('jira_issue', JiraIssueDirective)
 

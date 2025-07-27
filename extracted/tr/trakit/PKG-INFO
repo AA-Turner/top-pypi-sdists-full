@@ -1,12 +1,11 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.3
 Name: trakit
-Version: 0.2.2
+Version: 0.2.3
 Summary: Guess additional information from track titles
-Home-page: https://github.com/ratoaq2/trakit
 License: MIT
 Keywords: video,mkv,audio,subtitles,srt,pgs,sdh,cc,sup,sub,metadata,movie,episode,tv,track,shows,series
 Author: Rato
-Requires-Python: >=3.8.1,<4.0.0
+Requires-Python: >=3.11,<4.0
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: Apache Software License
@@ -14,15 +13,13 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
-Classifier: Programming Language :: Python :: 3.9
-Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
+Classifier: Programming Language :: Python :: 3.13
 Classifier: Programming Language :: Python :: 3 :: Only
 Classifier: Topic :: Multimedia :: Video
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Requires-Dist: babelfish (>=0.6.0,<0.7.0)
-Requires-Dist: pyyaml (>=6.0,<7.0)
 Requires-Dist: rebulk (>=3.1.0,<4.0.0)
 Project-URL: Repository, https://github.com/ratoaq2/trakit
 Description-Content-Type: text/markdown

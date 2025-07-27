@@ -89,8 +89,7 @@ class PixivExtractor(Extractor):
                                          if tag["is_registered"]]
             if self.meta_captions and not work.get("caption") and \
                     not work.get("_mypixiv") and not work.get("_ajax"):
-                body = self._request_ajax("/illust/" + str(work["id"]))
-                if body:
+                if body := self._request_ajax("/illust/" + str(work["id"])):
                     work["caption"] = self._sanitize_ajax_caption(
                         body["illustComment"])
 
@@ -233,7 +232,14 @@ class PixivExtractor(Extractor):
     def _request_ajax(self, endpoint):
         url = f"{self.root}/ajax{endpoint}"
         try:
-            return self.request_json(url, headers=self.headers_web)["body"]
+            data = self.request_json(
+                url, headers=self.headers_web, fatal=False)
+            if not data.get("error"):
+                return data["body"]
+
+            self.log.debug("Server response: %s", util.json_dumps(data))
+            return self.log.error(
+                "'%s'", data.get("message") or "General Error")
         except Exception:
             return None
 
@@ -293,8 +299,7 @@ class PixivExtractor(Extractor):
 
     def _extract_ajax_url(self, body):
         try:
-            original = body["urls"]["original"]
-            if original:
+            if original := body["urls"]["original"]:
                 return original
         except Exception:
             pass
@@ -439,6 +444,8 @@ class PixivArtworksExtractor(PixivExtractor):
         if self.sanity_workaround:
             body = self._request_ajax(
                 f"/user/{self.user_id}/profile/all")
+            if not body:
+                return ()
             try:
                 ajax_ids = list(map(int, body["illusts"]))
                 ajax_ids.extend(map(int, body["manga"]))
@@ -699,8 +706,7 @@ class PixivRankingExtractor(PixivExtractor):
         except KeyError:
             raise exception.AbortExtraction(f"Invalid mode '{mode}'")
 
-        date = query.get("date")
-        if date:
+        if date := query.get("date"):
             if len(date) == 8 and date.isdecimal():
                 date = f"{date[0:4]}-{date[4:6]}-{date[6:8]}"
             else:

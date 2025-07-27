@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: rotary-embedding-torch
-Version: 0.8.8
+Version: 0.8.9
 Summary: Rotary Embedding - Pytorch
 Home-page: https://github.com/lucidrains/rotary-embedding-torch
 Author: Phil Wang

@@ -1,11 +1,11 @@
 Metadata-Version: 2.4
 Name: lightning-utilities
-Version: 0.14.3
+Version: 0.15.0
 Summary: Lightning toolbox for across the our ecosystem.
 Home-page: https://github.com/Lightning-AI/utilities
 Download-URL: https://github.com/Lightning-AI/utilities
 Author: Lightning AI et al.
-Author-email: pytorch@lightning.ai
+Author-email: developer@lightning.ai
 License: Apache-2.0
 Project-URL: Bug Tracker, https://github.com/Lightning-AI/utilities/issues
 Project-URL: Documentation, https://dev-toolbox.rtfd.io/en/latest/
@@ -30,14 +30,14 @@ Requires-Dist: importlib-metadata>=4.0.0; python_version < "3.8"
 Requires-Dist: packaging>=17.1
 Requires-Dist: setuptools
 Requires-Dist: typing_extensions
+Provides-Extra: docs
+Requires-Dist: requests>=2.0.0; extra == "docs"
 Provides-Extra: typing
 Requires-Dist: mypy>=1.0.0; extra == "typing"
 Requires-Dist: types-setuptools; extra == "typing"
-Requires-Dist: fire; extra == "typing"
 Provides-Extra: cli
-Requires-Dist: fire; extra == "cli"
-Provides-Extra: docs
-Requires-Dist: requests>=2.0.0; extra == "docs"
+Requires-Dist: jsonargparse[signatures]>=4.38.0; extra == "cli"
+Requires-Dist: tomlkit; extra == "cli"
 Dynamic: author
 Dynamic: author-email
 Dynamic: classifier
@@ -57,7 +57,7 @@ Dynamic: summary
 # Lightning Utilities
 
 [![PyPI Status](https://badge.fury.io/py/lightning-utilities.svg)](https://badge.fury.io/py/lightning-utilities)
-[![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/utilities/blob/master/LICENSE)
+[![license](https://img.shields.io/badge/License-Apache%202.0-blue.svg)](https://github.com/Lightning-AI/utilities/blob/main/LICENSE)
 [![PyPI - Downloads](https://img.shields.io/pypi/dm/lightning-utilities)](https://pepy.tech/project/lightning-utilities)
 [![PyPI - Python Version](https://img.shields.io/pypi/pyversions/lightning-utilities)](https://pypi.org/project/lightning-utilities/)
 
