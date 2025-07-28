@@ -71,7 +71,6 @@ from .constants import AnnotationDictionaryAttributes as AA
 from .constants import CatalogAttributes as CA
 from .constants import (
     CatalogDictionary,
-    FileSpecificationDictionaryEntries,
     GoToActionArguments,
     ImageType,
     InteractiveFormDictEntries,
@@ -95,6 +94,7 @@ from .generic import (
     DecodedStreamObject,
     Destination,
     DictionaryObject,
+    EmbeddedFile,
     Fit,
     FloatObject,
     IndirectObject,
@@ -103,11 +103,13 @@ from .generic import (
     NumberObject,
     PdfObject,
     RectangleObject,
+    ReferenceLink,
     StreamObject,
     TextStringObject,
     TreeObject,
     ViewerPreferences,
     create_string_object,
+    extract_links,
     hex_to_rgb,
     is_null_or_none,
 )
@@ -208,6 +210,11 @@ class PdfWriter(PdfDocCommon):
         self._ID: Union[ArrayObject, None] = None
         """The PDF file identifier,
         defined by the ID in the PDF file's trailer dictionary."""
+
+        self._unresolved_links: list[tuple[ReferenceLink, ReferenceLink]] = []
+        "Tracks links in pages added to the writer for resolving later."
+        self._merged_in_pages: Dict[Optional[IndirectObject], Optional[IndirectObject]] = {}
+        "Tracks pages added to the writer and what page they turned into."
 
         if self.incremental:
             if isinstance(fileobj, (str, Path)):
@@ -354,10 +361,23 @@ class PdfWriter(PdfDocCommon):
         if value is None:
             if "/Metadata" in self.root_object:
                 del self.root_object["/Metadata"]
-        else:
-            self.root_object[NameObject("/Metadata")] = value
+            return
 
-        return self.root_object.xmp_metadata  # type: ignore
+        metadata = self.root_object.get("/Metadata", None)
+        if not isinstance(metadata, IndirectObject):
+            if metadata is not None:
+                del self.root_object["/Metadata"]
+            metadata_stream = StreamObject()
+            stream_reference = self._add_object(metadata_stream)
+            self.root_object[NameObject("/Metadata")] = stream_reference
+        else:
+            metadata_stream = cast(StreamObject, metadata.get_object())
+
+        if isinstance(value, XmpInformation):
+            bytes_data = value.stream.get_data()
+        else:
+            bytes_data = value
+        metadata_stream.set_data(bytes_data)
 
     @property
     def with_as_usage(self) -> bool:
@@ -479,12 +499,14 @@ class PdfWriter(PdfDocCommon):
             ]
         except Exception:
             pass
+
         page = cast(
             "PageObject", page_org.clone(self, False, excluded_keys).get_object()
         )
         if page_org.pdf is not None:
             other = page_org.pdf.pdf_header
             self.pdf_header = _get_max_pdf_version_header(self.pdf_header, other)
+
         node, idx = self._get_page_in_node(index)
         page[NameObject(PA.PARENT)] = node.indirect_reference
 
@@ -502,6 +524,15 @@ class PdfWriter(PdfDocCommon):
             recurse += 1
             if recurse > 1000:
                 raise PyPdfError("Too many recursive calls!")
+
+        if page_org.pdf is not None:
+            # the page may contain links to other pages, and those other
+            # pages may or may not already be added.  we store the
+            # information we need, so that we can resolve the references
+            # later.
+            self._unresolved_links.extend(extract_links(page, page_org))
+            self._merged_in_pages[page_org.indirect_reference] = page.indirect_reference
+
         return page
 
     def set_need_appearances_writer(self, state: bool = True) -> None:
@@ -741,7 +772,7 @@ class PdfWriter(PdfDocCommon):
         )
         js_list.append(self._add_object(js))
 
-    def add_attachment(self, filename: str, data: Union[str, bytes]) -> None:
+    def add_attachment(self, filename: str, data: Union[str, bytes]) -> "EmbeddedFile":
         """
         Embed a file inside the PDF.
 
@@ -753,85 +784,11 @@ class PdfWriter(PdfDocCommon):
             filename: The filename to display.
             data: The data in the file.
 
+        Returns:
+            EmbeddedFile instance for the newly created embedded file.
+
         """
-        # We need three entries:
-        # * The file's data
-        # * The /Filespec entry
-        # * The file's name, which goes in the Catalog
-
-        # The entry for the file
-        # Sample:
-        # 8 0 obj
-        # <<
-        #  /Length 12
-        #  /Type /EmbeddedFile
-        # >>
-        # stream
-        # Hello world!
-        # endstream
-        # endobj
-
-        if isinstance(data, str):
-            data = data.encode("latin-1")
-        file_entry = DecodedStreamObject()
-        file_entry.set_data(data)
-        file_entry.update({NameObject(PA.TYPE): NameObject("/EmbeddedFile")})
-
-        # The Filespec entry
-        # Sample:
-        # 7 0 obj
-        # <<
-        #  /Type /Filespec
-        #  /F (hello.txt)
-        #  /EF << /F 8 0 R >>
-        # >>
-        # endobj
-
-        ef_entry = DictionaryObject()
-        ef_entry.update({NameObject("/F"): self._add_object(file_entry)})
-
-        filespec = DictionaryObject()
-        filespec.update(
-            {
-                NameObject(PA.TYPE): NameObject("/Filespec"),
-                NameObject(FileSpecificationDictionaryEntries.F): create_string_object(
-                    filename
-                ),  # Perhaps also try TextStringObject
-                NameObject(FileSpecificationDictionaryEntries.EF): ef_entry,
-            }
-        )
-
-        # Then create the entry for the root, as it needs
-        # a reference to the Filespec
-        # Sample:
-        # 1 0 obj
-        # <<
-        #  /Type /Catalog
-        #  /Outlines 2 0 R
-        #  /Pages 3 0 R
-        #  /Names << /EmbeddedFiles << /Names [(hello.txt) 7 0 R] >> >>
-        # >>
-        # endobj
-
-        if CA.NAMES not in self._root_object:
-            self._root_object[NameObject(CA.NAMES)] = self._add_object(
-                DictionaryObject()
-            )
-        if "/EmbeddedFiles" not in cast(DictionaryObject, self._root_object[CA.NAMES]):
-            embedded_files_names_dictionary = DictionaryObject(
-                {NameObject(CA.NAMES): ArrayObject()}
-            )
-            cast(DictionaryObject, self._root_object[CA.NAMES])[
-                NameObject("/EmbeddedFiles")
-            ] = self._add_object(embedded_files_names_dictionary)
-        else:
-            embedded_files_names_dictionary = cast(
-                DictionaryObject,
-                cast(DictionaryObject, self._root_object[CA.NAMES])["/EmbeddedFiles"],
-            )
-        cast(ArrayObject, embedded_files_names_dictionary[CA.NAMES]).extend(
-            [create_string_object(filename), filespec]
-        )
+        return EmbeddedFile._create_new(self, filename, data)
 
     def append_pages_from_reader(
         self,
@@ -1453,6 +1410,19 @@ class PdfWriter(PdfDocCommon):
             self._add_object(entry)
         self._encrypt_entry = entry
 
+    def _resolve_links(self) -> None:
+        """Patch up links that were added to the document earlier, to
+        make sure they still point to the same pages.
+        """
+        for (new_link, old_link) in self._unresolved_links:
+            old_page = old_link.find_referenced_page()
+            if not old_page:
+                continue
+            new_page = self._merged_in_pages.get(old_page)
+            if new_page is None:
+                continue
+            new_link.patch_reference(self, new_page)
+
     def write_stream(self, stream: StreamType) -> None:
         if hasattr(stream, "mode") and "b" not in stream.mode:
             logger_warning(
@@ -1464,6 +1434,7 @@ class PdfWriter(PdfDocCommon):
         # if not self._root:
         #   self._root = self._add_object(self._root_object)
         # self._sweep_indirect_references(self._root)
+        self._resolve_links()
 
         if self.incremental:
             self._reader.stream.seek(0)

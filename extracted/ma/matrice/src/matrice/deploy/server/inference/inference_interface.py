@@ -1,11 +1,8 @@
 from matrice.deploy.server.inference.model_manager import ModelManager
+from matrice.deploy.server.inference.batch_manager import DynamicBatchManager, BatchRequest
 from matrice.deploy.utils.post_processing import (
     PostProcessor,
-    create_config_from_template,
-    create_people_counting_config,
-    create_customer_service_config,
-    create_advanced_customer_service_config,
-    create_basic_counting_tracking_config,
+    create_config_from_template
 )
 from matrice.deploy.utils.post_processing.core.config import BaseConfig
 from typing import Dict, Any, Optional, Callable, Tuple, List, Union
@@ -13,23 +10,9 @@ from matrice.action_tracker import ActionTracker
 from datetime import datetime, timezone
 import asyncio
 import logging
-from dataclasses import dataclass, field
 import time
 
 
-@dataclass
-class BatchRequest:
-    """Represents a single inference request in a batch"""
-
-    input1: Any
-    input2: Optional[Any] = None
-    extra_params: Optional[Dict[str, Any]] = None
-    apply_post_processing: bool = False
-    post_processing_config: Optional[Union[Dict[str, Any], BaseConfig]] = None
-    future: asyncio.Future = field(default_factory=asyncio.Future)
-    timestamp: float = field(default_factory=time.time)
-    stream_key: Optional[str] = None
-    stream_info: Optional[Dict[str, Any]] = None
 class InferenceInterface:
     """Interface for proxying requests to model servers with optional post-processing."""
 
@@ -66,11 +49,6 @@ class InferenceInterface:
         self.post_processor = PostProcessor()
         self.latest_inference_time = datetime.now(timezone.utc)
         self.max_batch_wait_time = max_batch_wait_time
-    
-        # Dynamic batching components
-        self.batch_queue: List[BatchRequest] = []
-        self.batch_lock = asyncio.Lock()
-        self.processing_batch = False
 
         # Set up index to category mapping
         self.index_to_category = self.action_tracker.get_index_to_category()
@@ -78,7 +56,7 @@ class InferenceInterface:
             self.target_categories = list(self.index_to_category.values())
         else:
             self.target_categories = []
-        
+
         # Set up default post-processing configuration
         self.post_processing_config = None
         if post_processing_config:
@@ -94,6 +72,16 @@ class InferenceInterface:
             self.logger.info("No post-processing config provided")
 
         self.custom_post_processing_fn = custom_post_processing_fn
+
+        # Initialize dynamic batch manager if enabled
+        self.batch_manager = None
+        if self.dynamic_batching:
+            self.batch_manager = DynamicBatchManager(
+                batch_size=self.batch_size,
+                max_batch_wait_time=self.max_batch_wait_time,
+                model_manager=self.model_manager,
+                post_processing_fn=self._apply_post_processing,
+            )
         
 
     def _parse_post_processing_config(
@@ -148,6 +136,8 @@ class InferenceInterface:
         post_processing_config: Optional[Union[Dict[str, Any], BaseConfig, str]] = None,
         stream_key: Optional[str] = None,
         stream_info: Optional[Dict[str, Any]] = None,
+        input_hash: Optional[str] = None,
+        camera_info: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Any, Optional[Dict[str, Any]]]:
         """Perform inference using the appropriate client with optional post-processing.
 
@@ -159,6 +149,7 @@ class InferenceInterface:
             post_processing_config: Post-processing configuration (overrides default)
             stream_key: Stream key for the inference
             stream_info: Stream info for the inference (optional)
+            input_hash: Input hash for the inference
         Returns:
             Tuple containing (inference_result, post_processing_result).
             If post-processing is not applied, post_processing_result will be None.
@@ -171,7 +162,7 @@ class InferenceInterface:
         self.latest_inference_time = datetime.now(timezone.utc)
 
         # If dynamic batching is enabled, use batch processing
-        if self.dynamic_batching:
+        if self.dynamic_batching and self.batch_manager:
             return await self._dynamic_batch_inference(
                 input1,
                 input2,
@@ -180,16 +171,19 @@ class InferenceInterface:
                 post_processing_config,
                 stream_key,
                 stream_info,
+                input_hash,
+                camera_info,
             )
 
         # Get raw inference results
         try:
             raw_results, success = self.model_manager.inference(
-                input1,
-                input2,
-                extra_params,
-                stream_key,
-                stream_info,
+                input1=input1,
+                input2=input2,
+                extra_params=extra_params,
+                stream_key=stream_key,
+                stream_info=stream_info,
+                input_hash=input_hash
             )
             if not success:
                 raise RuntimeError("Model inference failed")
@@ -201,7 +195,7 @@ class InferenceInterface:
 
         # Apply post-processing
         return await self._apply_post_processing(
-            raw_results, input1, post_processing_config, stream_key, stream_info
+            raw_results, input1, post_processing_config, stream_key, stream_info, camera_info
         )
 
     async def _apply_post_processing(
@@ -211,6 +205,7 @@ class InferenceInterface:
         post_processing_config: Optional[Union[Dict[str, Any], BaseConfig, str]] = None,
         stream_key: Optional[str] = None,
         stream_info: Optional[Dict[str, Any]] = None,
+        camera_info: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Any, Optional[Dict[str, Any]]]:
         """Apply post-processing to inference results"""
         try:
@@ -255,6 +250,11 @@ class InferenceInterface:
             result = self.post_processor.process(raw_results, config_to_use, input1, stream_key=stream_key, stream_info=stream_info)
 
             if result.is_success():
+                # Extract agg_summary directly from result.data
+                agg_summary = {}
+                if hasattr(result, 'data') and isinstance(result.data, dict):
+                    agg_summary = result.data.get("agg_summary", {})
+
                 return raw_results, {
                     "status": "success",
                     "processing_time": result.processing_time,
@@ -264,7 +264,7 @@ class InferenceInterface:
                     "insights": result.insights,
                     "metrics": result.metrics,
                     "predictions": result.predictions,
-                    "processed_data": result.data,
+                    "agg_summary": agg_summary,
                     "stream_key": normalized_stream_key,
                 }
             else:
@@ -298,6 +298,8 @@ class InferenceInterface:
         post_processing_config: Optional[Union[Dict[str, Any], BaseConfig, str]] = None,
         stream_key: Optional[str] = None,
         stream_info: Optional[Dict[str, Any]] = None,
+        input_hash: Optional[str] = None,
+        camera_info: Optional[Dict[str, Any]] = None,
     ) -> Tuple[Any, Optional[Dict[str, Any]]]:
         """Handle inference with dynamic batching"""
         # Create a batch request
@@ -309,130 +311,12 @@ class InferenceInterface:
             post_processing_config=post_processing_config,
             stream_key=stream_key,
             stream_info=stream_info,
+            input_hash=input_hash,
+            camera_info=camera_info,
         )
 
-        # Add to batch queue
-        async with self.batch_lock:
-            self.batch_queue.append(batch_request)
-
-            # Check if we should process the batch
-            should_process = (
-                len(self.batch_queue) >= self.batch_size or not self.processing_batch
-            )
-
-            if should_process and not self.processing_batch:
-                self.processing_batch = True
-                # Start batch processing in background
-                asyncio.create_task(self._process_batch())
-
-        # Wait for the result
-        try:
-            return await batch_request.future
-        except Exception as e:
-            raise RuntimeError(f"Dynamic batch inference failed: {str(e)}") from e
-
-    async def _process_batch(self):
-        """Process batched inference requests"""
-        try:
-            # Wait for batch to fill up or timeout
-            await asyncio.sleep(self.max_batch_wait_time)
-
-            async with self.batch_lock:
-                if not self.batch_queue:
-                    self.processing_batch = False
-                    return
-
-                # Extract current batch
-                current_batch = self.batch_queue[: self.batch_size]
-                self.batch_queue = self.batch_queue[self.batch_size :]
-
-                # Reset processing flag if no more items
-                if not self.batch_queue:
-                    self.processing_batch = False
-                else:
-                    # Continue processing remaining items
-                    asyncio.create_task(self._process_batch())
-
-            if not current_batch:
-                return
-
-            # Prepare batch inputs
-            batch_input1 = [req.input1 for req in current_batch]
-            batch_input2 = (
-                [req.input2 for req in current_batch]
-                if any(req.input2 is not None for req in current_batch)
-                else None
-            )
-            batch_extra_params = [req.extra_params for req in current_batch]
-            stream_key = current_batch[0].stream_key
-            stream_info = current_batch[0].stream_info
-            # Validate that all requests in the batch have the same stream_key
-            batch_stream_keys = [req.stream_key for req in current_batch]
-            if not all(sk == stream_key for sk in batch_stream_keys):
-                self.logger.warning(
-                    f"Batch contains requests with different stream keys: {set(batch_stream_keys)}. "
-                    f"Using first request's stream key: {stream_key} for model inference, "
-                    f"but individual stream keys for post-processing."
-                )
-            
-            # Check if all requests have the same extra_params structure
-            if batch_extra_params and all(
-                params == batch_extra_params[0] for params in batch_extra_params
-            ):
-                merged_extra_params = batch_extra_params[0]
-            else:
-                # Handle heterogeneous extra_params - use first non-None or empty dict
-                merged_extra_params = next(
-                    (params for params in batch_extra_params if params), {}
-                )
-
-            try:
-                # Perform batch inference
-                batch_results, success = self.model_manager.batch_inference(
-                    batch_input1,
-                    batch_input2,
-                    merged_extra_params,
-                    stream_key,
-                    stream_info,
-                )
-
-                if not success:
-                    raise RuntimeError("Batch inference failed")
-
-                # Process results for each request
-                for i, (request, result) in enumerate(
-                    zip(current_batch, batch_results)
-                ):
-                    try:
-                        if request.apply_post_processing:
-                            processed_result, post_processing_result = (
-                                await self._apply_post_processing(
-                                    result,
-                                    request.input1,
-                                    request.post_processing_config,
-                                    request.stream_key,
-                                    request.stream_info,
-                                )
-                            )
-                            request.future.set_result(
-                                (processed_result, post_processing_result)
-                            )
-                        else:
-                            request.future.set_result((result, None))
-                    except Exception as e:
-                        request.future.set_exception(e)
-
-            except Exception as e:
-                # Set exception for all requests in the batch
-                for request in current_batch:
-                    if not request.future.done():
-                        request.future.set_exception(e)
-
-        except Exception as e:
-            # Handle unexpected errors
-            self.logger.error(f"Batch processing failed: {str(e)}")
-            async with self.batch_lock:
-                self.processing_batch = False
+        # Add request to batch manager
+        return await self.batch_manager.add_request(batch_request)
 
     async def batch_inference(
         self,
@@ -445,7 +329,9 @@ class InferenceInterface:
         ] = None,
         stream_key: Optional[str] = None,
         stream_info: Optional[Dict[str, Any]] = None,
-    ) -> List[Tuple[Any, Optional[Dict[str, Any]]]]:
+        input_hash: Optional[str] = None,
+        camera_info: Optional[Dict[str, Any]] = None,
+        ) -> List[Tuple[Any, Optional[Dict[str, Any]]]]:
         """Perform batch inference directly without dynamic batching.
 
         Args:
@@ -495,11 +381,12 @@ class InferenceInterface:
         try:
             # Perform batch inference
             batch_results, success = self.model_manager.batch_inference(
-                batch_input1,
-                batch_input2,
-                merged_extra_params,
-                stream_key,
-                stream_info,
+                input1=batch_input1,
+                input2=batch_input2,
+                extra_params=merged_extra_params,
+                stream_key=stream_key,
+                stream_info=stream_info,
+                input_hash=input_hash,
             )
 
             if not success:
@@ -517,7 +404,7 @@ class InferenceInterface:
                         config = post_processing_configs[i]
 
                     processed_result, post_processing_result = (
-                        await self._apply_post_processing(result, input1, config, stream_key, stream_info)
+                        await self._apply_post_processing(result, input1, config, stream_key, stream_info, camera_info)
                     )
                     results.append((processed_result, post_processing_result))
                 else:
@@ -534,13 +421,21 @@ class InferenceInterface:
 
     def get_batch_stats(self) -> Dict[str, Any]:
         """Get statistics about the current batching state."""
-        return {
+        base_stats = {
             "dynamic_batching_enabled": self.dynamic_batching,
             "batch_size": self.batch_size,
             "max_batch_wait_time": self.max_batch_wait_time,
-            "current_queue_size": len(self.batch_queue),
-            "processing_batch": self.processing_batch,
         }
+        
+        if self.batch_manager:
+            base_stats.update(self.batch_manager.get_stats())
+        else:
+            base_stats.update({
+                "current_queue_size": 0,
+                "processing_batch": False,
+            })
+        
+        return base_stats
 
     async def flush_batch_queue(self) -> int:
         """Force process all remaining items in the batch queue.
@@ -548,16 +443,10 @@ class InferenceInterface:
         Returns:
             Number of items processed
         """
-        if not self.dynamic_batching:
+        if not self.dynamic_batching or not self.batch_manager:
             return 0
 
-        async with self.batch_lock:
-            remaining_items = len(self.batch_queue)
-            if remaining_items > 0 and not self.processing_batch:
-                self.processing_batch = True
-                asyncio.create_task(self._process_batch())
-
-        return remaining_items
+        return await self.batch_manager.flush_queue()
 
     def get_post_processing_cache_stats(self) -> Dict[str, Any]:
         """Get post-processing cache statistics from the underlying processor.
@@ -571,12 +460,17 @@ class InferenceInterface:
         """Clear the post-processing cache in the underlying processor."""
         self.post_processor.clear_use_case_cache()
         self.logger.info("Cleared post-processing cache")
+    
+    def _get_high_precision_timestamp(self) -> str:
+        """Get high precision timestamp with microsecond granularity."""
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
 
 # DONE: Improved post-processing integration with new unified system
 # DONE: Added support for per-request post-processing configuration
 # DONE: Added utility functions for easy setup
 # DONE: Added stream_key support to post-processing with caching
+# DONE: Separated dynamic batching management into a separate class
 # TODO: Add support for multi-model execution
 # TODO: Add the Metrics and Logging
 # TODO: Add the Auto Scale Up and Scale Down

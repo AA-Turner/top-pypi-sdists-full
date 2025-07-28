@@ -39,7 +39,10 @@ def timestamp_from_long(epoch_millis: Optional[int]) -> datetime:
 
 def is_databricks_environment(spark: SparkSession) -> bool:
     """Check if running in Databricks environment."""
-    return True or spark.conf.get("spark.databricks.cloudProvider", None) is not None
+    return (
+        spark.conf.get("spark.databricks.cloudProvider", None) is not None
+        or is_serverless_env()
+    )
 
 
 def is_serverless_env() -> bool:

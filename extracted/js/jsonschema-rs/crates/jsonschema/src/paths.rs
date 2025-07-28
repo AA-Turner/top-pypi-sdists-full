@@ -39,6 +39,7 @@ impl Default for LazyLocation<'_, '_> {
 
 impl<'a> LazyLocation<'a, '_> {
     /// Create a root node of a JSON pointer.
+    #[must_use]
     pub const fn new() -> Self {
         LazyLocation {
             // The value does not matter, it will never be used
@@ -49,6 +50,7 @@ impl<'a> LazyLocation<'a, '_> {
 
     /// Push a new segment to the JSON pointer.
     #[inline]
+    #[must_use]
     pub fn push(&'a self, segment: impl Into<LocationSegment<'a>>) -> Self {
         LazyLocation {
             segment: segment.into(),
@@ -150,9 +152,11 @@ impl serde::Serialize for Location {
 
 impl Location {
     /// Create a new, empty `Location`.
+    #[must_use]
     pub fn new() -> Self {
         Self(Arc::new(String::new()))
     }
+    #[must_use]
     pub fn join<'a>(&self, segment: impl Into<LocationSegment<'a>>) -> Self {
         let parent = self.0.as_str();
         match segment.into() {
@@ -171,10 +175,12 @@ impl Location {
         }
     }
     /// Get a string slice representing the location.
+    #[must_use]
     pub fn as_str(&self) -> &str {
         &self.0
     }
     /// Get a byte slice representing the location.
+    #[must_use]
     pub fn as_bytes(&self) -> &[u8] {
         self.0.as_bytes()
     }
@@ -215,7 +221,7 @@ pub fn write_escaped_str(buffer: &mut String, value: &str) {
             // If no escape characters are found, append the segment as is
             buffer.push_str(value);
         }
-    };
+    }
 }
 
 impl Default for Location {
@@ -315,7 +321,7 @@ mod tests {
     #[test]
     fn test_display_trait() {
         let loc = Location::new().join("property");
-        assert_eq!(format!("{}", loc), "/property");
+        assert_eq!(format!("{loc}"), "/property");
     }
 
     #[test_case("tilde~character", "/tilde~0character"; "escapes tilde")]

@@ -1395,10 +1395,15 @@ class MetricsCollector:
 
     @classmethod
     def _handle_end_for_serverless(
-        cls, spark: SparkSession, pipeline_status=PipelineStatus.SUCCEEDED
+        cls, spark: SparkSession, pipeline_status: str, should_offload: bool
     ):
         if not is_serverless:
             # Extra check so that this does not run on non-serverless
+            return
+
+        # Added this flag to control offloading being called more than once
+        # MetricsCollector.end is being explicitly called from other places as well
+        if not should_offload:
             return
 
         try:
@@ -1408,14 +1413,11 @@ class MetricsCollector:
 
             # Log in-memory state
             store = cls._session_data_store.get(uuid_str)
-            if store:
-                logger.info(f"In memory state at the end of the run\n{store}")
-            else:
-                logger.info("*Couldn't find in memory state*")
+            if not store:
+                logger.info(f"*Couldn't find in memory state for {uuid_str}*")
 
             # Offload metrics if not in test environment
             if not cls._should_offload_in_test_env(spark):
-                store: InMemoryStore = cls._session_data_store.pop(uuid_str, None)
                 if not store:
                     logger.info(f"sessionDataStore did not have entry for {uuid_str}")
                 else:
@@ -1642,14 +1644,19 @@ class MetricsCollector:
             )
 
     @classmethod
-    def end(cls, spark: SparkSession, status: str = PipelineStatus.SUCCEEDED):
+    def end(
+        cls,
+        spark: SparkSession,
+        status: str = PipelineStatus.SUCCEEDED,
+        should_offload: bool = False,
+    ):
         if not is_serverless and cls.jvm_accessible:
             spark.sparkContext._jvm.org.apache.spark.sql.MetricsCollector.end(
                 spark._jsparkSession
             )
         else:
             logging.info("Finished pipeline without metrics")
-        cls._handle_end_for_serverless(spark, status)
+        cls._handle_end_for_serverless(spark, status, should_offload)
         global interimConfig
         interimConfig.clear()
 
@@ -1782,7 +1789,7 @@ class MetricsCollector:
                             )
                         revert_monkey_patching()
                         MetricsCollector.end(
-                            spark, task_state_to_pipeline_status(state)
+                            spark, task_state_to_pipeline_status(state), True
                         )
                     except Exception as exc:
                         if (
@@ -1835,6 +1842,25 @@ class MetricsCollector:
                     spark.conf.unset("spark.sql.adaptive.enabled")
 
         return wrapper
+
+    @classmethod
+    def offload_interims(cls, spark: SparkSession, key: str, payload: str):
+        if not is_serverless and cls.jvm_accessible:
+            try:
+                spark.sparkContext._jvm.org.apache.spark.sql.MetricsCollector.offloadInterims(
+                    spark._jsparkSession, key, payload
+                )
+            except Exception as e:
+                logging.error(f"Exception while offloading interim for key {key}: {e}")
+        else:
+            try:
+                store = MetricsCollector.get_inmemory_store(spark)
+                if store:
+                    store.update_selective_interims(key, payload)
+            except Exception as e:
+                logging.error(
+                    f"[Serverless] Exception while offloading interim for key {key}: {e}"
+                )
 
 
 def collectMetrics(

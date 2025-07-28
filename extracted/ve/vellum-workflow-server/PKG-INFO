@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: vellum-workflow-server
-Version: 1.0.6
+Version: 1.0.6.post1
 Summary: 
 License: AGPL
 Requires-Python: >=3.9.0,<4

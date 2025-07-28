@@ -24,6 +24,7 @@ import ibis.expr.types as ir
 from ibis import util
 from ibis.backends import (
     CanCreateDatabase,
+    CanListCatalog,
     DirectExampleLoader,
     HasCurrentCatalog,
     HasCurrentDatabase,
@@ -74,6 +75,7 @@ class _Settings:
 
 class Backend(
     SQLBackend,
+    CanListCatalog,
     CanCreateDatabase,
     HasCurrentCatalog,
     HasCurrentDatabase,
@@ -200,7 +202,10 @@ class Backend(
             temp_name = name
 
         initial_table = sg.table(temp_name, catalog=catalog, db=database, quoted=quoted)
-        target = sge.Schema(this=initial_table, expressions=schema.to_sqlglot(dialect))
+        target = sge.Schema(
+            this=initial_table,
+            expressions=schema.to_sqlglot_column_defs(dialect),
+        )
 
         create_stmt = sge.Create(
             kind="TABLE",

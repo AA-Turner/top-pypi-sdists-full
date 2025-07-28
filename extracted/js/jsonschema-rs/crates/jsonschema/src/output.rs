@@ -144,11 +144,11 @@ impl AddAssign for BasicOutput<'_> {
                 anns.extend(anns_rhs);
             }
             (BasicOutput::Valid(..), BasicOutput::Invalid(errors)) => {
-                *self = BasicOutput::Invalid(errors)
+                *self = BasicOutput::Invalid(errors);
             }
             (BasicOutput::Invalid(..), BasicOutput::Valid(..)) => {}
             (BasicOutput::Invalid(errors), BasicOutput::Invalid(errors_rhs)) => {
-                errors.extend(errors_rhs)
+                errors.extend(errors_rhs);
             }
         }
     }
@@ -320,6 +320,7 @@ pub struct ErrorDescription(String);
 impl ErrorDescription {
     /// Returns the inner [`String`] of the error description.
     #[inline]
+    #[must_use]
     pub fn into_inner(self) -> String {
         self.0
     }

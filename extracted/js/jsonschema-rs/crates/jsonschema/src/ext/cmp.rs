@@ -14,6 +14,7 @@ macro_rules! num_cmp {
 }
 
 /// Tests for two JSON values to be equal using the JSON Schema semantic.
+#[must_use]
 pub fn equal(left: &Value, right: &Value) -> bool {
     match (left, right) {
         (Value::String(left), Value::String(right)) => left == right,
@@ -69,7 +70,7 @@ mod tests {
     #[test_case(&json!([-3]), &json!([-3.0]))]
     #[test_case(&json!({"a": 1}), &json!({"a": 1.0}))]
     fn are_equal(left: &Value, right: &Value) {
-        assert!(equal(left, right))
+        assert!(equal(left, right));
     }
 
     #[test_case(&json!(1), &json!(2.0))]
@@ -77,6 +78,6 @@ mod tests {
     #[test_case(&json!([-3]), &json!([-4.0]))]
     #[test_case(&json!({"a": 1}), &json!({"a": 1.0, "b": 2}))]
     fn are_not_equal(left: &Value, right: &Value) {
-        assert!(!equal(left, right))
+        assert!(!equal(left, right));
     }
 }

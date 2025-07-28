@@ -18,6 +18,7 @@ import ibis.selectors as s
 from ibis import _
 from ibis.backends.tests.errors import (
     ClickHouseDatabaseError,
+    ClickHouseInternalError,
     ExaQueryError,
     GoogleBadRequest,
     ImpalaHiveServer2Error,
@@ -1214,6 +1215,12 @@ def test_isin_uncorrelated_filter(
                 ),
                 pytest.mark.notyet(
                     ["athena"], raises=PyAthenaOperationalError, reason="no time type"
+                ),
+                pytest.mark.notyet(
+                    ["clickhouse"],
+                    raises=ClickHouseInternalError,
+                    reason="time type not supported in clickhouse_connect; "
+                    "see https://github.com/ClickHouse/clickhouse-connect/issues/509",
                 ),
             ],
         ),
@@ -2548,3 +2555,9 @@ def test_order_by_preservation(con):
     tbl = ibis.memtable([{"id": 1, "col": "a"}, {"id": 2, "col": "b"}])
     expr = tbl.order_by("id").select("col").distinct()
     assert len(con.to_pandas(expr)) == 2
+
+
+def test_distinct_delete_duplicates_entirely(con):
+    expr = ibis.memtable({"c1": [1, 2, 3, 6, 6]}).distinct(keep=None)
+    res = con.execute(expr)
+    assert set(res["c1"].tolist()) == {1, 2, 3}

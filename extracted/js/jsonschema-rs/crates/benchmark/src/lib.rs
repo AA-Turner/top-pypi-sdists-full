@@ -15,6 +15,7 @@ static CITM: &[u8] = include_bytes!("../data/citm_catalog.json");
 static FAST_VALID: &[u8] = include_bytes!("../data/fast_valid.json");
 static FAST_INVALID: &[u8] = include_bytes!("../data/fast_invalid.json");
 
+#[must_use]
 pub fn read_json(slice: &[u8]) -> Value {
     serde_json::from_slice(slice).expect("Invalid JSON")
 }
@@ -35,7 +36,7 @@ impl Benchmark {
         <Benchmark as IntoEnumIterator>::iter()
     }
     pub fn run(self, bench: &mut BenchFunc) {
-        BENCHMARK_SUITE.run(self, bench)
+        BENCHMARK_SUITE.run(self, bench);
     }
 }
 
@@ -139,7 +140,7 @@ pub fn run_keyword_benchmarks(bench: &mut BenchFunc) {
                 .iter()
                 .enumerate()
                 .map(|(idx, instance)| BenchInstance {
-                    name: format!("{}/{}", prefix, idx),
+                    name: format!("{prefix}/{idx}"),
                     data: instance.clone(),
                 })
                 .collect();

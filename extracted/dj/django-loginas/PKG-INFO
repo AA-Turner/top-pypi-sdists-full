@@ -1,13 +1,12 @@
 Metadata-Version: 2.1
 Name: django-loginas
-Version: 0.3.11
+Version: 0.3.12
 Summary: An app to add a "Log in as user" button in the Django user admin page.
 Home-page: https://github.com/stochastic-technologies/django-loginas/
 Author: Stochastic Technologies
 Author-email: info@stochastictechnologies.com
 License: BSD
 Keywords: django
-Platform: UNKNOWN
 Classifier: Development Status :: 5 - Production/Stable
 Classifier: Environment :: Web Environment
 Classifier: Framework :: Django
@@ -69,6 +68,10 @@ urlpatterns = [
 class YourUserAdmin(ModelAdmin):
     change_form_template = 'loginas/change_form.html'
 ```
+
+Alternatively, you can add a `change_form.html` template containing just `{% extends 'loginas/change_form.html' %}`
+to your project under the path expected by your custom User model, e.g.
+`.../templates/<app_label>/<model_name>/change_form.html`.
 
 At this point, you should be good to go. Just visit the Django admin, navigate to a user and you should see the "Log
 in as user" button at the top right of the screen.
@@ -141,6 +144,24 @@ field name:
 LOGINAS_USERNAME_FIELD = 'email'
 ```
 
+To run on servers with a Content Security Policy that blocks inline
+javascript, you can configure loading the javascript from a seperate file:
+
+
+```python
+# settings.py
+
+LOGINAS_CSP_FRIENDLY = True
+```
+
+For this to work you must make sure the static javacript can be found. [See
+documentation](https://docs.djangoproject.com/en/5.2/ref/settings/#static-files).
+This example uses a symlink:
+
+```sh
+ln -s <path_to_site_packages>/loginas/static/loginas static/loginas
+```
+
 Other implementation suggestions
 --------------------------------
 
@@ -192,5 +213,3 @@ License
 -------
 
 This software is distributed under the BSD license.
-
-

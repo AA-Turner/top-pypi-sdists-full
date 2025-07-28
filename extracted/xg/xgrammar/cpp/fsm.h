@@ -395,10 +395,15 @@ class CompactFSM {
    * transitions, the first one will be returned.
    * \param from The source state to transition from.
    * \param character The input character.
+   * \param targets The target states to be filled with the possible next states.
    * \return The target state if a valid transition exists, kNoNextState otherwise.
    */
-  int GetNextState(int from, int value, FSMEdge::EdgeType edge_type = FSMEdge::EdgeType::kCharRange)
-      const;
+  void GetNextStates(
+      int from,
+      int value,
+      FSMEdge::EdgeType edge_type = FSMEdge::EdgeType::kCharRange,
+      std::vector<int>* targets = nullptr
+  ) const;
 
   /*!
    * \brief Advance the FSM to the next state.
@@ -503,6 +508,20 @@ class FSMWithStartEndBase {
   void SetStartState(int state) {
     XGRAMMAR_DCHECK(state < NumStates());
     start_ = state;
+  }
+
+  /*! \brief Checks if a given state is a scanable state.
+   * \param state The state to check.
+   * \return True if the state is scanable, false otherwise.
+   */
+  bool IsScanableState(int state) const {
+    XGRAMMAR_DCHECK(state < NumStates());
+    for (const auto& edge : fsm_.GetEdges(state)) {
+      if (edge.IsCharRange()) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /*!

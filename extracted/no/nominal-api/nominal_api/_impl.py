@@ -42260,15 +42260,17 @@ class scout_compute_api_DurationFilterRanges(ConjureBeanType):
         return {
             'input': ConjureFieldDefinition('input', scout_compute_api_RangeSeries),
             'threshold': ConjureFieldDefinition('threshold', scout_compute_api_DurationConstant),
-            'operator': ConjureFieldDefinition('operator', scout_compute_api_ThresholdOperator)
+            'operator': ConjureFieldDefinition('operator', scout_compute_api_ThresholdOperator),
+            'unbounded_behavior': ConjureFieldDefinition('unboundedBehavior', OptionalTypeWrapper[scout_compute_api_UnboundedBehavior])
         }
 
-    __slots__: List[str] = ['_input', '_threshold', '_operator']
+    __slots__: List[str] = ['_input', '_threshold', '_operator', '_unbounded_behavior']
 
-    def __init__(self, input: "scout_compute_api_RangeSeries", operator: "scout_compute_api_ThresholdOperator", threshold: "scout_compute_api_DurationConstant") -> None:
+    def __init__(self, input: "scout_compute_api_RangeSeries", operator: "scout_compute_api_ThresholdOperator", threshold: "scout_compute_api_DurationConstant", unbounded_behavior: Optional["scout_compute_api_UnboundedBehavior"] = None) -> None:
         self._input = input
         self._threshold = threshold
         self._operator = operator
+        self._unbounded_behavior = unbounded_behavior
 
     @builtins.property
     def input(self) -> "scout_compute_api_RangeSeries":
@@ -42281,6 +42283,10 @@ class scout_compute_api_DurationFilterRanges(ConjureBeanType):
     @builtins.property
     def operator(self) -> "scout_compute_api_ThresholdOperator":
         return self._operator
+
+    @builtins.property
+    def unbounded_behavior(self) -> Optional["scout_compute_api_UnboundedBehavior"]:
+        return self._unbounded_behavior
 
 
 scout_compute_api_DurationFilterRanges.__name__ = "DurationFilterRanges"
@@ -51136,6 +51142,26 @@ scout_compute_api_UnaryArithmeticSeries.__qualname__ = "UnaryArithmeticSeries"
 scout_compute_api_UnaryArithmeticSeries.__module__ = "nominal_api.scout_compute_api"
 
 
+class scout_compute_api_UnboundedBehavior(ConjureEnumType):
+    """Dictates how empty range bounds should be handled by the compute node. Defaults to INFINITY.
+    """
+
+    INFINITY = 'INFINITY'
+    '''INFINITY'''
+    WINDOW_BOUND = 'WINDOW_BOUND'
+    '''WINDOW_BOUND'''
+    UNKNOWN = 'UNKNOWN'
+    '''UNKNOWN'''
+
+    def __reduce_ex__(self, proto):
+        return self.__class__, (self.name,)
+
+
+scout_compute_api_UnboundedBehavior.__name__ = "UnboundedBehavior"
+scout_compute_api_UnboundedBehavior.__qualname__ = "UnboundedBehavior"
+scout_compute_api_UnboundedBehavior.__module__ = "nominal_api.scout_compute_api"
+
+
 class scout_compute_api_UnionRanges(ConjureBeanType):
 
     @builtins.classmethod
@@ -54796,15 +54822,17 @@ class scout_compute_resolved_api_DurationFilterRangesNode(ConjureBeanType):
         return {
             'input': ConjureFieldDefinition('input', scout_compute_resolved_api_RangesNode),
             'threshold': ConjureFieldDefinition('threshold', scout_run_api_Duration),
-            'operator': ConjureFieldDefinition('operator', scout_compute_api_ThresholdOperator)
+            'operator': ConjureFieldDefinition('operator', scout_compute_api_ThresholdOperator),
+            'unbounded_behavior': ConjureFieldDefinition('unboundedBehavior', scout_compute_api_UnboundedBehavior)
         }
 
-    __slots__: List[str] = ['_input', '_threshold', '_operator']
+    __slots__: List[str] = ['_input', '_threshold', '_operator', '_unbounded_behavior']
 
-    def __init__(self, input: "scout_compute_resolved_api_RangesNode", operator: "scout_compute_api_ThresholdOperator", threshold: "scout_run_api_Duration") -> None:
+    def __init__(self, input: "scout_compute_resolved_api_RangesNode", operator: "scout_compute_api_ThresholdOperator", threshold: "scout_run_api_Duration", unbounded_behavior: "scout_compute_api_UnboundedBehavior") -> None:
         self._input = input
         self._threshold = threshold
         self._operator = operator
+        self._unbounded_behavior = unbounded_behavior
 
     @builtins.property
     def input(self) -> "scout_compute_resolved_api_RangesNode":
@@ -54817,6 +54845,10 @@ class scout_compute_resolved_api_DurationFilterRangesNode(ConjureBeanType):
     @builtins.property
     def operator(self) -> "scout_compute_api_ThresholdOperator":
         return self._operator
+
+    @builtins.property
+    def unbounded_behavior(self) -> "scout_compute_api_UnboundedBehavior":
+        return self._unbounded_behavior
 
 
 scout_compute_resolved_api_DurationFilterRangesNode.__name__ = "DurationFilterRangesNode"
@@ -69696,6 +69728,8 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
     _or_: Optional[List["scout_internal_search_api_SearchQuery"]] = None
     _not_: Optional["scout_internal_search_api_SearchQuery"] = None
     _workspace: Optional[str] = None
+    _created_at: Optional["scout_metadata_CreatedAtQuery"] = None
+    _archived_status: Optional["api_ArchivedStatus"] = None
 
     @builtins.classmethod
     def _options(cls) -> Dict[str, ConjureFieldDefinition]:
@@ -69713,7 +69747,9 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             'and_': ConjureFieldDefinition('and', List[scout_internal_search_api_SearchQuery]),
             'or_': ConjureFieldDefinition('or', List[scout_internal_search_api_SearchQuery]),
             'not_': ConjureFieldDefinition('not', scout_internal_search_api_SearchQuery),
-            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid)
+            'workspace': ConjureFieldDefinition('workspace', api_rids_WorkspaceRid),
+            'created_at': ConjureFieldDefinition('createdAt', scout_metadata_CreatedAtQuery),
+            'archived_status': ConjureFieldDefinition('archivedStatus', api_ArchivedStatus)
         }
 
     def __init__(
@@ -69732,10 +69768,12 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             or_: Optional[List["scout_internal_search_api_SearchQuery"]] = None,
             not_: Optional["scout_internal_search_api_SearchQuery"] = None,
             workspace: Optional[str] = None,
+            created_at: Optional["scout_metadata_CreatedAtQuery"] = None,
+            archived_status: Optional["api_ArchivedStatus"] = None,
             type_of_union: Optional[str] = None
             ) -> None:
         if type_of_union is None:
-            if (date_time_field is not None) + (string_field is not None) + (timestamp_field is not None) + (long_field is not None) + (boolean_field is not None) + (exact_match is not None) + (string_array_exact_match is not None) + (search_text is not None) + (label is not None) + (property is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) != 1:
+            if (date_time_field is not None) + (string_field is not None) + (timestamp_field is not None) + (long_field is not None) + (boolean_field is not None) + (exact_match is not None) + (string_array_exact_match is not None) + (search_text is not None) + (label is not None) + (property is not None) + (and_ is not None) + (or_ is not None) + (not_ is not None) + (workspace is not None) + (created_at is not None) + (archived_status is not None) != 1:
                 raise ValueError('a union must contain a single member')
 
             if date_time_field is not None:
@@ -69780,6 +69818,12 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
             if workspace is not None:
                 self._workspace = workspace
                 self._type = 'workspace'
+            if created_at is not None:
+                self._created_at = created_at
+                self._type = 'createdAt'
+            if archived_status is not None:
+                self._archived_status = archived_status
+                self._type = 'archivedStatus'
 
         elif type_of_union == 'dateTimeField':
             if date_time_field is None:
@@ -69851,6 +69895,16 @@ class scout_internal_search_api_SearchQuery(ConjureUnionType):
                 raise ValueError('a union value must not be None')
             self._workspace = workspace
             self._type = 'workspace'
+        elif type_of_union == 'createdAt':
+            if created_at is None:
+                raise ValueError('a union value must not be None')
+            self._created_at = created_at
+            self._type = 'createdAt'
+        elif type_of_union == 'archivedStatus':
+            if archived_status is None:
+                raise ValueError('a union value must not be None')
+            self._archived_status = archived_status
+            self._type = 'archivedStatus'
 
     @builtins.property
     def date_time_field(self) -> Optional["scout_internal_search_api_DateTimeField"]:
@@ -69913,6 +69967,16 @@ To do a partial match, use an "and" on StringField queries.
     def workspace(self) -> Optional[str]:
         return self._workspace
 
+    @builtins.property
+    def created_at(self) -> Optional["scout_metadata_CreatedAtQuery"]:
+        return self._created_at
+
+    @builtins.property
+    def archived_status(self) -> Optional["api_ArchivedStatus"]:
+        """Prefer to use archivedStatus field in IndexableDb#search
+        """
+        return self._archived_status
+
     def accept(self, visitor) -> Any:
         if not isinstance(visitor, scout_internal_search_api_SearchQueryVisitor):
             raise ValueError('{} is not an instance of scout_internal_search_api_SearchQueryVisitor'.format(visitor.__class__.__name__))
@@ -69944,6 +70008,10 @@ To do a partial match, use an "and" on StringField queries.
             return visitor._not(self.not_)
         if self._type == 'workspace' and self.workspace is not None:
             return visitor._workspace(self.workspace)
+        if self._type == 'createdAt' and self.created_at is not None:
+            return visitor._created_at(self.created_at)
+        if self._type == 'archivedStatus' and self.archived_status is not None:
+            return visitor._archived_status(self.archived_status)
 
 
 scout_internal_search_api_SearchQuery.__name__ = "SearchQuery"
@@ -70007,6 +70075,14 @@ class scout_internal_search_api_SearchQueryVisitor:
 
     @abstractmethod
     def _workspace(self, workspace: str) -> Any:
+        pass
+
+    @abstractmethod
+    def _created_at(self, created_at: "scout_metadata_CreatedAtQuery") -> Any:
+        pass
+
+    @abstractmethod
+    def _archived_status(self, archived_status: "api_ArchivedStatus") -> Any:
         pass
 
 
@@ -70988,6 +71064,35 @@ class scout_layout_api_WorkbookLayoutV1(ConjureBeanType):
 scout_layout_api_WorkbookLayoutV1.__name__ = "WorkbookLayoutV1"
 scout_layout_api_WorkbookLayoutV1.__qualname__ = "WorkbookLayoutV1"
 scout_layout_api_WorkbookLayoutV1.__module__ = "nominal_api.scout_layout_api"
+
+
+class scout_metadata_CreatedAtQuery(ConjureBeanType):
+
+    @builtins.classmethod
+    def _fields(cls) -> Dict[str, ConjureFieldDefinition]:
+        return {
+            'operator': ConjureFieldDefinition('operator', scout_internal_search_api_Operator),
+            'value': ConjureFieldDefinition('value', str)
+        }
+
+    __slots__: List[str] = ['_operator', '_value']
+
+    def __init__(self, operator: "scout_internal_search_api_Operator", value: str) -> None:
+        self._operator = operator
+        self._value = value
+
+    @builtins.property
+    def operator(self) -> "scout_internal_search_api_Operator":
+        return self._operator
+
+    @builtins.property
+    def value(self) -> str:
+        return self._value
+
+
+scout_metadata_CreatedAtQuery.__name__ = "CreatedAtQuery"
+scout_metadata_CreatedAtQuery.__qualname__ = "CreatedAtQuery"
+scout_metadata_CreatedAtQuery.__module__ = "nominal_api.scout_metadata"
 
 
 class scout_metadata_ListPropertiesAndLabelsRequest(ConjureBeanType):

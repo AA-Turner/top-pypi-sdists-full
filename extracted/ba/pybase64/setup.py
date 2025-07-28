@@ -72,6 +72,7 @@ def get_cmake_extra_config(plat_name: str | None, build_type: str) -> tuple[bool
     log.info("  CC: %s", os.environ.get("CC", None))
     log.info("  CFLAGS: %s", os.environ.get("CFLAGS", None))
     log.info("  LDFLAGS: %s", os.environ.get("LDFLAGS", None))
+    log.info("  CMAKE_TOOLCHAIN_FILE: %s", os.environ.get("CMAKE_TOOLCHAIN_FILE", None))
     log.info("  sysconfig CC: %s", sysconfig.get_config_var("CC"))
     log.info("  sysconfig CCSHARED: %s", sysconfig.get_config_var("CCSHARED"))
     log.info("  sysconfig CFLAGS: %s", sysconfig.get_config_var("CFLAGS"))
@@ -81,6 +82,8 @@ def get_cmake_extra_config(plat_name: str | None, build_type: str) -> tuple[bool
 
     platform = plat_name or platform
     is_msvc = platform.startswith("win")
+    is_macos = platform.startswith("macosx-")
+    is_ios = platform.startswith("ios-")
 
     if not is_msvc:
         extra_config.append(f"-DCMAKE_BUILD_TYPE={build_type}")
@@ -97,7 +100,7 @@ def get_cmake_extra_config(plat_name: str | None, build_type: str) -> tuple[bool
             extra_config.append("-A Win32")
         if platform == "win-arm64" and machine != "arm64":
             extra_config.append("-A ARM64")
-    elif IS_MACOS:
+    elif is_macos or is_ios:
         known_archs = {
             "arm64",
             "arm64e",
@@ -108,10 +111,18 @@ def get_cmake_extra_config(plat_name: str | None, build_type: str) -> tuple[bool
             "ppc",
             "ppc64",
         }
-        if not platform.startswith("macosx-"):
-            msg = f"Building {platform} is not supported on macOS"
+        if is_macos and not IS_MACOS:
+            msg = f"Building {platform} is only supported on macOS"
             raise ValueError(msg)
-        _, _, platform_arch = platform.split("-")
+        if is_ios:
+            _, min_ver, platform_arch, sdk = platform.split("-")
+            min_ver = os.getenv("IPHONEOS_DEPLOYMENT_TARGET", min_ver)
+            extra_config.append("-DCMAKE_SYSTEM_NAME=iOS")
+            extra_config.append(f"-DCMAKE_OSX_SYSROOT={sdk}")
+        else:
+            _, min_ver, platform_arch = platform.split("-")
+            min_ver = os.getenv("MACOSX_DEPLOYMENT_TARGET", min_ver)
+        extra_config.append(f"-DCMAKE_OSX_DEPLOYMENT_TARGET={min_ver}")
         if platform_arch.startswith(("universal", "fat")):
             msg = f"multiple arch `{platform_arch}` is not supported"
             raise ValueError(msg)
@@ -153,6 +164,7 @@ def base64_build(plat_name: str | None) -> Generator[bool, None, None]:
         "-DBASE64_BUILD_TESTS:BOOL=OFF",
         "-DBASE64_BUILD_CLI:BOOL=OFF",
         "-DCMAKE_POSITION_INDEPENDENT_CODE=ON",
+        "-DBUILD_SHARED_LIBS:BOOL=OFF",
     ]
     if build_dir.exists():
         shutil.rmtree(build_dir)
@@ -243,6 +255,7 @@ setup(
         "Programming Language :: Python :: 3.11",
         "Programming Language :: Python :: 3.12",
         "Programming Language :: Python :: 3.13",
+        "Programming Language :: Python :: 3.14",
     ],
     # Supported python versions
     python_requires=">=3.8",

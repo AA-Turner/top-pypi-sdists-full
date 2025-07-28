@@ -1,5 +1,4 @@
-use fraction::BigFraction;
-use num_traits::One;
+use fraction::{BigFraction, Zero};
 use serde_json::Number;
 
 macro_rules! define_num_cmp {
@@ -34,18 +33,24 @@ define_num_cmp!(
 
 pub(crate) fn is_multiple_of_float(value: &Number, multiple: f64) -> bool {
     let value = value.as_f64().expect("Always valid");
-    let remainder = (value / multiple) % 1.;
-    if remainder.is_nan() {
-        // Involves heap allocations via the underlying `BigUint` type
-        let fraction = BigFraction::from(value) / BigFraction::from(multiple);
-        if let Some(denom) = fraction.denom() {
-            denom.is_one()
-        } else {
-            true
-        }
-    } else {
-        remainder < f64::EPSILON
+    if value.is_zero() {
+        // Zero is a multiple of anything
+        return true;
     }
+    if value < multiple {
+        return false;
+    }
+    // From the JSON Schema spec
+    //
+    // > A numeric instance is valid only if division by this keyword's value results in an integer.
+    //
+    // For fractions, integers have denominator equal to one.
+    //
+    // Ref: https://json-schema.org/draft/2020-12/json-schema-validation#section-6.2.1
+    (BigFraction::from(value) / BigFraction::from(multiple))
+        .denom()
+        .map(fraction::One::is_one)
+        .unwrap_or(true)
 }
 
 pub(crate) fn is_multiple_of_integer(value: &Number, multiple: f64) -> bool {

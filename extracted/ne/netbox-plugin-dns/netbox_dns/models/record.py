@@ -419,6 +419,26 @@ class Record(ObjectModificationMixin, ContactsMixin, NetBoxModel):
                 return
 
             # +
+            # If the existing PTR record no longer matches the address record,
+            # check whether there is an existing PTR record that does. In that
+            # case, mark the old PTR record for cleanup and use the existing one.
+            # -
+            try:
+                existing_ptr_record = Record.objects.get(
+                    name=ptr_name,
+                    zone=ptr_zone,
+                    type=RecordTypeChoices.PTR,
+                    value=ptr_value,
+                )
+
+                self.cleanup_ptr_record = self.ptr_record
+                self.ptr_record = existing_ptr_record
+                ptr_record = self.ptr_record
+
+            except Record.DoesNotExist:
+                pass
+
+            # +
             # If there is an RFC2317 CNAME for the PTR record and it is either
             # not required or needs to be changed, remove it.
             # -
@@ -435,10 +455,12 @@ class Record(ObjectModificationMixin, ContactsMixin, NetBoxModel):
             # modified to match the new name, zone, value and TTL.
             # -
             if ptr_record.address_records.count() == 1:
+                ptr_record.snapshot()
                 ptr_record.zone = ptr_zone
                 ptr_record.name = ptr_name
                 ptr_record.value = ptr_value
                 ptr_record.ttl = self.ttl
+                ptr_record.managed = True
                 ptr_record.save(
                     update_rfc2317_cname=update_rfc2317_cname,
                     save_zone_serial=save_zone_serial,
@@ -447,7 +469,7 @@ class Record(ObjectModificationMixin, ContactsMixin, NetBoxModel):
 
         # +
         # Either there was no PTR record or the existing PTR record could not be re-used,
-        # so we need to either get find a matching PTR record or create a new one.
+        # so we need to either find a matching PTR record or create a new one.
         # -
         try:
             ptr_record = Record.objects.get(
@@ -845,6 +867,9 @@ class Record(ObjectModificationMixin, ContactsMixin, NetBoxModel):
         self.check_unique_record(new_zone=new_zone)
         if self._state.adding:
             self.check_unique_rrset_ttl()
+
+        if not self.is_address_record:
+            self.disable_ptr = False
 
         if not self.is_active:
             return

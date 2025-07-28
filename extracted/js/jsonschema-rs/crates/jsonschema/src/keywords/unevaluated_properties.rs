@@ -130,7 +130,7 @@ impl<F: PropertiesFilter> ReferenceFilter<F> {
                 .get_or_init()
                 .mark_evaluated_properties(instance, properties),
             ReferenceFilter::Default(filter) => {
-                filter.mark_evaluated_properties(instance, properties)
+                filter.mark_evaluated_properties(instance, properties);
             }
         }
     }
@@ -288,21 +288,21 @@ impl PropertiesFilter for Draft2019PropertiesFilter {
         let mut unevaluated = None;
         if let Some(subschema) = parent.get("unevaluatedProperties") {
             unevaluated = Some(compiler::compile(ctx, ctx.as_resource_ref(subschema))?);
-        };
+        }
 
         let mut all_of = None;
         if let Some(Some(subschemas)) = parent.get("allOf").map(Value::as_array) {
             all_of = Some(CombinatorFilter::new(ctx, subschemas)?);
-        };
+        }
         let mut any_of = None;
         if let Some(Some(subschemas)) = parent.get("anyOf").map(Value::as_array) {
             any_of = Some(CombinatorFilter::new(ctx, subschemas)?);
-        };
+        }
 
         let mut one_of = None;
         if let Some(Some(subschemas)) = parent.get("oneOf").map(Value::as_array) {
             one_of = Some(CombinatorFilter::new(ctx, subschemas)?);
-        };
+        }
 
         Ok(Draft2019PropertiesFilter {
             unevaluated,
@@ -465,7 +465,7 @@ impl PropertiesFilter for DefaultPropertiesFilter {
                         ctx, subschema,
                     )?)));
                 }
-            };
+            }
         }
 
         let mut dynamic_ref = None;
@@ -545,21 +545,21 @@ impl PropertiesFilter for DefaultPropertiesFilter {
         let mut unevaluated = None;
         if let Some(subschema) = parent.get("unevaluatedProperties") {
             unevaluated = Some(compiler::compile(ctx, ctx.as_resource_ref(subschema))?);
-        };
+        }
 
         let mut all_of = None;
         if let Some(Some(subschemas)) = parent.get("allOf").map(Value::as_array) {
             all_of = Some(CombinatorFilter::new(ctx, subschemas)?);
-        };
+        }
         let mut any_of = None;
         if let Some(Some(subschemas)) = parent.get("anyOf").map(Value::as_array) {
             any_of = Some(CombinatorFilter::new(ctx, subschemas)?);
-        };
+        }
 
         let mut one_of = None;
         if let Some(Some(subschemas)) = parent.get("oneOf").map(Value::as_array) {
             one_of = Some(CombinatorFilter::new(ctx, subschemas)?);
-        };
+        }
 
         Ok(DefaultPropertiesFilter {
             unevaluated,
@@ -767,7 +767,7 @@ mod tests {
                 "unevaluatedProperties": false
             }),
             &json!({ "foo": "quux" }),
-        )
+        );
     }
 
     #[test]
@@ -782,7 +782,7 @@ mod tests {
                 "unevaluatedProperties": false
             }),
             &json!({ "foo": "rut roh" }),
-        )
+        );
     }
 
     #[test]
@@ -797,7 +797,7 @@ mod tests {
                 "unevaluatedProperties": false
             }),
             &json!({ "foo": "rut roh" }),
-        )
+        );
     }
 
     #[test]

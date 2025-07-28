@@ -1,4 +1,4 @@
-from typing import Dict, Optional, Union
+from typing import Dict, Optional, Union, Tuple
 import base64
 import logging
 import cv2
@@ -6,6 +6,7 @@ import threading
 import time
 import tempfile
 import os
+import hashlib
 from datetime import datetime, timezone
 from matrice.deploy.utils.kafka_utils import MatriceKafkaDeployment
 
@@ -14,7 +15,7 @@ class ClientStreamUtils:
     def __init__(
         self,
         session,
-        deployment_id: str,
+        service_id: str,
         consumer_group_id: str = None,
         consumer_group_instance_id: str = None,
     ):
@@ -22,16 +23,16 @@ class ClientStreamUtils:
 
         Args:
             session: Session object for making RPC calls
-            deployment_id: ID of the deployment
+            service_id: ID of the deployment
             consumer_group_id: Kafka consumer group ID
             consumer_group_instance_id: Unique consumer group instance ID to prevent rebalancing
         """
         self.streaming_threads = []
         self.session = session
-        self.deployment_id = deployment_id
+        self.service_id = service_id
         self.kafka_deployment = MatriceKafkaDeployment(
             self.session,
-            self.deployment_id,
+            self.service_id,
             "client",
             consumer_group_id,
             consumer_group_instance_id,
@@ -70,7 +71,7 @@ class ClientStreamUtils:
 
     def _setup_video_capture(
         self, input: Union[str, int], width: Optional[int], height: Optional[int]
-    ) -> cv2.VideoCapture:
+    ) -> Tuple[cv2.VideoCapture, str]:
         """Set up video capture with proper configuration."""
         stream_type = "unknown"
         # Handle different input types
@@ -78,6 +79,14 @@ class ClientStreamUtils:
             cap = cv2.VideoCapture(int(input) if isinstance(input, str) else input)
             logging.info(f"Opening webcam device: {input}")
             stream_type = "camera"
+        elif isinstance(input, str) and input.startswith("rtsp"):
+            cap = cv2.VideoCapture(input)
+            logging.info(f"Opening RTSP stream: {input}")
+            stream_type = "rtsp"
+        elif isinstance(input, str) and input.startswith("http"):
+            cap = cv2.VideoCapture(input)
+            logging.info(f"Opening HTTP stream: {input}")
+            stream_type = "http"
         else:
             cap = cv2.VideoCapture(input)
             logging.info(f"Opening video source: {input}")
@@ -98,20 +107,21 @@ class ClientStreamUtils:
         return cap, stream_type
 
     def _get_video_properties(self, cap: cv2.VideoCapture) -> Dict:
-        """Get video properties including original FPS."""
-        properties = {
-            "original_fps": float(round(cap.get(cv2.CAP_PROP_FPS),2)),
+        """Get video properties from capture object."""
+        return {
+            "original_fps": float(round(cap.get(cv2.CAP_PROP_FPS), 2)),
             "frame_count": cap.get(cv2.CAP_PROP_FRAME_COUNT),
             "width": int(cap.get(cv2.CAP_PROP_FRAME_WIDTH)),
             "height": int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT)),
         }
-        return properties
 
     def _get_high_precision_timestamp(self) -> str:
         """Get high precision timestamp with microsecond granularity."""
         return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
-    def _calculate_video_timestamp(self, stream_key: str, frame_number: int, fps: float) -> str:
+    def _calculate_video_timestamp(
+        self, stream_key: str, frame_number: int, fps: float
+    ) -> str:
         """Calculate video timestamp from start of video.
 
         The timestamp is returned in human-readable ``HH:MM:SS:mmm`` format
@@ -135,9 +145,14 @@ class ClientStreamUtils:
         return f"{hours:02d}:{minutes:02d}:{seconds:02d}:{milliseconds:03d}"
 
     def _handle_frame_read_failure(
-        self, input: Union[str, int], cap: cv2.VideoCapture, retry_count: int, max_retries: int,
-        width: Optional[int], height: Optional[int]
-    ) -> tuple[cv2.VideoCapture, int]:
+        self,
+        input: Union[str, int],
+        cap: cv2.VideoCapture,
+        retry_count: int,
+        max_retries: int,
+        width: Optional[int],
+        height: Optional[int],
+    ) -> Tuple[cv2.VideoCapture, int]:
         """Handle frame read failures with retry logic."""
         if retry_count >= max_retries:
             if isinstance(input, int) or (isinstance(input, str) and input.isdigit()):
@@ -158,7 +173,7 @@ class ClientStreamUtils:
                 # For video files, we've reached the end
                 logging.info(f"End of stream reached for input: {input}")
                 raise StopIteration("End of stream reached")
-        
+
         time.sleep(0.1)  # Short delay before retry
         return cap, retry_count
 
@@ -182,12 +197,87 @@ class ClientStreamUtils:
             self.input_order[key] = 0
         self.input_order[key] += 1
         return self.input_order[key]
+    
+    def _get_video_format(self, input: Union[str, int]) -> str:
+        """Get video format extension from input."""
+        if isinstance(input, str) and "." in input:
+            return "." + input.split("?")[0].split(".")[-1].lower()
+        return ".mp4"
 
-    def _get_input_filename(self, input: Union[str, int]) -> Optional[str]:
-        """Extract filename from input path."""
-        if isinstance(input, str) and not input.isdigit():
-            return os.path.basename(input)
-        return None
+
+    def _build_stream_metadata(
+        self,
+        input: Union[str, int],
+        stream_key: Optional[str],
+        video_props: Dict,
+        fps: int,
+        quality: int,
+        actual_width: int,
+        actual_height: int,
+        stream_type: str,
+        frame_counter: int,
+        is_video_chunk: bool = False,
+        chunk_duration_seconds: Optional[float] = None,
+        chunk_frames: Optional[int] = None,
+    ) -> Dict:
+        """Build consistent metadata for both frame and video chunk streams."""
+        original_fps = video_props["original_fps"]
+        frame_sample_rate = original_fps / fps if original_fps > 0 else 1.0
+        
+        # Calculate chunk duration based on whether it's a video chunk or frame
+        if is_video_chunk and chunk_duration_seconds is not None:
+            duration = chunk_duration_seconds
+            frame_count = chunk_frames if chunk_frames is not None else int(duration * fps)
+        else:
+            duration = 1.0 / fps
+            frame_count = 1
+
+        metadata = {
+            "fps": fps,
+            "original_fps": original_fps,
+            "frame_sample_rate": frame_sample_rate,
+            "video_timestamp": self._calculate_video_timestamp(
+                stream_key, frame_counter, original_fps
+            ),
+            "start_frame": frame_counter,
+            "end_frame": frame_counter + frame_count - 1,
+            "quality": quality,
+            "width": actual_width,
+            "height": actual_height,
+            "is_video_chunk": is_video_chunk,
+            "chunk_duration_seconds": duration,
+            "video_properties": video_props,
+            "video_format": self._get_video_format(input),
+            "stream_type": stream_type,
+        }
+        return metadata
+
+    def _validate_stream_params(
+        self, fps: int, quality: int, width: Optional[int], height: Optional[int]
+    ) -> bool:
+        """Validate common streaming parameters."""
+        if fps <= 0:
+            logging.error("FPS must be positive")
+            return False
+        if quality < 1 or quality > 100:
+            logging.error("Quality must be between 1 and 100")
+            return False
+        if width is not None and width <= 0:
+            logging.error("Width must be positive")
+            return False
+        if height is not None and height <= 0:
+            logging.error("Height must be positive")
+            return False
+        return True
+
+    def _check_stream_support(self) -> bool:
+        """Check if streaming is supported."""
+        if not self.stream_support:
+            logging.error(
+                "Kafka stream support not available, Please check if Kafka is enabled in the deployment and reinitialize the client"
+            )
+            return False
+        return True
 
     def start_stream(
         self,
@@ -201,10 +291,10 @@ class ClientStreamUtils:
         """Start a stream input to the Kafka stream."""
         if not self._check_stream_support():
             return False
-        
+
         if not self._validate_stream_params(fps, quality, width, height):
             return False
-            
+
         try:
             self._stream_inputs(input, fps, stream_key, quality, width, height)
             return True
@@ -221,6 +311,7 @@ class ClientStreamUtils:
         input: Union[str, int],
         fps: int = 10,
         stream_key: Optional[str] = None,
+        stream_group_key: Optional[str] = None,
         quality: int = 95,
         width: Optional[int] = None,
         height: Optional[int] = None,
@@ -228,14 +319,14 @@ class ClientStreamUtils:
         """Add a stream input to the Kafka stream."""
         if not self._check_stream_support():
             return False
-        
+
         if not self._validate_stream_params(fps, quality, width, height):
             return False
-            
+
         try:
             thread = threading.Thread(
                 target=self._stream_inputs,
-                args=(input, fps, stream_key, quality, width, height),
+                args=(input, fps, stream_key, stream_group_key, quality, width, height),
                 daemon=True,
             )
             self.streaming_threads.append(thread)
@@ -250,6 +341,7 @@ class ClientStreamUtils:
         input: Union[str, int],
         fps: int = 10,
         stream_key: Optional[str] = None,
+        stream_group_key: Optional[str] = None,
         quality: int = 95,
         width: Optional[int] = None,
         height: Optional[int] = None,
@@ -257,12 +349,11 @@ class ClientStreamUtils:
         """Stream inputs from a video source to Kafka."""
         quality = max(1, min(100, quality))
         cap = None
-        
+
         try:
             cap, stream_type = self._setup_video_capture(input, width, height)
             # Get video properties including original FPS
             video_props = self._get_video_properties(cap)
-            original_fps = video_props["original_fps"]
 
             actual_width = video_props["width"]
             actual_height = video_props["height"]
@@ -286,7 +377,9 @@ class ClientStreamUtils:
                 if not ret:
                     retry_count += 1
                     consecutive_failures += 1
-                    logging.warning(f"Failed to read frame, retry {retry_count}/{max_retries}")
+                    logging.warning(
+                        f"Failed to read frame, retry {retry_count}/{max_retries}"
+                    )
 
                     if consecutive_failures >= max_consecutive_failures:
                         logging.error("Too many consecutive failures, stopping stream")
@@ -313,46 +406,37 @@ class ClientStreamUtils:
                     encode_params = [cv2.IMWRITE_JPEG_QUALITY, quality]
                     _, buffer = cv2.imencode(".jpg", frame, encode_params)
                 except Exception as encode_exc:
-                    logging.warning(f"Failed to encode frame with quality {quality}, using default: {encode_exc}")
+                    logging.warning(
+                        f"Failed to encode frame with quality {quality}, using default: {encode_exc}"
+                    )
                     try:
                         _, buffer = cv2.imencode(".jpg", frame)
                     except Exception as fallback_exc:
-                        logging.error(f"Failed to encode frame even with default settings: {fallback_exc}")
+                        logging.error(
+                            f"Failed to encode frame even with default settings: {fallback_exc}"
+                        )
                         continue
 
-                # Calculate video timestamp for this frame
-                video_timestamp = self._calculate_video_timestamp(
-                    stream_key or "default", frame_counter, original_fps
+                # Build metadata using unified method
+                frame_metadata = self._build_stream_metadata(
+                    input=input,
+                    stream_key=stream_key,
+                    video_props=video_props,
+                    fps=fps,
+                    quality=quality,
+                    actual_width=actual_width,
+                    actual_height=actual_height,
+                    stream_type=stream_type,
+                    frame_counter=frame_counter,
+                    is_video_chunk=False,
                 )
-                video_format = self._get_input_filename(input)
-                if isinstance(video_format, str) and '.' in video_format:
-                    video_format = '.'+video_format.split('.')[-1].lower()
-                else:
-                    video_format = '..mp4'
-                
-                # Prepare enhanced metadata for this frame
-                frame_metadata = {
-                    "fps": fps,
-                    "original_fps": original_fps,  # For live streams, original FPS is the same as processing FPS
-                    "frame_sample_rate": 1.0,  # For individual frames, sample rate is 1:1
-                    "stream_time": self._get_high_precision_timestamp(),  # Use high precision timestamp
-                    "video_timestamp": video_timestamp,  # Added video timestamp
-                    "video_file": self._get_input_filename(input),
-                    "camera_id": input if isinstance(input, int) or (isinstance(input, str) and input.isdigit()) else None,
-                    "location_info": None,  # Can be enhanced later
-                    "start_frame": frame_counter,
-                    "end_frame": frame_counter,
-                    "quality": quality,
-                    "width": actual_width,
-                    "height": actual_height,
-                    "is_video_chunk": False,  # Flag to indicate this is a single frame
-                    "chunk_duration_seconds": 1.0 / fps,  # Duration of single frame
-                    "video_properties": video_props,
-                    "video_format": video_format,
-                    "stream_type": stream_type,  # Added stream type
-                }
-                
-                if not self.produce_request(buffer.tobytes(), stream_key, metadata=frame_metadata):
+
+                if not self.produce_request(
+                    buffer.tobytes(),
+                    stream_key,
+                    stream_group_key,
+                    metadata=frame_metadata,
+                ):
                     logging.warning("Failed to produce frame to Kafka stream")
 
                 # Maintain desired FPS
@@ -370,69 +454,81 @@ class ClientStreamUtils:
                 cap.release()
                 logging.info(f"Released video source: {input}")
 
-    def stop_streaming(self) -> None:
-        """Stop all streaming threads."""
-        self._stop_streaming = True
-        for thread in self.streaming_threads:
-            if thread.is_alive():
-                thread.join(timeout=2.0)
-        self.streaming_threads = []
-        self._stop_streaming = False
-        logging.info("All streaming threads stopped")
+    def _construct_input_stream(
+        self,
+        input_data: bytes,
+        metadata: Dict = {},
+        stream_key: Optional[str] = None,
+        stream_group_key: Optional[str] = None,
+    ) -> Dict:
+        """Construct the input stream dictionary."""
+        if not input_data:
+            logging.error("Input data cannot be empty")
+            return {}
+
+        stream_info = {
+            "broker": self.kafka_deployment.bootstrap_server,
+            "topic": self.kafka_deployment.request_topic,
+            "stream_time": self._get_high_precision_timestamp(),
+        }
+
+        input_stream = {
+            "ip_key_name": self.service_id,
+            "stream_info": stream_info,
+            "feed_type": "disk" if metadata.get("stream_type") == "video_file" else "camera",
+            "original_fps": metadata.get("original_fps", metadata.get("fps", 30.0)),
+            "stream_fps": metadata.get("fps", 30.0),
+            "stream_unit": "segment" if metadata.get("is_video_chunk", False) else "frame",
+            "input_order": self._get_next_input_order(stream_key),
+            "frame_count": 1 if not metadata.get("is_video_chunk", False) else int(
+                metadata.get("chunk_duration_seconds", 1.0) * metadata.get("fps", 30)
+            ),
+            "start_frame": metadata.get("start_frame"),
+            "end_frame": metadata.get("end_frame"),
+            "video_codec": "h264",
+            "bw_opt_alg": None,
+            "original_resolution": {
+                "width": metadata.get("width", 1024),
+                "height": metadata.get("height", 1080),
+            },
+            "stream_resolution": {
+                "width": metadata.get("width", 1024),
+                "height": metadata.get("height", 1080),
+            },
+            "camera_info": {
+                "camera_name": stream_key,
+                "camera_group": stream_group_key,
+                "location": "TODO",
+            },
+            "latency_stats": {
+                "last_read_time_sec": "TODO",
+                "last_write_time_sec": "TODO",
+                "last_process_time_sec": "TODO",
+            },
+            "content": base64.b64encode(input_data).decode("utf-8"),
+            "input_hash": hashlib.md5(input_data, usedforsecurity=False).hexdigest(),
+        }
+        return {
+            "input_name": f"{input_stream['stream_unit']}_{input_stream['input_order']}",
+            "input_unit": input_stream["stream_unit"],
+            "input_stream": input_stream,
+        }
 
     def produce_request(
-        self, input: bytes, stream_key: Optional[str] = None, timeout: float = 60.0, metadata: Optional[Dict] = None
+        self,
+        input_data: bytes,
+        stream_key: Optional[str] = None,
+        stream_group_key: Optional[str] = None,
+        metadata: Optional[Dict] = None,
+        timeout: float = 60.0,
     ) -> bool:
-        """Add a message to the Kafka stream."""
-        if not input:
-            logging.error("Input cannot be empty")
-            return False
-            
+        """Simple function to produce a stream request to Kafka."""
         try:
-            # Get input counter if not provided in metadata
-            if metadata is None:
-                metadata = {}
-            
-            # Enhanced metadata for the new output format
-            enhanced_metadata = {
-                "stream_info": {
-                    "fps": metadata.get("fps", 30),
-                    "original_fps": metadata.get("original_fps", metadata.get("fps", 30)),  # Added original FPS
-                    "frame_sample_rate": metadata.get("frame_sample_rate", 1.0),  # Added frame sample rate
-                    "stream_time": metadata.get("stream_time", self._get_high_precision_timestamp()),  # Use high precision timestamp
-                    "video_timestamp": metadata.get("video_timestamp", 0.0),  # Added video timestamp
-                    "input_settings": {
-                        "video_file": metadata.get("video_file"),
-                        "camera_id": metadata.get("camera_id"),
-                        "location_info": metadata.get("location_info"),
-                        "start_frame": metadata.get("start_frame"),
-                        "end_frame": metadata.get("end_frame"),
-                        "quality": metadata.get("quality"),
-                        "width": metadata.get("width"),
-                        "height": metadata.get("height"),
-                        "stream_key": stream_key,
-                        "is_video_chunk": metadata.get("is_video_chunk", False),  # Added video chunk flag
-                        "chunk_duration_seconds": metadata.get("chunk_duration_seconds", 0.0),  # Added chunk duration
-                        "video_format": metadata.get("video_format"),  # Added video format
-                        "video_properties": metadata.get("video_properties", {}),  # Added video properties
-                        "stream_type": metadata.get("stream_type"),  # Added stream type
-                    }
-                },
-                **metadata  # Include any additional metadata
-            }
-            
-            message = {
-                "input": base64.b64encode(input).decode("utf-8"),
-                "input_order": self._get_next_input_order(stream_key),
-                "stream_key": stream_key,
-                "metadata": enhanced_metadata
-            }
-            self.kafka_deployment.produce_message(
-                message, timeout=timeout, key=stream_key
-            )
+            message = self._construct_input_stream(input_data, metadata or {}, stream_key, stream_group_key)
+            self.kafka_deployment.produce_message(message, timeout=timeout, key=stream_key)
             return True
         except Exception as exc:
-            logging.error("Failed to add request to Kafka stream: %s", str(exc))
+            logging.error("Failed to produce request: %s", str(exc))
             return False
 
     def consume_result(self, timeout: float = 60.0) -> Optional[Dict]:
@@ -444,54 +540,20 @@ class ClientStreamUtils:
             return None
 
     async def async_produce_request(
-        self, input: bytes, stream_key: Optional[str] = None, timeout: float = 60.0, metadata: Optional[Dict] = None
+        self,
+        input_data: bytes,
+        stream_key: Optional[str] = None,
+        stream_group_key: Optional[str] = None,
+        metadata: Optional[Dict] = None,
+        timeout: float = 60.0,
     ) -> bool:
-        """Add a message to the Kafka stream asynchronously."""
-        if not input:
-            logging.error("Input cannot be empty")
-            return False
-            
+        """Produce a unified stream request to Kafka asynchronously."""
         try:
-            # Get input counter if not provided in metadata
-            if metadata is None:
-                metadata = {}
-
-            # Enhanced metadata for the new output format
-            enhanced_metadata = {
-                "stream_info": {
-                    "fps": metadata.get("fps", 30),
-                    "original_fps": metadata.get("original_fps", metadata.get("fps", 30)),  # Added original FPS
-                    "frame_sample_rate": metadata.get("frame_sample_rate", 1.0),  # Added frame sample rate
-                    "stream_time": metadata.get("stream_time", self._get_high_precision_timestamp()),  # Use high precision timestamp
-                    "video_timestamp": metadata.get("video_timestamp", 0.0),  # Added video timestamp
-                    "input_settings": {
-                        "video_file": metadata.get("video_file"),
-                        "camera_id": metadata.get("camera_id"),
-                        "location_info": metadata.get("location_info"),
-                        "start_frame": metadata.get("start_frame"),
-                        "end_frame": metadata.get("end_frame"),
-                        "quality": metadata.get("quality"),
-                        "width": metadata.get("width"),
-                        "height": metadata.get("height"),
-                        "stream_key": stream_key,
-                        "is_video_chunk": metadata.get("is_video_chunk", False),  # Added video chunk flag
-                        "chunk_duration_seconds": metadata.get("chunk_duration_seconds", 0.0),  # Added chunk duration
-                        "video_format": metadata.get("video_format"),  # Added video format
-                        "video_properties": metadata.get("video_properties", {}),  # Added video properties
-                        "stream_type": metadata.get("stream_type"),  # Added stream type
-                    }
-                },
-                **metadata  # Include any additional metadata
-            }
-
-            message = {
-                "input": base64.b64encode(input).decode("utf-8"),
-                "input_order": self._get_next_input_order(stream_key),
-                "stream_key": stream_key,
-                "metadata": enhanced_metadata
-            }
+            message = self._construct_input_stream(input_data, metadata or {}, stream_key, stream_group_key)
             await self.kafka_deployment.async_produce_message(
-                message, timeout=timeout, key=stream_key
+                message=message,
+                timeout=timeout,
+                key=stream_key
             )
             return True
         except Exception as exc:
@@ -510,51 +572,26 @@ class ClientStreamUtils:
             )
             return None
 
-    async def close(self) -> None:
-        """Close all client connections including Kafka stream."""
-        errors = []
-
-        # Stop all streaming threads
-        try:
-            self.stop_streaming()
-        except Exception as exc:
-            error_msg = f"Error stopping streaming threads: {str(exc)}"
-            logging.error(error_msg)
-            errors.append(error_msg)
-
-        # Try to close Kafka connections
-        try:
-            await self.kafka_deployment.close()
-            logging.info("Successfully closed Kafka connections")
-        except Exception as exc:
-            error_msg = f"Error closing Kafka connections: {str(exc)}"
-            logging.error(error_msg)
-            errors.append(error_msg)
-
-        # Report all errors if any occurred
-        if errors:
-            error_summary = "\n".join(errors)
-            logging.error("Errors occurred during close: %s", error_summary)
-
     def start_video_stream(
         self,
         input: Union[str, int],
         fps: int = 10,
         stream_key: Optional[str] = None,
+        stream_group_key: Optional[str] = None,
         quality: int = 95,
         width: Optional[int] = None,
         height: Optional[int] = None,
         video_duration: Optional[float] = None,
         max_frames: Optional[int] = None,
-        video_format: str = "mp4"
+        video_format: str = "mp4",
     ) -> bool:
         """Start a video stream sending video chunks instead of individual frames."""
         if not self._check_stream_support():
             return False
-        
+
         if not self._validate_stream_params(fps, quality, width, height):
             return False
-            
+
         # Additional validation for video-specific parameters
         if video_duration is not None and video_duration <= 0:
             logging.error("Video duration must be positive")
@@ -562,14 +599,22 @@ class ClientStreamUtils:
         if max_frames is not None and max_frames <= 0:
             logging.error("Max frames must be positive")
             return False
-        if video_format not in ['mp4', 'avi', 'webm']:
+        if video_format not in ["mp4", "avi", "webm"]:
             logging.error("Video format must be one of: mp4, avi, webm")
             return False
-            
+
         try:
             self._stream_video_chunks(
-                input, fps, stream_key, quality, width, height,
-                video_duration, max_frames, video_format
+                input,
+                fps,
+                stream_key,
+                stream_group_key,
+                quality,
+                width,
+                height,
+                video_duration,
+                max_frames,
+                video_format,
             )
             return True
         except Exception as exc:
@@ -585,20 +630,21 @@ class ClientStreamUtils:
         input: Union[str, int],
         fps: int = 10,
         stream_key: Optional[str] = None,
+        stream_group_key: Optional[str] = None,
         quality: int = 95,
         width: Optional[int] = None,
         height: Optional[int] = None,
         video_duration: Optional[float] = None,
         max_frames: Optional[int] = None,
-        video_format: str = "mp4"
+        video_format: str = "mp4",
     ) -> bool:
         """Start a background video stream sending video chunks instead of individual frames."""
         if not self._check_stream_support():
             return False
-        
+
         if not self._validate_stream_params(fps, quality, width, height):
             return False
-            
+
         # Additional validation for video-specific parameters
         if video_duration is not None and video_duration <= 0:
             logging.error("Video duration must be positive")
@@ -606,15 +652,25 @@ class ClientStreamUtils:
         if max_frames is not None and max_frames <= 0:
             logging.error("Max frames must be positive")
             return False
-        if video_format not in ['mp4', 'avi', 'webm']:
+        if video_format not in ["mp4", "avi", "webm"]:
             logging.error("Video format must be one of: mp4, avi, webm")
             return False
-            
+
         try:
             thread = threading.Thread(
                 target=self._stream_video_chunks,
-                args=(input, fps, stream_key, quality, width, height,
-                      video_duration, max_frames, video_format),
+                args=(
+                    input,
+                    fps,
+                    stream_key,
+                    stream_group_key,
+                    quality,
+                    width,
+                    height,
+                    video_duration,
+                    max_frames,
+                    video_format,
+                ),
                 daemon=True,
             )
             self.streaming_threads.append(thread)
@@ -629,28 +685,28 @@ class ClientStreamUtils:
         input: Union[str, int],
         fps: int = 10,
         stream_key: Optional[str] = None,
+        stream_group_key: Optional[str] = None,
         quality: int = 95,
         width: Optional[int] = None,
         height: Optional[int] = None,
         video_duration: Optional[float] = None,
         max_frames: Optional[int] = None,
-        video_format: str = "mp4"
+        video_format: str = "mp4",
     ) -> None:
         """Stream video chunks from a video source to Kafka."""
         quality = max(1, min(100, quality))
         cap = None
-        
+
         try:
             cap, stream_type = self._setup_video_capture(input, width, height)
-            
+
             # Get video properties including original FPS
             video_props = self._get_video_properties(cap)
-            original_fps = video_props["original_fps"]
-            
+
             # Get actual frame dimensions
             actual_width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             actual_height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-            
+
             # Override with specified dimensions if provided
             if width is not None:
                 actual_width = width
@@ -659,22 +715,23 @@ class ClientStreamUtils:
 
             # Set up video codec
             fourcc_map = {
-                'mp4': cv2.VideoWriter_fourcc(*'mp4v'),
-                'avi': cv2.VideoWriter_fourcc(*'XVID'),
-                'webm': cv2.VideoWriter_fourcc(*'VP80')
+                "mp4": cv2.VideoWriter_fourcc(*"mp4v"),
+                "avi": cv2.VideoWriter_fourcc(*"XVID"),
+                "webm": cv2.VideoWriter_fourcc(*"VP80"),
             }
-            fourcc = fourcc_map.get(video_format, cv2.VideoWriter_fourcc(*'mp4v'))
+            fourcc = fourcc_map.get(video_format, cv2.VideoWriter_fourcc(*"mp4v"))
 
             # Calculate chunk limits
+            default_duration = 5.0  # Default chunk duration in seconds
             if video_duration is not None:
                 chunk_frames = int(fps * video_duration)
+                chunk_duration_seconds = video_duration
             elif max_frames is not None:
                 chunk_frames = max_frames
+                chunk_duration_seconds = max_frames / fps
             else:
-                chunk_frames = int(fps * 5.0)  # Default to 5 seconds
-
-            # Calculate frame sample rate (how many original frames per processed frame)
-            frame_sample_rate = original_fps / fps if original_fps > 0 else 1.0
+                chunk_frames = int(fps * default_duration)
+                chunk_duration_seconds = default_duration
 
             retry_count = 0
             max_retries = 3
@@ -683,29 +740,33 @@ class ClientStreamUtils:
             max_consecutive_failures = 5
             global_frame_counter = 0
 
-            
             while not self._stop_streaming:
                 temp_path = None
                 out = None
                 try:
                     # Create temporary file for video chunk
-                    with tempfile.NamedTemporaryFile(suffix=f'.{video_format}', delete=False) as temp_file:
+                    with tempfile.NamedTemporaryFile(
+                        suffix=f".{video_format}", delete=False
+                    ) as temp_file:
                         temp_path = temp_file.name
 
                     # Create video writer
-                    out = cv2.VideoWriter(temp_path, fourcc, fps, (actual_width, actual_height))
-                    
+                    out = cv2.VideoWriter(
+                        temp_path, fourcc, fps, (actual_width, actual_height)
+                    )
+
                     if not out.isOpened():
                         logging.error(f"Failed to open video writer for {temp_path}")
                         consecutive_failures += 1
                         if consecutive_failures >= max_consecutive_failures:
-                            logging.error("Too many consecutive video writer failures, stopping")
+                            logging.error(
+                                "Too many consecutive video writer failures, stopping"
+                            )
                             break
                         continue
 
                     consecutive_failures = 0
                     frames_in_chunk = 0
-                    chunk_start_time = time.time()
                     chunk_start_frame = global_frame_counter + 1
 
                     # Collect frames for this chunk
@@ -715,7 +776,9 @@ class ClientStreamUtils:
 
                         if not ret:
                             retry_count += 1
-                            logging.warning(f"Failed to read frame, retry {retry_count}/{max_retries}")
+                            logging.warning(
+                                f"Failed to read frame, retry {retry_count}/{max_retries}"
+                            )
 
                             try:
                                 cap, retry_count = self._handle_frame_read_failure(
@@ -746,54 +809,44 @@ class ClientStreamUtils:
                     if frames_in_chunk > 0:
                         # Send video chunk to Kafka
                         try:
-                            with open(temp_path, 'rb') as video_file:
+                            with open(temp_path, "rb") as video_file:
                                 video_bytes = video_file.read()
 
                             chunk_count += 1
-                            chunk_end_frame = chunk_start_frame + frames_in_chunk - 1
-                            
-                            # Calculate video timestamp from start
-                            video_timestamp = self._calculate_video_timestamp(
-                                stream_key or "default", chunk_start_frame, original_fps
-                            )
-                            
-                            video_format = self._get_input_filename(input)
-                            if isinstance(video_format, str) and '.' in video_format:
-                                video_format = '.'+video_format.split('.')[-1].lower()
-                            else:
-                                video_format = '.mp4'
 
-                            # Enhanced metadata with all requested information
-                            success = self.produce_request(
-                                video_bytes, stream_key, 
-                                metadata={
-                                    "chunk_id": chunk_count,
-                                    "frames_count": frames_in_chunk,
-                                    "duration": time.time() - chunk_start_time,
-                                    "video_format": video_format,
-                                    "fps": fps,
-                                    "original_fps": original_fps,  # Added original video FPS
-                                    "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
-                                    "width": actual_width,
-                                    "height": actual_height,
-                                    "quality": quality,
-                                    "video_file": self._get_input_filename(input),
-                                    "camera_id": input if isinstance(input, int) or (isinstance(input, str) and input.isdigit()) else None,
-                                    "start_frame": chunk_start_frame,
-                                    "end_frame": chunk_end_frame,
-                                    "video_timestamp": video_timestamp,  # Added video timestamp from start
-                                    "stream_time": self._get_high_precision_timestamp(),  # Increased granularity
-                                    "is_video_chunk": True,  # Flag to indicate this is a video chunk
-                                    "chunk_duration_seconds": chunk_frames / fps,  # Duration of this chunk
-                                    "video_properties": video_props,  # Include all video properties
-                                    "stream_type": stream_type,  # Added stream type
-                                }
+                            # Build metadata using unified method
+                            chunk_metadata = self._build_stream_metadata(
+                                input=input,
+                                stream_key=stream_key,
+                                video_props=video_props,
+                                fps=fps,
+                                quality=quality,
+                                actual_width=actual_width,
+                                actual_height=actual_height,
+                                stream_type=stream_type,
+                                frame_counter=chunk_start_frame,
+                                is_video_chunk=True,
+                                chunk_duration_seconds=chunk_duration_seconds,
+                                chunk_frames=frames_in_chunk,
                             )
-                            
+
+                            success = self.produce_request(
+                                video_bytes,
+                                stream_key,
+                                stream_group_key,
+                                metadata=chunk_metadata,
+                            )
+
                             if success:
-                                logging.debug(f"Successfully sent video chunk {chunk_count} with {frames_in_chunk} frames (frames {chunk_start_frame}-{chunk_end_frame}) at video timestamp {video_timestamp:.3f}s")
+                                chunk_end_frame = chunk_start_frame + frames_in_chunk - 1
+                                video_timestamp = chunk_metadata["video_timestamp"]
+                                logging.debug(
+                                    f"Successfully sent video chunk {chunk_count} with {frames_in_chunk} frames (frames {chunk_start_frame}-{chunk_end_frame}) at video timestamp {video_timestamp}"
+                                )
                             else:
-                                logging.warning(f"Failed to produce video chunk {chunk_count} to Kafka stream")
+                                logging.warning(
+                                    f"Failed to produce video chunk {chunk_count} to Kafka stream"
+                                )
 
                         except Exception as e:
                             logging.error(f"Error reading video chunk file: {str(e)}")
@@ -802,7 +855,9 @@ class ClientStreamUtils:
                     logging.error(f"Error processing video chunk: {chunk_exc}")
                     consecutive_failures += 1
                     if consecutive_failures >= max_consecutive_failures:
-                        logging.error("Too many consecutive chunk processing failures, stopping")
+                        logging.error(
+                            "Too many consecutive chunk processing failures, stopping"
+                        )
                         break
                 finally:
                     # Clean up resources
@@ -811,12 +866,14 @@ class ClientStreamUtils:
                             out.release()
                         except Exception as e:
                             logging.warning(f"Error releasing video writer: {e}")
-                    
+
                     if temp_path and os.path.exists(temp_path):
                         try:
                             os.unlink(temp_path)
                         except Exception as e:
-                            logging.warning(f"Failed to delete temporary file {temp_path}: {str(e)}")
+                            logging.warning(
+                                f"Failed to delete temporary file {temp_path}: {str(e)}"
+                            )
 
                 if retry_count >= max_retries:
                     break
@@ -829,7 +886,43 @@ class ClientStreamUtils:
             if cap is not None:
                 cap.release()
                 logging.info(f"Released video source: {input}")
-            
+
             # Clean up stream session
             if stream_key in self.video_start_times:
                 del self.video_start_times[stream_key]
+
+    def stop_streaming(self) -> None:
+        """Stop all streaming threads."""
+        self._stop_streaming = True
+        for thread in self.streaming_threads:
+            if thread.is_alive():
+                thread.join(timeout=2.0)
+        self.streaming_threads = []
+        self._stop_streaming = False
+        logging.info("All streaming threads stopped")
+
+    async def close(self) -> None:
+        """Close all client connections including Kafka stream."""
+        errors = []
+
+        # Stop all streaming threads
+        try:
+            self.stop_streaming()
+        except Exception as exc:
+            error_msg = f"Error stopping streaming threads: {str(exc)}"
+            logging.error(error_msg)
+            errors.append(error_msg)
+
+        # Try to close Kafka connections
+        try:
+            await self.kafka_deployment.close()
+            logging.info("Successfully closed Kafka connections")
+        except Exception as exc:
+            error_msg = f"Error closing Kafka connections: {str(exc)}"
+            logging.error(error_msg)
+            errors.append(error_msg)
+
+        # Report all errors if any occurred
+        if errors:
+            error_summary = "\n".join(errors)
+            logging.error("Errors occurred during close: %s", error_summary)

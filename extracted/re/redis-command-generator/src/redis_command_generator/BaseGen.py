@@ -39,6 +39,7 @@ def exception_wrapper():
             ("MOVED" not in str(e)) and
             ("item exists" not in str(e)) and
             ("key already exists" not in str(e)) and
+            (not ("TS." in str(e) and "the key does not exist" in str(e))) and
             (not ("BF." in str(e) and "received bad data" in str(e))) and
             (not ("CF." in str(e) and "Invalid header" in str(e))) and
             (not ("CMS." in str(e) and "width/depth is not equal" in str(e))) and

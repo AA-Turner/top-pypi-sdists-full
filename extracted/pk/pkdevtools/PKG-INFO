@@ -1,9 +1,9 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: PKDevTools
-Version: 0.13.20250226.260
+Version: 0.13.20250727.265
 Summary: A general day-to-day toolset for PKScreener repos
 Home-page: https://github.com/pkjmesra/PKDevTools
-Download-URL: https://github.com/pkjmesra/PKDevTools/archive/v0.13.20250226.260.zip
+Download-URL: https://github.com/pkjmesra/PKDevTools/archive/v0.13.20250727.265.zip
 Author: pkjmesra
 Author-email: pkjmesra@gmail.com
 License: OSI Approved (MIT)
@@ -28,7 +28,7 @@ Requires-Dist: bs4
 Requires-Dist: cloudscraper
 Requires-Dist: filelock
 Requires-Dist: gitpython
-Requires-Dist: libsql_client
+Requires-Dist: libsql
 Requires-Dist: mistletoe
 Requires-Dist: numpy
 Requires-Dist: pandas
@@ -54,6 +54,7 @@ Dynamic: download-url
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: requires-dist
 Dynamic: summary
 

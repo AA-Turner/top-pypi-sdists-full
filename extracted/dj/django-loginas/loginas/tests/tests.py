@@ -84,7 +84,6 @@ class WrongAuthBackend:
 
 
 class ViewTest(TestCase):
-
     """Tests for user_login view"""
 
     def setUp(self):
@@ -271,7 +270,6 @@ class ViewTest(TestCase):
         self.assertEqual(urlsplit(response["Location"])[2], "/another-redirect")
 
     def test_restore_original_user(self):
-
         # Create a super user and login as this
         original_user = create_user("me", "pass", is_superuser=True, is_staff=True)
         self.assertTrue(self.client.login(username="me", password="pass"))

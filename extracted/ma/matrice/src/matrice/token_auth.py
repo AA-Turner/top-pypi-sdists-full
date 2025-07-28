@@ -40,7 +40,7 @@ class RefreshToken(AuthBase):
                 self.VALIDATE_ACCESS_KEY_URL,
                 headers=headers,
                 data=payload,
-                timeout=20,
+                timeout=60,
             )
         except Exception as e:
             print("Error while making request to the auth server")
@@ -91,7 +91,7 @@ class AuthToken(AuthBase):
                 self.REFRESH_TOKEN_URL,
                 headers=headers,
                 auth=self.refresh_token,
-                timeout=20,
+                timeout=60,
             )
         except Exception as e:
             print("Error while making request to the auth server")

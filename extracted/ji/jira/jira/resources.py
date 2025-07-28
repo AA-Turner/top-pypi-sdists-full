@@ -10,7 +10,8 @@ import json
 import logging
 import re
 import time
-from typing import TYPE_CHECKING, Any, Dict, List, Type, cast
+from typing import TYPE_CHECKING, Any, cast
+from urllib.parse import ParseResult, urlparse, urlunparse
 
 from requests import Response
 from requests.structures import CaseInsensitiveDict
@@ -69,6 +70,7 @@ __all__ = (
     "ServiceDesk",
     "RequestType",
     "resource_class_map",
+    "PinnedComment",
 )
 
 logging.getLogger("jira").addHandler(logging.NullHandler())
@@ -291,11 +293,29 @@ class Resource:
         options.update({"path": path})
         return self._base_url.format(**options)
 
+    def _validate_self_self_url(self) -> None:
+        """In the case of a proxy, use the configured option server URL."""
+        if getattr(self, "self", None):
+            self.self: str
+            self_parsed = urlparse(self.self)
+            server_parsed = urlparse(self._options["server"])
+            if self_parsed.netloc != server_parsed.netloc:
+                self.self = urlunparse(
+                    ParseResult(
+                        scheme=server_parsed.scheme,
+                        netloc=server_parsed.netloc,
+                        path=self_parsed.path,
+                        params=self_parsed.params,
+                        query=self_parsed.query,
+                        fragment=self_parsed.fragment,
+                    )
+                )
+
     def update(
         self,
         fields: dict[str, Any] | None = None,
         async_: bool | None = None,
-        jira: JIRA = None,
+        jira: JIRA | None = None,
         notify: bool = True,
         **kwargs: Any,
     ):
@@ -325,6 +345,7 @@ class Resource:
         else:
             querystring = ""
 
+        self._validate_self_self_url()
         r = self._session.put(self.self + querystring, data=json.dumps(data))
         if "autofix" in self._options and r.status_code == 400:
             user = None
@@ -335,8 +356,9 @@ class Resource:
                 and "reporter" not in data["fields"]
             ):
                 logging.warning(
-                    "autofix: setting reporter to '%s' and retrying the update."
-                    % self._options["autofix"]
+                    "autofix: setting reporter to '{}' and retrying the update.".format(
+                        self._options["autofix"]
+                    )
                 )
                 data["fields"]["reporter"] = {"name": self._options["autofix"]}
 
@@ -385,8 +407,7 @@ class Resource:
 
             if user and jira:
                 logging.warning(
-                    "Trying to add missing orphan user '%s' in order to complete the previous failed operation."
-                    % user
+                    f"Trying to add missing orphan user '{user}' in order to complete the previous failed operation."
                 )
                 jira.add_user(user, "noreply@example.com", 10100, active=False)
                 # if 'assignee' not in data['fields']:
@@ -419,6 +440,7 @@ class Resource:
         Returns:
             Optional[Response]: Returns None if async
         """
+        self._validate_self_self_url()
         if self._options["async"]:
             # FIXME: mypy doesn't think this should work
             if not hasattr(self._session, "_async_jobs"):
@@ -484,12 +506,12 @@ class Attachment(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "attachment/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
     def get(self):
         """Return the file content as a string."""
@@ -509,12 +531,12 @@ class Component(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "component/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
     def delete(self, moveIssuesTo: str | None = None):  # type: ignore[override]
         """Delete this component from the server.
@@ -536,12 +558,12 @@ class CustomFieldOption(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "customFieldOption/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class Dashboard(Resource):
@@ -551,13 +573,13 @@ class Dashboard(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "dashboard/{0}", options, session)
         if raw:
             self._parse_raw(raw)
         self.gadgets: list[DashboardGadget] = []
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class DashboardItemPropertyKey(Resource):
@@ -567,12 +589,12 @@ class DashboardItemPropertyKey(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "dashboard/{0}/items/{1}/properties", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class DashboardItemProperty(Resource):
@@ -582,14 +604,14 @@ class DashboardItemProperty(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(
             self, "dashboard/{0}/items/{1}/properties/{2}", options, session
         )
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
     def update(  # type: ignore[override] # incompatible supertype ignored
         self, dashboard_id: str, item_id: str, value: dict[str, Any]
@@ -608,9 +630,9 @@ class DashboardItemProperty(Resource):
           DashboardItemProperty
         """
         options = self._options.copy()
-        options[
-            "path"
-        ] = f"dashboard/{dashboard_id}/items/{item_id}/properties/{self.key}"
+        options["path"] = (
+            f"dashboard/{dashboard_id}/items/{item_id}/properties/{self.key}"
+        )
         self.raw["value"].update(value)
         self._session.put(self.JIRA_BASE_URL.format(**options), self.raw["value"])
 
@@ -628,9 +650,9 @@ class DashboardItemProperty(Resource):
           Response
         """
         options = self._options.copy()
-        options[
-            "path"
-        ] = f"dashboard/{dashboard_id}/items/{item_id}/properties/{self.key}"
+        options["path"] = (
+            f"dashboard/{dashboard_id}/items/{item_id}/properties/{self.key}"
+        )
 
         return self._session.delete(self.JIRA_BASE_URL.format(**options))
 
@@ -642,13 +664,13 @@ class DashboardGadget(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "dashboard/{0}/gadget/{1}", options, session)
         if raw:
             self._parse_raw(raw)
         self.item_properties: list[DashboardItemProperty] = []
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
     def update(  # type: ignore[override] # incompatible supertype ignored
         self,
@@ -718,12 +740,12 @@ class Field(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "field/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class Filter(Resource):
@@ -733,12 +755,12 @@ class Filter(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "filter/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class Issue(Resource):
@@ -781,7 +803,7 @@ class Issue(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "issue/{0}", options, session)
 
@@ -790,14 +812,14 @@ class Issue(Resource):
         self.key: str
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
     def update(  # type: ignore[override] # incompatible supertype ignored
         self,
-        fields: dict[str, Any] = None,
-        update: dict[str, Any] = None,
-        async_: bool = None,
-        jira: JIRA = None,
+        fields: dict[str, Any] | None = None,
+        update: dict[str, Any] | None = None,
+        async_: bool | None = None,
+        jira: JIRA | None = None,
         notify: bool = True,
         **fieldargs,
     ):
@@ -886,7 +908,7 @@ class Issue(Resource):
         """Delete this issue from the server.
 
         Args:
-            deleteSubtasks (bool): True to also delete subtasks. If any are present the Issue won't be deleted (Default: ``True``)
+            deleteSubtasks (bool): True to also delete subtasks. If any are present the Issue won't be deleted (Default: ``False``)
         """
         super().delete(params={"deleteSubtasks": deleteSubtasks})
 
@@ -906,12 +928,12 @@ class Comment(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "issue/{0}/comment/{1}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
     def update(  # type: ignore[override]
         # The above ignore is added because we've added new parameters and order of
@@ -920,7 +942,7 @@ class Comment(Resource):
         self,
         fields: dict[str, Any] | None = None,
         async_: bool | None = None,
-        jira: JIRA = None,
+        jira: JIRA | None = None,
         body: str = "",
         visibility: dict[str, str] | None = None,
         is_internal: bool = False,
@@ -955,6 +977,21 @@ class Comment(Resource):
         super().update(async_=async_, jira=jira, notify=notify, fields=data)
 
 
+class PinnedComment(Resource):
+    """Pinned comment on an issue."""
+
+    def __init__(
+        self,
+        options: dict[str, str],
+        session: ResilientSession,
+        raw: dict[str, Any] | None = None,
+    ):
+        Resource.__init__(self, "issue/{0}/pinned-comments", options, session)
+        if raw:
+            self._parse_raw(raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
+
+
 class RemoteLink(Resource):
     """A link to a remote application from an issue."""
 
@@ -962,14 +999,20 @@ class RemoteLink(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "issue/{0}/remotelink/{1}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
-    def update(self, object, globalId=None, application=None, relationship=None):
+    def update(  # type: ignore[override]
+        self,
+        object: dict[str, Any] | None,
+        globalId=None,
+        application=None,
+        relationship=None,
+    ):
         """Update a RemoteLink. 'object' is required.
 
         For definitions of the allowable fields for 'object' and the keyword arguments 'globalId', 'application' and 'relationship',
@@ -989,7 +1032,8 @@ class RemoteLink(Resource):
         if relationship is not None:
             data["relationship"] = relationship
 
-        super().update(**data)
+        # https://github.com/pycontribs/jira/issues/1881
+        super().update(**data)  # type: ignore[arg-type]
 
 
 class Votes(Resource):
@@ -999,12 +1043,12 @@ class Votes(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "issue/{0}/votes", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class IssueTypeScheme(Resource):
@@ -1014,7 +1058,7 @@ class IssueTypeScheme(Resource):
         Resource.__init__(self, "issuetypescheme", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class IssueSecurityLevelScheme(Resource):
@@ -1026,7 +1070,7 @@ class IssueSecurityLevelScheme(Resource):
         )
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class NotificationScheme(Resource):
@@ -1038,7 +1082,7 @@ class NotificationScheme(Resource):
         )
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class PermissionScheme(Resource):
@@ -1050,7 +1094,7 @@ class PermissionScheme(Resource):
         )
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class PriorityScheme(Resource):
@@ -1062,7 +1106,7 @@ class PriorityScheme(Resource):
         )
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class WorkflowScheme(Resource):
@@ -1074,7 +1118,7 @@ class WorkflowScheme(Resource):
         )
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class Watchers(Resource):
@@ -1084,14 +1128,14 @@ class Watchers(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "issue/{0}/watchers", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
-    def delete(self, username):
+    def delete(self, username):  # type: ignore[override]
         """Remove the specified user from the watchers list."""
         super().delete(params={"username": username})
 
@@ -1101,13 +1145,13 @@ class TimeTracking(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "issue/{0}/worklog/{1}", options, session)
         self.remainingEstimate = None
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class Worklog(Resource):
@@ -1117,12 +1161,12 @@ class Worklog(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "issue/{0}/worklog/{1}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
     def delete(  # type: ignore[override]
         self, adjustEstimate: str | None = None, newEstimate=None, increaseBy=None
@@ -1154,12 +1198,12 @@ class IssueProperty(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "issue/{0}/properties/{1}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
     def _find_by_url(
         self,
@@ -1178,12 +1222,12 @@ class IssueLink(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "issueLink/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class IssueLinkType(Resource):
@@ -1193,12 +1237,12 @@ class IssueLinkType(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "issueLinkType/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class IssueType(Resource):
@@ -1208,12 +1252,12 @@ class IssueType(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "issuetype/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class Priority(Resource):
@@ -1223,12 +1267,12 @@ class Priority(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "priority/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class Project(Resource):
@@ -1238,12 +1282,12 @@ class Project(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "project/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class Role(Resource):
@@ -1253,17 +1297,17 @@ class Role(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "project/{0}/role/{1}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
     def update(  # type: ignore[override]
         self,
-        users: str | list | tuple = None,
-        groups: str | list | tuple = None,
+        users: str | list | tuple | None = None,
+        groups: str | list | tuple | None = None,
     ):
         """Add the specified users or groups to this project role. One of ``users`` or ``groups`` must be specified.
 
@@ -1288,8 +1332,8 @@ class Role(Resource):
 
     def add_user(
         self,
-        users: str | list | tuple = None,
-        groups: str | list | tuple = None,
+        users: str | list | tuple | None = None,
+        groups: str | list | tuple | None = None,
     ):
         """Add the specified users or groups to this project role. One of ``users`` or ``groups`` must be specified.
 
@@ -1313,12 +1357,12 @@ class Resolution(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "resolution/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class SecurityLevel(Resource):
@@ -1328,12 +1372,12 @@ class SecurityLevel(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "securitylevel/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class Status(Resource):
@@ -1343,12 +1387,12 @@ class Status(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "status/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class StatusCategory(Resource):
@@ -1358,12 +1402,12 @@ class StatusCategory(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "statuscategory/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class User(Resource):
@@ -1373,7 +1417,7 @@ class User(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
         *,
         _query_param: str = "username",
     ):
@@ -1384,7 +1428,7 @@ class User(Resource):
         Resource.__init__(self, f"user?{_query_param}" + "={0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class Group(Resource):
@@ -1394,12 +1438,12 @@ class Group(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "group?groupname={0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class Version(Resource):
@@ -1409,12 +1453,12 @@ class Version(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "version/{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
     def delete(self, moveFixIssuesTo=None, moveAffectedIssuesTo=None):
         """Delete this project version from the server.
@@ -1433,7 +1477,8 @@ class Version(Resource):
 
         return super().delete(params)
 
-    def update(self, **kwargs):
+    # TODO: https://github.com/pycontribs/jira/issues/1881
+    def update(self, **kwargs):  # type: ignore[override]
         """Update this project version from the server. It is prior used to archive versions.
 
         Refer to Atlassian REST API `documentation`_.
@@ -1478,14 +1523,14 @@ class AgileResource(Resource):
         path: str,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
-        self.self = None
+        self.self = ""
 
         Resource.__init__(self, path, options, session, self.AGILE_BASE_URL)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class Sprint(AgileResource):
@@ -1495,7 +1540,7 @@ class Sprint(AgileResource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         AgileResource.__init__(self, "sprint/{0}", options, session, raw)
 
@@ -1507,7 +1552,7 @@ class Board(AgileResource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         AgileResource.__init__(self, "board/{id}", options, session, raw)
 
@@ -1522,14 +1567,14 @@ class Customer(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(
             self, "customer", options, session, "{server}/rest/servicedeskapi/{path}"
         )
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class ServiceDesk(Resource):
@@ -1539,7 +1584,7 @@ class ServiceDesk(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(
             self,
@@ -1550,7 +1595,7 @@ class ServiceDesk(Resource):
         )
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 class RequestType(Resource):
@@ -1560,7 +1605,7 @@ class RequestType(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(
             self,
@@ -1572,7 +1617,7 @@ class RequestType(Resource):
 
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 # Utilities
@@ -1594,9 +1639,9 @@ def dict2resource(
         if isinstance(j, dict):
             if "self" in j:
                 # to try and help mypy know that cls_for_resource can never be 'Resource'
-                resource_class = cast(Type[Resource], cls_for_resource(j["self"]))
+                resource_class = cast(type[Resource], cls_for_resource(j["self"]))
                 resource = cast(
-                    Type[Resource],
+                    type[Resource],
                     resource_class(  # type: ignore
                         options=options,
                         session=session,
@@ -1609,17 +1654,17 @@ def dict2resource(
             else:
                 setattr(top, i, dict2resource(j, options=options, session=session))
         elif isinstance(j, seqs):
-            j = cast(List[Dict[str, Any]], j)  # help mypy
+            j = cast(list[dict[str, Any]], j)  # help mypy
             seq_list: list[Any] = []
             for seq_elem in j:
                 if isinstance(seq_elem, dict):
                     if "self" in seq_elem:
                         # to try and help mypy know that cls_for_resource can never be 'Resource'
                         resource_class = cast(
-                            Type[Resource], cls_for_resource(seq_elem["self"])
+                            type[Resource], cls_for_resource(seq_elem["self"])
                         )
                         resource = cast(
-                            Type[Resource],
+                            type[Resource],
                             resource_class(  # type: ignore
                                 options=options,
                                 session=session,
@@ -1651,6 +1696,7 @@ resource_class_map: dict[str, type[Resource]] = {
     r"filter/[^/]$": Filter,
     r"issue/[^/]+$": Issue,
     r"issue/[^/]+/comment/[^/]+$": Comment,
+    r"issue/[^/]+/pinned-comments$": PinnedComment,
     r"issue/[^/]+/votes$": Votes,
     r"issue/[^/]+/watchers$": Watchers,
     r"issue/[^/]+/worklog/[^/]+$": Worklog,
@@ -1687,12 +1733,12 @@ class UnknownResource(Resource):
         self,
         options: dict[str, str],
         session: ResilientSession,
-        raw: dict[str, Any] = None,
+        raw: dict[str, Any] | None = None,
     ):
         Resource.__init__(self, "unknown{0}", options, session)
         if raw:
             self._parse_raw(raw)
-        self.raw: dict[str, Any] = cast(Dict[str, Any], self.raw)
+        self.raw: dict[str, Any] = cast(dict[str, Any], self.raw)
 
 
 def cls_for_resource(resource_literal: str) -> type[Resource]:

@@ -92,6 +92,30 @@ class WorkflowGraph(HasProcessesConnectionsPorts):
     ports: NodePorts
 
 
+def extract_slug_to_process_mapping(
+    processes: Dict[str, WorkflowNode],
+) -> Dict[str, str]:
+    """Extract mapping from slug to process ID."""
+    slug_to_process = {}
+
+    def extract_from_node(node: WorkflowNode, parent_slug: str = ""):
+        """Recursively extract slug mappings."""
+        current_slug = node.metadata.get("slug", "")
+        if parent_slug:
+            current_slug = f"{parent_slug}.{current_slug}"
+
+        slug_to_process[current_slug] = node.id
+
+        if isinstance(node, WorkflowGroup):
+            for _, child_node in node.processes.items():
+                extract_from_node(child_node, current_slug)
+
+    for _, node in processes.items():
+        extract_from_node(node)
+
+    return slug_to_process
+
+
 def get_workflow_graph(code: Optional[Dict[str, str]]) -> Optional[WorkflowGraph]:
     """Extract workflow graph from code dictionary."""
     if not code:

@@ -151,7 +151,7 @@ fn parse_four_digits(bytes: &[u8]) -> Option<u16> {
     let value = u32::from_ne_bytes([bytes[0], bytes[1], bytes[2], bytes[3]]);
 
     // Check if all bytes are ASCII digits
-    if value.wrapping_sub(0x30303030) & 0xF0F0F0F0 == 0 {
+    if value.wrapping_sub(0x3030_3030) & 0xF0F0_F0F0 == 0 {
         let val = (value & 0x0F0F_0F0F).wrapping_mul(2561) >> 8;
         Some(((val & 0x00FF_00FF).wrapping_mul(6_553_601) >> 16) as u16)
     } else {
@@ -467,7 +467,7 @@ fn is_valid_idn_hostname(hostname: &str) -> bool {
             // Hiragana, Katakana, or Han
             // https://www.rfc-editor.org/rfc/rfc5892#appendix-A.7
             '\u{3040}'..='\u{309F}' | '\u{30A0}'..='\u{30FF}' | '\u{4E00}'..='\u{9FFF}' => {
-                has_hiragana_katakana_han = true
+                has_hiragana_katakana_han = true;
             }
             // ARABIC-INDIC DIGITS
             // https://www.rfc-editor.org/rfc/rfc5892#appendix-A.8
@@ -831,7 +831,7 @@ mod tests {
         let schema = json!({"format": "custom", "type": "string"});
         let instance = json!("foo");
         let validator = crate::validator_for(&schema).unwrap();
-        assert!(validator.is_valid(&instance))
+        assert!(validator.is_valid(&instance));
     }
 
     #[test]
@@ -861,12 +861,12 @@ mod tests {
         let schema = json!({"format": "regex", "type": "string"});
         let instance = json!("^\\cc$");
         let validator = crate::validator_for(&schema).unwrap();
-        assert!(validator.is_valid(&instance))
+        assert!(validator.is_valid(&instance));
     }
 
     #[test]
     fn location() {
-        tests_util::assert_schema_location(&json!({"format": "date"}), &json!("bla"), "/format")
+        tests_util::assert_schema_location(&json!({"format": "date"}), &json!("bla"), "/format");
     }
 
     #[test]
@@ -883,7 +883,7 @@ mod tests {
             .unwrap();
 
         assert!(validator.is_valid(&passing_instance));
-        assert!(!validator.is_valid(&failing_instance))
+        assert!(!validator.is_valid(&failing_instance));
     }
 
     #[test]

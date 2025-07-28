@@ -1,4 +1,6 @@
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use std::hint::black_box;
+
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
 use jsonschema::paths::{Location, LocationSegment};
 
 fn benchmark_into_iterator(c: &mut Criterion) {
@@ -44,7 +46,7 @@ fn benchmark_from_iterator(c: &mut Criterion) {
                     || i.clone().into_iter(),
                     |i| Location::from_iter(black_box(i)),
                     criterion::BatchSize::SmallInput,
-                )
+                );
             },
         );
     }

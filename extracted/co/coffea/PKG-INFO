@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: coffea
-Version: 2025.7.2
+Version: 2025.7.3
 Summary: Basic tools and wrappers for enabling not-too-alien syntax when running columnar Collider HEP analysis.
 Project-URL: Homepage, https://github.com/coffeateam/coffea
 Project-URL: Bug Tracker, https://github.com/coffeateam/coffea/issues

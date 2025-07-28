@@ -2,7 +2,7 @@ import sys
 import uuid
 from collections import OrderedDict, namedtuple
 from contextlib import suppress
-from enum import Enum
+import enum as E
 from functools import partial
 
 import pytest
@@ -143,7 +143,6 @@ def test_paths():
     ["schema", "instance", "kind", "attrs"],
     [
         ({"maxItems": 1}, [1, 2], ValidationErrorKind.MaxItems, {"limit": 1}),
-        ({"anyOf": [{"type": "string"}, {"type": "number"}]}, True, ValidationErrorKind.AnyOf, {}),
         ({"const": "test"}, "wrong", ValidationErrorKind.Constant, {"expected_value": "test"}),
         ({"contains": {"type": "string"}}, [1, 2, 3], ValidationErrorKind.Contains, {}),
         ({"enum": [1, 2, 3]}, 4, ValidationErrorKind.Enum, {"options": [1, 2, 3]}),
@@ -176,6 +175,45 @@ def test_validation_error_kinds(schema, instance, kind, attrs):
     for attr, expected_value in attrs.items():
         assert hasattr(exc.value.kind, attr)
         assert getattr(exc.value.kind, attr) == expected_value
+
+
+@pytest.mark.parametrize(
+    ["schema", "instance", "kind", "context"],
+    [
+        (
+            {"anyOf": [{"type": "string"}, {"type": "number"}]},
+            True,
+            ValidationErrorKind.AnyOf,
+            [
+                [ValidationError("true is not of type \"string\"", "", ['anyOf', 0, 'type'], [], ValidationErrorKind.Type(["string"]), True)],
+                [ValidationError("true is not of type \"number\"", "", ['anyOf', 1, 'type'], [], ValidationErrorKind.Type(["number"]), True)],
+            ]
+        ),
+        (
+            {"oneOf": [{"type": "number"}, {"type": "number"}]},
+            "1",
+            ValidationErrorKind.OneOfNotValid,
+            [
+                [ValidationError("\"1\" is not of type \"number\"", "", ['oneOf', 0, 'type'], [], ValidationErrorKind.Type(["number"]), "1")],
+                [ValidationError("\"1\" is not of type \"number\"", "", ['oneOf', 1, 'type'], [], ValidationErrorKind.Type(["number"]), "1")],
+            ]
+        ),
+    ],
+)
+def test_validation_error_kinds_with_context(schema, instance, kind, context):
+    with pytest.raises(ValidationError) as exc:
+        validate(schema, instance, validate_formats=True)
+
+    assert isinstance(exc.value.kind, kind)
+
+    for schema_id, errors in enumerate(context):
+        for index, expected_error in enumerate(errors):
+            actual_error = exc.value.kind.context[schema_id][index]
+            assert actual_error.message == expected_error.message
+            assert actual_error.schema_path == expected_error.schema_path
+            assert actual_error.instance_path == expected_error.instance_path
+            assert isinstance(actual_error.kind, type(expected_error.kind))
+            assert actual_error.instance == expected_error.instance
 
 
 @given(minimum=st.integers().map(abs))
@@ -281,12 +319,12 @@ def test_iter_err_empty(func):
         pytest.fail("Validation error should happen")
 
 
-class StrEnum(Enum):
+class StrEnum(E.Enum):
     bar = "bar"
     foo = "foo"
 
 
-class IntEnum(Enum):
+class IntEnum(E.Enum):
     bar = 1
     foo = 2
 
@@ -309,9 +347,8 @@ def test_enums(type_, value, expected):
 def test_dict_with_non_str_keys():
     schema = {"type": "object"}
     instance = {uuid.uuid4(): "foo"}
-    with pytest.raises(ValueError) as exec_info:
+    with pytest.raises(ValueError, match="Dict key must be str or str enum. Got 'UUID'"):
         validate(schema, instance)
-    assert exec_info.value.args[0] == "Dict key must be str. Got 'UUID'"
 
 
 class MyDict(dict):
@@ -438,3 +475,55 @@ def test_ignore_unknown_formats(cls, ignore_unknown_formats, should_raise):
 def test_unicode_pattern():
     validator = Draft202012Validator({"pattern": "aaaaaaaèaaéaaaaéè"})
     assert not validator.is_valid("a")
+
+
+enum_type_dec = pytest.mark.parametrize(
+    "enum_type",
+    (
+        "old",
+        pytest.param(
+            "new",
+            marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="New style enums are supported from 3.11"),
+        ),
+    ),
+)
+
+
+@enum_type_dec
+@pytest.mark.parametrize("valid", (True, False))
+def test_enum_as_keys(enum_type, valid):
+    if enum_type == "old":
+        bases = (str, E.Enum)
+    else:
+        bases = (E.StrEnum,)
+
+    class EnumCls(*bases):
+        A = "a"
+        B = "b"
+
+    schema = {
+        "properties": {
+            "a": {"type": "string"},
+        },
+        "additionalProperties": False,
+    }
+    if valid:
+        schema["properties"]["b"] = {"type": "number"}
+
+    assert is_valid(schema, {EnumCls.A: "xyz", EnumCls.B: 42}) is valid
+
+
+@enum_type_dec
+def test_enum_as_keys_invalid(enum_type):
+    if enum_type == "old":
+
+        class EnumCls(E.IntEnum):
+            A = 42
+    else:
+
+        class EnumCls(E.Enum):
+            A = "a"
+
+    schema = {"properties": {"a": {"type": "string"}}}
+    with pytest.raises(ValueError, match=f"Dict key must be str or str enum. Got '{EnumCls.__name__}'"):
+        is_valid(schema, {EnumCls.A: "xyz"})

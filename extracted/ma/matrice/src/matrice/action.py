@@ -94,6 +94,265 @@ class Action:
         }
         self.__init__(**init_params)
 
+def get_project_id_by_service_id(session, service_id):
+    """
+    Get the Project Id by the service ID.
+
+    Parameters
+    ----------
+    session : RPCSession
+        An active session object used to perform API requests.
+    service_id: str
+        A unique identifier of a particular service associated with a project
+
+    Returns
+    -------
+    tuple
+        A tuple containing two elements:
+        - A dictionary with the action records if the request is successful.
+        - An error message (str) if the request fails, otherwise `None`.
+
+    Raises
+    ------
+    ConnectionError
+        Raised when there's a failure in communication with the API.
+
+    Examples
+    --------
+    >>> session = RPCSession()
+    >>> data, error = get_project_id_by_service_id(session)
+    >>> if error is None:
+    >>>     pprint(data)
+    >>> else:
+    >>>     print(f"Error: {error}")
+    """
+    path = f"/v1/actions/list_all_account_action_details"
+    resp = session.rpc.get(path=path)
+    if resp.get("success"):
+        return resp.get("data"), None
+    return resp.get("data"), resp.get("message")
+
+def list_all_account_action_details(session):
+    """
+    List all account with there action details.
+
+    Parameters
+    ----------
+    session : RPCSession
+        An active session object used to perform API requests.
+
+    Returns
+    -------
+    tuple
+        A tuple containing two elements:
+        - A dictionary with the action records if the request is successful.
+        - An error message (str) if the request fails, otherwise `None`.
+
+    Raises
+    ------
+    ConnectionError
+        Raised when there's a failure in communication with the API.
+
+    Examples
+    --------
+    >>> session = RPCSession()
+    >>> data, error = list_all_account_action_details(session)
+    >>> if error is None:
+    >>>     pprint(data)
+    >>> else:
+    >>>     print(f"Error: {error}")
+    """
+    path = f"/v1/actions/list_all_account_action_details"
+    resp = session.rpc.get(path=path)
+    if resp.get("success"):
+        return resp.get("data"), None
+    return resp.get("data"), resp.get("message")
+
+def get_recent_actions(session):
+    """
+    Fetches recent actions performed on the platform.
+
+    Parameters
+    ----------
+    session : RPCSession
+        An active session object used to perform API requests.
+
+    Returns
+    -------
+    tuple
+        A tuple containing two elements:
+        - A dictionary with the action records if the request is successful.
+        - An error message (str) if the request fails, otherwise `None`.
+
+    Raises
+    ------
+    ConnectionError
+        Raised when there's a failure in communication with the API.
+
+    Examples
+    --------
+    >>> session = RPCSession()
+    >>> data, error = get_recent_actions(session)
+    >>> if error is None:
+    >>>     pprint(data)
+    >>> else:
+    >>>     print(f"Error: {error}")
+    """
+    path = f"/v1/actions/recent_actions"
+    resp = session.rpc.get(path=path)
+    if resp.get("success"):
+        return resp.get("data"), None
+    return resp.get("data"), resp.get("message")
+
+def get_action_record_for_account_number(session):
+    """
+    Fetches action details of the account number.
+
+    Parameters
+    ----------
+    session : RPCSession
+        An active session object used to perform API requests.
+
+    Returns
+    -------
+    tuple
+        A tuple containing two elements:
+        - A dictionary with the action records if the request is successful.
+        - An error message (str) if the request fails, otherwise `None`.
+
+    Raises
+    ------
+    ConnectionError
+        Raised when there's a failure in communication with the API.
+
+    Examples
+    --------
+    >>> session = RPCSession()
+    >>> data, error = get_action_record_for_account_number(session)
+    >>> if error is None:
+    >>>     pprint(data)
+    >>> else:
+    >>>     print(f"Error: {error}")
+    """
+    path = f"/v1/actions/action_records"
+    resp = session.rpc.get(path=path)
+    if resp.get("success"):
+        return resp.get("data"), None
+    return resp.get("data"), resp.get("message")
+
+def get_action_logs_from_record_id(session, action_record_id):
+    """
+    Fetches action details from action record ID.
+
+    Parameters
+    ----------
+    session : RPCSession
+        An active session object used to perform API requests.
+    action_record_id : str
+        The unique identifier of the action logs whose details are being fetched.
+
+    Returns
+    -------
+    tuple
+        A tuple containing two elements:
+        - A dictionary with the action logs if the request is successful.
+        - An error message (str) if the request fails, otherwise `None`.
+
+    Raises
+    ------
+    ConnectionError
+        Raised when there's a failure in communication with the API.
+
+    Examples
+    --------
+    >>> session = RPCSession()
+    >>> data, error = get_action_logs_from_record_id(session, "action_record_id_1234")
+    >>> if error is None:
+    >>>     pprint(data)
+    >>> else:
+    >>>     print(f"Error: {error}")
+    """
+    path = f"/v1/actions/action_logs_from_record_id/{action_record_id}"
+    resp = session.rpc.get(path=path)
+    if resp.get("success"):
+        return resp.get("data"), None
+    return resp.get("data"), resp.get("message")
+
+def get_service_action_logs(session, service_id):
+    """
+    Fetches action details from service ID.
+
+    Parameters
+    ----------
+    session : RPCSession
+        An active session object used to perform API requests.
+    service_id : str
+        The unique identifier of the service whose details are being fetched.
+
+    Returns
+    -------
+    tuple
+        A tuple containing two elements:
+        - A dictionary with the action logs if the request is successful.
+        - An error message (str) if the request fails, otherwise `None`.
+
+    Raises
+    ------
+    ConnectionError
+        Raised when there's a failure in communication with the API.
+
+    Examples
+    --------
+    >>> session = RPCSession()
+    >>> data, error = get_action_details(session, "service_id_1234")
+    >>> if error is None:
+    >>>     pprint(data)
+    >>> else:
+    >>>     print(f"Error: {error}")
+    """
+    path = f"/v1/actions/{service_id}/logs"
+    resp = session.rpc.get(path=path)
+    if resp.get("success"):
+        return resp.get("data"), None
+    return resp.get("data"), resp.get("message")
+
+def get_action_logs_from_action_record_id(session, action_record_id):
+    """
+    Fetches action details from action record ID.
+
+    Parameters
+    ----------
+    session : RPCSession
+        An active session object used to perform API requests.
+    action_record_id : str
+        The unique identifier of the service whose details are being fetched.
+
+    Returns
+    -------
+    tuple
+        A tuple containing two elements:
+        - A dictionary with the action logs if the request is successful.
+        - An error message (str) if the request fails, otherwise `None`.
+
+    Raises
+    ------
+    ConnectionError
+        Raised when there's a failure in communication with the API.
+
+    Examples
+    --------
+    >>> session = RPCSession()
+    >>> data, error = get_action_logs_from_action_record_id(session, "action_record_id_1234")
+    >>> if error is None:
+    >>>     pprint(data)
+    >>> else:
+    >>>     print(f"Error: {error}")
+    """
+    path = f"/v1/actions/action_logs_from_record_id/{action_record_id}"
+    resp = session.rpc.get(path=path)
+    if resp.get("success"):
+        return resp.get("data"), None
+    return resp.get("data"), resp.get("message")
 
 def get_action_details(session, action_id):
     """
@@ -127,8 +386,176 @@ def get_action_details(session, action_id):
     >>> else:
     >>>     print(f"Error: {error}")
     """
-    path = f"/v1/project/action/{action_id}/details"
+    path = f"/v1/actions/action/{action_id}/details"
     resp = session.rpc.get(path=path)
     if resp.get("success"):
         return resp.get("data"), None
     return resp.get("data"), resp.get("message")
+
+def get_action_docker_logs(session, action_record_id):
+    """
+    Get the docker logs associated with a particular action record.
+
+    Parameters
+    ----------
+    session : RPCSession
+        An active session object used to perform API requests.
+    action_record_id : str
+        The unique identifier of the action record whose docker logs are being fetched.
+
+    Returns
+    -------
+    tuple
+        A tuple containing two elements:
+        - A dictionary with the action details if the request is successful.
+        - An error message (str) if the request fails, otherwise `None`.
+
+    Raises
+    ------
+    ConnectionError
+        Raised when there's a failure in communication with the API.
+
+    Examples
+    --------
+    >>> session = RPCSession()
+    >>> data, error = get_action_docker_logs(session, "action_id_1234")
+    >>> if error is None:
+    >>>     pprint(data)
+    >>> else:
+    >>>     print(f"Error: {error}")
+    """
+    path = f"/v1/actions/get_action_docker_logs/{action_record_id}"
+    resp = session.rpc.get(path=path)
+    if resp.get("success"):
+        return resp.get("data"), None
+    return resp.get("data"), resp.get("message")
+
+def get_action_graph(session, granularity, start_date, end_date):
+    """
+    Get the action graph
+
+    Parameters
+    ----------
+    session : RPCSession
+        An active session object used to perform API requests.
+    granularity : str
+        Unit for the created by time
+    start_date: str
+        Date and tiem 
+
+    Returns
+    -------
+    tuple
+        A tuple containing two elements:
+        - A dictionary with the action details if the request is successful.
+        - An error message (str) if the request fails, otherwise `None`.
+
+    Raises
+    ------
+    ConnectionError
+        Raised when there's a failure in communication with the API.
+
+    Examples
+    --------
+    >>> session = RPCSession()
+    >>> data, error = get_action_graph(session, "action_id_1234")
+    >>> if error is None:
+    >>>     pprint(data)
+    >>> else:
+    >>>     print(f"Error: {error}")
+    """
+    path = f"/v1/actions/get_actions_graph"
+    payload = {
+        "accountNumber": session.account_number,
+        "granularity": granularity,
+        "startDate": start_date,
+        "endDate": end_date
+    }
+
+    resp = session.rpc.get(path=path, payload=payload)
+    if resp.get("success"):
+        return resp.get("data"), None
+    return resp.post("data"), resp.get("message")
+
+def clone_project(session, source_project_id, new_project_name):
+    """
+    Clone the project with the project ID
+
+    Parameters
+    ----------
+    session : RPCSession
+        An active session object used to perform API requests.
+    source_project_id : str
+        ID of the project you want to copy.
+    new_project_name: str
+        Name of the new project.
+
+    Returns
+    -------
+    tuple
+        A tuple containing two elements:
+        - A dictionary with the action details if the request is successful.
+        - An error message (str) if the request fails, otherwise `None`.
+
+    Raises
+    ------
+    ConnectionError
+        Raised when there's a failure in communication with the API.
+
+    Examples
+    --------
+    >>> session = RPCSession()
+    >>> data, error = clone_project(session, "ProjectID_1234", "New_Project_name")
+    >>> if error is None:
+    >>>     pprint(data)
+    >>> else:
+    >>>     print(f"Error: {error}")
+    """
+    path = f"/v1/actions/clone_project"
+    payload = {
+        "sourceProjectId": source_project_id,
+        "newProjectName": new_project_name
+    }
+
+    resp = session.rpc.get(path=path, payload=payload)
+    if resp.get("success"):
+        return resp.get("data"), None
+    return resp.post("data"), resp.get("message")
+
+def enable_disable_project(session, type, project_id):
+    """
+    Enable or disable a project
+
+    Parameters
+    ----------
+    session : RPCSession
+        An active session object used to perform API requests.
+    type : str
+        Action you want to perform i.e either enable or disable
+    project_id: str
+        Id of the project you want to enable or disable
+
+    Returns
+    -------
+
+    Raises
+    ------
+    ConnectionError
+        Raised when there's a failure in enabling or disabling the project.
+
+    Examples
+    --------
+    >>> session = RPCSession()
+    >>> data, error = enable_disable_project(session, "enable", "ProjectID_1234")
+    >>> if error is None:
+    >>>     pprint(data)
+    >>> else:
+    >>>     print(f"Error: {error}")
+    """
+    path = f"/v1/actions/enable-disable-project/{type}/{project_id}"
+
+
+    resp = session.rpc.get(path=path)
+    if resp.get("success"):
+        return resp.get("data"), None
+    return resp.put("data"), resp.get("message")

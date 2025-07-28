@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: python-gitlab
-Version: 6.1.0
+Version: 6.2.0
 Summary: The python wrapper for the GitLab REST and GraphQL APIs.
 Author-email: Gauvain Pocentek <gauvain@pocentek.net>
 Maintainer-email: John Villalovos <john@sodarock.com>, Max Wittig <max.wittig@siemens.com>, Nejc Habjan <nejc.habjan@siemens.com>, Roger Meier <r.meier@siemens.com>

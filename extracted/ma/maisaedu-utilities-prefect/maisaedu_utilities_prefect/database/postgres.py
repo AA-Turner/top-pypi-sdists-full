@@ -1,4 +1,3 @@
-import re
 import psycopg2
 import psycopg2.extras as extras
 import psycopg2.sql as sql
@@ -6,6 +5,7 @@ import pandas as pd
 import numpy as np
 import os
 from psycopg2.extensions import register_adapter, AsIs
+from maisaedu_utilities_prefect.database import detect_sql_injection
 
 register_adapter(np.int64, AsIs)
 
@@ -111,7 +111,6 @@ def copy(
 def select(conn, str, params=None):
     cur = conn.cursor()
     try:
-        detect_sql_injection_in_select_statement(str)
         cur.execute(str, params)
         row = cur.fetchall()
         cur.close()
@@ -124,9 +123,6 @@ def select(conn, str, params=None):
 def execute(conn, str, default_commit=True, params=None):
     cur = conn.cursor()
     try:
-        if ";" in str:
-            raise ValueError("Semicolon detected in SQL statement, which is not allowed.")
-        
         cur.execute(str, params)
         if default_commit:
             conn.commit()
@@ -140,7 +136,6 @@ def execute(conn, str, default_commit=True, params=None):
 def execute_vacuum(conn, table_name, full = False):
     cur = conn.cursor()
     try:
-        detect_sql_injection(table_name)
         conn.autocommit = True
         if full is True:
             cur.execute(f"VACUUM FULL {table_name};")
@@ -152,53 +147,3 @@ def execute_vacuum(conn, table_name, full = False):
         conn.autocommit = False
         cur.close()
         raise error
-    
-def detect_sql_injection(input):
-    if not input or not isinstance(input, str):
-        return input
-
-    sql_patterns = [
-        r"(--|\#|\/\*)",  # Comments SQL
-        r"(\b(SELECT|INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|EXEC|UNION|GRANT|REVOKE|TRUNCATE)\b)",  # Danger Commands SQL
-        r"(\b(OR|AND)\b\s*\d?\s*=\s*\d?)",  # Conditions booleans like OR 1=1
-        r"(\bUNION\b.*\bSELECT\b)",  # Attacks like UNION SELECT
-        r"('.+--)",  # "" before comments""
-        r"([\"']\s*OR\s*[\"']?\d+=[\"']?\d+)",  # Injection OR '1'='1'
-        r"(\bEXEC\s*\()",  # Remote execution
-    ]
-
-    normalized_string = input.lower().strip()
-
-    for pattern in sql_patterns:
-        if re.search(pattern, normalized_string, re.IGNORECASE):
-            raise ValueError("SQL Injection detected")
-        
-    return input
-
-def detect_sql_injection_in_select_statement(select_statement):
-    if not isinstance(select_statement, str) or select_statement == None:
-        return select_statement
-
-    normalized = select_statement.lower().strip()
-
-    if not normalized.startswith("select") and not normalized.startswith("with"):
-        raise ValueError("Select statement must start with 'SELECT' or 'WITH'")
-
-    blacklist_patterns = [
-        r"(--|#)",              
-        r"(;)",                 
-        r"(drop\s+table)",      
-        r"(delete\s+from)",     
-        r"(insert\s+into)",     
-        r"(update\s+\w+\s+set)",
-        r"(or\s+1=1)",          
-        r"(['\"])--",           
-        r"exec\s",              
-        r"xp_cmdshell",         
-    ]
-
-    for pattern in blacklist_patterns:
-        if re.search(pattern, normalized):
-            raise ValueError("SQL Injection detected")
-
-    return select_statement

@@ -6,7 +6,6 @@ coordinating between DAOs and handling interim data management.
 """
 
 import logging
-import json
 from typing import List, Dict, Optional, Tuple
 
 from pyspark.sql import SparkSession, DataFrame
@@ -30,48 +29,53 @@ from prophecy.executionmetrics.schemas.external import (
     LInterimContent,
 )
 from prophecy.executionmetrics.utils.common import now_utc
+from prophecy.executionmetrics.utils.constants import OffloadFlags
 
 logger = logging.getLogger(__name__)
 
 
-def to_json_string(obj: any) -> str:
-    """Convert object to JSON string."""
-    if hasattr(obj, "__dict__"):
-        return json.dumps(obj.__dict__, default=str)
-    return json.dumps(obj, default=str)
-
-
 def component_iterators_and_interims(
-    interims: List[LInterimContent], port_to_run_id_map: Dict[str, List[str]]
+    interims: List[LInterimContent], port_to_run_id_multi_map: Dict[str, List[str]]
 ) -> List[ComponentRunIdAndInterims]:
     """
-    Convert interim content to component run ID and interims.
-
-    Args:
-        interims: List of interim content
-        port_to_run_id_map: Mapping from port to run IDs
-
-    Returns:
-        List of ComponentRunIdAndInterims
+    For each (port, run_id) pair, pick the LInterimContent with the highest num_records,
+    then emit a ComponentRunIdAndInterims for every component_id associated with that port.
     """
-    result = []
+    from dataclasses import asdict
 
+    # 1. Group and pick the max interim per (port, run_id)
+    best_interim: Dict[Tuple[str, Optional[str]], LInterimContent] = {}
     for interim in interims:
-        # Get run IDs for this port
-        run_ids = port_to_run_id_map.get(interim.port, [])
+        key = (interim.port, interim.runId)
+        existing = best_interim.get(key)
+        # Use num_records (default 0) as the ordering metric
+        curr_count = interim.numRecords or 0
+        best_count = existing.numRecords or 0 if existing else -1
+        if existing is None or curr_count > best_count:
+            best_interim[key] = interim
 
-        # Create entry for each run ID
-        for run_id in run_ids:
-            # Convert interim to JSON string
-            interim_json = to_json_string(interim)
+    # 2. Build the list of ComponentRunIdAndInterims
+    results: List[ComponentRunIdAndInterims] = []
+    for (port, run_id), interim in best_interim.items():
+        for comp_id in port_to_run_id_multi_map.get(port, []):
+            # Serialize interim to JSON (fallback to __dict__ if to_dict is not implemented)
+            try:
+                data = interim.to_dict()
+            except AttributeError:
+                try:
+                    data = asdict(interim)
+                except:
+                    ta = interim.__dict__
+            import json
 
-            result.append(
+            interim_json = json.dumps(data, default=str)
+            results.append(
                 ComponentRunIdAndInterims(
-                    uid=run_id, run_id=run_id, interims=interim_json
+                    uid=comp_id, run_id=run_id, interims=interim_json
                 )
             )
 
-    return result
+    return results
 
 
 class ComponentRunService:
@@ -217,6 +221,7 @@ class ComponentRunService:
         component_runs_entities: List[ComponentRuns],
         interims: List[LInterimContent],
         created_by: str,
+        offload_flags: OffloadFlags,
     ) -> Tuple[List[ComponentRuns], List[str]]:
         """
         Add component runs and interims recursively.
@@ -236,36 +241,40 @@ class ComponentRunService:
         Returns:
             Tuple of (added component runs, interim IDs)
         """
-        # Create interims table for user
-        interims_table = create_interims_table(
-            spark_session=self.spark,
-            user=created_by,
-            storage_metadata=self.storage_metadata,
-        )
-
-        # Build port to run ID mapping
-        port_to_run_id_map = {}
-        for run in component_runs_entities:
-            port = run.interim_out_port
-            if port not in port_to_run_id_map:
-                port_to_run_id_map[port] = []
-            port_to_run_id_map[port].append(run.uid)
-
+        component_runs = component_runs_entities
         # Add component runs to storage
-        component_runs = self.dao.add_values(component_runs_entities)
+        if offload_flags.should_offload_component_runs():
+            component_runs = self.dao.add_values(component_runs_entities)
 
-        # Convert interims to component run ID and interims format
-        component_run_id_and_interims = component_iterators_and_interims(
-            interims, port_to_run_id_map
-        )
+        interims_data = []
+        if offload_flags.should_offload_interims():
+            # Create interims table for user
+            interims_table = create_interims_table(
+                spark_session=self.spark,
+                user=created_by,
+                storage_metadata=self.storage_metadata,
+            )
 
-        # Add interims to storage
-        interims_data = interims_table.add_multi(
-            component_run_id_and_interims,
-            created_by,
-            pipeline_run.fabric_uid,
-            pipeline_run.created_at or now_utc(),
-        )
+            # Build port to run ID mapping
+            port_to_run_id_map: Dict[str, List[str]] = {}
+            for run in component_runs_entities:
+                port = run.interim_out_port
+                if port not in port_to_run_id_map:
+                    port_to_run_id_map[port] = []
+                port_to_run_id_map[port].append(run.uid)
+
+            # Convert interims to component run ID and interims format
+            component_run_id_and_interims = component_iterators_and_interims(
+                interims, port_to_run_id_map
+            )
+
+            # Add interims to storage
+            interims_data = interims_table.add_multi(
+                component_run_id_and_interims,
+                created_by,
+                pipeline_run.fabric_uid,
+                pipeline_run.created_at or now_utc(),
+            )
 
         return component_runs, interims_data
 

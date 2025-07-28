@@ -5,7 +5,7 @@ import logging
 import time
 import uuid
 import base64
-from typing import Dict, Optional
+from typing import Dict, Optional, List
 from datetime import datetime, timezone
 from matrice.deploy.utils.kafka_utils import MatriceKafkaDeployment
 from matrice.deploy.server.inference.inference_interface import InferenceInterface
@@ -24,7 +24,7 @@ class StreamWorker:
         consumer_group_suffix: str = "",
     ):
         """Initialize stream worker.
-        
+
         Args:
             worker_id: Unique identifier for this worker
             session: Session object for authentication and RPC
@@ -95,11 +95,17 @@ class StreamWorker:
                 # Wait for task cancellation with timeout
                 await asyncio.wait_for(self._processing_task, timeout=5.0)
             except asyncio.CancelledError:
-                logging.debug(f"Processing task for worker {self.worker_id} cancelled successfully")
+                logging.debug(
+                    f"Processing task for worker {self.worker_id} cancelled successfully"
+                )
             except asyncio.TimeoutError:
-                logging.warning(f"Processing task for worker {self.worker_id} did not cancel within timeout")
+                logging.warning(
+                    f"Processing task for worker {self.worker_id} did not cancel within timeout"
+                )
             except Exception as exc:
-                logging.error(f"Error while cancelling processing task for worker {self.worker_id}: {str(exc)}")
+                logging.error(
+                    f"Error while cancelling processing task for worker {self.worker_id}: {str(exc)}"
+                )
 
         # Close Kafka connections with proper error handling
         if self.kafka_deployment:
@@ -109,14 +115,22 @@ class StreamWorker:
                 try:
                     loop = asyncio.get_running_loop()
                     if loop.is_closed():
-                        logging.warning(f"Event loop closed, skipping Kafka close for worker {self.worker_id}")
+                        logging.warning(
+                            f"Event loop closed, skipping Kafka close for worker {self.worker_id}"
+                        )
                     else:
                         await self.kafka_deployment.close()
-                        logging.debug(f"Kafka connections closed for worker {self.worker_id}")
+                        logging.debug(
+                            f"Kafka connections closed for worker {self.worker_id}"
+                        )
                 except RuntimeError:
-                    logging.warning(f"No running event loop, skipping Kafka close for worker {self.worker_id}")
+                    logging.warning(
+                        f"No running event loop, skipping Kafka close for worker {self.worker_id}"
+                    )
             except Exception as exc:
-                logging.error(f"Error closing Kafka for worker {self.worker_id}: {str(exc)}")
+                logging.error(
+                    f"Error closing Kafka for worker {self.worker_id}: {str(exc)}"
+                )
 
         logging.info(f"Stopped StreamWorker: {self.worker_id}")
 
@@ -140,57 +154,25 @@ class StreamWorker:
             except asyncio.CancelledError:
                 break
             except Exception as exc:
-                logging.error(f"Error in processing loop for worker {self.worker_id}: {str(exc)}")
+                logging.error(
+                    f"Error in processing loop for worker {self.worker_id}: {str(exc)}"
+                )
                 await asyncio.sleep(retry_delay)
                 retry_delay = min(retry_delay * 2, max_retry_delay)
 
         logging.debug(f"Processing loop ended for worker {self.worker_id}")
 
-    def _extract_stream_key(self, message: Dict) -> str:
-        """Extract stream key (camera_id/stream_id) from message for logging."""
-        try:
-            value = message.get("value", {})
-
-            # Try different possible key fields for stream identification
-            stream_key = (
-                value.get("stream_key") or
-                value.get("camera_id") or
-                value.get("stream_id") or
-                value.get("source_id") or
-                value.get("key") or
-                message.get("key")
-            )
-
-            if isinstance(stream_key, bytes):
-                stream_key = stream_key.decode('utf-8')
-
-            return str(stream_key) if stream_key else "default_stream"
-
-        except Exception as exc:
-            logging.error(f"Error extracting stream key: {str(exc)}")
-            return "default_stream"
-
     async def _process_message(self, message: Dict) -> None:
         """Process a single message."""
-        start_time = time.time()
-        stream_key = self._extract_stream_key(message)
-
         try:
-            # Process the message using the same logic as inference_interface
             processed_result = await self._process_kafka_message(message)
-
-            # Produce result back to Kafka with stream key
             await self.kafka_deployment.async_produce_message(
-                processed_result,
-                key=stream_key
+                processed_result, key=message.get("key")
             )
-
-            processing_time = time.time() - start_time
-
-            logging.debug(f"Worker {self.worker_id} processed message for stream {stream_key} in {processing_time:.3f}s")
-
         except Exception as exc:
-            logging.error(f"Worker {self.worker_id} failed to process message for stream {stream_key}: {str(exc)}")
+            logging.error(
+                f"Worker {self.worker_id} failed to process message: {str(exc)}"
+            )
 
     async def _process_kafka_message(self, message: Dict) -> Dict:
         """Process a message from Kafka (same logic as InferenceInterface).
@@ -199,7 +181,7 @@ class StreamWorker:
             message: Kafka message containing inference request
 
         Returns:
-            Processed result in the new structured format
+            Processed result in the new app_result structured format
 
         Raises:
             ValueError: If message format is invalid
@@ -207,274 +189,129 @@ class StreamWorker:
         if not isinstance(message, dict):
             raise ValueError("Invalid message format: expected dictionary")
 
-        # Extract stream key for logging and response
-        stream_key = self._extract_stream_key(message)
-
-        # Get the value and try to parse it if it's bytes
-        value = message.get("value")
-        if not value or not isinstance(value, dict):
+        # Get the value containing the message data
+        input_data = message.get("value")
+        if not input_data or not isinstance(input_data, dict):
             raise ValueError("Invalid message format: missing or invalid 'value' field")
 
-        input_order = value.get("input_order")
-        metadata = value.get("metadata", {})
-        stream_info = metadata.get("stream_info", {})
-        input_settings = stream_info.get("input_settings", {})
+        input_stream = input_data.get("input_stream", {})
+        input_content = input_stream.get("content")
+        input_hash = input_stream.get("input_hash")
+        camera_info = input_stream.get("camera_info")
 
-        input_data = value.get("input")
-        if not input_data:
-            raise ValueError("Invalid message format: missing 'input' field")
+        if not input_content:
+            raise ValueError(
+                "Invalid message format: missing 'content' field in input_content"
+            )
 
         try:
-            input_bytes = base64.b64decode(input_data)
+            input_content = base64.b64decode(input_content)
         except Exception as exc:
             raise ValueError(f"Failed to decode base64 input: {str(exc)}")
 
-        # Timing for model processing
-        model_start_time = time.time()
-
-        # Extract enhanced metadata for better processing
-        fps = stream_info.get("fps", 30)
-        original_fps = stream_info.get("original_fps", fps)
-        frame_sample_rate = stream_info.get("frame_sample_rate", 1.0)
-        video_timestamp = stream_info.get("video_timestamp", 0.0)
-        is_video_chunk = input_settings.get("is_video_chunk", False)
-        chunk_duration = input_settings.get("chunk_duration_seconds", 0.0)
-        video_properties = input_settings.get("video_properties", {})
-
         try:
-            result, post_processing_result = await self.inference_interface.inference(
-                input_bytes, 
+            # Create stream_info with input_settings for frame number extraction
+            stream_info = {
+                "input_settings": {
+                    "start_frame": input_stream.get("start_frame"),
+                    "end_frame": input_stream.get("end_frame"),
+                    "stream_unit": input_stream.get("stream_unit"),
+                    "input_order": input_stream.get("input_order")
+                }
+            }
+            
+            model_result, post_processing_result = await self.inference_interface.inference(
+                input_content,
                 apply_post_processing=True,
-                stream_key=stream_key,
-                stream_info=stream_info
+                stream_key=message.get("key"),
+                stream_info=stream_info,
+                camera_info=camera_info,
+                input_hash=input_hash
             )
+            
+            # Extract agg_summary from post-processing result
+            agg_summary = {}
+            if post_processing_result and isinstance(post_processing_result, dict):
+                agg_summary = post_processing_result.get("agg_summary", {})
 
-            model_process_time = time.time() - model_start_time
-            total_process_time = model_process_time  # For now, same as model time
-
-            # Enhanced structure the response in the new format with improved metadata
-            structured_response = {
-                "stream_info": {
-                    "stream_key": stream_key,
-                    "fps": fps,
-                    "original_fps": original_fps,  # Added original FPS
-                    "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
-                    "video_timestamp": video_timestamp,  # Added video timestamp
-                    "stream_time": stream_info.get(
-                        "stream_time",
-                        datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC"),
-                    ),
-                    "is_video_chunk": is_video_chunk,  # Added video chunk flag
-                    "chunk_duration_seconds": chunk_duration,  # Added chunk duration
-                    "input_settings": [
-                        {
-                            "video_file": input_settings.get("video_file"),
-                            "camera_id": input_settings.get("camera_id"),
-                            "location_info": input_settings.get("location_info"),
-                            "start_frame": input_settings.get(
-                                "start_frame", input_order
-                            ),
-                            "end_frame": input_settings.get("end_frame", input_order),
-                            "stream_key": stream_key,
-                            "video_format": input_settings.get("video_format"),
-                            "video_properties": video_properties,  # Added video properties
-                            "quality": input_settings.get("quality"),
-                            "width": input_settings.get("width"),
-                            "height": input_settings.get("height"),
-                            "stream_type": input_settings.get(
-                                "stream_type"
-                            ),  # Added stream type
-                        }
-                    ],
+            output_stream = {
+                "output_name": "detection_0",
+                "output_unit": "detection",
+                "output_stream": {
+                    "broker": self.kafka_deployment.bootstrap_server,
+                    "topic": self.kafka_deployment.producing_topic,
+                    "stream_time": self._get_high_precision_timestamp(),
                 },
-                "model_configs": [
+            }
+            
+            app_result = {
+                "application_name": "TODO",
+                "application_key_name": "TODO", 
+                "application_version": "TODO",
+                "ip_key_name": "TODO",
+                "camera_info": camera_info,
+                "input_streams": [input_data],
+                "output_streams": [output_stream],
+                "model_streams": [
                     {
-                        "deployment_id": self.deployment_id,
-                        "model_input": {
-                            "start_frame": input_settings.get(
-                                "start_frame", input_order
-                            ),
-                            "end_frame": input_settings.get("end_frame", input_order),
-                            "stream_key": stream_key,
-                            "video_timestamp": video_timestamp,  # Added video timestamp
-                            "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
-                            "is_video_chunk": is_video_chunk,  # Added video chunk flag
-                            "chunk_duration_seconds": chunk_duration,  # Added chunk duration
-                        },
-                        "model_process_time_sec": round(model_process_time, 3),
-                        "total_process_time_sec": round(total_process_time, 3),
-                        "model_output": {
-                            "raw_output": result,
-                            "is_video_chunk": is_video_chunk,  # Flag to help with processing
-                            "original_fps": original_fps,  # Include original FPS in output
-                            "frame_sample_rate": frame_sample_rate,  # Include frame sample rate
-                        },
-                        "model_metadata": {
-                            "index_to_category": self.inference_interface.index_to_category,
-                            "target_classes": self.inference_interface.target_categories,
+                        "model_name": "detection_0",
+                        "mp_order": 0,
+                        "model_stream": {
+                            "deployment_id": self.deployment_id,
+                            "deployment_instance": self.deployment_instance_id,
+                            # "input_streams": [input_data],  # TODO: check if should be added when having multiple models
+                            # "output_streams": [output_stream],  # TODO: check if should be added when having multiple models
+                            "model_outputs": [
+                                {
+                                    "output_name": "detection_0",
+                                    "detections": model_result,
+                                }
+                            ],
+                            "latency_stats": {
+                                "model_latency_sec": "TODO",
+                                "last_read_time_sec": "TODO",
+                                "last_write_time_sec": "TODO",
+                                "last_process_time_sec": "TODO",
+                            },
                         },
                     }
                 ],
-                "agg_summary": {"events": [], "tracking_stats": []},
-                "input": input_data,
+                "agg_summary": agg_summary or {},
+                "latency_stats": {
+                    "app_e2e_sec": "TODO",
+                    "last_input_feed_sec": "TODO",
+                    "last_output_sec": "TODO",
+                },
             }
 
-            # Add post-processing results to agg_summary if available
-            if post_processing_result and isinstance(post_processing_result, dict):
-                if post_processing_result.get("status") == "success":
-                    # Extract events and tracking stats from post-processing result
-                    processed_data = post_processing_result.get("processed_data", {})
-
-                    # Add events if available
-                    if "events" in processed_data:
-                        structured_response["agg_summary"]["events"] = processed_data["events"]
-
-                    # Add tracking stats if available
-                    if "tracking_stats" in processed_data:
-                        structured_response["agg_summary"]["tracking_stats"] = processed_data["tracking_stats"]
-
-                    # If no specific events/tracking_stats, create from summary/insights
-                    if not structured_response["agg_summary"]["events"] and not structured_response["agg_summary"]["tracking_stats"]:
-                        summary = post_processing_result.get("summary", "")
-                        insights = post_processing_result.get("insights", [])
-
-                        if summary or insights:
-                            structured_response["agg_summary"]["tracking_stats"] = [{
-                                "tracking_start_time": stream_info.get("stream_time", 
-                                                                     datetime.now(timezone.utc).strftime("%Y-%m-%d")),
-                                "all_results_for_tracking": post_processing_result,
-                                "human_text": f"{summary}\n" + "\n".join(insights) if insights else summary
-                            }]
-
-            # Enhanced original metadata for backward compatibility
-            structured_response["original_metadata"] = {
-                "input_order": input_order,
-                "timestamp": datetime.now(timezone.utc).isoformat(),
-                "worker_id": self.worker_id,
-                "post_processing_applied": post_processing_result is not None,
-                "stream_key": stream_key,  # Include the stream key in response
-                "fps": fps,
-                "original_fps": original_fps,  # Added original FPS
-                "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
-                "video_timestamp": video_timestamp,  # Added video timestamp
-                "is_video_chunk": is_video_chunk,  # Added video chunk flag
-                "chunk_duration_seconds": chunk_duration,  # Added chunk duration
-                "video_properties": video_properties,  # Added video properties
-            }
-
-            return structured_response
+            return self._clean_stream_result(app_result)
 
         except Exception as exc:
-            model_process_time = time.time() - model_start_time
+            logging.error(f"Error in _process_kafka_message for worker {self.worker_id}: {str(exc)}", exc_info=True)
+            return {}
 
-            error_response = {
-                "stream_info": {
-                    "fps": fps,
-                    "original_fps": original_fps,  # Added original FPS
-                    "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
-                    "video_timestamp": video_timestamp,  # Added video timestamp
-                    "stream_time": stream_info.get(
-                        "stream_time",
-                        datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC"),
-                    ),
-                    "is_video_chunk": is_video_chunk,  # Added video chunk flag
-                    "chunk_duration_seconds": chunk_duration,  # Added chunk duration
-                    "input_settings": [
-                        {
-                            "video_file": input_settings.get("video_file"),
-                            "camera_id": input_settings.get("camera_id"),
-                            "location_info": None,
-                            "start_frame": input_settings.get(
-                                "start_frame", input_order
-                            ),
-                            "end_frame": input_settings.get("end_frame", input_order),
-                            "stream_key": stream_key,
-                            "video_format": input_settings.get("video_format"),
-                            "video_properties": video_properties,  # Added video properties
-                            "stream_type": input_settings.get(
-                                "stream_type"
-                            ),  # Added stream type
-                        }
-                    ],
-                },
-                "model_configs": [
-                    {
-                        "deployment_id": self.deployment_id,
-                        "model_input": {
-                            "start_frame": input_settings.get(
-                                "start_frame", input_order
-                            ),
-                            "end_frame": input_settings.get("end_frame", input_order),
-                            "stream_key": stream_key,
-                            "video_timestamp": video_timestamp,  # Added video timestamp
-                            "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
-                            "is_video_chunk": is_video_chunk,  # Added video chunk flag
-                            "chunk_duration_seconds": chunk_duration,  # Added chunk duration
-                        },
-                        "model_process_time_sec": round(model_process_time, 3),
-                        "total_process_time_sec": round(model_process_time, 3),
-                        "model_output": {
-                            "raw_output": None,
-                            "error": str(exc),
-                            "is_video_chunk": is_video_chunk,  # Flag to help with error handling
-                            "original_fps": original_fps,  # Include original FPS in error response
-                            "frame_sample_rate": frame_sample_rate,  # Include frame sample rate
-                        },
-                        "model_metadata": {
-                            "index_to_category": self.inference_interface.index_to_category,
-                            "target_classes": self.inference_interface.target_categories,
-                        },
-                    }
-                ],
-                "agg_summary": {
-                    "events": [
-                        {
-                            "type": "error",
-                            "stream_time": datetime.now(timezone.utc).strftime(
-                                "%Y-%m-%d-%H:%M:%S.%f UTC"
-                            ),
-                            "level": "critical",
-                            "intensity": 5,
-                            "config": {
-                                "min_value": 0,
-                                "max_value": 10,
-                                "level_settings": {
-                                    "info": 2,
-                                    "warning": 5,
-                                    "critical": 7,
-                                },
-                            },
-                            "application_name": "Model Processing",
-                            "application_version": "1.0",
-                            "location_info": None,
-                            "human_text": f"Event: Processing Error\nLevel: Critical\nTime: {datetime.now(timezone.utc).strftime('%Y-%m-%d-%H:%M:%S.%f UTC')}\nError: {str(exc)}",
-                        }
-                    ],
-                    "tracking_stats": [],
-                },
-                "original_metadata": {
-                    "input_order": input_order,
-                    "timestamp": datetime.now(timezone.utc).isoformat(),
-                    "worker_id": self.worker_id,
-                    "error": str(exc),
-                    "stream_key": stream_key,
-                    "fps": fps,
-                    "original_fps": original_fps,  # Added original FPS
-                    "frame_sample_rate": frame_sample_rate,  # Added frame sample rate
-                    "video_timestamp": video_timestamp,  # Added video timestamp
-                    "is_video_chunk": is_video_chunk,  # Added video chunk flag
-                    "chunk_duration_seconds": chunk_duration,  # Added chunk duration
-                    "video_properties": video_properties,  # Added video properties
-                },
-                "input": input_data,
-            }
+    def _get_high_precision_timestamp(self) -> str:
+        """Get high precision timestamp with microsecond granularity."""
+        return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
 
-            return error_response
-
+    def _clean_stream_result(self, stream_result: Dict) -> Dict:
+        """Clean stream result to remove unnecessary fields."""
+        def remove_latency_stats(data):
+            if isinstance(data, dict):
+                new_data = {}
+                for key, value in data.items():
+                    if key != "latency_stats":
+                        new_data[key] = remove_latency_stats(value)
+                return new_data
+            elif isinstance(data, list):
+                return [remove_latency_stats(item) for item in data]
+            else:
+                return data
+        return remove_latency_stats(stream_result)
 
 class StreamWorkerManager:
     """Manages multiple stream workers for parallel processing."""
-    
+
     def __init__(
         self,
         session,
@@ -484,7 +321,7 @@ class StreamWorkerManager:
         num_workers: int = 1,
     ):
         """Initialize stream worker manager.
-        
+
         Args:
             session: Session object for authentication and RPC
             deployment_id: ID of the deployment
@@ -497,21 +334,23 @@ class StreamWorkerManager:
         self.deployment_instance_id = deployment_instance_id
         self.inference_interface = inference_interface
         self.num_workers = num_workers
-        
+
         # Worker management
         self.workers: Dict[str, StreamWorker] = {}
         self.is_running = False
-        
-        logging.info(f"Initialized StreamWorkerManager with {num_workers} workers for deployment {deployment_id}")
-    
+
+        logging.info(
+            f"Initialized StreamWorkerManager with {num_workers} workers for deployment {deployment_id}"
+        )
+
     async def start(self) -> None:
         """Start all workers."""
         if self.is_running:
             logging.warning("StreamWorkerManager is already running")
             return
-        
+
         self.is_running = True
-        
+
         # Create and start workers with staggered delays to avoid race conditions
         for i in range(self.num_workers):
             worker_id = f"worker_{i}_{uuid.uuid4().hex[:8]}"
@@ -522,52 +361,54 @@ class StreamWorkerManager:
                 deployment_instance_id=self.deployment_instance_id,
                 inference_interface=self.inference_interface,
             )
-            
+
             self.workers[worker_id] = worker
-            
+
             # Start worker with error handling
             try:
                 await worker.start()
                 logging.info(f"Started worker {worker_id}")
-                
+
                 # Add staggered delay between worker startups to avoid race conditions
                 if i < self.num_workers - 1:  # Don't delay after the last worker
                     await asyncio.sleep(2.0)  # 2 second delay between worker startups
-                    
+
             except Exception as exc:
                 logging.error(f"Failed to start worker {worker_id}: {str(exc)}")
                 # Remove failed worker from workers dict
                 del self.workers[worker_id]
-        
+
         logging.info(f"Started StreamWorkerManager with {len(self.workers)} workers")
-    
+
     async def stop(self) -> None:
         """Stop all workers."""
         if not self.is_running:
             return
-        
+
         logging.info("Stopping StreamWorkerManager...")
-        
+
         self.is_running = False
-            
+
         # Stop all workers with timeout and error handling
         if self.workers:
             logging.info(f"Stopping {len(self.workers)} workers...")
             stop_tasks = []
-            
+
             for worker_id, worker in self.workers.items():
                 try:
                     stop_task = asyncio.create_task(worker.stop())
                     stop_tasks.append(stop_task)
                 except Exception as exc:
-                    logging.error(f"Error creating stop task for worker {worker_id}: {str(exc)}")
-            
+                    logging.error(
+                        f"Error creating stop task for worker {worker_id}: {str(exc)}"
+                    )
+
             # Wait for all workers to stop with timeout
             if stop_tasks:
                 try:
                     await asyncio.wait_for(
-                        asyncio.gather(*stop_tasks, return_exceptions=True), 
-                        timeout=30.0
+                        asyncio.gather(*stop_tasks, return_exceptions=True),
+                        timeout=30.0,
                     )
                     logging.info("All workers stopped successfully")
                 except asyncio.TimeoutError:
@@ -578,21 +419,21 @@ class StreamWorkerManager:
                             task.cancel()
                 except Exception as exc:
                     logging.error(f"Error stopping workers: {str(exc)}")
-        
+
         self.workers.clear()
-        
+
         logging.info("Stopped StreamWorkerManager")
-    
+
     async def add_worker(self) -> Optional[str]:
         """Add a new worker to the pool.
-        
+
         Returns:
             Worker ID if successfully added, None otherwise
         """
         if not self.is_running:
             logging.warning("Cannot add worker: manager not running")
             return None
-        
+
         worker_id = f"worker_{len(self.workers)}_{uuid.uuid4().hex[:8]}"
         worker = StreamWorker(
             worker_id=worker_id,
@@ -601,47 +442,47 @@ class StreamWorkerManager:
             deployment_instance_id=self.deployment_instance_id,
             inference_interface=self.inference_interface,
         )
-        
+
         self.workers[worker_id] = worker
         await worker.start()
-        
+
         logging.info(f"Added new worker: {worker_id}")
         return worker_id
-    
+
     async def remove_worker(self, worker_id: str) -> bool:
         """Remove a worker from the pool.
-        
+
         Args:
             worker_id: ID of the worker to remove
-            
+
         Returns:
             True if successfully removed
         """
         if worker_id not in self.workers:
             return False
-        
+
         worker = self.workers[worker_id]
         await worker.stop()
         del self.workers[worker_id]
-        
+
         logging.info(f"Removed worker: {worker_id}")
         return True
-    
+
     async def scale_workers(self, target_count: int) -> bool:
         """Scale workers to target count.
-        
+
         Args:
             target_count: Target number of workers
-            
+
         Returns:
             True if scaling was successful
         """
         if not self.is_running:
             logging.warning("Cannot scale workers: manager not running")
             return False
-        
+
         current_count = len(self.workers)
-        
+
         if target_count > current_count:
             # Scale up
             for _ in range(target_count - current_count):
@@ -649,12 +490,14 @@ class StreamWorkerManager:
                 if not worker_id:
                     logging.error("Failed to add worker during scale up")
                     return False
-        
+
         elif target_count < current_count:
             # Scale down
-            workers_to_remove = list(self.workers.keys())[:current_count - target_count]
+            workers_to_remove = list(self.workers.keys())[
+                : current_count - target_count
+            ]
             for worker_id in workers_to_remove:
                 await self.remove_worker(worker_id)
-        
+
         logging.info(f"Scaled workers from {current_count} to {target_count}")
         return True

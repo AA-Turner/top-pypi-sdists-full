@@ -35,6 +35,8 @@ class PeopleCountingUseCase(BaseProcessor):
         """Initialize people counting use case."""
         super().__init__("people_counting")
         self.category = "general"
+        self.CASE_TYPE: Optional[str] = 'People_Counting'
+        self.CASE_VERSION: Optional[str] = '1.3'
         
         # Track ID storage for total count calculation
         self._total_track_ids = set()  # Store all unique track IDs seen across calls
@@ -83,113 +85,24 @@ class PeopleCountingUseCase(BaseProcessor):
         # window (in seconds). This prevents accidentally merging tracks that
         # left the scene long ago.
         self._track_merge_time_window: float = 10.0
-    
-    def get_config_schema(self) -> Dict[str, Any]:
-        """Get configuration schema for people counting."""
-        return {
-            "type": "object",
-            "properties": {
-                "confidence_threshold": {
-                    "type": "number",
-                    "minimum": 0.0,
-                    "maximum": 1.0,
-                    "default": 0.5,
-                    "description": "Minimum confidence threshold for detections"
-                },
-                "enable_tracking": {
-                    "type": "boolean",
-                    "default": False,
-                    "description": "Enable tracking for unique counting"
-                },
-                "zone_config": {
-                    "type": "object",
-                    "properties": {
-                        "zones": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "array",
-                                "items": {
-                                    "type": "array",
-                                    "items": {"type": "number"},
-                                    "minItems": 2,
-                                    "maxItems": 2
-                                },
-                                "minItems": 3
-                            },
-                            "description": "Zone definitions as polygons"
-                        },
-                        "zone_confidence_thresholds": {
-                            "type": "object",
-                            "additionalProperties": {"type": "number", "minimum": 0.0, "maximum": 1.0},
-                            "description": "Per-zone confidence thresholds"
-                        }
-                    }
-                },
-                "person_categories": {
-                    "type": "array",
-                    "items": {"type": "string"},
-                    "default": ["person", "people"],
-                    "description": "Category names that represent people"
-                },
-                "enable_unique_counting": {
-                    "type": "boolean",
-                    "default": True,
-                    "description": "Enable unique people counting using tracking"
-                },
-                "time_window_minutes": {
-                    "type": "integer",
-                    "minimum": 1,
-                    "default": 60,
-                    "description": "Time window for counting analysis in minutes"
-                },
-                "alert_config": {
-                    "type": "object",
-                    "properties": {
-                        "count_thresholds": {
-                            "type": "object",
-                            "additionalProperties": {"type": "integer", "minimum": 1},
-                            "description": "Count thresholds for alerts"
-                        },
-                        "occupancy_thresholds": {
-                            "type": "object", 
-                            "additionalProperties": {"type": "integer", "minimum": 1},
-                            "description": "Zone occupancy thresholds for alerts"
-                        }
-                    }
-                }
-            },
-            "required": ["confidence_threshold"],
-            "additionalProperties": False
-        }
-    
-    def create_default_config(self, **overrides) -> PeopleCountingConfig:
-        """Create default configuration with optional overrides."""
-        defaults = {
-            "category": self.category,
-            "usecase": self.name,
-            "confidence_threshold": 0.5,
-            "enable_tracking": False,
-            "enable_analytics": True,
-            "enable_unique_counting": True,
-            "time_window_minutes": 60,
-            "person_categories": ["person", "people"],
-        }
-        defaults.update(overrides)
-        return PeopleCountingConfig(**defaults)
-    
+
+        self._ascending_alert_list: List[int] = []
+        self.current_incident_end_timestamp: str = "N/A"
+
+
     def process(self, data: Any, config: ConfigProtocol, 
                 context: Optional[ProcessingContext] = None, stream_info: Optional[Any] = None) -> ProcessingResult:
         """
-        Process people counting use case.
+        Process people counting use case - automatically detects single or multi-frame structure.
         
         Args:
             data: Raw model output (detection or tracking format)
             config: People counting configuration
             context: Processing context
-            stream_info: Stream information containing frame details (optional, for compatibility)
+            stream_info: Stream information containing frame details (optional)
             
         Returns:
-            ProcessingResult: Processing result with people counting analytics
+            ProcessingResult: Processing result with standardized agg_summary structure
         """
         start_time = time.time()
         
@@ -207,48 +120,26 @@ class PeopleCountingUseCase(BaseProcessor):
             if context is None:
                 context = ProcessingContext()
             
-            # Detect input format
+            # Detect input format and frame structure
             input_format = match_results_structure(data)
             context.input_format = input_format
             context.confidence_threshold = config.confidence_threshold
             
-            self.logger.info(f"Processing people counting with format: {input_format.value}")
+            is_multi_frame = self.detect_frame_structure(data)
             
-            # Check if data is frame-based tracking format
-            is_frame_based_tracking = (isinstance(data, dict) and 
-                                     all(isinstance(k, (str, int)) for k in data.keys()) and
-                                     input_format == ResultFormat.OBJECT_TRACKING)
+            self.logger.info(f"Processing people counting - Format: {input_format.value}, Multi-frame: {is_multi_frame}")
             
-            if is_frame_based_tracking:
-                # Apply smoothing to tracking results if enabled
-                if config.enable_smoothing:
-                    # Initialize smoothing tracker if not exists
-                    if self.smoothing_tracker is None:
-                        smoothing_config = BBoxSmoothingConfig(
-                            smoothing_algorithm=config.smoothing_algorithm,
-                            window_size=config.smoothing_window_size,
-                            cooldown_frames=config.smoothing_cooldown_frames,
-                            confidence_threshold=config.confidence_threshold or 0.5,
-                            confidence_range_factor=config.smoothing_confidence_range_factor,
-                            enable_smoothing=True
-                        )
-                        self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
-                    
-                    # Apply smoothing to tracking results (handles frame-based format)
-                    smoothed_tracking_data = bbox_smoothing(data, self.smoothing_tracker.config, self.smoothing_tracker)
-                    self.logger.debug(f"Applied bbox smoothing to tracking results with {len(smoothed_tracking_data)} frames")
-                    
-                    # Ensure smoothed_tracking_data is a dict for frame-wise tracking
-                    # if isinstance(smoothed_tracking_data, list):
-                    #     smoothed_tracking_data = {"0": smoothed_tracking_data}
-                    
-                    return self._process_frame_wise_tracking(smoothed_tracking_data, config, context, stream_info)
-                else:
-                    # Process frame-wise tracking data without smoothing
-                    return self._process_frame_wise_tracking(data, config, context, stream_info)
+            # Apply smoothing if enabled
+            if config.enable_smoothing and input_format == ResultFormat.OBJECT_TRACKING:
+                data = self._apply_smoothing(data, config)
+            
+            # Process based on frame structure
+            if is_multi_frame:
+                print("---------------------------------Processing multi-frame data---------------------------------")
+                return self._process_multi_frame(data, config, context, stream_info)
             else:
-                # Process single frame or detection data (existing logic)
-                return self._process_single_frame_data(data, config, context, stream_info)
+                print("---------------------------------Processing single-frame data---------------------------------")
+                return self._process_single_frame(data, config, context, stream_info)
                 
         except Exception as e:
             self.logger.error(f"People counting failed: {str(e)}", exc_info=True)
@@ -263,14 +154,14 @@ class PeopleCountingUseCase(BaseProcessor):
                 category=self.category,
                 context=context
             )
-    
-    def _process_frame_wise_tracking(self, data: Dict, config: PeopleCountingConfig, context: ProcessingContext, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
-        """Process frame-wise tracking data to generate frame-specific events and tracking stats."""
         
-        frame_events = {}
+    def _process_multi_frame(self, data: Dict, config: PeopleCountingConfig, context: ProcessingContext, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
+        """Process multi-frame data to generate frame-wise agg_summary."""
+        
+        frame_incidents = {}
         frame_tracking_stats = {}
-        all_events = []
-        all_tracking_stats = []
+        frame_business_analytics = {}
+        frame_human_text = {}
         
         # Increment total frame counter
         frames_in_this_call = len(data)
@@ -279,71 +170,79 @@ class PeopleCountingUseCase(BaseProcessor):
         # Process each frame individually
         for frame_key, frame_detections in data.items():
             # Extract frame ID from tracking data
-            local_frame_id = self._extract_frame_id_from_tracking(frame_detections, frame_key)
-            
-            # Convert to global frame ID
-            global_frame_id = self.get_global_frame_id(local_frame_id)
+            frame_id = self._extract_frame_id_from_tracking(frame_detections, frame_key)
+            global_frame_id = self.get_global_frame_id(frame_id)
             
             # Process this single frame's detections
-            frame_result = self._process_single_frame_detections(frame_detections, config, context, global_frame_id, stream_info)
+            incidents, tracking_stats, business_analytics, summary = self._process_frame_detections(
+                frame_detections, config, global_frame_id, stream_info
+            )
             
-            if frame_result.is_success():
-                # Get events and tracking stats for this frame
-                events = frame_result.data.get("events", [])
-                tracking_stats = frame_result.data.get("tracking_stats", [])
-                
-                # Add global frame_id to each event
-                for event in events:
-                    event["frame_id"] = global_frame_id
-                
-                # Store frame-wise results
-                if events:  # Only add if events exist
-                    frame_events[global_frame_id] = events
-                    all_events.extend(events)
-                
+            # Store frame-wise results
+            if incidents:
+                frame_incidents[global_frame_id] = incidents
+            if tracking_stats:
                 frame_tracking_stats[global_frame_id] = tracking_stats
-                all_tracking_stats.extend(tracking_stats)
+            if business_analytics:
+                frame_business_analytics[global_frame_id] = business_analytics
+            if summary:
+                frame_human_text[global_frame_id] = summary
         
         # Update global frame offset after processing this chunk
         self.update_global_frame_offset(frames_in_this_call)
         
-        # Create comprehensive result with frame-wise structure
-        result_data = {
-            "events": frame_events,           # Frame-wise events
-            "tracking_stats": frame_tracking_stats,  # Frame-wise tracking stats
-            "all_events": all_events,         # All events combined
-            "all_tracking_stats": all_tracking_stats,  # All tracking stats combined
-            "total_count": self.get_total_count(),
-            "zone_tracking": self.get_zone_tracking_info(),
-            "global_frame_offset": self._global_frame_offset,
-            "frames_in_chunk": frames_in_this_call
-        }
-        
-        # Create result
-        result = self.create_result(
-            result_data,
-            self.name,
-            self.category,
-            context
+        # Create frame-wise agg_summary
+        agg_summary = self.create_frame_wise_agg_summary(
+            frame_incidents, frame_tracking_stats, frame_business_analytics,
+            frame_human_text=frame_human_text
         )
         
-        return result
-    
-    def _extract_frame_id_from_tracking(self, frame_detections: List[Dict], frame_key: str) -> str:
-        """Extract frame ID from tracking data."""
-        # Priority 1: Check if detections have frame information
-        if frame_detections and len(frame_detections) > 0:
-            first_detection = frame_detections[0]
-            if "frame" in first_detection:
-                return str(first_detection["frame"])
-            elif "timestamp" in first_detection:
-                return str(int(first_detection["timestamp"]))
+        # Mark processing as completed
+        context.mark_completed()
         
-        # Priority 2: Use frame_key from input data
-        return str(frame_key)
+        # Create result with standardized agg_summary
+        return self.create_result(
+            data={"agg_summary": agg_summary},
+            usecase=self.name,
+            category=self.category,
+            context=context
+        )
+
+    def _process_single_frame(self, data: Any, config: PeopleCountingConfig, context: ProcessingContext, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
+        """Process single frame data and return standardized agg_summary."""
+        
+        current_frame = stream_info.get("input_settings", {}).get("start_frame", "current_frame")
+        # Process frame data
+        incidents, tracking_stats, business_analytics, summary = self._process_frame_detections(
+            data, config, current_frame, stream_info
+        )
+        
+        # Create single-frame agg_summary
+        agg_summary = self.create_agg_summary(
+            current_frame, incidents, tracking_stats, business_analytics, human_text=summary
+        )
+        
+        # Mark processing as completed
+        context.mark_completed()
+        
+        # Create result with standardized agg_summary
+        return self.create_result(
+            data={"agg_summary": agg_summary},
+            usecase=self.name,
+            category=self.category,
+            context=context
+        )
     
-    def _process_single_frame_detections(self, frame_detections: List[Dict], config: PeopleCountingConfig, context: ProcessingContext, frame_id: Optional[str] = None, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
-        """Process detections from a single frame using existing logic."""
+        
+    def _process_frame_detections(self, frame_data: Any, config: PeopleCountingConfig, frame_id: str, stream_info: Optional[Dict[str, Any]] = None) -> tuple:
+        """Process detections from a single frame and return standardized components."""
+        
+        # Convert frame_data to list if it's not already
+        if isinstance(frame_data, list):
+            frame_detections = frame_data
+        else:
+            # Handle other formats as needed
+            frame_detections = []
         
         # Step 1: Apply confidence filtering to this frame
         if config.confidence_threshold is not None:
@@ -387,255 +286,287 @@ class PeopleCountingUseCase(BaseProcessor):
         self._update_tracking_state(counting_summary)
         
         # Step 5: Generate insights and alerts for this frame
-        insights = self._generate_insights(counting_summary, zone_analysis, config, stream_info)
         alerts = self._check_alerts(counting_summary, zone_analysis, config)
         
-        # Step 6: Generate events for this frame
-        events = self._generate_events(counting_summary, zone_analysis, alerts, config, stream_info)
+        # Step 6: Generate summary and standardized agg_summary components for this frame
+        incidents = self._generate_incidents(counting_summary, zone_analysis, alerts, config, frame_id, stream_info)
+        tracking_stats = self._generate_tracking_stats(counting_summary, zone_analysis, config, frame_id=frame_id, alerts=alerts, stream_info=stream_info)
+        business_analytics = self._generate_business_analytics(counting_summary, zone_analysis, config, stream_info)
+        summary = self._generate_summary(counting_summary, incidents, tracking_stats, business_analytics, alerts)
         
-        # Step 7: Generate tracking stats for this frame
-        summary = self._generate_summary(counting_summary, zone_analysis, alerts, stream_info)
-        tracking_stats = self._generate_tracking_stats(counting_summary, zone_analysis, insights, summary, config, frame_id=frame_id, stream_info=stream_info)
-        
-        return self.create_result(
-            data={
-                "events": events,
-                "tracking_stats": tracking_stats,
-                "counting_summary": counting_summary,
-                "zone_analysis": zone_analysis
-            },
-            usecase=self.name,
-            category=self.category,
-            context=context
-        )
+        # Return standardized components as tuple
+        return incidents, tracking_stats, business_analytics, summary
     
-    def _process_single_frame_data(self, data: Any, config: PeopleCountingConfig, context: ProcessingContext, stream_info: Optional[Dict[str, Any]] = None) -> ProcessingResult:
-        """Process single frame data (existing logic unchanged)."""
-        start_time = time.time()
+    def _generate_incidents(self, counting_summary: Dict, zone_analysis: Dict, alerts: List, config: PeopleCountingConfig, frame_id: str, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+        """Generate standardized incidents for the agg_summary structure."""
         
-        try:
-            # Step 1: Apply confidence filtering
-            processed_data = data
-            if config.confidence_threshold is not None:
-                processed_data = filter_by_confidence(processed_data, config.confidence_threshold)
-                self.logger.debug(f"Applied confidence filtering with threshold {config.confidence_threshold}")
+        camera_info = self.get_camera_info_from_stream(stream_info)
+        incidents = []
+        total_people = counting_summary.get("total_objects", 0)
+        current_timestamp = self._get_current_timestamp_str(stream_info)
+        self._ascending_alert_list = self._ascending_alert_list[-900:] if len(self._ascending_alert_list) > 900 else self._ascending_alert_list
+
+        alert_settings=[]
+        if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+            alert_settings.append({
+                "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                "incident_category": self.CASE_TYPE,
+                "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                "ascending": True,
+                "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                    getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                            }
+            })
+
+        if total_people > 0:
+            # Determine event level based on thresholds
             
-            # Step 2: Apply category mapping if provided
-            if config.index_to_category:
-                processed_data = apply_category_mapping(processed_data, config.index_to_category)
-                self.logger.debug("Applied category mapping")
+            level = "info"
+            intensity = 5.0
+            start_timestamp = self._get_start_timestamp_str(stream_info)
+            if start_timestamp and self.current_incident_end_timestamp=='N/A':
+                self.current_incident_end_timestamp = 'Incident still active'
+            elif start_timestamp and self.current_incident_end_timestamp=='Incident still active':
+                if len(self._ascending_alert_list) >= 15 and sum(self._ascending_alert_list[-15:]) / 15 < 1.5: 
+                    self.current_incident_end_timestamp = current_timestamp
+            elif self.current_incident_end_timestamp!='Incident still active' and self.current_incident_end_timestamp!='N/A':
+                self.current_incident_end_timestamp = 'N/A'
             
-            # Step 2.5: Filter to only include person categories
-            person_processed_data = processed_data
-            if config.person_categories:
-                person_processed_data = filter_by_categories(processed_data.copy(), config.person_categories)
-                self.logger.debug(f"Applied person category filtering for: {config.person_categories}")
-            
-            # Step 2.6: Apply bbox smoothing if enabled
-            if config.enable_smoothing:
-                # Initialize smoothing tracker if not exists
-                if self.smoothing_tracker is None:
-                    smoothing_config = BBoxSmoothingConfig(
-                        smoothing_algorithm=config.smoothing_algorithm,
-                        window_size=config.smoothing_window_size,
-                        cooldown_frames=config.smoothing_cooldown_frames,
-                        confidence_threshold=config.confidence_threshold or 0.5,
-                        confidence_range_factor=config.smoothing_confidence_range_factor,
-                        enable_smoothing=True
-                    )
-                    self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+            if config.alert_config and config.alert_config.count_thresholds:
+                threshold = config.alert_config.count_thresholds.get("all", 10)
+                intensity = min(10.0, (total_people / threshold) * 10)
                 
-                # Apply smoothing to person detections (handles both list and dict formats)
-                smoothed_persons = bbox_smoothing(person_processed_data, self.smoothing_tracker.config, self.smoothing_tracker)
-                person_processed_data = smoothed_persons
-                self.logger.debug(f"Applied bbox smoothing with {len(smoothed_persons) if isinstance(smoothed_persons, list) else len(smoothed_persons)} smoothed detections")
+                if intensity >= 9:
+                    level = "critical"
+                    self._ascending_alert_list.append(3)
+                elif intensity >= 7:
+                    level = "significant"
+                    self._ascending_alert_list.append(2)
+                elif intensity >= 5:
+                    level = "medium"
+                    self._ascending_alert_list.append(1)
+                else:
+                    level = "low"
+                    self._ascending_alert_list.append(0)
+            else:
+                if total_people > 30:
+                    level = "critical"
+                    intensity = 10.0
+                    self._ascending_alert_list.append(3)
+                elif total_people > 25:
+                    level = "significant"
+                    intensity = 9.0
+                    self._ascending_alert_list.append(2)
+                elif total_people > 15:
+                    level = "medium"
+                    intensity = 7.0
+                    self._ascending_alert_list.append(1)
+                else:
+                    level = "low"
+                    intensity = min(10.0, total_people / 3.0)
+                    self._ascending_alert_list.append(0)
             
-            # Step 3: Calculate comprehensive counting summary
-            zones = config.zone_config.zones if config.zone_config else None
-            person_counting_summary = calculate_counting_summary(
-                person_processed_data,
-                zones=zones
-            )
-            general_counting_summary = calculate_counting_summary(
-                processed_data,
-                zones=zones
-            )
-            
-            # Add detections to the counting summary for tracking
-            person_counting_summary["detections"] = person_processed_data
-            general_counting_summary["detections"] = processed_data
-            
-            # Step 4: Zone-based analysis if zones are configured
-            zone_analysis = {}
-            if config.zone_config and config.zone_config.zones:
-                zone_analysis = count_objects_in_zones(
-                    person_processed_data, 
-                    config.zone_config.zones
-                )
-                self.logger.debug(f"Analyzed {len(config.zone_config.zones)} zones")
-                
-                # Step 4.5: Update zone tracking with current frame data
-                if zone_analysis and config.enable_tracking:
-                    detections = self._get_detections_with_confidence(person_counting_summary)
-                    enhanced_zone_analysis = self._update_zone_tracking(zone_analysis, detections, config)
-                    # Merge enhanced zone analysis with original zone analysis
-                    for zone_name, enhanced_data in enhanced_zone_analysis.items():
-                        zone_analysis[zone_name] = enhanced_data
-            
-            # Step 4.6: Always update tracking state (regardless of enable_unique_counting setting)
-            self._update_tracking_state(person_counting_summary)
-            
-            # Step 5: Generate insights and alerts
-            insights = self._generate_insights(person_counting_summary, zone_analysis, config, stream_info)
-            alerts = self._check_alerts(person_counting_summary, zone_analysis, config)
-            
-            # Step 6: Calculate detailed metrics
-            metrics = self._calculate_metrics(person_counting_summary, zone_analysis, config, context)
-            
-            # Step 7: Extract predictions for API compatibility
-            predictions = self._extract_predictions(processed_data)
-            
-            # Step 8: Generate human-readable summary
-            summary = self._generate_summary(person_counting_summary, zone_analysis, alerts, stream_info)
-            
-            # Step 9: Generate structured events and tracking stats
-            events = self._generate_events(person_counting_summary, zone_analysis, alerts, config, stream_info)
-            tracking_stats = self._generate_tracking_stats(person_counting_summary, zone_analysis, insights, summary, config, stream_info=stream_info)
-            
-            # Mark processing as completed
-            context.mark_completed()
-            
-            # Create successful result
-            result = self.create_result(
-                data={
-                    "general_counting_summary": general_counting_summary,
-                    "counting_summary": person_counting_summary,
-                    "zone_analysis": zone_analysis,
-                    "alerts": alerts,
-                    "total_people": person_counting_summary.get("total_objects", 0),
-                    "zones_count": len(config.zone_config.zones) if config.zone_config else 0,
-                    "events": events,
-                    "tracking_stats": tracking_stats
-                },
-                usecase=self.name,
-                category=self.category,
-                context=context
-            )
-            
-            # Add human-readable information
-            result.summary = summary
-            result.insights = insights
-            result.predictions = predictions
-            result.metrics = metrics
-            
-            # Add warnings for low confidence detections
-            if config.confidence_threshold and config.confidence_threshold < 0.3:
-                result.add_warning(f"Low confidence threshold ({config.confidence_threshold}) may result in false positives")
-            
-            processing_time = context.processing_time or time.time() - start_time
-            self.logger.info(f"People counting completed successfully in {processing_time:.2f}s")
-            return result
-            
-        except Exception as e:
-            self.logger.error(f"People counting failed: {str(e)}", exc_info=True)
-            
-            if context:
-                context.mark_completed()
-            
-            return self.create_error_result(
-                str(e), 
-                type(e).__name__,
-                usecase=self.name,
-                category=self.category,
-                context=context
-            )
-    
-    def _generate_insights(self, counting_summary: Dict, zone_analysis: Dict, 
-                          config: PeopleCountingConfig,stream_info: Optional[Dict[str, Any]] = None) -> List[str]:
-        """Generate human-readable insights from counting results."""
-        insights = []
+             # Generate human text in new format
+            human_text_lines = [f"INCIDENTS DETECTED @ {current_timestamp}:"]
+            human_text_lines.append(f"\tSeverity Level: {(self.CASE_TYPE,level)}")
+            human_text = "\n".join(human_text_lines)
+
+            # Main people counting incident
+            event= self.create_incident(incident_id=self.CASE_TYPE+'_'+str(frame_id), incident_type=self.CASE_TYPE,
+                       severity_level=level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+                       start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
+                       level_settings= {"low": 1, "medium": 3, "significant":4, "critical": 7})
+            incidents.append(event)
+        else:
+            self._ascending_alert_list.append(0)
+            incidents.append({})
+        
+        # Add zone-specific events if applicable
+        if zone_analysis:
+            human_text_lines.append(f"\t- ZONE EVENTS:")
+            for zone_name, zone_count in zone_analysis.items():
+                zone_total = self._robust_zone_total(zone_count)
+                if zone_total > 0:
+                    zone_intensity = min(10.0, zone_total / 5.0)
+                    zone_level = "info"
+                    if intensity >= 9:
+                        level = "critical"
+                        self._ascending_alert_list.append(3)
+                    elif intensity >= 7:
+                        level = "significant"
+                        self._ascending_alert_list.append(2)
+                    elif intensity >= 5:
+                        level = "medium"
+                        self._ascending_alert_list.append(1)
+                    else:
+                        level = "low"
+                        self._ascending_alert_list.append(0)
+
+                    human_text_lines.append(f"\t\t- Zone name: {zone_name}")
+                    human_text_lines.append(f"\t\t\t- Total people in zone: {zone_total}")
+                    # Main people counting incident
+                    event= self.create_incident(incident_id=self.CASE_TYPE+'_'+'zone_'+zone_name+str(frame_id), incident_type=self.CASE_TYPE,
+                            severity_level=zone_level, human_text=human_text, camera_info=camera_info, alerts=alerts, alert_settings=alert_settings,
+                            start_time=start_timestamp, end_time=self.current_incident_end_timestamp,
+                            level_settings= {"low": 1, "medium": 3, "significant":4, "critical": 7})
+                    incidents.append(event)
+        return incidents
+
+    def _generate_tracking_stats(self, counting_summary: Dict, zone_analysis: Dict, config: PeopleCountingConfig, frame_id: Optional[str] = None, alerts: Any=[], stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
+        """Generate tracking stats using standardized methods."""
         
         total_people = counting_summary.get("total_objects", 0)
         
-        if total_people == 0:
-            insights.append("No people detected in the scene")
-            return insights
+        # Get total count from cached tracking state
+        total_unique_count = self.get_total_count()
+        current_frame_count = self.get_current_frame_count()
         
-        # Basic count insight
-        insights.append(f"EVENT : Detected {total_people} people in the scene")
+        # Get camera info using standardized method
+        camera_info = self.get_camera_info_from_stream(stream_info)
         
-        # Intensity calculation based on threshold percentage
-        intensity_threshold = None
-        if (config.alert_config and 
-            config.alert_config.count_thresholds and 
-            "all" in config.alert_config.count_thresholds):
-            intensity_threshold = config.alert_config.count_thresholds["all"]
+        # Build total_counts using standardized method
+        total_counts = []
+        per_category_total = {}
         
-        if intensity_threshold is not None:
-            # Calculate percentage relative to threshold
-            percentage = (total_people / intensity_threshold) * 100
-            
-            if percentage < 20:
-                insights.append(f"INTENSITY: Low occupancy in the scene ({percentage:.1f}% of capacity)")
-            elif percentage <= 50:
-                insights.append(f"INTENSITY: Medium occupancy in the scene ({percentage:.1f}% of capacity)")
-            elif percentage <= 70:
-                insights.append(f"INTENSITY: High occupancy in the scene ({percentage:.1f}% of capacity)")
+        for category in config.person_categories or ["person"]:
+            # Get count for this category from zone analysis or counting summary
+            category_total_count = 0
+            if zone_analysis:
+                for zone_data in zone_analysis.values():
+                    if isinstance(zone_data, dict) and "total_count" in zone_data:
+                        category_total_count += zone_data.get("total_count", 0)
+                    elif isinstance(zone_data, dict):
+                        # Sum up zone counts
+                        for v in zone_data.values():
+                            if isinstance(v, int):
+                                category_total_count += v
+                            elif isinstance(v, list):
+                                category_total_count += len(v)
+                    elif isinstance(zone_data, (int, list)):
+                        category_total_count += len(zone_data) if isinstance(zone_data, list) else zone_data
             else:
-                insights.append(f"INTENSITY: Very high density in the scene ({percentage:.1f}% of capacity)")
-        else:
-            # Fallback to hardcoded thresholds if no alert config is set
-            if total_people > 10:
-                insights.append(f"INTENSITY: High density in the scene with {total_people} people")
-            elif total_people == 1:
-                insights.append("INTENSITY: Low occupancy in the scene")
+                # Use total unique count from tracking state
+                category_total_count = total_unique_count
+            
+            if category_total_count > 0:
+                total_counts.append(self.create_count_object(category, category_total_count))
+                per_category_total[category] = category_total_count
         
-        # Zone-specific insights
-        if zone_analysis:
-            def robust_zone_total(zone_counts):
-                if isinstance(zone_counts, dict):
-                    total = 0
-                    for v in zone_counts.values():
-                        if isinstance(v, int):
-                            total += v
-                        elif isinstance(v, list):
-                            total += len(v)
-                    return total
-                elif isinstance(zone_counts, list):
-                    return len(zone_counts)
-                elif isinstance(zone_counts, int):
-                    return zone_counts
-                else:
-                    return 0
-            zones_with_people = sum(1 for zone_counts in zone_analysis.values() if robust_zone_total(zone_counts) > 0)
-            insights.append(f"People detected across {zones_with_people}/{len(zone_analysis)} zones")
+        # Build current_counts using standardized method
+        current_counts = []
+        per_category_current = {}
         
-        # Category breakdown insights
-        if "by_category" in counting_summary:
-            category_counts = counting_summary["by_category"]
-            for category, count in category_counts.items():
-                if count > 0 and category in config.person_categories:
-                    percentage = (count / total_people) * 100
-                    insights.append(f"Category '{category}': {count} detections")
+        for category in config.person_categories or ["person"]:
+            # Get current count for this category
+            category_current_count = 0
+            if zone_analysis:
+                for zone_data in zone_analysis.values():
+                    if isinstance(zone_data, dict) and "current_count" in zone_data:
+                        category_current_count += zone_data.get("current_count", 0)
+                    elif isinstance(zone_data, dict):
+                        # For current frame, look at detections count
+                        for v in zone_data.values():
+                            if isinstance(v, int):
+                                category_current_count += v
+                            elif isinstance(v, list):
+                                category_current_count += len(v)
+                    elif isinstance(zone_data, (int, list)):
+                        category_current_count += len(zone_data) if isinstance(zone_data, list) else zone_data
+            else:
+                # Count detections in current frame for this category
+                detections = counting_summary.get("detections", [])
+                category_current_count = sum(1 for d in detections if d.get("category") == category)
         
-        # Time-based insights
-        if config.time_window_minutes:
-            rate_per_hour = (total_people / config.time_window_minutes) * 60
-            insights.append(f"Detection rate: {rate_per_hour:.1f} people per hour")
+            if category_current_count > 0 or total_people > 0:  # Include even if 0 when there are people
+                current_counts.append(self.create_count_object(category, category_current_count))
+                per_category_current[category] = category_current_count
         
-        # Unique counting insights
-        if config.enable_unique_counting:
-            unique_count = self._count_unique_tracks(counting_summary, config)
-            if unique_count is not None:
-                insights.append(f"Unique people count: {unique_count}")
-                if unique_count != total_people:
-                    insights.append(f"Detection efficiency: {unique_count}/{total_people} unique tracks")
+        # Prepare detections using standardized method (without confidence and track_id)
+        detections = []
+        for detection in counting_summary.get("detections", []):
+            bbox = detection.get("bounding_box", {})
+            category = detection.get("category", "person")
+            # Include segmentation if available (like in eg.json)
+            if detection.get("masks"):
+                segmentation= detection.get("masks", [])
+            if detection.get("segmentation"):
+                segmentation= detection.get("segmentation")
+            if detection.get("mask"):
+                segmentation= detection.get("mask")
+            detection_obj = self.create_detection_object(category, bbox, segmentation=segmentation)
+            detections.append(detection_obj)
         
-        return insights
+        # Build alerts and alert_settings arrays
+        alert_settings = []
+        if config.alert_config and hasattr(config.alert_config, 'alert_type'):
+            alert_settings.append({
+                "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                "incident_category": self.CASE_TYPE,
+                "threshold_level": config.alert_config.count_thresholds if hasattr(config.alert_config, 'count_thresholds') else {},
+                "ascending": True,
+                "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                    getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                            }
+            })
+        
+               
+        human_text = self._generate_human_text_for_tracking(total_people, total_unique_count, config, alerts, stream_info)
+        
+         # Create high precision timestamps for input_timestamp and reset_timestamp
+        high_precision_start_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        high_precision_reset_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
+        # Create tracking_stat using standardized method
+        tracking_stat = self.create_tracking_stats(
+            total_counts, current_counts, detections, human_text, camera_info, alerts, alert_settings, high_precision_start_timestamp, high_precision_reset_timestamp
+        )
+        
+        return [tracking_stat]
     
+    def _generate_human_text_for_tracking(self, total_people: int, total_unique_count: int, config: PeopleCountingConfig, alerts:Any=[], stream_info: Optional[Dict[str, Any]] = None) -> str:
+        """Generate human-readable text for tracking stats in old format."""
+        from datetime import datetime, timezone
+        
+        human_text_lines=[]
+        current_timestamp = self._get_current_timestamp_str(stream_info, precision=True)
+        start_timestamp = self._get_start_timestamp_str(stream_info, precision=True)
+
+        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
+        human_text_lines.append(f"\t- People Detected: {total_people}")
+
+        human_text_lines.append("")
+        human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
+        human_text_lines.append(f"\t- Total unique people count: {total_unique_count}")
+
+        if alerts:
+            for alert in alerts:
+                human_text_lines.append(f"Alerts: {alert.get('settings', {})} sent @ {current_timestamp}")
+        else:
+            human_text_lines.append("Alerts: None")
+        
+        return "\n".join(human_text_lines)
+
     def _check_alerts(self, counting_summary: Dict, zone_analysis: Dict, 
-                     config: PeopleCountingConfig) -> List[Dict]:
+                     config: PeopleCountingConfig, frame_id: str) -> List[Dict]:
         """Check for alert conditions and generate alerts."""
+        def get_trend(data, lookback=900, threshold=0.6):
+            '''
+            Determine if the trend is ascending or descending based on actual value progression.
+            Now works with values 0,1,2,3 (not just binary).
+            '''
+            window = data[-lookback:] if len(data) >= lookback else data
+            if len(window) < 2:
+                return True  # not enough data to determine trend
+            increasing = 0
+            total = 0
+            for i in range(1, len(window)):
+                if window[i] >= window[i - 1]:
+                    increasing += 1
+                total += 1
+            ratio = increasing / total
+            if ratio >= threshold:
+                return True
+            elif ratio <= (1 - threshold):
+                return False
         alerts = []
         
         if not config.alert_config:
@@ -648,24 +579,28 @@ class PeopleCountingUseCase(BaseProcessor):
             for category, threshold in config.alert_config.count_thresholds.items():
                 if category == "all" and total_people >= threshold:
                     alerts.append({
-                        "type": "count_threshold",
-                        "severity": "warning",
-                        "message": f"Total people count ({total_people}) exceeds threshold ({threshold})",
-                        "category": category,
-                        "current_count": total_people,
-                        "threshold": threshold
+                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                        "alert_id": "alert_"+category+'_'+frame_id,
+                        "incident_category": self.CASE_TYPE,
+                        "threshold_level": threshold,
+                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                    }                    
                     })
                 elif category in counting_summary.get("by_category", {}):
                     count = counting_summary["by_category"][category]
                     if count >= threshold:
                         alerts.append({
-                            "type": "count_threshold",
-                            "severity": "warning",
-                            "message": f"{category} count ({count}) exceeds threshold ({threshold})",
-                            "category": category,
-                            "current_count": count,
-                            "threshold": threshold
-                        })
+                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                        "alert_id": "alert_"+category+'_'+frame_id,
+                        "incident_category": self.CASE_TYPE,
+                        "threshold_level": threshold,
+                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                    }                    
+                    })
         
         # Zone occupancy threshold alerts
         if config.alert_config.occupancy_thresholds:
@@ -674,16 +609,80 @@ class PeopleCountingUseCase(BaseProcessor):
                     zone_count = sum(zone_analysis[zone_name].values()) if isinstance(zone_analysis[zone_name], dict) else zone_analysis[zone_name]
                     if zone_count >= threshold:
                         alerts.append({
-                            "type": "occupancy_threshold",
-                            "severity": "warning",
-                            "message": f"Zone '{zone_name}' occupancy ({zone_count}) exceeds threshold ({threshold})",
-                            "zone": zone_name,
-                            "current_occupancy": zone_count,
-                            "threshold": threshold
-                        })
+                        "alert_type": getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                        "alert_id": "alert_"+category+'_zone_'+zone_name+'_'+frame_id,
+                        "incident_category": self.CASE_TYPE+'_'+zone_name,
+                        "threshold_level": threshold,
+                        "ascending": get_trend(self._ascending_alert_list, lookback=900, threshold=0.8),
+                        "settings": {t: v for t, v in zip(getattr(config.alert_config, 'alert_type', ['Default']) if hasattr(config.alert_config, 'alert_type') else ['Default'],
+                                     getattr(config.alert_config, 'alert_value', ['JSON']) if hasattr(config.alert_config, 'alert_value') else ['JSON'])
+                                    }                    
+                    })
         
         return alerts
-    
+
+    def _generate_business_analytics(self, counting_summary: Dict, zone_analysis: Dict, config: PeopleCountingConfig, stream_info: Optional[Dict[str, Any]] = None, is_empty=False) -> List[Dict]:
+        """Generate standardized business analytics for the agg_summary structure."""
+        if is_empty:
+            return []
+        business_analytics = []
+
+        total_people = counting_summary.get("total_objects", 0)
+        
+        # Get camera info using standardized method
+        camera_info = self.get_camera_info_from_stream(stream_info)
+        
+        if total_people > 0 or config.enable_analytics:
+            # Calculate analytics statistics
+            analytics_stats = {
+                "people_count": total_people,
+                "unique_people_count": self.get_total_count(),
+                "current_frame_count": self.get_current_frame_count()
+            }
+            
+            # Add zone analytics if available
+            if zone_analysis:
+                zone_stats = {}
+                for zone_name, zone_count in zone_analysis.items():
+                    zone_total = self._robust_zone_total(zone_count)
+                    zone_stats[f"{zone_name}_occupancy"] = zone_total
+                analytics_stats.update(zone_stats)
+            
+            # Generate human text for analytics
+            current_timestamp = self._get_current_timestamp_str(stream_info)
+            start_timestamp = self._get_start_timestamp_str(stream_info)
+            
+            analytics_human_text = self.generate_analytics_human_text(
+                "people_counting_analytics", analytics_stats, current_timestamp, start_timestamp
+            )
+            
+            # Create business analytics using standardized method
+            analytics = self.create_business_analytics(
+                "people_counting_analytics", analytics_stats, analytics_human_text, camera_info
+            )
+            business_analytics.append(analytics)
+        
+        return business_analytics
+
+    def _generate_summary(self, summary: dict, incidents: List, tracking_stats: List, business_analytics: List, alerts: List) -> List[str]:
+        """
+        Generate a human_text string for the tracking_stat, incident, business analytics and alerts.
+        """
+        lines = {}
+        lines["Application Name"] = self.CASE_TYPE
+        lines["Application Version"] = self.CASE_VERSION
+        if len(incidents) > 0:
+            lines["Incidents:"]=f"\n\t{incidents[0].get('human_text', 'No incidents detected')}\n"
+        if len(tracking_stats) > 0:
+            lines["Tracking Statistics:"]=f"\t{tracking_stats[0].get('human_text', 'No tracking statistics detected')}\n"
+        if len(business_analytics) > 0:
+            lines["Business Analytics:"]=f"\t{business_analytics[0].get('human_text', 'No business analytics detected')}\n"
+
+        if len(incidents) == 0 and len(tracking_stats) == 0 and len(business_analytics) == 0:
+            lines["Summary"] = "No Summary Data"
+
+        return [lines]
+                
     def _calculate_metrics(self, counting_summary: Dict, zone_analysis: Dict, 
                           config: PeopleCountingConfig, context: ProcessingContext) -> Dict[str, Any]:
         """Calculate detailed metrics for analytics."""
@@ -928,7 +927,7 @@ class PeopleCountingUseCase(BaseProcessor):
     
     def reset_tracking_state(self) -> None:
         """
-        ⚠️  WARNING: This completely resets ALL tracking data including cumulative totals!
+          WARNING: This completely resets ALL tracking data including cumulative totals!
         
         This should ONLY be used when:
         - Starting a completely new tracking session
@@ -958,13 +957,13 @@ class PeopleCountingUseCase(BaseProcessor):
         self._track_aliases.clear()
         self._tracking_start_time = None
         
-        self.logger.warning("⚠️  FULL tracking state reset - all track IDs, zone data, frame counter, and global frame offset cleared. Cumulative totals lost!")
+        self.logger.warning(" FULL tracking state reset - all track IDs, zone data, frame counter, and global frame offset cleared. Cumulative totals lost!")
     
     def clear_current_frame_tracking(self) -> int:
         """
         MANUAL USE ONLY: Clear only current frame tracking data while preserving cumulative totals.
         
-        ⚠️  This method is NOT called automatically anywhere in the code.
+         This method is NOT called automatically anywhere in the code.
         
         This is the SAFE method to use for manual clearing of stale/expired current frame data.
         The cumulative total (self._total_count) is always preserved.
@@ -1000,7 +999,7 @@ class PeopleCountingUseCase(BaseProcessor):
         """
         MANUAL USE ONLY: Clear current frame tracking data if no updates for a while.
         
-        ⚠️  This method is NOT called automatically anywhere in the code.
+          This method is NOT called automatically anywhere in the code.
         It's provided as a utility function for manual cleanup if needed.
         
         In streaming scenarios, you typically don't need to call this at all.
@@ -1144,18 +1143,20 @@ class PeopleCountingUseCase(BaseProcessor):
         dt = datetime.fromtimestamp(float(timestamp), tz=timezone.utc)
         return dt.strftime('%Y:%m:%d %H:%M:%S')
 
-    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+    def _get_current_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
         """Get formatted current timestamp based on stream type."""
         if not stream_info:
             return "00:00:00.00"
-        
-        is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        
-        # if is_video_chunk and stream_info.get("input_settings", {}).get("stream_type","video_file")!="video_file":
-        #     # For video chunks, use video_timestamp from stream_info
-        #     video_timestamp = stream_info.get("video_timestamp", 0.0)
-        #     return self._format_timestamp_for_stream(video_timestamp)
-        if stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+
+        # is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
+        if precision:
+            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+                stream_time_str = stream_info.get("video_timestamp", "")
+                return stream_time_str[:8]
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
+        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
             # If video format, return video timestamp
             stream_time_str = stream_info.get("video_timestamp", "")
             return stream_time_str[:8]
@@ -1176,17 +1177,20 @@ class PeopleCountingUseCase(BaseProcessor):
             else:
                 return self._format_timestamp_for_stream(time.time())
 
-    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]]) -> str:
+    def _get_start_timestamp_str(self, stream_info: Optional[Dict[str, Any]], precision=False) -> str:
         """Get formatted start timestamp for 'TOTAL SINCE' based on stream type."""
         if not stream_info:
             return "00:00:00"
-        
+
         is_video_chunk = stream_info.get("input_settings", {}).get("is_video_chunk", False)
-        
-        # if is_video_chunk:
-        #     # For video chunks, start from 00:00:00
-        #     return "00:00:00"
-        if stream_info.get("input_settings", {}).get("stream_type","video_file")=="video_file":
+        if precision:
+            if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
+                return "00:00:00"
+            else:
+                return datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S.%f UTC")
+
+
+        if stream_info.get("input_settings", {}).get("stream_type", "video_file") == "video_file":
             # If video format, start from 00:00:00
             return "00:00:00"
         else:
@@ -1205,306 +1209,40 @@ class PeopleCountingUseCase(BaseProcessor):
                         self._tracking_start_time = time.time()
                 else:
                     self._tracking_start_time = time.time()
-            
+
             dt = datetime.fromtimestamp(self._tracking_start_time, tz=timezone.utc)
             # Reset minutes and seconds to 00:00 for "TOTAL SINCE" format
             dt = dt.replace(minute=0, second=0, microsecond=0)
             return dt.strftime('%Y:%m:%d %H:%M:%S')
     
-    def _generate_summary(self, counting_summary: Dict, zone_analysis: Dict, alerts: List, stream_info: Optional[Dict[str, Any]] = None) -> str:
-        """Generate human-readable summary."""
-        total_people = counting_summary.get("total_objects", 0)
-        
-        if total_people == 0:
-            return "No people detected in the scene"
-        
-        summary_parts = [f"{total_people} people detected"]
-        
-        if zone_analysis:
-            def robust_zone_total(zone_counts):
-                if isinstance(zone_counts, dict):
-                    total = 0
-                    for v in zone_counts.values():
-                        if isinstance(v, int):
-                            total += v
-                        elif isinstance(v, list):
-                            total += len(v)
-                    return total
-                elif isinstance(zone_counts, list):
-                    return len(zone_counts)
-                elif isinstance(zone_counts, int):
-                    return zone_counts
-                else:
-                    return 0
-            zones_with_people = sum(1 for zone_counts in zone_analysis.values() if robust_zone_total(zone_counts) > 0)
-            summary_parts.append(f"across {zones_with_people}/{len(zone_analysis)} zones")
-        
-        if alerts:
-            alert_count = len(alerts)
-            summary_parts.append(f"with {alert_count} alert{'s' if alert_count != 1 else ''}")
-        
-        return ", ".join(summary_parts)
+    def _extract_frame_id_from_tracking(self, frame_detections: List[Dict], frame_key: str) -> str:
+        """Extract frame ID from tracking data."""
+        # Priority 1: Check if detections have frame information
+        if frame_detections and len(frame_detections) > 0:
+            first_detection = frame_detections[0]
+            if "frame" in first_detection:
+                return str(first_detection["frame"])
+            elif "frame_id" in first_detection:
+                return str(first_detection["frame_id"])
+        # Priority 2: Use frame_key from input data
+        return str(frame_key)
     
-    def _generate_events(self, counting_summary: Dict, zone_analysis: Dict, alerts: List, config: PeopleCountingConfig, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
-        """Generate structured events for the output format."""
-        from datetime import datetime, timezone
-        
-        events = []
-        total_people = counting_summary.get("total_objects", 0)
-        human_text_lines = [f"EVENTS DETECTED:"]
-
-        if total_people > 0:
-            # Determine event level based on thresholds
-            
-            level = "info"
-            intensity = 5.0
-            
-            if config.alert_config and config.alert_config.count_thresholds:
-                threshold = config.alert_config.count_thresholds.get("all", 10)
-                intensity = min(10.0, (total_people / threshold) * 10)
-                
-                if intensity >= 7:
-                    level = "critical"
-                elif intensity >= 5:
-                    level = "warning"
-                else:
-                    level = "info"
-            else:
-                if total_people > 20:
-                    level = "critical"
-                    intensity = 9.0
-                elif total_people > 10:
-                    level = "warning" 
-                    intensity = 7.0
-                else:
-                    level = "info"
-                    intensity = min(10.0, total_people / 2.0)
-            
-            human_text_lines.append(f"\t- People Detected: {total_people}")
-            # Main people counting event
-            event = {
-                "type": "people_counting",
-                "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                "level": level,
-                "intensity": round(intensity, 1),
-                "config": {
-                    "min_value": 0,
-                    "max_value": 10,
-                    "level_settings": {"info": 2, "warning": 5, "critical": 7}
-                },
-                "application_name": "People Counting System",
-                "application_version": "1.2",
-                "location_info": None,
-                "human_text": "\n".join(human_text_lines)
-            }
-            events.append(event)
-        
-        # Add zone-specific events if applicable
-        if zone_analysis:
-            human_text_lines.append(f"\t- ZONE EVENTS:")
-            def robust_zone_total(zone_count):
-                if isinstance(zone_count, dict):
-                    total = 0
-                    for v in zone_count.values():
-                        if isinstance(v, int):
-                            total += v
-                        elif isinstance(v, list) and total==0:
-                            total += len(v)
-                    return total
-                elif isinstance(zone_count, list):
-                    return len(zone_count)
-                elif isinstance(zone_count, int):
-                    return zone_count
-                else:
-                    return 0
-            for zone_name, zone_count in zone_analysis.items():
-                zone_total = robust_zone_total(zone_count)
-                if zone_total > 0:
-                    zone_intensity = min(10.0, zone_total / 5.0)
-                    zone_level = "info"
-                    if zone_intensity >= 7:
-                        zone_level = "warning"
-                    elif zone_intensity >= 5:
-                        zone_level = "info"
-
-                    human_text_lines.append(f"\t\t- Zone name: {zone_name}")
-                    human_text_lines.append(f"\t\t\t- Total people in zone: {zone_total}")
-                    zone_event = {
-                        "type": "zone_occupancy",
-                        "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                        "level": zone_level,
-                        "intensity": round(zone_intensity, 1),
-                        "config": {
-                            "min_value": 0,
-                            "max_value": 10,
-                            "level_settings": {"info": 2, "warning": 5, "critical": 7}
-                        },
-                        "application_name": "Zone Monitoring System",
-                        "application_version": "1.2",
-                        "location_info": zone_name,
-                        "human_text": "\n".join(human_text_lines)
-                    }
-                    events.append(zone_event)
-        
-        # Add alert events
-        for alert in alerts:
-            human_text_lines.append(f"\t- Alerts:")
-            human_text_lines.append(f"\t\t- Alert Triggered")
-            alert_event = {
-                "type": alert.get("type", "alert"),
-                "stream_time": datetime.now(timezone.utc).strftime("%Y-%m-%d-%H:%M:%S UTC"),
-                "level": alert.get("severity", "warning"),
-                "intensity": 8.0,
-                "config": {
-                    "min_value": 0,
-                    "max_value": 10,
-                    "level_settings": {"info": 2, "warning": 5, "critical": 7}
-                },
-                "application_name": "Alert System",
-                "application_version": "1.2",
-                "location_info": alert.get("zone"),
-                "human_text": "\n".join(human_text_lines)
-            }
-            events.append(alert_event)
-        
-        return events
-    
-    def _generate_tracking_stats(self, counting_summary: Dict, zone_analysis: Dict, insights: List[str], summary: str, config: PeopleCountingConfig, frame_id: Optional[str] = None, stream_info: Optional[Dict[str, Any]] = None) -> List[Dict]:
-        """Generate tracking stats in the old format structure with simplified keywords."""
-        from datetime import datetime, timezone
-        
-        tracking_stats = []
-        human_text_list= []
-        human_text_lines=[]
-        # Get formatted timestamps
-        current_timestamp = self._get_current_timestamp_str(stream_info)
-        start_timestamp = self._get_start_timestamp_str(stream_info)
-
-        total_people = counting_summary.get("total_objects", 0)
-        
-        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-
-        if total_people > 0 or zone_analysis:
-            # Get total count from cached tracking state
-            total_unique_count = self.get_total_count()
-            current_frame_count = self.get_current_frame_count()
-            
-            # Use provided frame_id or generate timestamp
-            frame_identifier = frame_id if frame_id else datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-
-                        # Create tracking stats in old format structure
-            tracking_stat = {
-                "tracking_start_time": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                "all_results_for_tracking": {
-                    "total_people": total_people,
-                    "zone_analysis": zone_analysis,
-                    "counting_summary": counting_summary,
-                    "detection_rate": (total_people / config.time_window_minutes * 60) if config.time_window_minutes else 0.0,
-                    "zones_count": len(zone_analysis),
-                    "people_in_frame": total_people,  # Clear keyword for people in this frame
-                    "cumulative_total": total_unique_count,  # Clear keyword for total unique people
-                    "current_frame_count": current_frame_count,
-                    "track_ids_info": self.get_track_ids_info(),
-                    "zone_tracking_info": self.get_zone_tracking_info(),
-                    "global_frame_offset": self._global_frame_offset,
-                    "local_frame_id": frame_identifier if frame_id else None
-                }}
-
-            if zone_analysis:
-                def robust_zone_total(zone_count):
-                    if isinstance(zone_count, dict):
-                        total = 0
-                        for v in zone_count.values():
-                            if isinstance(v, int):
-                                total += v
-                            elif isinstance(v, list) and total==0:
-                                total += len(v)
-                        return total
-                    elif isinstance(zone_count, list):
-                        return len(zone_count)
-                    elif isinstance(zone_count, int):
-                        return zone_count
-                    else:
-                        return 0
-                human_text_lines.append(f"\t- People Detected: {total_people}")
-                human_text_lines.append("")
-                human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
-                
-                for zone_name, zone_count in zone_analysis.items():
-                        zone_total = robust_zone_total(zone_count)
-                        human_text_lines.append(f"\t- Zone name: {zone_name}")
-                        human_text_lines.append(f"\t\t- Total count in zone: {zone_total-1}")
-
-                
-                human_text_lines.append(f"\t- Total unique people in the scene: {total_unique_count}")
-                human_message = "\n".join(human_text_lines)  
-                tracking_stat["human_text"]= human_message
-            else:
-                tracking_stat["human_text"]= self._generate_human_text_for_tracking(total_people, total_unique_count, config, stream_info)    
-            tracking_stat["frame_id"]= frame_identifier
-            tracking_stat["frames_in_this_call"]= 1  # Single frame processing
-            tracking_stat["total_frames_processed"]= self._total_frame_counter
-            tracking_stat["current_frame_number"]= frame_identifier
-            tracking_stat["global_frame_offset"]= self._global_frame_offset
-            
-            tracking_stats.append(tracking_stat)
+    def _robust_zone_total(self, zone_count):
+        """Helper method to robustly calculate zone total."""
+        if isinstance(zone_count, dict):
+            total = 0
+            for v in zone_count.values():
+                if isinstance(v, int):
+                    total += v
+                elif isinstance(v, list):
+                    total += len(v)
+            return total
+        elif isinstance(zone_count, list):
+            return len(zone_count)
+        elif isinstance(zone_count, int):
+            return zone_count
         else:
-            total_unique_count = self.get_total_count()
-            current_frame_count = self.get_current_frame_count()
-            
-            # Use provided frame_id or generate timestamp
-            frame_identifier = frame_id if frame_id else datetime.now(timezone.utc).strftime("%Y%m%d_%H%M%S")
-
-                        # Create tracking stats in old format structure
-            tracking_stat = {
-                "tracking_start_time": datetime.now(timezone.utc).strftime("%Y-%m-%d"),
-                "all_results_for_tracking": {
-                    "total_people": total_people,
-                    "zone_analysis": zone_analysis,
-                    "counting_summary": counting_summary,
-                    "detection_rate": (total_people / config.time_window_minutes * 60) if config.time_window_minutes else 0.0,
-                    "zones_count": len(zone_analysis),
-                    "people_in_frame": total_people,  # Clear keyword for people in this frame
-                    "cumulative_total": total_unique_count,  # Clear keyword for total unique people
-                    "current_frame_count": current_frame_count,
-                    "track_ids_info": self.get_track_ids_info(),
-                    "zone_tracking_info": self.get_zone_tracking_info(),
-                    "global_frame_offset": self._global_frame_offset,
-                    "local_frame_id": frame_identifier if frame_id else None
-                }}
-
-            total_unique_count = self.get_total_count()
-            human_text_lines.append(f"\t- People Detected: {total_people}")
-            human_text_lines.append("")
-            human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
-            human_text_lines.append(f"\t- Total unique people in the scene: {total_unique_count}")
-            human_message = "\n".join(human_text_lines)  
-            tracking_stat["human_text"]= human_message
-            tracking_stat["frame_id"]= frame_identifier
-            tracking_stat["frames_in_this_call"]= 1  # Single frame processing
-            tracking_stat["total_frames_processed"]= self._total_frame_counter
-            tracking_stat["current_frame_number"]= frame_identifier
-            tracking_stat["global_frame_offset"]= self._global_frame_offset
-        return tracking_stats
-    
-    def _generate_human_text_for_tracking(self, total_people: int, total_unique_count: int, config: PeopleCountingConfig, stream_info: Optional[Dict[str, Any]] = None) -> str:
-        """Generate human-readable text for tracking stats in old format."""
-        from datetime import datetime, timezone
-        
-        timestamp = datetime.now(timezone.utc).strftime("%Y-%m-%d %H:%M")
-        human_text_lines=[]
-        current_timestamp = self._get_current_timestamp_str(stream_info)
-        start_timestamp = self._get_start_timestamp_str(stream_info)
-
-        human_text_lines.append(f"CURRENT FRAME @ {current_timestamp}:")
-        human_text_lines.append(f"\t- People Detected: {total_people}")
-
-        human_text_lines.append("")
-        human_text_lines.append(f"TOTAL SINCE @ {start_timestamp}:")
-        human_text_lines.append(f"\t- Total unique people count: {total_unique_count}")
-        
-        return "\n".join(human_text_lines)
-    
+            return 0
     
     # --------------------------------------------------------------------- #
     # Private helpers for canonical track aliasing                          #
@@ -1627,3 +1365,131 @@ class PeopleCountingUseCase(BaseProcessor):
     def _set_tracking_start_time(self) -> None:
         """Set the tracking start time to the current time."""
         self._tracking_start_time = time.time()
+
+    def get_config_schema(self) -> Dict[str, Any]:
+        """Get configuration schema for people counting."""
+        return {
+            "type": "object",
+            "properties": {
+                "confidence_threshold": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "default": 0.5,
+                    "description": "Minimum confidence threshold for detections"
+                },
+                "enable_tracking": {
+                    "type": "boolean",
+                    "default": False,
+                    "description": "Enable tracking for unique counting"
+                },
+                "zone_config": {
+                    "type": "object",
+                    "properties": {
+                        "zones": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "array",
+                                "items": {
+                                    "type": "array",
+                                    "items": {"type": "number"},
+                                    "minItems": 2,
+                                    "maxItems": 2
+                                },
+                                "minItems": 3
+                            },
+                            "description": "Zone definitions as polygons"
+                        },
+                        "zone_confidence_thresholds": {
+                            "type": "object",
+                            "additionalProperties": {"type": "number", "minimum": 0.0, "maximum": 1.0},
+                            "description": "Per-zone confidence thresholds"
+                        }
+                    }
+                },
+                "person_categories": {
+                    "type": "array",
+                    "items": {"type": "string"},
+                    "default": ["person", "people"],
+                    "description": "Category names that represent people"
+                },
+                "enable_unique_counting": {
+                    "type": "boolean",
+                    "default": True,
+                    "description": "Enable unique people counting using tracking"
+                },
+                "time_window_minutes": {
+                    "type": "integer",
+                    "minimum": 1,
+                    "default": 60,
+                    "description": "Time window for counting analysis in minutes"
+                },
+                "alert_config": {
+                    "type": "object",
+                    "properties": {
+                        "count_thresholds": {
+                            "type": "object",
+                            "additionalProperties": {"type": "integer", "minimum": 1},
+                            "description": "Count thresholds for alerts"
+                        },
+                        "occupancy_thresholds": {
+                            "type": "object", 
+                            "additionalProperties": {"type": "integer", "minimum": 1},
+                            "description": "Zone occupancy thresholds for alerts"
+                        },
+                        "alert_type": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "default": ["Default"],
+                            "description": "To pass the type of alert. EG: email, sms, etc."
+                        },
+                        "alert_value": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "default": ["JSON"],
+                            "description": "Alert value to pass the value based on type. EG: email id if type is email."
+                        },
+                        "alert_incident_category": {
+                            "type": "array",
+                            "items": {"type": "string"},
+                            "default": ["Incident Detection Alert"],
+                            "description": "Group and name the Alert category Type"
+                        },
+                    }
+                }
+            },
+            "required": ["confidence_threshold"],
+            "additionalProperties": False
+        }
+    
+    def create_default_config(self, **overrides) -> PeopleCountingConfig:
+        """Create default configuration with optional overrides."""
+        defaults = {
+            "category": self.category,
+            "usecase": self.name,
+            "confidence_threshold": 0.5,
+            "enable_tracking": False,
+            "enable_analytics": True,
+            "enable_unique_counting": True,
+            "time_window_minutes": 60,
+            "person_categories": ["person", "people"],
+        }
+        defaults.update(overrides)
+        return PeopleCountingConfig(**defaults)
+
+    def _apply_smoothing(self, data: Any, config: PeopleCountingConfig) -> Any:
+        """Apply smoothing to tracking data if enabled."""
+        if self.smoothing_tracker is None:
+            smoothing_config = BBoxSmoothingConfig(
+                smoothing_algorithm=config.smoothing_algorithm,
+                window_size=config.smoothing_window_size,
+                cooldown_frames=config.smoothing_cooldown_frames,
+                confidence_threshold=config.confidence_threshold or 0.5,
+                confidence_range_factor=config.smoothing_confidence_range_factor,
+                enable_smoothing=True
+            )
+            self.smoothing_tracker = BBoxSmoothingTracker(smoothing_config)
+        
+        smoothed_data = bbox_smoothing(data, self.smoothing_tracker.config, self.smoothing_tracker)
+        self.logger.debug(f"Applied bbox smoothing to tracking results")
+        return smoothed_data

@@ -1,4 +1,5 @@
 """Attempts to create a test user, as the empty JIRA instance isn't provisioned with one."""
+
 from __future__ import annotations
 
 import sys
@@ -9,7 +10,8 @@ import requests
 
 from jira import JIRA
 
-CI_JIRA_URL = environ["CI_JIRA_URL"]
+CI_JIRA_URL = environ.get("CI_JIRA_URL")
+CI_TYPE = environ.get("CI_JIRA_TYPE")
 
 
 def add_user_to_jira():
@@ -30,7 +32,10 @@ def add_user_to_jira():
 
 
 if __name__ == "__main__":
-    if environ.get("CI_JIRA_TYPE", "Server").upper() == "CLOUD":
+    if CI_TYPE is None or CI_JIRA_URL is None:
+        print("No CI type (Server/Cloud) or Instance URL provided, quitting.")
+        sys.exit()
+    if CI_TYPE.upper() == "CLOUD":
         print("Do not need to create a user for Jira Cloud CI, quitting.")
         sys.exit()
 

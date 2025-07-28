@@ -235,6 +235,9 @@ def get_axis_properties(axis):
     elif isinstance(formatter, ticker.FixedFormatter):
         props['tickformat'] = list(formatter.seq)
         props['tickformat_formatter'] = "fixed"
+    elif isinstance(formatter, ticker.FuncFormatter) and props['tickvalues']:
+        props['tickformat'] = [formatter(value) for value in props['tickvalues']]
+        props['tickformat_formatter'] = "func"
     elif not any(label.get_visible() for label in axis.get_ticklabels()):
         props['tickformat'] = ""
     else:
@@ -297,13 +300,13 @@ def get_axes_properties(ax):
         if (
             (
                 hasattr(matplotlib.dates, '_SwitchableDateConverter') and
-                isinstance(axis.converter, matplotlib.dates._SwitchableDateConverter)
+                isinstance(axis.get_converter(), matplotlib.dates._SwitchableDateConverter)
             ) or (
                 hasattr(matplotlib.dates, 'DateConverter') and
-                isinstance(axis.converter, matplotlib.dates.DateConverter)
+                isinstance(axis.get_converter(), matplotlib.dates.DateConverter)
             ) or (
                 hasattr(matplotlib.dates, 'ConciseDateConverter') and
-                isinstance(axis.converter, matplotlib.dates.ConciseDateConverter)
+                isinstance(axis.get_converter(), matplotlib.dates.ConciseDateConverter)
             )
         ):
             scale = 'date'
@@ -313,7 +316,7 @@ def get_axes_properties(ax):
             except ImportError:
                 pd = None
 
-            if (pd is not None and isinstance(axis.converter,
+            if (pd is not None and isinstance(axis.get_converter(),
                                               PeriodConverter)):
                 _dates = [pd.Period(ordinal=int(d), freq=axis.freq)
                           for d in domain]

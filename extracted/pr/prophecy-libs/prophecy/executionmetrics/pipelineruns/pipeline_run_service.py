@@ -10,7 +10,7 @@ from dataclasses import replace
 import logging
 import json
 import os
-from typing import List, Dict, Optional, Tuple, Any
+from typing import List, Dict, Optional, Tuple
 from datetime import datetime
 import uuid
 
@@ -20,7 +20,6 @@ from prophecy.executionmetrics.componentruns.component_run_service import (
     ComponentRunService,
 )
 from prophecy.executionmetrics.evolutions.models import StorageMetadata
-
 from prophecy.executionmetrics.package import (
     ComponentRuns,
     FileContent,
@@ -35,6 +34,7 @@ from prophecy.executionmetrics.schemas.external import (
     LInterimContent,
 )
 from prophecy.executionmetrics.utils.common import get_spark_property
+from prophecy.executionmetrics.utils.constants import OffloadFlags
 from prophecy.executionmetrics.utils.external import (
     check_if_entities_are_same,
     parse_uri,
@@ -42,7 +42,6 @@ from prophecy.executionmetrics.utils.external import (
 from prophecy.executionmetrics.workflow_parser import (
     HasProcessesConnectionsPorts,
     WorkflowEdge,
-    WorkflowGraph,
     WorkflowGroup,
     get_workflow_graph,
 )
@@ -58,13 +57,21 @@ def create_entity(
     component_details: List[ComponentDetails],
     pipeline_run: PipelineRuns,
     created_by: str,
+    component_runs_uid_map: Dict[Tuple[str, str, str], str] = {},
 ) -> List[ComponentRuns]:
     """Create component run entities from component details."""
     component_runs = []
 
     for details in component_details:
         component_run = ComponentRuns(
-            uid=str(uuid.uuid4()),
+            uid=component_runs_uid_map.get(
+                (
+                    details.component_uri,
+                    details.interim_process_id,
+                    details.interim_out_port_id,
+                ),
+                str(uuid.uuid4()),
+            ),
             component_uri=details.component_uri,
             pipeline_uri=pipeline_run.pipeline_uri,
             pipeline_run_uid=pipeline_run.uid,
@@ -290,7 +297,7 @@ class PipelineRunsService:
             task_run_uid, job_run_uid, job_uri, filters
         )
 
-    def add_recursive(
+    def init_runs(
         self,
         uid: Optional[str],
         pipeline_uri: str,
@@ -303,17 +310,18 @@ class PipelineRunsService:
         time_taken: Optional[int] = None,
         rows_read: Optional[int] = None,
         rows_written: Optional[int] = None,
-        run_type: str = None,
-        created_by: str = None,
+        run_type: Optional[str] = None,
+        created_by: Optional[str] = None,
         code: Optional[RecursiveDirectoryContent] = None,
-        interims: List[LInterimContent] = None,
-        branch: str = None,
+        interims: List[LInterimContent] = [],
+        branch: Optional[str] = None,
         expected_interims: int = 0,
         actual_interims: int = 0,
         logs: str = "",
         pipeline_config_opt: Optional[str] = None,
         gem_progress_map: Optional[Dict[str, GemProgress]] = None,
-    ) -> Tuple[List[ComponentRuns], List[str]]:
+        component_runs_uid_map: Dict[Tuple[str, str, str], str] = {},
+    ) -> Tuple[PipelineRuns, List[ComponentRuns]]:
         """
         Add pipeline run with all associated component runs and interims.
 
@@ -390,8 +398,75 @@ class PipelineRunsService:
         )
 
         # Create component runs
-        runs0 = create_entity(all_component_details, pipeline_run, created_by)
+        runs0 = create_entity(
+            all_component_details, pipeline_run, created_by, component_runs_uid_map
+        )
         runs = update_entity_with_interims(runs0, interims)
+        return pipeline_run, runs
+
+    def add_recursive(
+        self,
+        uid: Optional[str],
+        pipeline_uri: str,
+        job_uri: Optional[str],
+        job_run_uid: str,
+        task_run_uid: str,
+        status: str,
+        submission_time: Optional[int],
+        fabric_uid: str,
+        time_taken: Optional[int] = None,
+        rows_read: Optional[int] = None,
+        rows_written: Optional[int] = None,
+        run_type: Optional[str] = None,
+        created_by: Optional[str] = None,
+        code: Optional[RecursiveDirectoryContent] = None,
+        interims: List[LInterimContent] = [],
+        branch: Optional[str] = None,
+        expected_interims: int = 0,
+        actual_interims: int = 0,
+        logs: str = "",
+        pipeline_config_opt: Optional[str] = None,
+        gem_progress_map: Optional[Dict[str, GemProgress]] = None,
+        offload_flags: OffloadFlags = OffloadFlags.ALL,
+        component_runs_uid_map: Dict[Tuple[str, str, str], str] = {},
+    ) -> Tuple[List[ComponentRuns], List[str]]:
+        """
+        Add pipeline run with all associated component runs and interims.
+
+        This is the main method that orchestrates the entire process of:
+        1. Fetching/parsing workflow code
+        2. Extracting component details
+        3. Creating pipeline run
+        4. Creating component runs
+        5. Storing interim data
+
+        Returns:
+            Tuple of (component runs, interim IDs)
+        """
+        pipeline_run, runs = self.init_runs(
+            uid=uid,
+            pipeline_uri=pipeline_uri,
+            job_uri=job_uri,
+            job_run_uid=job_run_uid,
+            task_run_uid=task_run_uid,
+            status=status,
+            submission_time=submission_time,
+            fabric_uid=fabric_uid,
+            time_taken=time_taken,
+            rows_read=rows_read,
+            rows_written=rows_written,
+            run_type=run_type,
+            created_by=created_by,
+            code=code,
+            interims=interims,
+            branch=branch,
+            expected_interims=expected_interims,
+            actual_interims=actual_interims,
+            logs=logs,
+            pipeline_config_opt=pipeline_config_opt,
+            gem_progress_map=gem_progress_map,
+            component_runs_uid_map=component_runs_uid_map,
+        )
 
         # Calculate metrics based on interims
         interim_based_rows_read = self._calculate_rows_read(runs, rows_read)
@@ -411,11 +486,12 @@ class PipelineRunsService:
         )
 
         # Add to storage
-        self.dao.add(stats_enriched_pipeline_run)
+        if offload_flags.should_offload_pipeline_run():
+            self.dao.add(stats_enriched_pipeline_run)
 
         # Add component runs and interims
         return self._add_component_runs(
-            runs, stats_enriched_pipeline_run, interims, created_by
+            runs, stats_enriched_pipeline_run, interims, created_by, offload_flags
         )
 
     def expire(self, uid: str, filters: Filters) -> DataFrame:
@@ -455,10 +531,11 @@ class PipelineRunsService:
         pipeline_run: PipelineRuns,
         interims: List[LInterimContent],
         created_by: str,
+        offload_flags: OffloadFlags,
     ) -> Tuple[List[ComponentRuns], List[str]]:
         """Add component runs and associated interims."""
         return self.component_service.add_recursive(
-            pipeline_run, component_runs, interims, created_by
+            pipeline_run, component_runs, interims, created_by, offload_flags
         )
 
     def _fetch_code_for_pipeline(self, pipeline_uri: str) -> RecursiveDirectoryContent:

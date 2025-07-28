@@ -1,5 +1,5 @@
 from matrice.deploy.client.client import MatriceDeployClient
-from matrice.deploy.client.camera_manager import CameraManager, CameraConfig
+from matrice.deploy.client.auto_streaming import AutoStreaming, AutoStreamingUtils
 from matrice.deploy.client.streaming_gateway import (
     StreamingGateway,
     InputConfig,
@@ -25,8 +25,6 @@ from matrice.deploy.client.streaming_gateway import (
 
 __all__ = [
     "MatriceDeployClient",
-    "CameraManager",
-    "CameraConfig",
     "StreamingGateway",
     "InputConfig",
     "InputType",
@@ -46,5 +44,7 @@ __all__ = [
     "create_camera_video_input_by_frames",
     "create_video_frame_input",
     "create_video_video_input",
-    "create_video_video_input_by_frames"
+    "create_video_video_input_by_frames",
+    "AutoStreaming",
+    "AutoStreamingUtils"
 ]

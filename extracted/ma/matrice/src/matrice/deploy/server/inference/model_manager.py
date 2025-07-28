@@ -1,5 +1,7 @@
 import logging
 import gc
+from typing import Tuple
+from matrice.deploy.server.inference.cache_manager import CacheManager
 
 
 class ModelManager:
@@ -41,7 +43,7 @@ class ModelManager:
             self.predict = self._create_prediction_wrapper(predict)
             self.batch_predict = self._create_prediction_wrapper(batch_predict)
             self.action_tracker = action_tracker
-
+            self.cache_manager = CacheManager()
             self.model_instances = []
 
             for i in range(num_model_instances):
@@ -140,7 +142,7 @@ class ModelManager:
 
         return wrapper
 
-    def inference(self, input1, input2=None, extra_params=None, stream_key=None, stream_info=None) -> tuple[dict, bool]:
+    def inference(self, input1, input2=None, extra_params=None, stream_key=None, stream_info=None, input_hash=None) -> Tuple[dict, bool]:
         """Run inference on the provided input data.
 
         Args:
@@ -149,6 +151,7 @@ class ModelManager:
             extra_params: Additional parameters for inference (optional)
             stream_key: Stream key for the inference
             stream_info: Stream info for the inference
+            input_hash: Input hash for the inference
         Returns:
             Tuple of (results, success_flag)
 
@@ -158,6 +161,11 @@ class ModelManager:
         if input1 is None:
             raise ValueError("Input data cannot be None")
         try:
+            if input_hash:
+                cached_result = self.cache_manager.get_cached_result(input_hash, stream_key)
+                if cached_result:
+                    return cached_result, True
+            
             # Get the model
             model = self.get_model()
 
@@ -168,6 +176,9 @@ class ModelManager:
             if self.action_tracker:
                 results = self.action_tracker.update_prediction_results(results)
 
+            if input_hash:
+                self.cache_manager.set_cached_result(input_hash, results, stream_key)
+
             return results, True
 
         except Exception as e:
@@ -175,8 +186,8 @@ class ModelManager:
             return None, False
 
     def batch_inference(
-        self, input1, input2=None, extra_params=None, stream_key=None, stream_info=None
-    ) -> tuple[dict, bool]:
+        self, input1, input2=None, extra_params=None, stream_key=None, stream_info=None, input_hash=None
+    ) -> Tuple[dict, bool]:
         """Run batch inference on the provided input data.
 
         Args:
@@ -185,6 +196,7 @@ class ModelManager:
             extra_params: Additional parameters for inference (optional)
             stream_key: Stream key for the inference
             stream_info: Stream info for the inference
+            input_hash: Input hash for the inference
         Returns:
             Tuple of (results, success_flag)
 
@@ -194,6 +206,11 @@ class ModelManager:
         if input1 is None:
             raise ValueError("Input data cannot be None")
         try:
+            if input_hash:
+                cached_result = self.cache_manager.get_cached_result(input_hash, stream_key)
+                if cached_result:
+                    return cached_result, True
+            
             # Get the model
             model = self.get_model()
 
@@ -207,6 +224,9 @@ class ModelManager:
             if self.action_tracker:
                 for result in results:
                     self.action_tracker.update_prediction_results(result)
+
+            if input_hash:
+                self.cache_manager.set_cached_result(input_hash, results, stream_key)
 
             return results, True
 

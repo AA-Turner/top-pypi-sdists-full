@@ -18,20 +18,19 @@ import mimetypes
 import os
 import re
 import sys
+import tempfile
 import time
 import urllib
 import warnings
 from collections import OrderedDict
-from collections.abc import Iterable
-from functools import lru_cache, wraps
+from collections.abc import Iterable, Iterator
+from functools import cache, wraps
 from io import BufferedReader
 from numbers import Number
 from typing import (
     Any,
     Callable,
     Generic,
-    Iterator,
-    List,
     Literal,
     SupportsIndex,
     TypeVar,
@@ -42,7 +41,6 @@ from urllib.parse import parse_qs, quote, urlparse
 
 import requests
 from packaging.version import parse as parse_version
-from PIL import Image
 from requests import Response
 from requests.auth import AuthBase
 from requests.structures import CaseInsensitiveDict
@@ -76,6 +74,7 @@ from jira.resources import (
     IssueTypeScheme,
     NotificationScheme,
     PermissionScheme,
+    PinnedComment,
     Priority,
     PriorityScheme,
     Project,
@@ -195,7 +194,7 @@ def translate_resource_args(func: Callable):
     def wrapper(*args: Any, **kwargs: Any) -> Any:
         arg_list = []
         for arg in args:
-            if isinstance(arg, (Issue, Project)):
+            if isinstance(arg, Issue | Project):
                 arg_list.append(arg.key)
             elif isinstance(arg, IssueLinkType):
                 arg_list.append(arg.name)
@@ -208,7 +207,7 @@ def translate_resource_args(func: Callable):
 
 
 def _field_worker(
-    fields: dict[str, Any] = None, **fieldargs: Any
+    fields: dict[str, Any] | None = None, **fieldargs: Any
 ) -> dict[str, dict[str, Any]] | dict[str, dict[str, str]]:
     if fields is not None:
         return {"fields": fields}
@@ -221,11 +220,12 @@ ResourceType = TypeVar("ResourceType", contravariant=True, bound=Resource)
 class ResultList(list, Generic[ResourceType]):
     def __init__(
         self,
-        iterable: Iterable = None,
+        iterable: Iterable | None = None,
         _startAt: int = 0,
         _maxResults: int = 0,
         _total: int | None = None,
         _isLast: bool | None = None,
+        _nextPageToken: str | None = None,
     ) -> None:
         """Results List.
 
@@ -235,6 +235,7 @@ class ResultList(list, Generic[ResourceType]):
             _maxResults (int): Max results per page. Defaults to 0.
             _total (Optional[int]): Total results from query. Defaults to 0.
             _isLast (Optional[bool]): True to mark this page is the last page? (Default: ``None``).
+            _nextPageToken (Optional[str]): Token for fetching the next page of results. Defaults to None.
              see `The official API docs <https://developer.atlassian.com/cloud/jira/platform/rest/v3/intro/#expansion:~:text=for%20all%20operations.-,isLast,-indicates%20whether%20the>`_
         """
         if iterable is not None:
@@ -250,6 +251,7 @@ class ResultList(list, Generic[ResourceType]):
 
         self.iterable: list[ResourceType] = list(iterable) if iterable else []
         self.current = self.startAt
+        self.nextPageToken = _nextPageToken
 
     def __next__(self) -> ResourceType:  # type:ignore[misc]
         self.current += 1
@@ -464,23 +466,23 @@ class JIRA:
 
     def __init__(
         self,
-        server: str = None,
-        options: dict[str, str | bool | Any] = None,
+        server: str | None = None,
+        options: dict[str, str | bool | Any] | None = None,
         basic_auth: tuple[str, str] | None = None,
         token_auth: str | None = None,
-        oauth: dict[str, Any] = None,
-        jwt: dict[str, Any] = None,
+        oauth: dict[str, Any] | None = None,
+        jwt: dict[str, Any] | None = None,
         kerberos=False,
-        kerberos_options: dict[str, Any] = None,
+        kerberos_options: dict[str, Any] | None = None,
         validate=False,
         get_server_info: bool = True,
         async_: bool = False,
         async_workers: int = 5,
         logging: bool = True,
         max_retries: int = 3,
-        proxies: Any = None,
+        proxies: Any | None = None,
         timeout: None | float | tuple[float, float] | tuple[float, None] | None = None,
-        auth: tuple[str, str] = None,
+        auth: tuple[str, str] | None = None,
         default_batch_sizes: dict[type[Resource], int | None] | None = None,
     ):
         """Construct a Jira client instance.
@@ -544,7 +546,7 @@ class JIRA:
             get_server_info (bool): True fetches server version info first to determine if some API calls are available. (Default: ``True``).
             async_ (bool): True enables async requests for those actions where we implemented it, like issue update() or delete(). (Default: ``False``).
             async_workers (int): Set the number of worker threads for async operations.
-            timeout (Optional[Union[Union[float, int], Tuple[float, float]]]): Set a read/connect timeout for the underlying calls to Jira.
+            timeout (Optional[Union[Union[float, int], Tuple[float, float]]]): Set a connect/read timeout for the underlying calls to Jira.
               Obviously this means that you cannot rely on the return code when this is enabled.
             max_retries (int): Sets the amount Retries for the HTTP sessions initiated by the client. (Default: ``3``)
             proxies (Optional[Any]): Sets the proxies for the HTTP session.
@@ -559,7 +561,6 @@ class JIRA:
         """
         # force a copy of the tuple to be used in __del__() because
         # sys.version_info could have already been deleted in __del__()
-
         self.sys_version_info = tuple(sys.version_info)
         if options is None:
             options = {}
@@ -745,7 +746,8 @@ class JIRA:
                 # because other references are also in the process to be torn down,
                 # see warning section in https://docs.python.org/2/reference/datamodel.html#object.__del__
                 pass
-            self._session = None
+            # TODO: https://github.com/pycontribs/jira/issues/1881
+            self._session = None  # type: ignore[arg-type,assignment]
 
     def _check_for_html_error(self, content: str):
         # Jira has the bad habit of returning errors in pages with 200 and embedding the
@@ -771,7 +773,7 @@ class JIRA:
         request_path: str,
         startAt: int = 0,
         maxResults: int = 50,
-        params: dict[str, Any] = None,
+        params: dict[str, Any] | None = None,
         base: str = JIRA_BASE_URL,
         use_post: bool = False,
     ) -> ResultList[ResourceType]:
@@ -817,6 +819,7 @@ class JIRA:
         resource = self._get_json(
             request_path, params=page_params, base=base, use_post=use_post
         )
+
         next_items_page = self._get_items_from_page(item_type, items_key, resource)
         items = next_items_page
 
@@ -909,6 +912,58 @@ class JIRA:
                 [item_type(self._options, self._session, resource)], 0, 1, 1, True
             )
 
+    @cloud_api
+    def _fetch_pages_searchToken(
+        self,
+        item_type: type[ResourceType],
+        items_key: str | None,
+        request_path: str,
+        maxResults: int = 50,
+        params: dict[str, Any] | None = None,
+        base: str = JIRA_BASE_URL,
+        use_post: bool = False,
+    ) -> ResultList[ResourceType]:
+        """Fetch from a paginated API endpoint using `nextPageToken`.
+
+        Args:
+            item_type (Type[Resource]): Type of single item. Returns a `ResultList` of such items.
+            items_key (Optional[str]): Path to the items in JSON returned from the server.
+            request_path (str): Path in the request URL.
+            maxResults (int): Maximum number of items to return per page. (Default: 50)
+            params (Dict[str, Any]): Parameters to be sent with the request.
+            base (str): Base URL for the requests.
+            use_post (bool): Whether to use POST instead of GET.
+
+        Returns:
+            ResultList: List of fetched items.
+        """
+        DEFAULT_BATCH = 100  # Max batch size per request
+        fetch_all = maxResults in (0, False)  # If False/0, fetch everything
+
+        page_params = (params or {}).copy()  # Ensure params isn't modified
+        page_params["maxResults"] = DEFAULT_BATCH if fetch_all else maxResults
+
+        # Use caller-provided nextPageToken if present
+        nextPageToken: str | None = page_params.get("nextPageToken")
+        items: list[ResourceType] = []
+
+        while True:
+            # Ensure nextPageToken is set in params if it exists
+            if nextPageToken:
+                page_params["nextPageToken"] = nextPageToken
+            else:
+                page_params.pop("nextPageToken", None)
+
+            response = self._get_json(
+                request_path, params=page_params, base=base, use_post=use_post
+            )
+            items.extend(self._get_items_from_page(item_type, items_key, response))
+            nextPageToken = response.get("nextPageToken")
+            if not fetch_all or not nextPageToken:
+                break
+
+        return ResultList(items, _nextPageToken=nextPageToken)
+
     def _get_items_from_page(
         self,
         item_type: type[ResourceType],
@@ -991,7 +1046,7 @@ class JIRA:
 
     # non-resource
     def application_properties(
-        self, key: str = None
+        self, key: str | None = None
     ) -> dict[str, str] | list[dict[str, str]]:
         """Return the mutable server application properties.
 
@@ -1065,7 +1120,7 @@ class JIRA:
         self,
         issue: str | int,
         attachment: str | BufferedReader,
-        filename: str = None,
+        filename: str | None = None,
     ) -> Attachment:
         """Attach an attachment to an issue and returns a Resource for it.
 
@@ -1089,17 +1144,16 @@ class JIRA:
             attachment_io = attachment
             if isinstance(attachment, BufferedReader) and attachment.mode != "rb":
                 self.log.warning(
-                    "%s was not opened in 'rb' mode, attaching file may fail."
-                    % attachment.name
+                    f"{attachment.name} was not opened in 'rb' mode, attaching file may fail."
                 )
 
         fname = filename
         if not fname and isinstance(attachment_io, BufferedReader):
             fname = os.path.basename(attachment_io.name)
 
-        def generate_multipartencoded_request_args() -> (
-            tuple[MultipartEncoder, CaseInsensitiveDict]
-        ):
+        def generate_multipartencoded_request_args() -> tuple[
+            MultipartEncoder, CaseInsensitiveDict
+        ]:
             """Returns MultipartEncoder stream of attachment, and the header."""
             attachment_io.seek(0)
             encoded_data = MultipartEncoder(
@@ -1139,7 +1193,7 @@ class JIRA:
         if not js or not isinstance(js, Iterable):
             raise JIRAError(f"Unable to parse JSON: {js}. Failed to add attachment?")
         jira_attachment = Attachment(
-            self._options, self._session, js[0] if isinstance(js, List) else js
+            self._options, self._session, js[0] if isinstance(js, list) else js
         )
         if jira_attachment.size == 0:
             raise JIRAError(
@@ -1570,10 +1624,10 @@ class JIRA:
 
     def create_filter(
         self,
-        name: str = None,
-        description: str = None,
-        jql: str = None,
-        favourite: bool = None,
+        name: str | None = None,
+        description: str | None = None,
+        jql: str | None = None,
+        favourite: bool | None = None,
     ) -> Filter:
         """Create a new filter and return a filter Resource for it.
 
@@ -1604,10 +1658,10 @@ class JIRA:
     def update_filter(
         self,
         filter_id,
-        name: str = None,
-        description: str = None,
-        jql: str = None,
-        favourite: bool = None,
+        name: str | None = None,
+        description: str | None = None,
+        jql: str | None = None,
+        favourite: bool | None = None,
     ):
         """Update a filter and return a filter Resource for it.
 
@@ -1637,7 +1691,7 @@ class JIRA:
 
     # Groups
 
-    def group(self, id: str, expand: Any = None) -> Group:
+    def group(self, id: str, expand: Any | None = None) -> Group:
         """Get a group Resource from the server.
 
         Args:
@@ -1840,7 +1894,7 @@ class JIRA:
         p = data["fields"]["project"]
 
         project_id = None
-        if isinstance(p, (str, int)):
+        if isinstance(p, str | int):
             project_id = self.project(str(p)).id
             data["fields"]["project"] = {"id": project_id}
 
@@ -1887,7 +1941,7 @@ class JIRA:
             p = issue_data["fields"]["project"]
 
             project_id = None
-            if isinstance(p, (str, int)):
+            if isinstance(p, str | int):
                 project_id = self.project(str(p)).id
                 issue_data["fields"]["project"] = {"id": project_id}
 
@@ -2010,7 +2064,10 @@ class JIRA:
 
     @no_type_check  # FIXME: This function does not do what it wants to with fieldargs
     def create_customer_request(
-        self, fields: dict[str, Any] = None, prefetch: bool = True, **fieldargs
+        self,
+        fields: dict[str, Any] | None = None,
+        prefetch: bool = True,
+        **fieldargs,
     ) -> Issue:
         """Create a new customer request and return an issue Resource for it.
 
@@ -2036,7 +2093,7 @@ class JIRA:
         p = data["serviceDeskId"]
         service_desk = None
 
-        if isinstance(p, (str, int)):
+        if isinstance(p, str | int):
             service_desk = self.service_desk(p)
         elif isinstance(p, ServiceDesk):
             service_desk = p
@@ -2280,12 +2337,22 @@ class JIRA:
         return True
 
     @translate_resource_args
-    def comments(self, issue: int | str, expand: str | None = None) -> list[Comment]:
+    def comments(
+        self,
+        issue: int | str,
+        expand: str | None = None,
+        start_at: int | None = None,
+        max_results: int | None = None,
+        order_by: str | None = None,
+    ) -> list[Comment]:
         """Get a list of comment Resources of the issue provided.
 
         Args:
             issue (Union[int, str]): the issue ID or key to get the comments from
             expand (Optional[str]): extra information to fetch for each comment such as renderedBody and properties.
+            start_at (Optional[int]): index of the first comment to return (page offset)
+            max_results (Optional[int]): maximum number of comments to return
+            order_by (Optional[str]): order of the comments to return; should be 'created', '+created' or '-created'.
 
         Returns:
             List[Comment]
@@ -2293,6 +2360,12 @@ class JIRA:
         params = {}
         if expand is not None:
             params["expand"] = expand
+        if start_at is not None:
+            params["startAt"] = str(start_at)
+        if max_results is not None:
+            params["maxResults"] = str(max_results)
+        if order_by is not None:
+            params["orderBy"] = order_by
         r_json = self._get_json(f"issue/{issue}/comment", params=params)
 
         comments = [
@@ -2809,14 +2882,8 @@ class JIRA:
             started (Optional[datetime.datetime]): Moment when the work is logged, if not specified will default to now
             user (Optional[str]): the user ID or name to use for this worklog
             visibility (Optional[Dict[str,Any]]): Details about any restrictions in the visibility of the worklog.
-              Optional when creating or updating a worklog. ::
-                ```js
-                {
-                    "type": "group", # "group" or "role"
-                    "value": "<string>",
-                    "identifier": "<string>" # OPTIONAL
-                }
-                ```
+                Example of visibility options when creating or updating a worklog.
+                ``{ "type": "group", "value": "<string>", "identifier": "<string>"}``
 
         Returns:
             Worklog
@@ -3262,7 +3329,7 @@ class JIRA:
         filename: str,
         size: int,
         avatar_img: bytes,
-        contentType: str = None,
+        contentType: str | None = None,
         auto_confirm: bool = False,
     ):
         """Register an image file as a project avatar.
@@ -3277,7 +3344,7 @@ class JIRA:
 
         This method returns a dict of properties that can be used to crop a subarea of a larger image for use.
         This dict should be saved and passed to :py:meth:`confirm_project_avatar` to finish the avatar creation process.
-        If you want to cut out the middleman and confirm the avatar with Jira's default cropping,
+        If you want to confirm the avatar with Jira's default cropping,
         pass the 'auto_confirm' argument with a truthy value and :py:meth:`confirm_project_avatar` will be called for you before this method returns.
 
         Args:
@@ -3485,6 +3552,7 @@ class JIRA:
 
     # Search
 
+    @overload
     def search_issues(
         self,
         jql_str: str,
@@ -3494,6 +3562,36 @@ class JIRA:
         fields: str | list[str] | None = "*all",
         expand: str | None = None,
         properties: str | None = None,
+        *,
+        json_result: Literal[False] = False,
+        use_post: bool = False,
+    ) -> ResultList[Issue]: ...
+
+    @overload
+    def search_issues(
+        self,
+        jql_str: str,
+        startAt: int = 0,
+        maxResults: int = 50,
+        validate_query: bool = True,
+        fields: str | list[str] | None = "*all",
+        expand: str | None = None,
+        properties: str | None = None,
+        *,
+        json_result: Literal[True],
+        use_post: bool = False,
+    ) -> dict[str, Any]: ...
+
+    def search_issues(
+        self,
+        jql_str: str,
+        startAt: int = 0,
+        maxResults: int = 50,
+        validate_query: bool = True,
+        fields: str | list[str] | None = "*all",
+        expand: str | None = None,
+        properties: str | None = None,
+        *,
         json_result: bool = False,
         use_post: bool = False,
     ) -> dict[str, Any] | ResultList[Issue]:
@@ -3520,6 +3618,22 @@ class JIRA:
             fields = fields.split(",")
         elif fields is None:
             fields = ["*all"]
+
+        if self._is_cloud:
+            if startAt == 0:
+                return self.enhanced_search_issues(
+                    jql_str=jql_str,
+                    maxResults=maxResults,
+                    fields=fields,
+                    expand=expand,
+                    properties=properties,
+                    json_result=json_result,
+                    use_post=use_post,
+                )
+            else:
+                raise JIRAError(
+                    "The `search` API is deprecated in Jira Cloud. Use `enhanced_search_issues` method instead."
+                )
 
         # this will translate JQL field names to REST API Name
         # most people do know the JQL names so this will help them use the API easier
@@ -3574,6 +3688,128 @@ class JIRA:
 
         return issues
 
+    @cloud_api
+    def enhanced_search_issues(
+        self,
+        jql_str: str,
+        nextPageToken: str | None = None,
+        maxResults: int = 50,
+        fields: str | list[str] | None = "*all",
+        expand: str | None = None,
+        reconcileIssues: list[int] | None = None,
+        properties: str | None = None,
+        *,
+        json_result: bool = False,
+        use_post: bool = False,
+    ) -> dict[str, Any] | ResultList[Issue]:
+        """Get a :class:`~jira.client.ResultList` of issue Resources matching a JQL search string.
+
+        Args:
+            jql_str (str): The JQL search string.
+            nextPageToken (Optional[str]): Token for paginated results.
+            maxResults (int): Maximum number of issues to return.
+              Total number of results is available in the ``total`` attribute of the returned :class:`ResultList`.
+              If maxResults evaluates to False, it will try to get all issues in batches. (Default: ``50``)
+            fields (Optional[Union[str, List[str]]]): comma-separated string or list of issue fields to include in the results.
+              Default is to include all fields If you don't require fields, set it to empty string ``''``.
+            expand (Optional[str]): extra information to fetch inside each resource.
+            reconcileIssues (Optional[List[int]]): List of issue IDs to reconcile.
+            properties (Optional[str]): extra properties to fetch inside each result
+            json_result (bool): True to return a JSON response. When set to False a :class:`ResultList` will be returned. (Default: ``False``)
+            use_post (bool): True to use POST endpoint to fetch issues.
+
+        Returns:
+            Union[Dict, ResultList]: JSON Dict if ``json_result=True``, otherwise a `ResultList`.
+        """
+        if isinstance(fields, str):
+            fields = fields.split(",")
+        elif fields is None:
+            fields = ["*all"]
+
+        untranslate = {}  # use to add friendly aliases when we get the results back
+        if fields:
+            # this will translate JQL field names to REST API Name
+            # most people do know the JQL names so this will help them use the API easier
+            if self._fields_cache:
+                for i, field in enumerate(fields):
+                    if field in self._fields_cache:
+                        untranslate[self._fields_cache[field]] = fields[i]
+                        fields[i] = self._fields_cache[field]
+
+        search_params: dict[str, Any] = {
+            "jql": jql_str,
+            "fields": fields,
+            "expand": expand,
+            "properties": properties,
+            "reconcileIssues": reconcileIssues or [],
+        }
+        if nextPageToken:
+            search_params["nextPageToken"] = nextPageToken
+
+        if json_result:
+            if not maxResults:
+                warnings.warn(
+                    "All issues cannot be fetched at once, when json_result parameter is set",
+                    Warning,
+                )
+            else:
+                search_params["maxResults"] = maxResults
+            r_json: dict[str, Any] = self._get_json(
+                "search/jql", params=search_params, use_post=use_post
+            )
+            return r_json
+
+        issues = self._fetch_pages_searchToken(
+            item_type=Issue,
+            items_key="issues",
+            request_path="search/jql",
+            maxResults=maxResults,
+            params=search_params,
+            use_post=use_post,
+        )
+
+        if untranslate:
+            iss: Issue
+            for iss in issues:
+                for k, v in untranslate.items():
+                    if iss.raw:
+                        if k in iss.raw.get("fields", {}):
+                            iss.raw["fields"][v] = iss.raw["fields"][k]
+
+        return issues
+
+    @cloud_api
+    def approximate_issue_count(
+        self,
+        jql_str: str,
+        *,
+        json_result: bool = False,
+    ) -> int | dict[str, Any]:
+        """Get an approximate count of issues matching a JQL search string.
+
+        Args:
+            jql_str (str): The JQL search string.
+            json_result (bool): If True, returns the full JSON response. Defaults to False.
+
+        Returns:
+            int | dict[str, Any]: The issue count if json_result is False, else the raw JSON response.
+        """
+        if not self._is_cloud:
+            raise ValueError(
+                "The 'approximate-count' API is only available for Jira Cloud."
+            )
+
+        search_params = {"jql": jql_str}
+
+        response_json: dict[str, Any] = self._get_json(
+            "search/approximate-count", params=search_params, use_post=True
+        )
+
+        if json_result:
+            return response_json
+
+        return response_json.get("count", 0)
+
     # Security levels
     def security_level(self, id: str) -> SecurityLevel:
         """Get a security level Resource.
@@ -3606,7 +3842,7 @@ class JIRA:
         return j
 
     def myself(self) -> dict[str, Any]:
-        """Get a dict of server information for this Jira instance.
+        """Get a dict of client information for this Jira instance.
 
         Returns:
             Dict[str, Any]
@@ -3808,7 +4044,7 @@ class JIRA:
         filename: str,
         size: int,
         avatar_img: bytes,
-        contentType: Any = None,
+        contentType: Any | None = None,
         auto_confirm: bool = False,
     ):
         """Register an image file as a user avatar.
@@ -3823,7 +4059,7 @@ class JIRA:
 
         This method returns a dict of properties that can be used to crop a subarea of a larger image for use.
         This dict should be saved and passed to :py:meth:`confirm_user_avatar` to finish the avatar creation process.
-        If you want to cut out the middleman and confirm the avatar with Jira's default cropping, pass the ``auto_confirm`` argument with a truthy value and
+        If you want to confirm the avatar with Jira's default cropping, pass the ``auto_confirm`` argument with a truthy value and
         :py:meth:`confirm_user_avatar` will be called for you before this method returns.
 
         Args:
@@ -3981,8 +4217,8 @@ class JIRA:
     def search_allowed_users_for_issue(
         self,
         user: str,
-        issueKey: str = None,
-        projectKey: str = None,
+        issueKey: str | None = None,
+        projectKey: str | None = None,
         startAt: int = 0,
         maxResults: int = 50,
     ) -> ResultList:
@@ -4014,9 +4250,9 @@ class JIRA:
         self,
         name: str,
         project: str,
-        description: str = None,
-        releaseDate: Any = None,
-        startDate: Any = None,
+        description: str | None = None,
+        releaseDate: Any | None = None,
+        startDate: Any | None = None,
         archived: bool = False,
         released: bool = False,
     ) -> Version:
@@ -4054,7 +4290,9 @@ class JIRA:
         version = Version(self._options, self._session, raw=json_loads(r))
         return version
 
-    def move_version(self, id: str, after: str = None, position: str = None) -> Version:
+    def move_version(
+        self, id: str, after: str | None = None, position: str | None = None
+    ) -> Version:
         """Move a version within a project's ordered version list and return a new version Resource for it.
 
         One, but not both, of ``after`` and ``position`` must be specified.
@@ -4079,7 +4317,7 @@ class JIRA:
         version = Version(self._options, self._session, raw=json_loads(r))
         return version
 
-    def version(self, id: str, expand: Any = None) -> Version:
+    def version(self, id: str, expand: Any | None = None) -> Version:
         """Get a version Resource.
 
         Args:
@@ -4175,7 +4413,7 @@ class JIRA:
             from oauthlib.oauth1 import SIGNATURE_RSA as FALLBACK_SHA
         except ImportError:
             FALLBACK_SHA = DEFAULT_SHA
-            _logging.debug("Fallback SHA 'SIGNATURE_RSA_SHA1' could not be imported.")
+            self.log.debug("Fallback SHA 'SIGNATURE_RSA_SHA1' could not be imported.")
 
         for sha_type in (oauth.get("signature_method"), DEFAULT_SHA, FALLBACK_SHA):
             if sha_type is None:
@@ -4190,10 +4428,10 @@ class JIRA:
             self._session.auth = oauth_instance
             try:
                 self.myself()
-                _logging.debug(f"OAuth1 succeeded with signature_method={sha_type}")
+                self.log.debug(f"OAuth1 succeeded with signature_method={sha_type}")
                 return  # successful response, return with happy session
             except JIRAError:
-                _logging.exception(
+                self.log.exception(
                     f"Failed to create OAuth session with signature_method={sha_type}.\n"
                     + "Attempting fallback method(s)."
                     + "Consider specifying the signature via oauth['signature_method']."
@@ -4203,7 +4441,7 @@ class JIRA:
 
     def _create_kerberos_session(
         self,
-        kerberos_options: dict[str, Any] = None,
+        kerberos_options: dict[str, Any] | None = None,
     ):
         if kerberos_options is None:
             kerberos_options = {}
@@ -4216,8 +4454,9 @@ class JIRA:
             mutual_authentication = DISABLED
         else:
             raise ValueError(
-                "Unknown value for mutual_authentication: %s"
-                % kerberos_options["mutual_authentication"]
+                "Unknown value for mutual_authentication: {}".format(
+                    kerberos_options["mutual_authentication"]
+                )
             )
 
         self._session.auth = HTTPKerberosAuth(
@@ -4229,7 +4468,7 @@ class JIRA:
 
         If configured through the constructor.
 
-        https://docs.python-requests.org/en/master/user/advanced/#client-side-certificates
+        https://docs.python-requests.org/en/latest/user/advanced/#client-side-certificates
         - str: a single file (containing the private key and the certificate)
         - Tuple[str,str] a tuple of both files’ paths
         """
@@ -4241,7 +4480,7 @@ class JIRA:
 
         If configured through the constructor.
 
-        https://docs.python-requests.org/en/master/user/advanced/#ssl-cert-verification
+        https://docs.python-requests.org/en/latest/user/advanced/#ssl-cert-verification
         - str: Path to a `CA_BUNDLE` file or directory with certificates of trusted CAs.
         - bool: True/False
         """
@@ -4249,7 +4488,7 @@ class JIRA:
         self._session.verify = ssl_cert
 
     @staticmethod
-    def _timestamp(dt: datetime.timedelta = None):
+    def _timestamp(dt: datetime.timedelta | None = None):
         t = datetime.datetime.utcnow()
         if dt is not None:
             t += dt
@@ -4336,7 +4575,7 @@ class JIRA:
     def _get_json(
         self,
         path: str,
-        params: dict[str, Any] = None,
+        params: dict[str, Any] | None = None,
         base: str = JIRA_BASE_URL,
         use_post: bool = False,
     ):
@@ -4425,7 +4664,10 @@ class JIRA:
         if self._magic is not None:
             return self._magic.id_buffer(buff)
         try:
-            return mimetypes.guess_type("f." + Image.open(buff).format)[0]
+            with tempfile.TemporaryFile() as f:
+                f.write(buff)
+                return mimetypes.guess_type(f.name)[0]
+            return mimetypes.guess_type(f.name)[0]
         except (OSError, TypeError):
             self.log.warning(
                 "Couldn't detect content type of avatar image"
@@ -4451,7 +4693,7 @@ class JIRA:
             self._session.put(url, params=params, data=json.dumps(payload))
         else:
             raise NotImplementedError(
-                "Support for renaming users in Jira " "< 6.0.0 has been removed."
+                "Support for renaming users in Jira < 6.0.0 has been removed."
             )
 
     def delete_user(self, username: str) -> bool:
@@ -4518,9 +4760,9 @@ class JIRA:
                 raise JIRAError(f"Error Deactivating {username}: {e}")
         else:
             url = self.server_url + "/secure/admin/user/EditUser.jspa"
-            self._options["headers"][
-                "Content-Type"
-            ] = "application/x-www-form-urlencoded; charset=UTF-8"
+            self._options["headers"]["Content-Type"] = (
+                "application/x-www-form-urlencoded; charset=UTF-8"
+            )
             user = self.user(username)
             userInfo = {
                 "inline": "true",
@@ -4628,7 +4870,7 @@ class JIRA:
         """
         epoch_time = int(time.time() * 1000)
         if self._is_cloud:
-            url = self.server_url + "/rest/obm/1.0/getprogress?_=%i" % epoch_time
+            url = self.server_url + f"/rest/obm/1.0/getprogress?_={epoch_time:i}"
         else:
             self.log.warning("This functionality is not available in Server version")
             return None
@@ -4657,6 +4899,8 @@ class JIRA:
             self.log.warning("This functionality is not available in Server version")
             return None
         status = self.backup_progress()
+        if not status:
+            raise RuntimeError("Failed to retrieve backup progress.")
         perc_search = re.search(r"\s([0-9]*)\s", status["alternativePercentage"])
         perc_complete = int(
             perc_search.group(1)  # type: ignore # ignore that re.search can return None
@@ -4664,12 +4908,15 @@ class JIRA:
         file_size = int(status["size"])
         return perc_complete >= 100 and file_size > 0
 
-    def backup_download(self, filename: str = None):
+    def backup_download(self, filename: str | None = None):
         """Download backup file from WebDAV (cloud only)."""
         if not self._is_cloud:
             self.log.warning("This functionality is not available in Server version")
             return None
-        remote_file = self.backup_progress()["fileName"]
+        progress = self.backup_progress()
+        if not progress:
+            raise RuntimeError("Unable to retrieve backup progress.")
+        remote_file = progress["fileName"]
         local_file = filename or remote_file
         url = self.server_url + "/webdav/backupmanager/" + remote_file
         try:
@@ -4768,7 +5015,7 @@ class JIRA:
             data=payload,
         )
 
-    @lru_cache(maxsize=None)
+    @cache
     def templates(self) -> dict:
         url = self.server_url + "/rest/project-templates/latest/templates"
 
@@ -4783,7 +5030,7 @@ class JIRA:
         # pprint(templates.keys())
         return templates
 
-    @lru_cache(maxsize=None)
+    @cache
     def permissionschemes(self):
         url = self._get_url("permissionscheme")
 
@@ -4792,7 +5039,7 @@ class JIRA:
 
         return data["permissionSchemes"]
 
-    @lru_cache(maxsize=None)
+    @cache
     def issue_type_schemes(self) -> list[IssueTypeScheme]:
         """Get all issue type schemes defined (Admin required).
 
@@ -4806,7 +5053,7 @@ class JIRA:
 
         return data["schemes"]
 
-    @lru_cache(maxsize=None)
+    @cache
     def issuesecurityschemes(self):
         url = self._get_url("issuesecurityschemes")
 
@@ -4815,7 +5062,7 @@ class JIRA:
 
         return data["issueSecuritySchemes"]
 
-    @lru_cache(maxsize=None)
+    @cache
     def projectcategories(self):
         url = self._get_url("projectCategory")
 
@@ -4824,7 +5071,7 @@ class JIRA:
 
         return data
 
-    @lru_cache(maxsize=None)
+    @cache
     def avatars(self, entity="project"):
         url = self._get_url(f"avatar/{entity}/system")
 
@@ -4833,7 +5080,7 @@ class JIRA:
 
         return data["system"]
 
-    @lru_cache(maxsize=None)
+    @cache
     def notificationschemes(self):
         # TODO(ssbarnea): implement pagination support
         url = self._get_url("notificationscheme")
@@ -4842,7 +5089,7 @@ class JIRA:
         data: dict[str, Any] = json_loads(r)
         return data["values"]
 
-    @lru_cache(maxsize=None)
+    @cache
     def screens(self):
         # TODO(ssbarnea): implement pagination support
         url = self._get_url("screens")
@@ -4851,7 +5098,7 @@ class JIRA:
         data: dict[str, Any] = json_loads(r)
         return data["values"]
 
-    @lru_cache(maxsize=None)
+    @cache
     def workflowscheme(self):
         # TODO(ssbarnea): implement pagination support
         url = self._get_url("workflowschemes")
@@ -4860,7 +5107,7 @@ class JIRA:
         data = json_loads(r)
         return data  # ['values']
 
-    @lru_cache(maxsize=None)
+    @cache
     def workflows(self):
         # TODO(ssbarnea): implement pagination support
         url = self._get_url("workflow")
@@ -4904,16 +5151,16 @@ class JIRA:
     def create_project(
         self,
         key: str,
-        name: str = None,
-        assignee: str = None,
+        name: str | None = None,
+        assignee: str | None = None,
         ptype: str = "software",
-        template_name: str = None,
-        avatarId: int = None,
-        issueSecurityScheme: int = None,
-        permissionScheme: int = None,
-        projectCategory: int = None,
+        template_name: str | None = None,
+        avatarId: int | None = None,
+        issueSecurityScheme: int | None = None,
+        permissionScheme: int | None = None,
+        projectCategory: int | None = None,
         notificationScheme: int = 10000,
-        categoryId: int = None,
+        categoryId: int | None = None,
         url: str = "",
     ):
         """Create a project with the specified parameters.
@@ -4956,6 +5203,8 @@ class JIRA:
                     break
             if permissionScheme is None and ps_list:
                 permissionScheme = ps_list[0]["id"]
+        if permissionScheme is None:
+            raise RuntimeError("Unable to identify valid permissionScheme")
 
         if issueSecurityScheme is None:
             ps_list = self.issuesecurityschemes()
@@ -4965,6 +5214,8 @@ class JIRA:
                     break
             if issueSecurityScheme is None and ps_list:
                 issueSecurityScheme = ps_list[0]["id"]
+        if issueSecurityScheme is None:
+            raise RuntimeError("Unable to identify valid issueSecurityScheme")
 
         # If categoryId provided instead of projectCategory, attribute the categoryId value
         # to the projectCategory variable
@@ -5080,8 +5331,8 @@ class JIRA:
         username: str,
         email: str,
         directoryId: int = 1,
-        password: str = None,
-        fullname: str = None,
+        password: str | None = None,
+        fullname: str | None = None,
         notify: bool = False,
         active: bool = True,
         ignore_existing: bool = False,
@@ -5217,8 +5468,8 @@ class JIRA:
         self,
         startAt: int = 0,
         maxResults: int = 50,
-        type: str = None,
-        name: str = None,
+        type: str | None = None,
+        name: str | None = None,
         projectKeyOrID=None,
     ) -> ResultList[Board]:
         """Get a list of board resources.
@@ -5258,7 +5509,7 @@ class JIRA:
         extended: bool | None = None,
         startAt: int = 0,
         maxResults: int = 50,
-        state: str = None,
+        state: str | None = None,
     ) -> ResultList[Sprint]:
         """Get a list of sprint Resources.
 
@@ -5291,7 +5542,7 @@ class JIRA:
         )
 
     def sprints_by_name(
-        self, id: str | int, extended: bool = False, state: str = None
+        self, id: str | int, extended: bool = False, state: str | None = None
     ) -> dict[str, dict[str, Any]]:
         """Get a dictionary of sprint Resources where the name of the sprint is the key.
 
@@ -5425,7 +5676,7 @@ class JIRA:
         self,
         name: str,
         filter_id: str,
-        project_ids: str = None,
+        project_ids: str | None = None,
         preset: str = "scrum",
         location_type: Literal["user", "project"] = "user",
         location_id: str | None = None,
@@ -5529,7 +5780,10 @@ class JIRA:
         return self._session.post(url, data=json.dumps(payload))
 
     def add_issues_to_epic(
-        self, epic_id: str, issue_keys: str | list[str], ignore_epics: bool = None
+        self,
+        epic_id: str,
+        issue_keys: str | list[str],
+        ignore_epics: bool | None = None,
     ) -> Response:
         """Add the issues in ``issue_keys`` to the ``epic_id``.
 
@@ -5625,3 +5879,36 @@ class JIRA:
         url = self._get_url("backlog/issue", base=self.AGILE_BASE_URL)
         payload = {"issues": issue_keys}  # TODO: should be list of issues
         return self._session.post(url, data=json.dumps(payload))
+
+    @translate_resource_args
+    def pinned_comments(self, issue: int | str) -> list[PinnedComment]:
+        """Get a list of pinned comment Resources of the issue provided.
+
+        Args:
+            issue (Union[int, str]): the issue ID or key to get the comments from
+
+        Returns:
+            List[PinnedComment]
+        """
+        r_json = self._get_json(f"issue/{issue}/pinned-comments", params={})
+
+        pinned_comments = [
+            PinnedComment(self._options, self._session, raw_comment_json)
+            for raw_comment_json in r_json
+        ]
+        return pinned_comments
+
+    @translate_resource_args
+    def pin_comment(self, issue: int | str, comment: int | str, pin: bool) -> Response:
+        """Pin/Unpin a comment on the issue.
+
+        Args:
+          issue (Union[int, str]): the issue ID or key to get the comments from
+          comment (Union[int, str]): the comment ID
+          pin (bool): Pin (True) or Unpin (False)
+
+        Returns:
+          Response
+        """
+        url = self._get_url("issue/" + str(issue) + "/comment/" + str(comment) + "/pin")
+        return self._session.put(url, data=str(pin).lower())

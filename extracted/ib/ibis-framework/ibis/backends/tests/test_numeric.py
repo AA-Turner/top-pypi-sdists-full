@@ -32,11 +32,9 @@ from ibis.backends.tests.errors import (
     PyODBCProgrammingError,
     PySparkArithmeticException,
     PySparkParseException,
-    PySparkValueError,
     SnowflakeProgrammingError,
     TrinoUserError,
 )
-from ibis.conftest import IS_SPARK_REMOTE
 from ibis.expr import datatypes as dt
 
 np = pytest.importorskip("numpy")
@@ -274,15 +272,15 @@ def test_numeric_literal(con, backend, expr, expected_types):
                 "snowflake": decimal.Decimal("1.1"),
                 "sqlite": decimal.Decimal("1.1"),
                 "trino": decimal.Decimal("1.1"),
-                "athena": decimal.Decimal("1"),
-                "exasol": decimal.Decimal("1"),
+                "athena": decimal.Decimal(1),
+                "exasol": decimal.Decimal(1),
                 "duckdb": decimal.Decimal("1.1"),
-                "impala": decimal.Decimal("1"),
+                "impala": decimal.Decimal(1),
                 "postgres": decimal.Decimal("1.1"),
                 "risingwave": decimal.Decimal("1.1"),
                 "pyspark": decimal.Decimal("1.1"),
-                "mysql": decimal.Decimal("1"),
-                "mssql": decimal.Decimal("1"),
+                "mysql": decimal.Decimal(1),
+                "mssql": decimal.Decimal(1),
                 "druid": decimal.Decimal("1.1"),
                 "datafusion": decimal.Decimal("1.1"),
                 "oracle": decimal.Decimal("1.1"),
@@ -747,16 +745,8 @@ def test_isnan_isinf(
     [
         param(L(-5).abs(), 5, id="abs-neg"),
         param(L(5).abs(), 5, id="abs"),
-        param(
-            ibis.least(L(10), L(1)),
-            1,
-            id="least",
-        ),
-        param(
-            ibis.greatest(L(10), L(1)),
-            10,
-            id="greatest",
-        ),
+        param(ibis.least(L(10), L(1)), 1, id="least"),
+        param(ibis.greatest(L(10), L(1)), 10, id="greatest"),
         param(L(5.5).round(), 6.0, id="round"),
         param(L(5.556).round(2), 5.56, id="round-digits"),
         param(L(5.556).ceil(), 6.0, id="ceil"),
@@ -768,7 +758,7 @@ def test_isnan_isinf(
         param(L(5.556).sqrt(), math.sqrt(5.556), id="sqrt"),
         param(
             L(5.556).log(2),
-            math.log(5.556, 2),
+            math.log2(5.556),
             id="log-base",
             marks=[
                 pytest.mark.notimpl(["druid"], raises=PyDruidProgrammingError),
@@ -787,7 +777,7 @@ def test_isnan_isinf(
         param(L(5.556).ln(), math.log(5.556), id="ln"),
         param(
             L(5.556).log2(),
-            math.log(5.556, 2),
+            math.log2(5.556),
             id="log2",
             marks=[
                 pytest.mark.notimpl(["druid"], raises=PyDruidProgrammingError),
@@ -1549,27 +1539,7 @@ def test_scalar_round_is_integer(con):
 @pytest.mark.parametrize(
     "numbers",
     [
-        param(
-            [1, 2, 3],
-            marks=[
-                pytest.mark.notyet(
-                    [
-                        "duckdb",
-                        "clickhouse",
-                        "datafusion",
-                        "snowflake",
-                        "databricks",
-                        "bigquery",
-                        "athena",
-                    ],
-                    raises=pa.ArrowInvalid,
-                ),
-                pytest.mark.notyet(
-                    ["pyspark"], condition=IS_SPARK_REMOTE, raises=PySparkValueError
-                ),
-            ],
-            id="ints",
-        ),
+        param([1, 2, 3], id="ints"),
         param(
             [decimal.Decimal("1.1"), decimal.Decimal("2.2"), decimal.Decimal("3.3")],
             marks=[
@@ -1590,6 +1560,12 @@ def test_scalar_round_is_integer(con):
 @pytest.mark.notimpl(["flink"], raises=NotImplementedError)
 def test_memtable_decimal(con, numbers):
     schema = ibis.schema(dict(numbers=dt.Decimal(38, 9)))
+
     t = ibis.memtable({"numbers": numbers}, schema=schema)
     assert t.schema() == schema
-    assert len(con.to_pyarrow(t)) == len(numbers)
+
+    result = con.to_pyarrow(t)
+    assert len(result) == len(numbers)
+    assert result.schema == pa.schema({"numbers": pa.decimal128(38, 9)})
+    assert result.schema == t.schema().to_pyarrow()
+    assert result.schema == schema.to_pyarrow()

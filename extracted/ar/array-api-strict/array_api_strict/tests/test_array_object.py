@@ -18,12 +18,14 @@ from .._dtypes import (
     _integer_or_boolean_dtypes,
     _real_numeric_dtypes,
     _numeric_dtypes,
+    uint8,
     int8,
     int16,
     int32,
     int64,
     uint64,
     float64,
+    complex128,
     bool as bool_,
 )
 from .._flags import set_array_api_strict_flags
@@ -193,6 +195,29 @@ def test_indexing_arrays_different_devices():
         a[idx1, idx2]
 
 
+def test_setitem_invalid_promotions():
+    # Check that violating these two raises:
+    #   Setting array values must not affect the data type of self, and
+    #   Behavior must otherwise follow Type Promotion Rules.
+    a = asarray([1, 2, 3])
+    with pytest.raises(TypeError):
+        a[0] = 3.5
+
+    with pytest.raises(TypeError):
+        a[0] = asarray(3.5)
+
+    a = asarray([1, 2, 3], dtype=uint8)
+    with pytest.raises(TypeError):
+        a[0] = asarray(42, dtype=uint64)
+
+    a = asarray([1, 2, 3], dtype=float64)
+    with pytest.raises(TypeError):
+        a[0] = 3.5j
+
+    with pytest.raises(TypeError):
+        a[0] = asarray(3.5j, dtype=complex128)
+
+
 def test_promoted_scalar_inherits_device():
     device1 = Device("device1")
     x = asarray([1., 2, 3], device=device1)
@@ -344,6 +369,13 @@ def test_operators():
                                 getattr(x, _op)(y)
                             else:
                                 assert_raises(TypeError, lambda: getattr(x, _op)(y))
+                            # finally, test that array op ndarray raises
+                            # XXX: as long as there is __array__ or __buffer__, __rop__s
+                            #  still return ndarrays
+                            if not _op.startswith("__r"):
+                                with assert_raises(TypeError):
+                                    getattr(x, _op)(y._array)
+
 
     for op, dtypes in unary_op_dtypes.items():
         for a in _array_vals():
@@ -527,36 +559,54 @@ def test_array_properties():
     assert b.mT.shape == (3, 2)
 
 
-@pytest.mark.xfail(sys.version_info.major*100 + sys.version_info.minor < 312,
-                   reason="array conversion relies on buffer protocol, and "
-                          "requires python >= 3.12"
-)
 def test_array_conversion():
     # Check that arrays on the CPU device can be converted to NumPy
     # but arrays on other devices can't. Note this is testing the logic in
-    # __array__, which is only used in asarray when converting lists of
-    # arrays.
+    # __array__ on Python 3.10~3.11 and in __buffer__ on Python >=3.12.
     a = ones((2, 3))
-    np.asarray(a)
+    na = np.asarray(a)
+    assert na.shape == (2, 3)
+    assert na.dtype == np.float64
+    na[0, 0] = 10
+    assert a[0, 0] == 10  # return view when possible
+
+    a = arange(5, dtype=uint8)
+    na = np.asarray(a)
+    assert na.dtype == np.uint8
 
     for device in ("device1", "device2"):
         a = ones((2, 3), device=array_api_strict.Device(device))
-        with pytest.raises((RuntimeError, ValueError)):
+        with pytest.raises(RuntimeError, match=device):
             np.asarray(a)
 
-    # __buffer__ should work for now for conversion to numpy
-    a = ones((2, 3))
-    na = np.array(a)
-    assert na.shape == (2, 3)
-    assert na.dtype == np.float64
 
-@pytest.mark.skipif(not sys.version_info.major*100 + sys.version_info.minor < 312,
-                    reason="conversion to numpy errors out unless python >= 3.12"
+@pytest.mark.skipif(np.__version__ < "2", reason="np.asarray has no copy kwarg")
+def test_array_conversion_copy():
+    a = arange(5)
+    na = np.asarray(a, copy=False)
+    na[0] = 10
+    assert a[0] == 10
+
+    a = arange(5)
+    na = np.asarray(a, copy=True)
+    na[0] = 10
+    assert a[0] == 0
+
+    a = arange(5)
+    with pytest.raises(ValueError):
+        np.asarray(a, dtype=np.uint8, copy=False)
+
+
+@pytest.mark.skipif(
+    sys.version_info < (3, 12), reason="Python <3.12 has no __buffer__ interface"
 )
-def test_array_conversion_2():
+def test_no_array_interface():
+    """When the __buffer__ interface is available, the __array__ interface is not."""
     a = ones((2, 3))
-    with pytest.raises(TypeError):
-        np.array(a)
+    with pytest.raises(TypeError, match="not supported"):
+        # Because NumPy prefers __buffer__ when available, we can't trigger this
+        # exception from np.asarray().
+        a.__array__()
 
 
 def test_allow_newaxis():

@@ -63,6 +63,8 @@ from .leaf import LeafConfig, LeafUseCase
 
 #Put all IMAGE based usecases here
 from .blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
+from .skin_cancer_classification_img import SkinCancerClassificationConfig, SkinCancerClassificationUseCase
+from .plaque_segmentation_img import PlaqueSegmentationConfig, PlaqueSegmentationUseCase
 
 __all__ = [
     'PeopleCountingUseCase',
@@ -117,6 +119,8 @@ __all__ = [
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',
+    'SkinCancerClassificationUseCase',
+    'PlaqueSegmentationUseCase',
 
 
 
@@ -174,6 +178,8 @@ __all__ = [
 
     #Put all IMAGE based usecase CONFIGS here
     'BloodCancerDetectionConfig',
+    'SkinCancerClassificationConfig',
+    'PlaqueSegmentationConfig',
 
 
 ]

@@ -1,13 +1,13 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: mpld3
-Version: 0.5.10
+Version: 0.5.11
 Summary: D3 Viewer for Matplotlib
 Home-page: http://mpld3.github.com
 Download-URL: http://github.com/jakevdp/mpld3
 Author: Jake VanderPlas
 Author-email: jakevdp@cs.washington.edu
 Maintainer: Vlad-Stefan Harbuz
-Maintainer-email: vlad@vladh.net
+Maintainer-email: vlad@vlad.website
 License: BSD 3-clause
 Classifier: Development Status :: 4 - Beta
 Classifier: Environment :: Console
@@ -23,6 +23,19 @@ License-File: LICENSE
 License-File: AUTHORS.md
 Requires-Dist: jinja2
 Requires-Dist: matplotlib
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: download-url
+Dynamic: home-page
+Dynamic: license
+Dynamic: license-file
+Dynamic: maintainer
+Dynamic: maintainer-email
+Dynamic: requires-dist
+Dynamic: summary
 
 mpld3: A D3 Viewer for Matplotlib
 =================================

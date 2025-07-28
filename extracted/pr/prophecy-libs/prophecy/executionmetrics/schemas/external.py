@@ -1,6 +1,9 @@
 from dataclasses import dataclass
 from typing import Any, Dict, List, Optional, Union
 import copy
+import json
+
+from pyspark.sql.types import StructType
 
 
 @dataclass(frozen=True)
@@ -13,6 +16,32 @@ class InterimKey:
     runIdOpt: Optional[str] = None
 
 
+# Helper functions for JSON-like behavior
+def js_array_from_values(values: List[str]) -> List[str]:
+    return values
+
+
+def js_array_from_map(values: Dict[str, Any], schema: StructType) -> List[Any]:
+    return [values.get(field.name, None) for field in schema.fields]
+
+
+def map_values_to_strings(values: Dict[str, Any], schema: StructType) -> List[str]:
+    result = []
+    for field in schema.fields:
+        value = values.get(field.name)
+        if isinstance(value, str):
+            result.append(value)
+        elif value is not None:
+            result.append(str(value))
+        else:
+            result.append("null")
+    return result
+
+
+def writes_to_strings(values: List[Any]) -> List[str]:
+    return [value if isinstance(value, str) else str(value) for value in values]
+
+
 @dataclass
 class LInterimContent:
     """Interim content representation."""
@@ -21,7 +50,7 @@ class LInterimContent:
     component: str
     port: str
     interimRows: List[Dict[str, Any]]
-    schema: Optional[Any] = None
+    schema: StructType
     runId: Optional[str] = None
     processId: Optional[str] = None
     numRecords: Optional[int] = None
@@ -36,6 +65,11 @@ class LInterimContent:
             component=data["component"],
             port=data["port"],
             interimRows=data["data"],
+            schema=StructType.fromJson(
+                json.loads(data["schema"])
+                if isinstance(data["schema"], str)
+                else data["schema"]
+            ),
             processId=data["processId"] if "processId" in data else None,
             numRecords=data["numRecords"] if "numRecords" in data else None,
             bytesProcessed=(
@@ -43,6 +77,31 @@ class LInterimContent:
             ),
             numPartitions=data["numPartitions"] if "numPartitions" in data else None,
         )
+
+    def to_dict(self) -> Dict[str, Any]:
+        interims_data = [
+            writes_to_strings(js_array_from_map(x, self.schema))
+            for x in self.interimRows
+        ]
+        result = {
+            "component": self.component,
+            "port": self.port,
+            "subgraph": self.subgraph,
+            "schema": json.loads(self.schema.json()),
+            "data": interims_data,
+        }
+        optional_fields = [
+            ("numRecords", self.numRecords),
+            ("numPartitions", self.numPartitions),
+            ("processId", self.processId),
+            ("bytesProcessed", self.bytesProcessed),
+            ("runId", self.runId),
+            ("runConfig", self.runConfig),
+        ]
+        for key, value in optional_fields:
+            if value is not None:
+                result[key] = value
+        return result
 
     def update(self, right: "LInterimContent") -> "LInterimContent":
         obj = copy.deepcopy(self)

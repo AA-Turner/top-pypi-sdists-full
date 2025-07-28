@@ -1,6 +1,5 @@
 import maisaedu_utilities_prefect.secrets
 import maisaedu_utilities_prefect.dw
-import maisaedu_utilities_prefect.deploy
 import maisaedu_utilities_prefect.notification
 import maisaedu_utilities_prefect.constants
 

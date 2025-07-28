@@ -55,7 +55,7 @@ pub struct Metadata24 {
     pub maintainer: Option<String>,
     pub maintainer_email: Option<String>,
     pub license: Option<String>,
-    // https://peps.python.org/pep-0639/#license-file-multiple-use
+    pub license_expression: Option<String>,
     pub license_files: Vec<PathBuf>,
     pub classifiers: Vec<String>,
     pub requires_dist: Vec<Requirement>,
@@ -90,6 +90,7 @@ impl Metadata24 {
             maintainer: None,
             maintainer_email: None,
             license: None,
+            license_expression: None,
             license_files: vec![],
             classifiers: vec![],
             requires_dist: vec![],
@@ -145,6 +146,41 @@ impl Metadata24 {
                 .unwrap_or_default();
             if dynamic.contains("name") {
                 bail!("`project.dynamic` must not specify `name` in pyproject.toml");
+            }
+
+            // According to PEP 621, build backends must not add metadata fields
+            // that are not declared in the dynamic list. Clear fields from Cargo.toml
+            // that are not in the dynamic list.
+            if !dynamic.contains("description") {
+                self.summary = None;
+            }
+            if !dynamic.contains("authors") {
+                self.author = None;
+                self.author_email = None;
+            }
+            if !dynamic.contains("maintainers") {
+                self.maintainer = None;
+                self.maintainer_email = None;
+            }
+            if !dynamic.contains("keywords") {
+                self.keywords = None;
+            }
+            if !dynamic.contains("urls") {
+                self.project_url.clear();
+            }
+            if !dynamic.contains("license") {
+                self.license = None;
+                // Don't clear license_files as they may come from auto-discovery
+            }
+            if !dynamic.contains("classifiers") {
+                self.classifiers.clear();
+            }
+            if !dynamic.contains("readme") {
+                self.description = None;
+                self.description_content_type = None;
+            }
+            if !dynamic.contains("requires-python") {
+                self.requires_python = None;
             }
 
             self.name.clone_from(&project.name);
@@ -222,8 +258,11 @@ impl Metadata24 {
 
             if let Some(license) = &project.license {
                 match license {
-                    // TODO: switch to License-Expression core metadata, see https://peps.python.org/pep-0639/#add-license-expression-field
-                    License::Spdx(license_expr) => self.license = Some(license_expr.clone()),
+                    // PEP 639
+                    License::Spdx(license_expr) => {
+                        self.license_expression = Some(license_expr.clone())
+                    }
+                    // Deprecated by PEP 639
                     License::File { file } => {
                         self.license_files.push(file.to_path_buf());
                     }
@@ -548,6 +587,9 @@ impl Metadata24 {
         add_option("Author-email", &self.author_email);
         add_option("Maintainer", &self.maintainer);
         add_option("Maintainer-email", &self.maintainer_email);
+        // PEP 639
+        add_option("License-Expression", &self.license_expression);
+        // Deprecated by PEP 639
         add_option("License", &self.license.as_deref().map(fold_header));
         add_option(
             "Requires-Python",
@@ -681,6 +723,7 @@ mod test {
     use expect_test::{expect, Expect};
     use indoc::indoc;
     use pretty_assertions::assert_eq;
+    use tempfile::TempDir;
 
     fn assert_metadata_from_cargo_toml(
         readme: &str,
@@ -883,6 +926,23 @@ A test project
     }
 
     #[test]
+    fn test_pep639() {
+        let manifest_dir = PathBuf::from("test-crates").join("pyo3-mixed");
+        let cargo_metadata = MetadataCommand::new()
+            .manifest_path(manifest_dir.join("Cargo.toml"))
+            .exec()
+            .unwrap();
+        let mut metadata = Metadata24::from_cargo_toml(&manifest_dir, &cargo_metadata).unwrap();
+        let pyproject_toml = PyProjectToml::new(manifest_dir.join("pyproject.toml")).unwrap();
+        metadata
+            .merge_pyproject_toml(&manifest_dir, &pyproject_toml)
+            .unwrap();
+
+        assert_eq!(metadata.license_expression.as_ref().unwrap(), "MIT");
+        assert_eq!(metadata.license.as_ref(), None);
+    }
+
+    #[test]
     fn test_merge_metadata_from_pyproject_dynamic_license_test() {
         let manifest_dir = PathBuf::from("test-crates").join("license-test");
         let cargo_metadata = MetadataCommand::new()
@@ -947,5 +1007,150 @@ A test project
             let expected = format!("{expected_name} <{email}>");
             assert_eq!(result, expected);
         }
+    }
+
+    #[test]
+    fn test_issue_2544_respect_pyproject_dynamic_without_dynamic_fields() {
+        let temp_dir = TempDir::new().unwrap();
+        let crate_path = temp_dir.path();
+        let manifest_path = crate_path.join("Cargo.toml");
+        let pyproject_path = crate_path.join("pyproject.toml");
+
+        // Create basic src structure
+        fs::create_dir(crate_path.join("src")).unwrap();
+        fs::write(crate_path.join("src/lib.rs"), "").unwrap();
+
+        // Write Cargo.toml with metadata that should NOT be included
+        // because pyproject.toml doesn't declare them as dynamic
+        let cargo_toml = indoc!(
+            r#"
+            [package]
+            name = "test-package"
+            version = "0.1.0"
+            description = "Description from Cargo.toml - should not appear"
+            authors = ["author from cargo.toml <author@example.com>"]
+            keywords = ["cargo", "toml", "keyword"]
+            repository = "https://github.com/example/repo"
+
+            [lib]
+            crate-type = ["cdylib"]
+            "#
+        );
+        fs::write(&manifest_path, cargo_toml).unwrap();
+
+        // Write pyproject.toml WITHOUT declaring the fields as dynamic
+        let pyproject_toml_content = indoc!(
+            r#"
+            [build-system]
+            requires = ["maturin>=1.0,<2.0"]
+            build-backend = "maturin"
+
+            [project]
+            name = "test-package"
+            version = "0.1.0"
+            # Note: no description, authors, keywords, urls in dynamic list
+            # dynamic = []  # Not specified, so defaults to empty
+            "#
+        );
+        fs::write(&pyproject_path, pyproject_toml_content).unwrap();
+
+        // Load metadata as maturin does
+        let cargo_metadata = MetadataCommand::new()
+            .manifest_path(&manifest_path)
+            .exec()
+            .unwrap();
+        let mut metadata = Metadata24::from_cargo_toml(crate_path, &cargo_metadata).unwrap();
+        let pyproject_toml = PyProjectToml::new(&pyproject_path).unwrap();
+        metadata
+            .merge_pyproject_toml(crate_path, &pyproject_toml)
+            .unwrap();
+
+        assert_eq!(
+            metadata.summary, None,
+            "summary should be None when not in dynamic list"
+        );
+        assert_eq!(
+            metadata.author, None,
+            "author should be None when not in dynamic list"
+        );
+        assert_eq!(
+            metadata.keywords, None,
+            "keywords should be None when not in dynamic list"
+        );
+        assert!(
+            metadata.project_url.is_empty(),
+            "project_url should be empty when not in dynamic list"
+        );
+    }
+
+    #[test]
+    fn test_issue_2544_respect_pyproject_dynamic_with_dynamic_fields() {
+        let temp_dir = TempDir::new().unwrap();
+        let crate_path = temp_dir.path();
+        let manifest_path = crate_path.join("Cargo.toml");
+        let pyproject_path = crate_path.join("pyproject.toml");
+
+        // Create basic src structure
+        fs::create_dir(crate_path.join("src")).unwrap();
+        fs::write(crate_path.join("src/lib.rs"), "").unwrap();
+
+        // Write Cargo.toml with metadata
+        let cargo_toml = indoc!(
+            r#"
+            [package]
+            name = "test-package"
+            version = "0.1.0"
+            description = "Description from Cargo.toml - should appear"
+            authors = ["author from cargo.toml <author@example.com>"]
+            keywords = ["cargo", "toml", "keyword"]
+            repository = "https://github.com/example/repo"
+
+            [lib]
+            crate-type = ["cdylib"]
+            "#
+        );
+        fs::write(&manifest_path, cargo_toml).unwrap();
+
+        // Write pyproject.toml WITH fields declared as dynamic
+        let pyproject_toml_content = indoc!(
+            r#"
+            [build-system]
+            requires = ["maturin>=1.0,<2.0"]
+            build-backend = "maturin"
+
+            [project]
+            name = "test-package"
+            version = "0.1.0"
+            # Fields declared as dynamic - should come from Cargo.toml
+            dynamic = ["description", "authors", "keywords", "urls"]
+            "#
+        );
+        fs::write(&pyproject_path, pyproject_toml_content).unwrap();
+
+        // Load metadata as maturin does
+        let cargo_metadata = MetadataCommand::new()
+            .manifest_path(&manifest_path)
+            .exec()
+            .unwrap();
+        let mut metadata = Metadata24::from_cargo_toml(crate_path, &cargo_metadata).unwrap();
+        let pyproject_toml = PyProjectToml::new(&pyproject_path).unwrap();
+        metadata
+            .merge_pyproject_toml(crate_path, &pyproject_toml)
+            .unwrap();
+
+        // These fields SHOULD be set because they are in dynamic list
+        assert_eq!(
+            metadata.summary,
+            Some("Description from Cargo.toml - should appear".to_string())
+        );
+        assert_eq!(
+            metadata.author,
+            Some("author from cargo.toml <author@example.com>".to_string())
+        );
+        assert_eq!(metadata.keywords, Some("cargo,toml,keyword".to_string()));
+        assert_eq!(
+            metadata.project_url.get("Source Code"),
+            Some(&"https://github.com/example/repo".to_string())
+        );
     }
 }

@@ -1,6 +1,6 @@
 Metadata-Version: 2.1
 Name: dataclass-wizard
-Version: 0.35.0
+Version: 0.35.1
 Summary: Lightning-fast JSON wizardry for Python dataclasses — effortless serialization right out of the box!
 Home-page: https://github.com/rnag/dataclass-wizard
 Author: Ritvik Nag
@@ -37,7 +37,7 @@ License-File: LICENSE
 Dataclass Wizard
 ================
 
-Release v\ 0.35.0 | 📚 Full docs on `Read the Docs`_ (`Installation`_).
+Release v\ 0.35.1 | 📚 Full docs on `Read the Docs`_ (`Installation`_).
 
 .. image:: https://github.com/rnag/dataclass-wizard/actions/workflows/dev.yml/badge.svg
     :target: https://github.com/rnag/dataclass-wizard/actions/workflows/dev.yml
@@ -71,7 +71,7 @@ for complex and *nested dataclass* models!
     >>> from dataclass_wizard import JSONWizard
     ...
     >>> @dataclass
-    ... class MyClass(JSONWizard, key_case='AUTO'):
+    ... class MyClass(JSONWizard):
     ...     my_str: str | None
     ...     is_active_tuple: tuple[bool, ...]
     ...     list_of_int: list[int] = field(default_factory=list)

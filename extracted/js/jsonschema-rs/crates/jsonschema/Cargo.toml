@@ -1,6 +1,6 @@
 [package]
 name = "jsonschema"
-version = "0.30.0"
+version = "0.31.0"
 description = "JSON schema validaton library"
 keywords = ["jsonschema", "validation"]
 categories = ["web-programming"]
@@ -10,6 +10,9 @@ repository.workspace = true
 rust-version.workspace = true
 edition.workspace = true
 authors.workspace = true
+
+[lints.clippy]
+result_large_err = "allow"
 
 [features]
 default = ["resolve-http", "resolve-file"]
@@ -23,7 +26,7 @@ ahash.workspace = true
 base64 = "0.22"
 bytecount = { version = "0.6", features = ["runtime-dispatch-simd"] }
 email_address = "0.2.9"
-fancy-regex = "0.14"
+fancy-regex = "0.15"
 fraction = { version = "0.15", default-features = false, features = [
   "with-bigint",
 ] }
@@ -37,7 +40,7 @@ reqwest = { version = "0.12", features = [
   "blocking",
   "json",
 ], default-features = false, optional = true }
-referencing = { version = "0.30.0", path = "../jsonschema-referencing" }
+referencing = { version = "0.31.0", path = "../jsonschema-referencing" }
 serde.workspace = true
 serde_json.workspace = true
 uuid-simd = "0.8"
@@ -49,8 +52,8 @@ regex = "1.11.1"
 
 [dev-dependencies]
 benchmark = { path = "../benchmark/" }
-codspeed-criterion-compat = { version = "2.7", default-features = false }
-criterion = { version = "0.5", default-features = false }
+codspeed-criterion-compat = { version = "3.0", default-features = false }
+criterion = { version = "0.6", default-features = false }
 testsuite = { package = "jsonschema-testsuite", path = "../jsonschema-testsuite" }
 test-case = "3"
 tokio = { version = "1", features = ["macros", "rt"] }

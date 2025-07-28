@@ -98,7 +98,9 @@ pub enum ValidationErrorKind {
     /// Unexpected properties.
     AdditionalProperties { unexpected: Vec<String> },
     /// The input value is not valid under any of the schemas listed in the 'anyOf' keyword.
-    AnyOf,
+    AnyOf {
+        context: Vec<Vec<ValidationError<'static>>>,
+    },
     /// Results from a [`fancy_regex::RuntimeError::BacktrackLimitExceeded`] variant when matching
     BacktrackLimitExceeded { error: fancy_regex::Error },
     /// The input value doesn't match expected constant.
@@ -146,7 +148,9 @@ pub enum ValidationErrorKind {
     /// The given schema is valid under more than one of the schemas listed in the 'oneOf' keyword.
     OneOfMultipleValid,
     /// The given schema is not valid under any of the schemas listed in the 'oneOf' keyword.
-    OneOfNotValid,
+    OneOfNotValid {
+        context: Vec<Vec<ValidationError<'static>>>,
+    },
     /// When the input doesn't match to a pattern.
     Pattern { pattern: String },
     /// Object property names are invalid.
@@ -178,6 +182,7 @@ pub enum TypeKind {
 impl<'a> ValidationError<'a> {
     /// Returns a wrapper that masks instance values in error messages.
     /// Uses "value" as a default placeholder.
+    #[must_use]
     pub fn masked<'b>(&'b self) -> MaskedValidationError<'a, 'b, 'static> {
         self.masked_with("value")
     }
@@ -193,6 +198,7 @@ impl<'a> ValidationError<'a> {
         }
     }
     /// Converts the `ValidationError` into an owned version with `'static` lifetime.
+    #[must_use]
     pub fn to_owned(self) -> ValidationError<'static> {
         ValidationError {
             instance_path: self.instance_path,
@@ -228,15 +234,21 @@ impl<'a> ValidationError<'a> {
             schema_path: location,
         }
     }
-    pub(crate) const fn any_of(
+    pub(crate) fn any_of(
         location: Location,
         instance_path: Location,
         instance: &'a Value,
+        context: Vec<Vec<ValidationError<'a>>>,
     ) -> ValidationError<'a> {
         ValidationError {
             instance_path,
             instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::AnyOf,
+            kind: ValidationErrorKind::AnyOf {
+                context: context
+                    .into_iter()
+                    .map(|errors| errors.into_iter().map(ValidationError::to_owned).collect())
+                    .collect(),
+            },
             schema_path: location,
         }
     }
@@ -602,15 +614,21 @@ impl<'a> ValidationError<'a> {
             schema_path: location,
         }
     }
-    pub(crate) const fn one_of_not_valid(
+    pub(crate) fn one_of_not_valid(
         location: Location,
         instance_path: Location,
         instance: &'a Value,
+        context: Vec<Vec<ValidationError<'a>>>,
     ) -> ValidationError<'a> {
         ValidationError {
             instance_path,
             instance: Cow::Borrowed(instance),
-            kind: ValidationErrorKind::OneOfNotValid,
+            kind: ValidationErrorKind::OneOfNotValid {
+                context: context
+                    .into_iter()
+                    .map(|errors| errors.into_iter().map(ValidationError::to_owned).collect())
+                    .collect(),
+            },
             schema_path: location,
         }
     }
@@ -765,13 +783,13 @@ fn write_quoted_list(f: &mut Formatter<'_>, items: &[impl fmt::Display]) -> fmt:
     let mut iter = items.iter();
     if let Some(item) = iter.next() {
         f.write_char('\'')?;
-        write!(f, "{}", item)?;
+        write!(f, "{item}")?;
         f.write_char('\'')?;
     }
     for item in iter {
         f.write_str(", ")?;
         f.write_char('\'')?;
-        write!(f, "{}", item)?;
+        write!(f, "{item}")?;
         f.write_char('\'')?;
     }
     Ok(())
@@ -801,11 +819,11 @@ impl fmt::Display for ValidationError<'_> {
                 let mut iter = array.iter().skip(*limit);
 
                 if let Some(item) = iter.next() {
-                    write!(f, "{}", item)?;
+                    write!(f, "{item}")?;
                 }
                 for item in iter {
                     f.write_str(", ")?;
-                    write!(f, "{}", item)?;
+                    write!(f, "{item}")?;
                 }
 
                 write_unexpected_suffix(f, array.len() - limit)
@@ -815,12 +833,12 @@ impl fmt::Display for ValidationError<'_> {
                 write_quoted_list(f, unexpected)?;
                 write_unexpected_suffix(f, unexpected.len())
             }
-            ValidationErrorKind::AnyOf => write!(
+            ValidationErrorKind::AnyOf { context: _ } => write!(
                 f,
                 "{} is not valid under any of the schemas listed in the 'anyOf' keyword",
                 self.instance
             ),
-            ValidationErrorKind::OneOfNotValid => write!(
+            ValidationErrorKind::OneOfNotValid { context: _ } => write!(
                 f,
                 "{} is not valid under any of the schemas listed in the 'oneOf' keyword",
                 self.instance
@@ -831,7 +849,7 @@ impl fmt::Display for ValidationError<'_> {
                 self.instance
             ),
             ValidationErrorKind::Constant { expected_value } => {
-                write!(f, "{} was expected", expected_value)
+                write!(f, "{expected_value} was expected")
             }
             ValidationErrorKind::ContentEncoding { content_encoding } => {
                 write!(
@@ -927,7 +945,7 @@ impl fmt::Display for ValidationError<'_> {
             }
             ValidationErrorKind::PropertyNames { error } => error.fmt(f),
             ValidationErrorKind::Required { property } => {
-                write!(f, "{} is a required property", property)
+                write!(f, "{property} is a required property")
             }
             ValidationErrorKind::MultipleOf { multiple_of } => {
                 write!(f, "{} is not a multiple of {}", self.instance, multiple_of)
@@ -955,13 +973,13 @@ impl fmt::Display for ValidationError<'_> {
                 let mut iter = types.iter();
                 if let Some(t) = iter.next() {
                     f.write_char('"')?;
-                    write!(f, "{}", t)?;
+                    write!(f, "{t}")?;
                     f.write_char('"')?;
                 }
                 for t in iter {
                     f.write_str(", ")?;
                     f.write_char('"')?;
-                    write!(f, "{}", t)?;
+                    write!(f, "{t}")?;
                     f.write_char('"')?;
                 }
                 Ok(())
@@ -994,12 +1012,12 @@ impl fmt::Display for MaskedValidationError<'_, '_, '_> {
                 write_quoted_list(f, unexpected)?;
                 write_unexpected_suffix(f, unexpected.len())
             }
-            ValidationErrorKind::AnyOf => write!(
+            ValidationErrorKind::AnyOf { context: _ } => write!(
                 f,
                 "{} is not valid under any of the schemas listed in the 'anyOf' keyword",
                 self.placeholder
             ),
-            ValidationErrorKind::OneOfNotValid => write!(
+            ValidationErrorKind::OneOfNotValid { context: _ } => write!(
                 f,
                 "{} is not valid under any of the schemas listed in the 'oneOf' keyword",
                 self.placeholder
@@ -1010,7 +1028,7 @@ impl fmt::Display for MaskedValidationError<'_, '_, '_> {
                 self.placeholder
             ),
             ValidationErrorKind::Constant { expected_value } => {
-                write!(f, "{} was expected", expected_value)
+                write!(f, "{expected_value} was expected")
             }
             ValidationErrorKind::ContentEncoding { content_encoding } => {
                 write!(
@@ -1110,7 +1128,7 @@ impl fmt::Display for MaskedValidationError<'_, '_, '_> {
             }
             ValidationErrorKind::PropertyNames { error } => error.fmt(f),
             ValidationErrorKind::Required { property } => {
-                write!(f, "{} is a required property", property)
+                write!(f, "{property} is a required property")
             }
             ValidationErrorKind::MultipleOf { multiple_of } => {
                 write!(
@@ -1144,13 +1162,13 @@ impl fmt::Display for MaskedValidationError<'_, '_, '_> {
                 let mut iter = types.iter();
                 if let Some(t) = iter.next() {
                     f.write_char('"')?;
-                    write!(f, "{}", t)?;
+                    write!(f, "{t}")?;
                     f.write_char('"')?;
                 }
                 for t in iter {
                     f.write_str(", ")?;
                     f.write_char('"')?;
-                    write!(f, "{}", t)?;
+                    write!(f, "{t}")?;
                     f.write_char('"')?;
                 }
                 Ok(())
@@ -1175,7 +1193,7 @@ mod tests {
             &instance,
             JsonType::String,
         );
-        assert_eq!(err.to_string(), r#"42 is not of type "string""#)
+        assert_eq!(err.to_string(), r#"42 is not of type "string""#);
     }
 
     #[test]
@@ -1190,7 +1208,7 @@ mod tests {
             &instance,
             types,
         );
-        assert_eq!(err.to_string(), r#"42 is not of types "number", "string""#)
+        assert_eq!(err.to_string(), r#"42 is not of types "number", "string""#);
     }
 
     #[test_case(true, &json!({"foo": {"bar": 42}}), "/foo/bar")]

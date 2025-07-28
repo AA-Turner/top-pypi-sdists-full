@@ -78,7 +78,7 @@ impl Validate for PropertiesValidator {
         location: &LazyLocation,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Object(item) = instance {
-            for (name, node) in self.properties.iter() {
+            for (name, node) in &self.properties {
                 if let Some(item) = item.get(name) {
                     node.validate(item, &location.push(name))?;
                 }
@@ -115,7 +115,7 @@ pub(crate) fn compile<'a>(
 ) -> Option<CompilationResult<'a>> {
     match parent.get("additionalProperties") {
         // This type of `additionalProperties` validator handles `properties` logic
-        Some(Value::Bool(false)) | Some(Value::Object(_)) => None,
+        Some(Value::Bool(false) | Value::Object(_)) => None,
         _ => Some(PropertiesValidator::compile(ctx, schema)),
     }
 }
@@ -131,6 +131,6 @@ mod tests {
             &json!({"properties": {"foo": {"properties": {"bar": {"required": ["spam"]}}}}}),
             &json!({"foo": {"bar": {}}}),
             "/properties/foo/properties/bar/required",
-        )
+        );
     }
 }

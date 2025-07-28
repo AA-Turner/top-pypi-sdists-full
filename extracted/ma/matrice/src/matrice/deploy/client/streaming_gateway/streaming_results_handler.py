@@ -10,21 +10,21 @@ from matrice.deploy.client.streaming_gateway.streaming_gateway_utils import (
     OutputType,
     OutputConfig,
 )
-from matrice.deploy.client.client import MatriceDeployClient
+from matrice.deploy.client.client_stream_utils import ClientStreamUtils
 from matrice.deploy.utils.post_processing import PostProcessor
 
 class StreamingResultsHandler:
     def __init__(
         self, 
-        client: MatriceDeployClient, 
+        client_stream_utils: ClientStreamUtils, 
         output_config: OutputConfig,
-        deployment_id: str = None,
+        service_id: str = None,
         strip_input_from_result: bool = True,
         result_callback: Optional[Callable] = None
     ):
-        self.client = client
+        self.client_stream_utils = client_stream_utils
         self.output_config = output_config
-        self.deployment_id = deployment_id or (client.deployment_id if client else None)
+        self.service_id = service_id
         self.strip_input_from_result = strip_input_from_result
         self.result_callback = result_callback
         
@@ -179,7 +179,7 @@ class StreamingResultsHandler:
 
         while not self._stop_streaming.is_set():
             try:
-                result = self.client.consume_result(timeout=1.0)
+                result = self.client_stream_utils.consume_result(timeout=5)
 
                 if not result:
                     continue
@@ -270,7 +270,7 @@ class StreamingResultsHandler:
             # Add metadata
             result_with_metadata = {
                 "timestamp": timestamp,
-                "deployment_id": self.deployment_id,
+                "service_id": self.service_id,
                 "stream_key": stream_key,
                 "result": result,
             }
@@ -287,7 +287,7 @@ class StreamingResultsHandler:
                 # Try to save a simplified version
                 simplified_result = {
                     "timestamp": timestamp,
-                    "deployment_id": str(self.deployment_id),
+                    "service_id": str(self.service_id),
                     "stream_key": str(stream_key),
                     "result": str(result),  # Convert to string as fallback
                     "json_error": str(json_err),
@@ -345,7 +345,7 @@ class StreamingResultsHandler:
         try:
             message = {
                 "timestamp": datetime.now().isoformat(),
-                "deployment_id": self.deployment_id,
+                "service_id": self.service_id,
                 "result": result,
             }
 
@@ -361,7 +361,7 @@ class StreamingResultsHandler:
                 # Create a simplified message
                 simplified_message = {
                     "timestamp": datetime.now().isoformat(),
-                    "deployment_id": str(self.deployment_id),
+                    "service_id": str(self.service_id),
                     "result": str(result),  # Convert to string as fallback
                     "json_error": str(json_err),
                 }

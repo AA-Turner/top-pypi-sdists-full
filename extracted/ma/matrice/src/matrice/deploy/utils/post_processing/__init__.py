@@ -115,6 +115,8 @@ from .usecases.leaf import LeafConfig, LeafUseCase
 
 #Put all IMAGE based usecases here
 from .usecases.blood_cancer_detection_img import BloodCancerDetectionConfig, BloodCancerDetectionUseCase
+from .usecases.skin_cancer_classification_img import SkinCancerClassificationConfig, SkinCancerClassificationUseCase
+from .usecases.plaque_segmentation_img import PlaqueSegmentationConfig, PlaqueSegmentationUseCase
 
 # Use case implementations
 from .usecases import (
@@ -166,7 +168,11 @@ from .usecases import (
     WindmillMaintenanceUseCase,
     CarPartSegmentationUseCase,
     FlowerUseCase,
+
+    #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
+    SkinCancerClassificationUseCase,
+    PlaqueSegmentationUseCase,
 )
 
 # Register use cases automatically
@@ -227,6 +233,8 @@ _leaf_det = LeafUseCase()
 
 #Put all IMAGE based usecases here
 _blood_cancer_detection = BloodCancerDetectionUseCase()
+_skin_cancer_classification = SkinCancerClassificationUseCase()
+_plaque_segmentation = PlaqueSegmentationUseCase()
 
 
 registry.register_use_case(_people_counting.category, _people_counting.name, PeopleCountingUseCase)
@@ -288,6 +296,8 @@ registry.register_use_case(_leaf_det.category, _leaf_det.name, LeafUseCase)
 
 #Put all IMAGE based usecases here
 registry.register_use_case(_blood_cancer_detection.category, _blood_cancer_detection.name, BloodCancerDetectionUseCase)
+registry.register_use_case(_skin_cancer_classification.category, _skin_cancer_classification.name, SkinCancerClassificationUseCase)
+registry.register_use_case(_plaque_segmentation.category, _plaque_segmentation.name, PlaqueSegmentationUseCase)
 
 # Utility functions - organized by category
 from .utils import (  # noqa: E402
@@ -472,6 +482,8 @@ __all__ = [
 
     #Put all IMAGE based usecase CONFIGS here
     'BloodCancerDetectionConfig',
+    'SkinCancerClassificationConfig',
+    'PlaqueSegmentationConfig',
 
     # Use case classes
     'PeopleCountingUseCase',
@@ -527,6 +539,8 @@ __all__ = [
 
     #Put all IMAGE based usecases here
     'BloodCancerDetectionUseCase',
+    'SkinCancerClassificationUseCase',
+    'PlaqueSegmentationUseCase',
     
     # Base classes for extension
     'BaseProcessor',

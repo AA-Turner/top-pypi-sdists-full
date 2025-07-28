@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: jsonschema_rs
-Version: 0.30.0
+Version: 0.31.0
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -26,7 +26,6 @@ Provides-Extra: tests
 Provides-Extra: bench
 Summary: A high-performance JSON Schema validator for Python
 Keywords: jsonschema,validation,rust
-Author: Dmitry Dygalo <dmitry@dygalo.dev>
 Author-email: Dmitry Dygalo <dmitry@dygalo.dev>
 Maintainer-email: Dmitry Dygalo <dmitry@dygalo.dev>
 License: MIT

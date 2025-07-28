@@ -6,6 +6,8 @@ import time
 import urllib.request
 import logging
 import asyncio
+import signal
+import atexit
 from datetime import datetime, timezone
 from typing import Optional, Callable
 
@@ -29,12 +31,9 @@ CLEANUP_DELAY_SECONDS = 5
 FINAL_CLEANUP_DELAY_SECONDS = 10
 MAX_IP_FETCH_ATTEMPTS = 3
 IP_FETCH_TIMEOUT_SECONDS = 10
-
-logging.basicConfig(
-    level=logging.INFO,
-    format="%(asctime)s - %(levelname)s - %(message)s",
-    force=True,
-)
+# Shutdown after 5 minutes of consecutive failures
+MAX_HEARTBEAT_FAILURES_BEFORE_SHUTDOWN = 10  # 5 minutes at 30 second intervals
+MAX_DEPLOYMENT_CHECK_FAILURES_BEFORE_SHUTDOWN = 10  # 5 minutes at 30 second intervals
 
 
 class MatriceDeployServer:
@@ -63,6 +62,11 @@ class MatriceDeployServer:
             ValueError: If required parameters are invalid
             Exception: If initialization fails
         """
+        logging.basicConfig(
+            level=logging.INFO,
+            format="%(asctime)s - %(levelname)s - %(message)s",
+            force=True,
+        )
         try:
             # Validate inputs
             self._validate_init_parameters(
@@ -130,6 +134,13 @@ class MatriceDeployServer:
             # Initialize utilities
             self.utils = None
 
+            # Shutdown coordination
+            self._shutdown_event = threading.Event()
+            self._stream_worker_thread = None
+
+            # Register shutdown handlers to ensure clean shutdown
+            self._register_shutdown_handlers()
+
             # Update initial status
             self.action_tracker.update_status(
                 "MDL_DPY_ACK",
@@ -142,6 +153,34 @@ class MatriceDeployServer:
         except Exception as exc:
             logging.error("Failed to initialize MatriceDeployServer: %s", str(exc))
             raise
+
+    def _register_shutdown_handlers(self):
+        """Register signal handlers and atexit callback for graceful shutdown."""
+        def signal_handler(signum, frame):
+            logging.info("Received signal %d, initiating graceful shutdown...", signum)
+            try:
+                self.stop_server()
+            except Exception as exc:
+                logging.error("Error during signal-triggered shutdown: %s", str(exc))
+            finally:
+                os._exit(0)
+        
+        def atexit_handler():
+            logging.info("Process exiting, ensuring graceful shutdown...")
+            try:
+                if not self._shutdown_event.is_set():
+                    self.stop_server()
+            except Exception as exc:
+                logging.error("Error during atexit shutdown: %s", str(exc))
+        
+        # Register signal handlers for graceful shutdown
+        signal.signal(signal.SIGTERM, signal_handler)
+        signal.signal(signal.SIGINT, signal_handler)
+        
+        # Register atexit handler as a final safety net
+        atexit.register(atexit_handler)
+        
+        logging.info("Shutdown handlers registered successfully")
 
     def _validate_init_parameters(self, load_model, predict, action_id, external_port):
         """Validate initialization parameters.
@@ -312,25 +351,74 @@ class MatriceDeployServer:
         def start_stream_worker():
             """Start the async stream worker manager in a new event loop."""
 
-            async def start_and_run_forever():
-                await self.stream_worker_manager.start()
-                logging.info("Stream worker manager started successfully")
-                # Keep the event loop running
-                await asyncio.Event().wait()
+            async def start_and_run_until_shutdown():
+                try:
+                    await self.stream_worker_manager.start()
+                    logging.info("Stream worker manager started successfully")
+                    
+                    # Wait for shutdown signal instead of waiting forever
+                    while not self._shutdown_event.is_set():
+                        try:
+                            await asyncio.sleep(1.0)  # Check shutdown every second
+                        except asyncio.CancelledError:
+                            break
+                    
+                    logging.info("Shutdown signal received, stopping stream worker manager")
+                    await self.stream_worker_manager.stop()
+                    logging.info("Stream worker manager stopped successfully")
+                    
+                except Exception as exc:
+                    logging.error("Error in stream worker manager: %s", str(exc))
+                    raise
 
             try:
                 loop = asyncio.new_event_loop()
                 asyncio.set_event_loop(loop)
-                loop.run_until_complete(start_and_run_forever())
+                try:
+                    loop.run_until_complete(start_and_run_until_shutdown())
+                    
+                    # After main coroutine completes, ensure all tasks are properly cleaned up
+                    pending = asyncio.all_tasks(loop)
+                    if pending:
+                        logging.info("Cancelling %d pending tasks in stream worker loop", len(pending))
+                        for task in pending:
+                            if not task.done():
+                                task.cancel()
+                        
+                        # Wait for all tasks to complete with timeout
+                        try:
+                            loop.run_until_complete(
+                                asyncio.wait_for(
+                                    asyncio.gather(*pending, return_exceptions=True),
+                                    timeout=10.0
+                                )
+                            )
+                            logging.info("All pending tasks cancelled successfully")
+                        except asyncio.TimeoutError:
+                            logging.warning("Some tasks did not cancel within timeout")
+                        except Exception as exc:
+                            logging.warning("Error during task cancellation: %s", str(exc))
+                    
+                    # Give a brief moment for final cleanup
+                    time.sleep(0.1)
+                    
+                finally:
+                    try:
+                        # Close the event loop only after everything is cleaned up
+                        loop.close()
+                        logging.info("Stream worker event loop closed successfully")
+                    except Exception as exc:
+                        logging.warning("Error closing stream worker event loop: %s", str(exc))
+                        
             except Exception as exc:
                 logging.error("Failed to start stream worker manager: %s", str(exc))
                 raise
 
         try:
-            worker_thread = threading.Thread(
+            self._stream_worker_thread = threading.Thread(
                 target=start_stream_worker, daemon=False, name="StreamWorkerManager"
             )
-            worker_thread.start()
+            self._stream_worker_thread.start()
             logging.info("Stream worker manager thread started successfully")
         except Exception as exc:
             logging.error("Failed to start stream worker thread: %s", str(exc))
@@ -364,14 +452,47 @@ class MatriceDeployServer:
 
     def stop_server(self):
         """Stop the server and related components."""
-        # TODO: Implement server stop with keyboard interrupt
-        ...
+        try:
+            logging.info("Initiating server shutdown...")
+            
+            # Signal shutdown to all components
+            self._shutdown_event.set()
+            
+            # Wait for stream worker thread to finish if it exists
+            if self._stream_worker_thread and self._stream_worker_thread.is_alive():
+                logging.info("Waiting for stream worker thread to finish...")
+                self._stream_worker_thread.join(timeout=30.0)  # 30 second timeout
+                if self._stream_worker_thread.is_alive():
+                    logging.warning("Stream worker thread did not finish within timeout")
+                else:
+                    logging.info("Stream worker thread finished successfully")
+            
+            # Stop proxy interface
+            if self.proxy_interface:
+                try:
+                    # Add proxy interface stop method if available
+                    if hasattr(self.proxy_interface, 'stop'):
+                        self.proxy_interface.stop()
+                    logging.info("Proxy interface stopped")
+                except Exception as exc:
+                    logging.error("Error stopping proxy interface: %s", str(exc))
+            
+            logging.info("Server shutdown completed")
+            
+        except Exception as exc:
+            logging.error("Error during server shutdown: %s", str(exc))
+            raise
 
 
 class MatriceDeployServerUtils:
     """Utility class for managing deployment server operations."""
 
-    def __init__(self, action_tracker: ActionTracker, inference_interface: InferenceInterface, external_port: int):
+    def __init__(
+        self,
+        action_tracker: ActionTracker,
+        inference_interface: InferenceInterface,
+        external_port: int,
+    ):
         """Initialize utils with reference to the main server.
 
         Args:
@@ -481,59 +602,10 @@ class MatriceDeployServerUtils:
             Exception: If unable to get elapsed time and no fallback available
         """
         now = datetime.now(timezone.utc)
-
-        # Try to get latest prediction time from API
-        # try:
-        #     latest_prediction_time = self.rpc.get(
-        #         f"/v1/model_prediction/get_latest_prediction_time/{self.deployment_instance_id}",
-        #         raise_exception=False,
-        #     )
-
-        #     if (
-        #         latest_prediction_time
-        #         and latest_prediction_time.get("success")
-        #         and latest_prediction_time.get("data")
-        #     ):
-        #         try:
-        #             last_time = datetime.strptime(
-        #                 latest_prediction_time["data"],
-        #                 "%Y-%m-%dT%H:%M:%S.%fZ",
-        #             ).replace(tzinfo=timezone.utc)
-        #             elapsed_time = (now - last_time).total_seconds()
-        #             logging.debug(
-        #                 "Successfully retrieved latest prediction time, elapsed: %.1fs",
-        #                 elapsed_time,
-        #             )
-        #             return elapsed_time
-        #         except (ValueError, TypeError) as date_exc:
-        #             logging.warning(
-        #                 "Failed to parse prediction time '%s': %s",
-        #                 latest_prediction_time.get("data"),
-        #                 str(date_exc),
-        #             )
-        #     else:
-        #         # API call failed or returned no data
-        #         error_msg = (
-        #             latest_prediction_time.get(
-        #                 "message", "No response or invalid response"
-        #             )
-        #             if isinstance(latest_prediction_time, dict)
-        #             else "No response"
-        #         )
-        #         logging.debug(
-        #             "No recent prediction time available (%s), falling back to deployment start time",
-        #             error_msg,
-        #         )
-
-        # except Exception as exc:
-        #     # Any exception during API call
-        #     logging.debug(
-        #         "Exception getting latest prediction time (%s), falling back to deployment start time",
-        #         str(exc),
-        #     )
-
         if self.inference_interface.get_latest_inference_time():
-            elapsed_time = (now - self.inference_interface.get_latest_inference_time()).total_seconds()
+            elapsed_time = (
+                now - self.inference_interface.get_latest_inference_time()
+            ).total_seconds()
             logging.debug(
                 "Using latest inference time for elapsed calculation: %.1fs",
                 elapsed_time,
@@ -549,14 +621,6 @@ class MatriceDeployServerUtils:
     def trigger_shutdown_if_needed(self):
         """Check idle time and trigger shutdown if threshold exceeded."""
         try:
-            # Check if instance is still running according to backend
-            if not self.is_instance_running():
-                logging.info(
-                    "Instance is no longer running according to backend, initiating shutdown"
-                )
-                self.shutdown()
-                return
-
             # Check if auto shutdown is enabled
             if not self.auto_shutdown:
                 logging.debug("Auto shutdown is disabled")
@@ -574,11 +638,13 @@ class MatriceDeployServerUtils:
                 self.shutdown()
             else:
                 time_until_shutdown = max(0, self.shutdown_threshold - elapsed_time)
-                logging.debug(
-                    "Time since last inference: %.1fs, time until shutdown: %.1fs",
-                    elapsed_time,
-                    time_until_shutdown,
-                )
+                # Only log every 10 minutes to reduce noise
+                if int(elapsed_time) % 600 == 0 or elapsed_time < 60:
+                    logging.info(
+                        "Time since last inference: %.1fs, time until shutdown: %.1fs",
+                        elapsed_time,
+                        time_until_shutdown,
+                    )
 
         except Exception as exc:
             logging.error(
@@ -637,21 +703,83 @@ class MatriceDeployServerUtils:
             os._exit(1)
 
     def shutdown_checker(self):
-        """Background thread to periodically check for idle shutdown condition."""
+        """Background thread to periodically check for idle shutdown condition and deployment status."""
+        consecutive_deployment_failures = 0
         logging.info("Shutdown checker started")
 
         while True:
             try:
-                self.trigger_shutdown_if_needed()
+                # Check if deployment instance is still running
+                is_running = self.is_instance_running()
+
+                if is_running:
+                    # Reset failure counter if deployment check succeeds
+                    if consecutive_deployment_failures > 0:
+                        logging.info(
+                            "Deployment status check recovered after %d failures",
+                            consecutive_deployment_failures,
+                        )
+                        consecutive_deployment_failures = 0
+
+                    # Check for idle shutdown condition
+                    self.trigger_shutdown_if_needed()
+                else:
+                    consecutive_deployment_failures += 1
+                    failure_duration_minutes = (
+                        consecutive_deployment_failures
+                        * SHUTDOWN_CHECK_INTERVAL_SECONDS
+                    ) / 60
+
+                    logging.warning(
+                        "Deployment status check failed (%d/%d) - %.1f minutes of failures",
+                        consecutive_deployment_failures,
+                        MAX_DEPLOYMENT_CHECK_FAILURES_BEFORE_SHUTDOWN,
+                        failure_duration_minutes,
+                    )
+
+                    if (
+                        consecutive_deployment_failures
+                        >= MAX_DEPLOYMENT_CHECK_FAILURES_BEFORE_SHUTDOWN
+                    ):
+                        logging.error(
+                            "Deployment status check failed %d consecutive times (%.1f minutes), initiating shutdown",
+                            consecutive_deployment_failures,
+                            failure_duration_minutes,
+                        )
+                        self.shutdown()
+                        return
+
             except Exception as exc:
-                logging.error("Error in shutdown checker: %s", str(exc))
+                consecutive_deployment_failures += 1
+                failure_duration_minutes = (
+                    consecutive_deployment_failures * SHUTDOWN_CHECK_INTERVAL_SECONDS
+                ) / 60
+
+                logging.error(
+                    "Error in shutdown checker (%d/%d) - %.1f minutes of failures: %s",
+                    consecutive_deployment_failures,
+                    MAX_DEPLOYMENT_CHECK_FAILURES_BEFORE_SHUTDOWN,
+                    failure_duration_minutes,
+                    str(exc),
+                )
+
+                if (
+                    consecutive_deployment_failures
+                    >= MAX_DEPLOYMENT_CHECK_FAILURES_BEFORE_SHUTDOWN
+                ):
+                    logging.error(
+                        "Shutdown checker failed %d consecutive times (%.1f minutes), initiating shutdown",
+                        consecutive_deployment_failures,
+                        failure_duration_minutes,
+                    )
+                    self.shutdown()
+                    return
             finally:
                 time.sleep(SHUTDOWN_CHECK_INTERVAL_SECONDS)
 
     def heartbeat_checker(self):
         """Background thread to periodically send heartbeat."""
         consecutive_failures = 0
-        max_consecutive_failures = 3
 
         logging.info("Heartbeat checker started")
         while True:
@@ -678,27 +806,49 @@ class MatriceDeployServerUtils:
                     error_msg = (
                         resp.get("message", "Unknown error") if resp else "No response"
                     )
+                    failure_duration_minutes = (
+                        consecutive_failures * HEARTBEAT_INTERVAL_SECONDS
+                    ) / 60
+
                     logging.warning(
-                        "Heartbeat failed (%d/%d): %s",
+                        "Heartbeat failed (%d/%d) - %.1f minutes of failures: %s",
                         consecutive_failures,
-                        max_consecutive_failures,
+                        MAX_HEARTBEAT_FAILURES_BEFORE_SHUTDOWN,
+                        failure_duration_minutes,
                         error_msg,
                     )
 
-                    if consecutive_failures >= max_consecutive_failures:
+                    if consecutive_failures >= MAX_HEARTBEAT_FAILURES_BEFORE_SHUTDOWN:
                         logging.error(
-                            "Heartbeat failed %d consecutive times, this may indicate connectivity issues",
+                            "Heartbeat failed %d consecutive times (%.1f minutes), initiating shutdown",
                             consecutive_failures,
+                            failure_duration_minutes,
                         )
+                        self.shutdown()
+                        return
 
             except Exception as exc:
                 consecutive_failures += 1
+                failure_duration_minutes = (
+                    consecutive_failures * HEARTBEAT_INTERVAL_SECONDS
+                ) / 60
+
                 logging.warning(
-                    "Heartbeat exception (%d/%d): %s",
+                    "Heartbeat exception (%d/%d) - %.1f minutes of failures: %s",
                     consecutive_failures,
-                    max_consecutive_failures,
+                    MAX_HEARTBEAT_FAILURES_BEFORE_SHUTDOWN,
+                    failure_duration_minutes,
                     str(exc),
                 )
+
+                if consecutive_failures >= MAX_HEARTBEAT_FAILURES_BEFORE_SHUTDOWN:
+                    logging.error(
+                        "Heartbeat failed %d consecutive times (%.1f minutes), initiating shutdown",
+                        consecutive_failures,
+                        failure_duration_minutes,
+                    )
+                    self.shutdown()
+                    return
 
             time.sleep(HEARTBEAT_INTERVAL_SECONDS)
 

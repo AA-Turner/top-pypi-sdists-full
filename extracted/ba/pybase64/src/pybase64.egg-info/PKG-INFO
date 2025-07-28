@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: pybase64
-Version: 1.4.1
+Version: 1.4.2
 Summary: Fast Base64 encoding/decoding
 Home-page: https://github.com/mayeut/pybase64
 Author: Matthieu Darbois
@@ -22,6 +22,7 @@ Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
 Classifier: Programming Language :: Python :: 3.13
+Classifier: Programming Language :: Python :: 3.14
 Requires-Python: >=3.8
 Description-Content-Type: text/x-rst
 License-File: LICENSE
@@ -32,6 +33,7 @@ Dynamic: description-content-type
 Dynamic: home-page
 Dynamic: keywords
 Dynamic: license
+Dynamic: license-file
 Dynamic: project-url
 Dynamic: requires-python
 Dynamic: summary
@@ -159,6 +161,15 @@ Running Python 3.7.2, Apple LLVM version 10.0.0 (clang-1000.11.45.5), Mac OS X 1
 
 Changelog
 =========
+1.4.2
+-----
+- Update base64 library (Windows ARM64 Neon support)
+- Publish Python 3.14 wheels
+- Publish Linux riscv64 wheels
+- Publish Android wheels
+- Publish iOS wheels
+- Publish GraalPy wheels
+
 1.4.1
 -----
 - Publish PyPy 3.11 wheels

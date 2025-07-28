@@ -13,6 +13,7 @@ from matrice.deploy.client.streaming_gateway.streaming_gateway_utils import (
 from matrice.deploy.client.streaming_gateway.streaming_results_handler import (
     StreamingResultsHandler,
 )
+from matrice.deploy.client.client_stream_utils import ClientStreamUtils
 
 
 class StreamingGateway:
@@ -38,7 +39,7 @@ class StreamingGateway:
 
         gateway = StreamingGateway(
             session=session,
-            deployment_id="your_deployment_id",
+            service_id="your_service_id",
             inputs_config=[video_input],
             output_config=output_config
         )
@@ -50,13 +51,13 @@ class StreamingGateway:
     """
 
     # Class-level tracking of active instances
-    _active_instances: Dict[str, "StreamingGateway"] = {}  # deployment_id -> instance
+    _active_instances: Dict[str, "StreamingGateway"] = {}  # service_id -> instance
     _class_lock = threading.RLock()
 
     def __init__(
         self,
         session,
-        deployment_id: str = None,
+        service_id: str = None,
         inputs_config: List[InputConfig] = None,
         output_config: OutputConfig = None,
         create_deployment_config: Dict = None,
@@ -70,7 +71,7 @@ class StreamingGateway:
 
         Args:
             session: Session object for authentication
-            deployment_id: ID of existing deployment (optional if create_deployment_config provided)
+            service_id: ID of existing deployment (optional if create_deployment_config provided)
             inputs_config: Multiple input configurations (alternative to input_config)
             output_config: Output configuration
             create_deployment_config: Configuration for creating new deployment
@@ -86,15 +87,15 @@ class StreamingGateway:
         self.session = session
         self.rpc = self.session.rpc
         self.auth_key = auth_key
-        self.deployment_id = deployment_id
+        self.service_id = service_id
         self.create_deployment_config = create_deployment_config
         self.strip_input_from_result = strip_input_from_result
         self.force_restart = force_restart
 
         # Validate inputs
-        if not (self.deployment_id or self.create_deployment_config):
+        if not (self.service_id or self.create_deployment_config):
             raise ValueError(
-                "Either deployment_id or create_deployment_config must be provided"
+                "Either service_id or create_deployment_config must be provided"
             )
 
         if not inputs_config:
@@ -115,18 +116,27 @@ class StreamingGateway:
         self.kafka_producer = None
 
         # Initialize client
-        self.client = MatriceDeployClient(
-            session=self.session,
-            deployment_id=self.deployment_id,
-            auth_key=self.auth_key,
-            consumer_group_id=self.consumer_group_id,
-            create_deployment_config=self.create_deployment_config,
-        )
-        if not self.deployment_id:
-            self.deployment_id = self.client.create_deployment(
+
+        if not self.service_id:
+            self.client = MatriceDeployClient(
+                session=self.session,
+                deployment_id=self.service_id,
+                auth_key=self.auth_key,
+                consumer_group_id=self.consumer_group_id,
+                create_deployment_config=self.create_deployment_config,
+            )
+
+            self.service_id = self.client.create_deployment(
                 self.create_deployment_config
             )
-        self.client.create_auth_key_if_not_exists()
+            self.client.create_auth_key_if_not_exists()
+            self.client_stream_utils = self.client.client_stream_utils
+        else:
+            self.client_stream_utils = ClientStreamUtils(
+                session=self.session,
+                service_id=self.service_id,
+                consumer_group_id=self.consumer_group_id,
+            )
 
         # State management with proper synchronization
         self.is_streaming = False
@@ -140,9 +150,9 @@ class StreamingGateway:
         self.results_handler = None
         if self.output_config or self.result_callback:
             self.results_handler = StreamingResultsHandler(
-                client=self.client,
+                client_stream_utils=self.client_stream_utils,
                 output_config=self.output_config,
-                deployment_id=self.deployment_id,
+                service_id=self.service_id,
                 strip_input_from_result=self.strip_input_from_result,
                 result_callback=self.result_callback,
             )
@@ -166,28 +176,22 @@ class StreamingGateway:
         # Setup output
         self._setup_output()
 
-        logging.info(
-            f"StreamingGateway initialized for deployment {self.deployment_id}"
-        )
+        logging.info(f"StreamingGateway initialized for deployment {self.service_id}")
 
     def _register_as_active(self):
         """Register this instance as active."""
         with self.__class__._class_lock:
-            self.__class__._active_instances[self.deployment_id] = self
-        logging.info(
-            f"Registered as active instance for deployment {self.deployment_id}"
-        )
+            self.__class__._active_instances[self.service_id] = self
+        logging.info(f"Registered as active instance for deployment {self.service_id}")
 
     def _unregister_as_active(self):
         """Unregister this instance from active tracking."""
         with self.__class__._class_lock:
-            if self.deployment_id in self.__class__._active_instances:
-                if self.__class__._active_instances[self.deployment_id] is self:
-                    del self.__class__._active_instances[self.deployment_id]
+            if self.service_id in self.__class__._active_instances:
+                if self.__class__._active_instances[self.service_id] is self:
+                    del self.__class__._active_instances[self.service_id]
 
-        logging.info(
-            f"Unregistered active instance for deployment {self.deployment_id}"
-        )
+        logging.info(f"Unregistered active instance for deployment {self.service_id}")
 
     def stop_all_active_streams(self):
         """Stop all active streams across all deployments."""
@@ -196,18 +200,18 @@ class StreamingGateway:
             return
 
         logging.warning(
-            f"Force stopping existing streams for deployment {self.deployment_id}"
+            f"Force stopping existing streams for deployment {self.service_id}"
         )
 
         with self.__class__._class_lock:
-            if self.deployment_id in self.__class__._active_instances:
-                existing_instance = self.__class__._active_instances[self.deployment_id]
+            if self.service_id in self.__class__._active_instances:
+                existing_instance = self.__class__._active_instances[self.service_id]
 
                 try:
                     # Stop the existing instance
                     existing_instance.stop_streaming()
                     logging.info(
-                        f"Force stopped existing streams for deployment {self.deployment_id}"
+                        f"Force stopped existing streams for deployment {self.service_id}"
                     )
                 except Exception as e:
                     logging.warning(f"Error during force stop: {e}")
@@ -228,7 +232,7 @@ class StreamingGateway:
                 logging.warning("Streaming is already active on this instance")
                 return False
 
-            if not self.client:
+            if not self.client_stream_utils:
                 logging.error("No client available for streaming")
                 return False
 
@@ -255,10 +259,11 @@ class StreamingGateway:
                 # Choose streaming method based on model input type
                 if input_config.model_input_type == ModelInputType.VIDEO:
                     # Start video streaming
-                    success = self.client.start_background_video_stream(
+                    success = self.client_stream_utils.start_background_video_stream(
                         input=input_source,
                         fps=input_config.fps,
                         stream_key=stream_key,
+                        stream_group_key=input_config.stream_group_key,
                         quality=input_config.quality,
                         width=input_config.width,
                         height=input_config.height,
@@ -274,10 +279,11 @@ class StreamingGateway:
                     )
                 else:
                     # Start frame streaming (default)
-                    success = self.client.start_background_stream(
+                    success = self.client_stream_utils.start_background_stream(
                         input=input_source,
                         fps=input_config.fps,
                         stream_key=stream_key,
+                        stream_group_key=input_config.stream_group_key,
                         quality=input_config.quality,
                         width=input_config.width,
                         height=input_config.height,
@@ -338,11 +344,14 @@ class StreamingGateway:
             self.is_streaming = False
 
         # Stop client streaming
-        if self.client:
+        if self.client_stream_utils:
             try:
-                self.client.stop_streaming()
+                self.client_stream_utils.stop_streaming()
             except Exception as exc:
                 logging.error(f"Error stopping client streaming: {exc}")
+
+        if self.results_handler:
+            self.results_handler._stop_streaming.set()
 
         # Wait for result thread to finish
         if self.result_thread and self.result_thread.is_alive():
@@ -416,7 +425,7 @@ class StreamingGateway:
             Dict with current configuration
         """
         return {
-            "deployment_id": self.deployment_id,
+            "service_id": self.service_id,
             "inputs_config": [config.to_dict() for config in self.inputs_config],
             "output_config": (
                 self.output_config.to_dict() if self.output_config else None
@@ -470,7 +479,7 @@ class StreamingGateway:
 
         return cls(
             session=session,
-            deployment_id=config["deployment_id"],
+            service_id=config["service_id"],
             inputs_config=inputs_config,
             output_config=output_config,
             auth_key=auth_key,

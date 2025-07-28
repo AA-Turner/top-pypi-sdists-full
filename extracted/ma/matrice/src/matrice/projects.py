@@ -996,7 +996,7 @@ class Projects:
             "Deployment created successfully.",
             "An error occurred while trying to create deployment.",
         )
-        if resp and resp.get("success"):
+        if resp:
             if return_id_only:
                 return resp["data"]["_id"]
             service_id, action_id = self._get_service_and_action_ids(resp, error, message)

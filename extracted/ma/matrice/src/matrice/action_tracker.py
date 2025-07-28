@@ -125,7 +125,7 @@ class ActionTracker:
     >>> tracker.log_epoch_results(1, [{'loss': 0.25, 'accuracy': 0.92}])
     """
 
-    def __init__(self, action_id=None):
+    def __init__(self, action_id=None, session=None):
         """
         Initializes the ActionTracker instance and retrieves details related to the specified
             action ID.
@@ -153,11 +153,13 @@ class ActionTracker:
         >>> print(tracker.action_type)  # Outputs the action type, e.g., "model_train"
         """
         try:
-            self.session = Session(
-                account_number="",
-                secret_key=os.environ["MATRICE_SECRET_ACCESS_KEY"],
-                access_key=os.environ["MATRICE_ACCESS_KEY_ID"],
-            )
+            if not session:
+                session = Session(
+                    account_number="",
+                    secret_key=os.environ["MATRICE_SECRET_ACCESS_KEY"],
+                    access_key=os.environ["MATRICE_ACCESS_KEY_ID"],
+                )
+            self.session = session
             self.rpc = self.session.rpc
             if action_id is None:
                 self.action_id = None
@@ -191,7 +193,7 @@ class ActionTracker:
 
     @log_errors(raise_exception=True, log_error=False)
     def _init_action_details(self):
-        url = f"/v1/project/action/{self.action_id_str}/details"
+        url = f"/v1/actions/action/{self.action_id_str}/details"
         self.action_doc = self.rpc.get(url)["data"]
         self.action_details: dict = self.action_doc["actionDetails"]
         self.action_type = self.action_doc["action"]
@@ -314,8 +316,6 @@ class ActionTracker:
             "checkpoint_value",
             self.job_params.get("checkpoint_value", ""),
         )
-        if "http" not in checkpoint_value:
-            checkpoint_value = checkpoint_value.lower()
         if overrides:
             checkpoint_type = overrides.get(
                 "checkpoint_type",
@@ -325,6 +325,13 @@ class ActionTracker:
                 "checkpoint_value",
                 checkpoint_value,
             )
+        if "http" in checkpoint_value:
+            checkpoint_type = "url"
+        elif len(checkpoint_value) == 24:
+            checkpoint_type = "model_id"
+        else:
+            checkpoint_value = checkpoint_value.lower()
+        
         if checkpoint_type == "model_id":
             model_path = os.path.join(
                 checkpoint_dir,
@@ -429,7 +436,7 @@ class ActionTracker:
         >>> tracker.update_status("training", "completed", "Training completed successfully")
         """
         print(status_description)
-        url = "/v1/project/action"
+        url = "/v1/actions"
         payload = {
             "_id": self.action_id_str,
             "action": self.action_type,

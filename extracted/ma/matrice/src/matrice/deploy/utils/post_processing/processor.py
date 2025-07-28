@@ -85,6 +85,8 @@ from .usecases import (
 
     #Put all IMAGE based usecases here
     BloodCancerDetectionUseCase,
+    SkinCancerClassificationUseCase,
+    PlaqueSegmentationUseCase,
 
 )
 
@@ -203,6 +205,8 @@ class PostProcessor:
 
         #Put all IMAGE based usecases here
         registry.register_use_case("healthcare", "bloodcancer_img_detection", BloodCancerDetectionUseCase)
+        registry.register_use_case("healthcare", "skincancer_img_classification", SkinCancerClassificationUseCase)
+        registry.register_use_case("healthcare", "plaque_img_segmentation", PlaqueSegmentationUseCase)
         
 
         logger.debug("Registered use cases with registry")
@@ -350,9 +354,16 @@ class PostProcessor:
                 result = use_case.process(data, parsed_config, context, stream_info)
 
             
+
+            
             #Put all IMAGE based usecases here
             elif isinstance(use_case, BloodCancerDetectionUseCase):
                 result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, SkinCancerClassificationUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+            elif isinstance(use_case, PlaqueSegmentationUseCase):
+                result = use_case.process(data, parsed_config, context, stream_info)
+
 
             else:
                 result = use_case.process(data, parsed_config, context, stream_info)

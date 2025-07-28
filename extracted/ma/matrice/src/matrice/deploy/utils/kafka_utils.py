@@ -1071,13 +1071,9 @@ class MatriceKafkaDeployment:
         self.producing_topic = None
         self.consuming_topic = None
 
-        # Initialize Kafka utilities but don't set up connections yet
+        # Initialize Kafka utilities as None - create as needed
         self.sync_kafka = None
         self.async_kafka = None
-
-        # Track setup status
-        self._async_setup_done = False
-        self._sync_setup_done = False
 
         # Get initial Kafka configuration
         self.setup_success, self.bootstrap_server, self.request_topic, self.result_topic = self.get_kafka_info()
@@ -1125,10 +1121,6 @@ class MatriceKafkaDeployment:
                     self.producing_topic = self.result_topic
                     self.consuming_topic = self.request_topic
 
-                # Mark setup as needing refresh
-                self._sync_setup_done = False
-                self._async_setup_done = False
-
                 logging.info("Successfully recovered Kafka connection")
                 return True
             except Exception as exc:
@@ -1140,57 +1132,94 @@ class MatriceKafkaDeployment:
     def refresh(self):
         """Refresh the Kafka producer and consumer connections."""
         logging.info("Refreshing Kafka connections")
-        self._sync_setup_done = False
-        self._async_setup_done = False
+        # Clear existing connections to force recreation
+        if self.sync_kafka:
+            try:
+                self.sync_kafka.close()
+            except Exception as exc:
+                logging.warning("Error closing sync Kafka during refresh: %s", str(exc))
+            self.sync_kafka = None
+            
+        if self.async_kafka:
+            try:
+                # Note: close() is async but we can't await here
+                logging.warning("Async Kafka connections will be recreated on next use")
+            except Exception as exc:
+                logging.warning("Error during async Kafka refresh: %s", str(exc))
+            self.async_kafka = None
+            
         if self.check_setup_success():
-            self._sync_setup()
-            logging.info("Kafka connections refreshed successfully")
+            logging.info("Kafka connections will be refreshed on next use")
         else:
             logging.warning("Failed to refresh Kafka connections")
 
-    def _ensure_sync_setup(self):
-        """Ensure sync Kafka components are set up."""
+    def _ensure_sync_producer(self):
+        """Ensure sync Kafka producer is set up."""
         if not self.check_setup_success():
             return False
-        if not self._sync_setup_done:
-            self._sync_setup()
-        return True
-
-    def _sync_setup(self):
-        """Set up synchronous Kafka producer and consumer."""
+        if not self.sync_kafka:
+            self.sync_kafka = KafkaUtils(self.bootstrap_server, self.sasl_mechanism, self.sasl_username, self.sasl_password, self.security_protocol)
+        
         try:
-            if not self.sync_kafka:
-                self.sync_kafka = KafkaUtils(self.bootstrap_server, self.sasl_mechanism, self.sasl_username, self.sasl_password, self.security_protocol)
-            self.sync_kafka.setup_producer()
-            self.sync_kafka.setup_consumer([self.consuming_topic], self.consumer_group_id, self.consumer_group_instance_id)
-            self._sync_setup_done = True
+            if not hasattr(self.sync_kafka, 'producer') or not self.sync_kafka.producer:
+                self.sync_kafka.setup_producer()
+            return True
         except Exception as exc:
-            logging.error("Failed to set up sync Kafka components: %s", str(exc))
-            self._sync_setup_done = False
+            logging.error("Failed to set up sync Kafka producer: %s", str(exc))
+            return False
 
-    async def _ensure_async_setup(self):
-        """Ensure async Kafka components are set up.
+    def _ensure_sync_consumer(self):
+        """Ensure sync Kafka consumer is set up."""
+        if not self.check_setup_success():
+            return False
+        if not self.sync_kafka:
+            self.sync_kafka = KafkaUtils(self.bootstrap_server, self.sasl_mechanism, self.sasl_username, self.sasl_password, self.security_protocol)
+        
+        try:
+            if not hasattr(self.sync_kafka, 'consumer') or not self.sync_kafka.consumer:
+                self.sync_kafka.setup_consumer([self.consuming_topic], self.consumer_group_id, self.consumer_group_instance_id)
+            return True
+        except Exception as exc:
+            logging.error("Failed to set up sync Kafka consumer: %s", str(exc))
+            return False
+
+    async def _ensure_async_producer(self):
+        """Ensure async Kafka producer is set up.
         
         Returns:
             bool: True if setup was successful, False otherwise
         """
         if not self.check_setup_success():
             return False
-        if not self._async_setup_done:
-            await self._async_setup()
-        return self._async_setup_done
-
-    async def _async_setup(self):
-        """Set up asynchronous Kafka producer and consumer."""
+        if not self.async_kafka:
+            self.async_kafka = AsyncKafkaUtils(self.bootstrap_server, self.sasl_mechanism, self.sasl_username, self.sasl_password, self.security_protocol)
+        
         try:
-            if not self.async_kafka:
-                self.async_kafka = AsyncKafkaUtils(self.bootstrap_server, self.sasl_mechanism, self.sasl_username, self.sasl_password, self.security_protocol)
-            await self.async_kafka.setup_producer()
-            await self.async_kafka.setup_consumer([self.consuming_topic], self.consumer_group_id, self.consumer_group_instance_id)
-            self._async_setup_done = True
+            if not hasattr(self.async_kafka, 'producer') or not self.async_kafka.producer:
+                await self.async_kafka.setup_producer()
+            return True
         except Exception as exc:
-            logging.error("Failed to set up async Kafka components: %s", str(exc))
-            self._async_setup_done = False
+            logging.error("Failed to set up async Kafka producer: %s", str(exc))
+            return False
+
+    async def _ensure_async_consumer(self):
+        """Ensure async Kafka consumer is set up.
+        
+        Returns:
+            bool: True if setup was successful, False otherwise
+        """
+        if not self.check_setup_success():
+            return False
+        if not self.async_kafka:
+            self.async_kafka = AsyncKafkaUtils(self.bootstrap_server, self.sasl_mechanism, self.sasl_username, self.sasl_password, self.security_protocol)
+        
+        try:
+            if not hasattr(self.async_kafka, 'consumer') or not self.async_kafka.consumer:
+                await self.async_kafka.setup_consumer([self.consuming_topic], self.consumer_group_id, self.consumer_group_instance_id)
+            return True
+        except Exception as exc:
+            logging.error("Failed to set up async Kafka consumer: %s", str(exc))
+            return False
 
     def get_kafka_info(self):
         """Get Kafka setup information from the API.
@@ -1203,8 +1232,8 @@ class MatriceKafkaDeployment:
         """
         setup_success = True
         try:
-            request_topic = self.rpc.get(f"/v1/scaling/get_kafka_request_topics/{self.deployment_id}")
-            result_topic = self.rpc.get(f"/v1/scaling/get_kafka_result_topics/{self.deployment_id}")
+            request_topic = self.rpc.get(f"/v1/actions/get_kafka_request_topics/{self.deployment_id}")
+            result_topic = self.rpc.get(f"/v1/actions/get_kafka_result_topics/{self.deployment_id}")
 
             if not request_topic or not request_topic.get("success"):
                 raise ValueError(f"Failed to get request topics: {request_topic.get('message', 'Unknown error')}")
@@ -1262,7 +1291,7 @@ class MatriceKafkaDeployment:
             ValueError: If message is invalid
             KafkaError: If message production fails
         """
-        if not self._ensure_sync_setup():
+        if not self._ensure_sync_producer():
             raise RuntimeError("Failed to set up Kafka producer")
         self.sync_kafka.produce_message(self.producing_topic, message, key=key, timeout=timeout)
 
@@ -1279,8 +1308,9 @@ class MatriceKafkaDeployment:
             RuntimeError: If consumer is not initialized
             KafkaError: If message consumption fails
         """
-        if not self._ensure_sync_setup():
-            logging.warning("Kafka setup unsuccessful, returning None for consume request")
+        self._ensure_sync_producer()
+        if not self._ensure_sync_consumer():
+            logging.warning("Kafka consumer setup unsuccessful, returning None for consume request")
             return None
 
         result = self.sync_kafka.consume_message(timeout)
@@ -1300,7 +1330,7 @@ class MatriceKafkaDeployment:
             ValueError: If message is invalid
             AsyncKafkaError: If message production fails
         """
-        if not await self._ensure_async_setup():
+        if not await self._ensure_async_producer():
             raise RuntimeError("Failed to set up async Kafka producer")
         await self.async_kafka.produce_message(self.producing_topic, message, key=key, timeout=timeout)
 
@@ -1317,9 +1347,10 @@ class MatriceKafkaDeployment:
             RuntimeError: If consumer is not initialized
             AsyncKafkaError: If message consumption fails
         """
+        await self._ensure_async_producer()
         try:
-            if not await self._ensure_async_setup():
-                logging.warning("Async Kafka setup unsuccessful, returning None for consume request")
+            if not await self._ensure_async_consumer():
+                logging.warning("Async Kafka consumer setup unsuccessful, returning None for consume request")
                 return None
 
             result = await self.async_kafka.consume_message(timeout)
@@ -1354,7 +1385,7 @@ class MatriceKafkaDeployment:
                 self.sync_kafka = None
 
         # Close async Kafka connections
-        if self.async_kafka and self._async_setup_done:
+        if self.async_kafka:
             try:
                 logging.debug("Closing async Kafka connections...")
                 await self.async_kafka.close()
@@ -1366,12 +1397,8 @@ class MatriceKafkaDeployment:
                 errors.append(error_msg)
                 self.async_kafka = None
 
-        # Reset setup flags
-        self._sync_setup_done = False
-        self._async_setup_done = False
-
         if not errors:
-            logging.info("Closed async Kafka connections successfully")
+            logging.info("Closed Kafka connections successfully")
         else:
             # Log errors but don't raise exception during cleanup
-            logging.error("Errors occurred during async Kafka close: %s", "; ".join(errors))
+            logging.error("Errors occurred during Kafka close: %s", "; ".join(errors))

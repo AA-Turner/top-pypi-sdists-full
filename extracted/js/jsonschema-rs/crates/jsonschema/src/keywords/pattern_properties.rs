@@ -56,8 +56,8 @@ impl<R: RegexEngine> Validate for PatternPropertiesValidator<R> {
         location: &LazyLocation,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Object(item) = instance {
-            for (re, node) in self.patterns.iter() {
-                for (key, value) in item.iter() {
+            for (re, node) in &self.patterns {
+                for (key, value) in item {
                     if re.is_match(key).unwrap_or(false) {
                         node.validate(value, &location.push(key))?;
                     }
@@ -128,7 +128,7 @@ impl<R: RegexEngine> Validate for SingleValuePatternPropertiesValidator<R> {
         location: &LazyLocation,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Object(item) = instance {
-            for (key, value) in item.iter() {
+            for (key, value) in item {
                 if self.regex.is_match(key).unwrap_or(false) {
                     self.node.validate(value, &location.push(key))?;
                 }
@@ -165,7 +165,7 @@ pub(crate) fn compile<'a>(
 ) -> Option<CompilationResult<'a>> {
     match parent.get("additionalProperties") {
         // This type of `additionalProperties` validator handles `patternProperties` logic
-        Some(Value::Bool(false)) | Some(Value::Object(_)) => None,
+        Some(Value::Bool(false) | Value::Object(_)) => None,
         _ => {
             if let Value::Object(map) = schema {
                 if map.len() == 1 {
@@ -300,6 +300,6 @@ mod tests {
     #[test_case(&json!({"patternProperties": {"^f": {"type": "string"}}}), &json!({"f": 42}), "/patternProperties/^f/type")]
     #[test_case(&json!({"patternProperties": {"^f": {"type": "string"}, "^x": {"type": "string"}}}), &json!({"f": 42}), "/patternProperties/^f/type")]
     fn location(schema: &Value, instance: &Value, expected: &str) {
-        tests_util::assert_schema_location(schema, instance, expected)
+        tests_util::assert_schema_location(schema, instance, expected);
     }
 }

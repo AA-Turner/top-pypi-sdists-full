@@ -222,7 +222,7 @@ class RequestMessage(JsonRpcMessage):
         params = data.get("params", {})
         # Add type field for compatibility
         # params["_type"] = method_class.__name__
-        logging.info(f"Kaustubh {data} :: {method_class} :: {params}")
+        logging.info(f"RequestMessage {data} :: {method_class} :: {params}")
         if hasattr(method_class, "from_dict"):
             method = method_class.from_dict(params)
         else:

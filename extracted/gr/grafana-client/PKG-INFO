@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: grafana-client
-Version: 4.3.2
+Version: 5.0.0
 Summary: A client library for accessing the Grafana HTTP API, written in Python
 Home-page: https://github.com/panodata/grafana-client
 Author: Andrew Prokhorenkov
@@ -69,8 +69,9 @@ Provides-Extra: develop
 Requires-Dist: build<2; extra == "develop"
 Requires-Dist: poethepoet<1; extra == "develop"
 Requires-Dist: pip-review<2; extra == "develop"
-Requires-Dist: ruff<0.10; python_version >= "3.7" and extra == "develop"
+Requires-Dist: ruff<0.13; python_version >= "3.7" and extra == "develop"
 Requires-Dist: twine<7; extra == "develop"
+Dynamic: license-file
 
 # grafana-client
 

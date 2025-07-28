@@ -10,45 +10,20 @@ from tenant_schemas_celery.scheduler import TenantAwareSchedulerMixin
 logger = logging.getLogger(__name__)
 
 
+def _task_schema(options: dict[str, object]) -> str:
+    return options.get("headers", {}).get(
+        "_schema_name", get_public_schema_name()
+    )
+
+
 class TenantAwareModelEntry(ModelEntry):
+    def is_due(self) -> bool:
+        with schema_context(_task_schema(self.options)):
+            return super().is_due()
+
     def save(self) -> None:
-        schema_name = self.options["headers"].get("_schema_name", get_public_schema_name())
-        with schema_context(schema_name):
+        with schema_context(_task_schema(self.options)):
             super().save()
-
-class TenantAwareModelManager:
-    def get_public_schema_name(self) -> list[str]:
-        return [get_public_schema_name()]
-
-    def get_tenant_schema_names(self, exclude_schemas: list[str]) -> list[str]:
-        return list(get_tenant_model().objects.exclude(schema_name__in=exclude_schemas).values_list("schema_name", flat=True))
-
-    def get_schema_names(self) -> list[str]:
-        public_schemas = self.get_public_schema_name()
-        return [
-            *public_schemas,
-            *self.get_tenant_schema_names(public_schemas),
-        ]
-
-    def enabled(self) -> list[PeriodicTask]:
-        models = []
-        names_seen = {}
-        for schema_name in self.get_schema_names():
-            with schema_context(schema_name):
-                for task in PeriodicTask.objects.enabled():
-                    if previously_seen_schema := names_seen.get(task.name):
-                        raise ValueError(f"duplicate periodic task name: {task.name!r}. Previously seen in schema: {previously_seen_schema!r}.")
-
-                    headers = json.loads(task.headers)
-                    headers.setdefault("_schema_name", schema_name)
-                    task.headers = json.dumps(headers)
-                    models.append(task)
-                    names_seen[task.name] = schema_name
-
-        return models
-
-class TenantAwarePeriodicTaskWrapper:
-    objects = TenantAwareModelManager()
 
 
 class TenantAwarePeriodicTasks:
@@ -72,7 +47,6 @@ class TenantAwarePeriodicTasks:
 
 class TenantAwareDatabaseScheduler(TenantAwareSchedulerMixin, DatabaseScheduler):
     Entry = TenantAwareModelEntry
-    Model = TenantAwarePeriodicTaskWrapper
     Changes = TenantAwarePeriodicTasks
 
     def setup_schedule(self):
@@ -80,3 +54,33 @@ class TenantAwareDatabaseScheduler(TenantAwareSchedulerMixin, DatabaseScheduler)
         self.update_from_dict(
             self._tenant_aware_beat_schedule_to_dict(self.app.conf.beat_schedule)
         )
+
+    def enabled_models(self) -> list[PeriodicTask]:
+        models = []
+        names_seen = {}
+        for schema_name in self.get_schema_names():
+            with schema_context(schema_name):
+                for task in super().enabled_models_qs():
+                    if previously_seen_schema := names_seen.get(task.name):
+                        raise ValueError(f"duplicate periodic task name: {task.name!r}. Previously seen in schema: {previously_seen_schema!r}.")
+
+                    headers = json.loads(task.headers)
+                    headers.setdefault("_schema_name", schema_name)
+                    task.headers = json.dumps(headers)
+                    models.append(task)
+                    names_seen[task.name] = schema_name
+
+        return models
+
+    def get_public_schema_name(self) -> list[str]:
+        return [get_public_schema_name()]
+
+    def get_tenant_schema_names(self, exclude_schemas: list[str]) -> list[str]:
+        return list(get_tenant_model().objects.exclude(schema_name__in=exclude_schemas).values_list("schema_name", flat=True))
+
+    def get_schema_names(self) -> list[str]:
+        public_schemas = self.get_public_schema_name()
+        return [
+            *public_schemas,
+            *self.get_tenant_schema_names(public_schemas),
+        ]

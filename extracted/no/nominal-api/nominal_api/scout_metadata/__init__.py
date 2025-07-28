@@ -1,5 +1,6 @@
 # coding=utf-8
 from .._impl import (
+    scout_metadata_CreatedAtQuery as CreatedAtQuery,
     scout_metadata_ListPropertiesAndLabelsRequest as ListPropertiesAndLabelsRequest,
     scout_metadata_ListPropertiesAndLabelsResponse as ListPropertiesAndLabelsResponse,
     scout_metadata_ResourceMetadataService as ResourceMetadataService,
@@ -7,6 +8,7 @@ from .._impl import (
 )
 
 __all__ = [
+    'CreatedAtQuery',
     'ListPropertiesAndLabelsRequest',
     'ListPropertiesAndLabelsResponse',
     'ResourceType',

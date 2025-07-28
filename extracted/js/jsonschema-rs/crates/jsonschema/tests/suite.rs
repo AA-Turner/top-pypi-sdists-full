@@ -32,7 +32,7 @@ mod tests {
             }
             "draft2019-09" | "draft2020-12" => {}
             _ => panic!("Unsupported draft"),
-        };
+        }
         if test.is_optional {
             options = options.should_validate_formats(true);
         }
@@ -164,8 +164,8 @@ mod tests {
         let expectations: serde_json::Value =
             serde_json::from_str(include_str!("draft7_instance_paths.json")).expect("Valid JSON");
         for (filename, expected) in expectations.as_object().expect("Is object") {
-            let test_file = fs::read_to_string(format!("tests/suite/tests/draft7/{}", filename))
-                .unwrap_or_else(|_| panic!("Valid file: {}", filename));
+            let test_file = fs::read_to_string(format!("tests/suite/tests/draft7/{filename}"))
+                .unwrap_or_else(|_| panic!("Valid file: {filename}"));
             let data: serde_json::Value = serde_json::from_str(&test_file).expect("Valid JSON");
             for item in expected.as_array().expect("Is array") {
                 let suite_id = item["suite_id"].as_u64().expect("Is integer") as usize;
@@ -175,19 +175,14 @@ mod tests {
                     .build(schema)
                     .unwrap_or_else(|_| {
                         panic!(
-                            "Valid schema. File: {}; Suite ID: {}; Schema: {}",
-                            filename, suite_id, schema
+                            "Valid schema. File: {filename}; Suite ID: {suite_id}; Schema: {schema}",
                         )
                     });
                 for test_data in item["tests"].as_array().expect("Valid array") {
                     let test_id = test_data["id"].as_u64().expect("Is integer") as usize;
                     let mut instance_path = String::new();
 
-                    for segment in test_data["instance_path"]
-                        .as_array()
-                        .expect("Valid array")
-                        .iter()
-                    {
+                    for segment in test_data["instance_path"].as_array().expect("Valid array") {
                         instance_path.push('/');
                         instance_path.push_str(segment.as_str().expect("A string"));
                     }
@@ -206,7 +201,7 @@ mod tests {
                         &data[suite_id]["description"],
                         &data[suite_id]["tests"][test_id]["description"],
                         &error
-                    )
+                    );
                 }
             }
         }

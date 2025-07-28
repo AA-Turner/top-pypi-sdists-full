@@ -1199,9 +1199,12 @@ class Table(Expr, FixedTextJupyterMixin):
 
         if on is None:
             # dedup everything
-            if keep != "first":
+            if keep is None:  # remove duplicates
+                return self.aggregate(by=self.columns, having=lambda t: t.count() == 1)
+            elif keep == "last":
                 raise com.IbisError(
-                    f"Only keep='first' (the default) makes sense when deduplicating all columns; got keep={keep!r}"
+                    "Only keep='first' and keep=`None` are well-defined when deduplicating "
+                    f"all columns; got keep={keep!r}"
                 )
             return ops.Distinct(self).to_expr()
 
@@ -1638,7 +1641,7 @@ class Table(Expr, FixedTextJupyterMixin):
         return result.to_expr()
 
     def union(self, table: Table, /, *rest: Table, distinct: bool = False) -> Table:
-        """Compute the set union of multiple table expressions.
+        """Compute the multiset (or set) union of multiple table expressions.
 
         The input tables must have identical schemas.
 
@@ -1649,7 +1652,7 @@ class Table(Expr, FixedTextJupyterMixin):
         *rest
             Additional table expressions
         distinct
-            Only return distinct rows
+            Use multiset union (False) or set union (True). See examples.
 
         Returns
         -------
@@ -1705,11 +1708,27 @@ class Table(Expr, FixedTextJupyterMixin):
         │     2 │
         │     3 │
         └───────┘
+
+        You can union more than two tables at once.
+
+        >>> t1.union(t1, t1).order_by("a")
+        ┏━━━━━━━┓
+        ┃ a     ┃
+        ┡━━━━━━━┩
+        │ int64 │
+        ├───────┤
+        │     1 │
+        │     1 │
+        │     1 │
+        │     2 │
+        │     2 │
+        │     2 │
+        └───────┘
         """
         return self._assemble_set_op(ops.Union, table, *rest, distinct=distinct)
 
     def intersect(self, table: Table, /, *rest: Table, distinct: bool = True) -> Table:
-        """Compute the set intersection of multiple table expressions.
+        """Compute the set (or multiset) intersection of multiple table expressions.
 
         The input tables must have identical schemas.
 
@@ -1720,7 +1739,7 @@ class Table(Expr, FixedTextJupyterMixin):
         *rest
             Additional table expressions
         distinct
-            Only return distinct rows
+            Use set intersect (True) or multiset intersect (False). See examples.
 
         Returns
         -------
@@ -1735,61 +1754,66 @@ class Table(Expr, FixedTextJupyterMixin):
         --------
         >>> import ibis
         >>> ibis.options.interactive = True
-        >>> t1 = ibis.memtable({"a": [1, 2, 2]})
-        >>> t1
-        ┏━━━━━━━┓
-        ┃ a     ┃
-        ┡━━━━━━━┩
-        │ int64 │
-        ├───────┤
-        │     1 │
-        │     2 │
-        │     2 │
-        └───────┘
-        >>> t2 = ibis.memtable({"a": [2, 2, 3]})
-        >>> t2
-        ┏━━━━━━━┓
-        ┃ a     ┃
-        ┡━━━━━━━┩
-        │ int64 │
-        ├───────┤
-        │     2 │
-        │     2 │
-        │     3 │
-        └───────┘
-        >>> t1.intersect(t2)
-        ┏━━━━━━━┓
-        ┃ a     ┃
-        ┡━━━━━━━┩
-        │ int64 │
-        ├───────┤
-        │     2 │
-        └───────┘
-        >>> t1.intersect(t2, distinct=False)
-        ┏━━━━━━━┓
-        ┃ a     ┃
-        ┡━━━━━━━┩
-        │ int64 │
-        ├───────┤
-        │     2 │
-        │     2 │
-        └───────┘
+        >>> two_a = ibis.memtable({"x": ["a", "a", "b"]})
+        >>> three_a = ibis.memtable({"x": ["a", "a", "a", "b"]})
+        >>> four_a = ibis.memtable({"x": ["a", "a", "a", "a", "c"]})
+
+        With `distinct=True`, the intersection will return one row for each row that appears in all input tables.
+        This is equivalent to a set intersection.
+        So even though the source tables have multiple `"a"` values, the result will only have one:
+
+        >>> two_a.intersect(three_a).order_by("x")
+        ┏━━━━━━━━┓
+        ┃ x      ┃
+        ┡━━━━━━━━┩
+        │ string │
+        ├────────┤
+        │      a │
+        │      b │
+        └────────┘
+
+        With `distinct=False`, the intersection will return all rows that appear in all input tables.
+        This is equivalent to a multiset intersection.
+        Since the smallest number of appearances of `"a"` is 2, the result will have two `"a"` values:
+
+        >>> two_a.intersect(three_a, distinct=False).order_by("x")
+        ┏━━━━━━━━┓
+        ┃ x      ┃
+        ┡━━━━━━━━┩
+        │ string │
+        ├────────┤
+        │      a │
+        │      a │
+        │      b │
+        └────────┘
 
         More than two table expressions can be intersected at once.
-        >>> t3 = ibis.memtable({"a": [2, 3, 3]})
-        >>> t1.intersect(t2, t3)
-        ┏━━━━━━━┓
-        ┃ a     ┃
-        ┡━━━━━━━┩
-        │ int64 │
-        ├───────┤
-        │     2 │
-        └───────┘
+        - Since `"a"` appears at minimum one time, it appears once in the result.
+        - Since `"b"` doesn't appear in `two_a` or `three_a`, it is not included.
+        - Since `"c"` does not appear in `one_a`, it is not included.
+
+        >>> two_a.intersect(three_a, four_a)
+        ┏━━━━━━━━┓
+        ┃ x      ┃
+        ┡━━━━━━━━┩
+        │ string │
+        ├────────┤
+        │      a │
+        └────────┘
+        >>> two_a.intersect(three_a, four_a, distinct=False)
+        ┏━━━━━━━━┓
+        ┃ x      ┃
+        ┡━━━━━━━━┩
+        │ string │
+        ├────────┤
+        │      a │
+        │      a │
+        └────────┘
         """
         return self._assemble_set_op(ops.Intersection, table, *rest, distinct=distinct)
 
     def difference(self, table: Table, /, *rest: Table, distinct: bool = True) -> Table:
-        """Compute the set difference of multiple table expressions.
+        """Compute the set (or multiset) difference of multiple table expressions.
 
         The input tables must have identical schemas.
 
@@ -1964,14 +1988,26 @@ class Table(Expr, FixedTextJupyterMixin):
         │ Adelie  │  2007 │       -7.22193 │
         └─────────┴───────┴────────────────┘
         """
+
+        # the implementation of `mutate` should be kept in sync with that of `select`
+        # with the exception that mutate does not call bind on the fields already in this table (node.fields)
+        from ibis.expr.rewrites import rewrite_project_input
+
         # string and integer inputs are going to be coerced to literals instead
         # of interpreted as column references like in select
         node = self.op()
-        values = self.bind(*exprs, **mutations)
+        values = self.bind(*exprs, **mutations)  # bind new expressions/mutations
         values = unwrap_aliases(values)
-        # allow overriding of fields, hence the mutation behavior
-        values = {**node.fields, **values}
-        return self.select(**values)
+
+        # we need to detect reductions which are either turned into window functions
+        # or scalar subqueries depending on whether they are originating from self
+        values = {
+            k: rewrite_project_input(v, relation=self.op()) for k, v in values.items()
+        }
+
+        # note that existing fields in node.fields will skip bind&dereferencing to improve performance
+        # (unless overridden by mutations in **values)
+        return ops.Project(self, {**node.fields, **values}).to_expr()
 
     def select(
         self,
@@ -2150,6 +2186,8 @@ class Table(Expr, FixedTextJupyterMixin):
         │       43.92193 │      17.15117 │        200.915205 │ 4201.754386 │
         └────────────────┴───────────────┴───────────────────┴─────────────┘
         """
+        # note that if changes are made to implementation of select,
+        # corresponding changes may be needed in `.mutate()`
         from ibis.expr.rewrites import rewrite_project_input
 
         values = self.bind(*exprs, **named_exprs)
@@ -2828,19 +2866,55 @@ class Table(Expr, FixedTextJupyterMixin):
         │ c      │    10.3 │    30.1 │
         └────────┴─────────┴─────────┘
 
+        Existing columns are overwritten by unpacking, regardless of existing
+        column ordering.
+
+        Here, `x` follows `a`:
+
+        >>> t = ibis.memtable(
+        ...     {"a": [{"x": 1}, {"x": 2}], "x": ["abc", "def"]},
+        ...     schema={"a": "struct<x: int>", "x": "string"},
+        ... )
+        >>> t.unpack("a")
+        ┏━━━━━━━┓
+        ┃ x     ┃
+        ┡━━━━━━━┩
+        │ int64 │
+        ├───────┤
+        │     1 │
+        │     2 │
+        └───────┘
+
+        And here, `x` precedes `a`:
+
+        >>> t = ibis.memtable(
+        ...     {"x": ["abc", "def"], "a": [{"x": 1}, {"x": 2}]},
+        ...     schema={"x": "string", "a": "struct<x: int>"},
+        ... )
+        >>> t.unpack("a")
+        ┏━━━━━━━┓
+        ┃ x     ┃
+        ┡━━━━━━━┩
+        │ int64 │
+        ├───────┤
+        │     1 │
+        │     2 │
+        └───────┘
+
         See Also
         --------
         [`StructValue.lift`](./expression-collections.qmd#ibis.expr.types.structs.StructValue.lift)
         """
         columns_to_unpack = frozenset(columns)
-        result_columns = []
+        result_columns = {}
         for column in self.columns:
             if column in columns_to_unpack:
                 expr = self[column]
-                result_columns.extend(expr[field] for field in expr.names)
-            else:
-                result_columns.append(column)
-        return self.select(result_columns)
+                for field in expr.names:
+                    result_columns[field] = expr[field]
+            elif column not in result_columns:
+                result_columns[column] = self[column]
+        return self.select(**result_columns)
 
     def info(self) -> Table:
         """Return summary information about a table.

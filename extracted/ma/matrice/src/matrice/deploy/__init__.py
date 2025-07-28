@@ -1,7 +1,22 @@
 """Module providing __init__ functionality."""
 
 from matrice.utils import dependencies_check
-dependencies_check(["httpx", "fastapi", "uvicorn", "pillow", "confluent_kafka", "aiokafka", "filterpy", "scipy", "scikit-learn", "matplotlib"])
+
+dependencies_check(
+    [
+        "httpx",
+        "fastapi",
+        "uvicorn",
+        "pillow",
+        "confluent_kafka",
+        "aiokafka",
+        "filterpy",
+        "scipy",
+        "scikit-learn",
+        "matplotlib",
+        "scikit-image",
+    ]
+)
 
 if not dependencies_check(["opencv-python"]):
     dependencies_check(["opencv-python-headless"])

@@ -1,6 +1,6 @@
 import json
 import logging
-from typing import List, Union, Any
+from typing import List, Union
 from concurrent.futures import ThreadPoolExecutor
 
 from prophecy.executionmetrics.componentruns.component_run_service import (
@@ -24,8 +24,8 @@ from prophecy.executionmetrics.package import (
     PipelineRuns,
     PipelineRunsResponseCamelCase,
     ResponseWrapper,
-    ResponsesAsList,
 )
+from prophecy.executionmetrics.package import InterimResponse as InterimResRaw
 from prophecy.executionmetrics.pipelineruns.pipeline_run_service import (
     PipelineRunsService,
 )
@@ -39,7 +39,6 @@ from prophecy.jsonrpc.models import (
     DeleteDatasetRunResponse,
     DeletePipelineRunRequest,
     DeletePipelineRunResponse,
-    EMRequest,
     ErrorResponse,
     GemLevelProgressResponse,
     HistoricalGemProgressRequest,
@@ -47,7 +46,6 @@ from prophecy.jsonrpc.models import (
     HistoricalViewResponse,
     InterimResponse,
     InterimsRequest,
-    JsonRpcError,
     LoadLastPipelineRunInterimsRequest,
     PipelineRunsRequest,
     PipelineRunsResponse,
@@ -92,7 +90,7 @@ class ExecutionMetricsHandler:
             self.spark, storage_metadata
         ).get_run_configs(run_id, updated_by, filters)
 
-        runs: List[InterimResponse] = ComponentRunService.create(
+        runs: List[InterimResRaw] = ComponentRunService.create(
             self.spark, storage_metadata
         ).get_interims_for_pipeline_run_id(run_id, updated_by, filters)
 

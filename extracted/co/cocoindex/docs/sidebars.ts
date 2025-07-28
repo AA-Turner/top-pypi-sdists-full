@@ -31,7 +31,6 @@ const sidebars: SidebarsConfig = {
         'core/settings',
         'core/flow_methods',
         'core/cli',
-        'core/custom_function',
       ],
     },
     {
@@ -42,6 +41,15 @@ const sidebars: SidebarsConfig = {
         'ops/sources',
         'ops/functions',
         'ops/targets',
+      ],
+    },
+    {
+      type: 'category',
+      label: 'Custom Operations',
+      collapsed: false,
+      items: [
+        'custom_ops/custom_functions',
+        'custom_ops/custom_targets',
       ],
     },
     {

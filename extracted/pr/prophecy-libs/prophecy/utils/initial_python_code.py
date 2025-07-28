@@ -8,6 +8,7 @@ import logging
 import os
 import sys
 import re
+import base64 as base64_std
 
 # Attempt to initialize it using SparkSessionProxy for serverless
 try:
@@ -285,9 +286,7 @@ class ProphecyRequests:
                     from server_rest import SparkSessionProxy  # lazy import
 
                     spark_proxy = SparkSessionProxy.get_instance()
-                    store = MetricsCollector.get_inmemory_store(spark_proxy)
-                    if store:
-                        store.update_selective_interims(key, payload)
+                    MetricsCollector.offload_interims(spark_proxy, key, payload)
                 except Exception as e1:
                     print(f"Updating interims in memory store failed: {str(e1)}")
         except Exception as e:
@@ -316,7 +315,6 @@ from pyspark.sql.types import (
 from datetime import datetime, date, timedelta
 from decimal import Decimal
 import json
-import base64 as base64_std
 
 try:
     import msgspec

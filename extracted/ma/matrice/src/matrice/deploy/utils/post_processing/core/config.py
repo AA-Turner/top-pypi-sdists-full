@@ -216,10 +216,16 @@ class AlertConfig:
     
     # Alert settings
     alert_cooldown: float = 60.0  # seconds
-    enable_email_alerts: bool = False
-    enable_webhook_alerts: bool = False
-    webhook_url: Optional[str] = None
-    email_recipients: List[str] = field(default_factory=list)
+    
+    # enable_webhook_alerts: bool = False
+    # webhook_url: Optional[str] = None
+    # enable_email_alerts: bool = False
+    # email_recipients: List[str] = field(default_factory=list)
+
+    alert_type: List[str] = field(default_factory=lambda: ['Default']) #webhook, email, sms, slack, telegram, whatsapp, etc.
+    alert_value: List[str] = field(default_factory=lambda: ['JSON']) #webhook_url, email_recipients, etc.
+    alert_incident_category: [List[str]] = field(default_factory=lambda: ['Incident Alert'])
+    #alert_settings: Optional[Dict[str, Any]] = {alert_type: None}
     
     def validate(self) -> List[str]:
         """Validate alert configuration."""
@@ -243,13 +249,24 @@ class AlertConfig:
         
         if self.alert_cooldown <= 0:
             errors.append("alert_cooldown must be positive")
-        
-        # Validate webhook settings
-        if self.enable_webhook_alerts and not self.webhook_url:
-            errors.append("webhook_url is required when enable_webhook_alerts is True")
-        
-        if self.enable_email_alerts and not self.email_recipients:
-            errors.append("email_recipients is required when enable_email_alerts is True")
+
+        if len(self.alert_incident_category)!=len(self.alert_type) or len(self.alert_incident_category)!=len(self.alert_value):
+            errors.append("Details for all alerts is required")
+
+        if self.alert_type[0]!='Default':
+            for i in range(len(self.alert_type)):
+                normalized = self.alert_type[i].lower()
+                # Validate webhook settings
+                if normalized=="webhook"  and not self.alert_value:
+                    errors.append("webhook_url is required")
+                
+                elif normalized=="email" and not self.alert_value:
+                    errors.append("email_recipients is required")
+
+                elif normalized=="phone" and not self.alert_value:
+                    errors.append("phone_number is required")
+        if len(self.alert_type)==1 and self.alert_type[0]=='Default':
+            self.alert_value=["JSON"]
         
         return errors
     
@@ -261,10 +278,8 @@ class AlertConfig:
             "dwell_time_threshold": self.dwell_time_threshold,
             "service_time_threshold": self.service_time_threshold,
             "alert_cooldown": self.alert_cooldown,
-            "enable_email_alerts": self.enable_email_alerts,
-            "enable_webhook_alerts": self.enable_webhook_alerts,
-            "webhook_url": self.webhook_url,
-            "email_recipients": self.email_recipients
+            "alert_type": self.alert_type,
+            "alert_value": self.alert_value
         }
 
 
@@ -424,19 +439,19 @@ class ConfigManager:
             'assembly_line_detection': None,
             'anti_spoofing_detection' : None,
             'shelf_inventory' : None,
-            'parking_det': None,
             'wound_segmentation': None,
             'leaf_disease_detection': None,
             'field_mapping': None,
-            'leaf_det': None,
             'car_part_segmentation': None,
             'lane_detection' : None,
             'windmill_maintenance': None,
             'face_emotion': None,
             'flower_segmentation': None,
 
-            #Put all IMAGE based usecases here
-            'bloodcancer_img_detection': None,
+            #Put all image based usecases here::
+            'blood_cancer_detection_img': None,
+            'skin_cancer_classification_img': None,
+            'plaque_segmentation_img': None,
         }
 
     def register_config_class(self, usecase: str, config_class: type) -> None:
@@ -485,22 +500,6 @@ class ConfigManager:
         try:
             from ..usecases.banana_defect_detection import BananaMonitoringConfig
             return BananaMonitoringConfig
-        except ImportError:
-            return None
-
-    def leaf_det_config_class(self):
-        """Get Banana monitoring class to avoid circular imports."""
-        try:
-            from ..usecases.leaf import LeafConfig
-            return LeafConfig
-        except ImportError:
-            return None
-
-    def parking_det_config_class(self):
-        """Get Banana monitoring class to avoid circular imports."""
-        try:
-            from ..usecases.parking import ParkingConfig
-            return ParkingConfig
         except ImportError:
             return None
         
@@ -784,13 +783,28 @@ class ConfigManager:
             return FlowerConfig
         except ImportError:
             return None
-
-    #Put all IMAGE based usecases here
-    def _get_bloodcancer_detection_config_class(self):
+    
+    #put all image based usecases here::
+    def blood_cancer_detection_config_class(self):
         """Register a configuration class for a use case."""
         try:
             from ..usecases.blood_cancer_detection_img import BloodCancerDetectionConfig
             return BloodCancerDetectionConfig
+        except ImportError:
+            return None
+    
+    def plaque_segmentation_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.plaque_segmentation_img import PlaqueSegmentationConfig
+            return PlaqueSegmentationConfig
+        except ImportError:
+            return None
+    def skin_cancer_classification_config_class(self):
+        """Register a configuration class for a use case."""
+        try:
+            from ..usecases.skin_cancer_classification_img import SkinCancerClassificationConfig
+            return SkinCancerClassificationConfig
         except ImportError:
             return None
 
@@ -927,21 +941,6 @@ class ConfigManager:
                 alert_config=alert_config,
                 **kwargs
             )
-        elif usecase == "leaf_det":
-            # Import here to avoid circular import
-            from ..usecases.leaf import LeafConfig
-
-            # Handle nested configurations
-            alert_config = kwargs.pop("alert_config", None)
-            if alert_config and isinstance(alert_config, dict):
-                alert_config = AlertConfig(**alert_config)
-
-            config = LeafConfig(
-                category=category or "agriculture",
-                usecase=usecase,
-                alert_config=alert_config,
-                **kwargs
-            )
 
         elif usecase == "leaf_disease_detection":
             # Import here to avoid circular import
@@ -1030,22 +1029,6 @@ class ConfigManager:
                 alert_config = AlertConfig(**alert_config)
 
             config = WoundConfig(
-                category=category or "energy",
-                usecase=usecase,
-                alert_config=alert_config,
-                **kwargs
-            )
-
-        elif usecase == "parking_det":
-            # Import here to avoid circular import
-            from ..usecases.parking import ParkingConfig
-
-            # Handle nested configurations
-            alert_config = kwargs.pop("alert_config", None)
-            if alert_config and isinstance(alert_config, dict):
-                alert_config = AlertConfig(**alert_config)
-
-            config = ParkingConfig(
                 category=category or "energy",
                 usecase=usecase,
                 alert_config=alert_config,
@@ -1613,10 +1596,9 @@ class ConfigManager:
                 **kwargs
             )
 
-
-
-        #Put all IMAGE based usecases here
-        elif usecase == "bloodcancer_img_detection":
+        
+        #Add IMAGE based usecases here::
+        elif usecase == "blood_cancer_detection_img":
             # Import here to avoid circular import
             from ..usecases.blood_cancer_detection_img import BloodCancerDetectionConfig
 
@@ -1626,6 +1608,36 @@ class ConfigManager:
                 alert_config = AlertConfig(**alert_config)
 
             config = BloodCancerDetectionConfig(
+                category=category or "healthcare",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        elif usecase == "skin_cancer_classification_img":
+            # Import here to avoid circular import
+            from ..usecases.skin_cancer_classification_img import SkinCancerClassificationConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = SkinCancerClassificationConfig(
+                category=category or "healthcare",
+                usecase=usecase,
+                alert_config=alert_config,
+                **kwargs
+            )
+        elif usecase == "plaque_segmentation_img":
+            # Import here to avoid circular import
+            from ..usecases.plaque_segmentation_img import PlaqueSegmentationConfig
+
+            # Handle nested configurations
+            alert_config = kwargs.pop("alert_config", None)
+            if alert_config and isinstance(alert_config, dict):
+                alert_config = AlertConfig(**alert_config)
+
+            config = PlaqueSegmentationConfig(
                 category=category or "healthcare",
                 usecase=usecase,
                 alert_config=alert_config,
@@ -1746,18 +1758,6 @@ class ConfigManager:
             # Import here to avoid circular import
             from ..usecases.mask_detection import MaskDetectionConfig
             default_config = MaskDetectionConfig()
-            return default_config.to_dict()
-
-        elif usecase == "leaf_det":
-            # Import here to avoid circular import
-            from ..usecases.leaf import LeafConfig
-            default_config = LeafConfig()
-            return default_config.to_dict()
-
-        elif usecase == "parking_det":
-            # Import here to avoid circular import
-            from ..usecases.parking import ParkingConfig
-            default_config = ParkingConfig()
             return default_config.to_dict()
 
         elif usecase == "fire_smoke_detection":
@@ -1976,11 +1976,21 @@ class ConfigManager:
             default_config = FlowerConfig()
             return default_config.to_dict()
 
-        #Put all IMAGE based usecases here
-        elif usecase == "bloodcancer_img_detection":
+        #Add all image based usecases here
+        elif usecase == "blood_cancer_detection_img":
             # Import here to avoid circular import
             from ..usecases.blood_cancer_detection_img import BloodCancerDetectionConfig
             default_config = BloodCancerDetectionConfig()
+            return default_config.to_dict()
+        elif usecase == "skin_cancer_classification_img":   
+            # Import here to avoid circular import
+            from ..usecases.skin_cancer_classification_img import SkinCancerClassificationConfig
+            default_config = SkinCancerClassificationConfig()
+            return default_config.to_dict()
+        elif usecase == "plaque_segmentation_img":
+            # Import here to avoid circular import  
+            from ..usecases.plaque_segmentation_img import PlaqueSegmentationConfig
+            default_config = PlaqueSegmentationConfig()
             return default_config.to_dict()
 
         elif usecase not in self._config_classes:

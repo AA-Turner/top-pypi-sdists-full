@@ -176,12 +176,7 @@ class Drawing:
         self.saveopts = {'transparent': transparent, 'dpi': dpi}
         self.elements: list[Element] = []
         self.anchors: MutableMapping[str, Union[Point, tuple[float, float]]] = {}  # Untransformed anchors
-
-        if 'backend' in kwargs:
-            self.canvas = kwargs.pop('backend')
-            warnings.warn('Use of `backend` is deprecated. Use `canvas`.',
-                          DeprecationWarning, stacklevel=2)
-
+        self.svgdefs: list[str] = []
         self.dwgparams: dict[str, Any] = schemdrawstyle.copy()
         self.dwgparams.update(kwargs)  # To maintain support for arguments that moved to config method
         self.unit = kwargs.get('unit', schemdrawstyle.get('unit'))
@@ -376,6 +371,10 @@ class Drawing:
         if len(self._state) > 0:
             self._here, self._theta = self._state.pop()
 
+    def add_svgdef(self, svgdef: str) -> None:
+        ''' Add an item to the SVG <defs> element '''
+        self.svgdefs.append(svgdef)
+
     def config(self, unit: Optional[float] = None, inches_per_unit: Optional[float] = None,
                fontsize: Optional[float] = None, font: Optional[str] = None,
                color: Optional[str] = None, lw: Optional[float] = None, ls: Optional[Linestyle] = None,
@@ -447,26 +446,20 @@ class Drawing:
                                  showbbox=self.dwgparams.get('dwgbbox', False))
         if 'bgcolor' in self.dwgparams:
             self.fig.bgcolor(self.dwgparams['bgcolor'])
+        self.fig.svgdefs.extend(self.svgdefs)
         self._drawelements()
 
-    def draw(self, show: bool = True,
-             canvas=None, backend: Optional[Backends] = None):
+    def draw(self, show: bool = True, canvas=None):
         ''' Draw the schematic
 
             Args:
                 show: Show the schematic in a GUI popup window (when
                     outside of a Jupyter inline environment)
                 canvas: 'matplotlib', 'svg', or Axis instance to draw on
-                backend (deprecated): 'matplotlib' or 'svg'
 
             Returns:
                 schemdraw Figure object
         '''
-        if backend:
-            warnings.warn('Use of `backend` is deprecated. Use `canvas`.',
-                          DeprecationWarning, stacklevel=2)
-            canvas = backend
-
         drawing_stack.push_element(None)
 
         if canvas is None:

@@ -3,7 +3,7 @@ name: Array API Tests
 on: [push, pull_request]
 
 env:
-  PYTEST_ARGS: "-v -rxXfE --hypothesis-disable-deadline --max-examples 200"
+  PYTEST_ARGS: "-v -rxXfE --hypothesis-disable-deadline --max-examples 500 -n 4"
   API_VERSIONS: "2023.12 2024.12"
 
 jobs:
@@ -11,12 +11,16 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ['3.12', '3.13']
-        numpy-version: ['1.26', '2.2', 'dev']
+        python-version: ['3.10', '3.11', '3.12', '3.13']
+        numpy-version: ['1.26', '2.3', 'dev']
         exclude:
+          - python-version: '3.10'
+            numpy-version: '2.3'
+          - python-version: '3.10'
+            numpy-version: 'dev'            
           - python-version: '3.13'
             numpy-version: '1.26'
-
+      fail-fast: false
     steps:
     - name: Checkout array-api-strict
       uses: actions/checkout@v4
@@ -42,7 +46,7 @@ jobs:
         fi
         python -m pip install ${GITHUB_WORKSPACE}/array-api-strict
         python -m pip install -r ${GITHUB_WORKSPACE}/array-api-tests/requirements.txt
-        python -m pip install hypothesis
+        python -m pip install hypothesis pytest-xdist
     - name: Run the array API testsuite
       env:
         ARRAY_API_TESTS_MODULE: array_api_strict

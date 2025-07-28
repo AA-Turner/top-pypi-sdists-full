@@ -69,7 +69,7 @@ class _Scaling:
             print(
                 "Instance id not set for this instance. Cannot perform the operation for job-scheduler without instance id"
             )
-        path = "/v1/scaling/update_action_status"
+        path = "/v1/compute/update_action_status"
         payload_scaling = {
             "instanceID": self.instance_id,
             "serviceProvider": service_provider,
@@ -101,7 +101,7 @@ class _Scaling:
         status,
         status_description,
     ):
-        url = "/v1/project/action"
+        url = "/v1/actions"
         payload = {
             "_id": action_record_id,
             "action": action_type,
@@ -117,7 +117,7 @@ class _Scaling:
             print(
                 "Instance id not set for this instance. Cannot perform the operation for job-scheduler without instance id"
             )
-        path = f"/v1/scaling/get_shutdown_details/{self.instance_id}"
+        path = f"/v1/compute/get_shutdown_details/{self.instance_id}"
         resp = self.rpc.get(path=path)
         return self.handle_response(
             resp,
@@ -188,7 +188,7 @@ class _Scaling:
         service="",
         job_params={},
     ):
-        path = "/v1/project/action"
+        path = "/v1/actions"
         payload = {
             "_id": id,
             "stepCode": step_code,
@@ -207,7 +207,7 @@ class _Scaling:
         )
 
     def assign_jobs(self, is_gpu):
-        path = "/v1/scaling/assign_jobs/" + str(is_gpu) + f"/{self.instance_id}"
+        path = "/v1/actions/assign_jobs/" + str(is_gpu) + f"/{self.instance_id}"
         resp = self.rpc.get(path=path)
         return self.handle_response(
             resp,

@@ -3,6 +3,7 @@
 from __future__ import annotations
 from typing import Optional, Sequence, BinaryIO
 from io import BytesIO
+import warnings
 import math
 
 import matplotlib  # type: ignore
@@ -11,7 +12,7 @@ from matplotlib import font_manager, transforms
 from matplotlib.patches import Arc, Rectangle, PathPatch, Path # type: ignore
 
 from .. import util
-from ..types import Capstyle, Joinstyle, Linestyle, BBox, XY
+from ..types import Capstyle, Joinstyle, Linestyle, BBox, XY, Gradient
 
 inline = 'inline' in matplotlib.get_backend()
 
@@ -83,6 +84,11 @@ class Figure:
         ''' Set background color of drawing '''
         self.fig.set_facecolor(color)
 
+    def add_gradient(self, gradient: Gradient) -> str:
+        ''' Add a gradient to the image (not supported in MPL) '''
+        warnings.warn('Gradients not supported in Matplotlib backend')
+        return gradient[0]  # Fill will be set to first color of gradient
+
     def addclip(self, patch, clip):
         ''' Set clipping region for the patch '''
         if clip:
@@ -107,7 +113,8 @@ class Figure:
              fontsize: float = 14, fontfamily: str = 'sans-serif',
              mathfont: Optional[str] = None, rotation: float = 0,
              halign: str = 'center', valign: str = 'center',
-             rotation_mode: str = 'anchor', clip: Optional[BBox] = None, zorder=3) -> None:
+             rotation_mode: str = 'anchor', clip: Optional[BBox] = None, zorder=3,
+             href: Optional[str] = None, decoration: Optional[str] = None) -> None:
         ''' Add text to the figure '''
         valign = 'baseline' if valign == 'base' else valign
         if fontfamily.endswith('.ttf') or fontfamily.endswith('otf'):

@@ -1801,8 +1801,7 @@ class Alloc(COp):
                     | pytensor.tensor.blas.Gemv
                     | pytensor.tensor.blas_c.CGemv
                     | pytensor.tensor.blas.Ger
-                    | pytensor.tensor.blas_c.CGer
-                    | pytensor.tensor.blas_scipy.ScipyGer,
+                    | pytensor.tensor.blas_c.CGer,
                 )
             ):
                 # Ops that will work inplace on the Alloc. So if they
@@ -2469,6 +2468,18 @@ class Join(COp):
             raise TypeError(f"Axis {axis} must be an integer type.")
         if axis.type.ndim > 0:
             raise TypeError(f"Axis {axis} must be 0-d.")
+
+        # Convert negative constant axis to positive during canonicalization
+        if isinstance(axis, Constant) and tensors:
+            # Get the axis value directly from the constant's data
+            axis_val = axis.data.item()
+            # Check if it's negative and needs normalization
+            if axis_val < 0:
+                ndim = tensors[0].ndim
+                # Convert negative axis to positive
+                axis_val = normalize_axis_index(axis_val, ndim)
+                # Replace the original axis with the normalized one
+                axis = constant(axis_val, dtype=axis.type.dtype)
 
         tensors = [as_tensor_variable(x) for x in tensors]
 

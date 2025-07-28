@@ -14,7 +14,7 @@ from matrice.deploy.utils.post_processing.core.config import (
 
 class InputType(Enum):
     """Supported input types."""
-
+    AUTO = "auto"
     CAMERA = "camera"
     VIDEO_FILE = "video_file"
     RTSP_STREAM = "rtsp_stream"
@@ -41,13 +41,14 @@ class OutputType(Enum):
 class InputConfig:
     """Configuration for input sources."""
 
-    type: InputType
     source: Union[int, str]  # Camera index, file path, or stream URL
+    type: InputType = InputType.AUTO
     fps: int = 10
     quality: int = 100
     width: Optional[int] = 640
     height: Optional[int] = 480
     stream_key: Optional[str] = None
+    stream_group_key: Optional[str] = None
     model_input_type: ModelInputType = ModelInputType.FRAMES
     video_duration: Optional[float] = None  # Duration of video chunks in seconds
     max_frames: Optional[int] = None  # Maximum frames per video chunk
@@ -82,6 +83,18 @@ class InputConfig:
             if self.video_duration is None and self.max_frames is None:
                 # Set default duration if none specified
                 self.video_duration = 5.0
+
+        if self.type == InputType.AUTO:
+            if isinstance(self.source, int) or (isinstance(self.source, str) and self.source.isdigit()):
+                self.type = InputType.CAMERA
+            elif isinstance(self.source, str) and self.source.startswith(("rtsp://")):
+                self.type = InputType.RTSP_STREAM
+            elif isinstance(self.source, str) and self.source.startswith(("http://", "https://")):
+                self.type = InputType.HTTP_STREAM
+            elif isinstance(self.source, str) and os.path.exists(self.source):
+                self.type = InputType.VIDEO_FILE
+            else:
+                self.type = InputType.HTTP_VIDEO_FILE
 
         # Validate source based on type
         if self.type == InputType.CAMERA:
@@ -125,6 +138,9 @@ class InputConfig:
                 self.stream_key = f"http_video_{uuid.uuid4().hex[:8]}"
             else:
                 self.stream_key = f"stream_{uuid.uuid4().hex[:8]}"
+
+        if self.stream_group_key is None:
+            self.stream_group_key = f"stream_group_{self.stream_key}"
 
     def to_dict(self) -> Dict:
         """Convert to dictionary."""

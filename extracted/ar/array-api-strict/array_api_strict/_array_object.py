@@ -16,6 +16,7 @@ of ndarray.
 from __future__ import annotations
 
 import operator
+import sys
 from collections.abc import Iterator
 from enum import IntEnum
 from types import EllipsisType, ModuleType
@@ -66,8 +67,6 @@ class Device:
 
 CPU_DEVICE = Device()
 ALL_DEVICES = (CPU_DEVICE, Device("device1"), Device("device2"))
-
-_default = object()
 
 
 class Array:
@@ -149,28 +148,39 @@ class Array:
 
     __str__ = __repr__
 
-    # `__array__` was implemented historically for compatibility, and removing it has
-    # caused issues for some libraries (see
-    # https://github.com/data-apis/array-api-strict/issues/67).
-
-    # Instead of `__array__` we now implement the buffer protocol.
-    # Note that it makes array-apis-strict requiring python>=3.12
     def __buffer__(self, flags):
         if self._device != CPU_DEVICE:
-            raise RuntimeError(f"Can not convert array on the '{self._device}' device to a Numpy array.")
+            raise RuntimeError(
+                # NumPy swallows this exception and falls back to __array__.
+                f"Can't extract host buffer from array on the '{self._device}' device."
+            )
         return self._array.__buffer__(flags)
 
-    # We do not define __release_buffer__, per the discussion at
-    # https://github.com/data-apis/array-api-strict/pull/115#pullrequestreview-2917178729
-
-    def __array__(self, *args, **kwds):
-        # a stub for python < 3.12; otherwise numpy silently produces object arrays
-        import sys
-        minor, major = sys.version_info.minor, sys.version_info.major
-        if major < 3 or minor < 12:
-            raise TypeError(
-                "Interoperation with NumPy requires python >= 3.12. Please upgrade."
+    # `__array__` is not part of the Array API. Ideally we want to support
+    # `xp.asarray(Array)` exclusively through the __buffer__ protocol; however this is
+    # only possible on Python >=3.12. Additionally, when __buffer__ raises (e.g. because
+    # the array is not on the CPU device, NumPy will try to fall back on __array__ but,
+    # if that doesn't exist, create a scalar numpy array of objects which contains the
+    # array_api_strict.Array. So we can't get rid of __array__ entirely.
+    def __array__(
+        self, dtype: None | np.dtype[Any] = None, copy: None | bool = None
+    ) -> npt.NDArray[Any]:
+        if self._device != CPU_DEVICE:
+            # We arrive here from np.asarray() on Python >=3.12 when __buffer__ raises.
+            raise RuntimeError(
+                f"Can't convert array on the '{self._device}' device to a "
+                "NumPy array."
             )
+        if sys.version_info >= (3, 12):
+            raise TypeError(
+                "The __array__ method is not supported by the Array API. "
+                "Please use the __buffer__ interface instead."
+            )
+
+        # copy keyword is new in 2.0
+        if np.__version__[0] < '2':
+            return np.asarray(self._array, dtype=dtype)
+        return np.asarray(self._array, dtype=dtype, copy=copy)
 
     # These are various helper functions to make the array behavior match the
     # spec in places where it either deviates from or is more strict than
@@ -942,6 +952,15 @@ class Array:
         self._validate_index(key, op="setitem")
         # Indexing self._array with array_api_strict arrays can be erroneous
         np_key = key._array if isinstance(key, Array) else key
+
+        # sanitize the value
+        other = value
+        if isinstance(value, (bool, int, float, complex)):
+            other = self._promote_scalar(value)
+        dt = _result_type(self.dtype, other.dtype)
+        if dt != self.dtype:
+            raise TypeError(f"mismatched dtypes: {self.dtype = } and {other.dtype = }")
+
         self._array.__setitem__(np_key, asarray(value)._array)
 
     def __sub__(self, other: Array | complex, /) -> Array:
@@ -1104,6 +1123,7 @@ class Array:
         """
         Performs the operation __imod__.
         """
+        self._check_type_device(other)
         other = self._check_allowed_dtypes(other, "real numeric", "__imod__")
         if other is NotImplemented:
             return other
@@ -1126,6 +1146,7 @@ class Array:
         """
         Performs the operation __imul__.
         """
+        self._check_type_device(other)
         other = self._check_allowed_dtypes(other, "numeric", "__imul__")
         if other is NotImplemented:
             return other
@@ -1148,6 +1169,7 @@ class Array:
         """
         Performs the operation __ior__.
         """
+        self._check_type_device(other)
         other = self._check_allowed_dtypes(other, "integer or boolean", "__ior__")
         if other is NotImplemented:
             return other
@@ -1170,6 +1192,7 @@ class Array:
         """
         Performs the operation __ipow__.
         """
+        self._check_type_device(other)
         other = self._check_allowed_dtypes(other, "numeric", "__ipow__")
         if other is NotImplemented:
             return other
@@ -1182,6 +1205,7 @@ class Array:
         """
         from ._elementwise_functions import pow  # type: ignore[attr-defined]
 
+        self._check_type_device(other)
         other = self._check_allowed_dtypes(other, "numeric", "__rpow__")
         if other is NotImplemented:
             return other
@@ -1193,6 +1217,7 @@ class Array:
         """
         Performs the operation __irshift__.
         """
+        self._check_type_device(other)
         other = self._check_allowed_dtypes(other, "integer", "__irshift__")
         if other is NotImplemented:
             return other
@@ -1215,6 +1240,7 @@ class Array:
         """
         Performs the operation __isub__.
         """
+        self._check_type_device(other)
         other = self._check_allowed_dtypes(other, "numeric", "__isub__")
         if other is NotImplemented:
             return other
@@ -1237,6 +1263,7 @@ class Array:
         """
         Performs the operation __itruediv__.
         """
+        self._check_type_device(other)
         other = self._check_allowed_dtypes(other, "floating-point", "__itruediv__")
         if other is NotImplemented:
             return other
@@ -1259,6 +1286,7 @@ class Array:
         """
         Performs the operation __ixor__.
         """
+        self._check_type_device(other)
         other = self._check_allowed_dtypes(other, "integer or boolean", "__ixor__")
         if other is NotImplemented:
             return other

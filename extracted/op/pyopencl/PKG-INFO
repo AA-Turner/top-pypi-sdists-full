@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: pyopencl
-Version: 2025.2.5
+Version: 2025.2.6
 Summary: Python wrapper for OpenCL
 Author-Email: Andreas Kloeckner <inform@tiker.net>
 License-Expression: MIT
@@ -30,11 +30,10 @@ Requires-Dist: oclgrind-binary-distribution>=18.3; extra == "oclgrind"
 Provides-Extra: pocl
 Requires-Dist: pocl-binary-distribution>=1.2; extra == "pocl"
 Provides-Extra: test
-Requires-Dist: ruff; extra == "test"
+Requires-Dist: basedpyright; extra == "test"
 Requires-Dist: mako; extra == "test"
-Requires-Dist: mypy; extra == "test"
-Requires-Dist: pylint; extra == "test"
 Requires-Dist: pytest>=7; extra == "test"
+Requires-Dist: ruff; extra == "test"
 Description-Content-Type: text/x-rst
 
 PyOpenCL: Pythonic Access to OpenCL, with Arrays and Algorithms

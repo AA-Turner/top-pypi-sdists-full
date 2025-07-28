@@ -8,10 +8,10 @@ import json
 import logging
 import time
 import zipfile
-from dataclasses import dataclass, field
+from dataclasses import dataclass, field, replace
 from datetime import datetime
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Any
+from typing import Dict, List, Optional, Set, Tuple, Any
 from collections import defaultdict
 import threading
 from abc import ABC
@@ -19,6 +19,7 @@ import re
 
 # PySpark imports
 from pyspark.sql import SparkSession, DataFrame
+from pyspark.sql.types import StructType
 
 from prophecy.executionmetrics.evolutions.models import MetricsStore
 from prophecy.executionmetrics.models import PipelineStatus
@@ -46,6 +47,7 @@ from prophecy.executionmetrics.evolutions.metrics_storage_initializer import (
     create_storage_metadata,
 )
 from prophecy.executionmetrics.utils.common import is_databricks_environment, now_millis
+from prophecy.executionmetrics.utils.constants import OffloadFlags
 from prophecy.executionmetrics.utils.external import compress
 from prophecy.executionmetrics.workflow_parser import (
     HasProcessesConnectionsPorts,
@@ -53,40 +55,9 @@ from prophecy.executionmetrics.workflow_parser import (
     WorkflowGraph,
     WorkflowGroup,
     WorkflowNode,
+    extract_slug_to_process_mapping,
     get_workflow_graph,
 )
-
-
-def get_slug_to_process_map(code: Optional[Dict[str, str]]) -> Optional[Dict[str, str]]:
-    """Extract slug to process mapping from code."""
-    graph = get_workflow_graph(code)
-    if graph:
-        return extract_slug_to_process_mapping(graph.processes)
-    return None
-
-
-def extract_slug_to_process_mapping(
-    processes: Dict[str, WorkflowNode],
-) -> Dict[str, str]:
-    """Extract mapping from slug to process ID."""
-    slug_to_process = {}
-
-    def extract_from_node(node: WorkflowNode, parent_slug: str = ""):
-        """Recursively extract slug mappings."""
-        current_slug = node.metadata.get("slug", "")
-        if parent_slug:
-            current_slug = f"{parent_slug}.{current_slug}"
-
-        slug_to_process[current_slug] = node.id
-
-        if isinstance(node, WorkflowGroup):
-            for _, child_node in node.processes.items():
-                extract_from_node(child_node, current_slug)
-
-    for _, node in processes.items():
-        extract_from_node(node)
-
-    return slug_to_process
 
 
 class InMemoryStore:
@@ -134,7 +105,7 @@ class InMemoryStore:
         self._graph: Optional[WorkflowGraph] = None
         self._processes: Optional[Dict[str, WorkflowNode]] = None
         self._process_to_output_process_map: Optional[Dict[str, List[str]]] = None
-
+        self.component_runs_uid_map: Dict[Tuple[str, str, str], str] = {}
         # Thread safety
         self._lock = threading.RLock()
 
@@ -531,19 +502,34 @@ class InMemoryStore:
             self._update_connecting_gem_rows(interim_process_id, interim)
 
     def update_selective_interims(self, key: str, payload: str) -> None:
-        key = re.sub(r"_interim.*$", "", key)
-        parts = key.split("__")
-        interim_rows = json.loads(payload)
-        # TODO - subgraph, process id is not available
+        self.logger.info(f"Updating Selective Interim: {key}")
+        parts = re.sub(r"_interim.*$", "", key).split("__")
+        component = parts[0]
+        port = parts[1]
+        runId = parts[2] if len(parts) == 3 else None
+
+        parsed_payload = json.loads(payload)
+        data = json.loads(parsed_payload["data"])
+        schema = StructType.fromJson(json.loads(parsed_payload["schema"]))
+
         interims = LInterimContent(
             subgraph="subgraph",
-            component=parts[0],
-            port=parts[1],
-            runId=parts[2] if len(parts) == 3 else None,
-            interimRows=interim_rows,
-            numRecords=len(interim_rows),
+            component=component,
+            port=port,
+            runId=runId,
+            interimRows=data,
+            numRecords=len(data),
+            schema=schema,
+            processId=component,
         )
         self.update_interims(interims)
+        self.offload(
+            PipelineStatus.SUCCEEDED,
+            offload_flags=OffloadFlags.INTERIMS,
+            interim_keys_for_offload=[
+                InterimKey("subgraph", component=component, port=port, runIdOpt=runId)
+            ],
+        )
 
     def update_metrics(
         self,
@@ -594,28 +580,29 @@ class InMemoryStore:
     def _update_connecting_gem_rows(
         self, interim_process: str, interim: LInterimContent
     ) -> None:
-        """Update row counts for connecting gems."""
+        """
+        Propagate new interim row counts through the gem progress maps.
+
+        :param interim_process: the process ID for which we just received new interims
+        :param interim: the LInterimContent holding .port (str) and .num_records (Optional[int])
+        """
         out_port_id = interim.port
         num_records = interim.numRecords
         interims_rows = num_records or 0
 
-        if not self._process_to_gem_map:
-            return
+        # Find the gem name for the interim process
+        interim_process_gem_name: Optional[str] = None
+        gp = self._process_to_gem_map.get(interim_process)
+        if gp:
+            interim_process_gem_name = gp.gem_name
 
-        # Get gem name for interim process
-        interim_process_gem_name = None
-        if interim_process in self._process_to_gem_map:
-            interim_process_gem_name = self._process_to_gem_map[
-                interim_process
-            ].gem_name
-
-        # Get port slug
-        interim_port_slug = None
-        if self._processes and interim_process in self._processes:
-            node = self._processes[interim_process]
-            for port in node.ports.get("outputs", []):
-                if port["id"] == out_port_id:
-                    interim_port_slug = port.get("slug")
+        # Find the slug for the interim port
+        interim_port_slug: Optional[str] = None
+        node = self._processes.get(interim_process)
+        if node:
+            for port in node.ports.outputs:
+                if port.id == out_port_id:
+                    interim_port_slug = port.slug
                     break
 
         # Get output processes for this interim
@@ -628,49 +615,70 @@ class InMemoryStore:
                 self._process_to_output_process_map[interim_process]
             )
 
-        # Update input gems of output processes
-        for current_process, gem_progress in self._process_to_gem_map.items():
-            if current_process in output_processes_to_interim:
-                # Update input gem rows
-                for gem in gem_progress.input_gems:
-                    if (
-                        gem.gem_name == interim_process_gem_name
-                        and gem.from_port == interim_port_slug
-                        and interims_rows > (gem.num_rows or 0)
-                    ):
-                        gem.num_rows = num_records
-
-        # Update the interim process itself
-        if interim_process in self._process_to_gem_map:
-            gem_progress = self._process_to_gem_map[interim_process]
-
-            # Update num_rows_output
-            if num_records and gem_progress.num_rows_output:
-                gem_progress.num_rows_output = max(
-                    num_records, gem_progress.num_rows_output
-                )
+        # First pass: update input_gems on downstream processes
+        new_map: Dict[str, GemProgress] = {}
+        for proc, gem_prog in self._process_to_gem_map.items():
+            if proc in output_processes_to_interim:
+                updated_inputs: List[GemEdge] = [
+                    (
+                        replace(gem, num_rows=num_records)
+                        if (
+                            gem.gem_name == interim_process_gem_name
+                            and gem.from_port == interim_port_slug
+                            and interims_rows > (gem.num_rows or 0)
+                        )
+                        else gem
+                    )
+                    for gem in gem_prog.input_gems
+                ]
+                new_map[proc] = replace(gem_prog, input_gems=updated_inputs)
             else:
-                gem_progress.num_rows_output = (
-                    num_records or gem_progress.num_rows_output
+                new_map[proc] = gem_prog
+
+        # Second pass: update output_gems and num_rows_output on the interim process itself
+        if interim_process in new_map:
+            gp = new_map[interim_process]
+
+            # Determine the new num_rows_output
+            if num_records is not None and gp.num_rows_output is not None:
+                current_gem_rows = max(num_records, gp.num_rows_output)
+            else:
+                # whichever is defined
+                current_gem_rows = (
+                    num_records if num_records is not None else gp.num_rows_output
                 )
 
-            # Update output gem rows
-            for gem in gem_progress.output_gems:
+            updated_outputs: List[GemEdge] = []
+            for gem in gp.output_gems:
                 if gem.from_port == interim_port_slug and interims_rows > (
                     gem.num_rows or 0
                 ):
-                    gem.num_rows = num_records
+                    updated_outputs.append(replace(gem, num_rows=num_records))
+                else:
+                    updated_outputs.append(gem)
+
+            new_map[interim_process] = replace(
+                gp, output_gems=updated_outputs, num_rows_output=current_gem_rows
+            )
+
+        # Commit back to self
+        self.process_to_gem_map = new_map
 
     def offload(
         self,
         pipeline_status: str,
-        interim_details: List[Tuple[InterimKey, DataFrame]] = None,
+        interim_details: List[Tuple[InterimKey, DataFrame]] = [],
+        offload_flags: int = OffloadFlags.ALL,
+        interim_keys_for_offload: List[InterimKey] = [],
     ) -> Tuple[List["ComponentRuns"], List[str]]:
         """
         Offload metrics to persistent storage.
 
         Returns tuple of (component_runs, interim_ids).
         """
+        if not self.has_storage_metadata:
+            return [], []
+
         if interim_details is None:
             interim_details = []
 
@@ -750,21 +758,71 @@ class InMemoryStore:
         self.logger.info(
             f"Inserting pipeline run id {self.uuid} for pipeline {self._pipeline_uri}"
         )
+        self.logger.info(
+            f"Offload flags: {offload_flags}, interim keys: {interim_keys_for_offload}"
+        )
+
+        # For Selective Interims (eager/lazy load), only pick the interims to be offloaded
+        if interim_keys_for_offload:
+            # Build a set of keys (component, port, run_id) for quick lookup
+            interim_keys_set = {
+                (k.component, k.port, k.runIdOpt) for k in interim_keys_for_offload
+            }
+            interims_for_offload = [
+                i
+                for i in self._interims
+                if (i.component, i.port, i.runId) in interim_keys_set
+            ]
+        else:
+            interims_for_offload = self._interims
 
         # MOCK: InstrumentationJobId and InstrumentationJobDescription would be constants
         instrumentation_job_id = "prophecy-instrumentation"
         instrumentation_job_description = "Prophecy Instrumentation Job"
 
+        pipeline_runs_service = self._create_pipeline_runs_service()
+
+        # Compress logs
+        compressed_logs = compress("".join(logs))
+
+        if len(self.component_runs_uid_map) == 0:
+            try:
+                _, component_runs = pipeline_runs_service.init_runs(
+                    uid=self.uuid,
+                    pipeline_uri=self._pipeline_uri,
+                    job_uri=self._job_uri,
+                    job_run_uid=self._job_run_uid,
+                    task_run_uid=self._task_run_uid,
+                    status=pipeline_status,
+                    submission_time=self._submission_time,
+                    fabric_uid=self._fabric_uid,
+                    time_taken=now_millis() - self._time_started,
+                    rows_read=self._rows_read,
+                    rows_written=self._rows_written,
+                    run_type=self._run_type,
+                    created_by=self._created_by,
+                    code=self._code,
+                    interims=interims_for_offload,
+                    branch=self._branch,
+                    expected_interims=num_expected_interims,
+                    actual_interims=num_actual_interims,
+                    logs=compressed_logs,
+                    pipeline_config_opt=self._pipeline_config,
+                    gem_progress_map=self._process_to_gem_map,
+                )
+
+                self.component_runs_uid_map = {
+                    # tuple of identifying fields → uid
+                    (r.component_uri, r.interim_process_id, r.interim_out_port): r.uid
+                    for r in component_runs
+                }
+                self.logger.info(f"Run UID map: {self.component_runs_uid_map}")
+            except Exception as e:
+                self.logger.info(f"Error while calling init_runs: {e}")
+
         try:
             # MOCK: withProphecyJob and withJobDescription would be Spark context managers
             # In real implementation, these would set job group and description
-            if not self._storage_metadata:
-                raise Exception("storage metadata expected to be initialized")
-
-            pipeline_runs_service = self._create_pipeline_runs_service()
-
-            # Compress logs
-            compressed_logs = compress("".join(logs))
 
             # Add pipeline run and component runs
             component_runs, interim_ids = pipeline_runs_service.add_recursive(
@@ -782,13 +840,15 @@ class InMemoryStore:
                 run_type=self._run_type,
                 created_by=self._created_by,
                 code=self._code,
-                interims=self._interims,
+                interims=interims_for_offload,
                 branch=self._branch,
                 expected_interims=num_expected_interims,
                 actual_interims=num_actual_interims,
                 logs=compressed_logs,
                 pipeline_config_opt=self._pipeline_config,
                 gem_progress_map=self._process_to_gem_map,
+                offload_flags=offload_flags,
+                component_runs_uid_map=self.component_runs_uid_map,
             )
 
             self.logger.info(f"Successfully executed offload {int(time.time() * 1000)}")
@@ -811,6 +871,9 @@ class InMemoryStore:
 
     def _create_pipeline_runs_service(self) -> PipelineRunsService:
         """Create pipeline runs service instance."""
+
+        if not self._storage_metadata:
+            raise Exception("storage metadata expected to be initialized")
 
         return PipelineRunsService.create(self.spark, self._storage_metadata)
 

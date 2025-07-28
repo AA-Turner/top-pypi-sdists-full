@@ -276,8 +276,10 @@ class Value(Expr):
         If you make an illegal cast, you won't know until the backend actually
         executes it. Consider [`.try_cast()`](#ibis.expr.types.generic.Value.try_cast).
 
-        >>> ibis.literal("a string").cast("int64")  # doctest: +SKIP
-        <error>
+        >>> ibis.literal("a string").cast("int64")  # quartodoc: +EXPECTED_FAILURE
+        Traceback (most recent call last):
+          ...
+        ConversionException: Conversion Error: Could not convert string 'a string' to INT64
         """
         op = ops.Cast(self, to=target_type)
 
@@ -803,6 +805,8 @@ class Value(Expr):
         Value
             Replaced values
 
+        See Also
+        --------
         [`Value.cases()`](./expression-generic.qmd#ibis.expr.types.generic.Value.case)
         [`ibis.cases()`](./expression-generic.qmd#ibis.cases)
 

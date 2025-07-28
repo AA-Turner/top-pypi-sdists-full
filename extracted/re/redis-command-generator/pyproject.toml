@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "redis_command_generator"
-version = "0.7.2.post1"  # Update the version number here
+version = "0.7.3"  # Update the version number here
 authors = [
   { name="Itay Tzivony", email="itay.tzivony@redis.com" },
 ]

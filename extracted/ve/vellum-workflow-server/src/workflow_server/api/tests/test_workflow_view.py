@@ -3,6 +3,8 @@ import re
 from unittest.mock import patch
 from uuid import UUID
 
+from deepdiff import DeepDiff
+
 from workflow_server.server import create_app
 
 
@@ -376,3 +378,80 @@ class MyAdditionNode(BaseNode):
         "trigger": {"id": "a5298668-d808-4a45-a62e-790943948e8a", "merge_behavior": "AWAIT_ATTRIBUTES"},
         "type": "GENERIC",
     }
+
+
+def test_serialize_route__with_no_files():
+    # GIVEN a Flask application
+    flask_app = create_app()
+
+    # WHEN we make a request with no files
+    with flask_app.test_client() as test_client:
+        response = test_client.post("/workflow/serialize", json={"files": {}})
+
+    # THEN we should get a bad request response
+    assert response.status_code == 400
+
+    # AND the response should contain an error message
+    assert "detail" in response.json
+    assert "No files received" in response.json["detail"]
+
+
+def test_serialize_route__with_invalid_python_syntax():
+    # GIVEN a Flask application
+    flask_app = create_app()
+
+    # AND a file with invalid Python syntax
+    invalid_content = """
+from vellum.workflows.nodes import BaseNode
+
+class BrokenNode(BaseNode)  # Missing colon
+    \"\"\"This node has a syntax error.\"\"\"
+"""
+
+    # WHEN we make a request to the serialize route
+    with flask_app.test_client() as test_client:
+        response = test_client.post("/workflow/serialize", json={"files": {"broken_node.py": invalid_content}})
+
+    # THEN we should get a server error response
+    assert response.status_code == 500
+
+    # AND the response should contain an error message
+    assert "detail" in response.json
+    assert "Serialization failed" in response.json["detail"]
+
+
+def test_serialize_route__with__workflow():
+    # GIVEN a Flask application
+    flask_app = create_app()
+
+    # AND a complete workflow with multiple files
+    workflow_files = {
+        "__init__.py": "# flake8: noqa: F401, F403\n\n",
+        "inputs.py": "from typing import Any, Optional\n\nfrom vellum.workflows.inputs import BaseInputs\n\n\nclass Inputs(BaseInputs):\n    text: str\n    var_1: Optional[Any]\n",  # noqa: E501
+        "workflow.py": "from vellum.workflows import BaseWorkflow\nfrom vellum.workflows.state import BaseState\n\nfrom .inputs import Inputs\nfrom .nodes.final_output import FinalOutput\nfrom .nodes.templating_node import TemplatingNode\n\n\nclass Workflow(BaseWorkflow[Inputs, BaseState]):\n    graph = TemplatingNode >> FinalOutput\n\n    class Outputs(BaseWorkflow.Outputs):\n        final_output = FinalOutput.Outputs.value\n",  # noqa: E501
+        "nodes/__init__.py": 'from .final_output import FinalOutput\nfrom .templating_node import TemplatingNode\n\n__all__ = [\n    "FinalOutput",\n    "TemplatingNode",\n]\n',  # noqa: E501
+        "nodes/templating_node.py": 'from vellum.workflows.nodes.displayable import TemplatingNode as BaseTemplatingNode\nfrom vellum.workflows.state import BaseState\n\nfrom ..inputs import Inputs\n\n\nclass TemplatingNode(BaseTemplatingNode[BaseState, str]):\n    template = """{{ text }}"""\n    inputs = {\n        "text": Inputs.text,\n    }\n',  # noqa: E501
+        "nodes/final_output.py": "from vellum.workflows.nodes.displayable import FinalOutputNode\nfrom vellum.workflows.state import BaseState\n\nfrom .templating_node import TemplatingNode\n\n\nclass FinalOutput(FinalOutputNode[BaseState, str]):\n    class Outputs(FinalOutputNode.Outputs):\n        value = TemplatingNode.Outputs.result\n",  # noqa: E501
+    }
+
+    # WHEN we make a request to the serialize route
+    with flask_app.test_client() as test_client:
+        response = test_client.post("/workflow/serialize", json={"files": workflow_files})
+
+    # THEN we should get a successful response
+    assert response.status_code == 200
+
+    # AND the response should contain exec_config
+    assert "exec_config" in response.json
+    exec_config = response.json["exec_config"]
+
+    # AND the exec_config should have workflow_raw_data
+    assert "workflow_raw_data" in exec_config
+    nodes = exec_config["workflow_raw_data"]["nodes"]
+
+    # AND we should find the workflow nodes
+    node_labels = {node["data"]["label"] for node in nodes}
+    expected_nodes = {"Templating Node", "Final Output", "Entrypoint Node"}
+
+    # AND at least some of the expected nodes should be present
+    assert not DeepDiff(node_labels, expected_nodes, ignore_order=True)

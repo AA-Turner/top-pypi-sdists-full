@@ -1,19 +1,16 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: jira
-Version: 3.8.0
+Version: 3.10.4
 Summary: Python library for interacting with JIRA via REST APIs.
-Home-page: https://github.com/pycontribs/jira
-Author: Ben Speakmon
-Author-email: ben.speakmon@gmail.com
-Maintainer: Sorin Sbarnea
-Maintainer-email: sorin.sbarnea@gmail.com
-License: BSD-2-Clause
+Author-email: Ben Speakmon <ben.speakmon@gmail.com>
+Maintainer-email: Sorin Sbarnea <sorin.sbarnea@gmail.com>
 Project-URL: Bug Tracker, https://github.com/pycontribs/jira/issues
-Project-URL: Release Management, https://github.com/pycontribs/jira/projects
 Project-URL: CI: GitHub Actions, https://github.com/pycontribs/jira/actions
-Project-URL: Source Code, https://github.com/pycontribs/jira.git
 Project-URL: Documentation, https://jira.readthedocs.io
 Project-URL: Forum, https://community.atlassian.com/t5/tag/jira-python/tg-p?sort=recent
+Project-URL: Homepage, https://github.com/pycontribs/jira
+Project-URL: Release Management, https://github.com/pycontribs/jira/projects
+Project-URL: Source Code, https://github.com/pycontribs/jira.git
 Keywords: api,atlassian,jira,rest,web
 Platform: any
 Classifier: Development Status :: 5 - Production/Stable
@@ -25,23 +22,23 @@ Classifier: Operating System :: OS Independent
 Classifier: Programming Language :: Python
 Classifier: Programming Language :: Python :: 3
 Classifier: Programming Language :: Python :: 3 :: Only
-Classifier: Programming Language :: Python :: 3.8
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
+Classifier: Programming Language :: Python :: 3.12
 Classifier: Topic :: Software Development :: Libraries :: Python Modules
 Classifier: Topic :: Internet :: WWW/HTTP
-Requires-Python: >=3.8
+Requires-Python: >=3.10
 Description-Content-Type: text/x-rst; charset=UTF-8
 License-File: LICENSE
 License-File: AUTHORS.rst
 Requires-Dist: defusedxml
 Requires-Dist: packaging
-Requires-Dist: Pillow>=2.1.0
 Requires-Dist: requests-oauthlib>=1.1.0
 Requires-Dist: requests>=2.10.0
 Requires-Dist: requests_toolbelt
 Requires-Dist: typing_extensions>=3.7.4.2
+Provides-Extra: async
+Requires-Dist: requests-futures>=0.9.7; extra == "async"
 Provides-Extra: cli
 Requires-Dist: ipython>=4.0.0; extra == "cli"
 Requires-Dist: keyring; extra == "cli"
@@ -54,13 +51,14 @@ Requires-Dist: filemagic>=1.6; extra == "opt"
 Requires-Dist: PyJWT; extra == "opt"
 Requires-Dist: requests_jwt; extra == "opt"
 Requires-Dist: requests_kerberos; extra == "opt"
-Provides-Extra: async
-Requires-Dist: requests-futures>=0.9.7; extra == "async"
 Provides-Extra: test
-Requires-Dist: docutils>=0.12; extra == "test"
-Requires-Dist: flaky; extra == "test"
 Requires-Dist: MarkupSafe>=0.23; extra == "test"
+Requires-Dist: PyYAML>=5.1; extra == "test"
+Requires-Dist: docutils>=0.21.2; extra == "test"
+Requires-Dist: flaky; extra == "test"
 Requires-Dist: oauthlib; extra == "test"
+Requires-Dist: parameterized>=0.8.1; extra == "test"
+Requires-Dist: pip; extra == "test"
 Requires-Dist: pytest-cache; extra == "test"
 Requires-Dist: pytest-cov; extra == "test"
 Requires-Dist: pytest-instafail; extra == "test"
@@ -68,13 +66,13 @@ Requires-Dist: pytest-sugar; extra == "test"
 Requires-Dist: pytest-timeout>=1.3.1; extra == "test"
 Requires-Dist: pytest-xdist>=2.2; extra == "test"
 Requires-Dist: pytest>=6.0.0; extra == "test"
-Requires-Dist: PyYAML>=5.1; extra == "test"
 Requires-Dist: requests_mock; extra == "test"
 Requires-Dist: requires.io; extra == "test"
 Requires-Dist: tenacity; extra == "test"
 Requires-Dist: wheel>=0.24.0; extra == "test"
 Requires-Dist: yanc>=0.3.3; extra == "test"
 Requires-Dist: parameterized>=0.8.1; extra == "test"
+Dynamic: license-file
 
 ===================
 Jira Python Library
@@ -89,26 +87,46 @@ Jira Python Library
 .. image:: https://img.shields.io/github/issues/pycontribs/jira.svg
     :target: https://github.com/pycontribs/jira/issues
 
-.. image:: https://img.shields.io/badge/irc-%23pycontribs-blue
-    :target: irc:///#pycontribs
-
-------------
-
 .. image:: https://readthedocs.org/projects/jira/badge/?version=main
     :target: https://jira.readthedocs.io/
 
 .. image:: https://codecov.io/gh/pycontribs/jira/branch/main/graph/badge.svg
     :target: https://codecov.io/gh/pycontribs/jira
 
-.. image:: https://img.shields.io/bountysource/team/pycontribs/activity.svg
-    :target: https://www.bountysource.com/teams/pycontribs/issues?tracker_ids=3650997
+
+WARNING PYPI RELEASE BROKEN -  TEMPORARY FIX
+--------------------------------------------
+
+| Dear users, currently we have an issue releasing to pypi which we are trying to solve as soon as possible.
+| Do know this project is fully funded by volunteer work, we're doing as much as we can with our limited time.
+| Version 3.10.1 fixes a deprecation in the search api of atlassian jira
+| A temporary work around shown below can be used to install the 3.10.1 version of the jira package.
+
+.. code-block:: bash
+
+    pip install git+https://github.com/pycontribs/jira.git@3.10.1
+
+if you don't have git installed on your system or you prefer whl files you can install the 3.10.1 like below.
+
+.. code-block:: bash
+
+    pip install https://github.com/pycontribs/jira/releases/download/3.10.1/jira-3.10.1-py3-none-any.whl
+
+in your requirements.txt or pyproject.toml you can temporarily add this release like so.
+
+.. code-block:: bash
+
+    requests # or any other package in your project
+    https://github.com/pycontribs/jira/releases/download/3.10.1/jira-3.10.1-py3-none-any.whl # please check if pypi releases are ok again here https://pypi.org/project/jira/
+
+sorry for the inconvenience, this message will disappear once the issues are solved.
+
+______
 
 
 This library eases the use of the Jira REST API from Python and it has been used in production for years.
 
-As this is an open-source project that is community maintained, do not be surprised if some bugs or features are not implemented quickly enough. You are always welcomed to use BountySource_ to motivate others to help.
-
-.. _BountySource: https://www.bountysource.com/teams/pycontribs/issues?tracker_ids=3650997
+As this is an open-source project that is community maintained, do not be surprised if some bugs or features are not implemented quickly enough.
 
 
 Quickstart

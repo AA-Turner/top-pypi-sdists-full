@@ -7,10 +7,12 @@ from itertools import starmap
 
 import sqlglot as sg
 import sqlglot.expressions as sge
+from packaging.version import parse as vparse
 
 import ibis.common.exceptions as com
 import ibis.expr.datatypes as dt
 import ibis.expr.operations as ops
+from ibis import util
 from ibis.backends.sql.compilers.base import FALSE, NULL, STAR, AggGen, SQLGlotCompiler
 from ibis.backends.sql.datatypes import DataFusionType
 from ibis.backends.sql.dialects import DataFusion
@@ -44,10 +46,13 @@ class DataFusionCompiler(SQLGlotCompiler):
         ops.StringToDate,
         ops.StringToTimestamp,
         ops.StringToTime,
+        # in theory possible via
+        # https://github.com/datafusion-contrib/datafusion-functions-extra but
+        # not clear how to use that library from Python
+        ops.Kurtosis,
     )
 
     SIMPLE_OPS = {
-        ops.ApproxQuantile: "approx_percentile_cont",
         ops.ApproxMedian: "approx_median",
         ops.ArrayDistinct: "array_distinct",
         ops.ArrayRemove: "array_remove_all",
@@ -606,6 +611,23 @@ class DataFusionCompiler(SQLGlotCompiler):
     def visit_IntervalFromInteger(self, op, *, arg, unit):
         unit = unit.name.lower()
         return sg.cast(self.f.concat(self.cast(arg, dt.string), f" {unit}"), "interval")
+
+    if (version := util.version("datafusion")) is not None and version >= vparse(
+        "48.0.0"
+    ):
+
+        def visit_ApproxQuantile(self, op, *, arg, quantile, where):
+            expr = sge.WithinGroup(
+                this=self.f.approx_percentile_cont(quantile),
+                expression=sge.Order(expressions=[sge.Ordered(this=arg)]),
+            )
+            if where is not None:
+                return sge.Filter(this=expr, expression=sge.Where(this=where))
+            return expr
+    else:
+
+        def visit_ApproxQuantile(self, op, *, arg, quantile, where):
+            return self.agg.approx_percentile_cont(arg, quantile, where=where)
 
 
 compiler = DataFusionCompiler()

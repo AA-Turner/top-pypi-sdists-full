@@ -18,7 +18,7 @@ email = "sj@chijioke-uche.com"
 
 [project]
 name = "qiskit-connector"
-version = "2.4.0"
+version = "2.4.3"
 description = "Quantum Computing Qiskit Connector For Quantum Backend Use In Realtime"
 readme = "README.md"
 requires-python = ">=3.9"
@@ -89,7 +89,7 @@ classifiers = [
 
 dependencies = [
     "requests>=2.32.3",
-    "python-dotenv>=1.1.0",
+    "python-dotenv>=1.0.0",
     "qiskit>=2.0.0",
     "qiskit-ibm-runtime>=0.38.0",
     "pillow>=11.2.1"

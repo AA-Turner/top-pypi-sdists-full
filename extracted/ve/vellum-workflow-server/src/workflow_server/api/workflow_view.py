@@ -7,6 +7,8 @@ from multiprocessing import Process, Queue, set_start_method
 import os
 import pkgutil
 from queue import Empty
+import random
+import string
 import sys
 from threading import Event as ThreadingEvent
 import time
@@ -18,6 +20,8 @@ from flask import Blueprint, Response, current_app as app, has_request_context, 
 from pydantic import ValidationError
 from vellum_ee.workflows.display.nodes.get_node_display_class import get_node_display_class
 from vellum_ee.workflows.display.types import WorkflowDisplayContext
+from vellum_ee.workflows.display.workflows import BaseWorkflowDisplay
+from vellum_ee.workflows.server.virtual_file_loader import VirtualFileFinder
 
 from vellum.workflows.exceptions import WorkflowInitializationException
 from vellum.workflows.nodes import BaseNode
@@ -408,6 +412,47 @@ def stream_node_route() -> Response:
         headers=headers,
     )
     return resp
+
+
+@bp.route("/serialize", methods=["POST"])
+def serialize_route() -> Response:
+    data = request.get_json()
+
+    files = data.get("files", {})
+
+    if not files:
+        return Response(
+            json.dumps({"detail": "No files received"}),
+            status=400,
+            content_type="application/json",
+        )
+
+    try:
+        # Generate a unique namespace for this serialization request
+        namespace = "".join(random.choice(string.ascii_letters + string.digits) for i in range(14))
+        virtual_finder = VirtualFileFinder(files, namespace)
+
+        try:
+            sys.meta_path.append(virtual_finder)
+            exec_config = BaseWorkflowDisplay.serialize_module(namespace).exec_config
+
+            return Response(
+                json.dumps({"exec_config": exec_config}),
+                status=200,
+                content_type="application/json",
+            )
+
+        finally:
+            if virtual_finder in sys.meta_path:
+                sys.meta_path.remove(virtual_finder)
+
+    except Exception as e:
+        logger.exception(f"Error during serialization: {str(e)}")
+        return Response(
+            json.dumps({"detail": f"Serialization failed: {str(e)}"}),
+            status=500,
+            content_type="application/json",
+        )
 
 
 @bp.route("/version", methods=["GET"])

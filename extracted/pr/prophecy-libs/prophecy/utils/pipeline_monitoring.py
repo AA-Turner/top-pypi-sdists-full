@@ -385,9 +385,12 @@ def sendPipelineProgressEvent2(
 
 
 def send_ws_message(json_msg: str):
-    from websocket_runner import send_message_via_ws
+    try:
+        from websocket_runner import send_message_via_ws
 
-    final_notification = NotificationMessage(SparkEventNotification(json_msg))
-    final_message = final_notification.to_json()
-    logger.info(f"SENDING pipeline_monitoring_ws_message: {final_message}")
-    send_message_via_ws(final_message)
+        final_notification = NotificationMessage(SparkEventNotification(json_msg))
+        final_message = final_notification.to_json()
+        logger.info(f"SENDING pipeline_monitoring_ws_message: {final_message}")
+        send_message_via_ws(final_message)
+    except Exception as e:
+        logger.info(f"Exception while SENDING pipeline_monitoring_ws_message: {e}")

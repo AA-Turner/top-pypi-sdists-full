@@ -60,3 +60,23 @@ CAUSE_MSG = "cause_msg"
 STACK_TRACE = "stack_trace"
 TIME = "time"
 CONTENT = "content"
+
+
+from enum import IntFlag, auto
+
+
+class OffloadFlags(IntFlag):
+    NO_OP = 0
+    PIPELINE_RUNS = auto()
+    COMPONENT_RUNS = auto()
+    INTERIMS = auto()
+    ALL = PIPELINE_RUNS | COMPONENT_RUNS | INTERIMS
+
+    def should_offload_pipeline_run(self) -> bool:
+        return (self & OffloadFlags.PIPELINE_RUNS) != 0
+
+    def should_offload_component_runs(self) -> bool:
+        return (self & OffloadFlags.COMPONENT_RUNS) != 0
+
+    def should_offload_interims(self) -> bool:
+        return (self & OffloadFlags.INTERIMS) != 0

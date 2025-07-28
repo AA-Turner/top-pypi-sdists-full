@@ -1,0 +1,354 @@
+import logging
+import time
+import threading
+from typing import Dict, Optional, List
+from queue import Empty, PriorityQueue
+from matrice.session import Session
+from matrice.deploy.utils.kafka_utils import MatriceKafkaDeployment
+import itertools
+
+
+class ResultsIngestor:
+    """
+    Streams and manages results from multiple deployments.
+    Handles result collection, queuing, and distribution with enhanced structure consistency.
+    """
+
+    def __init__(
+        self, deployment_ids: List[str], session: Session, consumer_timeout: float = 60
+    ):
+        """
+        Initialize the results streamer.
+
+        Args:
+            deployment_ids: List of deployment IDs
+            session: Session object for authentication
+            consumer_timeout: Timeout for consuming results from deployments
+        """
+        self.deployment_ids = deployment_ids
+        self.session = session
+        self.deployments_stream_utils: Dict[str, MatriceKafkaDeployment] = {}
+        for deployment_id in self.deployment_ids:
+            self.deployments_stream_utils[deployment_id] = MatriceKafkaDeployment(
+                self.session, deployment_id, type="client"
+            )
+
+        self.consumer_timeout = consumer_timeout
+        self.max_queue_size = 1000  # Maximum queue size for health monitoring
+
+        # Result queues for each deployment (now using PriorityQueue)
+        self.results_queues: Dict[str, PriorityQueue] = {}
+
+        # Streaming threads
+        self.results_streaming_threads: Dict[str, threading.Thread] = {}
+
+        # Control flags
+        self._stop_streaming = threading.Event()
+        self._is_streaming = False
+        self._lock = threading.RLock()
+
+        # Counter for tie-breaking in PriorityQueue (to avoid dict comparison)
+        self._counter = itertools.count()
+
+        # Statistics
+        self.stats = {
+            "results_consumed": 0,
+            "results_processed": 0,
+            "errors": 0,
+            "last_error": None,
+            "last_error_time": None,
+            "queue_sizes": {},
+            "start_time": None,
+        }
+
+        # Initialize queues
+        self._initialize_queues()
+
+    def _initialize_queues(self):
+        """Initialize result priority queues for each deployment."""
+        for deployment_id in self.deployment_ids:
+            self.results_queues[deployment_id] = PriorityQueue()
+            self.stats["queue_sizes"][deployment_id] = 0
+
+    def start_streaming(self) -> bool:
+        """
+        Start streaming results from all deployments.
+
+        Returns:
+            bool: True if streaming started successfully, False otherwise
+        """
+        with self._lock:
+            if self._is_streaming:
+                logging.warning("Results streaming is already running")
+                return True
+
+            self._stop_streaming.clear()
+            self._is_streaming = True
+            self.stats["start_time"] = time.time()
+
+        try:
+            # Start result streaming threads for each deployment
+            for deployment_id in self.deployment_ids:
+                thread = threading.Thread(
+                    target=self._stream_results_to_queue,
+                    args=(deployment_id, self.results_queues[deployment_id]),
+                    name=f"ResultStreamer-{deployment_id}",
+                    daemon=True,
+                )
+                thread.start()
+                self.results_streaming_threads[deployment_id] = thread
+                logging.info(
+                    f"Started result streaming for deployment: {deployment_id}"
+                )
+
+            logging.info(
+                f"Started results streaming for {len(self.deployment_ids)} deployments"
+            )
+            return True
+
+        except Exception as exc:
+            logging.error(f"Failed to start results streaming: {exc}")
+            self.stop_streaming()
+            return False
+
+    def stop_streaming(self):
+        """Stop all streaming operations."""
+        with self._lock:
+            if not self._is_streaming:
+                logging.info("Results streaming is not running")
+                return
+
+            self._is_streaming = False
+            self._stop_streaming.set()
+
+        logging.info("Stopping results streaming...")
+
+        # Stop deployment streaming
+        for deployment_id in self.deployment_ids:
+            try:
+                for stream_utils in self.deployments_stream_utils.values():
+                    stream_utils.sync_kafka.close()
+            except Exception as exc:
+                logging.error(
+                    f"Error stopping streaming for deployment {deployment_id}: {exc}"
+                )
+
+        # Wait for streaming threads to complete
+        for deployment_id, thread in self.results_streaming_threads.items():
+            try:
+                if thread.is_alive():
+                    thread.join(timeout=5.0)
+                    if thread.is_alive():
+                        logging.warning(
+                            f"Result streaming thread for {deployment_id} did not stop gracefully"
+                        )
+            except Exception as exc:
+                logging.error(
+                    f"Error joining thread for deployment {deployment_id}: {exc}"
+                )
+
+        # Clear threads
+        self.results_streaming_threads.clear()
+
+        logging.info("Results streaming stopped")
+
+    def _stream_results_to_queue(
+        self, deployment_id: str, results_queue: PriorityQueue
+    ):
+        """
+        Stream results from a deployment to its result queue.
+
+        Args:
+            deployment_id: ID of the deployment
+            results_queue: Priority queue to store results ordered by input_order
+        """
+        logging.info(f"Starting result streaming for deployment: {deployment_id}")
+
+        while not self._stop_streaming.is_set():
+            try:
+                # Consume result with timeout
+                result = self.deployments_stream_utils[deployment_id].consume_message(
+                    self.consumer_timeout
+                )
+
+                if result is not None:
+                    # Handle the structured response format from stream_worker.py
+                    result_value = result.get("value", {})
+                    input_streams = result_value.get("input_streams", [])
+                    input_stream = input_streams[0]["input_stream"] if input_streams else {}
+                    input_order = input_stream.get("input_order")
+                    camera_info = input_stream.get("camera_info")
+                    stream_key = camera_info.get("camera_name")
+                    stream_group_key = camera_info.get("camera_group")
+
+                    if not stream_key or input_order is None:
+                        logging.warning(
+                            f"Missing stream_key or input_order for deployment {deployment_id}, skipping result. "
+                            f"Stream key: {stream_key}, Input order: {input_order}, Stream group: {stream_group_key}"
+                        )
+                        continue
+                    
+
+                    # Create enhanced result object with the structured response
+                    enhanced_result = {
+                        "deployment_id": deployment_id,
+                        "stream_key": stream_key,
+                        "stream_group_key": stream_group_key,
+                        "input_order": input_order,
+                        "timestamp": time.time(),
+                        "result": result_value, # TODO: check if should send this or just agg_summary
+                    }
+
+                    # Add to priority queue (non-blocking) with counter as tie-breaker
+                    try:
+                        results_queue.put((input_order, next(self._counter), enhanced_result), block=False)
+
+                        with self._lock:
+                            self.stats["results_consumed"] += 1
+                            self.stats["queue_sizes"][
+                                deployment_id
+                            ] = results_queue.qsize()
+
+                    except Exception as exc:
+                        # Queue is full, log warning and continue
+                        logging.warning(
+                            f"Result queue full for deployment {deployment_id}, dropping result: {exc}"
+                        )
+                        with self._lock:
+                            self.stats["errors"] += 1
+                            self.stats["last_error"] = "Queue full"
+                            self.stats["last_error_time"] = time.time()
+
+            except Exception as exc:
+                if not self._stop_streaming.is_set():
+                    logging.error(
+                        f"Error streaming results for deployment {deployment_id}: {exc}"
+                    )
+                    with self._lock:
+                        self.stats["errors"] += 1
+                        self.stats["last_error"] = str(exc)
+                        self.stats["last_error_time"] = time.time()
+
+                    # Add small delay to prevent tight error loops
+                    time.sleep(0.1)
+
+        logging.info(f"Stopped result streaming for deployment: {deployment_id}")
+
+    def get_results(self, deployment_id: str, timeout: float = 1.0) -> Optional[Dict]:
+        """
+        Get a result from a specific deployment's priority queue.
+
+        Args:
+            deployment_id: ID of the deployment
+            timeout: Timeout for getting the result
+
+        Returns:
+            Dict: Result dictionary or None if timeout/no result
+        """
+        if deployment_id not in self.results_queues:
+            logging.error(f"No queue found for deployment: {deployment_id}")
+            return None
+
+        try:
+            priority_result = self.results_queues[deployment_id].get(timeout=timeout)
+            self.results_queues[deployment_id].task_done()
+
+            with self._lock:
+                self.stats["queue_sizes"][deployment_id] = self.results_queues[
+                    deployment_id
+                ].qsize()
+
+            return priority_result[2]  # Return the actual result (3rd element, after priority and counter)
+        except Empty:
+            return None
+        except Exception as exc:
+            logging.error(
+                f"Error getting result from deployment {deployment_id}: {exc}"
+            )
+            return None
+
+    def get_all_results(self, timeout: float = 1.0) -> List[Dict]:
+        """
+        Get results from all deployment queues.
+
+        Args:
+            timeout: Timeout for getting results
+
+        Returns:
+            List[Dict]: List of result dictionaries
+        """
+        results = []
+
+        for deployment_id in self.results_queues.keys():
+            result = self.get_results(deployment_id, timeout=timeout)
+            if result:
+                results.append(result)
+
+        return results
+
+    def get_stats(self) -> Dict:
+        """Get current statistics."""
+        with self._lock:
+            stats = self.stats.copy()
+
+        # Add runtime statistics
+        if stats["start_time"]:
+            stats["runtime_seconds"] = time.time() - stats["start_time"]
+
+        # Add queue statistics
+        total_queue_size = sum(stats["queue_sizes"].values())
+        stats["total_queue_size"] = total_queue_size
+
+        return stats
+
+    def get_health_status(self) -> Dict:
+        """Get health status of the results streamer."""
+        health = {
+            "status": "healthy",
+            "is_streaming": self._is_streaming,
+            "deployments": len(self.deployment_ids),
+            "active_threads": len(
+                [t for t in self.results_streaming_threads.values() if t.is_alive()]
+            ),
+            "queue_sizes": {},
+            "errors": self.stats["errors"],
+        }
+
+        # Check queue sizes
+        with self._lock:
+            for deployment_id, queue in self.results_queues.items():
+                queue_size = queue.qsize()
+                health["queue_sizes"][deployment_id] = queue_size
+
+                # Mark as degraded if queue is getting full
+                if queue_size > self.max_queue_size * 0.8:
+                    health["status"] = "degraded"
+
+        # Check for recent errors
+        if (
+            self.stats["last_error_time"]
+            and (time.time() - self.stats["last_error_time"]) < 60
+        ):
+            health["status"] = "degraded"
+
+        return health
+
+    def cleanup(self):
+        """Clean up all resources."""
+        logging.info("Cleaning up results streamer...")
+
+        # Stop streaming if running
+        if self._is_streaming:
+            self.stop_streaming()
+
+        # Clear all queues
+        for deployment_id, queue in self.results_queues.items():
+            try:
+                while not queue.empty():
+                    queue.get_nowait()
+                    queue.task_done()
+            except Exception:
+                pass
+
+        self.results_queues.clear()
+        logging.info("Results streamer cleanup completed")

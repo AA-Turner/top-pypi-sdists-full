@@ -24,7 +24,7 @@ impl OneOfValidator {
             for (idx, item) in items.iter().enumerate() {
                 let ctx = ctx.new_at_location(idx);
                 let node = compiler::compile(&ctx, ctx.as_resource_ref(item))?;
-                schemas.push(node)
+                schemas.push(node);
             }
             Ok(Box::new(OneOfValidator {
                 schemas,
@@ -88,6 +88,10 @@ impl Validate for OneOfValidator {
                 self.location.clone(),
                 location.into(),
                 instance,
+                self.schemas
+                    .iter()
+                    .map(|schema| schema.iter_errors(instance, location).collect())
+                    .collect(),
             ))
         }
     }
@@ -98,7 +102,7 @@ impl Validate for OneOfValidator {
             match node.apply_rooted(instance, location) {
                 output @ BasicOutput::Valid(..) => successes.push(output),
                 output @ BasicOutput::Invalid(..) => failures.push(output),
-            };
+            }
         }
         if successes.len() == 1 {
             let success = successes.remove(0);
@@ -131,6 +135,6 @@ mod tests {
     #[test_case(&json!({"oneOf": [{"type": "string"}]}), &json!(0), "/oneOf")]
     #[test_case(&json!({"oneOf": [{"type": "string"}, {"maxLength": 3}]}), &json!(""), "/oneOf")]
     fn location(schema: &Value, instance: &Value, expected: &str) {
-        tests_util::assert_schema_location(schema, instance, expected)
+        tests_util::assert_schema_location(schema, instance, expected);
     }
 }

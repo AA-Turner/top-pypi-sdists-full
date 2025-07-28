@@ -8,7 +8,7 @@ ROOT = os.path.dirname(__file__)
 
 setup(
     name='tencentcloud-sdk-python-cdb',
-    install_requires=["tencentcloud-sdk-python-common>=3.0.1428,<4.0.0"],
+    install_requires=["tencentcloud-sdk-python-common>=3.0.1431,<4.0.0"],
     version=tencentcloud.__version__,
     description='Tencent Cloud Cdb SDK for Python',
     long_description=open('README.rst').read(),

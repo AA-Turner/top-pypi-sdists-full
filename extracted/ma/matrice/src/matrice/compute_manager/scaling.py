@@ -86,7 +86,7 @@ class Scaling:
             "Stopping instance %s",
             self.instance_id,
         )
-        path = "/v1/scaling/compute_instance/stop"
+        path = "/v1/compute/compute_instance/stop"
         resp = self.rpc.put(
             path=path,
             payload={
@@ -155,7 +155,7 @@ class Scaling:
             "Updating action status for action %s",
             action_record_id,
         )
-        path = "/v1/scaling/update_action_status"
+        path = "/v1/compute/update_action_status"
         payload_scaling = {
             "instanceID": self.instance_id,
             "serviceProvider": service_provider,
@@ -202,7 +202,7 @@ class Scaling:
             "Updating status for action %s",
             action_record_id,
         )
-        url = "/v1/project/action"
+        url = "/v1/actions"
         payload = {
             "_id": action_record_id,
             "action": action_type,
@@ -224,7 +224,7 @@ class Scaling:
             "Getting shutdown details for instance %s",
             self.instance_id,
         )
-        path = f"/v1/scaling/get_shutdown_details/{self.instance_id}"
+        path = f"/v1/compute/get_shutdown_details/{self.instance_id}"
         resp = self.rpc.get(path=path)
         return self.handle_response(
             resp,
@@ -243,7 +243,7 @@ class Scaling:
             "Getting tasks details for instance %s",
             self.instance_id,
         )
-        path = f"/v1/project/action/instance/{self.instance_id}/action_details"
+        path = f"/v1/actions/fetch_instance_action_details/{self.instance_id}/action_details"
         resp = self.rpc.get(path=path)
         return self.handle_response(
             resp,
@@ -265,7 +265,7 @@ class Scaling:
             "Getting action details for action %s",
             action_status_id,
         )
-        path = f"/v1/project/action/{action_status_id}/details"
+        path = f"/v1/actions/action/{action_status_id}/details"
         resp = self.rpc.get(path=path)
         return self.handle_response(
             resp,
@@ -303,7 +303,7 @@ class Scaling:
         if job_params is None:
             job_params = {}
         logging.info("Updating action %s", id)
-        path = "/v1/project/action"
+        path = "/v1/actions"
         payload = {
             "_id": id,
             "stepCode": step_code,
@@ -336,7 +336,7 @@ class Scaling:
             self.instance_id,
             is_gpu,
         )
-        path = f"/v1/scaling/assign_jobs/{str(is_gpu)}/{self.instance_id}"
+        path = f"/v1/actions/assign_jobs/{str(is_gpu)}/{self.instance_id}"
         resp = self.rpc.get(path=path)
         return self.handle_response(
             resp,
@@ -396,7 +396,7 @@ class Scaling:
             "Updating docker logs for action %s",
             action_record_id,
         )
-        path = "/v1/project/update_action_docker_logs"
+        path = "/v1/actions/update_action_docker_logs"
         payload = {
             "actionRecordId": action_record_id,
             "logContent": log_content,
@@ -416,7 +416,7 @@ class Scaling:
             Tuple of (data, error, message) from API response
         """
         logging.info("Getting docker credentials")
-        path = "/v1/scaling/get_docker_hub_credentials"
+        path = "/v1/compute/get_docker_hub_credentials"
         resp = self.rpc.get(path=path)
         return self.handle_response(
             resp,

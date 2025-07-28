@@ -16,7 +16,7 @@ long_description = (here / "README.md").read_text(encoding="utf-8")
 
 setup(
     name="qiskit-connector",
-    version = "2.4.0",
+    version = "2.4.3",
     author="Dr. Jeffrey Chijioke-Uche",
     author_email="sj@chijioke-uche.com",
     description="Quantum Computing Qiskit Connector For Quantum Backend Use In Realtime",
@@ -67,7 +67,7 @@ setup(
     python_requires=">=3.9",
     install_requires=[
         "requests>=2.32.3",
-        "python-dotenv>=1.1.0",
+        "python-dotenv>=1.0.0",
         "qiskit>=2.0.0",
         "qiskit-ibm-runtime>=0.38.0",
         "pillow>=11.2.1"

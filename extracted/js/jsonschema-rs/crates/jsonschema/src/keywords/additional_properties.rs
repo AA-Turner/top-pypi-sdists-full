@@ -14,7 +14,11 @@ use crate::{
     options::PatternEngineOptions,
     output::{Annotations, BasicOutput, OutputUnit},
     paths::{LazyLocation, Location},
-    properties::*,
+    properties::{
+        are_properties_valid, compile_big_map, compile_dynamic_prop_map_validator,
+        compile_fancy_regex_patterns, compile_regex_patterns, compile_small_map, BigValidatorsMap,
+        PropertiesValidatorsMap, SmallValidatorsMap,
+    },
     regex::RegexEngine,
     types::JsonType,
     validator::{PartialApplication, Validate},
@@ -119,7 +123,7 @@ impl Validate for AdditionalPropertiesValidator {
         location: &LazyLocation,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Object(item) = instance {
-            for (name, value) in item.iter() {
+            for (name, value) in item {
                 self.node.validate(value, &location.push(name))?;
             }
         }
@@ -259,7 +263,7 @@ impl<M: PropertiesValidatorsMap> Validate for AdditionalPropertiesNotEmptyFalseV
                     location.into(),
                     instance,
                     unexpected,
-                ))
+                ));
             }
             Box::new(errors.into_iter())
         } else {
@@ -306,7 +310,7 @@ impl<M: PropertiesValidatorsMap> Validate for AdditionalPropertiesNotEmptyFalseV
                     let path = location.push(property.as_str());
                     output += node.apply_rooted(value, &path);
                 } else {
-                    unexpected.push(property.clone())
+                    unexpected.push(property.clone());
                 }
             }
             let mut result: PartialApplication = output.into();
@@ -387,9 +391,9 @@ impl<M: PropertiesValidatorsMap> Validate for AdditionalPropertiesNotEmptyValida
                 if let Some((name, property_validators)) =
                     self.properties.get_key_validator(property)
                 {
-                    errors.extend(iter_errors!(property_validators, value, location, name))
+                    errors.extend(iter_errors!(property_validators, value, location, name));
                 } else {
-                    errors.extend(iter_errors!(self.node, value, location, property))
+                    errors.extend(iter_errors!(self.node, value, location, property));
                 }
             }
             Box::new(errors.into_iter())
@@ -414,7 +418,7 @@ impl<M: PropertiesValidatorsMap> Validate for AdditionalPropertiesNotEmptyValida
         location: &LazyLocation,
     ) -> Result<(), ValidationError<'i>> {
         if let Value::Object(props) = instance {
-            for (property, instance) in props.iter() {
+            for (property, instance) in props {
                 if let Some(validator) = self.properties.get_validator(property) {
                     validator.validate(instance, &location.push(property))?;
                 } else {
@@ -499,7 +503,7 @@ impl<R: RegexEngine> Validate for AdditionalPropertiesWithPatternsValidator<R> {
                         }),
                 );
                 if !has_match {
-                    errors.extend(iter_errors!(self.node, value, location, property))
+                    errors.extend(iter_errors!(self.node, value, location, property));
                 }
             }
             Box::new(errors.into_iter())
@@ -534,7 +538,7 @@ impl<R: RegexEngine> Validate for AdditionalPropertiesWithPatternsValidator<R> {
         if let Value::Object(item) = instance {
             for (property, value) in item {
                 let mut has_match = false;
-                for (re, node) in self.patterns.iter() {
+                for (re, node) in &self.patterns {
                     if re.is_match(property).unwrap_or(false) {
                         has_match = true;
                         node.validate(value, &location.push(property))?;
@@ -560,12 +564,12 @@ impl<R: RegexEngine> Validate for AdditionalPropertiesWithPatternsValidator<R> {
                     if pattern.is_match(property).unwrap_or(false) {
                         has_match = true;
                         pattern_matched_propnames.push(property.clone());
-                        output += node.apply_rooted(value, &path)
+                        output += node.apply_rooted(value, &path);
                     }
                 }
                 if !has_match {
                     additional_matched_propnames.push(property.clone());
-                    output += self.node.apply_rooted(value, &path)
+                    output += self.node.apply_rooted(value, &path);
                 }
             }
             if !pattern_matched_propnames.is_empty() {
@@ -579,7 +583,7 @@ impl<R: RegexEngine> Validate for AdditionalPropertiesWithPatternsValidator<R> {
             }
             let mut result: PartialApplication = output.into();
             if !additional_matched_propnames.is_empty() {
-                result.annotate(Value::from(additional_matched_propnames).into())
+                result.annotate(Value::from(additional_matched_propnames).into());
             }
             result
         } else {
@@ -642,7 +646,7 @@ impl<R: RegexEngine> Validate for AdditionalPropertiesWithPatternsFalseValidator
                     location.into(),
                     instance,
                     unexpected,
-                ))
+                ));
             }
             Box::new(errors.into_iter())
         } else {
@@ -668,7 +672,7 @@ impl<R: RegexEngine> Validate for AdditionalPropertiesWithPatternsFalseValidator
         if let Value::Object(item) = instance {
             for (property, value) in item {
                 let mut has_match = false;
-                for (re, node) in self.patterns.iter() {
+                for (re, node) in &self.patterns {
                     if re.is_match(property).unwrap_or(false) {
                         has_match = true;
                         node.validate(value, &location.push(property))?;
@@ -793,7 +797,7 @@ impl<M: PropertiesValidatorsMap, R: RegexEngine> Validate
                             }),
                     );
                     if !has_match {
-                        errors.extend(iter_errors!(self.node, value, location, property))
+                        errors.extend(iter_errors!(self.node, value, location, property));
                     }
                 }
             }
@@ -848,14 +852,14 @@ impl<M: PropertiesValidatorsMap, R: RegexEngine> Validate
             for (property, value) in item {
                 if let Some((name, node)) = self.properties.get_key_validator(property) {
                     node.validate(value, &location.push(name))?;
-                    for (re, node) in self.patterns.iter() {
+                    for (re, node) in &self.patterns {
                         if re.is_match(property).unwrap_or(false) {
                             node.validate(value, &location.push(name))?;
                         }
                     }
                 } else {
                     let mut has_match = false;
-                    for (re, node) in self.patterns.iter() {
+                    for (re, node) in &self.patterns {
                         if re.is_match(property).unwrap_or(false) {
                             has_match = true;
                             node.validate(value, &location.push(property))?;
@@ -980,7 +984,7 @@ impl<M: PropertiesValidatorsMap, R: RegexEngine> Validate
                     location.into(),
                     instance,
                     unexpected,
-                ))
+                ));
             }
             Box::new(errors.into_iter())
         } else {
@@ -1023,14 +1027,14 @@ impl<M: PropertiesValidatorsMap, R: RegexEngine> Validate
             for (property, value) in item {
                 if let Some((name, node)) = self.properties.get_key_validator(property) {
                     node.validate(value, &location.push(name))?;
-                    for (re, node) in self.patterns.iter() {
+                    for (re, node) in &self.patterns {
                         if re.is_match(property).unwrap_or(false) {
                             node.validate(value, &location.push(name))?;
                         }
                     }
                 } else {
                     let mut has_match = false;
-                    for (re, node) in self.patterns.iter() {
+                    for (re, node) in &self.patterns {
                         if re.is_match(property).unwrap_or(false) {
                             has_match = true;
                             node.validate(value, &location.push(property))?;
@@ -1087,7 +1091,7 @@ impl<M: PropertiesValidatorsMap, R: RegexEngine> Validate
                         unexpected,
                     )
                     .into(),
-                )
+                );
             }
             result
         } else {
@@ -1402,7 +1406,7 @@ mod tests {
     #[test_case(&json!({"barspam": 7, "bar": 6, "spam": 7, "foo": "a", "barbaz": 6}))]
     fn schema_1_valid(instance: &Value) {
         let schema = schema_1();
-        tests_util::is_valid(&schema, instance)
+        tests_util::is_valid(&schema, instance);
     }
 
     // `properties.foo` - should be a string
@@ -1448,7 +1452,7 @@ mod tests {
         let schema = schema_1();
         tests_util::is_not_valid(&schema, instance);
         tests_util::expect_errors(&schema, instance, expected);
-        tests_util::assert_locations(&schema, instance, locations)
+        tests_util::assert_locations(&schema, instance, locations);
     }
 
     fn schema_2() -> Value {
@@ -1478,7 +1482,7 @@ mod tests {
     #[test_case(&json!({"barspam": 7, "bar": 6, "spam": 7}))]
     fn schema_2_valid(instance: &Value) {
         let schema = schema_2();
-        tests_util::is_valid(&schema, instance)
+        tests_util::is_valid(&schema, instance);
     }
 
     // `additionalProperties` - extra keyword & not in `patternProperties`
@@ -1515,7 +1519,7 @@ mod tests {
         let schema = schema_2();
         tests_util::is_not_valid(&schema, instance);
         tests_util::expect_errors(&schema, instance, expected);
-        tests_util::assert_locations(&schema, instance, locations)
+        tests_util::assert_locations(&schema, instance, locations);
     }
 
     fn schema_3() -> Value {
@@ -1536,7 +1540,7 @@ mod tests {
     #[test_case(&json!({"foo": "a"}))]
     fn schema_3_valid(instance: &Value) {
         let schema = schema_3();
-        tests_util::is_valid(&schema, instance)
+        tests_util::is_valid(&schema, instance);
     }
 
     // `properties` - should be a string
@@ -1560,7 +1564,7 @@ mod tests {
         let schema = schema_3();
         tests_util::is_not_valid(&schema, instance);
         tests_util::expect_errors(&schema, instance, expected);
-        tests_util::assert_locations(&schema, instance, locations)
+        tests_util::assert_locations(&schema, instance, locations);
     }
 
     fn schema_4() -> Value {
@@ -1585,7 +1589,7 @@ mod tests {
     #[test_case(&json!({"foo": "a", "bar": 4}))]
     fn schema_4_valid(instance: &Value) {
         let schema = schema_4();
-        tests_util::is_valid(&schema, instance)
+        tests_util::is_valid(&schema, instance);
     }
 
     // `properties` - should be a string
@@ -1609,7 +1613,7 @@ mod tests {
         let schema = schema_4();
         tests_util::is_not_valid(&schema, instance);
         tests_util::expect_errors(&schema, instance, expected);
-        tests_util::assert_locations(&schema, instance, locations)
+        tests_util::assert_locations(&schema, instance, locations);
     }
 
     fn schema_5() -> Value {
@@ -1649,7 +1653,7 @@ mod tests {
     #[test_case(&json!({"barspam": 7, "bar": 6, "spam": 7, "foo": "a", "barbaz": 6, "faz": 42}))]
     fn schema_5_valid(instance: &Value) {
         let schema = schema_5();
-        tests_util::is_valid(&schema, instance)
+        tests_util::is_valid(&schema, instance);
     }
 
     // `properties.bar` - should be a string
@@ -1695,7 +1699,7 @@ mod tests {
         let schema = schema_5();
         tests_util::is_not_valid(&schema, instance);
         tests_util::expect_errors(&schema, instance, expected);
-        tests_util::assert_locations(&schema, instance, locations)
+        tests_util::assert_locations(&schema, instance, locations);
     }
 
     fn schema_6() -> Value {
@@ -1727,7 +1731,7 @@ mod tests {
     #[test_case(&json!({"barspam": 7, "bar": 6, "spam": 7, "faz": 42}))]
     fn schema_6_valid(instance: &Value) {
         let schema = schema_6();
-        tests_util::is_valid(&schema, instance)
+        tests_util::is_valid(&schema, instance);
     }
 
     // `additionalProperties` - extra keyword that doesn't match `additionalProperties`
@@ -1767,6 +1771,6 @@ mod tests {
         let schema = schema_6();
         tests_util::is_not_valid(&schema, instance);
         tests_util::expect_errors(&schema, instance, expected);
-        tests_util::assert_locations(&schema, instance, locations)
+        tests_util::assert_locations(&schema, instance, locations);
     }
 }

@@ -100,7 +100,7 @@ class DataProcessor:
         """Update the status of the data processing job."""
         try:
             logging.info(status_description)
-            url = "/v1/project/action"
+            url = "/v1/actions"
             payload = {
                 "_id": self.action_record_id,
                 "action": self.action_type,

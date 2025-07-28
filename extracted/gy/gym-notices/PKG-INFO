@@ -1,6 +1,6 @@
-Metadata-Version: 2.1
+Metadata-Version: 2.4
 Name: gym-notices
-Version: 0.0.8
+Version: 0.1.0
 Summary: Notices for gym
 Home-page: https://github.com/Farama-Foundation/gym-notices
 Author: Jordan Terry
@@ -10,6 +10,14 @@ Classifier: License :: OSI Approved :: MIT License
 Classifier: Operating System :: OS Independent
 Description-Content-Type: text/markdown
 License-File: LICENSE.txt
+Dynamic: author
+Dynamic: author-email
+Dynamic: classifier
+Dynamic: description
+Dynamic: description-content-type
+Dynamic: home-page
+Dynamic: license-file
+Dynamic: summary
 
 # Gym Notices
 

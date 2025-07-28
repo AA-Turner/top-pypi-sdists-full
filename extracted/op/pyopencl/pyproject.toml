@@ -11,7 +11,7 @@ requires = [
 
 [project]
 name = "pyopencl"
-version = "2025.2.5"
+version = "2025.2.6"
 description = "Python wrapper for OpenCL"
 readme = "README.rst"
 license = "MIT"
@@ -51,11 +51,10 @@ pocl = [
     "pocl-binary-distribution>=1.2",
 ]
 test = [
-    "ruff",
+    "basedpyright",
     "mako",
-    "mypy",
-    "pylint",
     "pytest>=7",
+    "ruff",
 ]
 
 [project.urls]
@@ -66,14 +65,12 @@ Repository = "https://github.com/inducer/pyopencl"
 [tool.scikit-build]
 sdist.exclude = [
     ".basedpyright",
-    ".mypy_cache",
     ".ci",
-    ".github",
     ".conda-ci-build-configure.sh",
-    "doc/upload-docs.sh",
     ".editorconfig",
+    ".github",
     "TODOs",
-    "run-*.sh",
+    "doc/upload-docs.sh",
 ]
 
 [tool.inducer-ci-support]
@@ -230,6 +227,7 @@ reportUnnecessaryIsInstance = "none"
 reportUnusedCallResult = "none"
 reportExplicitAny = "none"
 reportUnreachable = "hint"
+reportPrivateUsage = "hint"
 
 # This reports even cycles that are qualified by 'if TYPE_CHECKING'. Not what
 # we care about at this moment.

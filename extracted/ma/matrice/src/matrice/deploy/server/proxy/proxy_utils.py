@@ -68,7 +68,10 @@ class AuthKeyValidator:
             if not response.get("success"):
                 logging.error("Failed to fetch auth keys")
                 return
-            self.auth_keys_info = response["data"]["authKeys"]
+            if response["data"]["authKeys"]:
+                self.auth_keys_info = response["data"]["authKeys"]
+            else:
+                self.auth_keys_info = []
             if not self.auth_keys_info:
                 logging.warning("No auth keys found for deployment")
                 return
@@ -195,7 +198,7 @@ class RequestsLogger:
             Dict: Response from logging endpoint
         """
         try:
-            logging.info("Logging prediction info")
+            logging.debug("Logging prediction info")
             payload = {
                 "prediction": (
                     prediction.tolist() if isinstance(prediction, np.ndarray) else prediction
@@ -212,7 +215,7 @@ class RequestsLogger:
             )
             if log_response.get("success"):
                 self.upload_input_for_drift_monitoring(log_response, input_data)
-                logging.info("Successfully logged prediction info")
+                logging.debug("Successfully logged prediction info")
             else:
                 logging.warning(
                     "Failed to log prediction: %s",
@@ -263,7 +266,7 @@ class RequestsLogger:
 
     def log_prediction_info_thread(self) -> None:
         """Background thread for processing prediction logs."""
-        logging.info("Starting prediction info logging thread")
+        logging.debug("Starting prediction info logging thread")
         while not self._stop or not self.log_prediction_info_queue.empty():
             try:
                 (

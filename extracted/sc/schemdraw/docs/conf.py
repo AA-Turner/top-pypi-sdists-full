@@ -14,6 +14,10 @@
 # import sys
 # sys.path.insert(0, os.path.abspath('.'))
 
+import sys
+from pathlib import Path
+sys.path.append(str(Path('_ext').resolve()))
+
 import pkg_resources
 
 # -- Project information -----------------------------------------------------
@@ -28,9 +32,6 @@ release = pkg_resources.get_distribution(project).version
 
 # -- General configuration ---------------------------------------------------
 
-locale_dirs = ['locale/']
-gettext_compact = False
-
 # Add any Sphinx extension module names here, as strings. They can be
 # extensions coming with Sphinx (named 'sphinx.ext.*') or your custom
 # ones.
@@ -40,6 +41,8 @@ extensions = [
     'sphinx.ext.autodoc.typehints',
     'sphinx.ext.napoleon',
     'sphinxcontrib.cairosvgconverter',
+    'sphinx_design',
+    'doc_element'
 ]
 
 # Add any paths that contain templates here, relative to this directory.

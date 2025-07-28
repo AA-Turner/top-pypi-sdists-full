@@ -775,7 +775,7 @@ def update_action_status(
         status_description: Description of status
         rpc: RPC client
     """
-    url = "/v1/project/action"
+    url = "/v1/actions"
     payload = {
         "_id": action_record_id,
         "stepCode": step_code,

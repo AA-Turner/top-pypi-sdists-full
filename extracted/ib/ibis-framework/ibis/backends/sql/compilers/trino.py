@@ -497,8 +497,10 @@ class TrinoCompiler(SQLGlotCompiler):
     def visit_TemporalDelta(self, op, *, part, left, right):
         # trino truncates _after_ the delta, whereas many other backends
         # truncate each operand
-        return self.f.date_diff(
-            part, self.f.date_trunc(part, right), self.f.date_trunc(part, left)
+        return sge.DateDiff(
+            this=self.f.date_trunc(part, left),
+            expression=self.f.date_trunc(part, right),
+            unit=part,
         )
 
     visit_TimeDelta = visit_DateDelta = visit_TimestampDelta = visit_TemporalDelta
@@ -585,7 +587,7 @@ class TrinoCompiler(SQLGlotCompiler):
     def visit_StringContains(self, op, *, haystack, needle):
         return self.f.strpos(haystack, needle) > 0
 
-    def visit_RegexpExtract(self, op, *, arg, pattern, index):
+    def visit_RegexExtract(self, op, *, arg, pattern, index):
         # sqlglot doesn't support the third `group` argument for trino so work
         # around that limitation using an anonymous function
         return self.f.anon.regexp_extract(arg, pattern, index)

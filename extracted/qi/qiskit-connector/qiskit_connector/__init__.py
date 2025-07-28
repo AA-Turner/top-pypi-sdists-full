@@ -36,61 +36,73 @@ EMPTY_NOTICE = "⚛️ [QPU EMPTY RETURN NOTICE]:"
 # ───────────────────────────────────────────────────────────────────────────────
 # Functions to load environment variables
 # ───────────────────────────────────────────────────────────────────────────────
-# def _load_environment():
-#     load_dotenv()
-#     path = find_dotenv(usecwd=True)
-#     if path:
-#         load_dotenv(path, override=True)
-#     else:
-#         home = Path.home() / '.env'
-#         if home.is_file():
-#             load_dotenv(home, override=True)
-
-def _load_environment():
-    """Load environment variables from various .env patterns."""
-    load_dotenv()  # First: try default behavior (may pick up .env automatically)
-    
-    # 1️⃣ Try standard dotenv search in CWD and parent folders
+def quantum_intelligent_seek():
+    load_dotenv()
     path = find_dotenv(usecwd=True)
-    if path and Path(path).is_file():
+    if path:
         load_dotenv(path, override=True)
-        return
+    else:
+        home = Path.home() / '.env'
+        if home.is_file():
+            load_dotenv(home, override=True)
 
-    # 2️⃣ Look for any *.env file in the current working directory
-    cwd = Path.cwd()
-    any_env_files = list(cwd.glob("*.env"))
-    if any_env_files:
-        first_match = any_env_files[0]
-        load_dotenv(first_match, override=True)
-        return
+# def quantum_intelligent_seek():
+#     """
+#     Load quantum environment variables intelligently at runtime.
+#     Priority:
+#     1) .env in folder
+#     2) .env in project root
+#     3) default.env in folder
+#     4) *.env anywhere (deep search & deep seek intelligence)
+#     """
+#     this_file = Path().resolve()  # CWD for notebook execution
 
-    # 3️⃣ Look for explicit .env in CWD
-    dot_env = cwd / ".env"
-    if dot_env.is_file():
-        load_dotenv(dot_env, override=True)
-        return
+#     # 1️⃣ Search for .env in folder
+#     local_env = this_file / '.env'
+#     if local_env.is_file():
+#         print(f"✅ Using local env: {local_env}")
+#         load_dotenv(local_env, override=True)
+#         return
 
-    # 4️⃣ Look for default.env in CWD
-    default_env = cwd / "default.env"
-    if default_env.is_file():
-        load_dotenv(default_env, override=True)
-        return
+#     # 2️⃣ Project root: use .env where your outermost .env is
+#     root_dir = this_file
+#     while root_dir.parent != root_dir:  # Climb up until /
+#         if (root_dir / '.env').is_file():
+#             print(f"✅ Using root env: {root_dir / '.env'}")
+#             load_dotenv(root_dir / '.env', override=True)
+#             return
+#         root_dir = root_dir.parent
 
-    # 5️⃣ Finally, fallback to $HOME/.env
-    home_env = Path.home() / ".env"
-    if home_env.is_file():
-        load_dotenv(home_env, override=True)
-        return
+#     # 3️⃣ If default.env in notebook folder
+#     local_default = this_file / 'default.env'
+#     if local_default.is_file():
+#         print(f"✅ Using local default.env: {local_default}")
+#         load_dotenv(local_default, override=True)
+#         return
 
-    # 🚨 If nothing found, raise an error
-    raise FileNotFoundError(
-        "No environment file found for quantum backend connectivity! "
-        "Checked: find_dotenv, *.env, .env, default.env in CWD, and $HOME/.env"
-    )
+#     # 4️⃣ Finally, deep search for any *.env anywhere
+#     any_envs = list(this_file.rglob("*.env"))
+#     if any_envs:
+#         print(f"✅ Using found env: {any_envs[0]}")
+#         load_dotenv(any_envs[0], override=True)
+#         return
+
+#     raise FileNotFoundError("❌ " \
+#     "No quantum account credential variable file found in your project root, or recursively. \n" \
+#     "Please create a .env file OR default.env file with your credentials, you can place it in \n" \
+#     "the project root directory where it can be accessed. Examples of location where it can be placed is shown below:\n" \
+#     "   - Option[1] /path/to/your/project/.env\n" \
+#     "   - Option[2] /path/to/your/project/folder1/.env\n" \
+#     "   - Option[3] /path/to/your/project/folder1/.env\n" \
+#     "   - Option[4] /path/to/your/project/folder1/subfolder/default.env\n" \
+#     "   - Option[5] /path/to/your/project/folder1/subfolder/.env\n")
+
+#################
+# LOADER:::::::::
+#################
+quantum_intelligent_seek()
 
 
-# ───────────────────────────────────────────────────────────────────────────────
-# Functions to check jupyter notebook::
 # ───────────────────────────────────────────────────────────────────────────────
 def in_jupyter():
     try:
@@ -111,7 +123,6 @@ def _get_plan():
     Raises:
         ValueError: If the plan is not set correctly or if the plan name is missing.
     """
-    _load_environment()
     flags = {
         'open':      os.getenv('OPEN_PLAN','off').strip().lower()=='on',
         'pay-as-you-go':  os.getenv('PAYGO_PLAN','off').strip().lower()=='on',
@@ -212,7 +223,6 @@ def list_backends():
     Lists available QPUs for the current plan.
     """
     key,_,human = _get_plan()
-    _load_environment()
     with warnings.catch_warnings():
         warnings.filterwarnings('ignore',category=DeprecationWarning)
         service = QiskitRuntimeService()
@@ -243,7 +253,6 @@ def get_qpu_processor_type(backend_name: str) -> dict:
         processor_service = QiskitRuntimeService()
 
         key,name,human = _get_plan()
-        _load_environment()
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore',category=DeprecationWarning)
             processor_service = QiskitRuntimeService()
@@ -488,7 +497,6 @@ class QConnectorV2:
     """
     def __new__(cls):
         key,name,human = _get_plan()
-        _load_environment()
         with warnings.catch_warnings():
             warnings.filterwarnings('ignore',category=DeprecationWarning)
             service = QiskitRuntimeService()

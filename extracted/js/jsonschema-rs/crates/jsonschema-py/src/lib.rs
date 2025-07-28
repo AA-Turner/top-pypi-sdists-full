@@ -105,7 +105,7 @@ impl ReferencingError {
 enum ValidationErrorKind {
     AdditionalItems { limit: usize },
     AdditionalProperties { unexpected: Py<PyList> },
-    AnyOf {},
+    AnyOf { context: Py<PyList> },
     BacktrackLimitExceeded { error: String },
     Constant { expected_value: PyObject },
     Contains {},
@@ -129,7 +129,7 @@ enum ValidationErrorKind {
     MultipleOf { multiple_of: f64 },
     Not { schema: PyObject },
     OneOfMultipleValid {},
-    OneOfNotValid {},
+    OneOfNotValid { context: Py<PyList> },
     Pattern { pattern: String },
     PropertyNames { error: Py<ValidationError> },
     Required { property: PyObject },
@@ -155,7 +155,45 @@ impl ValidationErrorKind {
                     unexpected: PyList::new(py, unexpected)?.unbind(),
                 }
             }
-            jsonschema::error::ValidationErrorKind::AnyOf => ValidationErrorKind::AnyOf {},
+            jsonschema::error::ValidationErrorKind::AnyOf { context } => {
+                ValidationErrorKind::AnyOf {
+                    context: {
+                        let mut py_context: Vec<Py<PyList>> = Vec::with_capacity(context.len());
+
+                        for errors in context {
+                            let mut py_errors: Vec<Py<ValidationError>> =
+                                Vec::with_capacity(errors.len());
+
+                            for error in errors {
+                                let (
+                                    message,
+                                    verbose_message,
+                                    schema_path,
+                                    instance_path,
+                                    kind,
+                                    instance,
+                                ) = into_validation_error_args(py, error, mask)?;
+
+                                py_errors.push(Py::new(
+                                    py,
+                                    ValidationError {
+                                        message,
+                                        verbose_message,
+                                        schema_path,
+                                        instance_path,
+                                        kind: kind.into_pyobject(py)?.unbind(),
+                                        instance,
+                                    },
+                                )?);
+                            }
+
+                            py_context.push(PyList::new(py, py_errors)?.unbind());
+                        }
+
+                        PyList::new(py, py_context)?.unbind()
+                    },
+                }
+            }
             jsonschema::error::ValidationErrorKind::BacktrackLimitExceeded { error } => {
                 ValidationErrorKind::BacktrackLimitExceeded {
                     error: error.to_string(),
@@ -237,8 +275,44 @@ impl ValidationErrorKind {
             jsonschema::error::ValidationErrorKind::OneOfMultipleValid => {
                 ValidationErrorKind::OneOfMultipleValid {}
             }
-            jsonschema::error::ValidationErrorKind::OneOfNotValid => {
-                ValidationErrorKind::OneOfNotValid {}
+            jsonschema::error::ValidationErrorKind::OneOfNotValid { context } => {
+                ValidationErrorKind::OneOfNotValid {
+                    context: {
+                        let mut py_context: Vec<Py<PyList>> = Vec::with_capacity(context.len());
+
+                        for errors in context {
+                            let mut py_errors: Vec<Py<ValidationError>> =
+                                Vec::with_capacity(errors.len());
+
+                            for error in errors {
+                                let (
+                                    message,
+                                    verbose_message,
+                                    schema_path,
+                                    instance_path,
+                                    kind,
+                                    instance,
+                                ) = into_validation_error_args(py, error, mask)?;
+
+                                py_errors.push(Py::new(
+                                    py,
+                                    ValidationError {
+                                        message,
+                                        verbose_message,
+                                        schema_path,
+                                        instance_path,
+                                        kind: kind.into_pyobject(py)?.unbind(),
+                                        instance,
+                                    },
+                                )?);
+                            }
+
+                            py_context.push(PyList::new(py, py_errors)?.unbind());
+                        }
+
+                        PyList::new(py, py_context)?.unbind()
+                    },
+                }
             }
             jsonschema::error::ValidationErrorKind::Pattern { pattern } => {
                 ValidationErrorKind::Pattern { pattern }
@@ -255,7 +329,7 @@ impl ValidationErrorKind {
                                 verbose_message,
                                 schema_path,
                                 instance_path,
-                                kind: Py::new(py, kind)?,
+                                kind: kind.into_pyobject(py)?.unbind(),
                                 instance,
                             },
                         )?
@@ -431,8 +505,7 @@ fn make_options(
         for (name, callback) in formats.iter() {
             if !callback.is_callable() {
                 return Err(exceptions::PyValueError::new_err(format!(
-                    "Format checker for '{}' must be a callable",
-                    name
+                    "Format checker for '{name}' must be a callable",
                 )));
             }
             let callback: Py<PyAny> = callback.clone().unbind();
@@ -754,7 +827,7 @@ fn handle_format_checked_panic(err: Box<dyn Any + Send>) -> PyErr {
             let _ = panic::take_hook();
             err
         } else {
-            exceptions::PyRuntimeError::new_err(format!("Validation panicked: {:?}", err))
+            exceptions::PyRuntimeError::new_err(format!("Validation panicked: {err:?}"))
         }
     })
 }
@@ -822,7 +895,7 @@ fn validator_for_impl(
         let ptr = unsafe { PyUnicode_AsUTF8AndSize(obj_ptr, &mut str_size) };
         let slice = unsafe { std::slice::from_raw_parts(ptr.cast::<u8>(), str_size as usize) };
         serde_json::from_slice(slice)
-            .map_err(|error| PyValueError::new_err(format!("Invalid string: {}", error)))?
+            .map_err(|error| PyValueError::new_err(format!("Invalid string: {error}")))?
     } else {
         ser::to_value(schema)?
     };

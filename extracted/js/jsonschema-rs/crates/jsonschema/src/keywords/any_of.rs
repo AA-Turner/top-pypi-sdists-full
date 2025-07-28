@@ -24,7 +24,7 @@ impl AnyOfValidator {
             for (idx, item) in items.iter().enumerate() {
                 let ctx = ctx.new_at_location(idx);
                 let node = compiler::compile(&ctx, ctx.as_resource_ref(item))?;
-                schemas.push(node)
+                schemas.push(node);
             }
             Ok(Box::new(AnyOfValidator {
                 schemas,
@@ -50,6 +50,10 @@ impl Validate for AnyOfValidator {
                 self.location.clone(),
                 location.into(),
                 instance,
+                self.schemas
+                    .iter()
+                    .map(|schema| schema.iter_errors(instance, location).collect())
+                    .collect(),
             ))
         }
     }
@@ -70,6 +74,10 @@ impl Validate for AnyOfValidator {
                 self.location.clone(),
                 location.into(),
                 instance,
+                self.schemas
+                    .iter()
+                    .map(|schema| schema.iter_errors(instance, location).collect())
+                    .collect(),
             ))
         }
     }
@@ -111,6 +119,6 @@ mod tests {
     #[test_case(&json!({"anyOf": [{"type": "string"}]}), &json!(1), "/anyOf")]
     #[test_case(&json!({"anyOf": [{"type": "integer"}, {"type": "string"}]}), &json!({}), "/anyOf")]
     fn location(schema: &Value, instance: &Value, expected: &str) {
-        tests_util::assert_schema_location(schema, instance, expected)
+        tests_util::assert_schema_location(schema, instance, expected);
     }
 }

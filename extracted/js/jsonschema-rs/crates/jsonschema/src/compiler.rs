@@ -221,7 +221,7 @@ impl<'a> Context<'a> {
         let scopes = resolved.resolver().dynamic_scope();
         if let Some(id) = resource.id() {
             base_uri = self.registry.resolve_against(&base_uri.borrow(), id)?;
-        };
+        }
         Ok(Some((base_uri, scopes, resource)))
     }
 
@@ -287,7 +287,7 @@ pub(crate) fn build_validator(
     }
 
     // Finally, compile the validator
-    let root = compile(&ctx, resource_ref).map_err(|err| err.to_owned())?;
+    let root = compile(&ctx, resource_ref).map_err(ValidationError::to_owned)?;
     Ok(Validator { root, config })
 }
 
@@ -344,7 +344,7 @@ pub(crate) async fn build_validator_async(
         validate_schema(draft, schema)?;
     }
 
-    let root = compile(&ctx, resource_ref).map_err(|err| err.to_owned())?;
+    let root = compile(&ctx, resource_ref).map_err(ValidationError::to_owned)?;
     Ok(Validator { root, config })
 }
 
@@ -445,7 +445,7 @@ pub(crate) fn compile_with<'a>(
                 } else if let Some((keyword, validator)) = keywords::get_for_draft(ctx, keyword)
                     .and_then(|(keyword, f)| f(ctx, schema, value).map(|v| (keyword, v)))
                 {
-                    validators.push((keyword, validator.map_err(|err| err.to_owned())?));
+                    validators.push((keyword, validator.map_err(ValidationError::to_owned)?));
                 } else if !ctx.is_known_keyword(keyword) {
                     // Treat all non-validation keywords as annotations
                     annotations.insert(keyword.to_string(), value.clone());

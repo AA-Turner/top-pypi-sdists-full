@@ -68,7 +68,7 @@ impl RefValidator {
                     location,
                 );
                 let inner = match compiler::compile_with(&ctx, resource_ref)
-                    .map_err(|err| err.to_owned())
+                    .map_err(ValidationError::to_owned)
                 {
                     Ok(inner) => inner,
                     Err(error) => return Some(Err(error)),
@@ -108,7 +108,7 @@ impl LazyRefValidator {
         let mut base_uri = resolver.base_uri();
         if let Some(id) = resource.id() {
             base_uri = resolver.resolve_against(&base_uri.borrow(), id)?;
-        };
+        }
         Ok(Box::new(LazyRefValidator {
             resource,
             config: Arc::clone(ctx.config()),
@@ -272,7 +272,7 @@ mod tests {
         "/properties/foo/$ref/type"
     )]
     fn location(schema: &Value, instance: &Value, expected: &str) {
-        tests_util::assert_schema_location(schema, instance, expected)
+        tests_util::assert_schema_location(schema, instance, expected);
     }
 
     #[test]
@@ -645,7 +645,7 @@ mod tests {
             .build(&schema)
         {
             Ok(validator) => validator,
-            Err(error) => panic!("Failed to build validator: {}", error),
+            Err(error) => panic!("Failed to build validator: {error}"),
         };
 
         assert!(validator.is_valid(&json!("test")));
@@ -691,7 +691,7 @@ mod tests {
             .build(&schema)
         {
             Ok(validator) => validator,
-            Err(error) => panic!("Failed to build validator: {}", error),
+            Err(error) => panic!("Failed to build validator: {error}"),
         };
 
         assert!(validator.is_valid(&json!(42)));

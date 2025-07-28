@@ -19,7 +19,7 @@ try:
 except ImportError:
     ziamath = None  # type: ignore
 
-from ..types import Capstyle, Joinstyle, Linestyle, BBox, Halign, Valign, RotationMode, TextMode, XY
+from ..types import Capstyle, Joinstyle, Linestyle, BBox, Halign, Valign, RotationMode, TextMode, XY, Gradient
 from ..util import Point
 from . import svgtext
 from .svgunits import parse_size_to_px, PT_PER_IN, PX_PER_PT
@@ -27,10 +27,13 @@ from .svgunits import parse_size_to_px, PT_PER_IN, PX_PER_PT
 
 LINE_WIDTH = 2     # Default line width is 2 points
 
+ET.register_namespace("","http://www.w3.org/2000/svg")
+
 
 class Config:
     ''' Configuration options for SVG backend '''
     _text: TextMode = 'path' if ziamath is not None else 'text'
+    _batik: bool = False
 
     @property
     def text(self) -> TextMode:
@@ -76,6 +79,15 @@ class Config:
     @precision.setter
     def precision(self, value: float) -> None:
         ziamath.config.precision = value
+        
+    @property
+    def useBatik(self) -> bool:
+        ''' No use of dominant-baseline '''
+        return self._batik
+
+    @useBatik.setter
+    def useBatik(self, value: bool) -> None:
+        self._batik = value
 
 
 config = Config()
@@ -83,27 +95,6 @@ config = Config()
 
 hatchpattern = '''<defs><pattern id="hatch" patternUnits="userSpaceOnUse" width="4" height="4">
 <path d="M-1,1 l2,-2 M0,4 l4,-4 M3,5 l2,-2" style="stroke:black; stroke-width:.5" /></pattern></defs>'''
-
-
-def settextmode(mode: TextMode, svg2: bool = True) -> None:
-    ''' Set the mode for rendering text in the SVG backend.
-
-        In 'text' mode, text is drawn as SVG <text> elements
-        and will be searchable in the SVG, however it may
-        render differently on systems without the same fonts
-        installed. In 'path' mode, text converted to SVG
-        <path> elements and will render independently of
-        any fonts on the system. Path mode enables full
-        rendering of math expressions, but also requires the
-        ziafont/ziamath packages.
-
-        Args:
-            mode: Text Mode.
-            svg2: Use SVG2.0. Disable for better compatibility.
-    '''
-    warnings.warn('settextmode is deprecated. Use schemdraw.svgconfig',  DeprecationWarning)
-    config.svg2 = svg2
-    config.text = mode
 
 
 def isnotebook():
@@ -198,7 +189,6 @@ class Figure:
 
     def __init__(self, bbox: BBox, **kwargs):
         self.svgelements: list[tuple[int, ET.Element]] = []  # (zorder, element)
-        self.hatch: bool = False
         self.clips: dict[BBox, int] = {}
         self.showbbox = kwargs.get('showbbox', False)
         self.scale = PT_PER_IN * kwargs.get('inches_per_unit', 0.5)   # Converts drawing units to points
@@ -207,6 +197,8 @@ class Figure:
         self._bgcolor: Optional[str] = None
         self._need_xlink = False
         self.svgcanvas = kwargs.get('svg')
+        self.svgdefs: list[str] = []
+        self.gradients: dict[str, Gradient] = {}
 
     def set_bbox(self, bbox: BBox) -> None:
         ''' Set the bounding box '''
@@ -228,6 +220,15 @@ class Figure:
     def bgcolor(self, color: str) -> None:
         ''' Set background color of drawing '''
         self._bgcolor = color
+
+    def add_gradient(self, gradient: Gradient) -> str:
+        ''' Add to gradients and return id '''
+        if gradient in self.gradients.values():
+            gradid = {v: k for k, v in self.gradients.items()}[gradient]
+        else:
+            gradid = f'grad{len(self.gradients)}'
+            self.gradients[gradid] = gradient
+        return f'url(#{gradid})'
 
     def addclip(self, et: ET.Element, bbox: Optional[BBox]):
         ''' Add clip path to the element '''
@@ -276,7 +277,9 @@ class Figure:
              halign: Halign = 'center',
              valign: Valign = 'center',
              rotation_mode: RotationMode = 'anchor',
-             clip: Optional[BBox] = None, zorder: int = 3) -> None:
+             clip: Optional[BBox] = None, zorder: int = 3,
+             href: Optional[str] = None,
+             decoration: Optional[str] = None) -> None:
         ''' Add text to the figure '''
         if s == '':
             return
@@ -303,7 +306,8 @@ class Figure:
             texttag = svgtext.text_tosvg(s, x0, y0, font=fontfamily, size=fontsize,
                                          halign=halign, valign=valign, color=color,
                                          rotation=rotation, rotation_mode=rotation_mode,
-                                         testmode=False)
+                                         testmode=False, href=href, decoration=decoration,
+                                         batik=config.useBatik)
         
         self.addclip(texttag, clip)
         self.svgelements.append((zorder, texttag))
@@ -324,7 +328,7 @@ class Figure:
         self.addclip(et, clip)
         self.svgelements.append((zorder, et))
         if hatch:
-            self.hatch = True
+            self.svgdefs.append(hatchpattern)
 
     def circle(self, center: XY, radius: float, color: str = 'black',
                fill: str = 'none', lw: float = 2, ls: Linestyle = '-',
@@ -606,15 +610,29 @@ class Figure:
         with open(fname, 'w', encoding='utf-8') as f:
             f.write(svg)
 
+    def _svg_defs(self, svg) -> None:
+        if self.gradients or self.svgdefs:
+            defstr = '<defs>'
+            for svgdef in self.svgdefs:
+                defstr += svgdef
+
+            for gradid, (c1, c2, vert) in self.gradients.items():
+                gradstr = f'''
+                    <linearGradient id="{gradid}" x1="0" x2="{0 if vert else 1}" y1="0" y2="{1 if vert else 0}">
+                    <stop offset="0%" stop-color="{c1}" />
+                    <stop offset="100%" stop-color="{c2}"/>
+                    </linearGradient>'''
+                defstr += gradstr
+            defstr += '</defs>'
+            svg.append(ET.fromstring(defstr))
+
     def getsvg(self) -> ET.Element:
         ''' Get the image as SVG XML Tree '''
         x0 = self.bbox.xmin * self.scale
         y0 = -self.bbox.ymax * self.scale
         if not self.svgcanvas:
-            svg = ET.Element('svg')
-            svg.set('xmlns', 'http://www.w3.org/2000/svg')
-            if self._need_xlink:
-                svg.set('xmlns:xlink', 'http://www.w3.org/1999/xlink')
+            svg = ET.Element('{http://www.w3.org/2000/svg}svg')
+            svg.set('xmlns:xlink', 'http://www.w3.org/1999/xlink')
             svg.set('xml:lang', 'en')
             svg.set('height', f'{self.pxheight}pt')
             svg.set('width', f'{self.pxwidth}pt')
@@ -624,8 +642,7 @@ class Figure:
         else:
             svg = self.svgcanvas
 
-        if self.hatch:
-            svg.append(ET.fromstring(hatchpattern))
+        self._svg_defs(svg)
 
         if self.showbbox:
             rect = ET.SubElement(svg, 'rect')

@@ -1,6 +1,6 @@
 Metadata-Version: 2.4
 Name: ibis-framework
-Version: 10.6.0
+Version: 10.7.0
 Summary: The portable Python dataframe library
 Project-URL: Homepage, https://ibis-project.org
 Project-URL: Chat, https://ibis-project.zulipchat.com
@@ -30,7 +30,7 @@ Requires-Python: >=3.9
 Requires-Dist: atpublic>=2.3
 Requires-Dist: parsy>=2
 Requires-Dist: python-dateutil>=2.8.2
-Requires-Dist: sqlglot>=23.4
+Requires-Dist: sqlglot!=26.32.0,>=23.4
 Requires-Dist: toolz>=0.11
 Requires-Dist: typing-extensions>=4.3.0
 Requires-Dist: tzdata>=2022.7
@@ -154,7 +154,7 @@ Requires-Dist: rich>=12.4.4; extra == 'polars'
 Provides-Extra: postgres
 Requires-Dist: numpy<3,>=1.23.2; extra == 'postgres'
 Requires-Dist: pandas<3,>=1.5.3; extra == 'postgres'
-Requires-Dist: psycopg[binary]>=3.2.0; extra == 'postgres'
+Requires-Dist: psycopg>=3.2.0; extra == 'postgres'
 Requires-Dist: pyarrow-hotfix>=0.4; extra == 'postgres'
 Requires-Dist: pyarrow>=10.0.1; extra == 'postgres'
 Requires-Dist: rich>=12.4.4; extra == 'postgres'

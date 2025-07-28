@@ -71,7 +71,8 @@ class ValidationErrorKind:
     class AdditionalProperties:
         unexpected: list[str]
 
-    class AnyOf: ...
+    class AnyOf:
+        context: list[list["ValidationError"]]
 
     class BacktrackLimitExceeded:
         error: str
@@ -138,7 +139,9 @@ class ValidationErrorKind:
         schema: JSONType
 
     class OneOfMultipleValid: ...
-    class OneOfNotValid: ...
+
+    class OneOfNotValid:
+        context: list[list["ValidationError"]]
 
     class Pattern:
         pattern: str

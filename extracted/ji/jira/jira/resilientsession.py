@@ -105,20 +105,20 @@ def parse_errors(resp: Response) -> list[str]:
     if "message" in resp_data:
         # Jira 5.1 errors
         parsed_errors = [resp_data["message"]]
-    elif "errorMessage" in resp_data:
+    if "errorMessage" in resp_data:
         # Sometimes Jira returns `errorMessage` as a message error key
         # for example for the "Service temporary unavailable" error
         parsed_errors = [resp_data["errorMessage"]]
-    elif "errorMessages" in resp_data:
+    if "errorMessages" in resp_data:
         # Jira 5.0.x error messages sometimes come wrapped in this array
         # Sometimes this is present but empty
         error_messages = resp_data["errorMessages"]
         if len(error_messages) > 0:
-            if isinstance(error_messages, (list, tuple)):
+            if isinstance(error_messages, list | tuple):
                 parsed_errors = list(error_messages)
             else:
                 parsed_errors = [error_messages]
-    elif "errors" in resp_data:
+    if "errors" in resp_data:
         resp_errors = resp_data["errors"]
         if len(resp_errors) > 0 and isinstance(resp_errors, dict):
             # Catching only 'errors' that are dict. See https://github.com/pycontribs/jira/issues/350
@@ -180,7 +180,7 @@ class ResilientSession(Session):
         prepared_kwargs["headers"] = request_headers
 
         data = original_kwargs.get("data", None)
-        if isinstance(data, dict):
+        if isinstance(data, dict) and data:
             # mypy ensures we don't do this,
             # but for people subclassing we should preserve old behaviour
             prepared_kwargs["data"] = json.dumps(data)

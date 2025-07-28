@@ -138,8 +138,11 @@ def test_decode(
     assert captured.out == b"hello world !/?\n"
 
 
+@pytest.mark.skipif(
+    sys.platform.startswith(("android", "emscripten", "ios")), reason="subprocess not supported"
+)
 def test_subprocess() -> None:
-    import subprocess
+    import subprocess  # noqa: PLC0415
 
     process = subprocess.Popen(
         [sys.executable, "-m", "pybase64", "encode", "-"],

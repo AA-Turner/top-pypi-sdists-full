@@ -1,6 +1,6 @@
-Metadata-Version: 2.2
+Metadata-Version: 2.4
 Name: kedro_mlflow
-Version: 0.14.4
+Version: 1.0.0
 Summary: A kedro-plugin to use mlflow in your kedro projects
 Author: Yolan Honoré-Rougé
 License: Apache Software License (Apache 2.0)
@@ -9,7 +9,6 @@ Project-URL: Documentation, https://kedro-mlflow.readthedocs.io/en/stable/
 Project-URL: Tracker, https://github.com/Galileo-Galilei/kedro-mlflow/issues
 Keywords: kedro-plugin,kedro,mlflow,experiment tracking,model versioning,model serving,machine learning,data pipelines,data science,ml engineering,mlops
 Classifier: Development Status :: 4 - Beta
-Classifier: Programming Language :: Python :: 3.9
 Classifier: Programming Language :: Python :: 3.10
 Classifier: Programming Language :: Python :: 3.11
 Classifier: Programming Language :: Python :: 3.12
@@ -20,11 +19,10 @@ Classifier: Intended Audience :: Developers
 Classifier: Operating System :: Microsoft :: Windows
 Classifier: Operating System :: MacOS
 Classifier: Operating System :: POSIX :: Linux
-Requires-Python: >=3.9
+Requires-Python: >=3.10
 Description-Content-Type: text/markdown
 License-File: LICENSE
-Requires-Dist: kedro<0.20.0,>=0.19.0
-Requires-Dist: kedro_datasets
+Requires-Dist: kedro<2.0.0,>=1.0.0
 Requires-Dist: mlflow<3.0.0,>=2.7.0
 Requires-Dist: pydantic<3.0.0,>=1.0.0
 Provides-Extra: test
@@ -33,9 +31,9 @@ Requires-Dist: pytest-cov<7.0.0,>=2.8.0; extra == "test"
 Requires-Dist: pytest-lazy-fixtures<2.0.0,>=1.0.0; extra == "test"
 Requires-Dist: pytest-mock<4.0.0,>=3.1.0; extra == "test"
 Requires-Dist: pytest-xdist<4.0.0,>=3.0.0; extra == "test"
-Requires-Dist: ruff<0.10.0,>=0.5.0; extra == "test"
+Requires-Dist: ruff<1.0.0,>=0.5.0; extra == "test"
 Requires-Dist: scikit-learn<1.7.0,>=0.23.0; extra == "test"
-Requires-Dist: kedro-datasets[pandas.CSVDataSet]; extra == "test"
+Requires-Dist: kedro-datasets[pandas.CSVDataSet]>=8.0.0; extra == "test"
 Provides-Extra: doc
 Requires-Dist: sphinx<9.0.0,>=4.5.0; extra == "doc"
 Requires-Dist: sphinx-markdown-tables~=0.0.15; extra == "doc"
@@ -46,9 +44,10 @@ Requires-Dist: sphinx_design<0.7.0,>=0.6.0; extra == "doc"
 Requires-Dist: pydata-sphinx-theme<0.17.0,>=0.16.0; extra == "doc"
 Provides-Extra: dev
 Requires-Dist: pre-commit<5.0.0,>=2.0.0; extra == "dev"
-Requires-Dist: jupyter<2.0.0,>=1.0.0; extra == "dev"
+Requires-Dist: ipykernel; extra == "dev"
 Provides-Extra: all
 Requires-Dist: kedro_mlflow[dev,doc,test]; extra == "all"
+Dynamic: license-file
 
 **General informations**
 <!-- markdown-link-check-disable -->
@@ -68,7 +67,7 @@ Requires-Dist: kedro_mlflow[dev,doc,test]; extra == "all"
 ----------------------------------------------------------
 | Branch   | Tests                                                                                                                                                                                            | Coverage                                                                                                                                                         | Links                                                                                                                                                                                                           | Documentation                                                                                                                           | Deployment                                                                                                                                                                                                | Activity                                                                                                                                                              |
 | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `master` | [![test](https://github.com/Galileo-Galilei/kedro-mlflow/workflows/test/badge.svg?branch=master)](https://github.com/Galileo-Galilei/kedro-mlflow/actions?query=workflow%3Atest+branch%3Amaster) | [![codecov](https://codecov.io/gh/Galileo-Galilei/kedro-mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/Galileo-Galilei/kedro-mlflow/branch/master) | [![links](https://github.com/Galileo-Galilei/kedro-mlflow/workflows/check-links/badge.svg?branch=master)](https://github.com/Galileo-Galilei/kedro-mlflow/actions?query=workflow%3Acheck-links+branch%3Amaster) | [![Documentation](https://readthedocs.org/projects/kedro-mlflow/badge/?version=stable)](https://kedro-mlflow.readthedocs.io/en/stable/) | [![publish](https://github.com/Galileo-Galilei/kedro-mlflow/workflows/publish/badge.svg?branch=master)](https://github.com/Galileo-Galilei/kedro-mlflow/actions?query=branch%3Amaster+workflow%3Apublish) | [![commit](https://img.shields.io/github/commits-since/Galileo-Galilei/kedro-mlflow/0.14.4)](https://github.com/Galileo-Galilei/kedro-mlflow/compare/0.14.4...master) |
+| `master` | [![test](https://github.com/Galileo-Galilei/kedro-mlflow/workflows/test/badge.svg?branch=master)](https://github.com/Galileo-Galilei/kedro-mlflow/actions?query=workflow%3Atest+branch%3Amaster) | [![codecov](https://codecov.io/gh/Galileo-Galilei/kedro-mlflow/branch/master/graph/badge.svg)](https://codecov.io/gh/Galileo-Galilei/kedro-mlflow/branch/master) | [![links](https://github.com/Galileo-Galilei/kedro-mlflow/workflows/check-links/badge.svg?branch=master)](https://github.com/Galileo-Galilei/kedro-mlflow/actions?query=workflow%3Acheck-links+branch%3Amaster) | [![Documentation](https://readthedocs.org/projects/kedro-mlflow/badge/?version=stable)](https://kedro-mlflow.readthedocs.io/en/stable/) | [![publish](https://github.com/Galileo-Galilei/kedro-mlflow/workflows/publish/badge.svg?branch=master)](https://github.com/Galileo-Galilei/kedro-mlflow/actions?query=branch%3Amaster+workflow%3Apublish) | [![commit](https://img.shields.io/github/commits-since/Galileo-Galilei/kedro-mlflow/1.0.0)](https://github.com/Galileo-Galilei/kedro-mlflow/compare/1.0.0...master) |
 
 *If you like the repo, please give it a :star:*
 
@@ -93,7 +92,7 @@ You can install ``kedro-mlflow`` with several tools and from several packaging p
 | ![Conda Forge logo](https://simpleicons.org/icons/condaforge.svg) | Conda Forge  | ``conda install kedro-mlflow --channel conda-forge`` |
 |     ![GitHub logo](https://simpleicons.org/icons/github.svg)      |    GitHub    | ``pip install --upgrade git+https://github.com/Galileo-Galilei/kedro-mlflow.git`` |
 
-I strongly recommend to use a package manager (like ``conda``) to create a virtual environment and to read [``kedro`` installation guide](https://kedro.readthedocs.io/en/latest/get_started/install.html).
+I strongly recommend to use a package manager (like ``conda``) to create a virtual environment and to read [``kedro`` installation guide](https://docs.kedro.org/en/stable/get_started/minimal_kedro_project.html#step-1-install-kedro).
 
 # Getting started
 
@@ -116,9 +115,7 @@ The [release history](https://github.com/Galileo-Galilei/kedro-mlflow/blob/maste
 
 # Disclaimer
 
-This package is still in active development. We use [SemVer](https://semver.org/) principles to version our releases. Until we reach `1.0.0` milestone, breaking changes will lead to `<minor>` version number increment, while releases which do not introduce breaking changes in the API will lead to `<patch>` version number increment.
-
-The user must be aware that we will not reach `1.0.0` milestone before Kedro does (mlflow has already reached `1.0.0`). **That said, the API is considered as stable from 0.8.0 version and user can reliably consider that no consequent breaking change will happen unless necessary for Kedro compatibility (e.g. for minor or major Kedro version).**
+This package is still in active development. We use [SemVer](https://semver.org/) principles to version our releases. Since we reached `1.0.0` (compatible with ``kedro==1.X`` and ``mlflow==1.X`` or ``2.X``) on 27th of July 2025, breaking changes will lead to `major` version number increment, while releases which do not introduce breaking changes in the API will lead to `minor` or ``patch`` (for bugs) version number increment.
 
 If you want to migrate from an older version of `kedro-mlflow` to most recent ones, see the [migration guide](https://kedro-mlflow.readthedocs.io/en/latest/source/06_migration_guide/index.html).
 
